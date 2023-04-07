@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn gets_all_rows_by_every_zero() {
@@ -12,7 +12,15 @@ fn gets_all_rows_by_every_zero() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 0 | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 0
+                | to json --raw
+            "
+        ));
 
         assert_eq!(
             actual.out,
@@ -31,7 +39,15 @@ fn gets_no_rows_by_every_skip_zero() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 0 --skip | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 0 --skip
+                | to json --raw
+            "
+        ));
 
         assert_eq!(actual.out, "[]");
     })
@@ -47,7 +63,15 @@ fn gets_all_rows_by_every_one() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 1 | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 1
+                | to json --raw
+            "
+        ));
 
         assert_eq!(
             actual.out,
@@ -66,7 +90,15 @@ fn gets_no_rows_by_every_skip_one() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 1 --skip | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 1 --skip
+                | to json --raw
+            "
+        ));
 
         assert_eq!(actual.out, "[]");
     })
@@ -82,9 +114,16 @@ fn gets_first_row_by_every_too_much() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 999 ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 999
+            "
+        ));
 
-        let expected = nu!( cwd: dirs.test(), " echo [ amigos.txt ] ");
+        let expected = nu!( cwd: dirs.test(), "echo [ amigos.txt ]");
 
         assert_eq!(actual.out, expected.out);
     })
@@ -100,7 +139,15 @@ fn gets_all_rows_except_first_by_every_skip_too_much() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 999 --skip | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 999 --skip
+                | to json --raw
+            "
+        ));
 
         assert_eq!(actual.out, r#"["arepas.clu","los.txt","tres.txt"]"#);
     })
@@ -117,7 +164,15 @@ fn gets_every_third_row() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 3 | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 3
+                | to json --raw
+            "
+        ));
 
         assert_eq!(actual.out, r#"["amigos.txt","quatro.txt"]"#);
     })
@@ -134,7 +189,15 @@ fn skips_every_third_row() {
             EmptyFile("tres.txt"),
         ]);
 
-        let actual = nu!( cwd: dirs.test(), " ls | get name | every 3 --skip | to json --raw ");
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls
+                | get name
+                | every 3 --skip
+                | to json --raw
+            "
+        ));
 
         assert_eq!(actual.out, r#"["arepas.clu","los.txt","tres.txt"]"#);
     })
