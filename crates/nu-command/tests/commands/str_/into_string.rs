@@ -227,8 +227,9 @@ fn int_into_string_decimals_10() {
 }
 
 #[test]
-fn int_into_string_decimals_respects_system_locale_de() {
+fn int_into_string_decimals_doesnt_respect_system_locale_de() {
     // Set locale to `de_DE`, which uses `,` (comma) as decimal separator
+    // But int to string, like float to string, always uses `.` (period)
     let actual = nu!(
         locale: "de_DE.UTF-8",
         pipeline(
@@ -238,7 +239,7 @@ fn int_into_string_decimals_respects_system_locale_de() {
         )
     );
 
-    assert_eq!(actual.out, "10,0");
+    assert_eq!(actual.out, "10.0");
 }
 
 #[test]
