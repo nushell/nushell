@@ -79,16 +79,13 @@ fn load_standard_library(
             report_error(&working_set, err);
         }
 
-        // TODO: change this when #8505 is merged
-        // NOTE: remove the assert and uncomment the `help`s
         let prelude = vec![
-            ("assert", "assert"),
-            // ("help", "help"),
-            // ("help commands", "help commands"),
-            // ("help aliases", "help aliases"),
-            // ("help modules", "help modules"),
-            // ("help externs", "help externs"),
-            // ("help operators", "help operators"),
+            ("std help", "help"),
+            ("std help commands", "help commands"),
+            ("std help aliases", "help aliases"),
+            ("std help modules", "help modules"),
+            ("std help externs", "help externs"),
+            ("std help operators", "help operators"),
         ];
 
         load_prelude(&mut working_set, prelude, &module);
