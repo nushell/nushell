@@ -2699,6 +2699,7 @@ dependencies = [
  "nu-plugin",
  "nu-pretty-hex",
  "nu-protocol",
+ "nu-std",
  "nu-system",
  "nu-table",
  "nu-term-grid",
@@ -3011,6 +3012,16 @@ dependencies = [
  "sys-locale",
  "thiserror",
  "typetag",
+]
+
+[[package]]
+name = "nu-std"
+version = "0.78.1"
+dependencies = [
+ "miette",
+ "nu-cli",
+ "nu-parser",
+ "nu-protocol",
 ]
 
 [[package]]
