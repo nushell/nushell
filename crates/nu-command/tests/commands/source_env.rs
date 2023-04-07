@@ -274,9 +274,9 @@ fn source_env_is_scoped() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                    def no-name-similar-to-this [] { 'no-name-similar-to-this' }
-                    alias nor-similar-to-this = 'nor-similar-to-this'
-                "#,
+                def no-name-similar-to-this [] { 'no-name-similar-to-this' }
+                alias nor-similar-to-this = echo 'nor-similar-to-this'
+            "#,
         )]);
 
         let inp = &[r#"source-env spam.nu"#, r#"no-name-similar-to-this"#];

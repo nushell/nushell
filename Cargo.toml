@@ -46,7 +46,7 @@ chrono = { version = "0.4.23", features = ["serde"] }
 crossterm = "0.24.0"
 ctrlc = "3.2.1"
 log = "0.4"
-miette = { version = "5.6.0", features = ["fancy-no-backtrace"] }
+miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
 nu-cli = { path = "./crates/nu-cli", version = "0.78.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.78.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.78.1" }
@@ -93,7 +93,7 @@ atty = "0.2"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.78.1" }
-tempfile = "3.4.0"
+tempfile = "3.5.0"
 assert_cmd = "2.0.2"
 criterion = "0.4"
 pretty_assertions = "1.0.0"

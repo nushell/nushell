@@ -113,3 +113,40 @@ fn alias_wont_recurse2() {
         assert!(actual.err.is_empty());
     })
 }
+
+#[test]
+fn alias_invalid_expression() {
+    let actual = nu!(r#" alias spam = 'foo' "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+
+    let actual = nu!(r#" alias spam = ([1 2 3] | length) "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+
+    let actual = nu!(r#" alias spam = 0..12 "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+}
+
+#[test]
+fn alias_if() {
+    let actual = nu!(r#" alias spam = if true { 'spam' } else { 'eggs' }; spam "#);
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn alias_match() {
+    let actual = nu!(r#" alias spam = match 3 { 1..10 => 'yes!' }; spam "#);
+    assert_eq!(actual.out, "yes!");
+}
+
+// Issue https://github.com/nushell/nushell/issues/8103
+#[test]
+fn alias_multiword_name() {
+    let actual = nu!(r#"alias `foo bar` = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+
+    let actual = nu!(r#"alias 'foo bar' = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+
+    let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+}

@@ -1,5 +1,4 @@
-use crate::ParseError;
-use nu_protocol::Span;
+use nu_protocol::{ParseError, Span};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenContents {

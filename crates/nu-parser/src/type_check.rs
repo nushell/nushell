@@ -1,8 +1,7 @@
-use crate::ParseError;
 use nu_protocol::{
     ast::{Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
     engine::StateWorkingSet,
-    Type,
+    ParseError, Type,
 };
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
