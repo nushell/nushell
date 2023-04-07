@@ -21,12 +21,12 @@ fn discards_rows_where_given_column_is_empty() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_amigos.json
                 | get amigos
                 | compact rusty_luck
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
