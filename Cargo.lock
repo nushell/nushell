@@ -2693,6 +2693,7 @@ dependencies = [
  "nu-plugin",
  "nu-pretty-hex",
  "nu-protocol",
+ "nu-std",
  "nu-system",
  "nu-table",
  "nu-term-grid",
@@ -3005,6 +3006,10 @@ dependencies = [
  "thiserror",
  "typetag",
 ]
+
+[[package]]
+name = "nu-std"
+version = "0.78.1"
 
 [[package]]
 name = "nu-system"
