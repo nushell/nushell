@@ -663,7 +663,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     let (dir, _, mut engine_state, mut stack) = new_engine();
     let (_, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let block = parse(&mut working_set, None, block.as_bytes(), false, &[]);
+        let block = parse(&mut working_set, None, block.as_bytes(), false);
         assert!(working_set.parse_errors.is_empty());
 
         (block, working_set.render())

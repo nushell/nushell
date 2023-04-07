@@ -320,7 +320,7 @@ fn parse_module(
 
     let new_span = Span::new(start, end);
     let starting_error_count = working_set.parse_errors.len();
-    parse_module_block(working_set, new_span, filename.as_bytes(), &[]);
+    parse_module_block(working_set, new_span, filename.as_bytes());
 
     if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
@@ -354,7 +354,7 @@ fn parse_script(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let starting_error_count = working_set.parse_errors.len();
-    parse(working_set, filename, contents, false, &[]);
+    parse(working_set, filename, contents, false);
     if starting_error_count != working_set.parse_errors.len() {
         let msg = format!(
             r#"Found : {}"#,

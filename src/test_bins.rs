@@ -229,7 +229,6 @@ pub fn nu_repl() {
                 Some(&format!("line{i}")),
                 line.as_bytes(),
                 false,
-                &[],
             );
 
             if let Some(err) = working_set.parse_errors.first() {

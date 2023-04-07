@@ -53,18 +53,14 @@ pub fn load_standard_library(
         working_set.add_file(name.clone(), content);
         let end = working_set.next_span_start();
 
-        let (_, module, comments) = parse_module_block(
-            &mut working_set,
-            Span::new(start, end),
-            name.as_bytes(),
-            &[],
-        );
+        let (_, module, comments) =
+            parse_module_block(&mut working_set, Span::new(start, end), name.as_bytes());
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
         }
 
-        parse(&mut working_set, Some(&name), content, true, &[]);
+        parse(&mut working_set, Some(&name), content, true);
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);

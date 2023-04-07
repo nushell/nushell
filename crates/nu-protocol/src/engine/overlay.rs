@@ -1,22 +1,20 @@
-use crate::{AliasId, DeclId, ModuleId, OverlayId, Type, Value, VarId};
+use crate::{DeclId, ModuleId, OverlayId, Type, Value, VarId};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
-/// Tells whether a decl or alias is visible or not
+/// Tells whether a decl is visible or not
 #[derive(Debug, Clone)]
 pub struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
-    alias_ids: HashMap<AliasId, bool>,
 }
 
 impl Visibility {
     pub fn new() -> Self {
         Visibility {
             decl_ids: HashMap::new(),
-            alias_ids: HashMap::new(),
         }
     }
 
@@ -24,30 +22,17 @@ impl Visibility {
         *self.decl_ids.get(decl_id).unwrap_or(&true) // by default it's visible
     }
 
-    pub fn is_alias_id_visible(&self, alias_id: &AliasId) -> bool {
-        *self.alias_ids.get(alias_id).unwrap_or(&true) // by default it's visible
-    }
-
     pub fn hide_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, false);
-    }
-
-    pub fn hide_alias_id(&mut self, alias_id: &AliasId) {
-        self.alias_ids.insert(*alias_id, false);
     }
 
     pub fn use_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, true);
     }
 
-    pub fn use_alias_id(&mut self, alias_id: &AliasId) {
-        self.alias_ids.insert(*alias_id, true);
-    }
-
     /// Overwrite own values with the other
     pub fn merge_with(&mut self, other: Visibility) {
         self.decl_ids.extend(other.decl_ids);
-        self.alias_ids.extend(other.alias_ids);
     }
 
     /// Take new values from the other but keep own values
@@ -55,12 +40,6 @@ impl Visibility {
         for (decl_id, visible) in other.decl_ids.iter() {
             if !self.decl_ids.contains_key(decl_id) {
                 self.decl_ids.insert(*decl_id, *visible);
-            }
-        }
-
-        for (alias_id, visible) in other.alias_ids.iter() {
-            if !self.alias_ids.contains_key(alias_id) {
-                self.alias_ids.insert(*alias_id, *visible);
             }
         }
     }
@@ -198,7 +177,6 @@ pub struct OverlayFrame {
     pub constants: HashMap<VarId, Value>,
     pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<(Vec<u8>, Type), DeclId>,
-    pub aliases: HashMap<Vec<u8>, AliasId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
@@ -212,7 +190,6 @@ impl OverlayFrame {
             constants: HashMap::new(),
             predecls: HashMap::new(),
             decls: HashMap::new(),
-            aliases: HashMap::new(),
             modules: HashMap::new(),
             visibility: Visibility::new(),
             origin,

@@ -53,7 +53,7 @@ fn test_int(
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, test, true, &[]);
+    let block = parse(&mut working_set, None, test, true);
 
     let err = working_set.parse_errors.first();
 
@@ -267,7 +267,7 @@ fn test_parse_any() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, test, true, &[]);
+    let block = parse(&mut working_set, None, test, true);
 
     match (block, working_set.parse_errors.first()) {
         (_, Some(e)) => {
@@ -283,7 +283,7 @@ pub fn parse_int() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"3", true, &[]);
+    let block = parse(&mut working_set, None, b"3", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -306,7 +306,7 @@ pub fn parse_int_with_underscores() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"420_69_2023", true, &[]);
+    let block = parse(&mut working_set, None, b"420_69_2023", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -336,7 +336,7 @@ pub fn parse_cell_path() {
         false,
     );
 
-    let block = parse(&mut working_set, None, b"$foo.bar.baz", true, &[]);
+    let block = parse(&mut working_set, None, b"$foo.bar.baz", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -390,7 +390,7 @@ pub fn parse_cell_path_optional() {
         false,
     );
 
-    let block = parse(&mut working_set, None, b"$foo.bar?.baz", true, &[]);
+    let block = parse(&mut working_set, None, b"$foo.bar?.baz", true);
 
     assert!(working_set.parse_errors.is_empty());
 
@@ -438,7 +438,7 @@ pub fn parse_binary_with_hex_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0x[13]", true, &[]);
+    let block = parse(&mut working_set, None, b"0x[13]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -456,7 +456,7 @@ pub fn parse_binary_with_incomplete_hex_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0x[3]", true, &[]);
+    let block = parse(&mut working_set, None, b"0x[3]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -474,7 +474,7 @@ pub fn parse_binary_with_binary_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[1010 1000]", true, &[]);
+    let block = parse(&mut working_set, None, b"0b[1010 1000]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -492,7 +492,7 @@ pub fn parse_binary_with_incomplete_binary_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[10]", true, &[]);
+    let block = parse(&mut working_set, None, b"0b[10]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -510,7 +510,7 @@ pub fn parse_binary_with_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0o[250]", true, &[]);
+    let block = parse(&mut working_set, None, b"0o[250]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -528,7 +528,7 @@ pub fn parse_binary_with_incomplete_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0o[2]", true, &[]);
+    let block = parse(&mut working_set, None, b"0o[2]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -546,7 +546,7 @@ pub fn parse_binary_with_invalid_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[90]", true, &[]);
+    let block = parse(&mut working_set, None, b"0b[90]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -566,7 +566,7 @@ pub fn parse_binary_with_multi_byte_char() {
 
     // found using fuzzing, Rust can panic if you slice into this string
     let contents = b"0x[\xEF\xBF\xBD]";
-    let block = parse(&mut working_set, None, contents, true, &[]);
+    let block = parse(&mut working_set, None, contents, true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -587,7 +587,7 @@ pub fn parse_call() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    let block = parse(&mut working_set, None, b"foo", true, &[]);
+    let block = parse(&mut working_set, None, b"foo", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -615,7 +615,7 @@ pub fn parse_call_missing_flag_arg() {
     let sig = Signature::build("foo").named("jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    parse(&mut working_set, None, b"foo --jazz", true, &[]);
+    parse(&mut working_set, None, b"foo --jazz", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingFlagParam(..))
@@ -630,7 +630,7 @@ pub fn parse_call_missing_short_flag_arg() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    parse(&mut working_set, None, b"foo -j", true, &[]);
+    parse(&mut working_set, None, b"foo -j", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingFlagParam(..))
@@ -646,7 +646,7 @@ pub fn parse_call_too_many_shortflag_args() {
         .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
         .named("--math", SyntaxShape::Int, "math!!", Some('m'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -mj", true, &[]);
+    parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::ShortFlagBatchCantTakeArg(..))
@@ -660,7 +660,7 @@ pub fn parse_call_unknown_shorthand() {
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -mj", true, &[]);
+    parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::UnknownFlag(..))
@@ -674,7 +674,7 @@ pub fn parse_call_extra_positional() {
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -j 100", true, &[]);
+    parse(&mut working_set, None, b"foo -j 100", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::ExtraPositional(..))
@@ -688,7 +688,7 @@ pub fn parse_call_missing_req_positional() {
 
     let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo", true, &[]);
+    parse(&mut working_set, None, b"foo", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingPositional(..))
@@ -702,7 +702,7 @@ pub fn parse_call_missing_req_flag() {
 
     let sig = Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo", true, &[]);
+    parse(&mut working_set, None, b"foo", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingRequiredFlag(..))
@@ -713,7 +713,7 @@ pub fn parse_call_missing_req_flag() {
 fn test_nothing_comparison_eq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let block = parse(&mut working_set, None, b"2 == null", true, &[]);
+    let block = parse(&mut working_set, None, b"2 == null", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -736,7 +736,7 @@ fn test_nothing_comparison_eq() {
 fn test_nothing_comparison_neq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let block = parse(&mut working_set, None, b"2 != null", true, &[]);
+    let block = parse(&mut working_set, None, b"2 != null", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -763,7 +763,7 @@ mod string {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
+        let block = parse(&mut working_set, None, b"\"hello nushell\"", true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -786,7 +786,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true, &[]);
+            let block = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 1);
@@ -818,7 +818,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(&mut working_set, None, b"$\"hello \\(39 + 3)\"", true, &[]);
+            let block = parse(&mut working_set, None, b"$\"hello \\(39 + 3)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
 
@@ -849,13 +849,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(
-                &mut working_set,
-                None,
-                b"$\"hello \\\\(39 + 3)\"",
-                true,
-                &[],
-            );
+            let block = parse(&mut working_set, None, b"$\"hello \\\\(39 + 3)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
 
@@ -888,13 +882,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(
-                &mut working_set,
-                None,
-                b"$\"\\(1 + 3)\\(7 - 5)\"",
-                true,
-                &[],
-            );
+            let block = parse(&mut working_set, None, b"$\"\\(1 + 3)\\(7 - 5)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
 
@@ -938,7 +926,6 @@ mod string {
                 $"(($foo))"
                 "#,
                 true,
-                &[],
             );
 
             assert!(working_set.parse_errors.is_empty());
@@ -963,7 +950,6 @@ mod string {
                 $"Hello ($foo.bar)"
                 "#,
                 true,
-                &[],
             );
 
             assert!(working_set.parse_errors.is_empty());
@@ -1008,7 +994,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, phrase, true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block length");
@@ -1067,7 +1053,7 @@ mod range {
 
         working_set.add_decl(Box::new(Let));
 
-        let block = parse(&mut working_set, None, phrase, true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 2, "{tag} block len 2");
@@ -1113,7 +1099,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, phrase, true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block len 1");
@@ -1159,7 +1145,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, phrase, true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block len 1");
@@ -1205,7 +1191,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, phrase, true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1, "{tag}: block length 1");
@@ -1243,7 +1229,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let _ = parse(&mut working_set, None, b"(0)..\"a\"", true, &[]);
+        let _ = parse(&mut working_set, None, b"(0)..\"a\"", true);
 
         assert!(!working_set.parse_errors.is_empty());
     }
@@ -1566,7 +1552,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | to-custom | group-by name other"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1630,7 +1616,7 @@ mod input_types {
         let input =
             r#"let a = (ls | to-custom | group-by name other); let b = (1+3); $a | agg sum"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 3);
@@ -1661,7 +1647,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"let a = (ls | to-custom | group-by name other); ($a + $a) | agg sum"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 2);
@@ -1693,7 +1679,7 @@ mod input_types {
         let input = r#"
         let a = (ls | to-custom | group-by name other); [1 2 3] | to-custom; [1 2 3] | to-custom"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 3);
@@ -1737,7 +1723,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | group-by name"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1782,7 +1768,7 @@ mod input_types {
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let input = r#"ls | to-custom | group-by name other | agg ("b" | min)"#;
-            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
 
             (block, working_set.render())
         };
@@ -1843,7 +1829,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1897,7 +1883,7 @@ mod input_types {
         ];
 
         for input in inputs {
-            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 2, "testing: {input}");
@@ -1915,7 +1901,6 @@ mod input_types {
             None,
             b"if false { 'a' } else { $foo }",
             true,
-            &[],
         );
 
         assert!(matches!(
@@ -1935,7 +1920,6 @@ mod input_types {
             None,
             b"if false { 'a' } else $foo { 'b' }",
             true,
-            &[],
         );
 
         assert!(matches!(
