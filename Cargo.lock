@@ -3010,6 +3010,12 @@ dependencies = [
 [[package]]
 name = "nu-std"
 version = "0.78.1"
+dependencies = [
+ "miette",
+ "nu-cli",
+ "nu-parser",
+ "nu-protocol",
+]
 
 [[package]]
 name = "nu-system"
