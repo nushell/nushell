@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
     ParseError, PipelineData, ShellError, Signature, SyntaxShape,
 };
+use rstest::rstest;
 
 #[cfg(test)]
 #[derive(Clone)]
@@ -960,328 +961,267 @@ mod range {
     use super::*;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
 
-    #[test]
-    fn parse_inclusive_range() {
+    #[rstest]
+    #[case(b"0..10", RangeInclusion::Inclusive, "inclusive")]
+    #[case(b"0..=10", RangeInclusion::Inclusive, "=inclusive")]
+    #[case(b"0..<10", RangeInclusion::RightExclusive, "exclusive")]
+    #[case(b"10..0", RangeInclusion::Inclusive, "reverse inclusive")]
+    #[case(b"10..=0", RangeInclusion::Inclusive, "reverse =inclusive")]
+    #[case(
+        b"(3 - 3)..<(8 + 2)",
+        RangeInclusion::RightExclusive,
+        "subexpression exclusive"
+    )]
+    #[case(
+        b"(3 - 3)..(8 + 2)",
+        RangeInclusion::Inclusive,
+        "subexpression inclusive"
+    )]
+    #[case(
+        b"(3 - 3)..=(8 + 2)",
+        RangeInclusion::Inclusive,
+        "subexpression =inclusive"
+    )]
+    #[case(b"-10..-3", RangeInclusion::Inclusive, "negative inclusive")]
+    #[case(b"-10..=-3", RangeInclusion::Inclusive, "negative =inclusive")]
+    #[case(b"-10..<-3", RangeInclusion::RightExclusive, "negative exclusive")]
+
+    fn parse_bounded_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"0..10", true);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block length");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         None,
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_exclusive_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"0..<10", true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::RightExclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_reverse_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"10..0", true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_subexpression_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"(3 - 3)..<(8 + 2)", true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::RightExclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_variable_range() {
+    #[rstest]
+    #[case(
+        b"let a = 2; $a..10",
+        RangeInclusion::Inclusive,
+        "variable start inclusive"
+    )]
+    #[case(
+        b"let a = 2; $a..=10",
+        RangeInclusion::Inclusive,
+        "variable start =inclusive"
+    )]
+    #[case(
+        b"let a = 2; $a..<($a + 10)",
+        RangeInclusion::RightExclusive,
+        "subexpression variable exclusive"
+    )]
+    fn parse_variable_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         working_set.add_decl(Box::new(Let));
 
-        let block = parse(&mut working_set, None, b"let a = 2; $a..10", true);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 2);
+        assert_eq!(block.len(), 2, "{tag} block len 2");
 
         let expressions = &block[1];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         None,
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_subexpression_variable_range() {
+    #[rstest]
+    #[case(b"0..", RangeInclusion::Inclusive, "right unbounded")]
+    #[case(b"0..=", RangeInclusion::Inclusive, "right unbounded =inclusive")]
+    #[case(b"0..<", RangeInclusion::RightExclusive, "right unbounded")]
+
+    fn parse_right_unbounded_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        working_set.add_decl(Box::new(Let));
-
-        let block = parse(&mut working_set, None, b"let a = 2; $a..<($a + 10)", true);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 2);
-
-        let expressions = &block[1];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::RightExclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_right_unbounded_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"0..", true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block len 1");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         None,
                         None,
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_left_unbounded_range() {
+    #[rstest]
+    #[case(b"..10", RangeInclusion::Inclusive, "left unbounded inclusive")]
+    #[case(b"..=10", RangeInclusion::Inclusive, "left unbounded =inclusive")]
+    #[case(b"..<10", RangeInclusion::RightExclusive, "left unbounded exclusive")]
+
+    fn parse_left_unbounded_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"..10", true);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block len 1");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         None,
                         None,
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_negative_range() {
+    #[rstest]
+    #[case(b"2.0..4.0..10.0", RangeInclusion::Inclusive, "float inclusive")]
+    #[case(b"2.0..4.0..=10.0", RangeInclusion::Inclusive, "float =inclusive")]
+    #[case(b"2.0..4.0..<10.0", RangeInclusion::RightExclusive, "float exclusive")]
+
+    fn parse_float_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"-10..-3", true);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block length 1");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_float_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"2.0..4.0..10.0", true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         Some(_),
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
     #[test]
@@ -1289,7 +1229,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        parse(&mut working_set, None, b"(0)..\"a\"", true);
+        let _ = parse(&mut working_set, None, b"(0)..\"a\"", true);
 
         assert!(!working_set.parse_errors.is_empty());
     }
@@ -1783,7 +1723,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | group-by name"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true);
+        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1828,7 +1768,7 @@ mod input_types {
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let input = r#"ls | to-custom | group-by name other | agg ("b" | min)"#;
-            let block = parse(&mut working_set, None, input.as_bytes(), true);
+            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
             (block, working_set.render())
         };
@@ -1889,7 +1829,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true);
+        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1943,7 +1883,7 @@ mod input_types {
         ];
 
         for input in inputs {
-            let block = parse(&mut working_set, None, input.as_bytes(), true);
+            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 2, "testing: {input}");
@@ -1961,6 +1901,7 @@ mod input_types {
             None,
             b"if false { 'a' } else { $foo }",
             true,
+            &[],
         );
 
         assert!(matches!(
@@ -1980,6 +1921,7 @@ mod input_types {
             None,
             b"if false { 'a' } else $foo { 'b' }",
             true,
+            &[],
         );
 
         assert!(matches!(

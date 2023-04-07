@@ -1375,7 +1375,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
-    //   and  <range_operator> is ".." or "..<"
+    //   and  <range_operator> is "..", "..=" or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
     //bugbug range cannot be [..] because that looks like parent directory
@@ -1428,12 +1428,12 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             return garbage(span);
         }
     } else {
-        let op_str = "..";
+        let op_str = if token.contains("..=") { "..=" } else { ".." };
         let op_span = Span::new(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),
         );
-        (RangeInclusion::Inclusive, "..", op_span)
+        (RangeInclusion::Inclusive, op_str, op_span)
     };
 
     // Now, based on the operator positions, figure out where the bounds & next are located and
@@ -4938,7 +4938,12 @@ pub fn parse_expression(
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
-        if !name.starts_with(b"^") && split.len() == 2 && !split[0].is_empty() {
+        if !name.starts_with(b"^")
+            && split.len() == 2
+            && !split[0].is_empty()
+            && !split[0].ends_with(b"..")
+        // was range op ..=
+        {
             let point = split[0].len() + 1;
 
             let starting_error_count = working_set.parse_errors.len();

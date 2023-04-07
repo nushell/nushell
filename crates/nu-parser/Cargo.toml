@@ -23,5 +23,8 @@ nu-plugin = { path = "../nu-plugin", optional = true, version = "0.78.1"  }
 nu-engine = { path = "../nu-engine", version = "0.78.1" }
 log = "0.4"
 
+[dev-dependencies]
+rstest = { version = "0.16.0", default-features = false }
+
 [features]
 plugin = ["nu-plugin"]
