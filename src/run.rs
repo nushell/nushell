@@ -8,8 +8,8 @@ use crate::{
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::PipelineData;
-use nu_utils::utils::perf;
 use nu_std::load_standard_library;
+use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
     engine_state: &mut nu_protocol::engine::EngineState,
