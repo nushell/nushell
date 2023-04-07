@@ -3,7 +3,7 @@ use nu_parser::{parse, parse_module_block};
 use nu_protocol::{engine::StateWorkingSet, Module, ShellError, Span};
 
 fn get_standard_library() -> &'static str {
-    include_str!("../crates/nu-std/std.nu")
+    include_str!("../std.nu")
 }
 
 fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, module: &Module) {
