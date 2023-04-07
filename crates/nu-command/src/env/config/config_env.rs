@@ -46,8 +46,8 @@ impl Command for ConfigEnv {
             Some(path) => path.clone(),
             None => {
                 return Err(ShellError::GenericError(
-                    "Could not find nu env path".to_string(),
-                    "Could not find nu env path".to_string(),
+                    "Could not find $nu.env-path".to_string(),
+                    "Could not find $nu.env-path".to_string(),
                     None,
                     None,
                     Vec::new(),
