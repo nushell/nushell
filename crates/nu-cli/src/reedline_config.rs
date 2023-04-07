@@ -102,7 +102,6 @@ pub(crate) fn add_menus(
                     Some(name), // format!("entry #{}", entry_num)
                     definition.as_bytes(),
                     true,
-                    &[],
                 );
 
                 (output, working_set.render())

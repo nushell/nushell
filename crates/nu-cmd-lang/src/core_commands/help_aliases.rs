@@ -7,7 +7,6 @@ use nu_protocol::{
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
-use std::borrow::Cow;
 
 #[derive(Clone)]
 pub struct HelpAliases;
@@ -112,22 +111,24 @@ pub fn help_aliases(
             name.push_str(&r.item);
         }
 
-        let alias_id = if let Some(id) = engine_state.find_alias(name.as_bytes(), &[]) {
-            id
+        let alias = if let Some(id) = engine_state.find_decl(name.as_bytes(), &[]) {
+            if let Some(alias) = engine_state.get_decl(id).as_alias() {
+                alias
+            } else {
+                return Err(ShellError::AliasNotFound(span(
+                    &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
+                )));
+            }
         } else {
             return Err(ShellError::AliasNotFound(span(
                 &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
             )));
         };
 
-        let alias_expansion = engine_state
-            .get_alias(alias_id)
-            .iter()
-            .map(|span| String::from_utf8_lossy(engine_state.get_span_contents(span)))
-            .collect::<Vec<Cow<str>>>()
-            .join(" ");
-
-        let alias_usage = engine_state.build_alias_usage(alias_id);
+        let alias_expansion =
+            String::from_utf8_lossy(engine_state.get_span_contents(&alias.wrapped_call.span));
+        let usage = alias.usage();
+        let extra_usage = alias.extra_usage();
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green
@@ -136,14 +137,12 @@ pub fn help_aliases(
 
         let mut long_desc = String::new();
 
-        if let Some((usage, extra_usage)) = alias_usage {
-            long_desc.push_str(&usage);
-            long_desc.push_str("\n\n");
+        long_desc.push_str(usage);
+        long_desc.push_str("\n\n");
 
-            if !extra_usage.is_empty() {
-                long_desc.push_str(&extra_usage);
-                long_desc.push_str("\n\n");
-            }
+        if !extra_usage.is_empty() {
+            long_desc.push_str(extra_usage);
+            long_desc.push_str("\n\n");
         }
 
         long_desc.push_str(&format!("{G}Alias{RESET}: {C}{name}{RESET}"));
@@ -165,7 +164,7 @@ pub fn help_aliases(
 
 fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope_data = ScopeData::new(engine_state, stack);
-    scope_data.populate_aliases();
+    scope_data.populate_all();
 
     scope_data.collect_aliases(span)
 }

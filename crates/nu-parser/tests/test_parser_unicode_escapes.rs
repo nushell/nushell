@@ -14,7 +14,7 @@ pub fn do_test(test: &[u8], expected: &str, error_contains: Option<&str>) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, test, true, &[]);
+    let block = parse(&mut working_set, None, test, true);
 
     match working_set.parse_errors.first() {
         None => {

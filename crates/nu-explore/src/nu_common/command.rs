@@ -60,7 +60,6 @@ fn eval_source2(
             Some(fname), // format!("entry #{}", entry_num)
             source,
             false,
-            &[],
         );
 
         if let Some(err) = working_set.parse_errors.first() {
