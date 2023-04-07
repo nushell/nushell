@@ -623,7 +623,11 @@ Operating system commands:
             },
             Example {
                 description: "Use structured escape codes",
-                example: r#"let bold_blue_on_red = { fg: '#0000ff' bg: '#ff0000' attr: b }
+                example: r#"let bold_blue_on_red = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: b
+    }
     $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
@@ -761,7 +765,7 @@ Operating system commands:
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle {
-                            msg: format!("problem with key: {k}"),
+                            msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
                             span: code.expect_span(),
                         })
                     }

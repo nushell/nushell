@@ -67,6 +67,11 @@ impl Command for Ps {
                 example: "ps | where name =~ 'nu'",
                 result: None,
             },
+            Example {
+                description: "Get the parent process id of the current nu process",
+                example: "ps | where pid == $nu.pid | get ppid",
+                result: None,
+            },
         ]
     }
 }
