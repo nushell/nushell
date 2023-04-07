@@ -22,7 +22,7 @@ fn parser_benchmarks(c: &mut Criterion) {
     c.bench_function("parse_default_env_file", |b| {
         b.iter_batched(
             || nu_protocol::engine::StateWorkingSet::new(&engine_state),
-            |mut working_set| parse(&mut working_set, None, default_env, false, &[]),
+            |mut working_set| parse(&mut working_set, None, default_env, false),
             BatchSize::SmallInput,
         )
     });
@@ -31,7 +31,7 @@ fn parser_benchmarks(c: &mut Criterion) {
     c.bench_function("parse_default_config_file", |b| {
         b.iter_batched(
             || nu_protocol::engine::StateWorkingSet::new(&engine_state),
-            |mut working_set| parse(&mut working_set, None, default_config, false, &[]),
+            |mut working_set| parse(&mut working_set, None, default_config, false),
             BatchSize::SmallInput,
         )
     });
