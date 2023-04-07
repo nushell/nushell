@@ -1,4 +1,6 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
+#[cfg(not(windows))]
+use nu_test_support::pipeline;
 
 #[test]
 fn capture_errors_works() {
