@@ -2,7 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn cal_full_year() {
-    let actual = nu!(" cal -y --full-year 2010 | first | to json -r ");
+    let actual = nu!("cal -y --full-year 2010 | first | to json -r");
 
     let first_week_2010_json = r#"{"year": 2010,"sunday": null,"monday": null,"tuesday": null,"wednesday": null,"thursday": null,"friday": 1,"saturday": 2}"#;
 

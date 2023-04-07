@@ -4,7 +4,7 @@ use nu_test_support::nu;
 fn echo_range_is_lazy() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        " echo 1..10000000000 | first 3 | to json --raw "
+        "echo 1..10000000000 | first 3 | to json --raw"
     );
 
     assert_eq!(actual.out, "[1,2,3]");
@@ -14,7 +14,7 @@ fn echo_range_is_lazy() {
 fn echo_range_handles_inclusive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        " echo 1..3 | each { |x| $x } | to json --raw "
+        "echo 1..3 | each { |x| $x } | to json --raw"
     );
 
     assert_eq!(actual.out, "[1,2,3]");
@@ -24,7 +24,7 @@ fn echo_range_handles_inclusive() {
 fn echo_range_handles_exclusive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        " echo 1..<3 | each { |x| $x } | to json --raw "
+        "echo 1..<3 | each { |x| $x } | to json --raw"
     );
 
     assert_eq!(actual.out, "[1,2]");
@@ -34,7 +34,7 @@ fn echo_range_handles_exclusive() {
 fn echo_range_handles_inclusive_down() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        " echo 3..1 | each { |it| $it } | to json --raw "
+        "echo 3..1 | each { |it| $it } | to json --raw"
     );
 
     assert_eq!(actual.out, "[3,2,1]");
@@ -44,7 +44,7 @@ fn echo_range_handles_inclusive_down() {
 fn echo_range_handles_exclusive_down() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        " echo 3..<1 | each { |it| $it } | to json --raw "
+        "echo 3..<1 | each { |it| $it } | to json --raw"
     );
 
     assert_eq!(actual.out, "[3,2]");

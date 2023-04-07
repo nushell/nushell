@@ -18,7 +18,7 @@ fn columns() {
 
 #[test]
 fn drop_columns_positive_value() {
-    let actual = nu!(" echo [[a, b];[1,2]] | drop column -1 ");
+    let actual = nu!("echo [[a, b];[1,2]] | drop column -1");
 
     assert!(actual.err.contains("use a positive value"));
 }
@@ -89,7 +89,7 @@ fn nth_missing_first_argument() {
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(pipeline("1 | drop 50"));
+    let actual = nu!("1 | drop 50");
 
     assert!(actual.err.contains("only_supports_this_input_type"));
 }

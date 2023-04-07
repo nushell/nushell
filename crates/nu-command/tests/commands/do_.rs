@@ -4,7 +4,7 @@ use nu_test_support::pipeline;
 
 #[test]
 fn capture_errors_works() {
-    let actual = nu!(" do -c {$env.use} ");
+    let actual = nu!("do -c {$env.use}");
 
     eprintln!("actual.err: {:?}", actual.err);
 
@@ -13,35 +13,35 @@ fn capture_errors_works() {
 
 #[test]
 fn capture_errors_works_for_external() {
-    let actual = nu!(" do -c {nu --testbin fail} ");
+    let actual = nu!("do -c {nu --testbin fail}");
     assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn capture_errors_works_for_external_with_pipeline() {
-    let actual = nu!(" do -c {nu --testbin fail} | echo `text` ");
+    let actual = nu!("do -c {nu --testbin fail} | echo `text`");
     assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn capture_errors_works_for_external_with_semicolon() {
-    let actual = nu!(r#" do -c {nu --testbin fail}; echo `text` "#);
+    let actual = nu!(r#"do -c {nu --testbin fail}; echo `text`"#);
     assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn do_with_semicolon_break_on_failed_external() {
-    let actual = nu!(r#" do { nu --not_exist_flag }; `text` "#);
+    let actual = nu!(r#"do { nu --not_exist_flag }; `text`"#);
 
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn ignore_shell_errors_works_for_external_with_semicolon() {
-    let actual = nu!(r#" do -s { open asdfasdf.txt }; "text" "#);
+    let actual = nu!(r#"do -s { open asdfasdf.txt }; "text""#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "text");
@@ -49,7 +49,7 @@ fn ignore_shell_errors_works_for_external_with_semicolon() {
 
 #[test]
 fn ignore_program_errors_works_for_external_with_semicolon() {
-    let actual = nu!(r#" do -p { nu -c 'exit 1' }; "text" "#);
+    let actual = nu!(r#"do -p { nu -c 'exit 1' }; "text""#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "text");

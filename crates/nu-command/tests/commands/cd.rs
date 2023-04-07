@@ -20,7 +20,7 @@ fn cd_works_with_in_var() {
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() {
     Playground::setup("cd_test_1", |dirs, _| {
-        let actual = nu!( cwd: dirs.root(), " cd cd_test_1; $env.PWD ");
+        let actual = nu!( cwd: dirs.root(), "cd cd_test_1; $env.PWD");
 
         assert_eq!(PathBuf::from(actual.out), *dirs.test());
     })
