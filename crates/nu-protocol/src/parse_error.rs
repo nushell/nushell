@@ -1,5 +1,5 @@
+use crate::{Span, Type};
 use miette::Diagnostic;
-use nu_protocol::{Span, Type};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic)]

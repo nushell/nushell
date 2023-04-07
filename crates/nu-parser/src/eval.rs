@@ -1,8 +1,7 @@
-use crate::ParseError;
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    Span, Value,
+    ParseError, Span, Value,
 };
 
 /// Evaluate a constant value at parse time

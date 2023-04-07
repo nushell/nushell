@@ -1,5 +1,5 @@
-use nu_parser::{lex, lex_signature, ParseError, Token, TokenContents};
-use nu_protocol::Span;
+use nu_parser::{lex, lex_signature, Token, TokenContents};
+use nu_protocol::{ParseError, Span};
 
 #[test]
 fn lex_basic() {

@@ -126,9 +126,9 @@ fn eval_pipeline_without_terminal_expression(
 
 pub fn parse(contents: &str, engine_state: &EngineState) -> (Block, StateDelta) {
     let mut working_set = StateWorkingSet::new(engine_state);
-    let (output, err) = nu_parser::parse(&mut working_set, None, contents.as_bytes(), false, &[]);
+    let output = nu_parser::parse(&mut working_set, None, contents.as_bytes(), false, &[]);
 
-    if let Some(err) = err {
+    if let Some(err) = working_set.parse_errors.first() {
         panic!("test parse error in `{contents}`: {err:?}")
     }
 

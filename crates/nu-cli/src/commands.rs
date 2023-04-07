@@ -34,9 +34,9 @@ pub fn evaluate_commands(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let (output, err) = parse(&mut working_set, None, commands.item.as_bytes(), false, &[]);
-        if let Some(err) = err {
-            report_error(&working_set, &err);
+        let output = parse(&mut working_set, None, commands.item.as_bytes(), false, &[]);
+        if let Some(err) = working_set.parse_errors.first() {
+            report_error(&working_set, err);
 
             std::process::exit(1);
         }

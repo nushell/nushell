@@ -2,11 +2,11 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
-use crate::Value;
 use crate::{
     ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable,
 };
+use crate::{ParseError, Value};
 use core::panic;
 use std::borrow::Borrow;
 use std::num::NonZeroUsize;
@@ -1035,6 +1035,7 @@ pub struct StateWorkingSet<'a> {
     pub currently_parsed_cwd: Option<PathBuf>,
     /// All previously parsed module files. Used to protect against circular imports.
     pub parsed_module_files: Vec<PathBuf>,
+    pub parse_errors: Vec<ParseError>,
 }
 
 /// A temporary placeholder for expression types. It is used to keep track of the input types
@@ -1218,7 +1219,12 @@ impl<'a> StateWorkingSet<'a> {
             type_scope: TypeScope::default(),
             currently_parsed_cwd: permanent_state.currently_parsed_cwd.clone(),
             parsed_module_files: vec![],
+            parse_errors: vec![],
         }
+    }
+
+    pub fn error(&mut self, parse_error: ParseError) {
+        self.parse_errors.push(parse_error)
     }
 
     pub fn num_files(&self) -> usize {

@@ -166,10 +166,10 @@ pub fn eval_hook(
                                 vars.push((var_id, val));
                             }
 
-                            let (output, err) =
+                            let output =
                                 parse(&mut working_set, Some("hook"), val.as_bytes(), false, &[]);
-                            if let Some(err) = err {
-                                report_error(&working_set, &err);
+                            if let Some(err) = working_set.parse_errors.first() {
+                                report_error(&working_set, err);
 
                                 return Err(ShellError::UnsupportedConfigValue(
                                     "valid source code".into(),

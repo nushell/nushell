@@ -97,7 +97,7 @@ pub(crate) fn add_menus(
         {
             let (block, _) = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
-                let (output, _) = parse(
+                let output = parse(
                     &mut working_set,
                     Some(name), // format!("entry #{}", entry_num)
                     definition.as_bytes(),
