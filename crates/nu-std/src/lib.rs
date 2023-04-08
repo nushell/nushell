@@ -68,11 +68,11 @@ pub fn load_standard_library(
 
         let prelude = vec![
             ("std help", "help"),
-            ("std help commands", "help commands"),
-            ("std help aliases", "help aliases"),
-            ("std help modules", "help modules"),
-            ("std help externs", "help externs"),
-            ("std help operators", "help operators"),
+            ("std help commands", "help help commands"),
+            ("std help aliases", "help help aliases"),
+            ("std help modules", "help help modules"),
+            ("std help externs", "help help externs"),
+            ("std help operators", "help help operators"),
         ];
 
         load_prelude(&mut working_set, prelude, &module);
