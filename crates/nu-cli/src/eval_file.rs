@@ -2,10 +2,10 @@ use crate::util::eval_source;
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_command::util::report_error;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},

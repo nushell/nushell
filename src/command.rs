@@ -1,7 +1,7 @@
-use nu_command::util::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
