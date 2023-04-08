@@ -1,4 +1,4 @@
-use std.nu *
+use std *
 
 # show a test record in a pretty way
 #
