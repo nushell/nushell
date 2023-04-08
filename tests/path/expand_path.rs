@@ -1,8 +1,7 @@
 use std::path::PathBuf;
-
 use nu_test_support::playground::Playground;
-
 use nu_path::expand_path_with;
+use pretty_assertions::assert_eq;
 
 #[cfg(not(windows))]
 #[test]

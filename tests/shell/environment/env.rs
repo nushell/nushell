@@ -4,8 +4,8 @@ use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu_repl_code, pipeline};
-
 use serial_test::serial;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn env_shorthand() {
