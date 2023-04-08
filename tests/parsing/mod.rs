@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn source_file_relative_to_file() {

@@ -14,41 +14,8 @@ in order to "import" the standard library to either the interactive [*REPL*][REP
 `nushell` or inside some `.nu` script, you might want to use the
 [`use`](https://nushell.sh/commands/docs/use.html) command!
 ```bash
-use /path/to/standard_library/std.nu
+use std
 ```
-
-> ### :mag: a concrete example
-> - my name is @amtoine and i use the `ghq` tool to manage `git` projects
-> > **Note**  
-> > `ghq` stores any repository inside `$env.GHQ_ROOT` under `<host>/<owner>/<repo>/`
-> - the path to my local fork of `nushell` is then defined as
-> ```bash
-> let-env NUSHELL_REPO = ($env.GHQ_ROOT | path join "github.com" "amtoine" "nushell")
-> ```
-> - and the full path to the standard library is defined as
-> ```bash
-> let-env STD_LIB = ($env.NUSHELL_REPO | path join "crates" "nu-utils" "standard_library")
-> ```
-> > see the content of `$env.STD_LIB` :yum:
-> > ```bash
-> > >_ ls $env.STD_LIB | get name | str replace $env.STD_LIB "" | str trim -l -c "/"
-> > ╭───┬───────────╮
-> > │ 0 │ README.md │
-> > │ 1 │ std.nu    │
-> > │ 2 │ tests.nu  │
-> > ╰───┴───────────╯
-> > ```
-> - finally we can `use` the standard library and have access to the commands it exposes :thumbsup:
-> ```bash
-> >_ use std.nu
-> >_ help std
-> Module: std
->
-> Exported commands:
->   assert (std assert), assert eq (std assert eq), assert ne (std assert ne), match (std match)
->
-> This module does not export environment.
-> ```
 
 ## :pencil2: contribute to the standard library
 - all the commands of the standard_library are located in [`std.nu`](std.nu)
@@ -64,13 +31,8 @@ use /path/to/standard_library/std.nu
 ### :test_tube: run the tests
 the following call should return no errors
 ```bash
-NU_LOG_LEVEL=DEBUG nu /path/to/standard_library/tests.nu
+NU_LOG_LEVEL=DEBUG cargo run -- crates/nu-std/tests.nu
 ```
 
-> #### :mag: a concrete example
-> with `STD_LIB` defined as in the example above
-> ```bash
-> NU_LOG_LEVEL=DEBUG nu ($env.STD_LIB | path join "tests.nu")
-> ```
-
-[REPL]: https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
+> **Warning**  
+> the `cargo run --` part of this command is important to ensure the version of `nushell` and the version of the library are the same.

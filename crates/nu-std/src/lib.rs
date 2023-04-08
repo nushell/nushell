@@ -1,5 +1,5 @@
-use nu_cli::report_error;
 use nu_parser::{parse, parse_module_block};
+use nu_protocol::report_error;
 use nu_protocol::{engine::StateWorkingSet, Module, ShellError, Span};
 
 fn get_standard_library() -> &'static str {

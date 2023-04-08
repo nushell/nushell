@@ -1,4 +1,4 @@
-use std.nu *
+use std *
 
 export def test_assert [] {
     assert true

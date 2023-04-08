@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
 #[test]

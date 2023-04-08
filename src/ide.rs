@@ -1,6 +1,7 @@
 use miette::IntoDiagnostic;
-use nu_cli::{report_error, NuCompleter};
+use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
+use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     DeclId, ShellError, Span, Value, VarId,
