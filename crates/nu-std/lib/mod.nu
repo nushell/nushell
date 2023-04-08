@@ -1,10 +1,10 @@
 # std.nu, `used` to load all standard library components
 
-export use assert.nu
-export use dirs.nu
-export use help.nu
-export use log.nu
-export use xml.nu
+export use crates/nu-std/lib/assert.nu
+export use crates/nu-std/lib/dirs.nu
+export use crates/nu-std/lib/help.nu
+export use crates/nu-std/lib/log.nu
+export use crates/nu-std/lib/xml.nu
 
 # Add the given paths to the PATH.
 #
