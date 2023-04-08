@@ -20,13 +20,7 @@ fn cd_works_with_in_var() {
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() {
     Playground::setup("cd_test_1", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.root(),
-            r#"
-                cd cd_test_1
-                $env.PWD
-            "#
-        );
+        let actual = nu!( cwd: dirs.root(), "cd cd_test_1; $env.PWD");
 
         assert_eq!(PathBuf::from(actual.out), *dirs.test());
     })
@@ -55,11 +49,11 @@ fn filesystem_switch_back_to_previous_working_directory() {
 
         let actual = nu!(
             cwd: dirs.test().join("odin"),
-            r#"
+            "
                 cd {}
                 cd -
                 $env.PWD
-            "#,
+            ",
             dirs.test().display()
         );
 
@@ -74,10 +68,10 @@ fn filesystem_change_from_current_directory_using_relative_path_and_dash() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 cd odin/-
                 $env.PWD
-            "#
+            "
         );
 
         assert_eq!(
@@ -92,10 +86,10 @@ fn filesystem_change_current_directory_to_parent_directory() {
     Playground::setup("cd_test_5", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 cd ..
                 $env.PWD
-            "#
+            "
         );
 
         assert_eq!(PathBuf::from(actual.out), *dirs.root());
@@ -109,10 +103,10 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
 
         let actual = nu!(
             cwd: dirs.test().join("foo/bar"),
-            r#"
+            "
                 cd ...
                 $env.PWD
-            "#
+            "
         );
 
         assert_eq!(PathBuf::from(actual.out), *dirs.test());
@@ -124,10 +118,10 @@ fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_8", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 cd ~
                 $env.PWD
-            "#
+            "
         );
 
         assert_eq!(Some(PathBuf::from(actual.out)), dirs_next::home_dir());
@@ -208,10 +202,10 @@ fn filesystem_change_directory_to_symlink_relative() {
 
         let actual = nu!(
             cwd: dirs.test().join("boo"),
-            r#"
+            "
                 cd ../foo_link
                 $env.PWD
-            "#
+            "
         );
 
         assert_eq!(PathBuf::from(actual.out), dirs.test().join("foo"));
@@ -251,18 +245,18 @@ fn cd_permission_denied_folder() {
         sandbox.mkdir("banned");
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 chmod -x banned
                 cd banned
-            "#
+            "
         );
         assert!(actual.err.contains("Cannot change directory to"));
         nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 chmod +x banned
                 rm banned
-            "#
+            "
         );
     });
 }

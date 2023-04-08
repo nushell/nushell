@@ -73,10 +73,10 @@ fn invalid_not_regex_fails() -> TestResult {
 
 #[test]
 fn regex_on_int_fails() -> TestResult {
-    fail_test(r#"33 =~ foo"#, "Types mismatched")
+    fail_test(r#"33 =~ foo"#, "is not supported")
 }
 
 #[test]
 fn not_regex_on_int_fails() -> TestResult {
-    fail_test(r#"33 !~ foo"#, "Types mismatched")
+    fail_test(r#"33 !~ foo"#, "is not supported")
 }

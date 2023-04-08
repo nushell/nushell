@@ -10,26 +10,15 @@ fn library_loaded() -> TestResult {
 
 #[test]
 fn prelude_loaded() -> TestResult {
-    run_test(
-        "help assert | lines | first 1 | to text",
-        "Universal assert command",
-    )
-}
-
-#[test]
-fn prelude_run() -> TestResult {
-    run_test("assert true; print 'it works'", "it works")
+    run_test("std help commands | where name == open | length", "1")
 }
 
 #[test]
 fn not_loaded() -> TestResult {
-    fail_test("help log info", "")
+    fail_test("log info", "")
 }
 
 #[test]
 fn use_command() -> TestResult {
-    run_test(
-        "use std 'log info'; log info 'this is some information'",
-        "",
-    )
+    run_test("use std assert; assert true; print 'it works'", "it works")
 }

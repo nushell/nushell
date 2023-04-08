@@ -167,7 +167,7 @@ pub fn eval_hook(
                             }
 
                             let output =
-                                parse(&mut working_set, Some("hook"), val.as_bytes(), false, &[]);
+                                parse(&mut working_set, Some("hook"), val.as_bytes(), false);
                             if let Some(err) = working_set.parse_errors.first() {
                                 report_error(&working_set, err);
 

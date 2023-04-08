@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
     ParseError, PipelineData, ShellError, Signature, SyntaxShape,
 };
+use rstest::rstest;
 
 #[cfg(test)]
 #[derive(Clone)]
@@ -52,7 +53,7 @@ fn test_int(
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, test, true, &[]);
+    let block = parse(&mut working_set, None, test, true);
 
     let err = working_set.parse_errors.first();
 
@@ -266,7 +267,7 @@ fn test_parse_any() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, test, true, &[]);
+    let block = parse(&mut working_set, None, test, true);
 
     match (block, working_set.parse_errors.first()) {
         (_, Some(e)) => {
@@ -282,7 +283,7 @@ pub fn parse_int() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"3", true, &[]);
+    let block = parse(&mut working_set, None, b"3", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -305,7 +306,7 @@ pub fn parse_int_with_underscores() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"420_69_2023", true, &[]);
+    let block = parse(&mut working_set, None, b"420_69_2023", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -335,7 +336,7 @@ pub fn parse_cell_path() {
         false,
     );
 
-    let block = parse(&mut working_set, None, b"$foo.bar.baz", true, &[]);
+    let block = parse(&mut working_set, None, b"$foo.bar.baz", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -389,7 +390,7 @@ pub fn parse_cell_path_optional() {
         false,
     );
 
-    let block = parse(&mut working_set, None, b"$foo.bar?.baz", true, &[]);
+    let block = parse(&mut working_set, None, b"$foo.bar?.baz", true);
 
     assert!(working_set.parse_errors.is_empty());
 
@@ -437,7 +438,7 @@ pub fn parse_binary_with_hex_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0x[13]", true, &[]);
+    let block = parse(&mut working_set, None, b"0x[13]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -455,7 +456,7 @@ pub fn parse_binary_with_incomplete_hex_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0x[3]", true, &[]);
+    let block = parse(&mut working_set, None, b"0x[3]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -473,7 +474,7 @@ pub fn parse_binary_with_binary_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[1010 1000]", true, &[]);
+    let block = parse(&mut working_set, None, b"0b[1010 1000]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -491,7 +492,7 @@ pub fn parse_binary_with_incomplete_binary_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[10]", true, &[]);
+    let block = parse(&mut working_set, None, b"0b[10]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -509,7 +510,7 @@ pub fn parse_binary_with_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0o[250]", true, &[]);
+    let block = parse(&mut working_set, None, b"0o[250]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -527,7 +528,7 @@ pub fn parse_binary_with_incomplete_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0o[2]", true, &[]);
+    let block = parse(&mut working_set, None, b"0o[2]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -545,7 +546,7 @@ pub fn parse_binary_with_invalid_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[90]", true, &[]);
+    let block = parse(&mut working_set, None, b"0b[90]", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -565,7 +566,7 @@ pub fn parse_binary_with_multi_byte_char() {
 
     // found using fuzzing, Rust can panic if you slice into this string
     let contents = b"0x[\xEF\xBF\xBD]";
-    let block = parse(&mut working_set, None, contents, true, &[]);
+    let block = parse(&mut working_set, None, contents, true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -586,7 +587,7 @@ pub fn parse_call() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    let block = parse(&mut working_set, None, b"foo", true, &[]);
+    let block = parse(&mut working_set, None, b"foo", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -614,7 +615,7 @@ pub fn parse_call_missing_flag_arg() {
     let sig = Signature::build("foo").named("jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    parse(&mut working_set, None, b"foo --jazz", true, &[]);
+    parse(&mut working_set, None, b"foo --jazz", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingFlagParam(..))
@@ -629,7 +630,7 @@ pub fn parse_call_missing_short_flag_arg() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    parse(&mut working_set, None, b"foo -j", true, &[]);
+    parse(&mut working_set, None, b"foo -j", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingFlagParam(..))
@@ -645,7 +646,7 @@ pub fn parse_call_too_many_shortflag_args() {
         .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
         .named("--math", SyntaxShape::Int, "math!!", Some('m'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -mj", true, &[]);
+    parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::ShortFlagBatchCantTakeArg(..))
@@ -659,7 +660,7 @@ pub fn parse_call_unknown_shorthand() {
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -mj", true, &[]);
+    parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::UnknownFlag(..))
@@ -673,7 +674,7 @@ pub fn parse_call_extra_positional() {
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -j 100", true, &[]);
+    parse(&mut working_set, None, b"foo -j 100", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::ExtraPositional(..))
@@ -687,7 +688,7 @@ pub fn parse_call_missing_req_positional() {
 
     let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo", true, &[]);
+    parse(&mut working_set, None, b"foo", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingPositional(..))
@@ -701,7 +702,7 @@ pub fn parse_call_missing_req_flag() {
 
     let sig = Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo", true, &[]);
+    parse(&mut working_set, None, b"foo", true);
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingRequiredFlag(..))
@@ -712,7 +713,7 @@ pub fn parse_call_missing_req_flag() {
 fn test_nothing_comparison_eq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let block = parse(&mut working_set, None, b"2 == null", true, &[]);
+    let block = parse(&mut working_set, None, b"2 == null", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -735,7 +736,7 @@ fn test_nothing_comparison_eq() {
 fn test_nothing_comparison_neq() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
-    let block = parse(&mut working_set, None, b"2 != null", true, &[]);
+    let block = parse(&mut working_set, None, b"2 != null", true);
 
     assert!(working_set.parse_errors.is_empty());
     assert_eq!(block.len(), 1);
@@ -762,7 +763,7 @@ mod string {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"\"hello nushell\"", true, &[]);
+        let block = parse(&mut working_set, None, b"\"hello nushell\"", true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -785,7 +786,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true, &[]);
+            let block = parse(&mut working_set, None, b"$\"hello (39 + 3)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 1);
@@ -817,7 +818,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(&mut working_set, None, b"$\"hello \\(39 + 3)\"", true, &[]);
+            let block = parse(&mut working_set, None, b"$\"hello \\(39 + 3)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
 
@@ -848,13 +849,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(
-                &mut working_set,
-                None,
-                b"$\"hello \\\\(39 + 3)\"",
-                true,
-                &[],
-            );
+            let block = parse(&mut working_set, None, b"$\"hello \\\\(39 + 3)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
 
@@ -887,13 +882,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(
-                &mut working_set,
-                None,
-                b"$\"\\(1 + 3)\\(7 - 5)\"",
-                true,
-                &[],
-            );
+            let block = parse(&mut working_set, None, b"$\"\\(1 + 3)\\(7 - 5)\"", true);
 
             assert!(working_set.parse_errors.is_empty());
 
@@ -937,7 +926,6 @@ mod string {
                 $"(($foo))"
                 "#,
                 true,
-                &[],
             );
 
             assert!(working_set.parse_errors.is_empty());
@@ -962,7 +950,6 @@ mod string {
                 $"Hello ($foo.bar)"
                 "#,
                 true,
-                &[],
             );
 
             assert!(working_set.parse_errors.is_empty());
@@ -974,334 +961,267 @@ mod range {
     use super::*;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
 
-    #[test]
-    fn parse_inclusive_range() {
+    #[rstest]
+    #[case(b"0..10", RangeInclusion::Inclusive, "inclusive")]
+    #[case(b"0..=10", RangeInclusion::Inclusive, "=inclusive")]
+    #[case(b"0..<10", RangeInclusion::RightExclusive, "exclusive")]
+    #[case(b"10..0", RangeInclusion::Inclusive, "reverse inclusive")]
+    #[case(b"10..=0", RangeInclusion::Inclusive, "reverse =inclusive")]
+    #[case(
+        b"(3 - 3)..<(8 + 2)",
+        RangeInclusion::RightExclusive,
+        "subexpression exclusive"
+    )]
+    #[case(
+        b"(3 - 3)..(8 + 2)",
+        RangeInclusion::Inclusive,
+        "subexpression inclusive"
+    )]
+    #[case(
+        b"(3 - 3)..=(8 + 2)",
+        RangeInclusion::Inclusive,
+        "subexpression =inclusive"
+    )]
+    #[case(b"-10..-3", RangeInclusion::Inclusive, "negative inclusive")]
+    #[case(b"-10..=-3", RangeInclusion::Inclusive, "negative =inclusive")]
+    #[case(b"-10..<-3", RangeInclusion::RightExclusive, "negative exclusive")]
+
+    fn parse_bounded_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"0..10", true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block length");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         None,
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_exclusive_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"0..<10", true, &[]);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::RightExclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_reverse_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"10..0", true, &[]);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_subexpression_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"(3 - 3)..<(8 + 2)", true, &[]);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::RightExclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_variable_range() {
+    #[rstest]
+    #[case(
+        b"let a = 2; $a..10",
+        RangeInclusion::Inclusive,
+        "variable start inclusive"
+    )]
+    #[case(
+        b"let a = 2; $a..=10",
+        RangeInclusion::Inclusive,
+        "variable start =inclusive"
+    )]
+    #[case(
+        b"let a = 2; $a..<($a + 10)",
+        RangeInclusion::RightExclusive,
+        "subexpression variable exclusive"
+    )]
+    fn parse_variable_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         working_set.add_decl(Box::new(Let));
 
-        let block = parse(&mut working_set, None, b"let a = 2; $a..10", true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 2);
+        assert_eq!(block.len(), 2, "{tag} block len 2");
 
         let expressions = &block[1];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         None,
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_subexpression_variable_range() {
+    #[rstest]
+    #[case(b"0..", RangeInclusion::Inclusive, "right unbounded")]
+    #[case(b"0..=", RangeInclusion::Inclusive, "right unbounded =inclusive")]
+    #[case(b"0..<", RangeInclusion::RightExclusive, "right unbounded")]
+
+    fn parse_right_unbounded_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        working_set.add_decl(Box::new(Let));
-
-        let block = parse(
-            &mut working_set,
-            None,
-            b"let a = 2; $a..<($a + 10)",
-            true,
-            &[],
-        );
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 2);
-
-        let expressions = &block[1];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::RightExclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_right_unbounded_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"0..", true, &[]);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block len 1");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         None,
                         None,
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_left_unbounded_range() {
+    #[rstest]
+    #[case(b"..10", RangeInclusion::Inclusive, "left unbounded inclusive")]
+    #[case(b"..=10", RangeInclusion::Inclusive, "left unbounded =inclusive")]
+    #[case(b"..<10", RangeInclusion::RightExclusive, "left unbounded exclusive")]
+
+    fn parse_left_unbounded_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"..10", true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block len 1");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         None,
                         None,
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
-    #[test]
-    fn parse_negative_range() {
+    #[rstest]
+    #[case(b"2.0..4.0..10.0", RangeInclusion::Inclusive, "float inclusive")]
+    #[case(b"2.0..4.0..=10.0", RangeInclusion::Inclusive, "float =inclusive")]
+    #[case(b"2.0..4.0..<10.0", RangeInclusion::RightExclusive, "float exclusive")]
+
+    fn parse_float_range(
+        #[case] phrase: &[u8],
+        #[case] inclusion: RangeInclusion,
+        #[case] tag: &str,
+    ) {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let block = parse(&mut working_set, None, b"-10..-3", true, &[]);
+        let block = parse(&mut working_set, None, phrase, true);
 
         assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
+        assert_eq!(block.len(), 1, "{tag}: block length 1");
 
         let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
-                        Some(_),
-                        None,
-                        Some(_),
-                        RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
-                            ..
-                        }
-                    ),
-                    ..
-                }
-            )
-        ))
-    }
-
-    #[test]
-    fn parse_float_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let block = parse(&mut working_set, None, b"2.0..4.0..10.0", true, &[]);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 1);
-        assert!(matches!(
-            expressions[0],
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Range(
+        assert_eq!(expressions.len(), 1, "{tag}: expression length 1");
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr:
+                    Expr::Range(
                         Some(_),
                         Some(_),
                         Some(_),
                         RangeOperator {
-                            inclusion: RangeInclusion::Inclusive,
+                            inclusion: the_inclusion,
                             ..
-                        }
+                        },
                     ),
-                    ..
-                }
-            )
-        ))
+                ..
+            },
+        ) = expressions[0]
+        {
+            assert_eq!(
+                the_inclusion, inclusion,
+                "{tag}: wrong RangeInclusion {the_inclusion:?}"
+            );
+        } else {
+            panic!("{tag}: expression mismatch.")
+        };
     }
 
     #[test]
@@ -1309,7 +1229,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        parse(&mut working_set, None, b"(0)..\"a\"", true, &[]);
+        let _ = parse(&mut working_set, None, b"(0)..\"a\"", true);
 
         assert!(!working_set.parse_errors.is_empty());
     }
@@ -1632,7 +1552,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | to-custom | group-by name other"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1696,7 +1616,7 @@ mod input_types {
         let input =
             r#"let a = (ls | to-custom | group-by name other); let b = (1+3); $a | agg sum"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 3);
@@ -1727,7 +1647,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"let a = (ls | to-custom | group-by name other); ($a + $a) | agg sum"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 2);
@@ -1759,7 +1679,7 @@ mod input_types {
         let input = r#"
         let a = (ls | to-custom | group-by name other); [1 2 3] | to-custom; [1 2 3] | to-custom"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 3);
@@ -1803,7 +1723,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"ls | group-by name"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1848,7 +1768,7 @@ mod input_types {
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
             let input = r#"ls | to-custom | group-by name other | agg ("b" | min)"#;
-            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
 
             (block, working_set.render())
         };
@@ -1909,7 +1829,7 @@ mod input_types {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let input = r#"[[a b]; [1 2] [3 4]] | to-custom | with-column [ ("a" | min) ("b" | min) ] | collect"#;
 
-        let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+        let block = parse(&mut working_set, None, input.as_bytes(), true);
 
         assert!(working_set.parse_errors.is_empty());
         assert_eq!(block.len(), 1);
@@ -1963,7 +1883,7 @@ mod input_types {
         ];
 
         for input in inputs {
-            let block = parse(&mut working_set, None, input.as_bytes(), true, &[]);
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 2, "testing: {input}");
@@ -1981,7 +1901,6 @@ mod input_types {
             None,
             b"if false { 'a' } else { $foo }",
             true,
-            &[],
         );
 
         assert!(matches!(
@@ -2001,7 +1920,6 @@ mod input_types {
             None,
             b"if false { 'a' } else $foo { 'b' }",
             true,
-            &[],
         );
 
         assert!(matches!(
