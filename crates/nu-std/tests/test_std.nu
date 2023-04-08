@@ -1,7 +1,7 @@
-use std.nu
+use std
 
 export def test_path_add [] {
-    use std.nu "assert equal"
+    use std "assert equal"
 
     with-env [PATH []] {
         assert equal $env.PATH []

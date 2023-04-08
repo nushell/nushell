@@ -1,7 +1,7 @@
-use std.nu "xaccess"
-use std.nu "xupdate"
-use std.nu "xinsert"
-use std.nu "assert equal"
+use std "xaccess"
+use std "xupdate"
+use std "xinsert"
+use std "assert equal"
 
 export def test_xml_xaccess [] {
     let sample_xml = ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
