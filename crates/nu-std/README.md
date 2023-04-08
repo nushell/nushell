@@ -31,6 +31,8 @@ use std
 ### :test_tube: run the tests
 the following call should return no errors
 ```bash
-NU_LOG_LEVEL=DEBUG nu /path/to/standard_library/tests.nu
+NU_LOG_LEVEL=DEBUG cargo nu -- crates/nu-std/tests.nu
 ```
 
+> **Warning**
+> the `cargo run --` part of this command is important to ensure the version of `nushell` and the version of the library are the same.
