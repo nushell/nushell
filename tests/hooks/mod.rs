@@ -1,5 +1,5 @@
 use nu_test_support::{nu, nu_repl_code};
-use pretty_assertions::{assert_eq, assert_ne};
+use pretty_assertions::assert_eq;
 
 fn env_change_hook_code_list(name: &str, code_list: &[&str]) -> String {
     let mut list = String::new();
