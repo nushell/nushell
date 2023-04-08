@@ -1779,7 +1779,6 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                     );
                 }
             } else {
-                println!("MODULE NOT FOUND");
                 working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
                 return (
                     Pipeline::from_vec(vec![Expression {
