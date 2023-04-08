@@ -2,6 +2,9 @@
 
 export use crates/nu-std/lib/assert.nu *
 export use crates/nu-std/lib/dirs.nu *
+export-env {
+    use crates/nu-std/lib/dirs.nu *
+}
 export use crates/nu-std/lib/help.nu *
 export use crates/nu-std/lib/log.nu *
 export use crates/nu-std/lib/xml.nu *
