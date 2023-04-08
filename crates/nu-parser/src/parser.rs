@@ -5361,17 +5361,11 @@ pub fn parse_block(
                             redirection: (redirect_span, redirect_cmd),
                         } => {
                             trace!("parsing: pipeline element: same target redirection");
-                            let expr = parse_expression(
-                                working_set,
-                                &command.parts,
-                                is_subexpression,
-                            );
+                            let expr =
+                                parse_expression(working_set, &command.parts, is_subexpression);
                             working_set.type_scope.add_type(expr.ty.clone());
 
-                            let redirect_expr = parse_string(
-                                working_set,
-                                redirect_cmd.parts[0],
-                            );
+                            let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
 
                             working_set.type_scope.add_type(redirect_expr.ty.clone());
 
@@ -5463,17 +5457,10 @@ pub fn parse_block(
                         redirection: (redirect_span, redirect_cmd),
                     } => {
                         trace!("parsing: pipeline element: same target redirection");
-                        let expr = parse_expression(
-                            working_set,
-                            &command.parts,
-                            is_subexpression,
-                        );
+                        let expr = parse_expression(working_set, &command.parts, is_subexpression);
                         working_set.type_scope.add_type(expr.ty.clone());
 
-                        let redirect_expr = parse_string(
-                            working_set,
-                            redirect_cmd.parts[0],
-                        );
+                        let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
 
                         working_set.type_scope.add_type(redirect_expr.ty.clone());
 
