@@ -41,7 +41,7 @@ export def "test stdlib" [] {
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
-def pretty-print-command [] {
+export def pretty-print-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
@@ -210,4 +210,38 @@ export def "check pr" [
     }
 
     report --no-fail
+}
+
+# creates the git hooks to run:
+# - `toolkit fmt` on `git commit`
+# - `toolkit fmt --check` and `toolkit clippy` on `git push`
+export def set-git-hooks [] {
+    touch .git/hooks/pre-commit .git/hooks/pre-push
+    ^chmod +x .git/hooks/pre-commit .git/hooks/pre-push
+
+    echo `#!/usr/bin/env nu
+
+use ../../toolkit.nu [fmt, pretty-print-command]
+
+print $"running ('toolkit fmt' | pretty-print-command)"
+fmt` | save -f .git/hooks/pre-commit
+
+    echo `#!/usr/bin/env nu
+
+use ../../toolkit.nu [fmt, clippy, pretty-print-command]
+
+print $"running ('toolkit fmt' | pretty-print-command)"
+try {
+    fmt --check
+} catch {
+    print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
+    exit 1
+}
+
+print $"running ('toolkit clippy' | pretty-print-command)"
+try {
+    clippy
+} catch {
+    exit 1
+}` | save -f .git/hooks/pre-push
 }
