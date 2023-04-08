@@ -34,5 +34,5 @@ the following call should return no errors
 NU_LOG_LEVEL=DEBUG cargo run -- crates/nu-std/tests.nu
 ```
 
-> **Warning**
+> **Warning**  
 > the `cargo run --` part of this command is important to ensure the version of `nushell` and the version of the library are the same.
