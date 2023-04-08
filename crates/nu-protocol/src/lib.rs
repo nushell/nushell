@@ -1,6 +1,6 @@
 mod alias;
 pub mod ast;
-mod cli_error;
+pub mod cli_error;
 pub mod config;
 pub mod engine;
 mod example;
