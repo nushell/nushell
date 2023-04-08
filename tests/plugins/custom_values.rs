@@ -1,4 +1,5 @@
 use nu_test_support::nu_with_plugins;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn can_get_custom_value_from_plugin_and_instantly_collapse_it() {

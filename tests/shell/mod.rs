@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
+use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
 mod environment;
