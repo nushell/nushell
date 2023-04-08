@@ -460,14 +460,12 @@ fn parse_short_flags(
             let mut unmatched_short_flags = vec![];
             for (i, short_flag) in short_flags.chars().enumerate() {
                 let orig = arg_span;
-                let short_flag_span = Span::new(
-                    orig.start + 1 + i,
-                    orig.start + 1 + i + 1,
-                );
+                let short_flag_span = Span::new(orig.start + 1 + i, orig.start + 1 + i + 1);
                 if let Some(flag) = sig.get_short_flag(short_flag) {
                     // Allow args in short flag batches as long as it is the last flag.
                     if flag.arg.is_some() && i < num_chars - 1 {
-                        working_set.error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
+                        working_set
+                            .error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
                     }
                     found_short_flags.push(flag);
                 } else {
