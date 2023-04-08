@@ -58,7 +58,7 @@ export def "assert error" [
     message?: string
 ] {
     let error_raised = (try { do $code; false } catch { true })
-    assert ($error_raised) $message --error-label {
+    main ($error_raised) $message --error-label {
         start: (metadata $code).span.start
         end: (metadata $code).span.end
         text: $"There were no error during code execution: (view source $code)"
@@ -85,7 +85,7 @@ export def "assert skip" [] {
 # > assert equal (0.1 + 0.2) 0.3
 # > assert equal 1 2 # fails
 export def "assert equal" [left: any, right: any, message?: string] {
-    assert ($left == $right) $message --error-label {
+    main ($left == $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"They are not equal. Left = ($left). Right = ($right)."
@@ -102,7 +102,7 @@ export def "assert equal" [left: any, right: any, message?: string] {
 # > assert not equal 1 "apple" # passes
 # > assert not equal 7 7 # fails
 export def "assert not equal" [left: any, right: any, message?: string] {
-    assert ($left != $right) $message --error-label {
+    main ($left != $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"They both are ($left)."
@@ -119,7 +119,7 @@ export def "assert not equal" [left: any, right: any, message?: string] {
 # > assert less or equal 1 1 # passes
 # > assert less or equal 1 0 # fails
 export def "assert less or equal" [left: any, right: any, message?: string] {
-    assert ($left <= $right) $message --error-label {
+    main ($left <= $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"Left: ($left), Right: ($right)"
@@ -135,7 +135,7 @@ export def "assert less or equal" [left: any, right: any, message?: string] {
 # > assert less 1 2 # passes
 # > assert less 1 1 # fails
 export def "assert less" [left: any, right: any, message?: string] {
-    assert ($left < $right) $message --error-label {
+    main ($left < $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"Left: ($left), Right: ($right)"
@@ -151,7 +151,7 @@ export def "assert less" [left: any, right: any, message?: string] {
 # > assert greater 2 1 # passes
 # > assert greater 2 2 # fails
 export def "assert greater" [left: any, right: any, message?: string] {
-    assert ($left > $right) $message --error-label {
+    main ($left > $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"Left: ($left), Right: ($right)"
@@ -168,7 +168,7 @@ export def "assert greater" [left: any, right: any, message?: string] {
 # > assert greater or equal 2 2 # passes
 # > assert greater or equal 1 2 # fails
 export def "assert greater or equal" [left: any, right: any, message?: string] {
-    assert ($left >= $right) $message --error-label {
+    main ($left >= $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"Left: ($left), Right: ($right)"
@@ -184,7 +184,7 @@ export def "assert greater or equal" [left: any, right: any, message?: string] {
 # > assert length [0, 0] 2 # passes
 # > assert length [0] 3 # fails
 export def "assert length" [left: list, right: int, message?: string] {
-    assert (($left | length) == $right) $message --error-label {
+    main (($left | length) == $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"Length of ($left) is ($left | length), not ($right)"
@@ -200,7 +200,7 @@ export def "assert length" [left: list, right: int, message?: string] {
 # > assert str contains "arst" "rs" # passes
 # > assert str contains "arst" "k" # fails
 export def "assert str contains" [left: string, right: string, message?: string] {
-    assert ($left | str contains $right) $message --error-label {
+    main ($left | str contains $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
         text: $"'($left)' does not contain '($right)'."
