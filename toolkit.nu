@@ -212,7 +212,7 @@ export def "check pr" [
     report --no-fail
 }
 
-# creates the git hooks to run:
+# creates git hooks to run:
 # - `toolkit fmt` on `git commit`
 # - `toolkit fmt --check` and `toolkit clippy` on `git push`
 export def set-git-hooks [] {
