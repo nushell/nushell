@@ -1,7 +1,7 @@
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 use std::fs;
 use std::path::Path;
-use pretty_assertions::assert_eq;
 
 #[cfg(not(target_os = "windows"))]
 fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
