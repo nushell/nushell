@@ -1,5 +1,11 @@
 # std.nu, `used` to load all standard library components
 
+export use assert.nu
+export use dirs.nu
+export use help.nu
+export use log.nu
+export use xml.nu
+
 # Add the given paths to the PATH.
 #
 # # Example
