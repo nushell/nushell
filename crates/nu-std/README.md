@@ -14,7 +14,7 @@ in order to "import" the standard library to either the interactive [*REPL*][REP
 `nushell` or inside some `.nu` script, you might want to use the
 [`use`](https://nushell.sh/commands/docs/use.html) command!
 ```bash
-use /path/to/standard_library/std.nu
+use std
 ```
 
 ## :pencil2: contribute to the standard library
