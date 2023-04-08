@@ -450,25 +450,24 @@ fn parse_short_flags(
 ) -> Option<Vec<Flag>> {
     let arg_span = spans[*spans_idx];
 
-    let arg_contents = working_set.get_span_contents(arg_span);
+    let arg_contents = working_set.get_span_contents(arg_span).to_vec();
 
-    if let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) {
+    if let Ok(arg_contents_uft8_ref) = str::from_utf8(&arg_contents) {
         if arg_contents_uft8_ref.starts_with('-') && arg_contents_uft8_ref.len() > 1 {
             let short_flags = &arg_contents_uft8_ref[1..];
+            let num_chars = short_flags.chars().count();
             let mut found_short_flags = vec![];
             let mut unmatched_short_flags = vec![];
-            for short_flag in short_flags.chars().enumerate() {
-                let short_flag_char = short_flag.1;
+            for (i, short_flag) in short_flags.chars().enumerate() {
                 let orig = arg_span;
                 let short_flag_span = Span::new(
-                    orig.start + 1 + short_flag.0,
-                    orig.start + 1 + short_flag.0 + 1,
+                    orig.start + 1 + i,
+                    orig.start + 1 + i + 1,
                 );
-                if let Some(flag) = sig.get_short_flag(short_flag_char) {
-                    // If we require an arg and are in a batch of short flags, error
-                    if !found_short_flags.is_empty() && flag.arg.is_some() {
-                        working_set.error(ParseError::ShortFlagBatchCantTakeArg(short_flag_span));
-                        break;
+                if let Some(flag) = sig.get_short_flag(short_flag) {
+                    // Allow args in short flag batches as long as it is the last flag.
+                    if flag.arg.is_some() && i < num_chars - 1 {
+                        working_set.error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
                     }
                     found_short_flags.push(flag);
                 } else {
