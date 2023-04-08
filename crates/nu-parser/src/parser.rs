@@ -5364,7 +5364,6 @@ pub fn parse_block(
                             let expr = parse_expression(
                                 working_set,
                                 &command.parts,
-                                expand_aliases_denylist,
                                 is_subexpression,
                             );
                             working_set.type_scope.add_type(expr.ty.clone());
@@ -5372,7 +5371,6 @@ pub fn parse_block(
                             let redirect_expr = parse_string(
                                 working_set,
                                 redirect_cmd.parts[0],
-                                expand_aliases_denylist,
                             );
 
                             working_set.type_scope.add_type(redirect_expr.ty.clone());
@@ -5468,7 +5466,6 @@ pub fn parse_block(
                         let expr = parse_expression(
                             working_set,
                             &command.parts,
-                            expand_aliases_denylist,
                             is_subexpression,
                         );
                         working_set.type_scope.add_type(expr.ty.clone());
@@ -5476,7 +5473,6 @@ pub fn parse_block(
                         let redirect_expr = parse_string(
                             working_set,
                             redirect_cmd.parts[0],
-                            expand_aliases_denylist,
                         );
 
                         working_set.type_scope.add_type(redirect_expr.ty.clone());
