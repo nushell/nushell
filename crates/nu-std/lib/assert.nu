@@ -28,7 +28,7 @@
 #     }
 # }
 # ```
-export def assert [
+export def main [
     condition: bool, # Condition, which should be true 
     message?: string, # Optional error message
     --error-label: record # Label for `error make` if you want to create a custom assert

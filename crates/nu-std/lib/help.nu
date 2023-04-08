@@ -674,7 +674,7 @@ def pretty-cmd [] {
 #
 #   search for string in command names, usage and search terms
 #   > help --find char
-export def help [
+export def main [
     ...item: string  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
 ] {
