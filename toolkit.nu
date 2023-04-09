@@ -216,17 +216,14 @@ export def "check pr" [
 # - `toolkit fmt` on `git commit`
 # - `toolkit fmt --check` and `toolkit clippy` on `git push`
 export def set-git-hooks [] {
-    touch .git/hooks/pre-commit .git/hooks/pre-push
-    ^chmod +x .git/hooks/pre-commit .git/hooks/pre-push
-
-    echo `#!/usr/bin/env nu
+    set-git-hook pre-commit `#!/usr/bin/env nu
 
 use ../../toolkit.nu [fmt, pretty-print-command]
 
 print $"running ('toolkit fmt' | pretty-print-command)"
-fmt` | save -f .git/hooks/pre-commit
+fmt`
 
-    echo `#!/usr/bin/env nu
+    set-git-hook pre-push `#!/usr/bin/env nu
 
 use ../../toolkit.nu [fmt, clippy, pretty-print-command]
 
@@ -243,5 +240,12 @@ try {
     clippy
 } catch {
     exit 1
-}` | save -f .git/hooks/pre-push
+}`
+}
+
+def set-git-hook [
+    filename: string,
+    content: string
+] {
+    echo $content | save $".git/hooks/($filename)" | ^chmod +x $".git/hooks/($filename)"
 }
