@@ -33,6 +33,71 @@ def command-not-found-error [span: record] {
     throw-error "std::help::command_not_found" "command not found" $span
 }
 
+def get-all-operators [] { return ([
+    [type, operator, name, description, precedence];
+
+    [Assignment, =, Assign, "Assigns a value to a variable.", 10]
+    [Assignment, +=, PlusAssign, "Adds a value to a variable.", 10]
+    [Assignment, ++=, AppendAssign, "Appends a list or a value to a variable.", 10]
+    [Assignment, -=, MinusAssign, "Subtracts a value from a variable.", 10]
+    [Assignment, *=, MultiplyAssign, "Multiplies a variable by a value.", 10]
+    [Assignment, /=, DivideAssign, "Divides a variable by a value.", 10]
+    [Comparison, ==, Equal, "Checks if two values are equal.", 80]
+    [Comparison, !=, NotEqual, "Checks if two values are not equal.", 80]
+    [Comparison, <, LessThan, "Checks if a value is less than another.", 80]
+    [Comparison, <=, LessThanOrEqual, "Checks if a value is less than or equal to another.", 80]
+    [Comparison, >, GreaterThan, "Checks if a value is greater than another.", 80]
+    [Comparison, >=, GreaterThanOrEqual, "Checks if a value is greater than or equal to another.", 80]
+    [Comparison, =~, RegexMatch, "Checks if a value matches a regular expression.", 80]
+    [Comparison, !~, NotRegexMatch, "Checks if a value does not match a regular expression.", 80]
+    [Comparison, in, In, "Checks if a value is in a list or string.", 80]
+    [Comparison, not-in, NotIn, "Checks if a value is not in a list or string.", 80]
+    [Comparison, starts-with, StartsWith, "Checks if a string starts with another.", 80]
+    [Comparison, ends-with, EndsWith, "Checks if a string ends with another.", 80]
+    [Comparison, not, UnaryNot, "Negates a value or expression.", 0]
+    [Math, +, Plus, "Adds two values.", 90]
+    [Math, ++, Append, "Appends two lists or a list and a value.", 80]
+    [Math, -, Minus, "Subtracts two values.", 90]
+    [Math, *, Multiply, "Multiplies two values.", 95]
+    [Math, /, Divide, "Divides two values.", 95]
+    [Math, //, FloorDivision, "Divides two values and floors the result.", 95]
+    [Math, mod, Modulo, "Divides two values and returns the remainder.", 95]
+    [Math, **, "Pow ", "Raises one value to the power of another.", 100]
+    [Bitwise, bit-or, BitOr, "Performs a bitwise OR on two values.", 60]
+    [Bitwise, bit-xor, BitXor, "Performs a bitwise XOR on two values.", 70]
+    [Bitwise, bit-and, BitAnd, "Performs a bitwise AND on two values.", 75]
+    [Bitwise, bit-shl, ShiftLeft, "Shifts a value left by another.", 85]
+    [Bitwise, bit-shr, ShiftRight, "Shifts a value right by another.", 85]
+    [Boolean, and, And, "Checks if two values are true.", 50]
+    [Boolean, or, Or, "Checks if either value is true.", 40]
+    [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
+] | sort-by name)}
+
+def "nu-complete list-aliases" [] {
+    $nu.scope.aliases | select name usage | rename value description
+}
+
+def "nu-complete list-modules" [] {
+    $nu.scope.modules | select name usage | rename value description
+}
+
+def "nu-complete list-operators" [] {
+    let completions = (
+        get-all-operators
+        | select name description
+        | rename value description
+    )
+    $completions
+}
+
+def "nu-complete list-commands" [] {
+    $nu.scope.commands | select name usage | rename value description
+}
+
+def "nu-complete list-externs" [] {
+    $nu.scope.commands | where is_extern | select name usage | rename value description
+}
+
 def print-help-header [
     text: string
     --no-newline (-n): bool
@@ -173,7 +238,7 @@ def show-module [module: record] {
 #        ·                      ╰── module not found
 #        ╰────
 export def "help modules" [
-    ...module: string  # the name of module to get help on
+    ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
     let modules = ($nu.scope.modules | sort-by name)
@@ -283,7 +348,7 @@ def show-alias [alias: record] {
 #        ·                      ╰── alias not found
 #        ╰────
 export def "help aliases" [
-    ...alias: string  # the name of alias to get help on
+    ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
     let aliases = ($nu.scope.aliases | sort-by name)
@@ -323,7 +388,7 @@ def show-extern [extern: record] {
 
 # Show help on nushell externs.
 export def "help externs" [
-    ...extern: string  # the name of extern to get help on
+    ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
     let externs = (
@@ -401,48 +466,10 @@ def show-operator [operator: record] {
 #        ·                       ╰── operator not found
 #        ╰────
 export def "help operators" [
-    ...operator: string  # the name of operator to get help on
+    ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
-    let operators = ([
-        [type, operator, name, description, precedence];
-
-        [Assignment, =, Assign, "Assigns a value to a variable.", 10]
-        [Assignment, +=, PlusAssign, "Adds a value to a variable.", 10]
-        [Assignment, ++=, AppendAssign, "Appends a list or a value to a variable.", 10]
-        [Assignment, -=, MinusAssign, "Subtracts a value from a variable.", 10]
-        [Assignment, *=, MultiplyAssign, "Multiplies a variable by a value.", 10]
-        [Assignment, /=, DivideAssign, "Divides a variable by a value.", 10]
-        [Comparison, ==, Equal, "Checks if two values are equal.", 80]
-        [Comparison, !=, NotEqual, "Checks if two values are not equal.", 80]
-        [Comparison, <, LessThan, "Checks if a value is less than another.", 80]
-        [Comparison, <=, LessThanOrEqual, "Checks if a value is less than or equal to another.", 80]
-        [Comparison, >, GreaterThan, "Checks if a value is greater than another.", 80]
-        [Comparison, >=, GreaterThanOrEqual, "Checks if a value is greater than or equal to another.", 80]
-        [Comparison, =~, RegexMatch, "Checks if a value matches a regular expression.", 80]
-        [Comparison, !~, NotRegexMatch, "Checks if a value does not match a regular expression.", 80]
-        [Comparison, in, In, "Checks if a value is in a list or string.", 80]
-        [Comparison, not-in, NotIn, "Checks if a value is not in a list or string.", 80]
-        [Comparison, starts-with, StartsWith, "Checks if a string starts with another.", 80]
-        [Comparison, ends-with, EndsWith, "Checks if a string ends with another.", 80]
-        [Comparison, not, UnaryNot, "Negates a value or expression.", 0]
-        [Math, +, Plus, "Adds two values.", 90]
-        [Math, ++, Append, "Appends two lists or a list and a value.", 80]
-        [Math, -, Minus, "Subtracts two values.", 90]
-        [Math, *, Multiply, "Multiplies two values.", 95]
-        [Math, /, Divide, "Divides two values.", 95]
-        [Math, //, FloorDivision, "Divides two values and floors the result.", 95]
-        [Math, mod, Modulo, "Divides two values and returns the remainder.", 95]
-        [Math, **, "Pow ", "Raises one value to the power of another.", 100]
-        [Bitwise, bit-or, BitOr, "Performs a bitwise OR on two values.", 60]
-        [Bitwise, bit-xor, BitXor, "Performs a bitwise XOR on two values.", 70]
-        [Bitwise, bit-and, BitAnd, "Performs a bitwise AND on two values.", 75]
-        [Bitwise, bit-shl, ShiftLeft, "Shifts a value left by another.", 85]
-        [Bitwise, bit-shr, ShiftRight, "Shifts a value right by another.", 85]
-        [Boolean, and, And, "Checks if two values are true.", 50]
-        [Boolean, or, Or, "Checks if either value is true.", 40]
-        [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
-    ] | sort-by name)
+    let operators = (get-all-operators)
 
     let operator = ($operator | str join " ")
 
@@ -628,7 +655,7 @@ def show-command [command: record] {
 
 # Show help on nushell commands.
 export def "help commands" [
-    ...command: string  # the name of command to get help on
+    ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
