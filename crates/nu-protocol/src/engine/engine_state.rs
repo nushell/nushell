@@ -1345,6 +1345,7 @@ impl<'a> StateWorkingSet<'a> {
         "<unknown>".into()
     }
 
+    #[must_use]
     pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
         // First, look for the file to see if we already have it
         for (idx, (fname, file_start, file_end)) in self.files().enumerate() {
@@ -1368,6 +1369,15 @@ impl<'a> StateWorkingSet<'a> {
             .push((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
+    }
+
+    pub fn get_span_for_file(&self, file_id: usize) -> Span {
+        let result = self
+            .files()
+            .nth(file_id)
+            .expect("internal error: could not find source for previously parsed file");
+
+        Span::new(result.1, result.2)
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
@@ -2123,7 +2133,7 @@ mod engine_state_tests {
 
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            working_set.add_file("child.nu".into(), &[]);
+            let _ = working_set.add_file("child.nu".into(), &[]);
             working_set.render()
         };
 

@@ -7,14 +7,10 @@ fn add_file(
     name: &String,
     content: &[u8],
 ) -> (Module, Vec<Span>) {
-    let file = working_set.add_file(name.clone(), content);
-    let result = working_set
-        .files()
-        .nth(file)
-        .expect("internal error: missing source to std lib");
+    let file_id = working_set.add_file(name.clone(), content);
+    let new_span = working_set.get_span_for_file(file_id);
 
-    let (_, module, comments) =
-        parse_module_block(working_set, Span::new(result.1, result.2), name.as_bytes());
+    let (_, module, comments) = parse_module_block(working_set, new_span, name.as_bytes());
 
     if let Some(err) = working_set.parse_errors.first() {
         report_error(working_set, err);

@@ -5902,13 +5902,9 @@ pub fn parse(
     };
 
     let file_id = working_set.add_file(name, contents);
-    let result = working_set
-        .files()
-        .nth(file_id)
-        .expect("internal error: missing source that has been previously parsed");
-    let span_offset = result.1;
+    let new_span = working_set.get_span_for_file(file_id);
 
-    let (output, err) = lex(contents, span_offset, &[], &[], false);
+    let (output, err) = lex(contents, new_span.start, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }

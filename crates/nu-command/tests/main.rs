@@ -13,7 +13,7 @@ fn quickcheck_parse(data: String) -> bool {
         let context = create_default_context();
         {
             let mut working_set = StateWorkingSet::new(&context);
-            working_set.add_file("quickcheck".into(), data.as_bytes());
+            let _ = working_set.add_file("quickcheck".into(), data.as_bytes());
 
             let _ = nu_parser::parse_block(&mut working_set, &tokens, false, false);
         }
