@@ -1,13 +1,13 @@
 # std.nu, `used` to load all standard library components
 
-export use crates/nu-std/lib/assert.nu *
-export use crates/nu-std/lib/dirs.nu *
+export use assert *
+export use dirs *
 export-env {
-    use crates/nu-std/lib/dirs.nu *
+    use dirs *
 }
-export use crates/nu-std/lib/help.nu *
-export use crates/nu-std/lib/log.nu *
-export use crates/nu-std/lib/xml.nu *
+export use help *
+export use log *
+export use xml *
 
 # Add the given paths to the PATH.
 #
