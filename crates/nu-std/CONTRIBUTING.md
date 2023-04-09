@@ -29,9 +29,10 @@ If you have questions along the way, you can post a question in your PR or have 
 5. If you've added a whole new command or made a breaking change, (strongly) consider writing up a section for the release notes.  Currently, release notes are maintained in [a different repo, nushell.github.io](https://github.com/nushell/nushell.github.io).  Make your change in your clone of that repo and submit a PR to the release notes repo to get it integrated.
 
 ## Developing
-To work on the standard library, you don't necessarily need to compile or debug the interpreter itself, so you might not need to install the Rust toolchain. But if you want to do that, see [nushell CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md).
 
 ### Setup
+To work on the standard library, you don't necessarily need to compile or debug the interpreter itself, so you might not need to install the Rust toolchain. But if you want to do that, see [nushell CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md).
+
 
 1. Clone the Nushell repo containing the standard library.  Currently, that's the [Nushell interpreter source repo](https://github.com/nushell/nushell).
 
@@ -69,22 +70,51 @@ This avoids running CI in the nushell repo (until you remove the flag)
 Your description should include the external interface for your feature, a draft of the command arguments and signature, new/changed environment variables and any other user-visible changes.
 
 ### Design considerations
+The standard library consists mostly of Nushell custom commands and their associated environment variables.  For background on these Nushell features, see [Modules chapter of the Nushell book](https://www.nushell.sh/book/modules.html). Existing code in the standard library provides pretty good examples to work from.  
 
-The existing code in the standard library is a pretty good sample to start from.  
-[[idea: consider creating a `skeleton` custom command to act as a template to be cloned into a new command, or documenting one of the existing ones as the golden master.]]
+1. Create / update the source and test files for a custom command `foo` as follows:
+   ```shell
+   # source file 
+   /path/to/nushell/crates/nu-std/lib/foo.nu  
+   # corresponding unit test file
+   /path/to/nushell/crates/nu-std/tests/test_foo.nu
+   ```
+   Thou shalt provide unit tests to cover your changes.   
+2. Typically, the source file will implement multiple subcommands and possibly a main command as well.  
 
-1. Standard library consists of custom commands and environment variables packaged in modules and exported into the user's environment.  For background on these Nushell features, see [Modules chapter of the Nushell book](https://www.nushell.sh/book/modules.html).
-2. Ensure your custom command provides useful help.  This is done with comments before the command and within the argument declaration.  
-[[I want to refer user to documentation for this, but can't find any.  I'll write some if you'll point me at sources to study.]]
-3. Use `error make` to report can't-proceed errors to user, not `log error`.  Use `log info` to provide a capability for user to enable "verbose" progress messages.  Use `assert` to report failures in unit tests.  
-4. All objects in standard library are exposed in `std` namespace, so if the command is `foo`, it is referenced as `std foo ...`  This requires a `use` statement in `std.nu` which references your (new) module. See [[tbd, waiting #8815 to land]] for an example
-5. Some commands in standard library are also hoisted into the top level namespace, so if the command is again `foo`, it is invoked as `foo` without prefix.  You can do this for your new command by adding it to the "prelude" at `/path/to/nushell/crates/nu-std/src/lib.rs` line 70, or thereabouts.  
-[[at the least, refactor this code and add comments to guide dev]].  
+   For an example of a custom command which does not modify environment variables (but may reference them), see:
+   ```shell
+   /path/to/nushell/crates/nu-std/lib/assert.nu
+   ```
+   Note the use of `export def` to define the subcommand.  
+
+   For an example of a custom command which *does* modify environment variables, see:
+   ```shell
+   /path/to/nushell/crates/nu-std/lib/dirs.nu
+   ```
+   Note the use of `export def-env` to define the subcommand, the use of `export-env {}` to initialize the environment variable and  `let-env` to update it. 
+
+1. A `foo` command will be exposed to the user as `std foo` (at a minimum).  To enable this, update file `/path/to/nushell/crates/nu-std/lib/mod.rs` and add this code:
+   ```shell
+   export use crates/nu-std/lib/foo.nu *    # command doesn't update environment
+   export-env {
+          use crates/nu-std/lib/bar.nu *    # command *does* update environment
+   }
+   ```
+   Note use of `use *` to hoist all subcommands into `mod.nu` and thus into the `std` namespace.
+2. Some commands in standard library are also hoisted into the top level, non-prefixed namespace, so a `foo` command can be invoked without prefix as `foo`.  To do this, modify `/path/to/nushell/crates/nu-std/src/lib.rs`, find the initialization of the "prelude" at line 70 or thereabouts and add `(foo, foo)`.
+[[The code in `src/lib.rs` should be better structured and commented to make this easier to get right]].  
 Note that you will need to recompile the Nushell interpreter to test this change, see [Nushell Contributing#Setup](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#setup).
-1. Ensure your additions or changes are covered by standard library unit tests.  Tests for a `foo` command would be found in `test_foo.nu` and run as described below.
+
+More general guidelines:
+
+1. Ensure your custom command provides useful help.  
+This is done with comments before the command and within the argument declaration.  
+[[I want to refer user to documentation for this, but can't find any.  I'll write some if you'll point me at sources to study.]]
+1. Use `error make` to report can't-proceed errors to user, not `log error`.  Use `log info` to provide a capability for user to enable "verbose" progress messages.  
+2. Use `assert` in unit tests to check for and report failures.  
 
 ### Useful Commands
-
 
 - Run a custom command with additional logging (assuming you have instrumented the command with `log <level>`, as we recommend.)
 
@@ -94,12 +124,10 @@ Note that you will need to recompile the Nushell interpreter to test this change
   ```
 
 - Run standard library tests, logging only test failures (meaning that no output is the desired outcome.):  
-[[fix paths]]
-
   
   ```shell
   cd /path/to/nushell
-  NU_LOG_LEVEL=ERROR nu "crates/nu-std/tests.nu"
+  NU_LOG_LEVEL=ERROR nu "crates/nu-std/tests/run.nu"
   ```
 
   Change 'ERROR' to 'INFO' or 'DEBUG' for increasing verbousity.
@@ -108,7 +136,7 @@ Note that you will need to recompile the Nushell interpreter to test this change
 
   ```shell
   cd /path/to/nushell
-  NU_LOG_LEVEL=INFO nu "crates/nu-std/tests_foo.nu"
+  NU_LOG_LEVEL=INFO nu "crates/nu-std/tests/test_foo.nu"
   ```
 
 - Build and run Nushell (e.g, if you modify the prelude):
