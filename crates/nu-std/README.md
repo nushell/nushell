@@ -43,6 +43,12 @@ use std ["log debug" assert]`
 log debug "Running again"
 assert (2 == 1)
 ```
+use std log assert
+. . .
+log debug "Running again"
+assert (2 == 1)
+```
+This is probably the form of import you'll want to add to your `env.nu` for interactive use.
 
 This is probably the form of import you'll want to add to your `env.nu` for interactive use.
 
