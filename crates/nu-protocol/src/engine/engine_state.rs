@@ -1346,6 +1346,16 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
+        // First, look for the file to see if we already have it
+        for (idx, (fname, file_start, file_end)) in self.files().enumerate() {
+            if fname == &filename {
+                let prev_contents = self.get_span_contents(Span::new(*file_start, *file_end));
+                if prev_contents == contents {
+                    return idx;
+                }
+            }
+        }
+
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
 

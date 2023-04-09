@@ -5896,14 +5896,17 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> Block {
-    let span_offset = working_set.next_span_start();
-
     let name = match fname {
         Some(fname) => fname.to_string(),
         None => "source".to_string(),
     };
 
-    working_set.add_file(name, contents);
+    let file_id = working_set.add_file(name, contents);
+    let result = working_set
+        .files()
+        .nth(file_id)
+        .expect("internal error: missing source that has been previously parsed");
+    let span_offset = result.1;
 
     let (output, err) = lex(contents, span_offset, &[], &[], false);
     if let Some(err) = err {
