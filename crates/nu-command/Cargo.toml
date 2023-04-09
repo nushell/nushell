@@ -85,7 +85,6 @@ serde_yaml = "0.9.4"
 sha2 = "0.10.0"
 # Disable default features b/c the default features build Git (very slow to compile)
 percent-encoding = "2.2.0"
-reedline = { version = "0.18.0", features = ["bashisms", "sqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.32.0", features = ["serde"], optional = true }
 sysinfo = "0.28.2"

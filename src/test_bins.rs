@@ -172,7 +172,7 @@ pub fn nu_repl() {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     let source_lines = args();
 
-    let mut engine_state = create_default_context();
+    let mut engine_state = nu_cli::add_cli_context(create_default_context());
     let mut stack = Stack::new();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
