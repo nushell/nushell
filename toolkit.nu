@@ -213,7 +213,7 @@ export def "check pr" [
 }
 
 # set up git hooks to run:
-# - `toolkit fmt` on `git commit`
+# - `toolkit fmt --check` on `git commit`
 # - `toolkit fmt --check` and `toolkit clippy` on `git push`
 export def set-git-hooks [] {
     git config --local core.hooksPath .githooks
