@@ -58,7 +58,7 @@ All commands in the standard library must be "imported" into the running environ
 (the interactive read-execute-print-loop (REPL) or a `.nu` script) using the
 [`use`](https://nushell.sh/commands/docs/use.html) command.
 
-You can choose to import the whole module, but then must refer to invidual commands with a `std` prefix, e.g:
+You can choose to import the whole module, but then must refer to individual commands with a `std` prefix, e.g:
 ```
 use std
  . . .
