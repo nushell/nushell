@@ -65,8 +65,7 @@ impl Command for FromNuon {
 
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let mut block =
-            nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false, &[]);
+        let mut block = nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false);
 
         if let Some(pipeline) = block.pipelines.get(1) {
             if let Some(element) = pipeline.elements.get(0) {

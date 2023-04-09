@@ -1,5 +1,4 @@
 use nu_command::hook::eval_hook;
-use nu_command::util::{report_error, report_error_new};
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
@@ -7,6 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     print_if_stream, PipelineData, ShellError, Span, Value,
 };
+use nu_protocol::{report_error, report_error_new};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
@@ -222,7 +222,6 @@ pub fn eval_source(
             Some(fname), // format!("entry #{}", entry_num)
             source,
             false,
-            &[],
         );
         if let Some(err) = working_set.parse_errors.first() {
             set_last_exit_code(stack, 1);

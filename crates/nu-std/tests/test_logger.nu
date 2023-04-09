@@ -1,9 +1,9 @@
-use std.nu *
+use std *
 
 def run [system_level, message_level] {
     cd $env.FILE_PWD
     do {
-        nu -c $'use std.nu; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
+        nu -c $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
     } | complete | get -i stderr
 }
 def "assert no message" [system_level, message_level] {
@@ -36,11 +36,4 @@ export def test_info [] {
 export def test_debug [] {
     assert no message INFO debug 
     assert message DEBUG debug DBG
-}
-export def example [] {
-    log debug "Debug message"
-    log info "Info message"
-    log warning "Warning message"
-    log error "Error message"
-    log critical "Critical message"
 }

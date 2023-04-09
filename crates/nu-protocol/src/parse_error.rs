@@ -74,16 +74,23 @@ pub enum ParseError {
     )]
     ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] Span),
 
-    #[error("Types mismatched for operation.")]
-    #[diagnostic(
-        code(nu::parser::unsupported_operation),
-        help("Change {2} or {4} to be the right types and try again.")
-    )]
-    UnsupportedOperation(
-        #[label = "doesn't support these values."] Span,
-        #[label("{2}")] Span,
+    #[error("{0} is not supported on values of type {3}")]
+    #[diagnostic(code(nu::parser::unsupported_operation))]
+    UnsupportedOperationLHS(
+        String,
+        #[label = "doesn't support this value"] Span,
+        #[label("{3}")] Span,
         Type,
-        #[label("{4}")] Span,
+    ),
+
+    #[error("{0} is not supported between {3} and {5}.")]
+    #[diagnostic(code(nu::parser::unsupported_operation))]
+    UnsupportedOperationRHS(
+        String,
+        #[label = "doesn't support these values"] Span,
+        #[label("{3}")] Span,
+        Type,
+        #[label("{5}")] Span,
         Type,
     ),
 
@@ -437,7 +444,8 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
+            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
+            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,

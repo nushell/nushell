@@ -42,6 +42,8 @@ impl LazyRecord for NuVariable {
         cols.push("is-interactive");
         cols.push("is-login");
 
+        cols.push("current-exe");
+
         cols
     }
 
@@ -213,6 +215,19 @@ impl LazyRecord for NuVariable {
                 val: self.engine_state.get_startup_time(),
                 span: self.span(),
             }),
+            "current-exe" => {
+                let exe = std::env::current_exe().map_err(|_| {
+                    err("Could not get current executable path")
+                        .expect_err("did not get err from err function")
+                })?;
+
+                let canon_exe = canonicalize_path(&self.engine_state, &exe);
+
+                Ok(Value::String {
+                    val: canon_exe.to_string_lossy().into(),
+                    span: self.span(),
+                })
+            }
             _ => err(&format!("Could not find column '{column}'")),
         }
     }

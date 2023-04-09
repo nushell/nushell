@@ -10,13 +10,14 @@ use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
 use nu_command::hook::eval_hook;
-use nu_command::util::{get_guaranteed_cwd, report_error, report_error_new};
+use nu_command::util::get_guaranteed_cwd;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    format_duration, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
+    format_duration, report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError,
+    Span, Spanned, Value,
 };
 use nu_utils::utils::perf;
 use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
@@ -789,7 +790,7 @@ pub fn eval_string_with_input(
 ) -> Result<Value, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
-        let output = parse(&mut working_set, None, source.as_bytes(), false, &[]);
+        let output = parse(&mut working_set, None, source.as_bytes(), false);
 
         (output, working_set.render())
     };

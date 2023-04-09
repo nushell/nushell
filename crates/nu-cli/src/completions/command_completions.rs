@@ -88,7 +88,7 @@ impl CommandCompletion {
 
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 
-        let results = working_set
+        let mut results = working_set
             .find_commands_by_predicate(filter_predicate)
             .into_iter()
             .map(move |x| Suggestion {
@@ -97,20 +97,8 @@ impl CommandCompletion {
                 extra: None,
                 span: reedline::Span::new(span.start - offset, span.end - offset),
                 append_whitespace: true,
-            });
-
-        let results_aliases = working_set
-            .find_aliases_by_predicate(filter_predicate)
-            .into_iter()
-            .map(move |x| Suggestion {
-                value: String::from_utf8_lossy(&x).to_string(),
-                description: None,
-                extra: None,
-                span: reedline::Span::new(span.start - offset, span.end - offset),
-                append_whitespace: true,
-            });
-
-        let mut results = results.chain(results_aliases).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let partial = working_set.get_span_contents(span);
         let partial = String::from_utf8_lossy(partial).to_string();

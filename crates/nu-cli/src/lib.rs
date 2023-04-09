@@ -18,7 +18,7 @@ pub use completions::{FileCompletion, NuCompleter};
 pub use config_files::eval_config_contents;
 pub use eval_file::evaluate_file;
 pub use menus::{DescriptionMenu, NuHelpCompleter};
-pub use nu_command::util::{get_init_cwd, report_error, report_error_new};
+pub use nu_command::util::get_init_cwd;
 pub use nu_highlight::NuHighlight;
 pub use print::Print;
 pub use prompt::NushellPrompt;

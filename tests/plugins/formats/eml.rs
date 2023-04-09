@@ -1,4 +1,5 @@
 use nu_test_support::nu_with_plugins;
+use pretty_assertions::assert_eq;
 
 const TEST_CWD: &str = "tests/fixtures/formats";
 

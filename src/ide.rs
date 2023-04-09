@@ -1,6 +1,7 @@
 use miette::IntoDiagnostic;
-use nu_cli::{report_error, NuCompleter};
+use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
+use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     DeclId, ShellError, Span, Value, VarId,
@@ -22,7 +23,7 @@ fn find_id(
     location: &Value,
 ) -> Option<(Id, usize, Span)> {
     let offset = working_set.next_span_start();
-    let block = parse(working_set, Some(file_path), file, false, &[]);
+    let block = parse(working_set, Some(file_path), file, false);
 
     let flattened = flatten_block(working_set, &block);
 
@@ -78,7 +79,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
-        let block = parse(&mut working_set, Some(file_path), &contents, false, &[]);
+        let block = parse(&mut working_set, Some(file_path), &contents, false);
 
         for err in &working_set.parse_errors {
             let mut span = err.span();
@@ -110,7 +111,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
                     "{}",
                     json!({
                         "type": "hint",
-                        "typename": var.ty,
+                        "typename": var.ty.to_string(),
                         "position": {
                             "start": flat.0.start - offset,
                             "end": flat.0.end - offset

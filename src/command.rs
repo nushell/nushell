@@ -1,7 +1,7 @@
-use nu_command::util::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -64,13 +64,7 @@ pub(crate) fn parse_commandline_args(
         let mut working_set = StateWorkingSet::new(engine_state);
         working_set.add_decl(Box::new(Nu));
 
-        let output = parse(
-            &mut working_set,
-            None,
-            commandline_args.as_bytes(),
-            false,
-            &[],
-        );
+        let output = parse(&mut working_set, None, commandline_args.as_bytes(), false);
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
 
