@@ -2,8 +2,29 @@ use nu_parser::{parse, parse_module_block};
 use nu_protocol::report_error;
 use nu_protocol::{engine::StateWorkingSet, Module, ShellError, Span};
 
-fn get_standard_library() -> &'static str {
-    include_str!("../std.nu")
+fn add_file(
+    working_set: &mut StateWorkingSet,
+    name: &String,
+    content: &[u8],
+) -> (Module, Vec<Span>) {
+    let start = working_set.next_span_start();
+    working_set.add_file(name.clone(), content);
+    let end = working_set.next_span_start();
+
+    let (_, module, comments) =
+        parse_module_block(working_set, Span::new(start, end), name.as_bytes());
+
+    if let Some(err) = working_set.parse_errors.first() {
+        report_error(working_set, err);
+    }
+
+    parse(working_set, Some(name), content, true);
+
+    if let Some(err) = working_set.parse_errors.first() {
+        report_error(working_set, err);
+    }
+
+    (module, comments)
 }
 
 fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, module: &Module) {
@@ -45,26 +66,15 @@ pub fn load_standard_library(
 ) -> Result<(), miette::ErrReport> {
     let delta = {
         let name = "std".to_string();
-        let content = get_standard_library().as_bytes();
+        let content = include_str!("../lib/mod.nu");
 
-        let mut working_set = StateWorkingSet::new(engine_state);
-
-        let start = working_set.next_span_start();
-        working_set.add_file(name.clone(), content);
-        let end = working_set.next_span_start();
-
-        let (_, module, comments) =
-            parse_module_block(&mut working_set, Span::new(start, end), name.as_bytes());
-
-        if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
-        }
-
-        parse(&mut working_set, Some(&name), content, true);
-
-        if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
-        }
+        let submodules = vec![
+            ("assert", include_str!("../lib/assert.nu")),
+            ("dirs", include_str!("../lib/dirs.nu")),
+            ("help", include_str!("../lib/help.nu")),
+            ("log", include_str!("../lib/log.nu")),
+            ("xml", include_str!("../lib/xml.nu")),
+        ];
 
         let prelude = vec![
             ("std help", "help"),
@@ -75,8 +85,16 @@ pub fn load_standard_library(
             ("std help operators", "help operators"),
         ];
 
-        load_prelude(&mut working_set, prelude, &module);
+        let mut working_set = StateWorkingSet::new(engine_state);
 
+        for (name, content) in submodules {
+            let (module, comments) =
+                add_file(&mut working_set, &name.to_string(), content.as_bytes());
+            working_set.add_module(name, module, comments);
+        }
+
+        let (module, comments) = add_file(&mut working_set, &name, content.as_bytes());
+        load_prelude(&mut working_set, prelude, &module);
         working_set.add_module(&name, module, comments);
 
         working_set.render()
