@@ -563,3 +563,21 @@ fn main_inside_module_is_main() {
 
     assert_eq!(actual.out, "foo");
 }
+
+#[test]
+fn module_as_file() {
+    let inp = &[r#"module samples/spam.nu"#, "use spam foo", "foo"];
+
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn export_module_as_file() {
+    let inp = &[r#"export module samples/spam.nu"#, "use spam foo", "foo"];
+
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}

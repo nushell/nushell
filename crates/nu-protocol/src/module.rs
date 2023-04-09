@@ -1,4 +1,4 @@
-use crate::{BlockId, DeclId, Span};
+use crate::{BlockId, DeclId, ModuleId, Span};
 
 use indexmap::IndexMap;
 
@@ -7,6 +7,7 @@ use indexmap::IndexMap;
 pub struct Module {
     pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
+    pub submodules: IndexMap<Vec<u8>, ModuleId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
@@ -17,6 +18,7 @@ impl Module {
         Module {
             name,
             decls: IndexMap::new(),
+            submodules: IndexMap::new(),
             env_block: None,
             main: None,
             span: None,
@@ -27,6 +29,7 @@ impl Module {
         Module {
             name,
             decls: IndexMap::new(),
+            submodules: IndexMap::new(),
             env_block: None,
             main: None,
             span: Some(span),
@@ -35,6 +38,10 @@ impl Module {
 
     pub fn add_decl(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
         self.decls.insert(name, decl_id)
+    }
+
+    pub fn add_submodule(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
+        self.submodules.insert(name, module_id)
     }
 
     pub fn add_env_block(&mut self, block_id: BlockId) {

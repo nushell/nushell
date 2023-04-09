@@ -5,25 +5,25 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Module;
+pub struct ExportModule;
 
-impl Command for Module {
+impl Command for ExportModule {
     fn name(&self) -> &str {
-        "module"
+        "export module"
     }
 
     fn usage(&self) -> &str {
-        "Define a custom module."
+        "Export a custom module from a module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("module")
+        Signature::build("export module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("module", SyntaxShape::String, "module name or module path")
             .optional(
                 "block",
                 SyntaxShape::Block,
-                "body of the module if 'module' parameter is not a module path",
+                "body of the module if 'module' parameter is not a path",
             )
             .category(Category::Core)
     }
@@ -48,22 +48,27 @@ impl Command for Module {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Define a custom command in a module and call it",
-                example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-                result: Some(Value::test_string("foo")),
-            },
-            Example {
-                description: "Define an environment variable in a module",
-                example: r#"module foo { export-env { let-env FOO = "BAZ" } }; use foo; $env.FOO"#,
-                result: Some(Value::test_string("BAZ")),
-            },
-            Example {
-                description: "Define a custom command that participates in the environment in a module and call it",
-                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-                result: Some(Value::test_string("BAZ")),
-            },
-        ]
+        vec![Example {
+            description: "Define a custom command in a submodule of a module and call it",
+            example: r#"module spam {
+        export module eggs {
+            export def foo [] { "foo" } }
+        }
+        use spam eggs
+        eggs foo
+    }"#,
+            result: Some(Value::test_string("foo")),
+        }]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(ExportModule {})
     }
 }
