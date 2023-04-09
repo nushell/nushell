@@ -1,0 +1,18 @@
+#!/usr/bin/env nu
+
+use ../toolkit.nu [fmt, clippy, pretty-print-command]
+
+print $"running ('toolkit fmt' | pretty-print-command)"
+try {
+    fmt --check
+} catch {
+    print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
+    exit 1
+}
+
+print $"running ('toolkit clippy' | pretty-print-command)"
+try {
+    clippy
+} catch {
+    exit 1
+}

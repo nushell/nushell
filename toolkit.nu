@@ -212,40 +212,9 @@ export def "check pr" [
     report --no-fail
 }
 
-# creates git hooks to run:
+# set up git hooks to run:
 # - `toolkit fmt` on `git commit`
 # - `toolkit fmt --check` and `toolkit clippy` on `git push`
 export def set-git-hooks [] {
-    set-git-hook pre-commit `#!/usr/bin/env nu
-
-use ../../toolkit.nu [fmt, pretty-print-command]
-
-print $"running ('toolkit fmt' | pretty-print-command)"
-fmt`
-
-    set-git-hook pre-push `#!/usr/bin/env nu
-
-use ../../toolkit.nu [fmt, clippy, pretty-print-command]
-
-print $"running ('toolkit fmt' | pretty-print-command)"
-try {
-    fmt --check
-} catch {
-    print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-    exit 1
-}
-
-print $"running ('toolkit clippy' | pretty-print-command)"
-try {
-    clippy
-} catch {
-    exit 1
-}`
-}
-
-def set-git-hook [
-    filename: string,
-    content: string
-] {
-    echo $content | save $".git/hooks/($filename)" | ^chmod +x $".git/hooks/($filename)"
+    git config --local core.hooksPath .githooks
 }
