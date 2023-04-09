@@ -103,6 +103,7 @@ pub(crate) fn parse_commandline_args(
             #[cfg(feature = "plugin")]
             let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
+            let no_std_lib = call.get_named_arg("no-std-lib");
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
@@ -176,6 +177,7 @@ pub(crate) fn parse_commandline_args(
                 #[cfg(feature = "plugin")]
                 plugin_file,
                 no_config_file,
+                no_std_lib,
                 config_file,
                 env_file,
                 log_level,
@@ -211,6 +213,7 @@ pub(crate) struct NushellCliArgs {
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
     pub(crate) no_config_file: Option<Spanned<String>>,
+    pub(crate) no_std_lib: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
@@ -259,6 +262,7 @@ impl Command for Nu {
                 "start with no config file and no env file",
                 Some('n'),
             )
+            .switch("no-std-lib", "start with no standard library", None)
             .named(
                 "threads",
                 SyntaxShape::Int,

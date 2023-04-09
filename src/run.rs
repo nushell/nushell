@@ -22,7 +22,9 @@ pub(crate) fn run_commands(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
-    load_standard_library(engine_state)?;
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(engine_state)?;
+    }
 
     #[cfg(feature = "plugin")]
     read_plugin_file(
@@ -111,7 +113,9 @@ pub(crate) fn run_file(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
-    load_standard_library(engine_state)?;
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(engine_state)?;
+    }
 
     #[cfg(feature = "plugin")]
     read_plugin_file(
@@ -210,7 +214,9 @@ pub(crate) fn run_repl(
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
-    load_standard_library(engine_state)?;
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(engine_state)?;
+    }
 
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(
