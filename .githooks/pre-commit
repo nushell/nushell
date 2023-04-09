@@ -1,11 +1,5 @@
 #!/usr/bin/env nu
 
-use ../toolkit.nu [fmt, pretty-print-command]
+use ../toolkit.nu fmt
 
-print $"running ('toolkit fmt' | pretty-print-command)"
-try {
-    fmt --check
-} catch {
-    print $"\nplease run ('toolkit fmt' | pretty-print-command) to fix the formatting before committing!"
-    exit 1
-}
+fmt --check --verbose

@@ -1,19 +1,6 @@
 #!/usr/bin/env nu
 
-use ../toolkit.nu [fmt, clippy, pretty-print-command]
+use ../toolkit.nu [fmt, clippy]
 
-print $"running ('toolkit fmt' | pretty-print-command)"
-try {
-    fmt --check
-} catch {
-    print $"\nplease run ('toolkit fmt' | pretty-print-command) to fix the formatting before pushing!"
-    exit 1
-}
-
-print $"running ('toolkit clippy' | pretty-print-command)"
-try {
-    clippy
-} catch {
-    print $"\nplease fix the above errors before pushing!"
-    exit 1
-}
+fmt --check --verbose
+clippy --verbose

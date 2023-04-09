@@ -9,9 +9,18 @@
 # check standard code formatting and apply the changes
 export def fmt [
     --check: bool  # do not apply the format changes, only check the syntax
+    --verbose: bool # print extra information about the command's progress
 ] {
-    if ($check) {
-        cargo fmt --all -- --check
+    if $verbose {
+        print $"running ('toolkit fmt' | pretty-print-command)"
+    }
+
+    if $check {
+        try {
+            cargo fmt --all -- --check
+        } catch {
+            error make -u { msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!" }
+        }
     } else {
         cargo fmt --all
     }
@@ -20,8 +29,18 @@ export def fmt [
 # check that you're using the standard code style
 #
 # > it is important to make `clippy` happy :relieved:
-export def clippy [] {
-    cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+export def clippy [
+    --verbose: bool # print extra information about the command's progress
+] {
+    if $verbose {
+        print $"running ('toolkit clippy' | pretty-print-command)"
+    }
+
+    try {
+        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+    } catch {
+        error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
+    }
 }
 
 # check that all the tests pass
@@ -41,7 +60,7 @@ export def "test stdlib" [] {
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
-export def pretty-print-command [] {
+def pretty-print-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
@@ -180,17 +199,14 @@ def report [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
-    print $"running ('toolkit fmt' | pretty-print-command)"
     try {
-        fmt --check
+        fmt --check --verbose
     } catch {
-        print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
         return (report --fail-fmt)
     }
 
-    print $"running ('toolkit clippy' | pretty-print-command)"
     try {
-        clippy
+        clippy --verbose
     } catch {
         return (report --fail-clippy)
     }
@@ -213,8 +229,8 @@ export def "check pr" [
 }
 
 # set up git hooks to run:
-# - `toolkit fmt --check` on `git commit`
-# - `toolkit fmt --check` and `toolkit clippy` on `git push`
+# - `toolkit fmt --check --verbose` on `git commit`
+# - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
 export def set-git-hooks [] {
     git config --local core.hooksPath .githooks
 }
