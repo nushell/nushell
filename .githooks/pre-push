@@ -6,7 +6,7 @@ print $"running ('toolkit fmt' | pretty-print-command)"
 try {
     fmt --check
 } catch {
-    print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
+    print $"\nplease run ('toolkit fmt' | pretty-print-command) to fix the formatting before pushing!"
     exit 1
 }
 
@@ -14,5 +14,6 @@ print $"running ('toolkit clippy' | pretty-print-command)"
 try {
     clippy
 } catch {
+    print $"\nplease fix the above errors before pushing!"
     exit 1
 }

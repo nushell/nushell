@@ -3,4 +3,9 @@
 use ../toolkit.nu [fmt, pretty-print-command]
 
 print $"running ('toolkit fmt' | pretty-print-command)"
-fmt
+try {
+    fmt --check
+} catch {
+    print $"\nplease run ('toolkit fmt' | pretty-print-command) to fix the formatting before committing!"
+    exit 1
+}
