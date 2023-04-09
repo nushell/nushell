@@ -3,8 +3,23 @@ use std "xupdate"
 use std "xinsert"
 use std "assert equal"
 
+export def setup [] {
+    {sample_xml: ('
+        <a>
+            <b>
+                <c a="b"></c>
+            </b>
+            <c></c>
+            <d>
+                <e>z</e>
+                <e>x</e>
+            </d>
+        </a>' | from xml)
+    }
+}
+
 export def test_xml_xaccess [] {
-    let sample_xml = ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
+    let sample_xml = $in.sample_xml
 
     assert equal ($sample_xml | xaccess [a]) [$sample_xml]
     assert equal ($sample_xml | xaccess [*]) [$sample_xml]
@@ -14,7 +29,7 @@ export def test_xml_xaccess [] {
 }
 
 export def test_xml_xupdate [] {
-    let sample_xml = ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
+    let sample_xml = $in.sample_xml
 
     assert equal ($sample_xml | xupdate [*] {|x| $x | update attributes {i: j}}) ('<a i="j"><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
     assert equal ($sample_xml | xupdate [* d e *] {|x| $x | update content 'nushell'}) ('<a><b><c a="b"></c></b><c></c><d><e>nushell</e><e>nushell</e></d></a>' | from xml)
@@ -22,7 +37,7 @@ export def test_xml_xupdate [] {
 }
 
 export def test_xml_xinsert [] {
-    let sample_xml = ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
+    let sample_xml = $in.sample_xml
 
     assert equal ($sample_xml | xinsert [a] {tag: b attributes:{} content: []}) ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d><b></b></a>' | from xml)
     assert equal ($sample_xml | xinsert [a d *] {tag: null attributes: null content: 'n'} | to xml) '<a><b><c a="b"></c></b><c></c><d><e>zn</e><e>xn</e></d></a>'
