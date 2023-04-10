@@ -22,8 +22,7 @@ If your idea isn't quite so broadly applicable,
 consider publishing it in [nu_scripts](https://github.com/nushell/nu_scripts).
 
 Preliminary discussions should focus on the *user benefit* your idea would provide.  
-How many users will be affected by your idea, how would (a good implementation of) it 
-improve their Nushell experience?
+How many users will be affected by your idea, how much would it help them solve a problem or work more productively?
 Given consensus on the user benefit, the team will be motivated to 
 help you create, deploy and maintain a solution long term.
 
@@ -31,146 +30,155 @@ help you create, deploy and maintain a solution long term.
 
 1. Verify the team thinks your idea is potentially relevant and useful, as above.
 1. If it's more than a simple bug fix, open a placeholder PR 
-as soon as you get started and mark it as work in progress (WIP).
-This will alert other contributors that you're working in this area and 
+as soon as you get started and [set it to draft status][github_draft_pr].  
+This will alert other contributors that you're working in this area and let you
 advertise roughly what scope of changes you're thinking of.
-See [below](the_pr) for details.
+See [below](#the_pr) for details.
 1. Get things working in your local development environment.  
 If you have questions along the way, you can post a question in your PR 
 or have a more casual discussion with Nushell fans on 
 [Discord implementation-chat channel](https://discord.com/channels/601130461678272522/615962413203718156)
-1. When you get to an appropriate state of doneness, push your changes to the PR and remove the WIP flag.
+1. When you get to an appropriate state of doneness, push your changes to the PR and remove the draft status.
 2. Team members and other contributors will then review your PR.  
-Respond to any review comments they raise and resolve them one way or another.
+Respond to any review comments they raise and address them one way or another.
 (Not all comments demand you make a change!)
 1. When you and the team are comfortable with the PR, 
 a team member will merge it into the repo and you can delete your working branch.
 2. If you've added a whole new command or made a breaking change, 
-(strongly) consider writing up a section for the release notes.  
+(strongly) consider writing it up for the release notes.  
 Currently, release notes are maintained in a different repo, [nushell.github.io](https://github.com/nushell/nushell.github.io). 
 Make your change in a local clone of that repo and submit a PR to the release notes repo to get it integrated.
 
 ## Developing
-
+(All paths below shown relative to the root folder of the git repository containing the standard library.)
 ### Setup
-To work on the standard library, you won't necessarily need to compile or debug the interpreter itself, 
-so you might not need to install the Rust toolchain. 
-But if you want to do that, see [nushell CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md).
 
-1. Clone the Nushell repo containing the standard library.  
-Currently, that's the [Nushell interpreter source repo](https://github.com/nushell/nushell).
-    ```
-    git clone https://github.com/nushell/nushell
-    ```
+0. Install the Rust toolchain and Nushell build tools.  See [nushell CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md) for details.
+The standard library is tightly coupled to a particular version of Nushell interpreter, 
+you need to be running that version to test your changes
+(unlike a "normal" script module library).
 
-2. Arrange a runnable Nushell interpreter  
-  Either install a [pre-built distribution](https://github.com/nushell/nushell/releases), or build from source:
+1. Clone the Nushell repo containing the standard library and create a feature branch for your development work.  
+Currently, that's the [Nushell interpreter source repo](https://github.com/nushell/nushell).  
+Once you set your working directory to the root of this repository, you'll generally leave it there throughout the session.
     ```
     git clone https://github.com/nushell/nushell
     cd nushell
-    cargo run
+    git checkout -b <featureBranch>
     ```
-1. Focus your IDE on the standard library folder  
-(Currently, it is a Rust crate within the Nushell repo)
-
-    ```
-    cd /path/to/nushell/repo
-    code .  # opinionated: we love vscode!
-    (open folder crates/nu-std in IDE)
-   ```
+1. In your IDE, open the folder within the repository containing the standard library.
+The folder is `./crates/nu-std`, and it is a Rust crate, containing a `Cargo.toml` 
+and subfolders:
+* `src/` (which contains the Rust code to load the standard library modules into memory for efficiency), 
+* `lib` (which contains all the script module sources for the standard library), 
+* `tests/` (unit tests for lib).
 ### The PR
-If your idea is mostly a bug fix, you might not open a PR till you've got a fix (nearly)ready to go.  
+Assuming you've already validated the need with other Nushell contributors, you're focusing on design and implementation 
+at this point.  Share your thinking all along the way!  
 
-But if you're considering new commands or substantial or (even simple) breaking changes, 
-it's good to advertise your proposed work to other collaborators for their awareness 
-and to solicit their early feedback. 
-Often, this feedback will result in a better and more maintainable solution long term, 
-so give your fellow collaborators the opportunity.  Someday, they'll return the favor...
+You can open a [draft][github_draft_pr] pull request based on a token code change, and use the PR comments to outline your design and user interface.  You'll get feedback from
+other contributors that may lead to a more robust and perhaps more idomatic solution.
+The threads in the PR can be a convenient reference for you when writing release notes and 
+for others on the team when researching issues. 
 
-To open a PR before you've got code ready to go:
-  1. create a feature branch in your fork of the repo
-  2. make a trivial code change and push it to Github
-  4. open a PR on the standard library repo
-  5. **mark it as a work in progress (WIP)**  
-This signals that you are not yet asking to have the PR formally reviewed and merged.
-  6. provide a preliminary description of your proposed change.     
-Your description should include the external interface for your feature, 
-a draft of the command arguments and signature, 
-new/changed environment variables and any other user-visible changes.
-
+Note that the PR will not get final code review or be merged until you remove the draft status.
 ### Design considerations
-The standard library consists mostly of Nushell custom commands and their associated environment variables.  
-For background on these Nushell features, see 
+The standard library consists of Nushell custom commands and their associated environment variables, packaged in script modules underneath module `std`. For background on scripts, custom commands and modules, see 
 [Modules chapter of the Nushell book](https://www.nushell.sh/book/modules.html). 
-Existing code in the standard library provides pretty good examples to work from.  
 
-1. Create / update the source and test files for a custom command `foo` as follows:
-   ```shell
-   # source file 
-   /path/to/nushell/crates/nu-std/lib/foo.nu  
-   # corresponding unit test file
-   /path/to/nushell/crates/nu-std/tests/test_foo.nu
-   ```
-   Thou shalt provide unit tests to cover your changes.   
-2. Typically, the source file will implement multiple subcommands and possibly a main command as well.  
-   For an example of a custom command which does not modify environment variables (but may reference them), see:
-   ```shell
-   /path/to/nushell/crates/nu-std/lib/assert.nu
-   ```
-   Note the use of `export def` to define the subcommand.  
+To add a completely new module, for example, a `foo` command and some `foo subcommand`s,
+you will be dealing with 2 new source files:  the module source itself (`./crates/nu-std/lib/foo.nu`), a unit tests file (`./crates/nu-std/tests/test_foo`); and will be modifying 1 or 2 existing files (`./crates/nu-std/lib/mod.nu` and possibly `./crates/nu-std/src/lib.rs`). This is described below:
 
-   For an example of a custom command which *does* modify environment variables, see:
-   ```shell
-   /path/to/nushell/crates/nu-std/lib/dirs.nu
-   ```
-   Note the use of `export def-env` to define the subcommand, 
-   the use of `export-env {}` to initialize the environment variable and  `let-env` to update it. 
+1. Source for a custom command `foo` should go in `./crates/nu-std/lib/foo.nu`.
+  
+    * A source file will typically implement multiple subcommands and possibly a main command as well.  
+    Use `export def` to make these names public to your users.  
+    * If your command is updating environment variables, you must use `export def-env` (instead of `export def`) 
+    to define the subcommand,  `export-env {}` to initialize the environment variables and `let-env` to update them.   
+    For an example of a custom command which does not modify environment variables, 
+   see: `./crates/nu-std/lib/assert.nu`; for an example of a custom command which *does* modify environment variables, 
+   see: `./crates/nu-std/lib/dirs.nu`.
+   * If your module wishes to use a utility from another module of the standard library, for example `log info`, 
+  you need a slightly unusual form of `use` statement (because both modules reside in `std` library).   
+      ```shell
+      ... your foo.nu ...
+      export def mycommand [] {
+        use log "log info"
+        . . .
+        log info "info level log message"
+        . . .
+      }
+      ```
+      In a normal script module, the use statement would be `use std "log info"` 
 
-1. A `foo` command will be exposed to the user as `std foo` (at a minimum).  
-To enable this, update file `/path/to/nushell/crates/nu-std/lib/mod.rs` and add this code:
+1. Unit tests for `foo` should go in `./crates/nu-std/tests/test_foo.nu`.  Thou shalt provide unit tests to cover your changes.
+   * Unit tests should use one of the `assert` commands to check a condition and report the failure in a standard format.  
+   * To import assert commands for use in your test, import them via `use std` (unlike the `use log` for your source code; the tests are not loaded in the `std` namespace).  For example:
+      ```shell
+      ... your test_foo.nu ...
+      def test1 [] {
+        use std
+        . . .
+        std assert greater $l $r
+        . . .
+        std assert $predicate
+      }
+
+      def test2 [] {
+        use std ['assert greater' assert]
+        . . .
+        assert greater $l $r
+        . . . 
+        assert $predicate
+      }
+      ```
+      The choice of import style is up to you.
+
+
+2. A `foo` command will be exposed to the user as `std foo` (at a minimum).  
+To enable this, update file `./crates/nu-std/lib/mod.rs` and add this code:
    ```
-   export use crates/nu-std/lib/foo.nu *    # command doesn't update environment
+   export use foo *    # command doesn't update environment
    export-env {
-          use crates/nu-std/lib/bar.nu *    # command *does* update environment
+          use bar *    # command *does* update environment
    }
    ```
-   Note use of `use *` to hoist all subcommands into `mod.nu` and thus into the `std` namespace.
+   The `use *` hoists the public definitions in `foo.nu` into `mod.nu` and thus into the `std` namespace.
 
-2. Some commands in standard library are also hoisted into the top level, non-prefixed namespace, 
-so a `foo` command can be invoked without prefix as `foo`.  
-To do this, modify `/path/to/nushell/crates/nu-std/src/lib.rs`, 
-find the initialization of the "prelude" at line 70 or thereabouts and add `(foo, foo)`.  
-(This code may be restructured soon: if you can't find it, check with the team on Discord.)  
+1. Some commands from the standard library are also hoisted into the top level, non-prefixed namespace, for example, the `help` command.  You can do this for a `foo` command:
+   * modify `./crates/nu-std/src/lib.rs`, 
+   * find the initialization of the "prelude" at line 70 or thereabouts
+   * add `(foo, foo)`  
+  
+   (This code may be restructured soon: if you can't find it, check with the team on Discord.)  
 Note that you will need to recompile the Nushell interpreter to test this change, 
 see [Nushell Contributing#Setup](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#setup).
 
-More general guidelines:
+More design guidelines:
 
 1. Ensure your custom command provides useful help.  
-This is done with comments before the command and within the argument declaration.  
+This is done with comments before the `def` for the custom command.  
 1. Use `error make` to report can't-proceed errors to user, not `log error`.  
 2. Use `log info` to provide a verbose progress messages that the user can optionally enable for troubleshooting. 
 e.g: 
     ```shell
     NU_LOG_LEVEL=INFO foo # verbose messages from command foo
     ```
-3. Use `assert` in unit tests to check for and report failures.  
+1. Use `assert` in unit tests to check for and report failures.  
 
 ### Useful Commands
 
-- Run standard library tests, logging only test failures (meaning that no output is the desired outcome.):  
+- Run unit tests for the standard library, logging only test failures (meaning that no output is the desired outcome.):  
   
   ```shell
-  cd /path/to/nushell
-  NU_LOG_LEVEL=ERROR nu "crates/nu-std/tests/run.nu"
+  > NU_LOG_LEVEL=ERROR cargo run -- crates/nu-std/tests/run.nu
   ```
   Change 'ERROR' to 'INFO' or 'DEBUG' for increasing verbousity.
 
-- Run tests for a specific command, e.g, command `foo`
+- Run all tests for a specific module, e.g, `crates/nu-std/tests/test_foo.nu`
 
   ```shell
-  cd /path/to/nushell
-  NU_LOG_LEVEL=INFO nu "crates/nu-std/tests/test_foo.nu"
+  NU_LOG_LEVEL=INFO cargo run -- crates/nu-std/tests/run.nu --module test_foo
   ```
 
 - Run a custom command with additional logging (assuming you have instrumented
@@ -189,3 +197,5 @@ the command with `log <level>`, as we recommend.)
 The standard library project uses the same protocols and conventions 
 for squashing git commits and handling github PRs as the core Nushell project. 
 Please see [nushell Contributing#git_etiquette](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#git-etiquette) for details.
+
+[github_draft_pr]:(https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request)
