@@ -67,10 +67,11 @@ pub fn load_standard_library(
         let content = include_str!("../lib/mod.nu");
 
         let submodules = vec![
+            ("log", include_str!("../lib/log.nu")),
             ("assert", include_str!("../lib/assert.nu")),
+
             ("dirs", include_str!("../lib/dirs.nu")),
             ("help", include_str!("../lib/help.nu")),
-            ("log", include_str!("../lib/log.nu")),
             ("xml", include_str!("../lib/xml.nu")),
         ];
 
