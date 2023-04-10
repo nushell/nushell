@@ -5965,16 +5965,15 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> Block {
-    let span_offset = working_set.next_span_start();
-
     let name = match fname {
         Some(fname) => fname.to_string(),
         None => "source".to_string(),
     };
 
-    working_set.add_file(name, contents);
+    let file_id = working_set.add_file(name, contents);
+    let new_span = working_set.get_span_for_file(file_id);
 
-    let (output, err) = lex(contents, span_offset, &[], &[], false);
+    let (output, err) = lex(contents, new_span.start, &[], &[], false);
     if let Some(err) = err {
         working_set.error(err)
     }

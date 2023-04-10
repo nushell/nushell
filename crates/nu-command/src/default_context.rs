@@ -102,9 +102,7 @@ pub fn create_default_context() -> EngineState {
 
         // Misc
         bind_command! {
-            History,
             Tutor,
-            HistorySession,
         };
 
         // Path
@@ -256,12 +254,8 @@ pub fn create_default_context() -> EngineState {
             AnsiLink,
             Clear,
             Du,
-            KeybindingsDefault,
             Input,
-            KeybindingsListen,
-            Keybindings,
             Kill,
-            KeybindingsList,
             Sleep,
             TermSize,
         };

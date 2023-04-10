@@ -1722,9 +1722,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 };
 
                 if let Ok(contents) = std::fs::read(&module_path) {
-                    let span_start = working_set.next_span_start();
-                    working_set.add_file(module_filename, &contents);
-                    let span_end = working_set.next_span_start();
+                    let file_id = working_set.add_file(module_filename, &contents);
+                    let new_span = working_set.get_span_for_file(file_id);
 
                     // Change the currently parsed directory
                     let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
@@ -1741,11 +1740,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                     working_set.parsed_module_files.push(module_path);
 
                     // Parse the module
-                    let (block, module, module_comments) = parse_module_block(
-                        working_set,
-                        Span::new(span_start, span_end),
-                        module_name.as_bytes(),
-                    );
+                    let (block, module, module_comments) =
+                        parse_module_block(working_set, new_span, module_name.as_bytes());
 
                     // Remove the file from the stack of parsed module files
                     working_set.parsed_module_files.pop();
@@ -2248,9 +2244,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                         };
 
                         if let Ok(contents) = std::fs::read(&module_path) {
-                            let span_start = working_set.next_span_start();
-                            working_set.add_file(module_filename, &contents);
-                            let span_end = working_set.next_span_start();
+                            let file_id = working_set.add_file(module_filename, &contents);
+                            let new_span = working_set.get_span_for_file(file_id);
 
                             // Change currently parsed directory
                             let prev_currently_parsed_cwd =
@@ -2264,11 +2259,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                                     working_set.currently_parsed_cwd.clone()
                                 };
 
-                            let (block, module, module_comments) = parse_module_block(
-                                working_set,
-                                Span::new(span_start, span_end),
-                                overlay_name.as_bytes(),
-                            );
+                            let (block, module, module_comments) =
+                                parse_module_block(working_set, new_span, overlay_name.as_bytes());
 
                             // Restore the currently parsed directory back
                             working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
