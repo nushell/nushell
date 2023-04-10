@@ -452,37 +452,49 @@ fn parse_short_flags(
 
     let arg_contents = working_set.get_span_contents(arg_span);
 
-    if arg_contents.starts_with(b"-") && arg_contents.len() > 1 {
-        let short_flags = &arg_contents[1..];
-        let mut found_short_flags = vec![];
-        let mut unmatched_short_flags = vec![];
-        for short_flag in str::from_utf8(short_flags).unwrap().chars().enumerate() {
-            let short_flag_char = short_flag.1;
-            let orig = arg_span;
-            let short_flag_span = Span::new(
-                orig.start + 1 + short_flag.0,
-                orig.start + 1 + short_flag.0 + 1,
-            );
-            if let Some(flag) = sig.get_short_flag(short_flag_char) {
-                // If we require an arg and are in a batch of short flags, error
-                if !found_short_flags.is_empty() && flag.arg.is_some() {
-                    working_set.error(ParseError::ShortFlagBatchCantTakeArg(short_flag_span));
-                    break;
+    if let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) {
+        if arg_contents_uft8_ref.starts_with('-') && arg_contents_uft8_ref.len() > 1 {
+            let short_flags = &arg_contents_uft8_ref[1..];
+            let mut found_short_flags = vec![];
+            let mut unmatched_short_flags = vec![];
+            for short_flag in short_flags.chars().enumerate() {
+                let short_flag_char = short_flag.1;
+                let orig = arg_span;
+                let short_flag_span = Span::new(
+                    orig.start + 1 + short_flag.0,
+                    orig.start + 1 + short_flag.0 + 1,
+                );
+                if let Some(flag) = sig.get_short_flag(short_flag_char) {
+                    // If we require an arg and are in a batch of short flags, error
+                    if !found_short_flags.is_empty() && flag.arg.is_some() {
+                        working_set.error(ParseError::ShortFlagBatchCantTakeArg(short_flag_span));
+                        break;
+                    }
+                    found_short_flags.push(flag);
+                } else {
+                    unmatched_short_flags.push(short_flag_span);
                 }
-                found_short_flags.push(flag);
-            } else {
-                unmatched_short_flags.push(short_flag_span);
             }
-        }
 
-        if found_short_flags.is_empty() {
-            let arg_contents = working_set.get_span_contents(arg_span);
+            if found_short_flags.is_empty() {
+                let arg_contents = working_set.get_span_contents(arg_span);
 
-            // check to see if we have a negative number
-            if let Some(positional) = sig.get_positional(positional_idx) {
-                if positional.shape == SyntaxShape::Int || positional.shape == SyntaxShape::Number {
-                    if String::from_utf8_lossy(arg_contents).parse::<f64>().is_ok() {
-                        return None;
+                // check to see if we have a negative number
+                if let Some(positional) = sig.get_positional(positional_idx) {
+                    if positional.shape == SyntaxShape::Int
+                        || positional.shape == SyntaxShape::Number
+                    {
+                        if String::from_utf8_lossy(arg_contents).parse::<f64>().is_ok() {
+                            return None;
+                        } else if let Some(first) = unmatched_short_flags.first() {
+                            let contents = working_set.get_span_contents(*first);
+                            working_set.error(ParseError::UnknownFlag(
+                                sig.name.clone(),
+                                format!("-{}", String::from_utf8_lossy(contents)),
+                                *first,
+                                sig.clone().formatted_flags(),
+                            ));
+                        }
                     } else if let Some(first) = unmatched_short_flags.first() {
                         let contents = working_set.get_span_contents(*first);
                         working_set.error(ParseError::UnknownFlag(
@@ -501,29 +513,24 @@ fn parse_short_flags(
                         sig.clone().formatted_flags(),
                     ));
                 }
-            } else if let Some(first) = unmatched_short_flags.first() {
-                let contents = working_set.get_span_contents(*first);
-                working_set.error(ParseError::UnknownFlag(
-                    sig.name.clone(),
-                    format!("-{}", String::from_utf8_lossy(contents)),
-                    *first,
-                    sig.clone().formatted_flags(),
-                ));
+            } else if !unmatched_short_flags.is_empty() {
+                if let Some(first) = unmatched_short_flags.first() {
+                    let contents = working_set.get_span_contents(*first);
+                    working_set.error(ParseError::UnknownFlag(
+                        sig.name.clone(),
+                        format!("-{}", String::from_utf8_lossy(contents)),
+                        *first,
+                        sig.clone().formatted_flags(),
+                    ));
+                }
             }
-        } else if !unmatched_short_flags.is_empty() {
-            if let Some(first) = unmatched_short_flags.first() {
-                let contents = working_set.get_span_contents(*first);
-                working_set.error(ParseError::UnknownFlag(
-                    sig.name.clone(),
-                    format!("-{}", String::from_utf8_lossy(contents)),
-                    *first,
-                    sig.clone().formatted_flags(),
-                ));
-            }
-        }
 
-        Some(found_short_flags)
+            Some(found_short_flags)
+        } else {
+            None
+        }
     } else {
+        working_set.error(ParseError::NonUtf8(arg_span));
         None
     }
 }
