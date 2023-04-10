@@ -117,16 +117,19 @@ def main [
             log info $"Running tests in ($module.name)"
             $module.tests | each {|test|
                 log debug $"Running test ($test.name)"
+
                 let context_setup = if $test.setup {
                     $"use `($test.file)` setup; let context = \(setup\)"
                 } else {
                     "let context = {}"
                 }
+
                 let context_teardown = if $test.teardown {
                     $"use `($test.file)` teardown; $context | teardown"
                 } else {
                     ""
                 }
+
                 let nu_script = $'
                     ($context_setup)
                     use `($test.file)` ($test.name)
@@ -143,6 +146,7 @@ def main [
                     }
                 '
                 nu -c $nu_script
+
                 let result = match $env.LAST_EXIT_CODE {
                     0 => "pass",
                     2 => "skip",
