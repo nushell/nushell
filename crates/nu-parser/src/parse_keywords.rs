@@ -1596,9 +1596,8 @@ fn parse_module_file(
         return None;
     };
 
-    let span_start = working_set.next_span_start();
-    working_set.add_file(path.to_string_lossy().to_string(), &contents);
-    let span_end = working_set.next_span_start();
+    let file_id = working_set.add_file(path.to_string_lossy().to_string(), &contents);
+    let new_span = working_set.get_span_for_file(file_id);
 
     // Change the currently parsed directory
     let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
@@ -1615,11 +1614,8 @@ fn parse_module_file(
     working_set.parsed_module_files.push(path);
 
     // Parse the module
-    let (block, module, module_comments) = parse_module_block(
-        working_set,
-        Span::new(span_start, span_end),
-        module_name.as_bytes(),
-    );
+    let (block, module, module_comments) =
+        parse_module_block(working_set, new_span, module_name.as_bytes());
 
     // Remove the file from the stack of parsed module files
     working_set.parsed_module_files.pop();
