@@ -2843,20 +2843,11 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     };
 
     // Extracting the required arguments from the call and keeping them together in a tuple
-    // The ? operator is not used because the error has to be kept to be printed in the shell
-    // For that reason the values are kept in a result that will be passed at the end of this call
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let val = match eval_constant(working_set, expr) {
-                Ok(val) => val,
-                Err(err) => return Err(err),
-            };
-
-            let filename = match value_as_string(val, expr.span) {
-                Ok(str) => str,
-                Err(err) => return Err(err),
-            };
+            let val = eval_constant(working_set, expr)?;
+            let filename = value_as_string(val, expr.span)?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
                 return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
