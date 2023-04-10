@@ -232,5 +232,9 @@ export def "check pr" [
 # - `toolkit fmt --check --verbose` on `git commit`
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
 export def set-git-hooks [] {
+    if $nu.os-info.name == windows {
+        return (print "These setup hook isn't available on Windows. Sorry!")
+    }
+
     git config --local core.hooksPath .githooks
 }
