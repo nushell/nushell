@@ -32,7 +32,7 @@ use log::trace;
 use std::{
     collections::{HashMap, HashSet},
     num::ParseIntError,
-    str
+    str,
 };
 
 #[cfg(feature = "plugin")]
