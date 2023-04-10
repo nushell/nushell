@@ -106,7 +106,7 @@ winreg = "0.11.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
-umask = "2.0.0"
+umask = "2.1.0"
 users = "0.11.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
