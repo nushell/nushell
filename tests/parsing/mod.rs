@@ -227,3 +227,14 @@ fn parse_export_env_missing_block() {
 
     assert!(actual.err.contains("missing block"));
 }
+
+#[test]
+fn call_command_with_non_ascii_argument() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            def nu-arg [--umlaut(-ö): int] {}
+            nu-arg -ö 42
+        "#);
+
+    assert_eq!(actual.err.len(), 0);
+}
