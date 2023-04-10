@@ -67,6 +67,7 @@ pub fn load_standard_library(
         let content = include_str!("../lib/mod.nu");
 
         // these modules are loaded in the order they appear in this list
+        #[rustfmt::skip]
         let submodules = vec![
             // helper modules that could be used in other parts of the library
             ("log", include_str!("../lib/log.nu")),
