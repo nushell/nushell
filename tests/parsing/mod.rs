@@ -237,3 +237,14 @@ fn numberlike_command_name() {
 
     assert!(actual.err.contains("backticks"));
 }
+
+#[test]
+fn call_command_with_non_ascii_argument() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            def nu-arg [--umlaut(-ö): int] {}
+            nu-arg -ö 42
+        "#);
+
+    assert_eq!(actual.err.len(), 0);
+}
