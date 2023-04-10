@@ -19,7 +19,6 @@ pub fn create_default_context() -> EngineState {
             Alias,
             Break,
             Collect,
-            Commandline,
             Const,
             Continue,
             Def,

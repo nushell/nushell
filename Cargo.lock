@@ -2755,6 +2755,7 @@ dependencies = [
  "rstest 0.17.0",
  "sysinfo 0.28.2",
  "thiserror",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -2772,7 +2773,6 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "shadow-rs",
- "unicode-segmentation",
 ]
 
 [[package]]
@@ -2861,7 +2861,6 @@ dependencies = [
  "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
- "reedline",
  "regex",
  "roxmltree",
  "rstest 0.17.0",

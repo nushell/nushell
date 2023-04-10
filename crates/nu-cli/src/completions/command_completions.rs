@@ -299,7 +299,7 @@ mod command_completions_tests {
 
             let delta = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
-                working_set.add_file("child.nu".into(), input);
+                let _ = working_set.add_file("child.nu".into(), input);
                 working_set.render()
             };
 

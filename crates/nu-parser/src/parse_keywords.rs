@@ -2017,9 +2017,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 };
 
                 if let Ok(contents) = std::fs::read(&module_path) {
-                    let span_start = working_set.next_span_start();
-                    working_set.add_file(module_filename, &contents);
-                    let span_end = working_set.next_span_start();
+                    let file_id = working_set.add_file(module_filename, &contents);
+                    let new_span = working_set.get_span_for_file(file_id);
 
                     // Change the currently parsed directory
                     let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
@@ -2036,11 +2035,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                     working_set.parsed_module_files.push(module_path);
 
                     // Parse the module
-                    let (block, module, module_comments) = parse_module_block(
-                        working_set,
-                        Span::new(span_start, span_end),
-                        module_name.as_bytes(),
-                    );
+                    let (block, module, module_comments) =
+                        parse_module_block(working_set, new_span, module_name.as_bytes());
 
                     // Remove the file from the stack of parsed module files
                     working_set.parsed_module_files.pop();
@@ -2543,9 +2539,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                         };
 
                         if let Ok(contents) = std::fs::read(&module_path) {
-                            let span_start = working_set.next_span_start();
-                            working_set.add_file(module_filename, &contents);
-                            let span_end = working_set.next_span_start();
+                            let file_id = working_set.add_file(module_filename, &contents);
+                            let new_span = working_set.get_span_for_file(file_id);
 
                             // Change currently parsed directory
                             let prev_currently_parsed_cwd =
@@ -2559,11 +2554,8 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                                     working_set.currently_parsed_cwd.clone()
                                 };
 
-                            let (block, module, module_comments) = parse_module_block(
-                                working_set,
-                                Span::new(span_start, span_end),
-                                overlay_name.as_bytes(),
-                            );
+                            let (block, module, module_comments) =
+                                parse_module_block(working_set, new_span, overlay_name.as_bytes());
 
                             // Restore the currently parsed directory back
                             working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
@@ -3146,20 +3138,11 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     };
 
     // Extracting the required arguments from the call and keeping them together in a tuple
-    // The ? operator is not used because the error has to be kept to be printed in the shell
-    // For that reason the values are kept in a result that will be passed at the end of this call
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let val = match eval_constant(working_set, expr) {
-                Ok(val) => val,
-                Err(err) => return Err(err),
-            };
-
-            let filename = match value_as_string(val, expr.span) {
-                Ok(str) => str,
-                Err(err) => return Err(err),
-            };
+            let val = eval_constant(working_set, expr)?;
+            let filename = value_as_string(val, expr.span)?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
                 return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
