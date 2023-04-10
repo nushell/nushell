@@ -40,11 +40,11 @@ def throw-error [error: record] {
     }
 }
 
-# Test executor
+# Run Nushell tests
 #
 # It executes exported "test_*" commands in "test_*" modules
 def main [
-    --path: path, # Path to look for tests. Default: directory of this file.
+    --path: path, # Path to look for tests. Default: current directory.
     --module: string, # Module to run tests. Default: all test modules found.
     --command: string, # Test command to run. Default: all test command found in the files.
     --list, # list the selected tests without running them.
@@ -54,17 +54,15 @@ def main [
         extension: nu
     } | path join))
 
-    if not ($path | is-empty) {
-        if not ($path | path exists) {
-            throw-error {
-                msg: "directory_not_found"
-                label: "no such directory"
-                span: (metadata $path | get span)
-            }
+    let path = ($path | default $env.PWD)
+
+    if not ($path | path exists) {
+        throw-error {
+            msg: "directory_not_found"
+            label: "no such directory"
+            span: (metadata $path | get span)
         }
     }
-
-    let path = ($path | default $env.FILE_PWD)
 
     if not ($module | is-empty) {
         try { ls ($path | path join $module_search_pattern) | null } catch {

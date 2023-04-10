@@ -116,7 +116,7 @@ jobs:
         run: cargo install --path . --locked --no-default-features
 
       - name: Standard library tests
-        run: nu crates/nu-std/tests/run.nu
+        run: nu -c 'use std run-tests; run-tests --path crates/nu-std/tests'
 
       - name: Setup Python
         uses: actions/setup-python@v4
