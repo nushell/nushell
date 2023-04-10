@@ -1,4 +1,6 @@
-use std *
+use std "log debug"
+use std "log info"
+use std "log warning"
 
 # show a test record in a pretty way
 #
