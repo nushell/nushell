@@ -52,4 +52,4 @@ This is probably the form of import you'll want to add to your `env.nu` for inte
 
 ## :pencil2: contribute to the standard library
 You're invited to contribute to the standard library! 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for details
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
