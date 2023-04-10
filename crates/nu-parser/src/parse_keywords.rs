@@ -1945,145 +1945,49 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let cwd = working_set.get_cwd();
-
-    // TODO: Add checking for importing too long import patterns, e.g.:
-    // > use spam foo non existent names here do not throw error
     let (import_pattern, module) = if let Some(module_id) = import_pattern.head.id {
-        (import_pattern, working_set.get_module(module_id).clone())
+        let module = working_set.get_module(module_id).clone();
+        (
+            ImportPattern {
+                head: ImportPatternHead {
+                    name: module.name.clone(),
+                    id: Some(module_id),
+                    span: import_pattern.head.span,
+                },
+                members: import_pattern.members,
+                hidden: HashSet::new(),
+            },
+            module,
+        )
+    } else if let Some(module_id) = parse_module_file_or_dir(
+        working_set,
+        &import_pattern.head.name,
+        import_pattern.head.span,
+    ) {
+        let module = working_set.get_module(module_id).clone();
+        (
+            ImportPattern {
+                head: ImportPatternHead {
+                    name: module.name.clone(),
+                    id: Some(module_id),
+                    span: import_pattern.head.span,
+                },
+                members: import_pattern.members,
+                hidden: HashSet::new(),
+            },
+            module,
+        )
     } else {
-        // It could be a file
-        // TODO: Do not close over when loading module from file?
-
-        let starting_error_count = working_set.parse_errors.len();
-        let (module_filename, err) =
-            unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
-        if let Some(err) = err {
-            working_set.error(err);
-        }
-
-        if starting_error_count == working_set.parse_errors.len() {
-            if let Some(module_path) =
-                find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_VAR)
-            {
-                if let Some(i) = working_set
-                    .parsed_module_files
-                    .iter()
-                    .rposition(|p| p == &module_path)
-                {
-                    let mut files: Vec<String> = working_set
-                        .parsed_module_files
-                        .split_off(i)
-                        .iter()
-                        .map(|p| p.to_string_lossy().to_string())
-                        .collect();
-
-                    files.push(module_path.to_string_lossy().to_string());
-
-                    let msg = files.join("\nuses ");
-
-                    working_set.error(ParseError::CyclicalModuleImport(
-                        msg,
-                        import_pattern.head.span,
-                    ));
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        vec![],
-                    );
-                }
-
-                let module_name = if let Some(stem) = module_path.file_stem() {
-                    stem.to_string_lossy().to_string()
-                } else {
-                    working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        vec![],
-                    );
-                };
-
-                if let Ok(contents) = std::fs::read(&module_path) {
-                    let file_id = working_set.add_file(module_filename, &contents);
-                    let new_span = working_set.get_span_for_file(file_id);
-
-                    // Change the currently parsed directory
-                    let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
-                        let prev = working_set.currently_parsed_cwd.clone();
-
-                        working_set.currently_parsed_cwd = Some(parent.into());
-
-                        prev
-                    } else {
-                        working_set.currently_parsed_cwd.clone()
-                    };
-
-                    // Add the file to the stack of parsed module files
-                    working_set.parsed_module_files.push(module_path);
-
-                    // Parse the module
-                    let (block, module, module_comments) =
-                        parse_module_block(working_set, new_span, module_name.as_bytes());
-
-                    // Remove the file from the stack of parsed module files
-                    working_set.parsed_module_files.pop();
-
-                    // Restore the currently parsed directory back
-                    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
-
-                    let _ = working_set.add_block(block);
-                    let module_id =
-                        working_set.add_module(&module_name, module.clone(), module_comments);
-
-                    (
-                        ImportPattern {
-                            head: ImportPatternHead {
-                                name: module_name.into(),
-                                id: Some(module_id),
-                                span: import_pattern.head.span,
-                            },
-                            members: import_pattern.members,
-                            hidden: HashSet::new(),
-                        },
-                        module,
-                    )
-                } else {
-                    working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        vec![],
-                    );
-                }
-            } else {
-                working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: span(spans),
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]),
-                    vec![],
-                );
-            }
-        } else {
-            working_set.error(ParseError::NonUtf8(import_pattern.head.span));
-            return (garbage_pipeline(spans), vec![]);
-        }
+        working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
+        return (
+            Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: call_span,
+                ty: Type::Any,
+                custom_completion: None,
+            }]),
+            vec![],
+        );
     };
 
     let (decls_to_use, errors) =
@@ -2101,7 +2005,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
     // Extend the current scope with the module's exportables
     working_set.use_decls(decls_to_use);
 
-    // Create a new Use command call to pass the new import pattern
+    // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
         span: span(args_spans),

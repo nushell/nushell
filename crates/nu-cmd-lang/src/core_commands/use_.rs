@@ -78,7 +78,11 @@ impl Command for Use {
                     caller_stack,
                     get_dirs_var_from_call(call),
                 )? {
+                    // if path.is_dir() {
+                    //     Some(path)
+                    // } else {
                     path.parent().map(|p| p.to_path_buf()).or(None)
+                    // }
                 } else {
                     None
                 };
