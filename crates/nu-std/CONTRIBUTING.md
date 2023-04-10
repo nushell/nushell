@@ -52,9 +52,6 @@ Make your change in a local clone of that repo and submit a PR to the release no
 ## Developing
 (All paths below shown relative to the root folder of the git repository containing the standard library.)
 ### Setup
-To work on the standard library, you won't necessarily need to compile or debug the interpreter itself, 
-so you might not need to install the Rust toolchain. 
-But if you want to do that, see [nushell CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md).
 
 
 0. Install the Rust toolchain and Nushell build tools.  See [nushell CONTRIBUTING](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md) for details.
