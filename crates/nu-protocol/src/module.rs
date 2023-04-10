@@ -1,4 +1,6 @@
-use crate::{BlockId, DeclId, ModuleId, Span};
+use crate::{
+    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
+};
 
 use indexmap::IndexMap;
 
@@ -66,6 +68,92 @@ impl Module {
         }
 
         self.decls.contains_key(name)
+    }
+
+    pub fn resolve_import_pattern(
+        &self,
+        working_set: &StateWorkingSet,
+        members: &[ImportPatternMember],
+    ) -> (Vec<(Vec<u8>, DeclId)>, Vec<ParseError>) {
+        let (head, rest) = if let Some((head, rest)) = members.split_first() {
+            (head, rest)
+        } else {
+            let mut results = vec![];
+            let mut errors = vec![];
+
+            for (_, id) in &self.submodules {
+                let submodule = working_set.get_module(*id);
+                let (sub_results, sub_errors) = submodule.resolve_import_pattern(working_set, &[]);
+                errors.extend(sub_errors);
+
+                for (sub_name, sub_decl_id) in sub_results {
+                    let mut new_name = self.name.clone();
+                    new_name.push(b' ');
+                    new_name.extend(sub_name);
+
+                    results.push((new_name, sub_decl_id));
+                }
+            }
+
+            results.extend(self.decls_with_head(&self.name));
+
+            return (results, errors);
+        };
+
+        match head {
+            ImportPatternMember::Name { name, span } => {
+                if name == b"main" {
+                    if let Some(main_decl_id) = self.main {
+                        (vec![(self.name.clone(), main_decl_id)], vec![])
+                    } else {
+                        (vec![], vec![ParseError::ExportNotFound(*span)])
+                    }
+                } else if let Some(decl_id) = self.decls.get(name) {
+                    (vec![(name.clone(), *decl_id)], vec![])
+                } else if let Some(submodule_id) = self.submodules.get(name) {
+                    let submodule = working_set.get_module(*submodule_id);
+                    submodule.resolve_import_pattern(working_set, rest)
+                } else {
+                    (vec![], vec![ParseError::ExportNotFound(*span)])
+                }
+            }
+            ImportPatternMember::Glob { .. } => {
+                let mut results = vec![];
+                let mut errors = vec![];
+
+                for (_, id) in &self.submodules {
+                    let submodule = working_set.get_module(*id);
+                    let (sub_results, sub_errors) =
+                        submodule.resolve_import_pattern(working_set, &[]);
+                    errors.extend(sub_errors);
+                    results.extend(sub_results);
+                }
+
+                results.extend(self.decls());
+
+                (results, errors)
+            }
+            ImportPatternMember::List { names } => {
+                let mut results = vec![];
+                let mut errors = vec![];
+
+                for (name, span) in names {
+                    if name == b"main" {
+                        if let Some(main_decl_id) = self.main {
+                            results.push((self.name.clone(), main_decl_id));
+                        } else {
+                            errors.push(ParseError::ExportNotFound(*span));
+                        }
+                    } else if let Some(decl_id) = self.decls.get(name) {
+                        results.push((name.clone(), *decl_id));
+                    } else {
+                        errors.push(ParseError::ExportNotFound(*span));
+                    }
+                }
+
+                (results, errors)
+            }
+        }
     }
 
     pub fn decl_name_with_head(&self, name: &[u8], head: &[u8]) -> Option<Vec<u8>> {

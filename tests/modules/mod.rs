@@ -581,3 +581,33 @@ fn export_module_as_file() {
 
     assert_eq!(actual.out, "foo");
 }
+
+#[test]
+fn deep_import_patterns() {
+    let module_decl = r#"
+        module spam {
+            export module eggs {
+                export module beans {
+                    export def foo [] { 'foo' };
+                    export def bar [] { 'bar' }
+                };
+            };
+        }
+    "#;
+
+    let inp = &[module_decl, "use spam", "spam eggs beans foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[module_decl, "use spam eggs", "eggs beans foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[module_decl, "use spam eggs beans", "beans foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[module_decl, "use spam eggs beans foo", "foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+}

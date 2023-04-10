@@ -19,6 +19,7 @@ impl Command for ExportModule {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("module", SyntaxShape::String, "module name or module path")
             .optional(
                 "block",
@@ -52,11 +53,11 @@ impl Command for ExportModule {
             description: "Define a custom command in a submodule of a module and call it",
             example: r#"module spam {
         export module eggs {
-            export def foo [] { "foo" } }
+            export def foo [] { "foo" }
         }
-        use spam eggs
-        eggs foo
-    }"#,
+    }
+    use spam eggs
+    eggs foo"#,
             result: Some(Value::test_string("foo")),
         }]
     }

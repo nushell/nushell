@@ -380,7 +380,7 @@ pub enum ParseError {
 
     #[error("Wrong import pattern structure.")]
     #[diagnostic(code(nu::parser::missing_import_pattern))]
-    WrongImportPattern(#[label = "invalid import pattern structure"] Span),
+    WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]
     #[diagnostic(code(nu::parser::export_not_found))]
@@ -496,7 +496,7 @@ impl ParseError {
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
             ParseError::MissingImportPattern(s) => *s,
-            ParseError::WrongImportPattern(s) => *s,
+            ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,

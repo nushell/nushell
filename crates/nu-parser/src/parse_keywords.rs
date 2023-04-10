@@ -1747,7 +1747,7 @@ pub fn parse_module(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         }
         None => {
             working_set.error(ParseError::UnknownState(
-                "internal error: 'use' declaration not found".into(),
+                "internal error: 'module' or 'export module' declaration not found".into(),
                 span(spans),
             ));
             return garbage_pipeline(spans);
@@ -1810,7 +1810,7 @@ pub fn parse_module(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
     let module_name = module_name_or_path;
 
-    let block_span = spans[2];
+    let block_span = spans[split_id + 1];
     let block_bytes = working_set.get_span_contents(block_span);
     let mut start = block_span.start;
     let mut end = block_span.end;
@@ -1850,7 +1850,7 @@ pub fn parse_module(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         .expect("internal error: missing module command");
 
     let call = Box::new(Call {
-        head: spans[0],
+        head: span(&spans[..split_id]),
         decl_id: module_decl_id,
         arguments: vec![
             Argument::Positional(module_name_or_path_expr),
@@ -2086,50 +2086,9 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         }
     };
 
-    let decls_to_use = if import_pattern.members.is_empty() {
-        module.decls_with_head(&import_pattern.head.name)
-    } else {
-        match &import_pattern.members[0] {
-            ImportPatternMember::Glob { .. } => module.decls(),
-            ImportPatternMember::Name { name, span } => {
-                let mut decl_output = vec![];
-
-                if name == b"main" {
-                    if let Some(id) = &module.main {
-                        decl_output.push((import_pattern.head.name.clone(), *id));
-                    } else {
-                        working_set.error(ParseError::ExportNotFound(*span));
-                    }
-                } else if let Some(id) = module.get_decl_id(name) {
-                    decl_output.push((name.clone(), id));
-                } else {
-                    working_set.error(ParseError::ExportNotFound(*span));
-                }
-
-                decl_output
-            }
-            ImportPatternMember::List { names } => {
-                let mut decl_output = vec![];
-
-                for (name, span) in names {
-                    if name == b"main" {
-                        if let Some(id) = &module.main {
-                            decl_output.push((import_pattern.head.name.clone(), *id));
-                        } else {
-                            working_set.error(ParseError::ExportNotFound(*span));
-                        }
-                    } else if let Some(id) = module.get_decl_id(name) {
-                        decl_output.push((name.clone(), id));
-                    } else {
-                        working_set.error(ParseError::ExportNotFound(*span));
-                        break;
-                    }
-                }
-
-                decl_output
-            }
-        }
-    };
+    let (decls_to_use, errors) =
+        module.resolve_import_pattern(working_set, &import_pattern.members);
+    working_set.parse_errors.extend(errors);
 
     let exportables = decls_to_use
         .iter()

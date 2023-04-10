@@ -19,6 +19,7 @@ impl Command for Module {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("module", SyntaxShape::String, "module name or module path")
             .optional(
                 "block",
