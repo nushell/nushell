@@ -236,5 +236,11 @@ export def set-git-hooks [] {
         return (print "These setup hook isn't available on Windows. Sorry!")
     }
 
-    git config --local core.hooksPath .githooks
+    print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
+    if (input) == "y" {
+        print $"running ('toolkit set-git-hooks' | pretty-print-command)"
+        git config --local core.hooksPath .githooks
+    } else {
+        print $"aborting ('toolkit set-git-hooks' | pretty-print-command)"
+    }
 }
