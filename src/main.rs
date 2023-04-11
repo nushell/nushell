@@ -159,13 +159,6 @@ fn main() -> Result<()> {
     } else if let Some(ide_complete) = parsed_nu_cli_args.ide_complete {
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
-        engine_state.add_env_var(
-            "NU_LIB_DIRS".into(),
-            Value::List {
-                vals: vec![Value::test_string("/Users/jt/Source/my_nu")],
-                span: Span::test_data(),
-            },
-        );
 
         ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 
