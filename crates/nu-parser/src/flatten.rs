@@ -12,6 +12,7 @@ pub enum FlatShape {
     Binary,
     Block,
     Bool,
+    Closure,
     Custom(DeclId),
     DateTime,
     Directory,
@@ -50,6 +51,7 @@ impl Display for FlatShape {
             FlatShape::Binary => write!(f, "shape_binary"),
             FlatShape::Block => write!(f, "shape_block"),
             FlatShape::Bool => write!(f, "shape_bool"),
+            FlatShape::Closure => write!(f, "shape_closure"),
             FlatShape::Custom(_) => write!(f, "shape_custom"),
             FlatShape::DateTime => write!(f, "shape_datetime"),
             FlatShape::Directory => write!(f, "shape_directory"),
@@ -85,6 +87,7 @@ impl Display for FlatShape {
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
     let mut output = vec![];
+
     for pipeline in &block.pipelines {
         output.extend(flatten_pipeline(working_set, pipeline));
     }
@@ -115,10 +118,41 @@ pub fn flatten_expression(
             output.extend(flatten_expression(working_set, inner_expr));
             output
         }
-        Expr::Block(block_id)
-        | Expr::Closure(block_id)
-        | Expr::RowCondition(block_id)
-        | Expr::Subexpression(block_id) => {
+        Expr::Closure(block_id) => {
+            let outer_span = expr.span;
+
+            let mut output = vec![];
+
+            let block = working_set.get_block(*block_id);
+            let flattened = flatten_block(working_set, block);
+
+            if let Some(first) = flattened.first() {
+                if first.0.start > outer_span.start {
+                    output.push((
+                        Span::new(outer_span.start, first.0.start),
+                        FlatShape::Closure,
+                    ));
+                }
+            }
+
+            let last = if let Some(last) = flattened.last() {
+                if last.0.end < outer_span.end {
+                    Some((Span::new(last.0.end, outer_span.end), FlatShape::Closure))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            output.extend(flattened);
+            if let Some(last) = last {
+                output.push(last)
+            }
+
+            output
+        }
+        Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let outer_span = expr.span;
 
             let mut output = vec![];
@@ -149,14 +183,23 @@ pub fn flatten_expression(
             output
         }
         Expr::Call(call) => {
-            let mut output = vec![(call.head, FlatShape::InternalCall(call.decl_id))];
+            let mut output = vec![];
+
+            if call.head.end != 0 {
+                // Make sure we don't push synthetic calls
+                output.push((call.head, FlatShape::InternalCall(call.decl_id)));
+            }
 
             let mut args = vec![];
             for positional in call.positional_iter() {
-                args.extend(flatten_expression(working_set, positional));
+                let flattened = flatten_expression(working_set, positional);
+                args.extend(flattened);
             }
             for named in call.named_iter() {
-                args.push((named.0.span, FlatShape::Flag));
+                if named.0.span.end != 0 {
+                    // Ignore synthetic flags
+                    args.push((named.0.span, FlatShape::Flag));
+                }
                 if let Some(expr) = &named.2 {
                     args.extend(flatten_expression(working_set, expr));
                 }

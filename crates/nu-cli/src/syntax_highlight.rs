@@ -111,6 +111,9 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Block => {
                     add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
+                FlatShape::Closure => {
+                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                }
 
                 FlatShape::Filepath => add_colored_token(&shape.1, next_token),
                 FlatShape::Directory => add_colored_token(&shape.1, next_token),

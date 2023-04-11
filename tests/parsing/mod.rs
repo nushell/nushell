@@ -229,16 +229,6 @@ fn parse_export_env_missing_block() {
 }
 
 #[test]
-fn numberlike_command_name() {
-    let actual = nu!(cwd: "tests/parsing/samples",
-        r#"
-            def 7zup [] {}
-        "#);
-
-    assert!(actual.err.contains("backticks"));
-}
-
-#[test]
 fn call_command_with_non_ascii_argument() {
     let actual = nu!(cwd: "tests/parsing/samples",
         r#"
