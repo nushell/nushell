@@ -233,7 +233,7 @@ export def "check pr" [
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
 export def set-git-hooks [] {
     if $nu.os-info.name == windows {
-        return (print "These setup hook isn't available on Windows. Sorry!")
+        return (print "This git hook isn't available on Windows. Sorry!")
     }
 
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
