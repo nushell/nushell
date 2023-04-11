@@ -236,7 +236,7 @@ export def run-tests [
         ls ($path | path join $module_search_pattern)
         | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | upsert commands {|module|
-            nu -c $'use `($module.file)` *; $nu.scope.commands | select name module_name | to nuon'
+            ^$nu.current-exe -c $'use `($module.file)` *; $nu.scope.commands | select name module_name | to nuon'
             | from nuon
             | where module_name == $module.name
             | get name
@@ -301,7 +301,7 @@ export def run-tests [
                         }
                     }
                 '
-                nu -c $nu_script
+                ^$nu.current-exe -c $nu_script
 
                 let result = match $env.LAST_EXIT_CODE {
                     0 => "pass",
