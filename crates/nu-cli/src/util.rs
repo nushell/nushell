@@ -1,5 +1,4 @@
 use nu_command::hook::eval_hook;
-use nu_command::util::{report_error, report_error_new};
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
@@ -7,6 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     print_if_stream, PipelineData, ShellError, Span, Value,
 };
+use nu_protocol::{report_error, report_error_new};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
@@ -113,7 +113,8 @@ fn gather_env_vars(
                 span,
             }) = parts.get(0)
             {
-                let bytes = engine_state.get_span_contents(span);
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let bytes = working_set.get_span_contents(*span);
 
                 if bytes.len() < 2 {
                     report_capture_error(
@@ -125,9 +126,12 @@ fn gather_env_vars(
                     continue;
                 }
 
-                let (bytes, parse_error) = unescape_unquote_string(bytes, *span);
+                let (bytes, err) = unescape_unquote_string(bytes, *span);
+                if let Some(err) = err {
+                    working_set.error(err);
+                }
 
-                if parse_error.is_some() {
+                if working_set.parse_errors.first().is_some() {
                     report_capture_error(
                         engine_state,
                         &String::from_utf8_lossy(contents),
@@ -153,7 +157,8 @@ fn gather_env_vars(
                 span,
             }) = parts.get(2)
             {
-                let bytes = engine_state.get_span_contents(span);
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let bytes = working_set.get_span_contents(*span);
 
                 if bytes.len() < 2 {
                     report_capture_error(
@@ -165,9 +170,12 @@ fn gather_env_vars(
                     continue;
                 }
 
-                let (bytes, parse_error) = unescape_unquote_string(bytes, *span);
+                let (bytes, err) = unescape_unquote_string(bytes, *span);
+                if let Some(err) = err {
+                    working_set.error(err);
+                }
 
-                if parse_error.is_some() {
+                if working_set.parse_errors.first().is_some() {
                     report_capture_error(
                         engine_state,
                         &String::from_utf8_lossy(contents),
@@ -209,16 +217,15 @@ pub fn eval_source(
 
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
-        let (output, err) = parse(
+        let output = parse(
             &mut working_set,
             Some(fname), // format!("entry #{}", entry_num)
             source,
             false,
-            &[],
         );
-        if let Some(err) = err {
+        if let Some(err) = working_set.parse_errors.first() {
             set_last_exit_code(stack, 1);
-            report_error(&working_set, &err);
+            report_error(&working_set, err);
             return false;
         }
 

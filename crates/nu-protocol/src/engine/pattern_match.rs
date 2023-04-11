@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, MatchPattern, Pattern, RangeInclusion},
-    Unit, Value, VarId,
+    Span, Unit, Value, VarId,
 };
 
 pub trait Matcher {
@@ -18,6 +18,8 @@ impl Matcher for Pattern {
         match self {
             Pattern::Garbage => false,
             Pattern::IgnoreValue => true,
+            Pattern::IgnoreRest => false, // `..` and `..$foo` only match in specific contexts
+            Pattern::Rest(_) => false,    // so we return false here and handle them elsewhere
             Pattern::Record(field_patterns) => match value {
                 Value::Record { cols, vals, .. } => {
                     'top: for field_pattern in field_patterns {
@@ -46,17 +48,47 @@ impl Matcher for Pattern {
             Pattern::List(items) => match &value {
                 Value::List { vals, .. } => {
                     if items.len() > vals.len() {
-                        // We need more items in our pattern than are available in the Value
-                        return false;
+                        // The only we we allow this is to have a rest pattern in the n+1 position
+                        if items.len() == (vals.len() + 1) {
+                            match &items[vals.len()].pattern {
+                                Pattern::IgnoreRest => {}
+                                Pattern::Rest(var_id) => {
+                                    matches.push((*var_id, Value::nothing(items[vals.len()].span)))
+                                }
+                                _ => {
+                                    // There is a pattern which can't skip missing values, so we fail
+                                    return false;
+                                }
+                            }
+                        } else {
+                            // There are patterns that can't be matches, so we fail
+                            return false;
+                        }
                     }
-
                     for (val_idx, val) in vals.iter().enumerate() {
                         // We require that the pattern and the value have the same number of items, or the pattern does not match
                         // The only exception is if the pattern includes a `..` pattern
-
                         if let Some(pattern) = items.get(val_idx) {
-                            if !pattern.match_value(val, matches) {
-                                return false;
+                            match &pattern.pattern {
+                                Pattern::IgnoreRest => {
+                                    break;
+                                }
+                                Pattern::Rest(var_id) => {
+                                    let rest_vals = vals[val_idx..].to_vec();
+                                    matches.push((
+                                        *var_id,
+                                        Value::List {
+                                            vals: rest_vals,
+                                            span: pattern.span,
+                                        },
+                                    ));
+                                    break;
+                                }
+                                _ => {
+                                    if !pattern.match_value(val, matches) {
+                                        return false;
+                                    }
+                                }
                             }
                         } else {
                             return false;
@@ -216,6 +248,54 @@ impl Matcher for Pattern {
                     }
                     _ => false,
                 }
+            }
+            Pattern::Or(patterns) => {
+                let mut result = false;
+
+                for pattern in patterns {
+                    let mut local_matches = vec![];
+                    if !result {
+                        if pattern.match_value(value, &mut local_matches) {
+                            // TODO: do we need to replace previous variables that defaulted to nothing?
+                            matches.append(&mut local_matches);
+                            result = true;
+                        } else {
+                            // Create variables that don't match and assign them to null
+                            let vars = pattern.variables();
+                            for var in &vars {
+                                let mut found = false;
+                                for match_ in matches.iter() {
+                                    if match_.0 == *var {
+                                        found = true;
+                                    }
+                                }
+
+                                if !found {
+                                    // FIXME: don't use Span::unknown()
+                                    matches.push((*var, Value::nothing(Span::unknown())))
+                                }
+                            }
+                        }
+                    } else {
+                        // We already have a match, so ignore the remaining match variables
+                        // And assign them to null
+                        let vars = pattern.variables();
+                        for var in &vars {
+                            let mut found = false;
+                            for match_ in matches.iter() {
+                                if match_.0 == *var {
+                                    found = true;
+                                }
+                            }
+
+                            if !found {
+                                // FIXME: don't use Span::unknown()
+                                matches.push((*var, Value::nothing(Span::unknown())))
+                            }
+                        }
+                    }
+                }
+                result
             }
         }
     }

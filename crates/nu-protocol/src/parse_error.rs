@@ -1,5 +1,5 @@
+use crate::{Span, Type};
 use miette::Diagnostic;
-use nu_protocol::{Span, Type};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic)]
@@ -38,13 +38,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch))]
     Expected(String, #[label("expected {0}")] Span),
 
-    #[error("Missing || inside closure")]
-    #[diagnostic(
-        code(nu::parser::closure_missing_pipe),
-        help("Try add || to the beginning of closure")
-    )]
-    ClosureMissingPipe(#[label("Parsing as a closure, but || is missing")] Span),
-
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
@@ -74,16 +67,23 @@ pub enum ParseError {
     )]
     ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] Span),
 
-    #[error("Types mismatched for operation.")]
-    #[diagnostic(
-        code(nu::parser::unsupported_operation),
-        help("Change {2} or {4} to be the right types and try again.")
-    )]
-    UnsupportedOperation(
-        #[label = "doesn't support these values."] Span,
-        #[label("{2}")] Span,
+    #[error("{0} is not supported on values of type {3}")]
+    #[diagnostic(code(nu::parser::unsupported_operation))]
+    UnsupportedOperationLHS(
+        String,
+        #[label = "doesn't support this value"] Span,
+        #[label("{3}")] Span,
         Type,
-        #[label("{4}")] Span,
+    ),
+
+    #[error("{0} is not supported between {3} and {5}.")]
+    #[diagnostic(code(nu::parser::unsupported_operation))]
+    UnsupportedOperationRHS(
+        String,
+        #[label = "doesn't support these values"] Span,
+        #[label("{3}")] Span,
+        Type,
+        #[label("{5}")] Span,
         Type,
     ),
 
@@ -108,6 +108,13 @@ pub enum ParseError {
         help("Only the following keywords can be aliased: {0}.")
     )]
     CantAliasKeyword(String, #[label("not supported in alias")] Span),
+
+    #[error("Can't create alias to expression.")]
+    #[diagnostic(
+        code(nu::parser::cant_alias_expression),
+        help("Only command calls can be aliased.")
+    )]
+    CantAliasExpression(String, #[label("aliasing {0} is not supported")] Span),
 
     #[error("Unknown operator")]
     #[diagnostic(code(nu::parser::unknown_operator), help("{1}"))]
@@ -307,7 +314,7 @@ pub enum ParseError {
 
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
-    TypeMismatch(Type, Type, #[label("expected {0:?}, found {1:?}")] Span), // expected, found, span
+    TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
@@ -430,10 +437,12 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
+            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
+            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,
+            ParseError::CantAliasExpression(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
             ParseError::LetBuiltinVar(_, s) => *s,
@@ -494,7 +503,6 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
-            ParseError::ClosureMissingPipe(s) => *s,
         }
     }
 }

@@ -55,15 +55,14 @@ fn eval_source2(
 ) -> Result<PipelineData, ShellError> {
     let (mut block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
-        let (output, err) = parse(
+        let output = parse(
             &mut working_set,
             Some(fname), // format!("entry #{}", entry_num)
             source,
             false,
-            &[],
         );
 
-        if let Some(err) = err {
+        if let Some(err) = working_set.parse_errors.first() {
             return Err(ShellError::IOError(err.to_string()));
         }
 

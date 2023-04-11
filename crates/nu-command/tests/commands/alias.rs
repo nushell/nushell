@@ -49,47 +49,23 @@ fn alias_hiding_2() {
 #[test]
 fn alias_fails_with_invalid_name() {
     let err_msg = "name can't be a number, a filesize, or contain a hash # or caret ^";
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            alias 1234 = echo "test"
-        "#
-    ));
+    let actual = nu!(r#" alias 1234 = echo "test" "#);
+
     assert!(actual.err.contains(err_msg));
 
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            alias 5gib = echo "test"
-        "#
-    ));
+    let actual = nu!(r#" alias 5gib = echo "test" "#);
     assert!(actual.err.contains(err_msg));
 
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            alias "te#t" = echo "test"
-        "#
-    ));
+    let actual = nu!(r#" alias "te#t" = echo "test" "#);
     assert!(actual.err.contains(err_msg));
 
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            alias ^foo = echo "bar"
-        "#
-    ));
+    let actual = nu!(r#" alias ^foo = echo "bar" "#);
     assert!(actual.err.contains(err_msg));
 }
 
 #[test]
 fn cant_alias_keyword() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            alias ou = let
-        "#
-    ));
+    let actual = nu!(r#" alias ou = let "#);
     assert!(actual.err.contains("cant_alias_keyword"));
 }
 
@@ -136,4 +112,41 @@ fn alias_wont_recurse2() {
         assert_eq!(actual.out, "spam spam");
         assert!(actual.err.is_empty());
     })
+}
+
+#[test]
+fn alias_invalid_expression() {
+    let actual = nu!(r#" alias spam = 'foo' "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+
+    let actual = nu!(r#" alias spam = ([1 2 3] | length) "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+
+    let actual = nu!(r#" alias spam = 0..12 "#);
+    assert!(actual.err.contains("cant_alias_expression"));
+}
+
+#[test]
+fn alias_if() {
+    let actual = nu!(r#" alias spam = if true { 'spam' } else { 'eggs' }; spam "#);
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn alias_match() {
+    let actual = nu!(r#" alias spam = match 3 { 1..10 => 'yes!' }; spam "#);
+    assert_eq!(actual.out, "yes!");
+}
+
+// Issue https://github.com/nushell/nushell/issues/8103
+#[test]
+fn alias_multiword_name() {
+    let actual = nu!(r#"alias `foo bar` = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+
+    let actual = nu!(r#"alias 'foo bar' = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
+
+    let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
+    assert_eq!(actual.out, "test");
 }

@@ -18,10 +18,7 @@ impl Highlighter for NuHighlighter {
         trace!("highlighting: {}", line);
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let block = {
-            let (block, _) = parse(&mut working_set, None, line.as_bytes(), false, &[]);
-            block
-        };
+        let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
             let shapes = flatten_block(&working_set, &block);
             (shapes, self.engine_state.next_span_start())
@@ -91,9 +88,10 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Int => add_colored_token(&shape.1, next_token),
                 FlatShape::Float => add_colored_token(&shape.1, next_token),
                 FlatShape::Range => add_colored_token(&shape.1, next_token),
-                FlatShape::InternalCall => add_colored_token(&shape.1, next_token),
+                FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
                 FlatShape::External => add_colored_token(&shape.1, next_token),
                 FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
+                FlatShape::Keyword => add_colored_token(&shape.1, next_token),
                 FlatShape::Literal => add_colored_token(&shape.1, next_token),
                 FlatShape::Operator => add_colored_token(&shape.1, next_token),
                 FlatShape::Signature => add_colored_token(&shape.1, next_token),
@@ -113,11 +111,16 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Block => {
                     add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
+                FlatShape::Closure => {
+                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                }
 
                 FlatShape::Filepath => add_colored_token(&shape.1, next_token),
                 FlatShape::Directory => add_colored_token(&shape.1, next_token),
                 FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
-                FlatShape::Variable => add_colored_token(&shape.1, next_token),
+                FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
+                    add_colored_token(&shape.1, next_token)
+                }
                 FlatShape::Flag => add_colored_token(&shape.1, next_token),
                 FlatShape::Pipe => add_colored_token(&shape.1, next_token),
                 FlatShape::And => add_colored_token(&shape.1, next_token),

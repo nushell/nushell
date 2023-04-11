@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 /// Source a file for environment variables.
@@ -23,7 +23,7 @@ impl Command for GotoShell {
             ])
             .optional(
                 "shell_number",
-                SyntaxShape::String,
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::String]),
                 "shell number to change to",
             )
             .category(Category::Shells)
@@ -40,23 +40,32 @@ impl Command for GotoShell {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let new_shell: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        let new_shell: Option<Value> = call.opt(engine_state, stack, 0)?;
 
         match new_shell {
-            Some(shell_span) => {
-                if shell_span.item == "-" {
-                    switch_shell(engine_state, stack, call, shell_span.span, SwitchTo::Last)
-                } else {
-                    let n = shell_span
-                        .item
-                        .parse::<usize>()
-                        .map_err(|_| ShellError::NotFound {
-                            span: shell_span.span,
-                        })?;
-
-                    switch_shell(engine_state, stack, call, shell_span.span, SwitchTo::Nth(n))
+            Some(shell_span) => match &shell_span {
+                Value::String { val, span } => {
+                    if val == "-" {
+                        switch_shell(engine_state, stack, call, *span, SwitchTo::Last)
+                    } else {
+                        Err(ShellError::TypeMismatch {
+                            err_message: "int or '-'".into(),
+                            span: *span,
+                        })
+                    }
                 }
-            }
+                Value::Int { val, span } => switch_shell(
+                    engine_state,
+                    stack,
+                    call,
+                    *span,
+                    SwitchTo::Nth(*val as usize),
+                ),
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "int or '-'".into(),
+                    span: call.head,
+                }),
+            },
             None => list_shells(engine_state, stack, call.head),
         }
     }

@@ -3,6 +3,7 @@ use super::support::Trusted;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use pretty_assertions::assert_eq;
 
 use serial_test::serial;
 

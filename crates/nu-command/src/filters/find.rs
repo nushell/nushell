@@ -119,7 +119,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find value in records",
-                example: r#"[[version name]; [0.1.0 nushell] [0.1.1 fish] [0.2.0 zsh]] | find -r "nu""#,
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu""#,
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
                         vec!["version", "name"],
@@ -130,6 +130,11 @@ impl Command for Find {
                     )],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                description: "Remove ANSI sequences from result",
+                example: "[[foo bar]; [abc 123] [def 456]] | find 123 | get bar | ansi strip",
+                result: None,
             },
         ]
     }

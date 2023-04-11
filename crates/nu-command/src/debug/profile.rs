@@ -106,7 +106,7 @@ Current known limitations are:
         vec![Example {
             description:
                 "Profile some code, stepping into the `spam` command and collecting source.",
-            example: r#"def spam [] { "spam" }; profile { spam | str length } -d 2 --source"#,
+            example: r#"def spam [] { "spam" }; profile {|| spam | str length } -d 2 --source"#,
             result: None,
         }]
     }

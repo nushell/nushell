@@ -154,14 +154,3 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
         Ok(record)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::KeybindingsListen;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        test_examples(KeybindingsListen {})
-    }
-}

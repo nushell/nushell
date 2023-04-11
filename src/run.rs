@@ -8,6 +8,7 @@ use crate::{
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::PipelineData;
+use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
@@ -20,6 +21,11 @@ pub(crate) fn run_commands(
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(engine_state)?;
+    }
+
     #[cfg(feature = "plugin")]
     read_plugin_file(
         engine_state,
@@ -106,6 +112,10 @@ pub(crate) fn run_file(
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(engine_state)?;
+    }
 
     #[cfg(feature = "plugin")]
     read_plugin_file(
@@ -203,6 +213,10 @@ pub(crate) fn run_repl(
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(engine_state)?;
+    }
 
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(

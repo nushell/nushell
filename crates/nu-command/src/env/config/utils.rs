@@ -35,10 +35,7 @@ pub(crate) fn get_editor(
     if let Some((a, b)) = editor.split_once(' ') {
         Ok((
             a.to_string(),
-            b.split(' ')
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
+            b.split(' ').map(|s| s.to_string()).collect::<Vec<String>>(),
         ))
     } else {
         Ok((editor, Vec::new()))

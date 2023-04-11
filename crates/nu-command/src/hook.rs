@@ -1,8 +1,9 @@
-use crate::util::{get_guaranteed_cwd, report_error, report_error_new};
+use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::ast::PathMember;
+use nu_protocol::cli_error::{report_error, report_error_new};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
 
@@ -166,10 +167,10 @@ pub fn eval_hook(
                                 vars.push((var_id, val));
                             }
 
-                            let (output, err) =
-                                parse(&mut working_set, Some("hook"), val.as_bytes(), false, &[]);
-                            if let Some(err) = err {
-                                report_error(&working_set, &err);
+                            let output =
+                                parse(&mut working_set, Some("hook"), val.as_bytes(), false);
+                            if let Some(err) = working_set.parse_errors.first() {
+                                report_error(&working_set, err);
 
                                 return Err(ShellError::UnsupportedConfigValue(
                                     "valid source code".into(),

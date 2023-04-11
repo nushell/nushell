@@ -2,11 +2,10 @@ use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
-use nu_command::util::report_error;
-use nu_parser::ParseError;
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{PipelineData, Spanned};
+use nu_protocol::report_error;
+use nu_protocol::{ParseError, PipelineData, Spanned};
 use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;

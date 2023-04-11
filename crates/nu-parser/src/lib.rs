@@ -1,5 +1,4 @@
 mod deparse;
-mod errors;
 mod eval;
 mod flatten;
 mod known_external;
@@ -11,7 +10,6 @@ mod parser;
 mod type_check;
 
 pub use deparse::{escape_for_script_arg, escape_quote_string};
-pub use errors::ParseError;
 pub use flatten::{
     flatten_block, flatten_expression, flatten_pipeline, flatten_pipeline_element, FlatShape,
 };

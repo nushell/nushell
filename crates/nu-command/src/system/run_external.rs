@@ -778,7 +778,8 @@ fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => (chars.collect(), false, true),
         (Some('\''), Some('\'')) => (chars.collect(), false, true),
-        (Some('`'), Some('`')) => (chars.collect(), true, true),
+        // We treat back-quoted strings as bare words, so there's no need to keep them as raw strings
+        (Some('`'), Some('`')) => (chars.collect(), true, false),
         _ => (input.to_string(), true, false),
     }
 }

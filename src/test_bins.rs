@@ -172,7 +172,7 @@ pub fn nu_repl() {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     let source_lines = args();
 
-    let mut engine_state = create_default_context();
+    let mut engine_state = nu_cli::add_cli_context(create_default_context());
     let mut stack = Stack::new();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
@@ -224,16 +224,15 @@ pub fn nu_repl() {
         // Eval the REPL line
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let (block, err) = parse(
+            let block = parse(
                 &mut working_set,
                 Some(&format!("line{i}")),
                 line.as_bytes(),
                 false,
-                &[],
             );
 
-            if let Some(err) = err {
-                outcome_err(&engine_state, &err);
+            if let Some(err) = working_set.parse_errors.first() {
+                outcome_err(&engine_state, err);
             }
             (block, working_set.render())
         };

@@ -40,15 +40,6 @@ impl Command for If {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
-    }
-
-    fn is_parser_keyword(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

@@ -167,7 +167,6 @@ fn select(
         ) => {
             let mut output = vec![];
             let mut columns_with_value = Vec::new();
-            let mut allempty = true;
             for input_val in input_vals {
                 if !columns.is_empty() {
                     let mut cols = vec![];
@@ -176,7 +175,6 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match input_val.clone().follow_cell_path(&path.members, false) {
                             Ok(fetcher) => {
-                                allempty = false;
                                 cols.push(path.into_string().replace('.', "_"));
                                 vals.push(fetcher);
                                 if !columns_with_value.contains(&path) {
@@ -194,14 +192,11 @@ fn select(
                     output.push(input_val)
                 }
             }
-            if allempty {
-                Ok(Value::nothing(call_span).into_pipeline_data())
-            } else {
-                Ok(output
-                    .into_iter()
-                    .into_pipeline_data(engine_state.ctrlc.clone())
-                    .set_metadata(metadata))
-            }
+
+            Ok(output
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+                .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, metadata, ..) => {
             let mut values = vec![];

@@ -1,3 +1,4 @@
+mod collect;
 mod deprecated_commands;
 mod export_old_alias;
 mod hash_base64;
@@ -11,6 +12,7 @@ mod str_decimal;
 mod str_find_replace;
 mod str_int;
 
+pub use collect::StrCollectDeprecated;
 pub use deprecated_commands::*;
 pub use export_old_alias::ExportOldAlias;
 pub use hash_base64::HashBase64;

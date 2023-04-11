@@ -131,6 +131,11 @@ impl ProcessInfo {
         self.pid
     }
 
+    /// PPID of process
+    pub fn ppid(&self) -> i32 {
+        self.ppid
+    }
+
     /// Name of command
     pub fn name(&self) -> String {
         self.command()

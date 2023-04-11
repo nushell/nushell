@@ -1,7 +1,7 @@
-use nu_command::util::report_error;
 use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_parser::{escape_for_script_arg, escape_quote_string};
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
@@ -36,7 +36,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t" => args.next(),
+            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
+            | "--ide-goto-def" | "--ide-hover" | "--ide-complete" => args.next(),
             _ => None,
         };
 
@@ -63,15 +64,9 @@ pub(crate) fn parse_commandline_args(
         let mut working_set = StateWorkingSet::new(engine_state);
         working_set.add_decl(Box::new(Nu));
 
-        let (output, err) = parse(
-            &mut working_set,
-            None,
-            commandline_args.as_bytes(),
-            false,
-            &[],
-        );
-        if let Some(err) = err {
-            report_error(&working_set, &err);
+        let output = parse(&mut working_set, None, commandline_args.as_bytes(), false);
+        if let Some(err) = working_set.parse_errors.first() {
+            report_error(&working_set, err);
 
             std::process::exit(1);
         }
@@ -95,6 +90,12 @@ pub(crate) fn parse_commandline_args(
         )) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
+            let ide_goto_def: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
+            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
+            let ide_complete: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-complete")?;
+            let ide_check = call.get_named_arg("ide-check");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
@@ -102,12 +103,12 @@ pub(crate) fn parse_commandline_args(
             #[cfg(feature = "plugin")]
             let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
+            let no_std_lib = call.get_named_arg("no-std-lib");
             let config_file: Option<Expression> = call.get_flag_expr("config");
             let env_file: Option<Expression> = call.get_flag_expr("env-config");
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let execute: Option<Expression> = call.get_flag_expr("execute");
-            let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
@@ -176,12 +177,16 @@ pub(crate) fn parse_commandline_args(
                 #[cfg(feature = "plugin")]
                 plugin_file,
                 no_config_file,
+                no_std_lib,
                 config_file,
                 env_file,
                 log_level,
                 log_target,
                 execute,
-                threads,
+                ide_goto_def,
+                ide_hover,
+                ide_complete,
+                ide_check,
                 table_mode,
             });
         }
@@ -208,13 +213,17 @@ pub(crate) struct NushellCliArgs {
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
     pub(crate) no_config_file: Option<Spanned<String>>,
+    pub(crate) no_std_lib: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
-    pub(crate) threads: Option<Value>,
     pub(crate) table_mode: Option<Value>,
+    pub(crate) ide_goto_def: Option<Value>,
+    pub(crate) ide_hover: Option<Value>,
+    pub(crate) ide_complete: Option<Value>,
+    pub(crate) ide_check: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -253,6 +262,7 @@ impl Command for Nu {
                 "start with no config file and no env file",
                 Some('n'),
             )
+            .switch("no-std-lib", "start with no standard library", None)
             .named(
                 "threads",
                 SyntaxShape::Int,
@@ -270,6 +280,29 @@ impl Command for Nu {
                 "env-config",
                 SyntaxShape::String,
                 "start with an alternate environment config file",
+                None,
+            )
+            .named(
+                "ide-goto-def",
+                SyntaxShape::Int,
+                "go to the definition of the item at the given position",
+                None,
+            )
+            .named(
+                "ide-hover",
+                SyntaxShape::Int,
+                "give information about the item at the given position",
+                None,
+            )
+            .named(
+                "ide-complete",
+                SyntaxShape::Int,
+                "list completions for the item at the given position",
+                None,
+            )
+            .switch(
+                "ide-check",
+                "run a diagnostic check on the given source",
                 None,
             );
 

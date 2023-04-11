@@ -8,6 +8,7 @@ mod test_custom_commands;
 mod test_engine;
 mod test_env;
 mod test_hiding;
+mod test_ide;
 mod test_iteration;
 mod test_known_external;
 mod test_math;
@@ -16,6 +17,7 @@ mod test_parser;
 mod test_ranges;
 mod test_regex;
 mod test_signatures;
+mod test_stdlib;
 mod test_strings;
 mod test_table_operations;
 mod test_type_check;
@@ -81,6 +83,34 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     let name = file.path();
 
     let mut cmd = Command::cargo_bin("nu")?;
+    cmd.arg(name);
+
+    writeln!(file, "{input}")?;
+
+    let output = cmd.output()?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+    println!("stdout: {stdout}");
+    println!("stderr: {stderr}");
+
+    assert!(output.status.success());
+
+    assert!(stdout.contains(expected));
+
+    Ok(())
+}
+
+#[cfg(test)]
+pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> TestResult {
+    let mut file = NamedTempFile::new()?;
+    let name = file.path();
+
+    let mut cmd = Command::cargo_bin("nu")?;
+    for ide_command in ide_commands {
+        cmd.arg(ide_command);
+    }
     cmd.arg(name);
 
     writeln!(file, "{input}")?;

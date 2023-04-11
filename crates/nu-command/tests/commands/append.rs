@@ -2,8 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn adds_a_row_to_the_end() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
                 echo  [ "Andrés N. Robalino", "JT Turner", "Yehuda Katz" ]
                 | append "pollo loco"

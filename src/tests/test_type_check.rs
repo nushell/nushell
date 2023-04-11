@@ -12,12 +12,17 @@ fn type_in_list_of_this_type() -> TestResult {
 
 #[test]
 fn type_in_list_of_non_this_type() -> TestResult {
-    fail_test(r#"'hello' in [41 42 43]"#, "mismatched for operation")
+    fail_test(r#"'hello' in [41 42 43]"#, "is not supported")
 }
 
 #[test]
 fn number_int() -> TestResult {
     run_test(r#"def foo [x:number] { $x }; foo 1"#, "1")
+}
+
+#[test]
+fn int_record_mismatch() -> TestResult {
+    fail_test(r#"def foo [x:int] { $x }; foo {}"#, "expected int")
 }
 
 #[test]

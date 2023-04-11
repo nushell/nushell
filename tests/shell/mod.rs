@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
+use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
 mod environment;
@@ -137,6 +138,34 @@ fn nu_lib_dirs_relative_repl() {
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");
+    })
+}
+
+// TODO: add absolute path tests after we expand const capabilities (see #8310)
+#[test]
+fn const_nu_lib_dirs_relative() {
+    Playground::setup("const_nu_lib_dirs_relative", |dirs, sandbox| {
+        sandbox
+            .mkdir("scripts")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "scripts/foo.nu",
+                r#"
+                    let-env FOO = "foo"
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    const NU_LIB_DIRS = [ 'scripts' ]
+                    source-env foo.nu
+                    $env.FOO
+                "#,
+            )]);
+
+        let outcome = nu!(cwd: dirs.test(), "source main.nu");
+
+        assert!(outcome.err.is_empty());
+        assert_eq!(outcome.out, "foo");
     })
 }
 
