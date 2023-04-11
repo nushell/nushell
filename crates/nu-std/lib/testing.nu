@@ -1,3 +1,5 @@
+use log
+
 # show a test record in a pretty way
 #
 # `$in` must be a `record<file: string, module: string, name: string, pass: bool>`.
