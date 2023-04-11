@@ -7,6 +7,7 @@ export-env {
 }
 export use help *
 export use log *
+export use testing *
 export use xml *
 
 # Add the given paths to the PATH.

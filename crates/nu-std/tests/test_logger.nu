@@ -2,7 +2,7 @@ use std *
 
 def run [system_level, message_level] {
     do {
-        nu -c $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
+        ^$nu.current-exe -c $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
     } | complete | get -i stderr
 }
 def "assert no message" [system_level, message_level] {
