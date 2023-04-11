@@ -1,7 +1,6 @@
 use std *
 
 def run [system_level, message_level] {
-    cd $env.FILE_PWD
     do {
         nu -c $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
     } | complete | get -i stderr

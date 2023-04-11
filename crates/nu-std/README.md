@@ -31,7 +31,7 @@ use std
 ### :test_tube: run the tests
 the following call should return no errors
 ```bash
-NU_LOG_LEVEL=DEBUG cargo run -- crates/nu-std/tests.nu
+NU_LOG_LEVEL=DEBUG cargo run -- -c "use std run-tests; run-tests --path crates/nu-std"
 ```
 
 > **Warning**  
