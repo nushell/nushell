@@ -57,6 +57,7 @@ let dark_theme = {
     shape_binary: purple_bold
     shape_block: blue_bold
     shape_bool: light_cyan
+    shape_closure: green_bold
     shape_custom: green
     shape_datetime: cyan_bold
     shape_directory: cyan
@@ -140,6 +141,7 @@ let light_theme = {
     shape_binary: purple_bold
     shape_block: blue_bold
     shape_bool: light_cyan
+    shape_closure: green_bold
     shape_custom: green
     shape_datetime: cyan_bold
     shape_directory: cyan
