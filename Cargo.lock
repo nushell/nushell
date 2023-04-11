@@ -2300,10 +2300,8 @@ dependencies = [
 [[package]]
 name = "lscolors"
 version = "0.13.0"
-source = "git+https://github.com/WindSoilder/lscolors.git?branch=master#01a0b4b3949b1310e89fc1a6eda69091f54b7fe1"
-dependencies = [
- "crossterm 0.26.1",
-]
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2dedc85d67baf5327114fad78ab9418f8893b1121c17d5538dd11005ad1ddf2"
 
 [[package]]
 name = "lz4"

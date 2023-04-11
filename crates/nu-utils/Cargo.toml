@@ -18,7 +18,7 @@ bench = false
 
 [dependencies]
 log = "0.4"
-lscolors = { git = "https://github.com/WindSoilder/lscolors.git", features = ["crossterm"], default-features = false, branch = "master" }
+lscolors = { version = "0.13", default-features = false }
 num-format = { version = "0.4.3" }
 strip-ansi-escapes = "0.1.1"
 sys-locale = "0.2.1"

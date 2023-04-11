@@ -1,3 +1,4 @@
+use crate::viewers::to_crossterm_style;
 use nu_cmd_lang::help::highlight_search_string;
 
 use fancy_regex::Regex;
@@ -247,9 +248,7 @@ fn highlight_terms_in_record(
                 if config.use_ls_colors {
                     // Get the original LS_COLORS color
                     let style = ls_colors.style_for_path(val_str.clone());
-                    let ansi_style = style
-                        .map(LsColors_Style::to_crossterm_style)
-                        .unwrap_or_default();
+                    let ansi_style = style.map(to_crossterm_style).unwrap_or_default();
 
                     let ls_colored_val = ansi_style.apply(&val_str).to_string();
 

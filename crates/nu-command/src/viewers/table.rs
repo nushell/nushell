@@ -1,4 +1,5 @@
-use lscolors::{LsColors, Style};
+use super::to_crossterm_style;
+use lscolors::LsColors;
 use nu_color_config::color_from_hex;
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{column::get_columns, env_to_string, CallExt};
@@ -1846,7 +1847,7 @@ fn render_path_name(
     let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
 
     let ansi_style = style
-        .map(Style::to_crossterm_style)
+        .map(to_crossterm_style)
         // .map(ToNuAnsiStyle::to_nu_ansi_style)
         .unwrap_or_default();
 

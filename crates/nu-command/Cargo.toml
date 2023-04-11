@@ -58,7 +58,7 @@ indicatif = "0.17.2"
 is-root = "0.1.2"
 itertools = "0.10.0"
 log = "0.4.14"
-lscolors = { git = "https://github.com/WindSoilder/lscolors.git", features = ["crossterm"], default-features = false, branch = "master" }
+lscolors = { version = "0.13", default-features = false }
 md5 = { package = "md-5", version = "0.10.0" }
 miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
 mime = "0.3.16"
