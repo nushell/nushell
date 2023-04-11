@@ -79,13 +79,16 @@ def main [
     let tests = (
         ls ($path | path join $module_search_pattern)
         | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
-        | upsert test {|module|
-            nu -c $'use ($module.file) *; $nu.scope.commands | select name module_name | to nuon'
+        | upsert commands {|module|
+            nu -c $'use `($module.file)` *; $nu.scope.commands | select name module_name | to nuon'
             | from nuon
             | where module_name == $module.name
-            | where ($it.name | str starts-with "test_")
             | get name
         }
+        | upsert test {|module| $module.commands | where ($it | str starts-with "test_") }
+        | upsert setup {|module| "setup" in $module.commands }
+        | upsert teardown {|module| "teardown" in $module.commands }
+        | reject commands
         | flatten
         | rename file module name
     )
@@ -114,11 +117,27 @@ def main [
             log info $"Running tests in ($module.name)"
             $module.tests | each {|test|
                 log debug $"Running test ($test.name)"
-                nu -c $'
-                    use ($test.file) ($test.name)
+
+                let context_setup = if $test.setup {
+                    $"use `($test.file)` setup; let context = \(setup\)"
+                } else {
+                    "let context = {}"
+                }
+
+                let context_teardown = if $test.teardown {
+                    $"use `($test.file)` teardown; $context | teardown"
+                } else {
+                    ""
+                }
+
+                let nu_script = $'
+                    ($context_setup)
+                    use `($test.file)` ($test.name)
                     try {
-                        ($test.name)
+                        $context | ($test.name)
+                        ($context_teardown)
                     } catch { |err|
+                        ($context_teardown)
                         if $err.msg == "ASSERT:SKIP" {
                             exit 2
                         } else {
@@ -126,6 +145,8 @@ def main [
                         }
                     }
                 '
+                nu -c $nu_script
+
                 let result = match $env.LAST_EXIT_CODE {
                     0 => "pass",
                     2 => "skip",
