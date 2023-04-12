@@ -192,7 +192,7 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
 }
 
 #[allow(clippy::too_many_arguments)]
-fn eval_external(
+pub fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
     head: &Expression,
