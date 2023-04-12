@@ -143,7 +143,7 @@ fn main() -> Result<()> {
             .item
             .split(';')
             .map(|x| Value::String {
-                val: x.to_string(),
+                val: x.trim().to_string(),
                 span,
             })
             .collect();
