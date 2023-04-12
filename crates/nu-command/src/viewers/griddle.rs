@@ -207,23 +207,27 @@ fn create_grid_output(
                     let ls_colors_style = ls_colors.style_for_path(path);
 
                     let icon_style = match ls_colors_style {
-                        Some(c) => c.to_crossterm_style(),
-                        None => crossterm::style::ContentStyle::default(),
+                        Some(c) => c.to_nu_ansi_term_style(),
+                        None => nu_ansi_term::Style::default(),
                     };
 
                     let ansi_style = ls_colors_style
-                        .map(Style::to_crossterm_style)
+                        .map(Style::to_nu_ansi_term_style)
                         .unwrap_or_default();
 
-                    let item = format!("{} {}", icon_style.apply(icon), ansi_style.apply(value));
+                    let item = format!(
+                        "{} {}",
+                        icon_style.paint(String::from(icon)),
+                        ansi_style.paint(value)
+                    );
 
                     let mut cell = Cell::from(item);
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 } else {
                     let style = ls_colors.style_for_path(value.clone());
-                    let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
-                    let mut cell = Cell::from(ansi_style.apply(value).to_string());
+                    let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
+                    let mut cell = Cell::from(ansi_style.paint(value).to_string());
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 }

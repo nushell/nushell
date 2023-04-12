@@ -25,4 +25,4 @@ strip-ansi-escapes = "0.1.1"
 crossterm = "0.26"
 tui = "0.19.0"
 ansi-str = "0.7.2"
-lscolors = { version = "0.14", default-features = false, features = ["crossterm"] }
+lscolors = { version = "0.14", default-features = false, features = ["nu-ansi-term"] }

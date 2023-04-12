@@ -2303,7 +2303,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18a9df1d1fb6d9e92fa043e9eb9a3ecf6892c7b542bae5137cd1e419e40aa8bf"
 dependencies = [
- "crossterm 0.26.1",
+ "nu-ansi-term",
 ]
 
 [[package]]
