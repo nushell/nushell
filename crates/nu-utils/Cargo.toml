@@ -18,7 +18,7 @@ bench = false
 
 [dependencies]
 log = "0.4"
-lscolors = { version = "0.13", default-features = false }
+lscolors = { version = "0.14", default-features = false, features = ["crossterm"] }
 num-format = { version = "0.4.3" }
 strip-ansi-escapes = "0.1.1"
 sys-locale = "0.2.1"
