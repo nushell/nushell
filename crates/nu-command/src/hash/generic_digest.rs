@@ -114,7 +114,7 @@ where
                             }
                             .into_pipeline_data());
                         }
-                        Err(err) => return Err(err)
+                        Err(err) => return Err(err),
                     };
                 }
                 let digest = hasher.finalize();
