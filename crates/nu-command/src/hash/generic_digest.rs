@@ -101,7 +101,7 @@ where
                         Ok(Value::String { val, .. }) => hasher.update(val.as_bytes()),
                         Ok(Value::Binary { val, .. }) => hasher.update(val),
                         // If any Error value is output, echo it back
-                        Ok(v @ Value::Error { .. }) => return Ok(v.clone().into_pipeline_data()),
+                        Ok(v @ Value::Error { .. }) => return Ok(v.into_pipeline_data()),
                         // Unsupported data
                         Ok(other) => {
                             return Ok(Value::Error {
