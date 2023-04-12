@@ -290,26 +290,24 @@ fn parse_given_string_to_date(
             if let Some(date) = date {
                 Ok(Some(date))
             } else {
-                return Err(ShellError::NushellFailed {
+                Err(ShellError::NushellFailed {
                     msg: "Cannot create a local now time".to_string(),
-                });
+                })
             }
         }
-        false if date_string.item == "." => {
-            return Err(ShellError::DatetimeParseError(
-                "Cannot parse the '.' date. Did you simply mean '' ?".to_string(),
-                date_string.span,
-            ));
-        }
+        false if date_string.item == "." => Err(ShellError::DatetimeParseError(
+            "Cannot parse the '.' date. Did you simply mean '' ?".to_string(),
+            date_string.span,
+        )),
         false => {
             let parsed_date = date_string.item.parse::<DateTimeUtc>().ok();
             if let Some(date) = parsed_date {
                 Ok(Some(DateTime::from(date.0)))
             } else {
-                return Err(ShellError::DatetimeParseError(
+                Err(ShellError::DatetimeParseError(
                     "Cannot parse the provided date.".to_string(),
                     date_string.span,
-                ));
+                ))
             }
         }
     }
@@ -358,19 +356,9 @@ fn parse_relative_time(s: &str) -> Option<Duration> {
         _ => None,
     };
 
-    let relative_time = if past_time {
-        match result {
-            Some(duration) => {
-                if duration.num_milliseconds() < 0 {
-                    Some(duration)
-                } else {
-                    Some(Duration::milliseconds(-duration.num_milliseconds()))
-                }
-            }
-            None => None,
-        }
+    if past_time {
+        result.filter(|&duration| duration.num_milliseconds() < 0)
     } else {
         result
-    };
-    relative_time
+    }
 }
