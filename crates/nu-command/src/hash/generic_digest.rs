@@ -2,10 +2,10 @@ use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Span;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
+use nu_protocol::{IntoPipelineData, Span};
 use std::marker::PhantomData;
 
 pub trait HashDigest: digest::Digest + Clone {
@@ -88,13 +88,58 @@ where
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments { binary, cell_paths };
-        operate(
-            action::<D>,
-            args,
-            input,
-            call.head,
-            engine_state.ctrlc.clone(),
-        )
+        let mut hasher = D::new();
+        match input {
+            PipelineData::ExternalStream {
+                stdout: Some(stream),
+                span,
+                ..
+            } => {
+                for item in stream {
+                    match item {
+                        // String and binary data are valid byte patterns
+                        Ok(Value::String { val, .. }) => hasher.update(val.as_bytes()),
+                        Ok(Value::Binary { val, .. }) => hasher.update(val),
+                        // If any Error value is output, echo it back
+                        Ok(v @ Value::Error { .. }) => return Ok(v.clone().into_pipeline_data()),
+                        // Unsupported data
+                        Ok(other) => {
+                            return Ok(Value::Error {
+                                error: Box::new(ShellError::OnlySupportsThisInputType {
+                                    exp_input_type: "string and binary".into(),
+                                    wrong_type: other.get_type().to_string(),
+                                    dst_span: span,
+                                    src_span: other.expect_span(),
+                                }),
+                            }
+                            .into_pipeline_data());
+                        }
+                        Err(err) => return Err(err.to_owned()),
+                    };
+                }
+                let digest = hasher.finalize();
+                if args.binary {
+                    Ok(Value::Binary {
+                        val: digest.to_vec(),
+                        span,
+                    }
+                    .into_pipeline_data())
+                } else {
+                    Ok(Value::String {
+                        val: format!("{digest:x}"),
+                        span,
+                    }
+                    .into_pipeline_data())
+                }
+            }
+            _ => operate(
+                action::<D>,
+                args,
+                input,
+                call.head,
+                engine_state.ctrlc.clone(),
+            ),
+        }
     }
 }
 
