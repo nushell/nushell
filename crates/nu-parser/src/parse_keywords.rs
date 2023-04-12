@@ -1719,7 +1719,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 };
 
                 if let Ok(contents) = std::fs::read(&module_path) {
-                    let file_id = working_set.add_file(module_filename, &contents);
+                    let file_id =
+                        working_set.add_file(module_path.to_string_lossy().to_string(), &contents);
                     let new_span = working_set.get_span_for_file(file_id);
 
                     // Change the currently parsed directory

@@ -37,7 +37,9 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--ide-goto-def" | "--ide-hover" | "--ide-complete" => args.next(),
+            | "--include-path" | "-I" | "--ide-goto-def" | "--ide-hover" | "--ide-complete" => {
+                args.next()
+            }
             _ => None,
         };
 
@@ -109,6 +111,7 @@ pub(crate) fn parse_commandline_args(
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let execute: Option<Expression> = call.get_flag_expr("execute");
+            let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
@@ -142,6 +145,7 @@ pub(crate) fn parse_commandline_args(
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
             let execute = extract_contents(execute)?;
+            let include_path = extract_contents(include_path)?;
 
             let help = call.has_flag("help");
 
@@ -183,6 +187,7 @@ pub(crate) fn parse_commandline_args(
                 log_level,
                 log_target,
                 execute,
+                include_path,
                 ide_goto_def,
                 ide_hover,
                 ide_complete,
@@ -220,6 +225,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
+    pub(crate) include_path: Option<Spanned<String>>,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
@@ -248,6 +254,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "run the given commands and then enter an interactive shell",
                 Some('e'),
+            )
+            .named(
+                "include-path",
+                SyntaxShape::String,
+                "set the NU_LIB_DIRS for the given script",
+                Some('I'),
             )
             .switch("interactive", "start as an interactive shell", Some('i'))
             .switch("login", "start as a login shell", Some('l'))

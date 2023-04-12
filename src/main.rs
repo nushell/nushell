@@ -20,7 +20,7 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_command::{create_default_context, get_init_cwd};
-use nu_protocol::report_error_new;
+use nu_protocol::{report_error_new, Span, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
@@ -137,6 +137,16 @@ fn main() -> Result<()> {
         use_color,
     );
 
+    if let Some(include_path) = &parsed_nu_cli_args.include_path {
+        engine_state.add_env_var(
+            "NU_LIB_DIRS".into(),
+            Value::List {
+                vals: vec![Value::test_string(&include_path.item)],
+                span: Span::test_data(),
+            },
+        );
+    }
+
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -147,6 +157,9 @@ fn main() -> Result<()> {
 
         return Ok(());
     } else if let Some(ide_complete) = parsed_nu_cli_args.ide_complete {
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
         ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 
         return Ok(());
