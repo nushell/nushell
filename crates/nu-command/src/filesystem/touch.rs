@@ -1,7 +1,8 @@
 use std::fs::OpenOptions;
 use std::path::Path;
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local, Timelike};
+use dateparser::DateTimeUtc;
 use filetime::FileTime;
 
 use nu_engine::CallExt;
@@ -47,6 +48,12 @@ impl Command for Touch {
                 "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
                 Some('a'),
             )
+            .named(
+                "date",
+                SyntaxShape::String,
+                "change the file or directory time to a date",
+                Some('d')
+            )
             .switch(
                 "no-create",
                 "do not create the file if it does not exist",
@@ -71,6 +78,7 @@ impl Command for Touch {
         let mut change_atime: bool = call.has_flag("access");
         let use_reference: bool = call.has_flag("reference");
         let no_create: bool = call.has_flag("no-create");
+        let date_flag = call.has_flag("date");
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
@@ -82,9 +90,30 @@ impl Command for Touch {
             change_mtime = true;
             change_atime = true;
         }
-
         if change_mtime || change_atime {
             date = Some(Local::now());
+        }
+
+        if date_flag {
+            let date_string: Option<Spanned<String>> =
+                call.get_flag(engine_state, stack, "date")?;
+            match date_string {
+                Some(date_string) => {
+                    let parsed_date = parse_relative_time(&date_string.item);
+                    // try to parse a relative date
+                    if let Some(parsed_date) = parsed_date {
+                        date = Some(Local::now() + parsed_date);
+                    } else {
+                        date = parse_given_string_to_date(date_string)?
+                    }
+                }
+                None => {
+                    return Err(ShellError::MissingParameter {
+                        param_name: "date".to_string(),
+                        span: call.head,
+                    });
+                }
+            };
         }
 
         if use_reference {
@@ -209,13 +238,24 @@ impl Command for Touch {
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of "fixture.json" to today's date"#,
+                description: r#"Changes the last modified time of "fixture.json" to today's date (local timezone)"#,
                 example: "touch -m fixture.json",
                 result: None,
             },
             Example {
-                description: "Changes the last modified time of files a, b and c to a date",
-                example: r#"touch -m -d "yesterday" a b c"#,
+                description: r#"Changes the last modified time of "fixture.json" to now (local timezone)"#,
+                example: "touch -m -d '' fixture.json",
+                result: None,
+            },
+            Example {
+                description: r#"Changes the last modified time of "fixture.json" to now (local timezone)"#,
+                example: "touch -m -d 'now' fixture.json",
+                result: None,
+            },
+            Example {
+                description:
+                    "Changes the last modified time of files a, b and c to a date (keeps the file's time and timezone)",
+                example: r#"touch -m -d "2015-09-13" a b c"#,
                 result: None,
             },
             Example {
@@ -224,10 +264,113 @@ impl Command for Touch {
                 result: None,
             },
             Example {
-                description: r#"Changes the last accessed time of "fixture.json" to a date"#,
-                example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
+                description: r#"Changes the last accessed time of "fixture.json" to a date" (keeps the file's timezone)"#,
+                example: r#"touch -a -d "August 24, 2019 12:30:30" fixture.json"#,
+                result: None,
+            },
+            Example {
+                description: r#"Use relative time (seconds, minutes, hours, days, weeks) to change the last accessed time of "fixture.json" to a date. You can specify 2 hours ago, or -2 hours 
+                for going back in time, or 2 hours or +2 hours for going forward in time"#,
+                example: r#"touch -a -d "2 hours ago" fixture.json"#,
                 result: None,
             },
         ]
     }
+}
+
+fn parse_given_string_to_date(
+    date_string: Spanned<String>,
+) -> Result<Option<DateTime<Local>>, ShellError> {
+    match date_string.item.is_empty() {
+        true => {
+            let date = Local::now()
+                .with_hour(0)
+                .and_then(|x| x.with_minute(0))
+                .and_then(|s| s.with_second(0));
+            if let Some(date) = date {
+                Ok(Some(date))
+            } else {
+                return Err(ShellError::NushellFailed {
+                    msg: "Cannot create a local now time".to_string(),
+                });
+            }
+        }
+        false if date_string.item == "." => {
+            return Err(ShellError::DatetimeParseError(
+                "Cannot parse the '.' date. Did you simply mean '' ?".to_string(),
+                date_string.span,
+            ));
+        }
+        false => {
+            let parsed_date = date_string.item.parse::<DateTimeUtc>().ok();
+            if let Some(date) = parsed_date {
+                Ok(Some(DateTime::from(date.0)))
+            } else {
+                return Err(ShellError::DatetimeParseError(
+                    "Cannot parse the provided date.".to_string(),
+                    date_string.span,
+                ));
+            }
+        }
+    }
+}
+
+// adapted from https://github.com/uutils/coreutils/blob/main/src/uu/touch/src/touch.rs
+// does not consider daylights savings, and cannot accept months or years yet
+// We need to support things like Feb 29, 2020, 2 years after. There is no Feb 29, 2022. Will the date move to March 1st?
+// So how do we handle that?
+/// Parses relative time into a duration
+/// e.g., yesterday, 2 hours ago, -2 weeks
+fn parse_relative_time(s: &str) -> Option<Duration> {
+    // Relative time, like "-1 hour" or "+3 days".
+    //
+    // TODO Add support for "year" and "month".
+    // TODO Add support for times without spaces like "-1hour".
+    let mut tokens: Vec<&str> = s.split_whitespace().collect();
+    let past_time = tokens.contains(&"ago");
+
+    if past_time {
+        tokens = tokens[0..tokens.len() - 1].to_vec()
+    }
+
+    let result = match &tokens[..] {
+        [num_str, "fortnight" | "fortnights"] => {
+            num_str.parse::<i64>().ok().map(|n| Duration::weeks(2 * n))
+        }
+        ["fortnight" | "fortnights"] => Some(Duration::weeks(2)),
+        [num_str, "week" | "weeks"] => num_str.parse::<i64>().ok().map(Duration::weeks),
+        ["week" | "weeks"] => Some(Duration::weeks(1)),
+        [num_str, "day" | "days"] => num_str.parse::<i64>().ok().map(Duration::days),
+        ["day" | "days"] => Some(Duration::days(1)),
+        [num_str, "hour" | "hours"] => num_str.parse::<i64>().ok().map(Duration::hours),
+        ["hour" | "hours"] => Some(Duration::hours(1)),
+        [num_str, "minute" | "minutes" | "min" | "mins"] => {
+            num_str.parse::<i64>().ok().map(Duration::minutes)
+        }
+        ["minute" | "minutes" | "min" | "mins"] => Some(Duration::minutes(1)),
+        [num_str, "second" | "seconds" | "sec" | "secs"] => {
+            num_str.parse::<i64>().ok().map(Duration::seconds)
+        }
+        ["second" | "seconds" | "sec" | "secs"] => Some(Duration::seconds(1)),
+        ["now" | "today"] => Some(Duration::nanoseconds(0)),
+        ["yesterday"] => Some(Duration::days(-1)),
+        ["tomorrow"] => Some(Duration::days(1)),
+        _ => None,
+    };
+
+    let relative_time = if past_time {
+        match result {
+            Some(duration) => {
+                if duration.num_milliseconds() < 0 {
+                    Some(duration)
+                } else {
+                    Some(Duration::milliseconds(-duration.num_milliseconds()))
+                }
+            }
+            None => None,
+        }
+    } else {
+        result
+    };
+    relative_time
 }
