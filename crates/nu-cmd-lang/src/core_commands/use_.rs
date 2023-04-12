@@ -72,16 +72,16 @@ impl Command for Use {
                 let module_arg_str = String::from_utf8_lossy(
                     engine_state.get_span_contents(&import_pattern.head.span),
                 );
-                let maybe_parent = if let Some(path) = find_in_dirs_env(
+
+                let maybe_file_path = find_in_dirs_env(
                     &module_arg_str,
                     engine_state,
                     caller_stack,
                     get_dirs_var_from_call(call),
-                )? {
-                    path.parent().map(|p| p.to_path_buf()).or(None)
-                } else {
-                    None
-                };
+                )?;
+                let maybe_parent = maybe_file_path
+                    .as_ref()
+                    .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
                 let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
@@ -89,6 +89,11 @@ impl Command for Use {
                 if let Some(parent) = maybe_parent {
                     let file_pwd = Value::string(parent.to_string_lossy(), call.head);
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                }
+
+                if let Some(file_path) = maybe_file_path {
+                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
                 // Run the block (discard the result)
