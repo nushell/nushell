@@ -258,7 +258,7 @@ impl Command for Nu {
             .named(
                 "include-path",
                 SyntaxShape::String,
-                "set the NU_LIB_DIRS for the given script",
+                "set the NU_LIB_DIRS for the given script (semicolon-delimited)",
                 Some('I'),
             )
             .switch("interactive", "start as an interactive shell", Some('i'))

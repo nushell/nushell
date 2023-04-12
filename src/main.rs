@@ -20,7 +20,7 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_command::{create_default_context, get_init_cwd};
-use nu_protocol::{report_error_new, Span, Value};
+use nu_protocol::{report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
@@ -138,13 +138,17 @@ fn main() -> Result<()> {
     );
 
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
-        engine_state.add_env_var(
-            "NU_LIB_DIRS".into(),
-            Value::List {
-                vals: vec![Value::test_string(&include_path.item)],
-                span: Span::test_data(),
-            },
-        );
+        let span = include_path.span;
+        let vals: Vec<_> = include_path
+            .item
+            .split(';')
+            .map(|x| Value::String {
+                val: x.trim().to_string(),
+                span,
+            })
+            .collect();
+
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
     }
 
     // IDE commands
