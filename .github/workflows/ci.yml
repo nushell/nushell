@@ -169,40 +169,40 @@ jobs:
         run: cargo test --profile ci --package nu_plugin_*
 
 
-  # nu-coverage:
-  #   needs: nu-tests
-  #   env:
-  #     NUSHELL_CARGO_TARGET: ci
+  nu-coverage:
+    needs: nu-tests
+    env:
+      NUSHELL_CARGO_TARGET: ci
 
-  #   strategy:
-  #     fail-fast: true
-  #     matrix:
-  #       # disabled mac due to problems with merging coverage and similarity to linux
-  #       # disabled windows due to running out of disk space when having too many crates or tests
-  #       platform: [ubuntu-20.04] # windows-latest
-  #       rust:
-  #         - stable
+    strategy:
+      fail-fast: true
+      matrix:
+        # disabled mac due to problems with merging coverage and similarity to linux
+        # disabled windows due to running out of disk space when having too many crates or tests
+        platform: [ubuntu-20.04] # windows-latest
+        rust:
+          - stable
 
-  #   runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform }}
 
-  #   steps:
-  #     - uses: actions/checkout@v3
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - name: Setup Rust toolchain and cache
-  #       uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
-  #     - name: Install cargo-llvm-cov
-  #       uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Setup Rust toolchain and cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
-  #     - name: Tests
-  #       shell: bash
-  #       run: |
-  #         source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
-  #         cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
-  #         cargo build --workspace --profile ci
-  #         cargo test --workspace --profile ci
-  #         cargo llvm-cov report --profile ci --lcov --output-path lcov.info
+      - name: Tests
+        shell: bash
+        run: |
+          source <(cargo llvm-cov show-env --export-prefix) # Set the environment variables needed to get coverage.
+          cargo llvm-cov clean --workspace # Remove artifacts that may affect the coverage results.
+          cargo build --workspace --profile ci
+          cargo test --workspace --profile ci
+          cargo llvm-cov report --profile ci --lcov --output-path lcov.info
 
-  #     - name: Upload coverage reports to Codecov with GitHub Action
-  #       uses: codecov/codecov-action@v3
-  #       with:
-  #         files: lcov.info
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
