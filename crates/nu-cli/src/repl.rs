@@ -558,6 +558,7 @@ pub fn evaluate_repl(
                         0
                     };
 
+
                     shells[current_shell] = Value::String { val: path, span };
 
                     stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });

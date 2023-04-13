@@ -45,13 +45,10 @@ impl Command for Use {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let import_pattern = if let Some(Expression {
-            expr: Expr::ImportPattern(pat),
+        let Some(Expression {
+            expr: Expr::ImportPattern(import_pattern),
             ..
-        }) = call.get_parser_info("import_pattern")
-        {
-            pat
-        } else {
+        }) = call.get_parser_info("import_pattern") else {
             return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
