@@ -37,9 +37,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "-I" | "--ide-goto-def" | "--ide-hover" | "--ide-complete" => {
-                args.next()
-            }
+            | "--include-path" | "-I" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
+            | "--ide-check" => args.next(),
             _ => None,
         };
 
@@ -92,12 +91,6 @@ pub(crate) fn parse_commandline_args(
         )) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
-            let ide_goto_def: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
-            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
-            let ide_complete: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "ide-complete")?;
-            let ide_check = call.get_named_arg("ide-check");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
@@ -114,6 +107,15 @@ pub(crate) fn parse_commandline_args(
             let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
+
+            let ide_goto_def: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
+            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
+            let ide_complete: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-complete")?;
+            let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
+
+            eprintln!("ide_check: {:?}", &ide_check);
 
             fn extract_contents(
                 expression: Option<Expression>,
@@ -229,7 +231,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
-    pub(crate) ide_check: Option<Spanned<String>>,
+    pub(crate) ide_check: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -312,8 +314,9 @@ impl Command for Nu {
                 "list completions for the item at the given position",
                 None,
             )
-            .switch(
+            .named(
                 "ide-check",
+                SyntaxShape::Int,
                 "run a diagnostic check on the given source",
                 None,
             );
