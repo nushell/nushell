@@ -2,7 +2,6 @@ use std::fs::OpenOptions;
 use std::path::Path;
 
 use chrono::{DateTime, Duration, Local, Timelike};
-use dateparser::DateTimeUtc;
 use filetime::FileTime;
 
 use nu_engine::CallExt;
@@ -99,8 +98,8 @@ impl Command for Touch {
                 call.get_flag(engine_state, stack, "date")?;
             match date_string {
                 Some(date_string) => {
-                    let parsed_date = parse_relative_time(&date_string.item);
                     // try to parse a relative date
+                    let parsed_date = parse_relative_time(&date_string.item);
                     if let Some(parsed_date) = parsed_date {
                         date = Some(Local::now() + parsed_date);
                     } else {
@@ -300,9 +299,18 @@ fn parse_given_string_to_date(
             date_string.span,
         )),
         false => {
-            let parsed_date = date_string.item.parse::<DateTimeUtc>().ok();
+            let parsed_date = dtparse::parse(&date_string.item).ok();
             if let Some(date) = parsed_date {
-                Ok(Some(DateTime::from(date.0)))
+                if let Some(offset) = date.1 {
+                    Ok(Some(
+                        DateTime::<Local>::from_local(date.0, offset).with_timezone(&Local),
+                    ))
+                } else {
+                    Ok(Some(
+                        // no offset, then use the local timezone
+                        DateTime::<Local>::from_local(date.0, *Local::now().offset()),
+                    ))
+                }
             } else {
                 Err(ShellError::DatetimeParseError(
                     "Cannot parse the provided date.".to_string(),
@@ -357,7 +365,16 @@ fn parse_relative_time(s: &str) -> Option<Duration> {
     };
 
     if past_time {
-        result.filter(|&duration| duration.num_milliseconds() < 0)
+        if let Some(duration) = result {
+            let negative = result.filter(|&duration| duration.num_milliseconds() < 0);
+            if negative.is_some() {
+                Some(duration)
+            } else {
+                Some(-duration)
+            }
+        } else {
+            None
+        }
     } else {
         result
     }
