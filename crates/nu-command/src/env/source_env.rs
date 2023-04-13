@@ -47,7 +47,7 @@ impl Command for SourceEnv {
         let block_id: i64 = call.req_parser_info(engine_state, caller_stack, "block_id")?;
 
         // Set the currently evaluated directory (file-relative PWD)
-        let mut parent = if let Some(path) = find_in_dirs_env(
+        let file_path = if let Some(path) = find_in_dirs_env(
             &source_filename.item,
             engine_state,
             caller_stack,
@@ -57,11 +57,17 @@ impl Command for SourceEnv {
         } else {
             return Err(ShellError::FileNotFound(source_filename.span));
         };
-        parent.pop();
 
-        let file_pwd = Value::string(parent.to_string_lossy(), call.head);
+        if let Some(parent) = file_path.parent() {
+            let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
-        caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+            caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+        }
+
+        caller_stack.add_env_var(
+            "CURRENT_FILE".to_string(),
+            Value::string(file_path.to_string_lossy(), call.head),
+        );
 
         // Evaluate the block
         let block = engine_state.get_block(block_id as usize).clone();
@@ -81,6 +87,7 @@ impl Command for SourceEnv {
 
         // Remove the file-relative PWD
         caller_stack.remove_env_var(engine_state, "FILE_PWD");
+        caller_stack.remove_env_var(engine_state, "CURRENT_FILE");
 
         result
     }
