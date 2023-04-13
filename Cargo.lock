@@ -2879,7 +2879,6 @@ dependencies = [
  "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
- "reedline",
  "regex",
  "roxmltree",
  "rstest",
