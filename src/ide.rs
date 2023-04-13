@@ -74,18 +74,28 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String) {
+pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
 
+    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+        max_errors as usize
+    } else {
+        100
+    };
+
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
-        for err in &working_set.parse_errors {
+        for (idx, err) in working_set.parse_errors.iter().enumerate() {
+            if idx >= max_errors {
+                // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
+                break;
+            }
             let mut span = err.span();
             span.start -= offset;
             span.end -= offset;
