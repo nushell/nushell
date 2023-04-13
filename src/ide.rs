@@ -10,6 +10,7 @@ use reedline::Completer;
 use serde_json::json;
 use std::sync::Arc;
 
+#[derive(Debug)]
 enum Id {
     Variable(VarId),
     Declaration(DeclId),
@@ -73,15 +74,28 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String) {
+pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
+
+    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+        max_errors as usize
+    } else {
+        100
+    };
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
-        for err in &working_set.parse_errors {
+        for (idx, err) in working_set.parse_errors.iter().enumerate() {
+            if idx >= max_errors {
+                // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
+                break;
+            }
             let mut span = err.span();
             span.start -= offset;
             span.end -= offset;
@@ -124,10 +138,13 @@ pub fn check(engine_state: &mut EngineState, file_path: &String) {
 }
 
 pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
     match find_id(&mut working_set, file_path, &file, location) {
-        Some((Id::Declaration(decl_id), offset, _)) => {
+        Some((Id::Declaration(decl_id), ..)) => {
             let result = working_set.get_decl(decl_id);
             if let Some(block_id) = result.get_block_id() {
                 let block = working_set.get_block(block_id);
@@ -139,8 +156,8 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
                                 json!(
                                     {
                                         "file": file.0,
-                                        "start": span.start - offset,
-                                        "end": span.end - offset
+                                        "start": span.start - file.1,
+                                        "end": span.end - file.1
                                     }
                                 )
                             );
@@ -150,7 +167,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
                 }
             }
         }
-        Some((Id::Variable(var_id), offset, _)) => {
+        Some((Id::Variable(var_id), ..)) => {
             let var = working_set.get_variable(var_id);
             for file in working_set.files() {
                 if var.declaration_span.start >= file.1 && var.declaration_span.start < file.2 {
@@ -159,8 +176,8 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
                         json!(
                             {
                                 "file": file.0,
-                                "start": var.declaration_span.start - offset,
-                                "end": var.declaration_span.end - offset
+                                "start": var.declaration_span.start - file.1,
+                                "end": var.declaration_span.end - file.1
                             }
                         )
                     );
@@ -175,6 +192,9 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
 }
 
 pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
     match find_id(&mut working_set, file_path, &file, location) {

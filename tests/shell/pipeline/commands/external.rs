@@ -129,6 +129,18 @@ fn command_not_found_error_suggests_typo_fix() {
 }
 
 #[test]
+fn command_not_found_error_shows_not_found() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            export extern "foo" [];
+            foo
+        "#
+    );
+    assert!(actual.err.contains("'foo' was not found"));
+}
+
+#[test]
 fn command_substitution_wont_output_extra_newline() {
     let actual = nu!(
         cwd: ".",
