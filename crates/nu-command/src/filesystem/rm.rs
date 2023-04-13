@@ -50,21 +50,15 @@ impl Command for Rm {
                 "filename",
                 SyntaxShape::Filepath,
                 "the path of the file you want to remove",
-            );
-        #[cfg(all(
-            feature = "trash-support",
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
-        let sig = sig
+            )
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting",
+                "move to the platform's trash instead of permanently deleting, it's useless on android and ios",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option",
+                "delete permanently, ignoring the 'always_trash' config option, it's always enabled on android and ios",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
@@ -169,18 +163,13 @@ fn rm(
 
     let rm_always_trash = config.rm_always_trash;
 
-    #[cfg(any(
-        not(feature = "trash-support"),
-        target_os = "android",
-        target_os = "ios"
-    ))]
+    #[cfg(not(feature = "trash-support"))]
     {
         if rm_always_trash {
             return Err(ShellError::GenericError(
                 "Cannot execute `rm`; the current configuration specifies \
                     `always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support` or trash is not supported on \
-                    your platform."
+                    built with feature `trash_support`."
                     .into(),
                 "trash required to be true but not supported".into(),
                 Some(span),
@@ -189,8 +178,7 @@ fn rm(
             ));
         } else if trash {
             return Err(ShellError::GenericError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not \
-                    enabled or trash is not supported on your platform"
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled"
                     .into(),
                 "this option is only available if nu is built with the `trash-support` feature"
                     .into(),
