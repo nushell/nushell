@@ -115,8 +115,6 @@ pub(crate) fn parse_commandline_args(
                 call.get_flag(engine_state, &mut stack, "ide-complete")?;
             let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
 
-            eprintln!("ide_check: {:?}", &ide_check);
-
             fn extract_contents(
                 expression: Option<Expression>,
             ) -> Result<Option<Spanned<String>>, ShellError> {
