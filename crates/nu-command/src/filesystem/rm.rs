@@ -53,12 +53,12 @@ impl Command for Rm {
             )
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting, it's useless on android and ios",
+                "move to the platform's trash instead of permanently deleting. not used on android and ios",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option, it's always enabled on android and ios",
+                "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
