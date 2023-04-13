@@ -61,11 +61,21 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
   ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu clippy
+  clippy
+  ```
 
 - Run all tests:
 
   ```shell
   cargo test --workspace
+  ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu test
+  test
   ```
 
 - Run all tests for a specific command
@@ -79,12 +89,30 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo fmt --all -- --check
   ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu fmt
+  fmt --check
+  ```
 
 - Format the code in the project
 
   ```shell
   cargo fmt --all
   ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu fmt
+  fmt
+  ```
+
+- Set up `git` hooks to check formatting and run `clippy` before committing and pushing:
+
+  ```shell
+  use toolkit.nu setup-git-hooks
+  setup-git-hooks
+  ```
+  _Unfortunately, this hook isn't available on Windows._
 
 ### Debugging Tips
 
