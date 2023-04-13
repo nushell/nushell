@@ -206,7 +206,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             let signature = decl.signature();
             description.push_str(&format!("  {}", signature.name));
             if !signature.named.is_empty() {
-                description.push_str(" {{flags}}")
+                description.push_str(" {flags}")
             }
             for required_arg in &signature.required_positional {
                 description.push_str(&format!(" <{}>", required_arg.name));
@@ -218,14 +218,23 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                 description.push_str(&format!(" <...{}>", arg.name));
             }
 
+            description.push_str("\n```\n");
+
             if !signature.required_positional.is_empty()
                 || !signature.optional_positional.is_empty()
                 || signature.rest_positional.is_some()
             {
-                description.push_str("\n```\n### Parameters\n```\n");
+                description.push_str("\n### Parameters\n\n");
+                let mut first = true;
                 for required_arg in &signature.required_positional {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
+
                     description.push_str(&format!(
-                        "  {}: {}",
+                        "  `{}: {}`",
                         required_arg.name,
                         required_arg.shape.to_type()
                     ));
@@ -235,8 +244,14 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                     description.push('\n');
                 }
                 for optional_arg in &signature.optional_positional {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
+
                     description.push_str(&format!(
-                        "  {}: {}",
+                        "  `{}: {}`",
                         optional_arg.name,
                         optional_arg.shape.to_type()
                     ));
@@ -246,61 +261,71 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                     description.push('\n');
                 }
                 if let Some(arg) = &signature.rest_positional {
-                    description.push_str(&format!(" ...{}: {}", arg.name, arg.shape.to_type()));
+                    if !first {
+                        description.push_str("\\\n");
+                    }
+
+                    description.push_str(&format!(" `...{}: {}`", arg.name, arg.shape.to_type()));
                     if !arg.desc.is_empty() {
                         description.push_str(&format!(" - {}", arg.desc));
                     }
                     description.push('\n');
                 }
+
+                description.push('\n');
             }
 
             if !signature.named.is_empty() {
-                description.push_str("\n```\n### Flags\n```\n");
+                description.push_str("\n### Flags\n\n");
 
+                let mut first = true;
                 for named in &signature.named {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
                     description.push_str("  ");
                     if let Some(short_flag) = &named.short {
-                        description.push_str(&format!("-{}", short_flag));
+                        description.push_str(&format!("`-{}`", short_flag));
                     }
 
                     if !named.long.is_empty() {
                         if named.short.is_some() {
                             description.push_str(", ")
                         }
-                        description.push_str(&format!("--{}", named.long));
+                        description.push_str(&format!("`--{}`", named.long));
                     }
 
                     if let Some(arg) = &named.arg {
-                        description.push_str(&format!(" <{}>", arg.to_type()))
+                        description.push_str(&format!(" `<{}>`", arg.to_type()))
                     }
 
                     if !named.desc.is_empty() {
                         description.push_str(&format!(" - {}", named.desc));
                     }
-
-                    description.push('\n');
                 }
+                description.push('\n');
             }
 
             if !signature.input_output_types.is_empty() {
-                description.push_str("\n```\n### Input/output\n```\n");
+                description.push_str("\n### Input/output\n");
 
+                description.push_str("\n```\n");
                 for input_output in &signature.input_output_types {
                     description.push_str(&format!("  {} | {}\n", input_output.0, input_output.1));
                 }
+                description.push_str("\n```\n");
             }
 
-            description.push_str(&format!("```\n### Usage\n  {}\n```\n", decl.usage()));
+            description.push_str(&format!("### Usage\n  {}\n", decl.usage()));
 
             if !decl.extra_usage().is_empty() {
-                description.push_str(&format!(
-                    "\n```\n### Extra usage:\n  {}\n```\n",
-                    decl.extra_usage()
-                ));
+                description.push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
             }
 
             if !decl.examples().is_empty() {
-                description.push_str("\n```\n### Example(s)\n```\n");
+                description.push_str("### Example(s)\n```\n");
 
                 for example in decl.examples() {
                     description.push_str(&format!(
