@@ -10,10 +10,10 @@ pub fn get_columns<'a>(input: impl IntoIterator<Item = &'a Value>) -> Vec<String
         };
 
         for col in cols {
-                if !columns.contains(col) {
-                    columns.push(col.to_string());
-                }
+            if !columns.contains(col) {
+                columns.push(col.to_string());
             }
+        }
     }
 
     columns
