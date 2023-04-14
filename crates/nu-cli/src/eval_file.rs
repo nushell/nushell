@@ -93,6 +93,10 @@ pub fn evaluate_file(
         "FILE_PWD".to_string(),
         Value::string(parent.to_string_lossy(), Span::unknown()),
     );
+    stack.add_env_var(
+        "CURRENT_FILE".to_string(),
+        Value::string(file_path.to_string_lossy(), Span::unknown()),
+    );
 
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", file_path_str);

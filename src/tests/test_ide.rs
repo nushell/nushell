@@ -4,7 +4,7 @@ use crate::tests::{test_ide_contains, TestResult};
 fn parser_recovers() -> TestResult {
     test_ide_contains(
         "3 + \"bob\"\nlet x = \"fred\"\n",
-        &["--ide-check"],
+        &["--ide-check 5"],
         "\"typename\":\"string\"",
     )
 }

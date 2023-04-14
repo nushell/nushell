@@ -450,22 +450,26 @@ fn parse_short_flags(
 ) -> Option<Vec<Flag>> {
     let arg_span = spans[*spans_idx];
 
-    let arg_contents = working_set.get_span_contents(arg_span).to_vec();
+    let arg_contents = working_set.get_span_contents(arg_span);
 
-    if let Ok(arg_contents_uft8_ref) = str::from_utf8(&arg_contents) {
+    if let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) {
         if arg_contents_uft8_ref.starts_with('-') && arg_contents_uft8_ref.len() > 1 {
             let short_flags = &arg_contents_uft8_ref[1..];
             let num_chars = short_flags.chars().count();
             let mut found_short_flags = vec![];
             let mut unmatched_short_flags = vec![];
-            for (i, short_flag) in short_flags.chars().enumerate() {
+            for (offset, short_flag) in short_flags.char_indices() {
                 let orig = arg_span;
-                let short_flag_span = Span::new(orig.start + 1 + i, orig.start + 1 + i + 1);
+                let short_flag_span = Span::new(
+                    orig.start + 1 + offset,
+                    orig.start + 1 + offset + short_flag.len_utf8(),
+                );
                 if let Some(flag) = sig.get_short_flag(short_flag) {
                     // Allow args in short flag batches as long as it is the last flag.
-                    if flag.arg.is_some() && i < num_chars - 1 {
+                    if flag.arg.is_some() && offset < num_chars - 1 {
                         working_set
                             .error(ParseError::OnlyLastFlagInBatchCanTakeArg(short_flag_span));
+                        break;
                     }
                     found_short_flags.push(flag);
                 } else {
@@ -2877,9 +2881,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let head_span = if let Some(head_span) = spans.get(0) {
-        head_span
-    } else {
+    let Some(head_span) = spans.get(0) else {
         working_set.error(ParseError::WrongImportPattern(span(spans)));
         return garbage(span(spans));
     };
@@ -5810,7 +5812,12 @@ pub fn parse(
     scoped: bool,
 ) -> Block {
     let name = match fname {
-        Some(fname) => fname.to_string(),
+        Some(fname) => {
+            // use the canonical name for this filename
+            nu_path::expand_to_real_path(fname)
+                .to_string_lossy()
+                .to_string()
+        }
         None => "source".to_string(),
     };
 

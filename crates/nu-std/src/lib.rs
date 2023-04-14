@@ -71,11 +71,11 @@ pub fn load_standard_library(
         let submodules = vec![
             // helper modules that could be used in other parts of the library
             ("log", include_str!("../lib/log.nu")),
-            ("assert", include_str!("../lib/assert.nu")),
 
             // the rest of the library
             ("dirs", include_str!("../lib/dirs.nu")),
             ("help", include_str!("../lib/help.nu")),
+            ("testing", include_str!("../lib/testing.nu")),
             ("xml", include_str!("../lib/xml.nu")),
         ];
 

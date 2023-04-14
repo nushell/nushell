@@ -25,7 +25,13 @@ pub struct NuVariable {
 
 impl LazyRecord for NuVariable {
     fn column_names(&self) -> Vec<&'static str> {
-        let mut cols = vec!["config-path", "env-path", "history-path", "loginshell-path"];
+        let mut cols = vec![
+            "default-config-dir",
+            "config-path",
+            "env-path",
+            "history-path",
+            "loginshell-path",
+        ];
 
         #[cfg(feature = "plugin")]
         if self.engine_state.plugin_signatures.is_some() {
@@ -70,6 +76,17 @@ impl LazyRecord for NuVariable {
         }
 
         match column {
+            "default-config-dir" => {
+                if let Some(mut path) = nu_path::config_dir() {
+                    path.push("nushell");
+                    Ok(Value::String {
+                        val: path.to_string_lossy().to_string(),
+                        span: self.span,
+                    })
+                } else {
+                    err("Could not get config directory")
+                }
+            }
             "config-path" => {
                 if let Some(path) = self.engine_state.get_config_path("config-path") {
                     let canon_config_path = canonicalize_path(&self.engine_state, path);
