@@ -5813,7 +5813,12 @@ pub fn parse(
     scoped: bool,
 ) -> Block {
     let name = match fname {
-        Some(fname) => fname.to_string(),
+        Some(fname) => {
+            // use the canonical name for this filename
+            nu_path::expand_to_real_path(fname)
+                .to_string_lossy()
+                .to_string()
+        }
         None => "source".to_string(),
     };
 
