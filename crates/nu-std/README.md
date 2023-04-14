@@ -44,12 +44,8 @@ log debug "Running again"
 assert (2 == 1)
 ```
 
-Or, finally, you can import everything from the standard library and not have to pick and choose.
-```
-use std *
-```
 This is probably the form of import you'll want to add to your `env.nu` for interactive use.
 
 ## :pencil2: contribute to the standard library
 You're invited to contribute to the standard library! 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/crates/nu-std/CONTRIBUTING.md) for details.

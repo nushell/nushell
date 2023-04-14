@@ -229,11 +229,12 @@ fn parse_export_env_missing_block() {
 }
 
 #[test]
-fn numberlike_command_name() {
+fn call_command_with_non_ascii_argument() {
     let actual = nu!(cwd: "tests/parsing/samples",
         r#"
-            def 7zup [] {}
+            def nu-arg [--umlaut(-ö): int] {}
+            nu-arg -ö 42
         "#);
 
-    assert!(actual.err.contains("backticks"));
+    assert_eq!(actual.err.len(), 0);
 }

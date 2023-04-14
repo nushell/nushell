@@ -126,6 +126,17 @@ fn has_file_pwd() {
     })
 }
 
+#[test]
+fn has_file_loc() {
+    Playground::setup("has_file_pwd", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
+
+        let actual = nu!(cwd: dirs.test(), "nu spam.nu");
+
+        assert!(actual.out.ends_with("spam.nu"));
+    })
+}
+
 // FIXME: autoenv not currently implemented
 #[ignore]
 #[test]

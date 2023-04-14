@@ -134,6 +134,11 @@ impl Command for OverlayUse {
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }
 
+                if let Some(file_path) = &maybe_path {
+                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
+                }
+
                 let _ = eval_block(
                     engine_state,
                     &mut callee_stack,

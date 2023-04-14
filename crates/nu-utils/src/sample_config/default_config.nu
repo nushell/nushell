@@ -26,21 +26,21 @@ let dark_theme = {
     duration: white
     date: {|| (date now) - $in |
       if $in < 1hr {
-        'red3b'
+        'purple'
       } else if $in < 6hr {
-        'orange3'
+        'red'
       } else if $in < 1day {
-        'yellow3b'
+        'yellow'
       } else if $in < 3day {
-        'chartreuse2b'
+        'green'
       } else if $in < 1wk {
-        'green3b'
+        'light_green'
       } else if $in < 6wk {
-        'darkturquoise'
+        'cyan'
       } else if $in < 52wk {
-        'deepskyblue3b'
+        'blue'
       } else { 'dark_gray' }
-    }    
+    }
     range: white
     float: white
     string: white
@@ -57,6 +57,7 @@ let dark_theme = {
     shape_binary: purple_bold
     shape_block: blue_bold
     shape_bool: light_cyan
+    shape_closure: green_bold
     shape_custom: green
     shape_datetime: cyan_bold
     shape_directory: cyan
@@ -66,7 +67,7 @@ let dark_theme = {
     shape_flag: blue_bold
     shape_float: purple_bold
     # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    shape_garbage: { fg: white bg: red attr: b}
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
@@ -109,19 +110,19 @@ let light_theme = {
     duration: dark_gray
   date: {|| (date now) - $in |
     if $in < 1hr {
-      'red3b'
+      'purple'
     } else if $in < 6hr {
-      'orange3'
+      'red'
     } else if $in < 1day {
-      'yellow3b'
+      'yellow'
     } else if $in < 3day {
-      'chartreuse2b'
+      'green'
     } else if $in < 1wk {
-      'green3b'
+      'light_green'
     } else if $in < 6wk {
-      'darkturquoise'
+      'cyan'
     } else if $in < 52wk {
-      'deepskyblue3b'
+      'blue'
     } else { 'dark_gray' }
   }
     range: dark_gray
@@ -140,6 +141,7 @@ let light_theme = {
     shape_binary: purple_bold
     shape_block: blue_bold
     shape_bool: light_cyan
+    shape_closure: green_bold
     shape_custom: green
     shape_datetime: cyan_bold
     shape_directory: cyan
@@ -149,7 +151,7 @@ let light_theme = {
     shape_flag: blue_bold
     shape_float: purple_bold
     # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    shape_garbage: { fg: white bg: red attr: b}
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
