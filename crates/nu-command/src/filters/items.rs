@@ -59,7 +59,7 @@ impl Command for Items {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
-        let input_span = input.span().unwrap_or(Span::unknown());
+        let input_span = input.span().unwrap_or(call.head);
         let run_for_each_item = move |keyval: (String, Value)| -> Option<Value> {
             // with_env() is used here to ensure that each iteration uses
             // a different set of environment variables.
@@ -104,19 +104,13 @@ impl Command for Items {
                 .into_iter()
                 .map_while(run_for_each_item)
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ListStream(stream, ..) => {
-                let v: Vec<_> = stream.into_iter().collect();
-                let cols = get_columns(&v);
-                let vals = get_values(&v, call.head, input_span)?;
-
-                Ok(cols
-                    .into_iter()
-                    .zip(vals.into_iter())
-                    .into_iter()
-                    .map_while(run_for_each_item)
-                    .into_pipeline_data(ctrlc))
-            }
             // Errors
+            PipelineData::ListStream(..) => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "record".into(),
+                wrong_type: "stream".into(),
+                dst_span: call.head,
+                src_span: input_span,
+            }),
             PipelineData::Value(Value::Error { error }, ..) => Err(*error),
             PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
