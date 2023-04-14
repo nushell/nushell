@@ -2880,9 +2880,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let head_span = if let Some(head_span) = spans.get(0) {
-        head_span
-    } else {
+    let Some(head_span) = spans.get(0) else {
         working_set.error(ParseError::WrongImportPattern(span(spans)));
         return garbage(span(spans));
     };
