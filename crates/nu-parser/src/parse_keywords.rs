@@ -669,9 +669,7 @@ pub fn parse_alias(
             return alias_pipeline;
         }
 
-        let alias_name_expr = if let Some(expr) = alias_call.positional_nth(0) {
-            expr
-        } else {
+        let Some(alias_name_expr) = alias_call.positional_nth(0) else {
             working_set.error(ParseError::UnknownState(
                 "Missing positional after call check".to_string(),
                 span(spans),
@@ -932,9 +930,7 @@ pub fn parse_export_in_module(
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let export_decl_id = if let Some(id) = working_set.find_decl(b"export", &Type::Any) {
-        id
-    } else {
+    let Some(export_decl_id) = working_set.find_decl(b"export", &Type::Any) else {
         working_set.error(ParseError::InternalError(
             "missing export command".into(),
             export_span,
@@ -1722,7 +1718,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 };
 
                 if let Ok(contents) = std::fs::read(&module_path) {
-                    let file_id = working_set.add_file(module_filename, &contents);
+                    let file_id =
+                        working_set.add_file(module_path.to_string_lossy().to_string(), &contents);
                     let new_span = working_set.get_span_for_file(file_id);
 
                     // Change the currently parsed directory

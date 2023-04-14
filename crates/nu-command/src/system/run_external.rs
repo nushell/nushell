@@ -332,7 +332,12 @@ impl ExternalCommand {
                                             format!("command '{cmd_name}' was not found but it exists in module '{module_name}'; try importing it with `use`")
                                         }
                                     } else {
-                                        format!("did you mean '{s}'?")
+                                        // If command and suggestion are the same, display not found
+                                        if cmd_name == &s {
+                                            format!("'{cmd_name}' was not found")
+                                        } else {
+                                            format!("did you mean '{s}'?")
+                                        }
                                     }
                                 }
                             }
