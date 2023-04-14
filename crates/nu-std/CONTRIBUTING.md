@@ -162,7 +162,7 @@ More design guidelines:
 1. Ensure your custom command provides useful help.  
 This is done with comments before the `def` for the custom command.  
 1. Use `error make` to report can't-proceed errors to user, not `log error`.  
-2. Use `log info` to provide a verbose progress messages that the user can optionally enable for troubleshooting. 
+2. Use `log info` to provide a verbose progress message that the user can optionally enable for troubleshooting. 
 e.g: 
     ```shell
     NU_LOG_LEVEL=INFO foo # verbose messages from command foo
