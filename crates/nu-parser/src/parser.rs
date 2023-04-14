@@ -457,12 +457,12 @@ fn parse_short_flags(
             let short_flags = &arg_contents_uft8_ref[1..];
             let mut found_short_flags = vec![];
             let mut unmatched_short_flags = vec![];
-            for short_flag in short_flags.chars().enumerate() {
+            for short_flag in short_flags.char_indices() {
                 let short_flag_char = short_flag.1;
                 let orig = arg_span;
                 let short_flag_span = Span::new(
                     orig.start + 1 + short_flag.0,
-                    orig.start + 1 + short_flag.0 + 1,
+                    orig.start + 1 + short_flag.0 + short_flag_char.len_utf8(),
                 );
                 if let Some(flag) = sig.get_short_flag(short_flag_char) {
                     // If we require an arg and are in a batch of short flags, error
