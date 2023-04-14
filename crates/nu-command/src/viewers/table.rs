@@ -1845,10 +1845,7 @@ fn render_path_name(
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
     let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
 
-    let ansi_style = style
-        .map(Style::to_crossterm_style)
-        // .map(ToNuAnsiStyle::to_nu_ansi_style)
-        .unwrap_or_default();
+    let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 
     let full_path = PathBuf::from(stripped_path.as_ref())
         .canonicalize()
@@ -1860,7 +1857,7 @@ fn render_path_name(
         show_clickable_links,
     );
 
-    let val = ansi_style.apply(full_path_link).to_string();
+    let val = ansi_style.paint(full_path_link).to_string();
     Some(Value::String { val, span })
 }
 
