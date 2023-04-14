@@ -1,6 +1,4 @@
 use super::utils::chain_error_with_input;
-use crate::filters::values::get_values;
-use nu_engine::column::get_columns;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
