@@ -53,7 +53,6 @@ Make your change in a local clone of that repo and submit a PR to the release no
 (All paths below shown relative to the root folder of the git repository containing the standard library.)
 ### Setup
 
-
 0. Install the Rust toolchain and Nushell build tools.  See [nushell CONTRIBUTING](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md) for details.
 The standard library is tightly coupled to a particular version of Nushell interpreter, 
 you need to be running that version to test your changes
