@@ -53,7 +53,7 @@ Make your change in a local clone of that repo and submit a PR to the release no
 (All paths below shown relative to the root folder of the git repository containing the standard library.)
 ### Setup
 
-0. Install the Rust toolchain and Nushell build tools.  See [nushell CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md) for details.
+0. Install the Rust toolchain and Nushell build tools.  See [nushell CONTRIBUTING](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md) for details.
 The standard library is tightly coupled to a particular version of Nushell interpreter, 
 you need to be running that version to test your changes
 (unlike a "normal" script module library).
@@ -136,7 +136,7 @@ you will be dealing with 2 new source files:  the module source itself (`./crate
 
 
 2. A `foo` command will be exposed to the user as `std foo` (at a minimum).  
-To enable this, update file `./crates/nu-std/lib/mod.rs` and add this code:
+To enable this, update file `./crates/nu-std/lib/mod.nu` and add this code:
    ```
    export use foo *    # command doesn't update environment
    export-env {
@@ -145,14 +145,17 @@ To enable this, update file `./crates/nu-std/lib/mod.rs` and add this code:
    ```
    The `use *` hoists the public definitions in `foo.nu` into `mod.nu` and thus into the `std` namespace.
 
-1. Some commands from the standard library are also hoisted into the top level, non-prefixed namespace, for example, the `help` command.  You can do this for a `foo` command:
+1. Some commands from the standard library are also preloaded, so they are available without explicit 
+import via `use std ...`.  
+So if your command is `std foo`, you can preload it as a bare `foo`:
    * modify `./crates/nu-std/src/lib.rs`, 
-   * find the initialization of the "prelude" at line 70 or thereabouts
-   * add `(foo, foo)`  
+   * find the initialization of the "prelude" at line 90 or thereabouts
+   * add `("foo", "foo")`  
+   * or, to preload it as `std foo`, `("std foo", "foo")`.
   
    (This code may be restructured soon: if you can't find it, check with the team on Discord.)  
 Note that you will need to recompile the Nushell interpreter to test this change, 
-see [Nushell Contributing#Setup](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#setup).
+see [Nushell CONTRIBUTING#Setup](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#setup).
 
 More design guidelines:
 
@@ -173,7 +176,7 @@ e.g:
   ```shell
   > NU_LOG_LEVEL=ERROR cargo run -- crates/nu-std/tests/run.nu
   ```
-  Change 'ERROR' to 'INFO' or 'DEBUG' for increasing verbousity.
+  Change 'ERROR' to 'INFO' or 'DEBUG' for increased verbousity.
 
 - Run all tests for a specific module, e.g, `crates/nu-std/tests/test_foo.nu`
 
@@ -196,6 +199,6 @@ the command with `log <level>`, as we recommend.)
 ## Git commit and repo conventions
 The standard library project uses the same protocols and conventions 
 for squashing git commits and handling github PRs as the core Nushell project. 
-Please see [nushell Contributing#git_etiquette](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#git-etiquette) for details.
+Please see [nushell CONTRIBUTING#git_etiquette](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#git-etiquette) for details.
 
 [github_draft_pr]:(https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request)
