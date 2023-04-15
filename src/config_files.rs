@@ -209,7 +209,7 @@ pub(crate) fn setup_config(
         let working_set = StateWorkingSet::new(engine_state);
         if let Some(var) = working_set
             .find_variable(b"$config")
-            .and_then(|id| stack.get_var(id, Span::new(0, 0)).ok())
+            .and_then(|id| stack.get_var(id, Span::unknown()).ok())
         {
             if var.as_record().is_ok() {
                 println!("warning: use `let-env config = ...` instead of `let config = ...`");
