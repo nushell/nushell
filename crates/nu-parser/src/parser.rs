@@ -459,10 +459,9 @@ fn parse_short_flags(
             let mut found_short_flags = vec![];
             let mut unmatched_short_flags = vec![];
             for (offset, short_flag) in short_flags.char_indices() {
-                let orig = arg_span;
                 let short_flag_span = Span::new(
-                    orig.start + 1 + offset,
-                    orig.start + 1 + offset + short_flag.len_utf8(),
+                    arg_span.start + 1 + offset,
+                    arg_span.start + 1 + offset + short_flag.len_utf8(),
                 );
                 if let Some(flag) = sig.get_short_flag(short_flag) {
                     // Allow args in short flag batches as long as it is the last flag.
