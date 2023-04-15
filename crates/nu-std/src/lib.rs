@@ -79,6 +79,13 @@ pub fn load_standard_library(
             ("xml", include_str!("../lib/xml.nu")),
         ];
 
+        // Define commands to be preloaded into the default (top level, unprefixed) namespace.
+        // User can invoke these without having to `use std` beforehand.
+        // Entries are: (name to add to default namespace, path under std to find implementation)
+        //
+        // Conventionally, for a command implemented as `std foo`, the name added
+        // is either `std foo` or bare `foo`, not some arbitrary rename.
+
         let prelude = vec![
             ("std help", "help"),
             ("std help commands", "help commands"),
