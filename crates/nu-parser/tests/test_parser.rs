@@ -1,5 +1,5 @@
 use nu_parser::*;
-use nu_protocol::ast::{Call, PathMember};
+use nu_protocol::ast::{Argument, Call, PathMember};
 use nu_protocol::Span;
 use nu_protocol::{
     ast::{Expr, Expression, PipelineElement},
@@ -638,18 +638,68 @@ pub fn parse_call_missing_short_flag_arg() {
 }
 
 #[test]
-pub fn parse_call_too_many_shortflag_args() {
+pub fn parse_call_short_flag_batch_arg_allowed() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo")
         .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
-        .named("--math", SyntaxShape::Int, "math!!", Some('m'));
+        .switch("--math", "math!!", Some('m'));
     working_set.add_decl(sig.predeclare());
-    parse(&mut working_set, None, b"foo -mj", true);
+
+    let block = parse(&mut working_set, None, b"foo -mj 10", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let expressions = &block[0];
+    assert_eq!(expressions.len(), 1);
+
+    if let PipelineElement::Expression(
+        _,
+        Expression {
+            expr: Expr::Call(call),
+            ..
+        },
+    ) = &expressions[0]
+    {
+        assert_eq!(call.decl_id, 0);
+        assert_eq!(call.arguments.len(), 2);
+        matches!(call.arguments[0], Argument::Named((_, None, None)));
+        matches!(call.arguments[1], Argument::Named((_, None, Some(_))));
+    }
+}
+
+#[test]
+pub fn parse_call_short_flag_batch_arg_disallowed() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let sig = Signature::build("foo")
+        .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
+        .switch("--math", "math!!", Some('m'));
+    working_set.add_decl(sig.predeclare());
+
+    parse(&mut working_set, None, b"foo -jm 10", true);
     assert!(matches!(
         working_set.parse_errors.first(),
-        Some(ParseError::ShortFlagBatchCantTakeArg(..))
+        Some(ParseError::OnlyLastFlagInBatchCanTakeArg(..))
+    ));
+}
+
+#[test]
+pub fn parse_call_short_flag_batch_disallow_multiple_args() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let sig = Signature::build("foo")
+        .named("--math", SyntaxShape::Int, "math!!", Some('m'))
+        .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+    working_set.add_decl(sig.predeclare());
+
+    parse(&mut working_set, None, b"foo -mj 10 20", true);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::OnlyLastFlagInBatchCanTakeArg(..))
     ));
 }
 
