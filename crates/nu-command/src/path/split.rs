@@ -32,7 +32,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "For a record or table input, split strings at the given columns",
                 Some('c'),
             )

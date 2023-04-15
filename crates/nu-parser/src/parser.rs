@@ -1596,7 +1596,7 @@ pub fn parse_brace_expr(
         } else if matches!(shape, SyntaxShape::MatchBlock) {
             parse_match_block_expression(working_set, span)
         } else {
-            parse_record(working_set, span)
+            parse_record(working_set, shape, span)
         }
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
@@ -2045,7 +2045,7 @@ pub fn parse_full_cell_path(
             (output, true)
         } else if bytes.starts_with(b"{") {
             trace!("parsing: record head of full cell path");
-            let output = parse_record(working_set, head.span);
+            let output = parse_record(working_set, &SyntaxShape::Any, head.span);
 
             tokens.next();
 
@@ -2766,10 +2766,10 @@ pub fn parse_shape_name(
         b"operator" => SyntaxShape::Operator,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        b"record" => SyntaxShape::Record,
+        _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
-        b"table" => SyntaxShape::Table,
+        _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
         b"variable" => SyntaxShape::Variable,
         b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
@@ -2805,35 +2805,75 @@ pub fn parse_shape_name(
     result
 }
 
+fn parse_collection_shape(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> SyntaxShape {
+    assert!(bytes.starts_with(b"record") || bytes.starts_with(b"table"));
+    let (name, name_with_ty) = if bytes.starts_with(b"record") {
+        ("record", "record<")
+    } else {
+        ("table", "table<")
+    };
+
+    let mk_shape = |shape| {
+        if name == "record" {
+            SyntaxShape::Record(shape)
+        } else {
+            SyntaxShape::Table(shape)
+        }
+    };
+
+    if bytes == name.as_bytes() {
+        mk_shape(vec![])
+    } else if bytes.starts_with(name_with_ty.as_bytes()) {
+        let Ok(inner_span) = prepare_inner_span(working_set, bytes, span, name_with_ty.len()) else {
+            return SyntaxShape::Any;
+        };
+
+        let sig = parse_signature_helper(working_set, inner_span);
+        let mut inner_sig = vec![];
+
+        let default_value_error = || {
+            ParseError::LabeledError(
+                "`{name}` annotations with default value".into(),
+                "annotations cannot have a default value".into(),
+                span,
+            )
+        };
+
+        inner_sig.extend(sig.optional_positional.into_iter().map(|sig| {
+            if sig.default_value.is_some() {
+                working_set.error(default_value_error());
+            }
+            (sig.name, sig.shape)
+        }));
+
+        inner_sig.extend(sig.required_positional.into_iter().map(|sig| {
+            if sig.default_value.is_some() {
+                working_set.error(default_value_error());
+            }
+            (sig.name, sig.shape)
+        }));
+
+        mk_shape(inner_sig)
+    } else {
+        working_set.error(ParseError::UnknownType(span));
+
+        SyntaxShape::Any
+    }
+}
+
 fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> SyntaxShape {
     assert!(bytes.starts_with(b"list"));
 
     if bytes == b"list" {
         SyntaxShape::List(Box::new(SyntaxShape::Any))
     } else if bytes.starts_with(b"list<") {
-        let start = span.start + 5;
-
-        // if the annotation is unterminated, we want to return early to avoid
-        // overflows with spans
-        let end = if bytes.ends_with(b">") {
-            span.end - 1
-        // extra characters after the >
-        } else if bytes.contains(&b'>') {
-            let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
-            let span = Span::new(span.start + angle_start, span.end);
-
-            working_set.error(ParseError::LabeledError(
-                "Extra characters in the parameter name".into(),
-                "extra characters".into(),
-                span,
-            ));
+        let Ok(inner_span) = prepare_inner_span(working_set, bytes, span, 5) else {
             return SyntaxShape::Any;
-        } else {
-            working_set.error(ParseError::Unclosed(">".into(), span));
-            return SyntaxShape::List(Box::new(SyntaxShape::Any));
         };
-
-        let inner_span = Span::new(start, end);
 
         let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
 
@@ -2853,6 +2893,34 @@ fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span)
 
         SyntaxShape::List(Box::new(SyntaxShape::Any))
     }
+}
+
+fn prepare_inner_span(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+    prefix_len: usize,
+) -> Result<Span, ()> {
+    let start = span.start + prefix_len;
+
+    let end = if bytes.ends_with(b">") {
+        span.end - 1
+    } else if bytes.contains(&b'>') {
+        let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
+        let span = Span::new(span.start + angle_start, span.end);
+
+        working_set.error(ParseError::LabeledError(
+            "Extra characters in the parameter name".into(),
+            "extra characters".into(),
+            span,
+        ));
+        return Err(());
+    } else {
+        working_set.error(ParseError::Unclosed(">".into(), span));
+        return Err(());
+    };
+
+    Ok(Span::new(start, end))
 }
 
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
@@ -4401,7 +4469,7 @@ pub fn parse_value(
         b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
-            | SyntaxShape::Table
+            | SyntaxShape::Table(_)
             | SyntaxShape::Signature => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value".into(), span));
@@ -4448,7 +4516,7 @@ pub fn parse_value(
                 Expression::garbage(span)
             }
         }
-        SyntaxShape::Table => {
+        SyntaxShape::Table(_) => {
             if bytes.starts_with(b"[") {
                 parse_table_expression(working_set, span)
             } else {
@@ -4476,7 +4544,7 @@ pub fn parse_value(
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
         // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
-        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record => {
+        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(..) => {
             working_set.error(ParseError::Expected(
                 "block, closure or record".into(),
                 span,
@@ -4496,7 +4564,7 @@ pub fn parse_value(
                     SyntaxShape::Duration,
                     SyntaxShape::Range,
                     SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
-                    SyntaxShape::Record,
+                    SyntaxShape::Record(vec![]),
                     SyntaxShape::Closure(None),
                     SyntaxShape::Block,
                     SyntaxShape::Int,
@@ -5109,7 +5177,11 @@ pub fn parse_builtin_commands(
     }
 }
 
-pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_record(
+    working_set: &mut StateWorkingSet,
+    shape: &SyntaxShape,
+    span: Span,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
     let mut start = span.start;
@@ -5173,15 +5245,47 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         output.push((field, value));
     }
 
+    if let SyntaxShape::Record(expected) = shape {
+        if let Some(found) = &field_types {
+            if !is_okay_record_shape(expected, found) {
+                let found = Type::Record(found.clone());
+                let error = ParseError::TypeMismatch(shape.to_type(), found, span);
+                working_set.error(error);
+            }
+        }
+    }
+
     Expression {
         expr: Expr::Record(output),
         span,
         ty: (if let Some(fields) = field_types {
             Type::Record(fields)
         } else {
-            Type::Any
+            Type::Record(vec![])
         }),
         custom_completion: None,
+    }
+}
+
+fn is_okay_record_shape(expected: &[(String, SyntaxShape)], found: &[(String, Type)]) -> bool {
+    if expected.is_empty() {
+        true
+    } else if expected.len() != found.len() {
+        false
+    } else {
+        // since we have no way of getting the spans the individual fields
+        // we just return one error for the whole record.
+        !expected
+            .iter()
+            .zip(found.iter())
+            .map(|(wanted, got)| {
+                if wanted.0 != got.0 && wanted.1.to_type() != got.1 {
+                    Some(())
+                } else {
+                    None
+                }
+            })
+            .any(|maybe_err| maybe_err.is_some())
     }
 }
 

@@ -34,7 +34,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::Bool)])
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "For a record or table input, check strings at the given columns, and replace with result",
                 Some('c'),
             )

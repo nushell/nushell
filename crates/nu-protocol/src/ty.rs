@@ -87,8 +87,20 @@ impl Type {
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(_) => SyntaxShape::Record,
-            Type::Table(_) => SyntaxShape::Table,
+            Type::Record(entries) => {
+                let entries = entries
+                    .iter()
+                    .map(|(key, val)| (key.clone(), val.to_shape()))
+                    .collect();
+                SyntaxShape::Record(entries)
+            }
+            Type::Table(columns) => {
+                let columns = columns
+                    .iter()
+                    .map(|(key, val)| (key.clone(), val.to_shape()))
+                    .collect();
+                SyntaxShape::Record(columns)
+            }
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,

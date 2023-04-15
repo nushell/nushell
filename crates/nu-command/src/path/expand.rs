@@ -43,7 +43,7 @@ impl Command for SubCommand {
             .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "For a record or table input, expand strings at the given columns",
                 Some('c'),
             )
