@@ -73,3 +73,19 @@ fn each_while_uses_enumerate_index() {
 
     assert_eq!(actual.out, "[0, 1, 2, 3]");
 }
+
+#[test]
+fn each_element_continue_command() {
+    let actual =
+        nu!("[1,2,3,4,6,7] | each { |x| if ($x mod 2 == 0) {continue} else { $x }} | to nuon");
+
+    assert_eq!(actual.out, "[1, 3, 7]");
+}
+
+#[test]
+fn each_element_break_command() {
+    let actual =
+        nu!("[1,2,5,4,6,7] | each { |x| if ($x mod 3 == 0) {break} else { $x }} | to nuon");
+
+    assert_eq!(actual.out, "[1, 2, 5, 4]");
+}
