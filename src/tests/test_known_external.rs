@@ -40,10 +40,23 @@ fn known_external_complex_unknown_args() -> TestResult {
 }
 
 #[test]
-fn known_external_batched_short_flag_arg_disallowed() -> TestResult {
+fn known_external_short_flag_batch_arg_allowed() -> TestResult {
+    run_test_contains("extern echo [-a, -b: int]; echo -ab 10", "-b 10")
+}
+
+#[test]
+fn known_external_short_flag_batch_arg_disallowed() -> TestResult {
     fail_test(
-        "extern echo [-a, -b: int]; echo -ab 10",
-        "short flag batches",
+        "extern echo [-a: int, -b]; echo -ab 10",
+        "last flag can take args",
+    )
+}
+
+#[test]
+fn known_external_short_flag_batch_multiple_args() -> TestResult {
+    fail_test(
+        "extern echo [-a: int, -b: int]; echo -ab 10 20",
+        "last flag can take args",
     )
 }
 

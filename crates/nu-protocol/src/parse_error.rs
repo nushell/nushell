@@ -292,9 +292,9 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::missing_flag_param))]
     MissingFlagParam(String, #[label = "flag missing {0} argument"] Span),
 
-    #[error("Batches of short flags can't take arguments.")]
-    #[diagnostic(code(nu::parser::short_flag_arg_cant_take_arg))]
-    ShortFlagBatchCantTakeArg(#[label = "short flag batches can't take args"] Span),
+    #[error("Only the last flag in a short flag batch can take an argument.")]
+    #[diagnostic(code(nu::parser::only_last_flag_in_batch_can_take_arg))]
+    OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
     #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
@@ -473,7 +473,7 @@ impl ParseError {
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,
-            ParseError::ShortFlagBatchCantTakeArg(s) => *s,
+            ParseError::OnlyLastFlagInBatchCanTakeArg(s) => *s,
             ParseError::MissingPositional(_, s, _) => *s,
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
