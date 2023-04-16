@@ -107,10 +107,7 @@ export def clip [
     --silent: bool  # do not print the content of the clipboard to the standard output
     --no-notify: bool  # do not throw a notification (only on linux)
 ] {
-    let input = $in
-    let input = if ($input | describe) == "string" {
-        $input | ansi strip
-    } else { $input }
+    let input = ($in | table | into string | ansi strip)
 
     match $nu.os-info.name {
         "linux" => {
