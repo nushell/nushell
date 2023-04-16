@@ -14,21 +14,13 @@ impl Command for ErrorMake {
     }
 
     fn signature(&self) -> Signature {
-        let error_struct = SyntaxShape::Record(vec![
-            ("msg".into(), SyntaxShape::String),
-            (
-                "label".into(),
-                SyntaxShape::Record(vec![
-                    ("text".into(), SyntaxShape::String),
-                    ("start".into(), SyntaxShape::Int),
-                    ("end".into(), SyntaxShape::Int),
-                ]),
-            ),
-        ]);
-
         Signature::build("error make")
             .input_output_types(vec![(Type::Nothing, Type::Error)])
-            .required("error_struct", error_struct, "the error to create")
+            .required(
+                "error_struct",
+                SyntaxShape::Record(vec![]),
+                "the error to create",
+            )
             .switch(
                 "unspanned",
                 "remove the origin label from the error",

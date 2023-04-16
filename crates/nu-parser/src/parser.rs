@@ -2832,12 +2832,17 @@ fn parse_collection_shape(
             return SyntaxShape::Any;
         };
 
+        // record<> or table<>
+        if inner_span.end - inner_span.start == 0 {
+            return mk_shape(vec![]);
+        }
+
         let sig = parse_signature_helper(working_set, inner_span);
         let mut inner_sig = vec![];
 
         let default_value_error = || {
             ParseError::LabeledError(
-                "`{name}` annotations with default value".into(),
+                format!("`{name}` annotations with default value"),
                 "annotations cannot have a default value".into(),
                 span,
             )
@@ -3654,6 +3659,16 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ) => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
+                                        let mk_error = || {
+                                            ParseError::AssignmentMismatch(
+                                                "Default value wrong type".into(),
+                                                format!(
+                                                    "expected default value to be `{var_type}`",
+                                                ),
+                                                expression.span,
+                                            )
+                                        };
+
                                         match var_type {
                                             Type::Any => {
                                                 working_set.set_variable_type(
@@ -3671,37 +3686,29 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             expression.ty.clone(),
                                                         );
                                                     } else {
-                                                        working_set.error(ParseError::AssignmentMismatch(
-                                                                        "Default value wrong type"
-                                                                            .into(),
-                                                                        format!(
-                                                                            "expected default value to be `{var_type}`",
-                                                                        ),
-                                                                        expression.span,
-                                                                    ),
-                                                                )
+                                                        working_set.error(mk_error())
                                                     }
                                                 } else {
-                                                    working_set.error(ParseError::AssignmentMismatch(
-                                                            "Default value wrong type".into(),
-                                                            format!(
-                                                                "expected default value to be `{var_type}`",
-                                                            ),
-                                                            expression.span,
-                                                        ))
+                                                    working_set.error(mk_error())
+                                                }
+                                            }
+                                            Type::Record(expected) | Type::Table(expected) => {
+                                                if let Type::Record(found) = var_type {
+                                                    if expected == found {
+                                                        working_set.set_variable_type(
+                                                            var_id,
+                                                            expression.ty.clone(),
+                                                        )
+                                                    } else {
+                                                        working_set.error(mk_error())
+                                                    }
+                                                } else {
+                                                    working_set.error(mk_error())
                                                 }
                                             }
                                             t => {
                                                 if t != &expression.ty {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value wrong type".into(),
-                                                            format!(
-                                                            "expected default value to be `{t}`"
-                                                        ),
-                                                            expression.span,
-                                                        ),
-                                                    )
+                                                    working_set.error(mk_error())
                                                 }
                                             }
                                         }
@@ -5245,25 +5252,28 @@ pub fn parse_record(
         output.push((field, value));
     }
 
+    let mk_expr = |ty| Expression {
+        expr: Expr::Record(output),
+        span,
+        ty,
+        custom_completion: None,
+    };
+
     if let SyntaxShape::Record(expected) = shape {
         if let Some(found) = &field_types {
             if !is_okay_record_shape(expected, found) {
                 let found = Type::Record(found.clone());
                 let error = ParseError::TypeMismatch(shape.to_type(), found, span);
                 working_set.error(error);
+                Expression::garbage(span)
+            } else {
+                mk_expr(Type::Record(field_types.unwrap_or_default()))
             }
-        }
-    }
-
-    Expression {
-        expr: Expr::Record(output),
-        span,
-        ty: (if let Some(fields) = field_types {
-            Type::Record(fields)
         } else {
-            Type::Record(vec![])
-        }),
-        custom_completion: None,
+            mk_expr(Type::Record(vec![]))
+        }
+    } else {
+        mk_expr(Type::Record(field_types.unwrap_or_default()))
     }
 }
 
@@ -5275,17 +5285,12 @@ fn is_okay_record_shape(expected: &[(String, SyntaxShape)], found: &[(String, Ty
     } else {
         // since we have no way of getting the spans the individual fields
         // we just return one error for the whole record.
-        !expected
+        expected
             .iter()
-            .zip(found.iter())
-            .map(|(wanted, got)| {
-                if wanted.0 != got.0 && wanted.1.to_type() != got.1 {
-                    Some(())
-                } else {
-                    None
-                }
-            })
-            .any(|maybe_err| maybe_err.is_some())
+            .map(|(str, shape)| (str.to_owned(), shape.to_type()))
+            .collect_vec()
+            .as_slice()
+            == found
     }
 }
 

@@ -241,7 +241,11 @@ fn run_in_login_mode() {
         .output()
         .expect("true");
 
-    assert!(child_output.stderr.is_empty());
+    assert!(
+        child_output.stderr.is_empty(),
+        "{:?}",
+        String::from_utf8_lossy(&child_output.stderr)
+    );
 }
 
 #[test]
@@ -256,7 +260,11 @@ fn run_in_not_login_mode() {
         .output()
         .expect("false");
 
-    assert!(child_output.stderr.is_empty());
+    assert!(
+        child_output.stderr.is_empty(),
+        "{:?}",
+        String::from_utf8_lossy(&child_output.stderr)
+    );
 }
 
 #[test]
@@ -271,7 +279,11 @@ fn run_in_interactive_mode() {
         .output()
         .expect("true");
 
-    assert!(child_output.stderr.is_empty());
+    assert!(
+        child_output.stderr.is_empty(),
+        "{:?}",
+        String::from_utf8_lossy(&child_output.stderr)
+    );
 }
 
 #[test]
@@ -286,5 +298,9 @@ fn run_in_noninteractive_mode() {
         .output()
         .expect("false");
 
-    assert!(child_output.stderr.is_empty());
+    assert!(
+        child_output.stderr.is_empty(),
+        "{:?}",
+        String::from_utf8_lossy(&child_output.stderr)
+    );
 }
