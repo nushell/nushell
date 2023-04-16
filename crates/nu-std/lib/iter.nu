@@ -27,7 +27,7 @@
 # assert equal $found "abc"
 # assert equal $not_found null
 # ```
-export def "iter find" [        # -> any | null  
+export def "iter find" [ # -> any | null  
     predicate: closure   # the closure used to perform the search 
 ] {
     let list = (self collect)
@@ -49,7 +49,7 @@ export def "iter find" [        # -> any | null
 # assert equal $res [1 0 2 0 3 0 4]
 # ```
 export def "iter intersperse" [ # -> list<any>
-    separator: any,      # the separator to be used
+    separator: any,             # the separator to be used
 ] {
     let list = (self collect)
 
@@ -88,11 +88,11 @@ export def "iter intersperse" [ # -> list<any>
 #
 # assert equal $scanned [1, 3, 6]
 # ```
-export def "iter scan" [
+export def "iter scan" [ # -> list<any>
     init: any            # initial value to seed the initial state
     f: closure           # the closure to perform the scan
-    --noinit(-n)        # remove the initial value from the result
-] {                      # -> list<any>
+    --noinit(-n)         # remove the initial value from the result
+] {                      
    let res = (reduce -f [$init] {|it, acc|
       $acc ++ [(do $f ($acc | last) $it)]
    })
