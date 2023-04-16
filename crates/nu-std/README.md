@@ -3,7 +3,7 @@
   <img src="https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif" width="28"></img>
 </h1>
 
-The standard library is a pure-`nushell` collection of custom commands which 
+The standard library is a pure-`nushell` collection of custom commands which
 provide interactive utilities and building blocks for users writing casual scripts or complex applications.
 
 To see what's here:
@@ -24,7 +24,7 @@ To see what's here:
 ```
 
 ## :toolbox: Using the standard library in the REPL or in scripts
-All commands in the standard library must be "imported" into the running environment 
+All commands in the standard library must be "imported" into the running environment
 (the interactive read-execute-print-loop (REPL) or a `.nu` script) using the
 [`use`](https://nushell.sh/commands/docs/use.html) command.
 

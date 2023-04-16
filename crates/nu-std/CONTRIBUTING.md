@@ -5,46 +5,46 @@ Welcome to the Nushell standard library and thank you for considering contributi
 ## Ideas for the standard library
 
 If you've got a great idea, or just want to contribute to open source
-by working on the Nushell standard library, 
-we invite you to talk to the team before you start coding. 
-You'll find we're friendly, passionate about Nushell and always open to new ideas!  
+by working on the Nushell standard library,
+we invite you to talk to the team before you start coding.
+You'll find we're friendly, passionate about Nushell and always open to new ideas!
 
 You'll generally find the team members on
-[Discord standard-library channel](https://discord.com/channels/601130461678272522/1075541668922658868), 
+[Discord standard-library channel](https://discord.com/channels/601130461678272522/1075541668922658868),
 and can have preliminary discussions there to clarify the issues involved.
 
-You can open a [Github issue](https://github.com/nushell/nushell/issues/new/choose) 
-to have a more focused discussion of your idea.  
+You can open a [Github issue](https://github.com/nushell/nushell/issues/new/choose)
+to have a more focused discussion of your idea.
 
-Generally, we think the standard library should contain items that are 
-relevant to most/all Nushell users regardless of the application space they're working in. 
-If your idea isn't quite so broadly applicable, 
+Generally, we think the standard library should contain items that are
+relevant to most/all Nushell users regardless of the application space they're working in.
+If your idea isn't quite so broadly applicable,
 consider publishing it in [nu_scripts](https://github.com/nushell/nu_scripts).
 
 Preliminary discussions should focus on the *user benefit* your idea would provide.  
 How many users will be affected by your idea, how much would it help them solve a problem or work more productively?
-Given consensus on the user benefit, the team will be motivated to 
+Given consensus on the user benefit, the team will be motivated to
 help you create, deploy and maintain a solution long term.
 
 ## Lifecycle of a change
 
 1. Verify the team thinks your idea is potentially relevant and useful, as above.
-1. If it's more than a simple bug fix, open a placeholder PR 
+1. If it's more than a simple bug fix, open a placeholder PR
 as soon as you get started and [set it to draft status][github_draft_pr].  
 This will alert other contributors that you're working in this area and let you
 advertise roughly what scope of changes you're thinking of.
 See [below](#the_pr) for details.
 1. Get things working in your local development environment.  
-If you have questions along the way, you can post a question in your PR 
-or have a more casual discussion with Nushell fans on 
+If you have questions along the way, you can post a question in your PR
+or have a more casual discussion with Nushell fans on
 [Discord implementation-chat channel](https://discord.com/channels/601130461678272522/615962413203718156)
 1. When you get to an appropriate state of doneness, push your changes to the PR and remove the draft status.
 2. Team members and other contributors will then review your PR.  
 Respond to any review comments they raise and address them one way or another.
 (Not all comments demand you make a change!)
-1. When you and the team are comfortable with the PR, 
+1. When you and the team are comfortable with the PR,
 a team member will merge it into the repo and you can delete your working branch.
-2. If you've added a whole new command or made a breaking change, 
+2. If you've added a whole new command or made a breaking change,
 (strongly) consider writing it up for the release notes.  
 Currently, release notes are maintained in a different repo, [nushell.github.io](https://github.com/nushell/nushell.github.io). 
 Make your change in a local clone of that repo and submit a PR to the release notes repo to get it integrated.
@@ -54,7 +54,7 @@ Make your change in a local clone of that repo and submit a PR to the release no
 ### Setup
 
 0. Install the Rust toolchain and Nushell build tools.  See [nushell CONTRIBUTING](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md) for details.
-The standard library is tightly coupled to a particular version of Nushell interpreter, 
+The standard library is tightly coupled to a particular version of Nushell interpreter,
 you need to be running that version to test your changes
 (unlike a "normal" script module library).
 
@@ -67,10 +67,10 @@ Once you set your working directory to the root of this repository, you'll gener
     git checkout -b <featureBranch>
     ```
 1. In your IDE, open the folder within the repository containing the standard library.
-The folder is currently `./crates/nu-std`, and it is a Rust crate, containing a `Cargo.toml` 
+The folder is currently `./crates/nu-std`, and it is a Rust crate, containing a `Cargo.toml`
 and subfolders:
-* `src/` (which contains the Rust code to load the standard library modules into memory for efficiency), 
-* `lib` (which contains all the script module sources for the standard library), 
+* `src/` (which contains the Rust code to load the standard library modules into memory for efficiency),
+* `lib` (which contains all the script module sources for the standard library),
 * `tests/` (unit tests for lib).
 ### The PR
 Assuming you've already validated the need with other Nushell contributors, you're focusing on design and implementation 
@@ -79,28 +79,28 @@ at this point.  Share your thinking all along the way!
 You can open a [draft][github_draft_pr] pull request based on a small, placeholder code change
 and use the PR comments to outline your design and user interface.  You'll get feedback from
 other contributors that may lead to a more robust and perhaps more idomatic solution.
-The threads in the PR can be a convenient reference for you when writing release notes and 
-for others on the team when researching issues. 
+The threads in the PR can be a convenient reference for you when writing release notes and
+for others on the team when researching issues.
 
 Note that the PR will not get final code review or be merged until you remove the draft status.
 ### Design considerations
 The standard library consists of Nushell custom commands and their associated environment variables, packaged in script modules underneath module `std`. For background on scripts, custom commands and modules, see 
-[Modules chapter of the Nushell book](https://www.nushell.sh/book/modules.html). 
+[Modules chapter of the Nushell book](https://www.nushell.sh/book/modules.html).
 
 To add a completely new module, for example, a `foo` command and some `foo subcommand`s,
 you will be dealing with 2 new source files:  the module source itself (`./crates/nu-std/lib/foo.nu`) and a unit tests file (`./crates/nu-std/tests/test_foo`); and will be modifying 1 or 2 existing files (`./crates/nu-std/lib/mod.nu` and possibly `./crates/nu-std/src/lib.rs`). This is described below:
 
 1. Source for a custom command `foo` should go in `./crates/nu-std/lib/foo.nu`.
-  
+
     * A source file will typically implement multiple subcommands and possibly a main command as well.  
     Use `export def` to make these names public to your users.  
-    * If your command is updating environment variables, you must use `export def-env` (instead of `export def`) 
-    to define the subcommand,  `export-env {}` to initialize the environment variables and `let-env` to update them. 
-    For an example of a custom command which modifies environment variables, 
+    * If your command is updating environment variables, you must use `export def-env` (instead of `export def`)
+    to define the subcommand,  `export-env {}` to initialize the environment variables and `let-env` to update them.
+    For an example of a custom command which modifies environment variables,
    see: `./crates/nu-std/lib/dirs.nu`.   
    For an example of a custom command which does *not* modify environment variables, see: `./crates/nu-std/lib/assert.nu`.
-   * If your standard library module wishes to use a utility from another module of the standard library, 
-   for example `log info`, 
+   * If your standard library module wishes to use a utility from another module of the standard library,
+   for example `log info`,
   you need to import it directly from its module in the `use` statement.   
       ```shell
       ... your foo.nu ...
@@ -131,7 +131,7 @@ you will be dealing with 2 new source files:  the module source itself (`./crate
         use std ['assert greater' assert]
         . . .
         assert greater $l $r
-        . . . 
+        . . .
         assert $predicate
       }
       ```
@@ -148,16 +148,16 @@ To enable this, update file `./crates/nu-std/lib/mod.nu` and add this code:
    ```
    The `use *` hoists the public definitions in `foo.nu` into `mod.nu` and thus into the `std` namespace.
 
-1. Some commands from the standard library are also preloaded, so user can invoke them without explicit 
+1. Some commands from the standard library are also preloaded, so user can invoke them without explicit
 import via `use std ...`.  
 A command implemented as `std foo`, can be preloaded as a bare `foo`:
-   * modify `./crates/nu-std/src/lib.rs`, 
+   * modify `./crates/nu-std/src/lib.rs`,
    * find the initialization of the "prelude" at line 90 or thereabouts
    * add `("foo", "foo")`  
    * or, to be preloaded as `std foo`, add `("std foo", "foo")`.
-  
+
    (This code may be restructured soon: if you can't find it, check with the team on Discord.)  
-Note that you will need to recompile the Nushell interpreter to test this change, 
+Note that you will need to recompile the Nushell interpreter to test this change,
 see [Nushell CONTRIBUTING#Setup](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#setup).
 
 More design guidelines:
@@ -165,8 +165,8 @@ More design guidelines:
 1. Ensure your custom command provides useful help.  
 This is done with comments before the `def` for the custom command.  
 1. Use `error make` to report can't-proceed errors to user, not `log error`.  
-2. Use `log info` to provide verbose progress messages that the user can optionally enable for troubleshooting. 
-e.g: 
+2. Use `log info` to provide verbose progress messages that the user can optionally enable for troubleshooting.
+e.g:
     ```shell
     NU_LOG_LEVEL=INFO foo # verbose messages from command foo
     ```
@@ -175,7 +175,7 @@ e.g:
 ### Useful Commands
 
 - Run all unit tests for the standard library:  
-  
+
   ```shell
   cargo run -- -c 'use std; NU_LOG_LEVEL=ERROR std run-tests'
 
@@ -203,8 +203,8 @@ the command with `log <level>`, as we recommend.)
   cargo run
   ```
 ## Git commit and repo conventions
-The standard library project uses the same protocols and conventions 
-for squashing git commits and handling github PRs as the core Nushell project. 
+The standard library project uses the same protocols and conventions
+for squashing git commits and handling github PRs as the core Nushell project.
 Please see [nushell CONTRIBUTING#git_etiquette](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#git-etiquette) for details.
 
 [github_draft_pr]:(https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request)
