@@ -3667,24 +3667,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                     expression.ty.clone(),
                                                 );
                                             }
-                                            // Type::List(param_ty) => {
-                                            //     if let Type::List(expr_ty) = &expression.ty {
-                                            //         if param_ty == expr_ty
-                                            //             || **param_ty == Type::Any
-                                            //         {
-                                            //             working_set.set_variable_type(
-                                            //                 var_id,
-                                            //                 expression.ty.clone(),
-                                            //             );
-                                            //         } else {
-                                            //             working_set.error(mk_error())
-                                            //         }
-                                            //     } else {
-                                            //         working_set.error(mk_error())
-                                            //     }
-                                            // }
                                             _ => {
-                                                if !type_compatible(&var_type, &expression.ty) {
+                                                if !type_compatible(var_type, &expression.ty) {
                                                     working_set.error(
                                                         ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
@@ -3735,7 +3719,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                                 "Default value is the wrong type"
                                                                     .into(),
                                                                 format!(
-                                                                    "default value should be {t}"
+                                                                    "expected default value to be `{t}`"
                                                                 ),
                                                                 expression_span,
                                                             ),
