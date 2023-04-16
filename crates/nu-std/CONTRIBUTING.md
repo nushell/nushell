@@ -85,7 +85,7 @@ for others on the team when researching issues.
 Note that the PR will not get final code review or be merged until you remove the draft status.
 ### Design considerations
 The standard library consists of Nushell custom commands and their associated environment variables, packaged in script modules underneath module `std`. For background on scripts, custom commands and modules, see 
-[Modules chapter of the Nushell book][book@modules].
+the [Modules chapter of the Nushell book][book@modules].
 
 To add a completely new module, for example, a `foo` command and some `foo subcommand`s,
 you will be dealing with 2 new source files:  the module source itself (`./crates/nu-std/lib/foo.nu`) and a unit tests file (`./crates/nu-std/tests/test_foo`); and will be modifying 1 or 2 existing files (`./crates/nu-std/lib/mod.nu` and possibly `./crates/nu-std/src/lib.rs`). This is described below:
