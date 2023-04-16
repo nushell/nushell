@@ -37,7 +37,7 @@ See [below](#the-pr) for details.
 1. Get things working in your local development environment.  
 If you have questions along the way, you can post a question in your PR
 or have a more casual discussion with Nushell fans on
-[Discord implementation-chat channel][discord#implementation-chat]
+[Discord `#implementation-chat` channel][discord#implementation-chat]
 1. When you get to an appropriate state of doneness, push your changes to the PR and remove the draft status.
 2. Team members and other contributors will then review your PR.  
 Respond to any review comments they raise and address them one way or another.
