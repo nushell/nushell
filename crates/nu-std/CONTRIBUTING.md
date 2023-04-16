@@ -61,7 +61,7 @@ you need to be running that version to test your changes
 1. Clone the Nushell repo containing the standard library and create a feature branch for your development work.  
 Currently, that's the [Nushell interpreter source repo](https://github.com/nushell/nushell).  
 Once you set your working directory to the root of this repository, you'll generally leave it there throughout the session.
-    ```
+    ```shell
     git clone https://github.com/nushell/nushell
     cd nushell
     git checkout -b <featureBranch>
@@ -102,7 +102,7 @@ you will be dealing with 2 new source files:  the module source itself (`./crate
    * If your standard library module wishes to use a utility from another module of the standard library,
    for example `log info`,
   you need to import it directly from its module in the `use` statement.   
-      ```shell
+      ```nushell
       ... your foo.nu ...
       export def mycommand [] {
         use log "log info"
@@ -117,7 +117,7 @@ you will be dealing with 2 new source files:  the module source itself (`./crate
 1. Unit tests for `foo` should go in `./crates/nu-std/tests/test_foo.nu`.  Thou shalt provide unit tests to cover your changes.
    * Unit tests should use one of the `assert` commands to check a condition and report the failure in a standard format.  
    * To import `assert` commands for use in your test, import them via `use std` (unlike the `use log` for your source code; the tests are not modules under `std`).  For example:
-      ```shell
+      ```nushell
       ... your test_foo.nu ...
       def test1 [] {
         use std
@@ -140,7 +140,7 @@ you will be dealing with 2 new source files:  the module source itself (`./crate
 
 2. A `foo` command will be exposed to the user as `std foo` (at a minimum).  
 To enable this, update file `./crates/nu-std/lib/mod.nu` and add this code:
-   ```
+   ```nushell
    export use foo *    # command doesn't update environment
    export-env {
           use bar *    # command *does* update environment
@@ -167,7 +167,7 @@ This is done with comments before the `def` for the custom command.
 1. Use `error make` to report can't-proceed errors to user, not `log error`.  
 2. Use `log info` to provide verbose progress messages that the user can optionally enable for troubleshooting.
 e.g:
-    ```shell
+    ```nushell
     NU_LOG_LEVEL=INFO foo # verbose messages from command foo
     ```
 1. Use `assert` in unit tests to check for and report failures.  
@@ -176,7 +176,7 @@ e.g:
 
 - Run all unit tests for the standard library:  
 
-  ```shell
+  ```nushell
   cargo run -- -c 'use std; NU_LOG_LEVEL=ERROR std run-tests'
 
   ```
@@ -186,20 +186,20 @@ e.g:
 
 - Run all tests for a specific test module, e.g, `crates/nu-std/tests/test_foo.nu`
 
-  ```shell
+  ```nushell
   cargo run -- -c 'use std; NU_LOG_LEVEL=INFO std run-tests --module test_foo'
   ```
 
 - Run a custom command with additional logging (assuming you have instrumented
 the command with `log <level>`, as we recommend.)
 
-  ```shell
+  ```nushell
   NU_LOG_LEVEL=INFO std foo bar bas # verbose
   NU_LOG_LEVEL=DEBUG std foo bar bas # very verbose  
   ```
 - Build and run Nushell (e.g, if you modify the prelude):
 
-  ```shell
+  ```nushell
   cargo run
   ```
 ## Git commit and repo conventions

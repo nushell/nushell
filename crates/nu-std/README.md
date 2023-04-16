@@ -8,10 +8,11 @@ provide interactive utilities and building blocks for users writing casual scrip
 
 To see what's here:
 ```
-〉use std
-〉help commands | select name usage | where name =~ "std "
+> use std
+> help commands | select name usage | where name =~ "std "
 ╭────┬─────────────────────────────┬────────────────────────────────────────────────────────────────╮
 │  # │            name             │                                usage                           │
+├────┼─────────────────────────────┼────────────────────────────────────────────────────────────────┤
 │  0 │ std assert                  │ Universal assert command                                       │
 │  1 │ std assert equal            │ Assert $left == $right                                         │
            . . .
@@ -29,16 +30,16 @@ All commands in the standard library must be "imported" into the running environ
 [`use`](https://nushell.sh/commands/docs/use.html) command.
 
 You can choose to import the whole module, but then must refer to individual commands with a `std` prefix, e.g:
-```
+```nushell
 use std
- . . .
+
 std log debug "Running now"
 std assert (1 == 2)
 ```
 Or you can enumerate the specific commands you want to import and invoke them without the `std` prefix.
-```
+```nushell
 use std ["log debug" assert]
-. . .
+
 log debug "Running again"
 assert (2 == 1)
 ```
