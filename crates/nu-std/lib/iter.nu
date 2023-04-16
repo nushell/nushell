@@ -69,9 +69,44 @@ export def "iter intersperse" [ # -> list<any>
     }
 }
 
+# Returns the a list of intermediate steps performed by `reduce`
+# (`fold`). It takes two arguments, an initial value to seed the
+# initial state and a closure that takes two arguments, the first
+# being the internal state and the second the list element in the
+# current iteration.
+#
+# # Example
+# ```
+# use std ["assert equal" "iter scan"]
+# let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y})
+#
+# assert equal $scanned [0, 1, 3, 6]
+#
+# # use the --no-init(-n) flag to remove the initial value from
+# # the final result
+# let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y} -n)
+#
+# assert equal $scanned [1, 3, 6]
+# ```
+export def "iter scan" [
+    init: any            # initial value to seed the initial state
+    f: closure           # the closure to perform the scan
+    --noinit(-n)        # remove the initial value from the result
+] {                      # -> list<any>
+   let res = (reduce -f [$init] {|it, acc|
+      $acc ++ [(do $f ($acc | last) $it)]
+   })
+
+   if $noinit {
+     $res | skip
+   } else {
+      $res
+   }
+}
+
 # Accepts inputs from a pipeline and builds a list for the `iter *`
 # commands to work with
-def "self collect" [] {
+def "self collect" [] {  # -> list<any>
     reduce -f [] {|it, acc|
         $acc ++ $it
     }

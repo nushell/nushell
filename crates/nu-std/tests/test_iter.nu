@@ -42,3 +42,14 @@ def test_iter_intersperse [] {
     let res = (4 | iter intersperse 1)
     assert equal $res [4]
 }
+
+def test_iter_scan [] {
+    let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y} -n)
+    assert equal $scanned [1, 3, 6]
+
+    let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y})
+    assert equal $scanned [0, 1, 3, 6]
+
+    let scanned = ([a b c d] | scan "" {|x, y| [$x, $y] | str join} -n)
+    assert equal $scanned ["a" "ab" "abc" "abcd"]
+}
