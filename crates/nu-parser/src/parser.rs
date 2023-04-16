@@ -2828,7 +2828,7 @@ fn parse_collection_shape(
     if bytes == name.as_bytes() {
         mk_shape(vec![])
     } else if bytes.starts_with(name_with_ty.as_bytes()) {
-        let Ok(inner_span) = prepare_inner_span(working_set, bytes, span, name_with_ty.len()) else {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, name_with_ty.len()) else {
             return SyntaxShape::Any;
         };
 
@@ -2876,7 +2876,7 @@ fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span)
     if bytes == b"list" {
         SyntaxShape::List(Box::new(SyntaxShape::Any))
     } else if bytes.starts_with(b"list<") {
-        let Ok(inner_span) = prepare_inner_span(working_set, bytes, span, 5) else {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 5) else {
             return SyntaxShape::Any;
         };
 
@@ -2905,11 +2905,12 @@ fn prepare_inner_span(
     bytes: &[u8],
     span: Span,
     prefix_len: usize,
-) -> Result<Span, ()> {
+) -> Option<Span> {
     let start = span.start + prefix_len;
 
-    let end = if bytes.ends_with(b">") {
-        span.end - 1
+    if bytes.ends_with(b">") {
+        let end = span.end - 1;
+        Some(Span::new(start, end))
     } else if bytes.contains(&b'>') {
         let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
         let span = Span::new(span.start + angle_start, span.end);
@@ -2919,13 +2920,12 @@ fn prepare_inner_span(
             "extra characters".into(),
             span,
         ));
-        return Err(());
+
+        None
     } else {
         working_set.error(ParseError::Unclosed(">".into(), span));
-        return Err(());
-    };
-
-    Ok(Span::new(start, end))
+        None
+    }
 }
 
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
