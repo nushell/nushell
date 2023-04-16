@@ -95,8 +95,9 @@ robust and perhaps more idomatic solution. The threads in the PR can be a
 convenient reference for you when writing release notes and for others on the
 team when researching issues.
 
-Note that the PR will not get final code review or be merged until you remove
-the draft status.
+> **Note**  
+> the PR will not get final code review or be merged until you remove the draft
+> status.
 
 ### Design considerations
 The standard library consists of Nushell custom commands and their associated
@@ -183,9 +184,10 @@ is described below:
 
     (This code may be restructured soon: if you can't find it, check with the
     team on Discord.)  
-    Note that you will need to recompile the Nushell interpreter to test this
-    change, see the ["setup" section][`CONTRIBUTING.md`#setup] of Nushell's
-    `CONTRIBUTING.md`.
+    > **Note**  
+    > that you will need to recompile the Nushell interpreter to test this
+    > change, see the ["setup" section][`CONTRIBUTING.md`#setup] of Nushell's
+    > `CONTRIBUTING.md`.
 
 More design guidelines:
 
@@ -204,11 +206,13 @@ More design guidelines:
   ```nushell
   cargo run -- -c 'use std; NU_LOG_LEVEL=ERROR std run-tests'
   ```
-  Note that this uses the debug version of NU interpreter from the same repo,
-  which is the usual development scenario. Log level 'ERROR' shows only
-  failures (meaning no output is the desired outcome).  
-  Log level 'INFO' shows progress by module and 'DEBUG' show each individual
-  test.
+  > **Note**  
+  > this uses the debug version of NU interpreter from the same repo, which is
+  > the usual development scenario.  
+  > Log level 'ERROR' shows only failures (meaning no output is the desired
+  > outcome).  
+  > Log level 'INFO' shows progress by module and 'DEBUG' show each individual
+  > test.
 - Run all tests for a specific test module, e.g,
   `crates/nu-std/tests/test_foo.nu`
   ```nushell
