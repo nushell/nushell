@@ -530,6 +530,12 @@ impl DidYouMean {
     }
 }
 
+impl From<Option<String>> for DidYouMean {
+    fn from(value: Option<String>) -> Self {
+        Self(value)
+    }
+}
+
 impl Display for DidYouMean {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(suggestion) = &self.0 {

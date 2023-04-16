@@ -25,7 +25,7 @@ pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
         return None;
     }
     if n == 0 || m == 0 {
-        return Some(min_dist)
+        return Some(min_dist);
     }
 
     let mut dcol: Vec<_> = (0..=m).collect();
@@ -52,7 +52,6 @@ pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
         None
     }
 }
-
 
 /// Finds the Levenshtein distance between two strings.
 pub fn levenshtein_distance(a: &str, b: &str) -> usize {

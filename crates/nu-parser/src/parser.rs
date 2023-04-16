@@ -16,8 +16,8 @@ use nu_protocol::{
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
-    span, BlockId, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
-    Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID, DidYouMean,
+    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
