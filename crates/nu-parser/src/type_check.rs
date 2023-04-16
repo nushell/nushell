@@ -5,6 +5,21 @@ use nu_protocol::{
 };
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
+        // Structural subtyping
+    let ty_comp_collection = |expect: &[(String, Type)], find: &[(String, Type)]| {
+        // the expected type is `any`
+        if expect.is_empty() {
+            true
+        } else if expect.len() != find.len() {
+            false
+        } else {
+            expect
+                .iter()
+                .zip(find.iter())
+                .all(|(lhs, rhs)| lhs.0 == rhs.0 && type_compatible(&lhs.1, &rhs.1))
+        }
+    };
+
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
         (Type::Number, Type::Int) => true,
@@ -13,11 +28,10 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Any, _) => true,
         (_, Type::Any) => true,
         (Type::Record(fields_lhs), Type::Record(fields_rhs)) => {
-            // Structural subtyping
-            fields_lhs
-                .iter()
-                .zip(fields_rhs.iter())
-                .all(|(lhs, rhs)| lhs.0 == lhs.0 && type_compatible(&lhs.1, &rhs.1))
+            ty_comp_collection(fields_lhs, fields_rhs)
+        }
+        (Type::Table(fields_lhs), Type::Table(fields_rhs)) => {
+            ty_comp_collection(fields_lhs, fields_rhs)
         }
         (lhs, rhs) => lhs == rhs,
     }
