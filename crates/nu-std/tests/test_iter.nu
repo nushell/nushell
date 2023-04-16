@@ -3,7 +3,6 @@ use std *
 export def test_iter_cmd [] {
     test_iter_intersperse
     test_iter_find
-    test_iter_tail
 }
 
 def test_iter_find [] {
