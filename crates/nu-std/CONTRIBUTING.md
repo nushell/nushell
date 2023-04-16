@@ -33,7 +33,7 @@ help you create, deploy and maintain a solution long term.
 as soon as you get started and [set it to draft status][github_draft_pr].  
 This will alert other contributors that you're working in this area and let you
 advertise roughly what scope of changes you're thinking of.
-See [below](#the_pr) for details.
+See [below](#the-pr) for details.
 1. Get things working in your local development environment.  
 If you have questions along the way, you can post a question in your PR
 or have a more casual discussion with Nushell fans on
@@ -207,4 +207,4 @@ The standard library project uses the same protocols and conventions
 for squashing git commits and handling github PRs as the core Nushell project.
 Please see [nushell CONTRIBUTING#git_etiquette](https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md#git-etiquette) for details.
 
-[github_draft_pr]:(https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request)
+[github_draft_pr]: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request

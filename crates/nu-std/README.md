@@ -45,6 +45,6 @@ assert (2 == 1)
 This is probably the form of import you'll want to add to your `env.nu` for interactive use.
 
 ## :pencil2: contribute to the standard library
-You're invited to contribute to the standard library! 
-See [CONTRIBUTING.md]([./CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/crates/nu-std/CONTRIBUTING.md))
+You're invited to contribute to the standard library!
+See [CONTRIBUTING.md](https://github.com/nushell/nushell/blob/main/crates/nu-std/CONTRIBUTING.md)
 for details
