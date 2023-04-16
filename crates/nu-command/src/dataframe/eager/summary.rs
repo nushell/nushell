@@ -33,7 +33,7 @@ impl Command for Summary {
             .output_type(Type::Custom("dataframe".into()))
             .named(
                 "quantiles",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "provide optional quantiles",
                 Some('q'),
             )
