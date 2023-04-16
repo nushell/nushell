@@ -140,12 +140,7 @@ export def clip [
 
     if not $silent {
         print $input
-
-        print --no-newline $"(ansi white_italic)(ansi white_dimmed)saved to clipboard"
-        if ($input | describe) == "string" {
-            print " (stripped)"
-        }
-        print --no-newline $"(ansi reset)"
+        print $"(ansi white_italic)(ansi white_dimmed)saved to clipboard(ansi reset)"
     }
 
     if (not $no_notify) and ($nu.os-info.name == linux) {
