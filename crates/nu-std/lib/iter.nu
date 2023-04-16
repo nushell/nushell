@@ -69,33 +69,6 @@ export def "iter intersperse" [ # -> list<any>
     }
 }
 
-
-# Returns the elements after head of a list.
-#
-# The list must be non-empty otherwise [] is returned
-#
-# # Example
-# ```
-# use std ["assert equal" "iter tail"]
-#
-# let tail = ([1 2 3] | iter tail)
-# let empty = ([] | iter tail)
-#
-# assert equal $tail [2 3]
-# assert equal $tail []
-# ```
-export def "iter tail" [] {    # -> list<any>
-    let list = (self collect)
-    if ($list | is-empty) {
-       return []
-    }
-
-    match $list {
-        [$head, ..$tail] => $tail,
-        _ => $list
-    }
-}
-
 # Accepts inputs from a pipeline and builds a list for the `iter *`
 # commands to work with
 def "self collect" [] {

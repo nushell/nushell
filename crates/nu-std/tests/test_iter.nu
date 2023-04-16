@@ -43,11 +43,3 @@ def test_iter_intersperse [] {
     let res = (4 | iter intersperse 1)
     assert equal $res [4]
 }
-
-def test_iter_tail [] {
-    let res = ([1 2 3 4] | iter tail)
-    assert equal $res [2 3 4]
-
-    let res = ([] | iter tail)
-    assert equal $res []
-}
