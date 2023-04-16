@@ -1596,7 +1596,7 @@ pub fn parse_brace_expr(
         } else if matches!(shape, SyntaxShape::MatchBlock) {
             parse_match_block_expression(working_set, span)
         } else {
-            parse_record(working_set, shape, span)
+            parse_record(working_set, span)
         }
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
@@ -2045,7 +2045,7 @@ pub fn parse_full_cell_path(
             (output, true)
         } else if bytes.starts_with(b"{") {
             trace!("parsing: record head of full cell path");
-            let output = parse_record(working_set, &SyntaxShape::Any, head.span);
+            let output = parse_record(working_set, head.span);
 
             tokens.next();
 
@@ -3659,15 +3659,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ) => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
-                                        let mk_error = || {
-                                            ParseError::AssignmentMismatch(
-                                                "Default value wrong type".into(),
-                                                format!(
-                                                    "expected default value to be `{var_type}`",
-                                                ),
-                                                expression.span,
-                                            )
-                                        };
 
                                         match var_type {
                                             Type::Any => {
@@ -3676,39 +3667,31 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                     expression.ty.clone(),
                                                 );
                                             }
-                                            Type::List(param_ty) => {
-                                                if let Type::List(expr_ty) = &expression.ty {
-                                                    if param_ty == expr_ty
-                                                        || **param_ty == Type::Any
-                                                    {
-                                                        working_set.set_variable_type(
-                                                            var_id,
-                                                            expression.ty.clone(),
-                                                        );
-                                                    } else {
-                                                        working_set.error(mk_error())
-                                                    }
-                                                } else {
-                                                    working_set.error(mk_error())
-                                                }
-                                            }
-                                            Type::Record(expected) | Type::Table(expected) => {
-                                                if let Type::Record(found) = var_type {
-                                                    if expected == found {
-                                                        working_set.set_variable_type(
-                                                            var_id,
-                                                            expression.ty.clone(),
-                                                        )
-                                                    } else {
-                                                        working_set.error(mk_error())
-                                                    }
-                                                } else {
-                                                    working_set.error(mk_error())
-                                                }
-                                            }
-                                            t => {
-                                                if t != &expression.ty {
-                                                    working_set.error(mk_error())
+                                            // Type::List(param_ty) => {
+                                            //     if let Type::List(expr_ty) = &expression.ty {
+                                            //         if param_ty == expr_ty
+                                            //             || **param_ty == Type::Any
+                                            //         {
+                                            //             working_set.set_variable_type(
+                                            //                 var_id,
+                                            //                 expression.ty.clone(),
+                                            //             );
+                                            //         } else {
+                                            //             working_set.error(mk_error())
+                                            //         }
+                                            //     } else {
+                                            //         working_set.error(mk_error())
+                                            //     }
+                                            // }
+                                            _ => {
+                                                if !type_compatible(&var_type, &expression.ty) {
+                                                    working_set.error(
+                                                        ParseError::AssignmentMismatch(
+                                                            "Default value wrong type".into(),
+                                                            format!("expected default value to be `{var_type}`"),
+                                                            expression.span,
+                                                        ),
+                                                    )
                                                 }
                                             }
                                         }
@@ -5184,11 +5167,7 @@ pub fn parse_builtin_commands(
     }
 }
 
-pub fn parse_record(
-    working_set: &mut StateWorkingSet,
-    shape: &SyntaxShape,
-    span: Span,
-) -> Expression {
+pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
     let mut start = span.start;
@@ -5252,45 +5231,11 @@ pub fn parse_record(
         output.push((field, value));
     }
 
-    let mk_expr = |ty| Expression {
+    Expression {
         expr: Expr::Record(output),
         span,
-        ty,
+        ty: Type::Record(field_types.unwrap_or_default()),
         custom_completion: None,
-    };
-
-    if let SyntaxShape::Record(expected) = shape {
-        if let Some(found) = &field_types {
-            if !is_okay_record_shape(expected, found) {
-                let found = Type::Record(found.clone());
-                let error = ParseError::TypeMismatch(shape.to_type(), found, span);
-                working_set.error(error);
-                Expression::garbage(span)
-            } else {
-                mk_expr(Type::Record(field_types.unwrap_or_default()))
-            }
-        } else {
-            mk_expr(Type::Record(vec![]))
-        }
-    } else {
-        mk_expr(Type::Record(field_types.unwrap_or_default()))
-    }
-}
-
-fn is_okay_record_shape(expected: &[(String, SyntaxShape)], found: &[(String, Type)]) -> bool {
-    if expected.is_empty() {
-        true
-    } else if expected.len() != found.len() {
-        false
-    } else {
-        // since we have no way of getting the spans the individual fields
-        // we just return one error for the whole record.
-        expected
-            .iter()
-            .map(|(str, shape)| (str.to_owned(), shape.to_type()))
-            .collect_vec()
-            .as_slice()
-            == found
     }
 }
 

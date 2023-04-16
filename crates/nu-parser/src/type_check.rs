@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
-        // Structural subtyping
+    // Structural subtyping
     let ty_comp_collection = |expect: &[(String, Type)], find: &[(String, Type)]| {
         // the expected type is `any`
         if expect.is_empty() {
