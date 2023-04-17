@@ -1619,7 +1619,7 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
-    pub fn get_all(&self) -> Vec<String> {
+    pub fn get_all_defined_vals(&self) -> Vec<String> {
         if let Some(overlay_frame) = self
             .permanent_state
             .active_overlays(vec![].as_mut())

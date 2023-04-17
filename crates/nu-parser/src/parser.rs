@@ -1835,7 +1835,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             custom_completion: None,
         }
     } else {
-        match did_you_mean(&working_set.get_all(), &input) {
+        match did_you_mean(&working_set.get_all_defined_vals(), &input) {
             Some(str) => working_set.error(ParseError::DidYouMean(str, span)),
             None => working_set.error(ParseError::VariableNotFound(span)),
         };
