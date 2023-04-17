@@ -88,6 +88,8 @@ pub fn evaluate_repl(
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
+    // try to enable bracketed paste
+    let _ = line_editor.enable_bracketed_paste();
 
     // Now that reedline is created, get the history session id and store it in engine_state
     let hist_sesh = line_editor
