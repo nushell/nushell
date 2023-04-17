@@ -5225,132 +5225,127 @@ pub fn parse_block(
         }
     }
 
-    let block: Block = lite_block
-        .block
-        .iter()
-        .enumerate()
-        .map(|(idx, pipeline)| {
-            if pipeline.commands.len() > 1 {
-                let mut output = pipeline
-                    .commands
-                    .iter()
-                    .map(|command| match command {
-                        LiteElement::Command(span, command) => {
-                            trace!("parsing: pipeline element: command");
-                            let expr =
-                                parse_expression(working_set, &command.parts, is_subexpression);
-                            working_set.type_scope.add_type(expr.ty.clone());
+    let mut block = Block::new_with_capacity(lite_block.block.len());
 
-                            PipelineElement::Expression(*span, expr)
-                        }
-                        LiteElement::Redirection(span, redirection, command) => {
-                            trace!("parsing: pipeline element: redirection");
-                            let expr = parse_string(working_set, command.parts[0]);
+    for (idx, pipeline) in lite_block.block.iter().enumerate() {
+        if pipeline.commands.len() > 1 {
+            let mut output = pipeline
+                .commands
+                .iter()
+                .map(|command| match command {
+                    LiteElement::Command(span, command) => {
+                        trace!("parsing: pipeline element: command");
+                        let expr = parse_expression(working_set, &command.parts, is_subexpression);
+                        working_set.type_scope.add_type(expr.ty.clone());
 
-                            working_set.type_scope.add_type(expr.ty.clone());
+                        PipelineElement::Expression(*span, expr)
+                    }
+                    LiteElement::Redirection(span, redirection, command) => {
+                        trace!("parsing: pipeline element: redirection");
+                        let expr = parse_string(working_set, command.parts[0]);
 
-                            PipelineElement::Redirection(*span, redirection.clone(), expr)
-                        }
-                        LiteElement::SeparateRedirection {
-                            out: (out_span, out_command),
-                            err: (err_span, err_command),
-                        } => {
-                            trace!("parsing: pipeline element: separate redirection");
-                            let out_expr = parse_string(working_set, out_command.parts[0]);
+                        working_set.type_scope.add_type(expr.ty.clone());
 
-                            working_set.type_scope.add_type(out_expr.ty.clone());
+                        PipelineElement::Redirection(*span, redirection.clone(), expr)
+                    }
+                    LiteElement::SeparateRedirection {
+                        out: (out_span, out_command),
+                        err: (err_span, err_command),
+                    } => {
+                        trace!("parsing: pipeline element: separate redirection");
+                        let out_expr = parse_string(working_set, out_command.parts[0]);
 
-                            let err_expr = parse_string(working_set, err_command.parts[0]);
+                        working_set.type_scope.add_type(out_expr.ty.clone());
 
-                            working_set.type_scope.add_type(err_expr.ty.clone());
+                        let err_expr = parse_string(working_set, err_command.parts[0]);
 
-                            PipelineElement::SeparateRedirection {
-                                out: (*out_span, out_expr),
-                                err: (*err_span, err_expr),
-                            }
-                        }
-                    })
-                    .collect::<Vec<PipelineElement>>();
+                        working_set.type_scope.add_type(err_expr.ty.clone());
 
-                if is_subexpression {
-                    for element in output.iter_mut().skip(1) {
-                        if element.has_in_variable(working_set) {
-                            *element = wrap_element_with_collect(working_set, element);
+                        PipelineElement::SeparateRedirection {
+                            out: (*out_span, out_expr),
+                            err: (*err_span, err_expr),
                         }
                     }
-                } else {
-                    for element in output.iter_mut() {
-                        if element.has_in_variable(working_set) {
-                            *element = wrap_element_with_collect(working_set, element);
-                        }
+                })
+                .collect::<Vec<PipelineElement>>();
+
+            if is_subexpression {
+                for element in output.iter_mut().skip(1) {
+                    if element.has_in_variable(working_set) {
+                        *element = wrap_element_with_collect(working_set, element);
                     }
                 }
-
-                Pipeline { elements: output }
             } else {
-                match &pipeline.commands[0] {
-                    LiteElement::Command(_, command)
-                    | LiteElement::Redirection(_, _, command)
-                    | LiteElement::SeparateRedirection {
-                        out: (_, command), ..
-                    } => {
-                        let mut pipeline =
-                            parse_builtin_commands(working_set, command, is_subexpression);
+                for element in output.iter_mut() {
+                    if element.has_in_variable(working_set) {
+                        *element = wrap_element_with_collect(working_set, element);
+                    }
+                }
+            }
 
-                        if idx == 0 {
-                            if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Any) {
-                                if let Some(let_env_decl_id) =
-                                    working_set.find_decl(b"let-env", &Type::Any)
-                                {
-                                    for element in pipeline.elements.iter_mut() {
-                                        if let PipelineElement::Expression(
-                                            _,
-                                            Expression {
-                                                expr: Expr::Call(call),
-                                                ..
-                                            },
-                                        ) = element
+            block.pipelines.push(Pipeline { elements: output })
+        } else {
+            match &pipeline.commands[0] {
+                LiteElement::Command(_, command)
+                | LiteElement::Redirection(_, _, command)
+                | LiteElement::SeparateRedirection {
+                    out: (_, command), ..
+                } => {
+                    let mut pipeline =
+                        parse_builtin_commands(working_set, command, is_subexpression);
+
+                    if idx == 0 {
+                        if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Any) {
+                            if let Some(let_env_decl_id) =
+                                working_set.find_decl(b"let-env", &Type::Any)
+                            {
+                                for element in pipeline.elements.iter_mut() {
+                                    if let PipelineElement::Expression(
+                                        _,
+                                        Expression {
+                                            expr: Expr::Call(call),
+                                            ..
+                                        },
+                                    ) = element
+                                    {
+                                        if call.decl_id == let_decl_id
+                                            || call.decl_id == let_env_decl_id
                                         {
-                                            if call.decl_id == let_decl_id
-                                                || call.decl_id == let_env_decl_id
+                                            // Do an expansion
+                                            if let Some(Expression {
+                                                expr: Expr::Keyword(_, _, expr),
+                                                ..
+                                            }) = call.positional_iter_mut().nth(1)
                                             {
-                                                // Do an expansion
-                                                if let Some(Expression {
-                                                    expr: Expr::Keyword(_, _, expr),
-                                                    ..
-                                                }) = call.positional_iter_mut().nth(1)
-                                                {
-                                                    if expr.has_in_variable(working_set) {
-                                                        *expr = Box::new(wrap_expr_with_collect(
-                                                            working_set,
-                                                            expr,
-                                                        ));
-                                                    }
+                                                if expr.has_in_variable(working_set) {
+                                                    *expr = Box::new(wrap_expr_with_collect(
+                                                        working_set,
+                                                        expr,
+                                                    ));
                                                 }
-                                                continue;
-                                            } else if element.has_in_variable(working_set)
-                                                && !is_subexpression
-                                            {
-                                                *element =
-                                                    wrap_element_with_collect(working_set, element);
                                             }
+                                            continue;
                                         } else if element.has_in_variable(working_set)
                                             && !is_subexpression
                                         {
                                             *element =
                                                 wrap_element_with_collect(working_set, element);
                                         }
+                                    } else if element.has_in_variable(working_set)
+                                        && !is_subexpression
+                                    {
+                                        *element = wrap_element_with_collect(working_set, element);
                                     }
                                 }
                             }
                         }
-
-                        pipeline
                     }
+
+                    block.pipelines.push(pipeline)
                 }
             }
-        })
-        .into();
+        }
+    }
 
     if scoped {
         working_set.exit_scope();
