@@ -78,13 +78,13 @@ export def "iter intersperse" [ # -> list<any>
 # # Example
 # ```
 # use std ["assert equal" "iter scan"]
-# let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y})
+# let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y})
 #
 # assert equal $scanned [0, 1, 3, 6]
 #
 # # use the --noinit(-n) flag to remove the initial value from
 # # the final result
-# let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y} -n)
+# let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y} -n)
 #
 # assert equal $scanned [1, 3, 6]
 # ```
