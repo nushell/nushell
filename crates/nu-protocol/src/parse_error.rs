@@ -11,6 +11,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
     ExtraTokens(#[label = "extra tokens"] Span),
 
+    #[error("Name not found")]
+    #[diagnostic(code(nu::parser::name_not_found))]
+    DidYouMean(String, #[label("did you mean '{0}'?")] Span),
+
     #[error("Extra positional argument.")]
     #[diagnostic(code(nu::parser::extra_positional), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
@@ -503,6 +507,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+            ParseError::DidYouMean(_, s) => *s,
         }
     }
 }

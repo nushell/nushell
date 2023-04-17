@@ -15,6 +15,7 @@ use nu_protocol::{
         FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
+    did_you_mean,
     engine::StateWorkingSet,
     span, BlockId, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
     Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
@@ -1789,6 +1790,10 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
 pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
+    let input = match String::from_utf8(contents.to_vec()) {
+        Ok(str) => str,
+        Err(_) => "".to_owned(),
+    };
 
     if contents == b"$nothing" {
         return Expression {
@@ -1830,7 +1835,10 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             custom_completion: None,
         }
     } else {
-        working_set.error(ParseError::VariableNotFound(span));
+        match did_you_mean(&working_set.get_all(), &input) {
+            Some(str) => working_set.error(ParseError::DidYouMean(str, span)),
+            None => working_set.error(ParseError::VariableNotFound(span)),
+        };
         garbage(span)
     }
 }

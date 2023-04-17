@@ -1619,6 +1619,26 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
+    pub fn get_all(&self) -> Vec<String> {
+        if let Some(overlay_frame) = self
+            .permanent_state
+            .active_overlays(vec![].as_mut())
+            .iter()
+            .rev()
+            .next()
+        {
+            return overlay_frame
+                .vars
+                .keys()
+                .map(|x| match String::from_utf8(x.to_vec()) {
+                    Ok(key) => key,
+                    Err(_) => "".to_string(),
+                })
+                .collect::<Vec<String>>();
+        }
+        vec![]
+    }
+
     pub fn get_cwd(&self) -> String {
         let pwd = self
             .permanent_state
