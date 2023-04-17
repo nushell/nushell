@@ -2769,7 +2769,7 @@ pub fn parse_shape_name(
         _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
-        _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
+        b"table" => SyntaxShape::Table(vec![]),
         b"variable" => SyntaxShape::Variable,
         b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
@@ -2805,6 +2805,9 @@ pub fn parse_shape_name(
     result
 }
 
+// TODO: this **can** be used with tables but is only currently used for records
+// because, currently parsing of tables doesn't infer its type.
+// (See `parse_table_expression`)
 fn parse_collection_shape(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
@@ -2817,11 +2820,11 @@ fn parse_collection_shape(
         ("table", "table<")
     };
 
-    let mk_shape = |shape| {
+    let mk_shape = |inner_shape| {
         if name == "record" {
-            SyntaxShape::Record(shape)
+            SyntaxShape::Record(inner_shape)
         } else {
-            SyntaxShape::Table(shape)
+            SyntaxShape::Table(inner_shape)
         }
     };
 
@@ -2869,29 +2872,37 @@ fn parse_collection_shape(
             };
 
             let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-            if let Some(start) = key_bytes.first() {
-                if matches!(start, b'[' | b'(' | b'{' | b'<' | b':') {
-                    working_set.error(key_error(tokens[idx].span));
-                    return mk_shape(vec![]);
-                } else if *start == b',' {
-                    idx += 1;
-                    continue;
-                }
+            if key_bytes.first().copied() == Some(b',') {
+                idx += 1;
+                continue;
             }
 
             let Some(key) = parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string() else {
                 working_set.error(key_error(tokens[idx].span));
                 return mk_shape(vec![]);
             };
-            dbg!(&key);
 
-            idx += 1;
+            // we want to allow such an annotation
+            // `record<name>` where the user leaves out the type
+            if idx + 1 == tokens.len() {
+                sig.push((key, SyntaxShape::Any));
+                break;
+            } else {
+                idx += 1;
+            }
 
             let maybe_colon = working_set.get_span_contents(tokens[idx].span).to_vec();
-            dbg!(String::from_utf8_lossy(&maybe_colon));
             match maybe_colon.as_slice() {
                 b":" => {
-                    idx += 1;
+                    if idx + 1 == tokens.len() {
+                        working_set.error(ParseError::Expected(
+                            "type after colon".into(),
+                            tokens[idx].span,
+                        ));
+                        break;
+                    } else {
+                        idx += 1;
+                    }
                 }
                 // a key provided without a type
                 b"," => {
@@ -2909,6 +2920,7 @@ fn parse_collection_shape(
             let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
             let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
             sig.push((key, shape));
+            idx += 1;
         }
 
         mk_shape(sig)
