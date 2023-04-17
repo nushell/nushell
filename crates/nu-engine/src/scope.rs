@@ -288,14 +288,13 @@ impl<'e, 's> ScopeData<'e, 's> {
         // with a custom command.
         if sigs.is_empty() {
             let any_type = &Type::Any;
-            let v = (
+            sigs.push((
                 any_type.to_shape().to_string(),
                 Value::List {
                     vals: self.collect_signature_entries(any_type, any_type, signature, span),
                     span,
                 },
-            );
-            sigs.push(v);
+            ));
         }
         sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
         // For most commands, input types are not repeated in
