@@ -2836,33 +2836,76 @@ fn parse_collection_shape(
         if inner_span.end - inner_span.start == 0 {
             return mk_shape(vec![]);
         }
+        let source = working_set.get_span_contents(inner_span);
+        let (tokens, err) = lex_signature(source, inner_span.start, &[b'\n', b'\r'], &[b':', b','], true);
 
-        let sig = parse_signature_helper(working_set, inner_span);
-        let mut inner_sig = vec![];
+        if let Some(err) = err {
+            working_set.error(err);
+            // lexer errors cause issues with span overflows
+            return mk_shape(vec![]);
+        }
 
-        let default_value_error = || {
+        let mut sig = vec![];
+        let mut idx = 0;
+
+        let key_error = |span| {
             ParseError::LabeledError(
-                format!("`{name}` annotations with default value"),
-                "annotations cannot have a default value".into(),
+                format!("`{name}` type annotations key not string"),
+                "must be a string".into(),
                 span,
             )
         };
 
-        inner_sig.extend(sig.optional_positional.into_iter().map(|sig| {
-            if sig.default_value.is_some() {
-                working_set.error(default_value_error());
-            }
-            (sig.name, sig.shape)
-        }));
+        while idx < tokens.len() {
+            let TokenContents::Item = tokens[idx].contents else {
+                working_set.error(key_error(tokens[idx].span));
+                return mk_shape(vec![])
+            };
 
-        inner_sig.extend(sig.required_positional.into_iter().map(|sig| {
-            if sig.default_value.is_some() {
-                working_set.error(default_value_error());
+            let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+            if let Some(start) = key_bytes.first() {
+                if matches!(start, b'[' | b'(' | b'{' | b'<' | b':') {
+                    working_set.error(key_error(tokens[idx].span));
+                    return mk_shape(vec![]);
+                } else if *start == b',' {
+                    idx += 1;
+                    continue;
+                }
             }
-            (sig.name, sig.shape)
-        }));
 
-        mk_shape(inner_sig)
+            let Some(key) = parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string() else {
+                working_set.error(key_error(tokens[idx].span));
+                return mk_shape(vec![]);
+            };
+            dbg!(&key);
+
+            idx += 1;
+
+            let maybe_colon = working_set.get_span_contents(tokens[idx].span).to_vec();
+            dbg!(String::from_utf8_lossy(&maybe_colon));
+            match maybe_colon.as_slice() {
+                b":" => {
+                    idx += 1;
+                }
+                // a key provided without a type
+                b"," => {
+                    idx += 1;
+                    sig.push((key, SyntaxShape::Any));
+                    continue;
+                }
+                // a key provided without a type
+                _ => {
+                    sig.push((key, SyntaxShape::Any));
+                    continue;
+                }
+            }
+
+            let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+            let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
+            sig.push((key, shape));
+        }
+
+        mk_shape(sig)
     } else {
         working_set.error(ParseError::UnknownType(span));
 
