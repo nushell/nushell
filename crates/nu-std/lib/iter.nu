@@ -69,7 +69,7 @@ export def "iter intersperse" [ # -> list<any>
     }
 }
 
-# Returns the a list of intermediate steps performed by `reduce`
+# Returns a list of intermediate steps performed by `reduce`
 # (`fold`). It takes two arguments, an initial value to seed the
 # initial state and a closure that takes two arguments, the first
 # being the internal state and the second the list element in the
