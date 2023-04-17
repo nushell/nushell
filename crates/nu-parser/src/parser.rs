@@ -1790,11 +1790,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
 pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
-    let input = match String::from_utf8(contents.to_vec()) {
-        Ok(str) => str,
-        Err(_) => "".to_owned(),
-    };
-
+    let input = String::from_utf8(contents.to_vec()).unwrap_or_default();
     if contents == b"$nothing" {
         return Expression {
             expr: Expr::Nothing,
