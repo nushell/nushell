@@ -191,7 +191,7 @@ pub fn lex_item(
                     Some(ParseError::Unbalanced(
                         "{".to_string(),
                         "}".to_string(),
-                        Span::new(span.end, span.end),
+                        Span::new(span.end, span.end + 1),
                     )),
                 );
             }
