@@ -232,6 +232,17 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             let decl = working_set.get_decl(decl_id);
             let sig = decl.signature();
 
+            let starting_error_count = working_set.parse_errors.len();
+            check_call(working_set, call_span, &sig, &call);
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+                return Expression {
+                    expr: Expr::Call(call),
+                    span: call_span,
+                    ty: output,
+                    custom_completion: None,
+                };
+            }
+
             // Let's get our block and make sure it has the right signature
             if let Some(arg) = call.positional_nth(2) {
                 match arg {
@@ -245,21 +256,10 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
                     } => {
                         let block = working_set.get_block_mut(*block_id);
 
-                        block.signature = Box::new(sig.clone());
+                        block.signature = Box::new(sig);
                     }
                     _ => {}
                 }
-            }
-
-            let starting_error_count = working_set.parse_errors.len();
-            check_call(working_set, call_span, &sig, &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
-                return Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: output,
-                    custom_completion: None,
-                };
             }
 
             (call, call_span)

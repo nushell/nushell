@@ -2145,7 +2145,12 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    if bytes.is_empty() || !bytes[0].is_ascii_digit() {
+    if bytes.len() < 5
+        || !bytes[0].is_ascii_digit()
+        || !bytes[1].is_ascii_digit()
+        || !bytes[2].is_ascii_digit()
+        || !bytes[3].is_ascii_digit()
+    {
         working_set.error(ParseError::Expected("datetime".into(), span));
         return garbage(span);
     }
@@ -2449,6 +2454,10 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
     let mut error = None;
 
     let mut idx = 0;
+
+    if !bytes.contains(&b'\\') {
+        return (bytes.to_vec(), None);
+    }
 
     'us_loop: while idx < bytes.len() {
         if bytes[idx] == b'\\' {
@@ -4523,7 +4532,6 @@ pub fn parse_value(
                     }
                 }
                 working_set.error(ParseError::Expected("any shape".into(), span));
-
                 garbage(span)
             }
         }
@@ -5663,6 +5671,7 @@ pub fn discover_captures_in_expr(
                 )?;
                 results
             };
+
             seen_blocks.insert(*block_id, results.clone());
             for (var_id, span) in results.into_iter() {
                 if !seen.contains(&var_id) {

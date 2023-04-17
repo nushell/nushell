@@ -115,11 +115,16 @@ impl ScopeFrame {
             .collect()
     }
 
-    pub fn active_overlays(&self, removed_overlays: &mut Vec<Vec<u8>>) -> Vec<&OverlayFrame> {
+    pub fn active_overlays<'a, 'b>(
+        &'b self,
+        removed_overlays: &'a mut Vec<Vec<u8>>,
+    ) -> impl DoubleEndedIterator<Item = &OverlayFrame> + 'a
+    where
+        'b: 'a,
+    {
         self.active_overlay_ids(removed_overlays)
-            .iter()
-            .map(|id| self.get_overlay(*id))
-            .collect()
+            .into_iter()
+            .map(|id| self.get_overlay(id))
     }
 
     pub fn active_overlay_names(&self, removed_overlays: &mut Vec<Vec<u8>>) -> Vec<&Vec<u8>> {

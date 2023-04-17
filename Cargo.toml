@@ -134,8 +134,9 @@ sqlite = ["nu-command/sqlite"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size
-strip = "debuginfo"
+#strip = "debuginfo"
 lto = "thin"
+debug = true
 
 # build with `cargo build --profile profiling`
 # to analyze performance with tooling like linux perf
