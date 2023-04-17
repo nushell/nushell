@@ -1,11 +1,6 @@
 use std *
 
-export def test_iter_cmd [] {
-    test_iter_intersperse
-    test_iter_find
-}
-
-def test_iter_find [] {
+export def test_iter_find [] {
     let hastack1 = [1 2 3 4 5 6 7]
     let hastack2 = [nushell rust shell iter std]
     let hastack3 = [nu 69 2023-04-20 "std"]
@@ -23,7 +18,7 @@ def test_iter_find [] {
     assert equal $res null
 }
 
-def test_iter_intersperse [] {
+export def test_iter_intersperse [] {
     let res = ([1 2 3 4] | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
 
@@ -43,13 +38,13 @@ def test_iter_intersperse [] {
     assert equal $res [4]
 }
 
-def test_iter_scan [] {
-    let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y} -n)
+export def test_iter_scan [] {
+    let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y} -n)
     assert equal $scanned [1, 3, 6]
 
-    let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y})
+    let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y})
     assert equal $scanned [0, 1, 3, 6]
 
-    let scanned = ([a b c d] | scan "" {|x, y| [$x, $y] | str join} -n)
+    let scanned = ([a b c d] | iter scan "" {|x, y| [$x, $y] | str join} -n)
     assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
