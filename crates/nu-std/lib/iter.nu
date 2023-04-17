@@ -82,7 +82,7 @@ export def "iter intersperse" [ # -> list<any>
 #
 # assert equal $scanned [0, 1, 3, 6]
 #
-# # use the --no-init(-n) flag to remove the initial value from
+# # use the --noinit(-n) flag to remove the initial value from
 # # the final result
 # let scanned = ([1 2 3] | scan 0 {|x, y| $x + $y} -n)
 #
