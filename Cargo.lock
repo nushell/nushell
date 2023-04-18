@@ -2888,6 +2888,7 @@ dependencies = [
  "num-traits",
  "once_cell",
  "open",
+ "os_pipe",
  "pathdiff",
  "percent-encoding",
  "polars",
@@ -3446,6 +3447,16 @@ checksum = "ccd746e37177e1711c20dd619a1620f34f5c8b569c53590a72dedd5344d8924a"
 dependencies = [
  "dlv-list",
  "hashbrown 0.12.3",
+]
+
+[[package]]
+name = "os_pipe"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a53dbb20faf34b16087a931834cba2d7a73cc74af2b7ef345a4c8324e2409a12"
+dependencies = [
+ "libc",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
