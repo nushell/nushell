@@ -386,8 +386,7 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
         let mut is_expanded = false;
         let value = if is_limited {
             let (text, _) = value_to_styled_string(value, opts.config, opts.style_computer);
-            let text = clean_charset(&text);
-            text
+            clean_charset(&text)
         } else {
             match value {
                 Value::List { vals, span } => {
