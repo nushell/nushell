@@ -399,7 +399,7 @@ fn build_table_kv(
             flatten,
             flatten_separator,
         } => {
-            let sep = flatten_separator.unwrap_or_default();
+            let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
             ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
         }
         TableView::Collapsed => {
@@ -423,7 +423,7 @@ fn build_table_batch(
             flatten,
             flatten_separator,
         } => {
-            let sep = flatten_separator.unwrap_or_default();
+            let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
             ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
         }
         TableView::Collapsed => {

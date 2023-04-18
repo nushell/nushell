@@ -154,11 +154,11 @@ fn table_collapse_none() {
     assert_eq!(
         actual.out,
         concat!(
-            " a   b   c ",
-            " 1   2   3 ",
-            " 4   5   1 ",
-            "         2 ",
-            "         3 ",
+            " a  b  c ",
+            " 1  2  3 ",
+            " 4  5  1 ",
+            "       2 ",
+            "       3 ",
         )
     );
 }
@@ -232,11 +232,20 @@ fn table_collapse_hearts() {
 }
 
 #[test]
-fn table_collapse_doesnot_support_width_control() {
+fn table_collapse_does_wrapping_for_long_strings() {
     let actual = nu!(
         r#"[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --collapse"#
     );
-    assert_eq!(actual.out, "Couldn't fit table into 80 columns!");
+    assert_eq!(
+        actual.out,
+        "╭────────────────────────────────╮\
+         │ a                              │\
+         ├────────────────────────────────┤\
+         │ 111111111111111109312339230430 │\
+         │ 179149313814687359833671239329 │\
+         │ 01313323321729744896.0000      │\
+         ╰────────────────────────────────╯"
+    );
 }
 
 #[test]
