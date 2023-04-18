@@ -5,6 +5,7 @@ export-env {
     use dirs *
 }
 export use help *
+export use iter *
 export use log *
 export use testing *
 export use xml *
