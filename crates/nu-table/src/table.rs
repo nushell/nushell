@@ -316,21 +316,21 @@ fn align_table(
 ) {
     table
         .with(Modify::new(Segment::all()).with(AlignmentStrategy::PerLine))
-        .with(SetAlignemnt(alignments.data, Entity::Global));
+        .with(SetAlignment(alignments.data, Entity::Global));
 
     for (column, alignment) in alignments.columns {
-        table.with(SetAlignemnt(alignment, Entity::Column(column)));
+        table.with(SetAlignment(alignment, Entity::Column(column)));
     }
 
     for (pos, alignment) in alignments.cells {
-        table.with(SetAlignemnt(alignment, Entity::Cell(pos.0, pos.1)));
+        table.with(SetAlignment(alignment, Entity::Cell(pos.0, pos.1)));
     }
 
     if with_header {
-        table.with(SetAlignemnt(alignments.header, Entity::Row(0)));
+        table.with(SetAlignment(alignments.header, Entity::Row(0)));
 
         if with_footer {
-            table.with(SetAlignemnt(
+            table.with(SetAlignment(
                 alignments.header,
                 Entity::Row(table.count_rows() - 1),
             ));
@@ -338,7 +338,7 @@ fn align_table(
     }
 
     if with_index {
-        table.with(SetAlignemnt(alignments.index, Entity::Column(0)));
+        table.with(SetAlignment(alignments.index, Entity::Column(0)));
     }
 }
 
@@ -675,9 +675,9 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
     }
 }
 
-struct SetAlignemnt(AlignmentHorizontal, Entity);
+struct SetAlignment(AlignmentHorizontal, Entity);
 
-impl<R, D> TableOption<R, D, ColoredConfig> for SetAlignemnt {
+impl<R, D> TableOption<R, D, ColoredConfig> for SetAlignment {
     fn change(&mut self, _: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
         cfg.set_alignment_horizontal(self.1, self.0);
     }

@@ -51,7 +51,7 @@ fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableThe
     theme.set_horizontals(HashMap::default());
 
     table.with(SetRawStyle(theme));
-    table.with(SetAlignemnt(AlignmentHorizontal::Left));
+    table.with(SetAlignment(AlignmentHorizontal::Left));
     table.with(PoolTableDimension::new(
         DimensionPriority::Last,
         DimensionPriority::Last,
@@ -65,7 +65,7 @@ fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableThe
         //
         // It's perfectly save to do cause table does not store the reference internally.
         // We just need this unsafe section to cope with some limitations of [`PoolTable`].
-        // Mitigation of this is definetely on a todo list.
+        // Mitigation of this is definitely on a todo list.
 
         let color: AnsiColor<'_> = color.into();
         let prefix = color.get_prefix();
@@ -227,9 +227,9 @@ impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetBorderColor {
     }
 }
 
-struct SetAlignemnt(AlignmentHorizontal);
+struct SetAlignment(AlignmentHorizontal);
 
-impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetAlignemnt {
+impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetAlignment {
     fn change(&mut self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
         *cfg = cfg.set_alignment_horizontal(self.0);
     }
