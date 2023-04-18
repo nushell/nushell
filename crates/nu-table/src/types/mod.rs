@@ -33,6 +33,22 @@ impl TableOutput {
     }
 }
 
+pub fn value_to_styled_string(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
+    let float_precision = cfg.float_precision as usize;
+    let text = val.into_abbreviated_string(cfg);
+    make_styled_string(style, text, Some(val), float_precision)
+}
+
+pub fn value_to_clean_styled_string(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
+    let (text, style) = value_to_styled_string(val, cfg, style);
+    let text = clean_charset(&text);
+    (text, style)
+}
+
+pub fn clean_charset(text: &str) -> String {
+    text.replace(['\r', '\t'], " ")
+}
+
 const INDEX_COLUMN_NAME: &str = "index";
 
 fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
@@ -41,20 +57,6 @@ fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
 
 fn wrap_text(text: &str, width: usize, config: &Config) -> String {
     string_wrap(text, width, is_cfg_trim_keep_words(config))
-}
-
-pub fn value_to_styled_string(
-    value: &Value,
-    config: &Config,
-    style_computer: &StyleComputer,
-) -> NuText {
-    let float_precision = config.float_precision as usize;
-    make_styled_string(
-        style_computer,
-        value.into_abbreviated_string(config),
-        Some(value),
-        float_precision,
-    )
 }
 
 fn make_styled_string(

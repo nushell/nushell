@@ -7,6 +7,7 @@ use std::{cmp::max, sync::atomic::AtomicBool};
 
 use crate::{string_width, Cell, NuTable};
 
+use super::{clean_charset, value_to_clean_styled_string};
 use super::{
     create_table_config, error_sign, general::BuildConfig, get_header_style, get_index_style,
     load_theme_from_config, set_data_styles, value_to_styled_string, wrap_text, NuText,
@@ -384,7 +385,9 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
         let is_limited = matches!(opts.format.expand_limit, Some(0));
         let mut is_expanded = false;
         let value = if is_limited {
-            value_to_styled_string(value, opts.config, opts.style_computer).0
+            let (text, _) = value_to_styled_string(value, opts.config, opts.style_computer);
+            let text = clean_charset(&text);
+            text
         } else {
             match value {
                 Value::List { vals, span } => {
@@ -436,8 +439,8 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
                     }
                 }
                 val => {
-                    let text = value_to_styled_string(val, opts.config, opts.style_computer).0;
-                    let text = text.replace(['\r', '\t'], " ");
+                    let text =
+                        value_to_clean_styled_string(val, opts.config, opts.style_computer).0;
                     wrap_text(&text, value_width, opts.config)
                 }
             }
@@ -490,7 +493,7 @@ fn expanded_table_entry(item: &Value, header: &str, opts: Options<'_>) -> NuText
 fn expanded_table_entry2(item: &Value, opts: Options<'_>) -> NuText {
     let is_limit_reached = matches!(opts.format.expand_limit, Some(0));
     if is_limit_reached {
-        return value_to_styled_string(item, opts.config, opts.style_computer);
+        return value_to_clean_styled_string(item, opts.config, opts.style_computer);
     }
 
     match &item {
@@ -534,11 +537,7 @@ fn expanded_table_entry2(item: &Value, opts: Options<'_>) -> NuText {
                 None => value_to_styled_string(item, opts.config, opts.style_computer),
             }
         }
-        _ => {
-            let (text, style) = value_to_styled_string(item, opts.config, opts.style_computer);
-            let text = text.replace(['\r', '\t'], " ");
-            (text, style)
-        }
+        _ => value_to_clean_styled_string(item, opts.config, opts.style_computer),
     }
 }
 
@@ -559,8 +558,7 @@ fn value_list_to_string(
             buf.push_str(flatten_sep);
         }
 
-        let (text, _) = value_to_styled_string(value, config, style_computer);
-        let text = text.replace(['\r', '\t'], " ");
+        let (text, _) = value_to_clean_styled_string(value, config, style_computer);
         buf.push_str(&text);
     }
 

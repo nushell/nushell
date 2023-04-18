@@ -7,8 +7,8 @@ use std::sync::Arc;
 use crate::{Cell, NuTable};
 
 use super::{
-    create_table_config, get_empty_style, get_header_style, get_index_style, get_value_style,
-    StringResult, TableOutput, TableResult, INDEX_COLUMN_NAME,
+    clean_charset, create_table_config, get_empty_style, get_header_style, get_index_style,
+    get_value_style, StringResult, TableOutput, TableResult, INDEX_COLUMN_NAME,
 };
 
 pub struct JustTable;
@@ -85,9 +85,13 @@ fn kv_table(cols: &[String], vals: &[Value], opts: BuildConfig<'_>) -> StringRes
             return Ok(None);
         }
 
+        let is_string_value = matches!(value, Value::String { .. });
+        let mut value = value.into_abbreviated_string(opts.config);
+        if is_string_value {
+            value = clean_charset(&value);
+        }
+
         let key = Cell::new(column.to_string());
-        let value = value.into_abbreviated_string(opts.config);
-        let value = value.replace(['\r', '\t'], " ");
         let value = Cell::new(value);
         row.push(key);
         row.push(value);
@@ -186,9 +190,13 @@ fn to_table_with_header(
                         Err(_) => get_empty_style(opts.style_computer),
                     }
                 }
+                value if matches!(value, Value::String { .. }) => {
+                    let (text, style) = get_value_style(value, opts.config, opts.style_computer);
+                    let text = clean_charset(&text);
+                    (text, style)
+                }
                 value => get_value_style(value, opts.config, opts.style_computer),
             };
-            let text = text.replace(['\r', '\t'], " ");
 
             table.insert((row + 1, col), text);
             table.set_cell_style((row + 1, col), style);
@@ -221,11 +229,15 @@ fn to_table_with_no_header(
             table.insert((row, 0), text);
         }
 
-        let (text, style) = get_value_style(item, opts.config, opts.style_computer);
-        let text = text.replace(['\r', '\t'], " ");
-        let col = with_index as usize;
-        table.insert((row, col), text);
-        table.set_cell_style((row, col), style);
+        let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
+        let is_string_value = matches!(item, Value::String { .. });
+        if is_string_value {
+            text = clean_charset(&text);
+        }
+
+        let pos = (row, with_index as usize);
+        table.insert(pos, text);
+        table.set_cell_style(pos, style);
     }
 
     Ok(Some(table))

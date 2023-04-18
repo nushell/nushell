@@ -4,8 +4,8 @@ use nu_protocol::{Config, Span, Value};
 use crate::UnstructuredTable;
 
 use super::{
-    general::BuildConfig, get_index_style, load_theme_from_config, value_to_styled_string,
-    StringResult,
+    clean_charset, general::BuildConfig, get_index_style, load_theme_from_config,
+    value_to_styled_string, StringResult,
 };
 
 pub struct CollapsedTable;
@@ -55,7 +55,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
 
             let is_string = matches!(value, Value::String { .. });
             if is_string {
-                let mut text = text.replace(['\r', '\t'], " ");
+                let mut text = clean_charset(&text);
                 if let Some(color) = style.color_style {
                     text = color.paint(text).to_string();
                 }
