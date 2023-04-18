@@ -281,6 +281,21 @@ impl<'e, 's> ScopeData<'e, 's> {
                 )
             })
             .collect::<Vec<(String, Value)>>();
+
+        // Until we allow custom commands to have input and output types, let's just
+        // make them Type::Any Type::Any so they can show up in our $nu.scope.commands
+        // a little bit better. If sigs is empty, we're pretty sure that we're dealing
+        // with a custom command.
+        if sigs.is_empty() {
+            let any_type = &Type::Any;
+            sigs.push((
+                any_type.to_shape().to_string(),
+                Value::List {
+                    vals: self.collect_signature_entries(any_type, any_type, signature, span),
+                    span,
+                },
+            ));
+        }
         sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
         // For most commands, input types are not repeated in
         // `input_output_types`, i.e. each input type has only one associated

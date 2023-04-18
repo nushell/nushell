@@ -213,9 +213,7 @@ impl Iterator for RangeIterator {
             self.curr.partial_cmp(&self.end)
         };
 
-        let ordering = if let Some(ord) = ordering {
-            ord
-        } else {
+        let Some(ordering) = ordering  else {
             self.done = true;
             return Some(Value::Error {
                 error: Box::new(ShellError::CannotCreateRange { span: self.span }),

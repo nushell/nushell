@@ -111,15 +111,13 @@ pub fn help_aliases(
             name.push_str(&r.item);
         }
 
-        let alias = if let Some(id) = engine_state.find_decl(name.as_bytes(), &[]) {
-            if let Some(alias) = engine_state.get_decl(id).as_alias() {
-                alias
-            } else {
-                return Err(ShellError::AliasNotFound(span(
-                    &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
-                )));
-            }
-        } else {
+        let Some(alias) = engine_state.find_decl(name.as_bytes(), &[]) else {
+            return Err(ShellError::AliasNotFound(span(
+                &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
+            )));
+        };
+
+        let Some(alias) = engine_state.get_decl(alias).as_alias() else {
             return Err(ShellError::AliasNotFound(span(
                 &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
             )));

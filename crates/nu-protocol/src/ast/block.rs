@@ -55,6 +55,17 @@ impl Block {
             recursive: None,
         }
     }
+
+    pub fn new_with_capacity(capacity: usize) -> Self {
+        Self {
+            signature: Box::new(Signature::new("")),
+            pipelines: Vec::with_capacity(capacity),
+            captures: vec![],
+            redirect_env: false,
+            span: None,
+            recursive: None,
+        }
+    }
 }
 
 impl<T> From<T> for Block

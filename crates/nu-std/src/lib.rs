@@ -71,13 +71,20 @@ pub fn load_standard_library(
         let submodules = vec![
             // helper modules that could be used in other parts of the library
             ("log", include_str!("../lib/log.nu")),
-            ("assert", include_str!("../lib/assert.nu")),
 
             // the rest of the library
             ("dirs", include_str!("../lib/dirs.nu")),
             ("help", include_str!("../lib/help.nu")),
+            ("testing", include_str!("../lib/testing.nu")),
             ("xml", include_str!("../lib/xml.nu")),
         ];
+
+        // Define commands to be preloaded into the default (top level, unprefixed) namespace.
+        // User can invoke these without having to `use std` beforehand.
+        // Entries are: (name to add to default namespace, path under std to find implementation)
+        //
+        // Conventionally, for a command implemented as `std foo`, the name added
+        // is either `std foo` or bare `foo`, not some arbitrary rename.
 
         let prelude = vec![
             ("std help", "help"),

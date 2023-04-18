@@ -279,7 +279,6 @@ impl Command for ParEach {
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(x, ..) => {
-                eprint!("value");
                 let block = engine_state.get_block(block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {

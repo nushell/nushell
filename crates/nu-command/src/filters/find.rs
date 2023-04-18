@@ -248,10 +248,10 @@ fn highlight_terms_in_record(
                     // Get the original LS_COLORS color
                     let style = ls_colors.style_for_path(val_str.clone());
                     let ansi_style = style
-                        .map(LsColors_Style::to_crossterm_style)
+                        .map(LsColors_Style::to_nu_ansi_term_style)
                         .unwrap_or_default();
 
-                    let ls_colored_val = ansi_style.apply(&val_str).to_string();
+                    let ls_colored_val = ansi_style.paint(&val_str).to_string();
 
                     let ansi_term_style = style
                         .map(to_nu_ansi_term_style)

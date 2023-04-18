@@ -23,9 +23,9 @@ fn find_id(
     file: &[u8],
     location: &Value,
 ) -> Option<(Id, usize, Span)> {
-    let offset = working_set.next_span_start();
+    let file_id = working_set.add_file(file_path.to_string(), file);
+    let offset = working_set.get_span_for_file(file_id).start;
     let block = parse(working_set, Some(file_path), file, false);
-
     let flattened = flatten_block(working_set, &block);
 
     if let Ok(location) = location.as_i64() {
@@ -74,18 +74,28 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String) {
+pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
 
+    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+        max_errors as usize
+    } else {
+        100
+    };
+
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
-        for err in &working_set.parse_errors {
+        for (idx, err) in working_set.parse_errors.iter().enumerate() {
+            if idx >= max_errors {
+                // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
+                break;
+            }
             let mut span = err.span();
             span.start -= offset;
             span.end -= offset;
@@ -191,19 +201,131 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
         Some((Id::Declaration(decl_id), offset, span)) => {
             let decl = working_set.get_decl(decl_id);
 
-            let mut description = format!("```\n### Signature\n```\n{}\n\n", decl.signature());
+            let mut description = "```\n### Signature\n```\n".to_string();
 
-            description.push_str(&format!("```\n### Usage\n  {}\n```\n", decl.usage()));
+            let signature = decl.signature();
+            description.push_str(&format!("  {}", signature.name));
+            if !signature.named.is_empty() {
+                description.push_str(" {flags}")
+            }
+            for required_arg in &signature.required_positional {
+                description.push_str(&format!(" <{}>", required_arg.name));
+            }
+            for optional_arg in &signature.optional_positional {
+                description.push_str(&format!(" <{}?>", optional_arg.name));
+            }
+            if let Some(arg) = &signature.rest_positional {
+                description.push_str(&format!(" <...{}>", arg.name));
+            }
+
+            description.push_str("\n```\n");
+
+            if !signature.required_positional.is_empty()
+                || !signature.optional_positional.is_empty()
+                || signature.rest_positional.is_some()
+            {
+                description.push_str("\n### Parameters\n\n");
+                let mut first = true;
+                for required_arg in &signature.required_positional {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
+
+                    description.push_str(&format!(
+                        "  `{}: {}`",
+                        required_arg.name,
+                        required_arg.shape.to_type()
+                    ));
+                    if !required_arg.desc.is_empty() {
+                        description.push_str(&format!(" - {}", required_arg.desc));
+                    }
+                    description.push('\n');
+                }
+                for optional_arg in &signature.optional_positional {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
+
+                    description.push_str(&format!(
+                        "  `{}: {}`",
+                        optional_arg.name,
+                        optional_arg.shape.to_type()
+                    ));
+                    if !optional_arg.desc.is_empty() {
+                        description.push_str(&format!(" - {}", optional_arg.desc));
+                    }
+                    description.push('\n');
+                }
+                if let Some(arg) = &signature.rest_positional {
+                    if !first {
+                        description.push_str("\\\n");
+                    }
+
+                    description.push_str(&format!(" `...{}: {}`", arg.name, arg.shape.to_type()));
+                    if !arg.desc.is_empty() {
+                        description.push_str(&format!(" - {}", arg.desc));
+                    }
+                    description.push('\n');
+                }
+
+                description.push('\n');
+            }
+
+            if !signature.named.is_empty() {
+                description.push_str("\n### Flags\n\n");
+
+                let mut first = true;
+                for named in &signature.named {
+                    if !first {
+                        description.push_str("\\\n");
+                    } else {
+                        first = false;
+                    }
+                    description.push_str("  ");
+                    if let Some(short_flag) = &named.short {
+                        description.push_str(&format!("`-{}`", short_flag));
+                    }
+
+                    if !named.long.is_empty() {
+                        if named.short.is_some() {
+                            description.push_str(", ")
+                        }
+                        description.push_str(&format!("`--{}`", named.long));
+                    }
+
+                    if let Some(arg) = &named.arg {
+                        description.push_str(&format!(" `<{}>`", arg.to_type()))
+                    }
+
+                    if !named.desc.is_empty() {
+                        description.push_str(&format!(" - {}", named.desc));
+                    }
+                }
+                description.push('\n');
+            }
+
+            if !signature.input_output_types.is_empty() {
+                description.push_str("\n### Input/output\n");
+
+                description.push_str("\n```\n");
+                for input_output in &signature.input_output_types {
+                    description.push_str(&format!("  {} | {}\n", input_output.0, input_output.1));
+                }
+                description.push_str("\n```\n");
+            }
+
+            description.push_str(&format!("### Usage\n  {}\n", decl.usage()));
 
             if !decl.extra_usage().is_empty() {
-                description.push_str(&format!(
-                    "\n```\n### Extra usage:\n  {}\n```\n",
-                    decl.extra_usage()
-                ));
+                description.push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
             }
 
             if !decl.examples().is_empty() {
-                description.push_str("\n```\n### Example(s)\n```\n");
+                description.push_str("### Example(s)\n```\n");
 
                 for example in decl.examples() {
                     description.push_str(&format!(

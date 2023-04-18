@@ -141,7 +141,7 @@ fn main() -> Result<()> {
         let span = include_path.span;
         let vals: Vec<_> = include_path
             .item
-            .split(';')
+            .split(':')
             .map(|x| Value::String {
                 val: x.trim().to_string(),
                 span,
@@ -167,8 +167,8 @@ fn main() -> Result<()> {
         ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 
         return Ok(());
-    } else if parsed_nu_cli_args.ide_check.is_some() {
-        ide::check(&mut engine_state, &script_name);
+    } else if let Some(max_errors) = parsed_nu_cli_args.ide_check {
+        ide::check(&mut engine_state, &script_name, &max_errors);
 
         return Ok(());
     }

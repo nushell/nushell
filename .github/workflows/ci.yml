@@ -116,7 +116,7 @@ jobs:
         run: cargo install --path . --locked --no-default-features
 
       - name: Standard library tests
-        run: nu crates/nu-std/tests/run.nu
+        run: nu -c 'use std; std run-tests --path crates/nu-std'
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -170,7 +170,6 @@ jobs:
 
 
   nu-coverage:
-    needs: nu-tests
     env:
       NUSHELL_CARGO_TARGET: ci
 
