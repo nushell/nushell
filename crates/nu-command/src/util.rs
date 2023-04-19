@@ -58,28 +58,18 @@ pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
 }
 
 pub fn leap_year(year: i32) -> bool {
-    if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
-        true
-    } else {
-        false
-    }
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
+#[allow(clippy::if_same_then_else)]
 pub fn parse_year(date: DateTime<Local>, years: i32) -> Duration {
     let month = date.month();
-    let mut start_year = 0;
-    let mut end_year = 0;
-
-    // check for negative years, meaning that we need to go back in time
-    if years < 0 {
-        start_year = date.year() + years;
-        end_year = date.year();
+    let (start_year, end_year) = if years < 0 {
+        (date.year() + years, date.year())
     } else {
-        start_year = date.year();
-        end_year = date.year() + years;
-    }
+        (date.year(), date.year() + years)
+    };
 
-    println!("Start: {}, end: {}", start_year, end_year);
     // find how many leap years are in between the start year with month and day and end year with month and day
     let mut num_of_leap_days = 0;
 
@@ -126,15 +116,18 @@ pub fn parse_months(date: DateTime<Local>, months: i32) -> Duration {
             } else {
                 month -= 1
             }
-        } else {
+        }
+        // else clippy complains
+        if months > 0 {
             if month == 12 {
-                year = year + 1;
+                year += 1;
                 month = 1
             } else {
                 month += 1
             }
         }
     }
+
     if months < 0 {
         Duration::days(-days)
     } else {
@@ -166,7 +159,8 @@ pub fn parse_relative_time(s: &str) -> Option<Duration> {
             .parse::<i32>()
             .ok()
             .map(|n| parse_months(Local::now(), n)),
-
+        ["year" | "years"] => Some(parse_year(Local::now(), 1)),
+        ["month" | "months"] => Some(parse_months(Local::now(), 1)),
         [num_str, "fortnight" | "fortnights"] => {
             num_str.parse::<i64>().ok().map(|n| Duration::weeks(2 * n))
         }
