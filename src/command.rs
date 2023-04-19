@@ -33,11 +33,12 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
 
         let flag_value = match arg.as_ref() {
             "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+            | "--env-config" | "-I" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--ide-goto-def" | "--ide-hover" | "--ide-complete" => args.next(),
+            | "--include-path" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
+            | "--ide-check" => args.next(),
             _ => None,
         };
 
@@ -90,12 +91,6 @@ pub(crate) fn parse_commandline_args(
         )) = pipeline.elements.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
-            let ide_goto_def: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
-            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
-            let ide_complete: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "ide-complete")?;
-            let ide_check = call.get_named_arg("ide-check");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
@@ -109,8 +104,16 @@ pub(crate) fn parse_commandline_args(
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let execute: Option<Expression> = call.get_flag_expr("execute");
+            let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
+
+            let ide_goto_def: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
+            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
+            let ide_complete: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "ide-complete")?;
+            let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
 
             fn extract_contents(
                 expression: Option<Expression>,
@@ -142,6 +145,7 @@ pub(crate) fn parse_commandline_args(
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
             let execute = extract_contents(execute)?;
+            let include_path = extract_contents(include_path)?;
 
             let help = call.has_flag("help");
 
@@ -183,6 +187,7 @@ pub(crate) fn parse_commandline_args(
                 log_level,
                 log_target,
                 execute,
+                include_path,
                 ide_goto_def,
                 ide_hover,
                 ide_complete,
@@ -220,10 +225,11 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
+    pub(crate) include_path: Option<Spanned<String>>,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
-    pub(crate) ide_check: Option<Spanned<String>>,
+    pub(crate) ide_check: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -248,6 +254,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "run the given commands and then enter an interactive shell",
                 Some('e'),
+            )
+            .named(
+                "include-path",
+                SyntaxShape::String,
+                "set the NU_LIB_DIRS for the given script (semicolon-delimited)",
+                Some('I'),
             )
             .switch("interactive", "start as an interactive shell", Some('i'))
             .switch("login", "start as a login shell", Some('l'))
@@ -300,8 +312,9 @@ impl Command for Nu {
                 "list completions for the item at the given position",
                 None,
             )
-            .switch(
+            .named(
                 "ide-check",
+                SyntaxShape::Int,
                 "run a diagnostic check on the given source",
                 None,
             );

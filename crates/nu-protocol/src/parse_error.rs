@@ -38,13 +38,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch))]
     Expected(String, #[label("expected {0}")] Span),
 
-    #[error("Missing || inside closure")]
-    #[diagnostic(
-        code(nu::parser::closure_missing_pipe),
-        help("Try add || to the beginning of closure")
-    )]
-    ClosureMissingPipe(#[label("Parsing as a closure, but || is missing")] Span),
-
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
@@ -299,9 +292,9 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::missing_flag_param))]
     MissingFlagParam(String, #[label = "flag missing {0} argument"] Span),
 
-    #[error("Batches of short flags can't take arguments.")]
-    #[diagnostic(code(nu::parser::short_flag_arg_cant_take_arg))]
-    ShortFlagBatchCantTakeArg(#[label = "short flag batches can't take args"] Span),
+    #[error("Only the last flag in a short flag batch can take an argument.")]
+    #[diagnostic(code(nu::parser::only_last_flag_in_batch_can_take_arg))]
+    OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
     #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
@@ -480,7 +473,7 @@ impl ParseError {
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,
-            ParseError::ShortFlagBatchCantTakeArg(s) => *s,
+            ParseError::OnlyLastFlagInBatchCanTakeArg(s) => *s,
             ParseError::MissingPositional(_, s, _) => *s,
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
@@ -510,7 +503,6 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
-            ParseError::ClosureMissingPipe(s) => *s,
         }
     }
 }

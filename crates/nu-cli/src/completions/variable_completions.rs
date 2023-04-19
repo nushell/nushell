@@ -179,11 +179,7 @@ impl Completer for VariableCompletion {
         let mut removed_overlays = vec![];
         // Working set scope vars
         for scope_frame in working_set.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for v in &overlay_frame.vars {
                     if options.match_algorithm.matches_u8_insensitive(
                         options.case_sensitive,
@@ -204,12 +200,7 @@ impl Completer for VariableCompletion {
 
         // Permanent state vars
         // for scope in &self.engine_state.scope {
-        for overlay_frame in self
-            .engine_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
+        for overlay_frame in self.engine_state.active_overlays(&removed_overlays).rev() {
             for v in &overlay_frame.vars {
                 if options.match_algorithm.matches_u8_insensitive(
                     options.case_sensitive,

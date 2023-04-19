@@ -117,9 +117,7 @@ pub fn help_modules(
             name.push_str(&r.item);
         }
 
-        let module_id = if let Some(id) = engine_state.find_module(name.as_bytes(), &[]) {
-            id
-        } else {
+        let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) else {
             return Err(ShellError::ModuleNotFoundAtRuntime {
                 mod_name: name,
                 span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),

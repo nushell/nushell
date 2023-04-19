@@ -26,7 +26,7 @@ type MakeRangeError = fn(&str, Span) -> ShellError;
 
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     let start = match &range.from {
-        Value::Int { val, .. } => *val as isize,
+        Value::Int { val, .. } => isize::try_from(*val).unwrap_or_default(),
         Value::Nothing { .. } => 0,
         _ => {
             return Err(|msg, span| ShellError::TypeMismatch {
@@ -39,9 +39,9 @@ pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     let end = match &range.to {
         Value::Int { val, .. } => {
             if matches!(range.inclusion, RangeInclusion::Inclusive) {
-                *val as isize
+                isize::try_from(*val).unwrap_or(isize::max_value())
             } else {
-                *val as isize - 1
+                isize::try_from(*val).unwrap_or(isize::max_value()) - 1
             }
         }
         Value::Nothing { .. } => isize::max_value(),

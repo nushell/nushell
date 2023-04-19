@@ -1,12 +1,13 @@
 # std.nu, `used` to load all standard library components
 
-export use assert *
 export use dirs *
 export-env {
     use dirs *
 }
 export use help *
+export use iter *
 export use log *
+export use testing *
 export use xml *
 
 # Add the given paths to the PATH.
