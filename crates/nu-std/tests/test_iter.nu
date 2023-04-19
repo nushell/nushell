@@ -56,5 +56,6 @@ export def test_iter_filter_map [] {
     let res = (
         ["3" "42" "69" "n" "x" ""] 
         | iter filter-map {|it| $it | into int}
+        )
     assert equal $res [3 42 69]
 }
