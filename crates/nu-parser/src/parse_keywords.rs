@@ -831,7 +831,9 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => [b"export ", sub].concat(),
+            b"alias" | b"def" | b"def-env" | b"extern" | b"use" | b"module" => {
+                [b"export ", sub].concat()
+            }
             _ => b"export".to_vec(),
         }
     } else {
@@ -893,6 +895,7 @@ pub fn parse_export_in_block(
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
             pipeline
         }
+        b"export module" => parse_module(working_set, lite_command),
         b"export extern" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
@@ -1231,6 +1234,61 @@ pub fn parse_export_in_module(
                 };
 
                 exportables
+            }
+            b"module" => {
+                let pipeline = parse_module(working_set, lite_command);
+
+                let export_module_decl_id =
+                    if let Some(id) = working_set.find_decl(b"export module", &Type::Any) {
+                        id
+                    } else {
+                        working_set.error(ParseError::InternalError(
+                            "missing 'export module' command".into(),
+                            export_span,
+                        ));
+                        return (garbage_pipeline(spans), vec![]);
+                    };
+
+                // Trying to warp the 'module' call into the 'export module' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref module_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
+                {
+                    call = module_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_module_decl_id;
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "unexpected output from parsing a definition".into(),
+                        span(&spans[1..]),
+                    ));
+                };
+
+                let mut result = vec![];
+
+                if let Some(module_name_span) = spans.get(2) {
+                    let module_name = working_set.get_span_contents(*module_name_span);
+                    let module_name = trim_quotes(module_name);
+
+                    if let Some(module_id) = working_set.find_module(module_name) {
+                        result.push(Exportable::Module {
+                            name: module_name.to_vec(),
+                            id: module_id,
+                        });
+                    } else {
+                        working_set.error(ParseError::InternalError(
+                            "failed to find added module".into(),
+                            span(&spans[1..]),
+                        ));
+                    }
+                }
+
+                result
             }
             _ => {
                 working_set.error(ParseError::Expected(
