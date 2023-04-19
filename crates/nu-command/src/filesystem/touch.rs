@@ -1,7 +1,7 @@
 use std::fs::OpenOptions;
 use std::path::Path;
 
-use chrono::{DateTime, Duration, Local, Timelike};
+use chrono::{DateTime, Local, Timelike};
 use filetime::FileTime;
 
 use nu_engine::CallExt;
@@ -99,7 +99,7 @@ impl Command for Touch {
             match date_string {
                 Some(date_string) => {
                     // try to parse a relative date
-                    let parsed_date = parse_relative_time(&date_string.item);
+                    let parsed_date = crate::util::parse_relative_time(&date_string.item);
                     if let Some(parsed_date) = parsed_date {
                         date = Some(Local::now() + parsed_date);
                     } else {
@@ -318,64 +318,5 @@ fn parse_given_string_to_date(
                 ))
             }
         }
-    }
-}
-
-// adapted from https://github.com/uutils/coreutils/blob/main/src/uu/touch/src/touch.rs
-// does not consider daylights savings, and cannot accept months or years yet
-// We need to support things like Feb 29, 2020, 2 years after. There is no Feb 29, 2022. Will the date move to March 1st?
-// So how do we handle that?
-/// Parses relative time into a duration
-/// e.g., yesterday, 2 hours ago, -2 weeks
-fn parse_relative_time(s: &str) -> Option<Duration> {
-    // Relative time, like "-1 hour" or "+3 days".
-    //
-    // TODO Add support for "year" and "month".
-    // TODO Add support for times without spaces like "-1hour".
-    let mut tokens: Vec<&str> = s.split_whitespace().collect();
-    let past_time = tokens.contains(&"ago");
-
-    if past_time {
-        tokens = tokens[0..tokens.len() - 1].to_vec()
-    }
-
-    let result = match &tokens[..] {
-        [num_str, "fortnight" | "fortnights"] => {
-            num_str.parse::<i64>().ok().map(|n| Duration::weeks(2 * n))
-        }
-        ["fortnight" | "fortnights"] => Some(Duration::weeks(2)),
-        [num_str, "week" | "weeks"] => num_str.parse::<i64>().ok().map(Duration::weeks),
-        ["week" | "weeks"] => Some(Duration::weeks(1)),
-        [num_str, "day" | "days"] => num_str.parse::<i64>().ok().map(Duration::days),
-        ["day" | "days"] => Some(Duration::days(1)),
-        [num_str, "hour" | "hours"] => num_str.parse::<i64>().ok().map(Duration::hours),
-        ["hour" | "hours"] => Some(Duration::hours(1)),
-        [num_str, "minute" | "minutes" | "min" | "mins"] => {
-            num_str.parse::<i64>().ok().map(Duration::minutes)
-        }
-        ["minute" | "minutes" | "min" | "mins"] => Some(Duration::minutes(1)),
-        [num_str, "second" | "seconds" | "sec" | "secs"] => {
-            num_str.parse::<i64>().ok().map(Duration::seconds)
-        }
-        ["second" | "seconds" | "sec" | "secs"] => Some(Duration::seconds(1)),
-        ["now" | "today"] => Some(Duration::nanoseconds(0)),
-        ["yesterday"] => Some(Duration::days(-1)),
-        ["tomorrow"] => Some(Duration::days(1)),
-        _ => None,
-    };
-
-    if past_time {
-        if let Some(duration) = result {
-            let negative = result.filter(|&duration| duration.num_milliseconds() < 0);
-            if negative.is_some() {
-                Some(duration)
-            } else {
-                Some(-duration)
-            }
-        } else {
-            None
-        }
-    } else {
-        result
     }
 }
