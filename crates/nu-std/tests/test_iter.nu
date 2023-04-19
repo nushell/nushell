@@ -48,3 +48,13 @@ export def test_iter_scan [] {
     let scanned = ([a b c d] | iter scan "" {|x, y| [$x, $y] | str join} -n)
     assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
+
+export def test_iter_filter_map [] {
+    let res = ([2 5 "4" 7] | iter filter-map {|it| $it ** 2})
+    assert equal $res [4 25 49]
+
+    let res = (
+        ["3" "42" "69" "n" "x" ""] 
+        | iter filter-map {|it| $it | into int}
+    assert equal $res [3 42 69]
+}

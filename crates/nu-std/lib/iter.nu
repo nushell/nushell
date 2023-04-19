@@ -92,3 +92,30 @@ export def "iter scan" [ # -> list<any>
       $in
    }
 }
+
+# Returns a list of values for which the supplied closure does not
+# return `null` or an error. It is equivalent to 
+#     `$in | each $fn | filter $fn`
+#
+# # Example
+# ```nu
+# use std ["assert equal" "iter filter-map"]
+#
+# let res = ([2 5 "4" 7] | iter filter-map {|it| $it ** 2})
+#
+# assert equal $res [4 25 49]
+# ```
+export def "iter filter-map" [ # -> list<any>
+    fn: closure                # the closure to apply to the input
+] {
+    each {|$it|
+        try {
+            do $fn $it 
+        } catch {
+            null 
+        }
+    } 
+    | filter {|it|
+        $it != null
+    }
+}
