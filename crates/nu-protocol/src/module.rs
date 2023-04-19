@@ -38,6 +38,10 @@ impl Module {
         }
     }
 
+    pub fn name(&self) -> Vec<u8> {
+        self.name.clone()
+    }
+
     pub fn add_decl(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
         self.decls.insert(name, decl_id)
     }

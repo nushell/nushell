@@ -1624,10 +1624,9 @@ fn parse_module_file_or_dir(
             let mut module = Module::new(module_name.as_bytes().to_vec());
 
             for file_path in file_paths {
-                if let Some(module_id) = parse_module_file(working_set, file_path, path_span) {
-                    module
-                        .submodules
-                        .insert(module_name.as_bytes().to_vec(), module_id);
+                if let Some(submodule_id) = parse_module_file(working_set, file_path, path_span) {
+                    let submodule_name = working_set.get_module(submodule_id).name();
+                    module.add_submodule(submodule_name, submodule_id);
                 }
             }
 
