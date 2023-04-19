@@ -28,11 +28,10 @@
 # assert equal $not_found null
 # ```
 export def "iter find" [ # -> any | null  
-    predicate: closure   # the closure used to perform the search 
+    fn: closure          # the closure used to perform the search 
 ] {
-    let list = (self collect)
     try {
-       $list | filter $predicate | get 0?
+       filter $fn | get 0?
     } catch {
        null
     }
@@ -51,21 +50,12 @@ export def "iter find" [ # -> any | null
 export def "iter intersperse" [ # -> list<any>
     separator: any,             # the separator to be used
 ] {
-    let list = (self collect)
-
-    let len = ($list | length);
-    if ($list | is-empty) {
-        return $list
-    }
-
-    $list 
-    | enumerate
-    | reduce -f [] {|it, acc|
-        if ($it.index == $len - 1) {
-           $acc ++ [$it.item]
-        } else {
-            $acc ++ [$it.item, $separator]
-        }
+    reduce -f [] {|it, acc|
+          $acc ++ [$it, $separator]
+    } 
+    | match $in {
+         [] => [],
+         $xs => ($xs | take (($xs | length) - 1 ))
     }
 }
 
@@ -90,24 +80,15 @@ export def "iter intersperse" [ # -> list<any>
 # ```
 export def "iter scan" [ # -> list<any>
     init: any            # initial value to seed the initial state
-    f: closure           # the closure to perform the scan
+    fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
 ] {                      
-   let res = (reduce -f [$init] {|it, acc|
-      $acc ++ [(do $f ($acc | last) $it)]
-   })
-
-   if $noinit {
-     $res | skip
-   } else {
-      $res
+   reduce -f [$init] {|it, acc|
+      $acc ++ [(do $fn ($acc | last) $it)]
    }
-}
-
-# Accepts inputs from a pipeline and builds a list for the `iter *`
-# commands to work with
-def "self collect" [] {  # -> list<any>
-    reduce -f [] {|it, acc|
-        $acc ++ $it
-    }
+   | if $noinit {
+     $in | skip
+   } else {
+      $in
+   }
 }
