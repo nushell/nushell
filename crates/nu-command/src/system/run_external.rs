@@ -548,7 +548,7 @@ impl ExternalCommand {
         }
     }
 
-    fn create_process(
+    pub fn create_process(
         &self,
         input: &PipelineData,
         use_cmd: bool,

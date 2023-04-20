@@ -81,6 +81,7 @@ fn exec(
     let cwd = current_dir(engine_state, stack)?;
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;
     command.current_dir(cwd);
+    command.envs(&external_command.env_vars);
 
     let err = command.exec(); // this replaces our process, should not return
 
