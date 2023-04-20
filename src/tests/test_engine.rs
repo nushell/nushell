@@ -323,11 +323,6 @@ fn default_value12() -> TestResult {
 }
 
 #[test]
-fn default_value_expression() -> TestResult {
-    run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
-}
-
-#[test]
 fn loose_each() -> TestResult {
     run_test(
         r#"[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum"#,

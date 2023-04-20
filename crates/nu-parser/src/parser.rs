@@ -3647,7 +3647,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             }
                                         }
                                         *shape = expression.ty.to_shape();
-                                        *default_value = Some(expression);
+                                        *default_value =
+                                            eval_constant(working_set, &expression).ok();
                                         *required = false;
                                     }
                                     Arg::RestPositional(..) => {
