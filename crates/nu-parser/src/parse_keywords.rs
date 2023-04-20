@@ -1558,6 +1558,7 @@ fn parse_module_file(
     working_set: &mut StateWorkingSet,
     path: PathBuf,
     path_span: Span,
+    name_override: Option<String>,
 ) -> Option<ModuleId> {
     if let Some(i) = working_set
         .parsed_module_files
@@ -1579,7 +1580,9 @@ fn parse_module_file(
         return None;
     }
 
-    let module_name = if let Some(stem) = path.file_stem() {
+    let module_name = if let Some(name) = name_override {
+        name
+    } else if let Some(stem) = path.file_stem() {
         stem.to_string_lossy().to_string()
     } else {
         working_set.error(ParseError::ModuleNotFound(path_span));
@@ -1655,7 +1658,9 @@ fn parse_module_file_or_dir(
                     if let Ok(entry) = res {
                         let entry_path = entry.path();
 
-                        if entry_path.is_file() && entry_path.extension() == Some(OsStr::new("nu"))
+                        if entry_path.is_file()
+                            && entry_path.extension() == Some(OsStr::new("nu"))
+                            && entry_path.file_stem() != Some(OsStr::new("mod"))
                         {
                             Some(entry_path)
                         } else {
@@ -1678,27 +1683,48 @@ fn parse_module_file_or_dir(
 
             // working_set.enter_scope();
 
-            // TODO: Add creation of this from mod.nu
-            let mut module = Module::new(module_name.as_bytes().to_vec());
+            let mut submodules = vec![];
 
             for file_path in file_paths {
-                if let Some(submodule_id) = parse_module_file(working_set, file_path, path_span) {
+                if let Some(submodule_id) =
+                    parse_module_file(working_set, file_path, path_span, None)
+                {
                     let submodule_name = working_set.get_module(submodule_id).name();
-                    module.add_submodule(submodule_name, submodule_id);
+                    submodules.push((submodule_name, submodule_id));
                 }
             }
 
-            // working_set.exit_scope();
+            let mod_nu_path = module_path.join("mod.nu");
 
-            let module_id = working_set.add_module(&module_name, module, vec![]);
+            if mod_nu_path.exists() && mod_nu_path.is_file() {
+                if let Some(module_id) =
+                    parse_module_file(working_set, mod_nu_path, path_span, Some(module_name))
+                {
+                    let module = working_set.get_module_mut(module_id);
 
-            Some(module_id)
+                    for (submodule_name, submodule_id) in submodules {
+                        module.add_submodule(submodule_name, submodule_id);
+                    }
+
+                    Some(module_id)
+                } else {
+                    None
+                }
+            } else {
+                let mut module = Module::new(module_name.as_bytes().to_vec());
+
+                for (submodule_name, submodule_id) in submodules {
+                    module.add_submodule(submodule_name, submodule_id);
+                }
+
+                Some(working_set.add_module(&module_name, module, vec![]))
+            }
         } else {
             working_set.error(ParseError::ModuleNotFound(path_span));
             None
         }
     } else if module_path.is_file() {
-        parse_module_file(working_set, module_path, path_span)
+        parse_module_file(working_set, module_path, path_span, None)
     } else {
         working_set.error(ParseError::ModuleNotFound(path_span));
         None

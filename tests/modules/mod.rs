@@ -611,3 +611,32 @@ fn deep_import_patterns() {
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
     assert_eq!(actual.out, "foo");
 }
+
+#[test]
+fn module_dir() {
+    let import = "use samples/spam";
+
+    let inp = &[import, "spam"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spam");
+
+    let inp = &[import, "spam foo"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[import, "spam bar"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "bar");
+
+    let inp = &[import, "spam foo baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foobaz");
+
+    let inp = &[import, "spam bar baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "barbaz");
+
+    let inp = &[import, "spam baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spambaz");
+}

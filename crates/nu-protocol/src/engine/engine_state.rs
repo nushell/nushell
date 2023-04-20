@@ -1753,6 +1753,18 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_module_mut(&mut self, module_id: ModuleId) -> &mut Module {
+        let num_permanent_modules = self.permanent_state.num_modules();
+        if module_id < num_permanent_modules {
+            panic!("Attempt to mutate a module that is in the permanent (immutable) state")
+        } else {
+            self.delta
+                .modules
+                .get_mut(module_id - num_permanent_modules)
+                .expect("internal error: missing module")
+        }
+    }
+
     pub fn get_block_mut(&mut self, block_id: BlockId) -> &mut Block {
         let num_permanent_blocks = self.permanent_state.num_blocks();
         if block_id < num_permanent_blocks {
