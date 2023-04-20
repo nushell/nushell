@@ -83,6 +83,29 @@ fn exec(
     command.current_dir(cwd);
     command.envs(&external_command.env_vars);
 
+    #[cfg(unix)]
+    unsafe {
+        // Safety:
+        // POSIX only allows async-signal-safe functions to be called.
+        // `signal`, and `sigprocmask` are async-signal-safe according to:
+        // https://manpages.ubuntu.com/manpages/bionic/man7/signal-safety.7.html
+        command.pre_exec(|| {
+            use std::mem::MaybeUninit;
+            for signal in [libc::SIGTSTP, libc::SIGTTIN, libc::SIGTTOU] {
+                if libc::signal(signal, libc::SIG_DFL) == libc::SIG_ERR {
+                    return Err(std::io::Error::last_os_error());
+                }
+            }
+
+            let mut sigset = MaybeUninit::uninit();
+            libc::sigemptyset(sigset.as_mut_ptr());
+            if libc::sigprocmask(libc::SIG_SETMASK, sigset.as_ptr(), std::ptr::null_mut()) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+
     let err = command.exec(); // this replaces our process, should not return
 
     Err(ShellError::GenericError(
