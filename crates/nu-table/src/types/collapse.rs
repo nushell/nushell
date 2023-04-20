@@ -25,10 +25,15 @@ fn collapsed_table(
     colorize_value(&mut value, config, style_computer);
 
     let theme = load_theme_from_config(config);
-    let table = UnstructuredTable::new(value, config, style_computer, &theme);
-    let table = table.draw(term_width);
+    let mut table = UnstructuredTable::new(value, config);
+    let is_empty = table.truncate(&theme, term_width);
+    if is_empty {
+        return Ok(None);
+    }
 
-    Ok(table)
+    let table = table.draw(style_computer, &theme);
+
+    Ok(Some(table))
 }
 
 fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {

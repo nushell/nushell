@@ -18,29 +18,27 @@ use crate::{string_width, string_wrap, TableTheme};
 ///
 /// It doesn't support alignment and a proper width control.
 pub struct UnstructuredTable {
-    inner: String,
+    value: TableValue,
 }
 
 impl UnstructuredTable {
-    pub fn new(
-        value: Value,
-        config: &Config,
-        style_computer: &StyleComputer,
-        theme: &TableTheme,
-    ) -> Self {
-        let val = convert_nu_value_to_table_value(value, config);
-        let table = build_table(val, style_computer, theme);
-
-        Self { inner: table }
+    pub fn new(value: Value, config: &Config) -> Self {
+        let value = convert_nu_value_to_table_value(value, config);
+        Self { value }
     }
 
-    pub fn draw(&self, termwidth: usize) -> Option<String> {
-        let table_width = string_width(&self.inner);
-        if table_width > termwidth {
-            None
-        } else {
-            Some(self.inner.clone())
+    pub fn truncate(&mut self, theme: &TableTheme, width: usize) -> bool {
+        let mut available = width;
+        let has_vertical = theme.has_left();
+        if has_vertical {
+            available = available.saturating_sub(2);
         }
+
+        truncate_table_value(&mut self.value, has_vertical, available).is_none()
+    }
+
+    pub fn draw(self, style_computer: &StyleComputer, theme: &TableTheme) -> String {
+        build_table(self.value, style_computer, theme)
     }
 }
 
@@ -232,5 +230,110 @@ struct SetAlignment(AlignmentHorizontal);
 impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetAlignment {
     fn change(&mut self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
         *cfg = cfg.set_alignment_horizontal(self.0);
+    }
+}
+
+fn truncate_table_value(
+    value: &mut TableValue,
+    has_vertical: bool,
+    available: usize,
+) -> Option<usize> {
+    const MIN_CONTENT_WIDTH: usize = 10;
+    const TRUNCATE_CELL_WIDTH: usize = 3;
+    const PAD: usize = 2;
+
+    match value {
+        TableValue::Row(row) => {
+            if row.is_empty() {
+                return Some(PAD);
+            }
+
+            if row.len() == 1 {
+                return truncate_table_value(&mut row[0], has_vertical, available);
+            }
+
+            let count_cells = row.len();
+            let mut row_width = 0;
+            let mut i = 0;
+            let mut last_used_width = 0;
+            for cell in row.iter_mut() {
+                let vertical = (has_vertical && i + 1 != count_cells) as usize;
+                if available < row_width + vertical {
+                    break;
+                }
+
+                let available = available - row_width - vertical;
+                let width = match truncate_table_value(cell, has_vertical, available) {
+                    Some(width) => width,
+                    None => break,
+                };
+
+                row_width += width + vertical;
+                last_used_width = row_width;
+                i += 1;
+            }
+
+            if i == row.len() {
+                return Some(row_width);
+            }
+
+            if i == 0 {
+                if available >= PAD + TRUNCATE_CELL_WIDTH {
+                    *value = TableValue::Cell(String::from("..."));
+                    return Some(PAD + TRUNCATE_CELL_WIDTH);
+                } else {
+                    return None;
+                }
+            }
+
+            let available = available - row_width;
+            let has_space_empty_cell = available >= PAD + TRUNCATE_CELL_WIDTH;
+            if has_space_empty_cell {
+                row[i] = TableValue::Cell(String::from("..."));
+                row.truncate(i + 1);
+                row_width += PAD + TRUNCATE_CELL_WIDTH;
+            } else if i == 0 {
+                return None;
+            } else {
+                row[i - 1] = TableValue::Cell(String::from("..."));
+                row.truncate(i);
+                row_width -= last_used_width;
+                row_width += PAD + TRUNCATE_CELL_WIDTH;
+            }
+
+            Some(row_width)
+        }
+        TableValue::Column(column) => {
+            let mut max_width = PAD;
+            for cell in column.iter_mut() {
+                let width = truncate_table_value(cell, has_vertical, available)?;
+                max_width = std::cmp::max(max_width, width);
+            }
+
+            Some(max_width)
+        }
+        TableValue::Cell(text) => {
+            if available <= PAD {
+                return None;
+            }
+
+            let available = available - PAD;
+            let width = string_width(text);
+
+            if width > available {
+                if available > MIN_CONTENT_WIDTH {
+                    *text = string_wrap(text, available, false);
+                    Some(available + PAD)
+                } else if available >= 3 {
+                    *text = String::from("...");
+                    Some(3 + PAD)
+                } else {
+                    // situation where we have too little space
+                    None
+                }
+            } else {
+                Some(width + PAD)
+            }
+        }
     }
 }
