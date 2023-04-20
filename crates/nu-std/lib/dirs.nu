@@ -8,7 +8,7 @@ export-env {
 
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
-export def-env "add" [
+export def-env "dirs add" [
     ...paths: string    # directory or directories to add to working list
     ] {
         mut abspaths = []
@@ -28,14 +28,14 @@ export def-env "add" [
 }
 
 # Advance to the next directory in the list or wrap to beginning.
-export def-env "next" [
+export def-env "dirs next" [
     N:int = 1   # number of positions to move.
 ] {
     _fetch $N    
 }
 
 # Back up to the previous directory or wrap to the end.
-export def-env "prev" [
+export def-env "dirs prev" [
     N:int = 1   # number of positions to move.
 ] {
     _fetch (-1 * $N)    
@@ -43,7 +43,7 @@ export def-env "prev" [
 
 # Drop the current directory from the list, if it's not the only one.
 # PWD becomes the next working directory
-export def-env "drop" [] {
+export def-env "dirs drop" [] {
     if ($env.DIRS_LIST | length) > 1 {
         let-env DIRS_LIST = (
             ($env.DIRS_LIST | take $env.DIRS_POSITION) 
@@ -55,7 +55,7 @@ export def-env "drop" [] {
 }
 
 # Display current working directories.
-export def-env "show" [] {
+export def-env "dirs show" [] {
     mut out = []
     for $p in ($env.DIRS_LIST | enumerate) {
         $out = ($out | append [

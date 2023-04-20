@@ -61,11 +61,21 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
   ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu clippy
+  clippy
+  ```
 
 - Run all tests:
 
   ```shell
   cargo test --workspace
+  ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu test
+  test
   ```
 
 - Run all tests for a specific command
@@ -79,12 +89,30 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo fmt --all -- --check
   ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu fmt
+  fmt --check
+  ```
 
 - Format the code in the project
 
   ```shell
   cargo fmt --all
   ```
+  or via the `toolkit.nu` command:
+  ```shell
+  use toolkit.nu fmt
+  fmt
+  ```
+
+- Set up `git` hooks to check formatting and run `clippy` before committing and pushing:
+
+  ```shell
+  use toolkit.nu setup-git-hooks
+  setup-git-hooks
+  ```
+  _Unfortunately, this hook isn't available on Windows._
 
 ### Debugging Tips
 
@@ -99,3 +127,90 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
   ```
+
+## Git etiquette
+
+As nushell thrives on its broad base of volunteer contributors and maintainers with different backgrounds we have a few guidelines for how we best utilize git and GitHub for our contributions. We strive to balance three goals with those recommendations:
+
+1. The **volunteer maintainers and contributors** can easily follow the changes you propose, gauge the impact, and come to help you or make a decision.
+2. **You as a contributor** can focus most of your time on improving the quality of the nushell project and contributing your expertise to the code or documentation.
+3. Making sure we can trace back *why* decisions were made in the past.
+This includes discarded approaches. Also we want to quickly identify regressions and fix when something broke.
+
+### How we merge PRs
+
+In general the maintainers **squash** all changes of your PR into a single commit when merging. 
+
+This keeps a clean enough linear history, while not forcing you to conform to a too strict style while iterating in your PR or fixing small problems. As an added benefit the commits on the `main` branch are tied to the discussion that happened in the PR through their `#1234` issue number.
+
+> **Note**
+> **Pro advice:** In some circumstances, we can agree on rebase-merging a particularly large but connected PR as a series of atomic commits onto the `main` branch to ensure we can more easily revert or bisect particular aspects.
+
+### A good PR makes a change!
+
+As a result of this PR-centric strategy and the general goal that the reviewers should easily understand your change, the **PR title and description matters** a great deal!
+
+Make sure your description is **concise** but contains all relevant information and context.
+This means demonstrating what changes, ideally through nushell code or output **examples**.
+Furthermore links to technical documentation or instructions for folks that want to play with your change make the review process much easier.
+
+> **Note**
+> Try to follow the suggestions in our PR message template to make sure we can quickly focus on the technical merits and impact on the users.
+
+#### A PR should limit itself to a single functional change or related set of same changes.
+
+Mixing different changes in the same PR will make the review process much harder. A PR might get stuck on one aspect while we would actually like to land another change. Furthermore, if we are forced to revert a change, mixing and matching different aspects makes fixing bugs or regressions much harder.
+
+Thus, please try to **separate out unrelated changes**!
+**Don't** mix unrelated refactors with a potentially contested change.
+Stylistic fixes and housekeeping can be bundled up into singular PRs.
+
+#### Guidelines for the PR title
+
+The PR title should be concise but contain everything for a contributor to know if they should help out in the review of this particular change.
+
+**DON'T**
+- `Update file/in/some/deeply/nested/path.rs`
+  - Why are you making this change?
+- `Fix 2134`
+  - What has to be fixed?
+  - Hard to follow when not online on GitHub.
+- ``Ignore `~` expansion``
+  - In what context should this change take effect?
+- `[feature] refactor the whole parser and also make nushell indentation-sensitive, upgrade to using Cpython. Let me know what you think!`
+  - Be concise
+  - Maybe break up into smaller commits or PRs if the title already appears too long?
+
+**DO**
+- Mention the nushell feature or command that is affected.
+  - ``Fix URL parsing in `http get` (issue #1234)``
+- You can mention the issue number if other context is there.
+  - In general, mention all related issues in the description to crosslink (e.g. `Fixes #1234`, `Closes #6789`)
+- For internal changes mention the area or symbols affected if it helps to clarify
+  - ``Factor out `quote_string()` from parser to reuse in `explore` ``
+
+### Review process / Merge conflicts
+
+> **Note**
+> Keep in mind that the maintainers are volunteers that need to allocate their attention to several different areas and active PRs. We will try to get back to you as soon as possible.
+
+You can help us to make the review process a smooth experience:
+- Testing:
+  - We generally review in detail after all the tests pass. Let us know if there is a problem you want to discuss to fix a test failure or forces us to accept a breaking change.
+  - If you fix a bug, it is highly recommended that you add a test that reproduces the original issue/panic in a minimal form.
+  - In general, added tests help us to understand which assumptions go into a particular addition/change.
+  - Try to also test corner cases where those assumptions might break. This can be more valuable than simply adding many similar tests.
+- Commit history inside a PR during code review:
+  - Good **atomic commits** can help follow larger changes, but we are not pedantic. 
+  - We don't shame fixup commits while you try to figure out a problem. They can help others see what you tried and what didn't work. (see our [squash policy](#how-we-merge-prs))
+  - During active review constant **force pushing** just to amend changes can be confusing!
+    - GitHub's UI presents reviewers with less options to compare diffs
+    - fetched branches for experimentation become invalid!
+    - the notification a maintainer receives has a low signal-to-noise ratio
+  - Git pros *can* use their judgement to rebase/squash to clean up the history *if it aids the understanding* of a larger change during review 
+- Merge conflicts:
+  - In general you should take care of resolving merge conflicts.
+    - Use your judgement whether to `git merge main` or to `git rebase main`
+    - Choose what simplifies having confidence in the conflict resolution and the review. **Merge commits in your branch are OK** in the squash model.
+  - Feel free to notify your reviewers or affected PR authors if your change might cause larger conflicts with another change.
+  - During the rollup of multiple PRs, we may choose to resolve merge conflicts and CI failures ourselves. (Allow maintainers to push to your branch to enable us to do this quickly.)

@@ -153,6 +153,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 

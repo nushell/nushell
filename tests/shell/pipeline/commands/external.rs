@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
 #[test]
@@ -125,6 +126,18 @@ fn command_not_found_error_suggests_search_term() {
 fn command_not_found_error_suggests_typo_fix() {
     let actual = nu!(cwd: ".", "benchmark { echo 'foo'}");
     assert!(actual.err.contains("timeit"));
+}
+
+#[test]
+fn command_not_found_error_shows_not_found() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            export extern "foo" [];
+            foo
+        "#
+    );
+    assert!(actual.err.contains("'foo' was not found"));
 }
 
 #[test]

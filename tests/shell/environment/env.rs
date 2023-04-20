@@ -4,7 +4,7 @@ use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu_repl_code, pipeline};
-
+use pretty_assertions::assert_eq;
 use serial_test::serial;
 
 #[test]
@@ -123,6 +123,17 @@ fn has_file_pwd() {
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
         assert!(actual.out.ends_with("has_file_pwd"));
+    })
+}
+
+#[test]
+fn has_file_loc() {
+    Playground::setup("has_file_pwd", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
+
+        let actual = nu!(cwd: dirs.test(), "nu spam.nu");
+
+        assert!(actual.out.ends_with("spam.nu"));
     })
 }
 

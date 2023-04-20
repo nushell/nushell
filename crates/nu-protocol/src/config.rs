@@ -33,6 +33,7 @@ pub struct Hooks {
     pub pre_execution: Option<Value>,
     pub env_change: Option<Value>,
     pub display_output: Option<Value>,
+    pub command_not_found: Option<Value>,
 }
 
 impl Hooks {
@@ -42,6 +43,7 @@ impl Hooks {
             pre_execution: None,
             env_change: None,
             display_output: None,
+            command_not_found: None,
         }
     }
 }
@@ -107,7 +109,7 @@ impl Default for Config {
         Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
-            table_show_empty: false,
+            table_show_empty: true,
             external_completer: None,
             use_ls_colors: true,
             color_config: HashMap::new(),
@@ -1529,9 +1531,10 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
                     "env_change" => hooks.env_change = Some(vals[idx].clone()),
                     "display_output" => hooks.display_output = Some(vals[idx].clone()),
+                    "command_not_found" => hooks.command_not_found = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output'"
+                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
                                 .to_string(),
                             x.to_string(),
                             *span,

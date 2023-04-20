@@ -51,7 +51,7 @@ impl Command for Explain {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Explain a command within a closure",
-            example: "explain { ls | sort-by name type -i | get name } | table -e",
+            example: "explain {|| ls | sort-by name type -i | get name } | table -e",
             result: None,
         }]
     }
@@ -328,5 +328,6 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }

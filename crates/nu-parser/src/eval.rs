@@ -1,8 +1,7 @@
-use crate::ParseError;
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    Span, Value,
+    ParseError, Span, Value,
 };
 
 /// Evaluate a constant value at parse time
@@ -18,6 +17,10 @@ pub fn eval_constant(
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {
             val: b.clone(),
+            span: expr.span,
+        }),
+        Expr::Filepath(path) => Ok(Value::String {
+            val: path.clone(),
             span: expr.span,
         }),
         Expr::Var(var_id) => match working_set.find_constant(*var_id) {

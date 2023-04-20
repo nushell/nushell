@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
     Type, Value,
 };
+use regex::Regex;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -25,6 +26,10 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "the value that denotes what separates the list",
             )
+            .switch(
+                "regex", 
+                "separator is a regular expression, matching values that can be coerced into a string", 
+                Some('r'))
             .category(Category::Filters)
     }
 
@@ -121,7 +126,73 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Split a list of chars into lists based on multiple characters",
+                example: r"[a, b, c, d, a, e, f, g] | split list -r '(b|e)'",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::List {
+                            vals: vec![Value::test_string("a")],
+                            span: Span::test_data(),
+                        },
+                        Value::List {
+                            vals: vec![
+                                Value::test_string("c"),
+                                Value::test_string("d"),
+                                Value::test_string("a"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                        Value::List {
+                            vals: vec![Value::test_string("f"), Value::test_string("g")],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
+    }
+}
+
+enum Matcher {
+    Regex(Regex),
+    Direct(Value),
+}
+
+impl Matcher {
+    pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
+        if regex {
+            Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
+                |err| {
+                    ShellError::GenericError(
+                        "Error with regular expression".into(),
+                        err.to_string(),
+                        match lhs {
+                            Value::Error { error: _ } => None,
+                            _ => Some(lhs.expect_span()),
+                        },
+                        None,
+                        Vec::new(),
+                    )
+                },
+            )?))
+        } else {
+            Ok(Matcher::Direct(lhs))
+        }
+    }
+
+    pub fn compare(&self, rhs: &Value) -> Result<bool, ShellError> {
+        Ok(match self {
+            Matcher::Regex(regex) => {
+                if let Ok(rhs_str) = rhs.as_string() {
+                    regex.is_match(&rhs_str)
+                } else {
+                    false
+                }
+            }
+            Matcher::Direct(lhs) => rhs == lhs,
+        })
     }
 }
 
@@ -134,9 +205,11 @@ fn split_list(
     let separator: Value = call.req(engine_state, stack, 0)?;
     let mut temp_list = Vec::new();
     let mut returned_list = Vec::new();
+
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
+    let matcher = Matcher::new(call.has_flag("regex"), separator)?;
     for val in iter {
-        if val == separator {
+        if matcher.compare(&val)? {
             if !temp_list.is_empty() {
                 returned_list.push(Value::List {
                     vals: temp_list.clone(),

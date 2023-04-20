@@ -187,10 +187,8 @@ fn help_frame_data(
 }
 
 fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
-    macro_rules! nu_str {
-        ($text:expr) => {
-            Value::string($text.to_string(), NuSpan::unknown())
-        };
+    fn nu_str(s: &impl ToString) -> Value {
+        Value::string(s.to_string(), NuSpan::unknown())
     }
 
     let arguments = manual
@@ -198,7 +196,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         .iter()
         .map(|e| Value::Record {
             cols: vec![String::from("example"), String::from("description")],
-            vals: vec![nu_str!(e.example), nu_str!(e.description)],
+            vals: vec![nu_str(&e.example), nu_str(&e.description)],
             span: NuSpan::unknown(),
         })
         .collect();
@@ -213,7 +211,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         .iter()
         .map(|e| Value::Record {
             cols: vec![String::from("example"), String::from("description")],
-            vals: vec![nu_str!(e.example), nu_str!(e.description)],
+            vals: vec![nu_str(&e.example), nu_str(&e.description)],
             span: NuSpan::unknown(),
         })
         .collect();
@@ -231,7 +229,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
                 String::from("context"),
                 String::from("description"),
             ],
-            vals: vec![nu_str!(e.code), nu_str!(e.context), nu_str!(e.description)],
+            vals: vec![nu_str(&e.code), nu_str(&e.context), nu_str(&e.description)],
             span: NuSpan::unknown(),
         })
         .collect();
@@ -249,7 +247,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
                 .iter()
                 .map(|v| Value::Record {
                     cols: vec![String::from("example"), String::from("description")],
-                    vals: vec![nu_str!(v.example), nu_str!(v.description)],
+                    vals: vec![nu_str(&v.example), nu_str(&v.description)],
                     span: NuSpan::unknown(),
                 })
                 .collect();
@@ -266,9 +264,9 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
                     String::from("values"),
                 ],
                 vals: vec![
-                    nu_str!(o.group),
-                    nu_str!(o.key),
-                    nu_str!(o.description),
+                    nu_str(&o.group),
+                    nu_str(&o.key),
+                    nu_str(&o.description),
                     values,
                 ],
                 span: NuSpan::unknown(),
@@ -280,9 +278,9 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         span: NuSpan::unknown(),
     };
 
-    let name = nu_str!(manual.name);
-    let aliases = nu_str!(aliases.join(", "));
-    let desc = nu_str!(manual.description);
+    let name = nu_str(&manual.name);
+    let aliases = nu_str(&aliases.join(", "));
+    let desc = nu_str(&manual.description);
 
     let headers = vec![
         String::from("name"),

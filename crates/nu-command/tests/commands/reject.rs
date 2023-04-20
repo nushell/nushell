@@ -7,9 +7,9 @@ fn regular_columns() {
             echo [
                 [first_name, last_name, rusty_at, type];
 
-                [Andrés Robalino 10/11/2013 A]
-                [JT Turner 10/12/2013 B]
-                [Yehuda Katz 10/11/2013 A]
+                [Andrés Robalino '10/11/2013' A]
+                [JT Turner '10/12/2013' B]
+                [Yehuda Katz '10/11/2013' A]
             ]
             | reject type first_name
             | columns
@@ -85,7 +85,7 @@ fn reject_record_from_raw_eval() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-            {"a": 3, "a": 4} | reject a | describe
+            {"a": 3} | reject a | describe
             "#
         )
     );
@@ -98,7 +98,7 @@ fn reject_table_from_raw_eval() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-            [{"a": 3, "a": 4}] | reject a
+            [{"a": 3}] | reject a
             "#
         )
     );
@@ -146,4 +146,25 @@ fn reject_large_vec_with_two_identical_elements() {
     assert!(actual.out.contains("45"));
     assert!(actual.out.contains("100"));
     assert!(actual.out.contains('2'));
+}
+
+#[test]
+fn reject_optional_column() {
+    let actual = nu!("{} | reject foo? | to nuon");
+    assert_eq!(actual.out, "{}");
+
+    let actual = nu!("[{}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}]");
+
+    let actual = nu!("[{} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+
+    let actual = nu!("[{foo: 1} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+}
+
+#[test]
+fn reject_optional_row() {
+    let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
+    assert_eq!(actual.out, "[[foo]; [bar]]");
 }

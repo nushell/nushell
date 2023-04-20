@@ -120,7 +120,7 @@ impl Command for Explore {
             },
             Example {
                 description: "Explore a list of Markdown files' contents, with row indexes",
-                example: r#"glob *.md | each { open } | explore -i"#,
+                example: r#"glob *.md | each {|| open } | explore -i"#,
                 result: None,
             },
             Example {

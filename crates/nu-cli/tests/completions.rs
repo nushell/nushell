@@ -524,10 +524,12 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(12, suggestions.len());
+    assert_eq!(14, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
+        "current-exe".into(),
+        "default-config-dir".into(),
         "env-path".into(),
         "history-path".into(),
         "home-path".into(),
@@ -663,8 +665,8 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     let (dir, _, mut engine_state, mut stack) = new_engine();
     let (_, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let (block, err) = parse(&mut working_set, None, block.as_bytes(), false, &[]);
-        assert!(err.is_none());
+        let block = parse(&mut working_set, None, block.as_bytes(), false);
+        assert!(working_set.parse_errors.is_empty());
 
         (block, working_set.render())
     };

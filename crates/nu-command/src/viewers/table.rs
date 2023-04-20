@@ -110,7 +110,6 @@ impl Command for Table {
         let list: bool = call.has_flag("list");
 
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-        let term_width = get_width_param(width_param);
 
         let expand: bool = call.has_flag("expand");
         let expand_limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
@@ -152,7 +151,7 @@ impl Command for Table {
             input,
             row_offset,
             table_view,
-            term_width,
+            width_param,
         )
     }
 
@@ -232,7 +231,7 @@ fn handle_table_command(
     input: PipelineData,
     row_offset: usize,
     table_view: TableView,
-    term_width: usize,
+    term_width: Option<i64>,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();
@@ -278,18 +277,22 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => handle_record(
-            cols,
-            vals,
-            span,
-            engine_state,
-            stack,
-            call,
-            table_view,
-            term_width,
-            ctrlc,
-            config,
-        ),
+        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+            let term_width = get_width_param(term_width);
+
+            handle_record(
+                cols,
+                vals,
+                span,
+                engine_state,
+                stack,
+                call,
+                table_view,
+                term_width,
+                ctrlc,
+                config,
+            )
+        }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             let collected = val.collect()?.into_pipeline_data();
             handle_table_command(
@@ -1842,10 +1845,7 @@ fn render_path_name(
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
     let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
 
-    let ansi_style = style
-        .map(Style::to_crossterm_style)
-        // .map(ToNuAnsiStyle::to_nu_ansi_style)
-        .unwrap_or_default();
+    let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 
     let full_path = PathBuf::from(stripped_path.as_ref())
         .canonicalize()
@@ -1857,7 +1857,7 @@ fn render_path_name(
         show_clickable_links,
     );
 
-    let val = ansi_style.apply(full_path_link).to_string();
+    let val = ansi_style.paint(full_path_link).to_string();
     Some(Value::String { val, span })
 }
 

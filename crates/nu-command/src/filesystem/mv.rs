@@ -87,8 +87,8 @@ impl Command for Mv {
 
         if sources.is_empty() {
             return Err(ShellError::GenericError(
-                "Invalid file or pattern".into(),
-                "invalid file or pattern".into(),
+                "File(s) not found".into(),
+                "could not find any files matching this glob pattern".into(),
                 Some(spanned_source.span),
                 None,
                 Vec::new(),

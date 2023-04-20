@@ -72,6 +72,23 @@ impl PipelineData {
         PipelineData::Value(Value::Nothing { span }, metadata)
     }
 
+    /// create a `PipelineData::ExternalStream` with proper exit_code
+    ///
+    /// It's useful to break running without raising error at user level.
+    pub fn new_external_stream_with_only_exit_code(exit_code: i64) -> PipelineData {
+        PipelineData::ExternalStream {
+            stdout: None,
+            stderr: None,
+            exit_code: Some(ListStream::from_stream(
+                [Value::int(exit_code, Span::unknown())].into_iter(),
+                None,
+            )),
+            span: Span::unknown(),
+            metadata: None,
+            trim_end_newline: false,
+        }
+    }
+
     pub fn empty() -> PipelineData {
         PipelineData::Empty
     }
@@ -217,6 +234,39 @@ impl PipelineData {
                 Ok(())
             }
             PipelineData::Empty => Ok(()),
+        }
+    }
+
+    pub fn drain_with_exit_code(self) -> Result<i64, ShellError> {
+        match self {
+            PipelineData::Value(Value::Error { error }, _) => Err(*error),
+            PipelineData::Value(_, _) => Ok(0),
+            PipelineData::ListStream(stream, _) => {
+                stream.drain()?;
+                Ok(0)
+            }
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                exit_code,
+                ..
+            } => {
+                if let Some(stdout) = stdout {
+                    stdout.drain()?;
+                }
+
+                if let Some(stderr) = stderr {
+                    stderr.drain()?;
+                }
+
+                if let Some(exit_code) = exit_code {
+                    let result = drain_exit_code(exit_code)?;
+                    Ok(result)
+                } else {
+                    Ok(0)
+                }
+            }
+            PipelineData::Empty => Ok(0),
         }
     }
 
@@ -704,7 +754,7 @@ impl PipelineData {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
         }
 
-        if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
+        if let Some(decl_id) = engine_state.table_decl_id {
             let command = engine_state.get_decl(decl_id);
             if command.get_block_id().is_some() {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
@@ -734,8 +784,6 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<i64, ShellError> {
-        let config = engine_state.get_config();
-
         if let PipelineData::ExternalStream {
             stdout: stream,
             stderr: stderr_stream,
@@ -745,6 +793,7 @@ impl PipelineData {
         {
             print_if_stream(stream, stderr_stream, to_stderr, exit_code)
         } else {
+            let config = engine_state.get_config();
             self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
         }
     }
@@ -835,6 +884,7 @@ pub fn print_if_stream(
 ) -> Result<i64, ShellError> {
     // NOTE: currently we don't need anything from stderr
     // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
+
     thread::Builder::new()
         .name("stderr consumer".to_string())
         .spawn(move || stderr_stream.map(|x| x.into_bytes()))
@@ -854,16 +904,20 @@ pub fn print_if_stream(
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
-        let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
-        return match exit_codes.pop() {
-            #[cfg(unix)]
-            Some(Value::Error { error }) => Err(*error),
-            Some(Value::Int { val, .. }) => Ok(val),
-            _ => Ok(0),
-        };
+        return drain_exit_code(exit_code);
     }
 
     Ok(0)
+}
+
+fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
+    let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
+    match exit_codes.pop() {
+        #[cfg(unix)]
+        Some(Value::Error { error }) => Err(*error),
+        Some(Value::Int { val, .. }) => Ok(val),
+        _ => Ok(0),
+    }
 }
 
 impl Iterator for PipelineIterator {

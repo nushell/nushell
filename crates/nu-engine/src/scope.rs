@@ -52,8 +52,7 @@ pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
     stack: &'s Stack,
     vars_map: HashMap<&'e Vec<u8>, &'e usize>,
-    commands_map: HashMap<&'e (Vec<u8>, Type), &'e usize>,
-    aliases_map: HashMap<&'e Vec<u8>, &'e usize>,
+    decls_map: HashMap<&'e (Vec<u8>, Type), &'e usize>,
     modules_map: HashMap<&'e Vec<u8>, &'e usize>,
     visibility: Visibility,
 }
@@ -64,8 +63,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             engine_state,
             stack,
             vars_map: HashMap::new(),
-            commands_map: HashMap::new(),
-            aliases_map: HashMap::new(),
+            decls_map: HashMap::new(),
             modules_map: HashMap::new(),
             visibility: Visibility::new(),
         }
@@ -74,16 +72,9 @@ impl<'e, 's> ScopeData<'e, 's> {
     pub fn populate_all(&mut self) {
         for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.vars_map.extend(&overlay_frame.vars);
-            self.commands_map.extend(&overlay_frame.decls);
-            self.aliases_map.extend(&overlay_frame.aliases);
+            self.decls_map.extend(&overlay_frame.decls);
             self.modules_map.extend(&overlay_frame.modules);
             self.visibility.merge_with(overlay_frame.visibility.clone());
-        }
-    }
-
-    pub fn populate_aliases(&mut self) {
-        for overlay_frame in self.engine_state.active_overlays(&[]) {
-            self.aliases_map.extend(&overlay_frame.aliases);
         }
     }
 
@@ -117,8 +108,10 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
-        for ((command_name, _), decl_id) in &self.commands_map {
-            if self.visibility.is_decl_id_visible(decl_id) {
+        for ((command_name, _), decl_id) in &self.decls_map {
+            if self.visibility.is_decl_id_visible(decl_id)
+                && !self.engine_state.get_decl(**decl_id).is_alias()
+            {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
@@ -288,6 +281,21 @@ impl<'e, 's> ScopeData<'e, 's> {
                 )
             })
             .collect::<Vec<(String, Value)>>();
+
+        // Until we allow custom commands to have input and output types, let's just
+        // make them Type::Any Type::Any so they can show up in our $nu.scope.commands
+        // a little bit better. If sigs is empty, we're pretty sure that we're dealing
+        // with a custom command.
+        if sigs.is_empty() {
+            let any_type = &Type::Any;
+            sigs.push((
+                any_type.to_shape().to_string(),
+                Value::List {
+                    vals: self.collect_signature_entries(any_type, any_type, signature, span),
+                    span,
+                },
+            ));
+        }
         sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
         // For most commands, input types are not repeated in
         // `input_output_types`, i.e. each input type has only one associated
@@ -465,7 +473,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
-        for ((command_name, _), decl_id) in &self.commands_map {
+        for ((command_name, _), decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
             if decl.is_known_external() {
@@ -511,36 +519,6 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
-        for (alias_name, alias_id) in &self.aliases_map {
-            if self.visibility.is_alias_id_visible(alias_id) {
-                let alias = self.engine_state.get_alias(**alias_id);
-                let mut alias_text = String::new();
-
-                for span in alias {
-                    let contents = self.engine_state.get_span_contents(span);
-                    if !alias_text.is_empty() {
-                        alias_text.push(' ');
-                    }
-                    alias_text.push_str(&String::from_utf8_lossy(contents));
-                }
-
-                let alias_usage = self
-                    .engine_state
-                    .build_alias_usage(**alias_id)
-                    .map(|(usage, _)| usage)
-                    .unwrap_or_default();
-
-                aliases.push(Value::Record {
-                    cols: vec!["name".into(), "expansion".into(), "usage".into()],
-                    vals: vec![
-                        Value::string(String::from_utf8_lossy(alias_name), span),
-                        Value::string(alias_text, span),
-                        Value::string(alias_usage, span),
-                    ],
-                    span,
-                });
-            }
-        }
         for (name_bytes, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
@@ -585,13 +563,21 @@ impl<'e, 's> ScopeData<'e, 's> {
             let export_commands: Vec<Value> = module
                 .decls()
                 .iter()
+                .filter(|(_, id)| {
+                    self.visibility.is_decl_id_visible(id)
+                        && !self.engine_state.get_decl(*id).is_alias()
+                })
                 .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
                 .collect();
 
             let export_aliases: Vec<Value> = module
-                .aliases
-                .keys()
-                .map(|bytes| Value::string(String::from_utf8_lossy(bytes), span))
+                .decls()
+                .iter()
+                .filter(|(_, id)| {
+                    self.visibility.is_decl_id_visible(id)
+                        && self.engine_state.get_decl(*id).is_alias()
+                })
+                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
                 .collect();
 
             let export_env_block = module.env_block.map_or_else(
@@ -640,8 +626,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         let engine_state_cols = vec![
             "source_bytes".to_string(),
             "num_vars".to_string(),
-            "num_commands".to_string(),
-            "num_aliases".to_string(),
+            "num_decls".to_string(),
             "num_blocks".to_string(),
             "num_modules".to_string(),
             "num_env_vars".to_string(),
@@ -651,7 +636,6 @@ impl<'e, 's> ScopeData<'e, 's> {
             Value::int(self.engine_state.next_span_start() as i64, span),
             Value::int(self.engine_state.num_vars() as i64, span),
             Value::int(self.engine_state.num_decls() as i64, span),
-            Value::int(self.engine_state.num_aliases() as i64, span),
             Value::int(self.engine_state.num_blocks() as i64, span),
             Value::int(self.engine_state.num_modules() as i64, span),
             Value::int(

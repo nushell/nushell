@@ -10,6 +10,7 @@ mod ceil;
 mod cos;
 mod cosh;
 mod euler;
+mod exp;
 mod floor;
 mod ln;
 mod log;
@@ -68,4 +69,5 @@ pub use pi::SubCommand as MathPi;
 pub use tau::SubCommand as MathTau;
 
 pub use self::log::SubCommand as MathLog;
+pub use exp::SubCommand as MathExp;
 pub use ln::SubCommand as MathLn;

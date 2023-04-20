@@ -64,10 +64,8 @@ impl Command for FromNuon {
         let engine_state = engine_state.clone();
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let mut error = None;
-        let (mut block, err) =
-            nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false, &[]);
-        error = error.or(err);
+
+        let mut block = nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false);
 
         if let Some(pipeline) = block.pipelines.get(1) {
             if let Some(element) = pipeline.elements.get(0) {
@@ -146,7 +144,7 @@ impl Command for FromNuon {
             }
         };
 
-        if let Some(err) = error {
+        if let Some(err) = working_set.parse_errors.first() {
             return Err(ShellError::GenericError(
                 "error when parsing nuon text".into(),
                 "could not parse nuon text".into(),
@@ -249,6 +247,12 @@ fn convert_to_value(
             "extra tokens in input file".into(),
             expr.span,
         )),
+        Expr::MatchPattern(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "extra tokens in input file".into(),
+            expr.span,
+        )),
         Expr::GlobPattern(val) => Ok(Value::String { val, span }),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
@@ -277,6 +281,12 @@ fn convert_to_value(
 
             Ok(Value::List { vals: output, span })
         }
+        Expr::MatchBlock(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "match blocks not supported in nuon".into(),
+            expr.span,
+        )),
         Expr::Nothing => Ok(Value::Nothing { span }),
         Expr::Operator(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),

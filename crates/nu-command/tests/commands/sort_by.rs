@@ -44,6 +44,13 @@ fn by_invalid_column() {
 }
 
 #[test]
+fn sort_by_empty() {
+    let actual = nu!("[] | sort-by foo | to nuon");
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
 fn ls_sort_by_name_sensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

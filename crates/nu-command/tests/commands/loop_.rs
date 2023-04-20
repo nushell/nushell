@@ -1,7 +1,7 @@
 use nu_test_support::nu;
 
 #[test]
-fn loop_auto_print_in_each_iteration() {
+fn loop_doesnt_auto_print_in_each_iteration() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -15,10 +15,9 @@ fn loop_auto_print_in_each_iteration() {
             echo 1
         }"#
     );
-    // Note: nu! macro auto replace "\n" and "\r\n" with ""
-    // so our output will be `111`
-    // that's ok, our main concern is it auto print value in each iteration.
-    assert_eq!(actual.out, "111");
+    // Make sure we don't see any of these values in the output
+    // As we do not auto-print loops anymore
+    assert!(!actual.out.contains('1'));
 }
 
 #[test]
@@ -40,4 +39,23 @@ fn loop_break_on_external_failed() {
     // Note: nu! macro auto replace "\n" and "\r\n" with ""
     // so our output will be `1`.
     assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn failed_loop_should_break_running() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        mut total = 0;
+        loop {
+            if $total == 3 {
+                break;
+            } else {
+                $total += 1;
+            }
+            nu --testbin fail;
+        }
+        print 3"#
+    );
+    assert!(!actual.out.contains('3'));
 }

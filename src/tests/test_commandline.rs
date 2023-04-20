@@ -11,7 +11,7 @@ fn commandline_test_append() -> TestResult {
         "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '2'\n\
         commandline --append 'ab'\n\
-        commandline\n\
+        print (commandline)\n\
         commandline --cursor",
         "0👩‍❤️‍👩2ab\n\
         2",
@@ -24,7 +24,7 @@ fn commandline_test_insert() -> TestResult {
         "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '2'\n\
         commandline --insert 'ab'\n\
-        commandline\n\
+        print (commandline)\n\
         commandline --cursor",
         "0👩‍❤️‍👩ab2\n\
         4",
@@ -36,7 +36,7 @@ fn commandline_test_replace() -> TestResult {
     run_test(
         "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --replace 'ab'\n\
-        commandline\n\
+        print (commandline)\n\
         commandline --cursor",
         "ab\n\
         2",

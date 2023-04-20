@@ -1,10 +1,11 @@
-use crate::util::{eval_source, report_error};
+use crate::util::eval_source;
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -92,10 +93,14 @@ pub fn evaluate_file(
         "FILE_PWD".to_string(),
         Value::string(parent.to_string_lossy(), Span::unknown()),
     );
+    stack.add_env_var(
+        "CURRENT_FILE".to_string(),
+        Value::string(file_path.to_string_lossy(), Span::unknown()),
+    );
 
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", file_path_str);
-    let _ = parse(&mut working_set, Some(file_path_str), &file, false, &[]);
+    let _ = parse(&mut working_set, Some(file_path_str), &file, false);
 
     if working_set.find_decl(b"main", &Type::Any).is_some() {
         let args = format!("main {}", args.join(" "));

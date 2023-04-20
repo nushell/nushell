@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
@@ -649,11 +650,11 @@ fn octal_number() {
 }
 
 #[test]
-fn run_dynamic_blocks() {
+fn run_dynamic_closures() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let block = { echo "holaaaa" }; do $block
+        let closure = {|| echo "holaaaa" }; do $closure
         "#
     );
     assert_eq!(actual.out, "holaaaa");
@@ -1176,7 +1177,7 @@ fn hide_alias_shadowing() {
         r#"
         def test-shadowing [] {
             alias greet = echo hello;
-            let xyz = { greet };
+            let xyz = {|| greet };
             hide greet;
             do $xyz
         };

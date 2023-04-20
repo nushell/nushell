@@ -49,12 +49,12 @@ impl Command for BytesLen {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the lengths of multiple strings",
+                description: "Return the length of a binary",
                 example: "0x[1F FF AA AB] | bytes length",
                 result: Some(Value::test_int(4)),
             },
             Example {
-                description: "Return the lengths of multiple strings",
+                description: "Return the lengths of multiple binaries",
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(4), Value::test_int(1)],

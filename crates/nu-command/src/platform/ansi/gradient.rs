@@ -72,25 +72,25 @@ impl Command for SubCommand {
             Example {
             description: "draw text in a gradient with foreground start and end colors",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart 0x40c9ff --fgend 0xe81cff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff' --fgend '0xe81cff'",
             result: None,
         },
         Example {
             description: "draw text in a gradient with foreground start and end colors and background start and end colors",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart 0x40c9ff --fgend 0xe81cff --bgstart 0xe81cff --bgend 0x40c9ff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff' --fgend '0xe81cff' --bgstart '0xe81cff' --bgend '0x40c9ff'",
             result: None,
         },
         Example {
             description: "draw text in a gradient by specifying foreground start color - end color is assumed to be black",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart 0x40c9ff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff'",
             result: None,
         },
         Example {
             description: "draw text in a gradient by specifying foreground end color - start color is assumed to be black",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgend 0xe81cff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgend '0xe81cff'",
             result: None,
         },
         ]

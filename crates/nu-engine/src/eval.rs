@@ -335,6 +335,11 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::MatchPattern(pattern) => Ok(Value::MatchPattern {
+            val: pattern.clone(),
+            span: expr.span,
+        }),
+        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
@@ -454,7 +459,7 @@ pub fn eval_expression(
                         Expr::Var(var_id) | Expr::VarDecl(var_id) => {
                             let var_info = engine_state.get_var(*var_id);
                             if var_info.mutable {
-                                stack.vars.insert(*var_id, rhs);
+                                stack.add_var(*var_id, rhs);
                                 Ok(Value::nothing(lhs.span))
                             } else {
                                 Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
@@ -494,7 +499,7 @@ pub fn eval_expression(
                                             }
                                         }
                                     } else {
-                                        stack.vars.insert(*var_id, lhs);
+                                        stack.add_var(*var_id, lhs);
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
@@ -555,7 +560,10 @@ pub fn eval_expression(
                 let pos = cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
-                        vals[index] = eval_expression(engine_state, stack, val)?;
+                        return Err(ShellError::ColumnDefinedTwice {
+                            second_use: col.span,
+                            first_use: fields[index].0.span,
+                        })
                     }
                     None => {
                         cols.push(col_name);
@@ -698,6 +706,29 @@ pub fn eval_expression_with_input(
             input = eval_subexpression(engine_state, stack, block, input)?;
         }
 
+        elem @ Expression {
+            expr: Expr::FullCellPath(full_cell_path),
+            ..
+        } => match &full_cell_path.head {
+            Expression {
+                expr: Expr::Subexpression(block_id),
+                span,
+                ..
+            } => {
+                let block = engine_state.get_block(*block_id);
+
+                // FIXME: protect this collect with ctrl-c
+                input = eval_subexpression(engine_state, stack, block, input)?;
+                let value = input.into_value(*span);
+                input = value
+                    .follow_cell_path(&full_cell_path.tail, false)?
+                    .into_pipeline_data()
+            }
+            _ => {
+                input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            }
+        },
+
         elem => {
             input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
         }
@@ -828,7 +859,7 @@ pub fn eval_element_with_input(
                             ],
                             redirect_stdout: false,
                             redirect_stderr: false,
-                            parser_info: vec![],
+                            parser_info: HashMap::new(),
                         },
                         input,
                     )
@@ -899,7 +930,7 @@ pub fn eval_element_with_input(
                             ],
                             redirect_stdout: false,
                             redirect_stderr: false,
-                            parser_info: vec![],
+                            parser_info: HashMap::new(),
                         },
                         input,
                     )

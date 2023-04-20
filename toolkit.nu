@@ -9,9 +9,18 @@
 # check standard code formatting and apply the changes
 export def fmt [
     --check: bool  # do not apply the format changes, only check the syntax
+    --verbose: bool # print extra information about the command's progress
 ] {
-    if ($check) {
-        cargo fmt --all -- --check
+    if $verbose {
+        print $"running ('toolkit fmt' | pretty-print-command)"
+    }
+
+    if $check {
+        try {
+            cargo fmt --all -- --check
+        } catch {
+            error make -u { msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!" }
+        }
     } else {
         cargo fmt --all
     }
@@ -20,8 +29,18 @@ export def fmt [
 # check that you're using the standard code style
 #
 # > it is important to make `clippy` happy :relieved:
-export def clippy [] {
-    cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+export def clippy [
+    --verbose: bool # print extra information about the command's progress
+] {
+    if $verbose {
+        print $"running ('toolkit clippy' | pretty-print-command)"
+    }
+
+    try {
+        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+    } catch {
+        error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
+    }
 }
 
 # check that all the tests pass
@@ -33,6 +52,58 @@ export def test [
     } else {
         cargo test --workspace
     }
+}
+
+# run the tests for the standard library
+export def "test stdlib" [] {
+    cargo run -- -c "use std; std run-tests --path crates/nu-std"
+}
+
+# print the pipe input inside backticks, dimmed and italic, as a pretty command
+def pretty-print-command [] {
+    $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
+}
+
+# return a report about the check stage
+#
+# - fmt comes first
+# - then clippy
+# - and finally the tests
+#
+# without any option, `report` will return an empty report.
+# otherwise, the truth values will be incremental, following
+# the order above.
+def report [
+    --fail-fmt: bool
+    --fail-clippy: bool
+    --fail-test: bool
+    --fail-test-stdlib: bool
+    --no-fail: bool
+] {
+    [fmt clippy test "test stdlib"]
+    | wrap stage
+    | merge (
+        if $no_fail               { [true     true     true     true] }
+        else if $fail_fmt         { [false    $nothing $nothing $nothing] }
+        else if $fail_clippy      { [true     false    $nothing $nothing] }
+        else if $fail_test        { [true     true     false    $nothing] }
+        else if $fail_test_stdlib { [true     true     true     false] }
+        else                      { [$nothing $nothing $nothing $nothing] }
+        | wrap success
+    )
+    | upsert emoji {|it|
+        if ($it.success == $nothing) {
+            ":black_circle:"
+        } else if $it.success {
+            ":green_circle:"
+        } else {
+            ":red_circle:"
+        }
+    }
+    | each {|it|
+        $"- ($it.emoji) `toolkit ($it.stage)`"
+    }
+    | to text
 }
 
 # run all the necessary checks and tests to submit a perfect PR
@@ -60,6 +131,9 @@ export def test [
 # >                  let mut table_output = vec![];
 # >                  for val in vals {
 # > ```
+#
+# > **Note**
+# > at every stage, the `toolkit check pr` will return a report of the few stages being run.
 #
 # - we run the toolkit once and it fails...
 # ```nushell
@@ -125,17 +199,48 @@ export def test [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
-    print "running `toolkit fmt`"
     try {
-        fmt --check
+        fmt --check --verbose
     } catch {
-        print $"\nplease run (ansi default_dimmed)(ansi default_italic)toolkit fmt(ansi reset) to fix the formatting"
-        return
+        return (report --fail-fmt)
     }
 
-    print "running `toolkit clippy`"
-    clippy
+    try {
+        clippy --verbose
+    } catch {
+        return (report --fail-clippy)
+    }
 
-    print "running `toolkit test`"
-    if $fast { test --fast } else { test }
+    print $"running ('toolkit test' | pretty-print-command)"
+    try {
+        if $fast { test --fast } else { test }
+    } catch {
+        return (report --fail-test)
+    }
+
+    print $"running ('toolkit test stdlib' | pretty-print-command)"
+    try {
+        test stdlib
+    } catch {
+        return (report --fail-test-stdlib)
+    }
+
+    report --no-fail
+}
+
+# set up git hooks to run:
+# - `toolkit fmt --check --verbose` on `git commit`
+# - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
+export def setup-git-hooks [] {
+    if $nu.os-info.name == windows {
+        return (print "This git hook isn't available on Windows. Sorry!")
+    }
+
+    print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
+    if (input) == "y" {
+        print $"running ('toolkit setup-git-hooks' | pretty-print-command)"
+        git config --local core.hooksPath .githooks
+    } else {
+        print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
+    }
 }

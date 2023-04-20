@@ -18,7 +18,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Alias,
             Break,
-            Commandline,
+            Collect,
             Const,
             Continue,
             Def,
@@ -52,6 +52,7 @@ pub fn create_default_context() -> EngineState {
             OverlayHide,
             Let,
             Loop,
+            Match,
             Module,
             Mut,
             Return,

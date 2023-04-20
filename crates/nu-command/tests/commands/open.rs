@@ -222,7 +222,7 @@ fn errors_if_file_not_found() {
     //
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
-    let expected = "(os error 2)";
+    let expected = "not found";
 
     assert!(
         actual.err.contains(expected),
@@ -232,27 +232,28 @@ fn errors_if_file_not_found() {
     );
 }
 
-// FIXME: jt: I think `open` on a directory is confusing. We should make discuss this one a bit more
-#[ignore]
 #[test]
-fn open_dir_is_ls() {
-    Playground::setup("open_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("yehuda.txt"),
-            EmptyFile("jttxt"),
-            EmptyFile("andres.txt"),
-        ]);
+fn open_wildcard() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open *.nu | where $it =~ echo | length
+        "#
+    ));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open .
-                | length
-            "#
-        ));
+    assert_eq!(actual.out, "3")
+}
 
-        assert_eq!(actual.out, "3");
-    })
+#[test]
+fn open_multiple_files() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum
+        "#
+    ));
+
+    assert_eq!(actual.out, "58309279992")
 }
 
 #[test]

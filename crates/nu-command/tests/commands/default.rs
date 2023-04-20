@@ -21,13 +21,13 @@ fn adds_row_data_if_column_missing() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_amigos.json
                 | get amigos
                 | default 1 rusty_luck
                 | where rusty_luck == 1
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "2");

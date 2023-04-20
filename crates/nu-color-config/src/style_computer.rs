@@ -21,13 +21,6 @@ pub enum ComputableStyle {
     Closure(Value),
 }
 
-// macro used for adding initial values to the style hashmap
-macro_rules! initial {
-    ($a:expr, $b:expr) => {
-        ($a.to_string(), ComputableStyle::Static($b))
-    };
-}
-
 // An alias for the mapping used internally by StyleComputer.
 pub type StyleMapping = HashMap<String, ComputableStyle>;
 //
@@ -152,6 +145,12 @@ impl<'a> StyleComputer<'a> {
     // The main constructor.
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
         let config = engine_state.get_config();
+
+        macro_rules! initial {
+            ($a:expr, $b:expr) => {
+                ($a.to_string(), ComputableStyle::Static($b))
+            };
+        }
 
         // Create the hashmap
         let mut map: StyleMapping = HashMap::from([

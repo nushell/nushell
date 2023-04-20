@@ -244,7 +244,7 @@ fn sort_attributes(val: Value) -> Value {
 
 fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
     let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    value_to_string(&value, Span::unknown())
+    value_to_string(&value, Span::unknown(), 0, &None)
 }
 
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {

@@ -102,7 +102,13 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 // are printed, it's a good chance your terminal is eating
 // those events.
 fn print_events_helper(event: Event) -> Result<Value, ShellError> {
-    if let Event::Key(KeyEvent { code, modifiers }) = event {
+    if let Event::Key(KeyEvent {
+        code,
+        modifiers,
+        kind,
+        state,
+    }) = event
+    {
         match code {
             KeyCode::Char(c) => {
                 let record = Value::Record {
@@ -111,12 +117,16 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                         "code".into(),
                         "modifier".into(),
                         "flags".into(),
+                        "kind".into(),
+                        "state".into(),
                     ],
                     vals: vec![
                         Value::string(format!("{c}"), Span::unknown()),
                         Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
                         Value::string(format!("{modifiers:?}"), Span::unknown()),
                         Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                        Value::string(format!("{kind:?}"), Span::unknown()),
+                        Value::string(format!("{state:?}"), Span::unknown()),
                     ],
                     span: Span::unknown(),
                 };
@@ -142,16 +152,5 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
             span: Span::unknown(),
         };
         Ok(record)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::KeybindingsListen;
-
-    #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        test_examples(KeybindingsListen {})
     }
 }

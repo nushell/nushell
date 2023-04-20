@@ -107,21 +107,11 @@ impl Command for UniqBy {
 }
 
 fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
-    if vec.is_empty() {
-        return Err(ShellError::GenericError(
-            "no values to work with".to_string(),
-            "".to_string(),
-            None,
-            Some("no values to work with".to_string()),
-            Vec::new(),
-        ));
-    }
-
-    if let Value::Record {
+    if let Some(Value::Record {
         cols,
         vals: _input_vals,
         span: val_span,
-    } = &vec[0]
+    }) = vec.first()
     {
         if columns.is_empty() {
             // This uses the same format as the 'requires a column name' error in split_by.rs

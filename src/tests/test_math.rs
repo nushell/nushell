@@ -119,3 +119,62 @@ fn precedence_of_or_groups() -> TestResult {
 fn test_filesize_op() -> TestResult {
     run_test("-5kb + 4.5kb", "-500 B")
 }
+
+#[test]
+fn lt() -> TestResult {
+    run_test("1 < 3", "true").unwrap();
+    run_test("3 < 3", "false").unwrap();
+    run_test("3 < 1", "false")
+}
+
+// Comparison operators return null if 1 side or both side is null.
+// The motivation for this behaviour: JT asked the C# devs and they said this is
+// the behaviour they would choose if they were starting from scratch.
+#[test]
+fn lt_null() -> TestResult {
+    run_test("3 < null | to nuon", "null").unwrap();
+    run_test("null < 3 | to nuon", "null").unwrap();
+    run_test("null < null | to nuon", "null")
+}
+
+#[test]
+fn lte() -> TestResult {
+    run_test("1 <= 3", "true").unwrap();
+    run_test("3 <= 3", "true").unwrap();
+    run_test("3 <= 1", "false")
+}
+
+#[test]
+fn lte_null() -> TestResult {
+    run_test("3 <= null | to nuon", "null").unwrap();
+    run_test("null <= 3 | to nuon", "null").unwrap();
+    run_test("null <= null | to nuon", "null")
+}
+
+#[test]
+fn gt() -> TestResult {
+    run_test("1 > 3", "false").unwrap();
+    run_test("3 > 3", "false").unwrap();
+    run_test("3 > 1", "true")
+}
+
+#[test]
+fn gt_null() -> TestResult {
+    run_test("3 > null | to nuon", "null").unwrap();
+    run_test("null > 3 | to nuon", "null").unwrap();
+    run_test("null > null | to nuon", "null")
+}
+
+#[test]
+fn gte() -> TestResult {
+    run_test("1 >= 3", "false").unwrap();
+    run_test("3 >= 3", "true").unwrap();
+    run_test("3 >= 1", "true")
+}
+
+#[test]
+fn gte_null() -> TestResult {
+    run_test("3 >= null | to nuon", "null").unwrap();
+    run_test("null >= 3 | to nuon", "null").unwrap();
+    run_test("null >= null | to nuon", "null")
+}

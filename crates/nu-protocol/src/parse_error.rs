@@ -1,5 +1,5 @@
+use crate::{Span, Type};
 use miette::Diagnostic;
-use nu_protocol::{Span, Type};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic)]
@@ -67,16 +67,23 @@ pub enum ParseError {
     )]
     ShellOutErrRedirect(#[label("use 'out+err>' instead of '2>&1' in Nushell")] Span),
 
-    #[error("Types mismatched for operation.")]
-    #[diagnostic(
-        code(nu::parser::unsupported_operation),
-        help("Change {2} or {4} to be the right types and try again.")
-    )]
-    UnsupportedOperation(
-        #[label = "doesn't support these values."] Span,
-        #[label("{2}")] Span,
+    #[error("{0} is not supported on values of type {3}")]
+    #[diagnostic(code(nu::parser::unsupported_operation))]
+    UnsupportedOperationLHS(
+        String,
+        #[label = "doesn't support this value"] Span,
+        #[label("{3}")] Span,
         Type,
-        #[label("{4}")] Span,
+    ),
+
+    #[error("{0} is not supported between {3} and {5}.")]
+    #[diagnostic(code(nu::parser::unsupported_operation))]
+    UnsupportedOperationRHS(
+        String,
+        #[label = "doesn't support these values"] Span,
+        #[label("{3}")] Span,
+        Type,
+        #[label("{5}")] Span,
         Type,
     ),
 
@@ -101,6 +108,13 @@ pub enum ParseError {
         help("Only the following keywords can be aliased: {0}.")
     )]
     CantAliasKeyword(String, #[label("not supported in alias")] Span),
+
+    #[error("Can't create alias to expression.")]
+    #[diagnostic(
+        code(nu::parser::cant_alias_expression),
+        help("Only command calls can be aliased.")
+    )]
+    CantAliasExpression(String, #[label("aliasing {0} is not supported")] Span),
 
     #[error("Unknown operator")]
     #[diagnostic(code(nu::parser::unknown_operator), help("{1}"))]
@@ -128,26 +142,14 @@ pub enum ParseError {
     )]
     AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
 
-    #[error("Let used with builtin variable name.")]
+    #[error("`{0}` used as variable name.")]
     #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
+        code(nu::parser::name_is_builtin_var),
+        help(
+            "'{0}' is the name of a builtin Nushell variable and cannot be used as a variable name"
+        )
     )]
-    LetBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Const used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `const` cannot assign to it.")
-    )]
-    ConstBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Mut used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `mut` cannot assign to it.")
-    )]
-    MutBuiltinVar(String, #[label("already a builtin variable")] Span),
+    NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
@@ -278,9 +280,9 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::missing_flag_param))]
     MissingFlagParam(String, #[label = "flag missing {0} argument"] Span),
 
-    #[error("Batches of short flags can't take arguments.")]
-    #[diagnostic(code(nu::parser::short_flag_arg_cant_take_arg))]
-    ShortFlagBatchCantTakeArg(#[label = "short flag batches can't take args"] Span),
+    #[error("Only the last flag in a short flag batch can take an argument.")]
+    #[diagnostic(code(nu::parser::only_last_flag_in_batch_can_take_arg))]
+    OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
     #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
@@ -300,7 +302,7 @@ pub enum ParseError {
 
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
-    TypeMismatch(Type, Type, #[label("expected {0:?}, found {1:?}")] Span), // expected, found, span
+    TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
@@ -423,15 +425,15 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperation(_, _, _, s, _) => *s,
+            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
+            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,
+            ParseError::CantAliasExpression(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
-            ParseError::LetBuiltinVar(_, s) => *s,
-            ParseError::MutBuiltinVar(_, s) => *s,
-            ParseError::ConstBuiltinVar(_, s) => *s,
+            ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
@@ -457,7 +459,7 @@ impl ParseError {
             ParseError::RequiredAfterOptional(_, s) => *s,
             ParseError::UnknownType(s) => *s,
             ParseError::MissingFlagParam(_, s) => *s,
-            ParseError::ShortFlagBatchCantTakeArg(s) => *s,
+            ParseError::OnlyLastFlagInBatchCanTakeArg(s) => *s,
             ParseError::MissingPositional(_, s, _) => *s,
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
