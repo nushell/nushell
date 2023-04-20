@@ -30,8 +30,10 @@ where
     T: AsRef<[u8]>,
 {
     let stdout = std::io::stdout();
-    stdout.lock().write_all(output.as_ref())?;
-    stdout.lock().flush()
+    let lock = stdout.lock();
+    let mut writer = std::io::BufWriter::with_capacity(8 * 1024, lock);
+    writer.write_all(output.as_ref())?;
+    writer.flush()
 }
 
 pub fn stderr_write_all_and_flush<T>(output: T) -> Result<()>
