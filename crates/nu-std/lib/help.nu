@@ -71,7 +71,7 @@ def get-all-operators [] { return ([
     [Boolean, and, And, "Checks if two values are true.", 50]
     [Boolean, or, Or, "Checks if either value is true.", 40]
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
-] | sort-by name)}
+] | sort-by type name)}
 
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description
@@ -105,9 +105,9 @@ def print-help-header [
     let header = $"(ansi green)($text)(ansi reset):"
 
     if $no_newline {
-        print -n $header
+        $header
     } else {
-        print $header
+        $"($header)\n"
     }
 }
 
@@ -495,66 +495,62 @@ export def "help operators" [
 }
 
 def show-command [command: record] {
-    if not ($command.usage? | is-empty) {
-        print $command.usage
-    }
-    if not ($command.extra_usage? | is-empty) {
-        print ""
-        print $command.extra_usage
-    }
+    let a = (if not ($command.usage? | is-empty) {
+        $"($command.usage)\n"
+    })
+    
+    let b = (if not ($command.extra_usage? | is-empty) {
+        $"\n($command.extra_usage)"
+    })
 
-    if not ($command.search_terms? | is-empty) {
-        print ""
-        print-help-header -n "Search terms"
-        print $" ($command.search_terms)"
-    }
+    let c = (if not ($command.search_terms? | is-empty) {
+        $"\n(print-help-header -n 'Search terms') ($command.search_terms)\n"
+    })
 
-    if not ($command.module_name? | is-empty) {
-        print ""
-        print-help-header -n "Module"
-        print $" ($command.module_name)"
-    }
+    let d = (if not ($command.module_name? | is-empty) {
+        $"\n(print-help-header -n 'Module') ($command.module_name)\n"
+    })
 
-    if not ($command.category? | is-empty) {
-        print ""
-        print-help-header -n "Category"
-        print $" ($command.category)"
-    }
+    let e = (if not ($command.category? | is-empty) {
+        $"\n(print-help-header -n 'Category') ($command.category)\n"
+    })
 
-    print ""
-    print "This command:"
-    if ($command.creates_scope) {
-        print $"- (ansi cyan)does create(ansi reset) a scope."
+    let f = $"\n This command:"
+
+    let g = (if ($command.creates_scope) {
+        $"- (ansi cyan)does create(ansi reset) a scope."
     } else {
-        print $"- (ansi cyan)does not create(ansi reset) a scope."
-    }
-    if ($command.is_builtin) {
-        print $"- (ansi cyan)is(ansi reset) a built-in command."
+        $"- (ansi cyan)does not create(ansi reset) a scope."
+    })
+    let h = (if ($command.is_builtin) {
+        $"- (ansi cyan)is(ansi reset) a built-in command."
     } else {
-        print $"- (ansi cyan)is not(ansi reset) a built-in command."
-    }
-    if ($command.is_sub) {
-        print $"- (ansi cyan)is(ansi reset) a subcommand."
+        $"- (ansi cyan)is not(ansi reset) a built-in command."
+    })
+    let i = (if ($command.is_sub) {
+        $"- (ansi cyan)is(ansi reset) a subcommand."
     } else {
-        print $"- (ansi cyan)is not(ansi reset) a subcommand."
-    }
-    if ($command.is_plugin) {
-        print $"- (ansi cyan)is part(ansi reset) of a plugin."
+        $"- (ansi cyan)is not(ansi reset) a subcommand."
+    })
+    let j = (if ($command.is_plugin) {
+        $"- (ansi cyan)is part(ansi reset) of a plugin."
     } else {
-        print $"- (ansi cyan)is not part(ansi reset) of a plugin."
-    }
-    if ($command.is_custom) {
-        print $"- (ansi cyan)is(ansi reset) a custom command."
+        $"- (ansi cyan)is not part(ansi reset) of a plugin."
+    })
+    let k = (if ($command.is_custom) {
+        $"- (ansi cyan)is(ansi reset) a custom command."
     } else {
-        print $"- (ansi cyan)is not(ansi reset) a custom command."
-    }
-    if ($command.is_keyword) {
-        print $"- (ansi cyan)is(ansi reset) a keyword."
+        $"- (ansi cyan)is not(ansi reset) a custom command."
+    })
+    let l = (if ($command.is_keyword) {
+        $"- (ansi cyan)is(ansi reset) a keyword."
     } else {
-        print $"- (ansi cyan)is not(ansi reset) a keyword."
-    }
+        $"- (ansi cyan)is not(ansi reset) a keyword."
+    })
 
     let signatures = ($command.signatures | transpose | get column1)
+
+    print ([$a $b $c $d $e $f $g $h $i $j $k $l] | str join " ")
 
     if not ($signatures | is-empty) {
         let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
@@ -562,14 +558,11 @@ def show-command [command: record] {
         let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
         let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
 
-        print ""
-        print-help-header "Usage"
-        print -n "  > "
-        print -n $"($command.name) "
+        print -n $'(print-help-header "\nUsage")  > ($command.name) '
         if not ($flags | is-empty) {
             print -n $"{flags} "
         }
-        for param in $positionals {
+        $positionals | par-each {|param|
             print -n $"<($param.parameter_name)> "
         }
         print ""
@@ -577,9 +570,8 @@ def show-command [command: record] {
 
     let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
     if not ($subcommands | is-empty) {
-        print ""
-        print-help-header "Subcommands"
-        for subcommand in $subcommands {
+        print -n $"\n(print-help-header 'Subcommands')"
+        $subcommands | par-each {|subcommand|
             print $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
         }
     }
@@ -591,10 +583,8 @@ def show-command [command: record] {
         let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
         let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
 
-        print ""
-        print-help-header "Flags"
-        print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
-        for flag in $flags {
+        print -n $"\n(print-help-header 'Flags')  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command\n"
+        $flags | each {|flag|
             print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
             if not ($flag.syntax_shape | is-empty) {
                 print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
@@ -602,9 +592,8 @@ def show-command [command: record] {
             print $" - ($flag.description)"
         }
 
-        print ""
-        print-help-header "Signatures"
-        for signature in $signatures {
+        print -n $"\n(print-help-header 'Signatures')"
+        $signatures | par-each {|signature|
            let input = ($signature | where parameter_type == input | get 0)
            let output = ($signature | where parameter_type == output | get 0)
 
@@ -616,9 +605,8 @@ def show-command [command: record] {
         }
 
         if (not ($positionals | is-empty)) or $is_rest {
-            print ""
-            print-help-header "Parameters"
-            for positional in $positionals {
+            print -n $"\n(print-help-header 'Parameters')"
+            $positionals | par-each {|positional|
                 print -n "  "
                 if ($positional.is_optional) {
                     print -n "(optional) "
@@ -634,15 +622,12 @@ def show-command [command: record] {
     }
 
     if not ($command.examples | is-empty) {
-        print ""
-        print-help-header -n "Examples"
-        for example in $command.examples {
-            print ""
-            print $"  ($example.description)"
-            print $"  > ($example.example | nu-highlight)"
+        print -n $"\n(print-help-header -n 'Examples')"
+        $command.examples | each {|example|
+            print $"\n  ($example.description)\n  > ($example.example | nu-highlight)"
             if not ($example.result | is-empty) {
                 for line in (
-                    $example.result | table | if ($example.result | describe) == "binary" { str join } else { lines }
+                    $example.result | if ($example.result | describe) == "binary" { str join } else { lines }
                 ) {
                     print $"  ($line)"
                 }
