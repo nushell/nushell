@@ -31,7 +31,7 @@ where
 {
     let stdout = std::io::stdout();
     let lock = stdout.lock();
-    let mut writer = std::io::BufWriter::with_capacity(8 * 1024, lock);
+    let mut writer = std::io::BufWriter::with_capacity(4 * 1024, lock);
     writer.write_all(output.as_ref())?;
     writer.flush()
 }
