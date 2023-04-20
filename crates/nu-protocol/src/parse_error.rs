@@ -144,7 +144,7 @@ pub enum ParseError {
 
     #[error("`{0}` used as variable name.")]
     #[diagnostic(
-        code(nu::parser::let_builtin_var),
+        code(nu::parser::name_is_builtin_var),
         help(
             "'{0}' is the name of a builtin Nushell variable and cannot be used as a variable name"
         )
