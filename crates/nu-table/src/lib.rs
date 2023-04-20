@@ -8,8 +8,8 @@ pub use nu_color_config::TextStyle;
 pub use table::{Alignments, Cell, NuTable, TableConfig};
 pub use table_theme::TableTheme;
 pub use types::{
-    value_to_styled_string, BuildConfig, CollapsedTable, ExpandedTable, JustTable, NuText,
-    StringResult, TableOutput, TableResult,
+    clean_charset, value_to_clean_styled_string, value_to_styled_string, BuildConfig,
+    CollapsedTable, ExpandedTable, JustTable, NuText, StringResult, TableOutput, TableResult,
 };
 pub use unstructured_table::UnstructuredTable;
 pub use util::*;

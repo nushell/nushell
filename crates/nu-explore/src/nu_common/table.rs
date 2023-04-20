@@ -1,6 +1,6 @@
 use nu_color_config::StyleComputer;
 use nu_protocol::{Span, Value};
-use nu_table::{value_to_styled_string, BuildConfig, ExpandedTable};
+use nu_table::{value_to_clean_styled_string, value_to_styled_string, BuildConfig, ExpandedTable};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -16,6 +16,9 @@ pub fn try_build_table(
         Value::List { vals, span } => try_build_list(vals, ctrlc, config, span, style_computer),
         Value::Record { cols, vals, span } => {
             try_build_map(cols, vals, span, style_computer, ctrlc, config)
+        }
+        val if matches!(val, Value::String { .. }) => {
+            value_to_clean_styled_string(&val, config, style_computer).0
         }
         val => value_to_styled_string(&val, config, style_computer).0,
     }
