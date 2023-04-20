@@ -140,8 +140,33 @@ impl Command for Find {
             Example {
                 description: "Remove ANSI sequences from result",
                 example: "[[foo bar]; [abc 123] [def 456]] | find 123 | get bar | ansi strip",
-                result: None,
+                result: None, // This is None because ansi strip is not available in tests
             },
+            Example {
+                description: "Find and highlight text in specific columns",
+                example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe -c [col1 col3]",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(
+                            vec!["col1".to_string(), "col2".to_string(), "col3".to_string()], 
+                            vec![
+                                Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_string()),
+                                Value::test_string("larry".to_string()),
+                                Value::test_string("curly".to_string()),
+                                ]
+                        ),
+                        Value::test_record(
+                            vec!["col1".to_string(), "col2".to_string(), "col3".to_string()], 
+                            vec![
+                                Value::test_string("larry".to_string()),
+                                Value::test_string("curly".to_string()),
+                                Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_string()),
+                                ]
+                        ),
+                    ],
+                    span: Span::test_data(),
+                }),
+            }
         ]
     }
 
