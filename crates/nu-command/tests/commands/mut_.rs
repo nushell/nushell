@@ -13,6 +13,34 @@ fn mut_variable() {
 }
 
 #[test]
+fn mut_name_builtin_var() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut in = 3
+        "#
+    ));
+
+    assert!(actual
+        .err
+        .contains("'in' is the name of a builtin Nushell variable"));
+}
+
+#[test]
+fn mut_name_builtin_var_with_dollar() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut $env = 3
+        "#
+    ));
+
+    assert!(actual
+        .err
+        .contains("'env' is the name of a builtin Nushell variable"))
+}
+
+#[test]
 fn mut_variable_in_loop() {
     let actual = nu!(
         cwd: ".", pipeline(

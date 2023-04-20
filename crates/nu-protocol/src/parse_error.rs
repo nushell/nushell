@@ -142,26 +142,14 @@ pub enum ParseError {
     )]
     AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
 
-    #[error("Let used with builtin variable name.")]
+    #[error("`{0}` used as variable name.")]
     #[diagnostic(
         code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
+        help(
+            "'{0}' is the name of a builtin Nushell variable and cannot be used as a variable name"
+        )
     )]
-    LetBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Const used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `const` cannot assign to it.")
-    )]
-    ConstBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Mut used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `mut` cannot assign to it.")
-    )]
-    MutBuiltinVar(String, #[label("already a builtin variable")] Span),
+    NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
@@ -445,9 +433,7 @@ impl ParseError {
             ParseError::CantAliasExpression(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
-            ParseError::LetBuiltinVar(_, s) => *s,
-            ParseError::MutBuiltinVar(_, s) => *s,
-            ParseError::ConstBuiltinVar(_, s) => *s,
+            ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
