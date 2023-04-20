@@ -349,6 +349,10 @@ pub enum ParseError {
         #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
     ),
 
+    #[error("Default values should be constant expressions.")]
+    #[diagnostic(code(nu::parser::non_constant_default_value))]
+    NonConstantDefaultValue(#[label = "expected a constant value"] Span),
+
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns))]
     ExtraColumns(
@@ -485,6 +489,7 @@ impl ParseError {
             ParseError::IncompleteParser(s) => *s,
             ParseError::RestNeedsName(s) => *s,
             ParseError::ParameterMismatchType(_, _, _, s) => *s,
+            ParseError::NonConstantDefaultValue(s) => *s,
             ParseError::ExtraColumns(_, s) => *s,
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
