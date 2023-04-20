@@ -1681,6 +1681,8 @@ fn parse_module_file_or_dir(
                 return None;
             };
 
+            todo!("Disallow file names with the same name as the module");
+
             // working_set.enter_scope();
 
             let mut submodules = vec![];
