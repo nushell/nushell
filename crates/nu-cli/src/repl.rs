@@ -477,6 +477,12 @@ pub fn evaluate_repl(
                     }
                 }
 
+                let mut repl_cursor = engine_state
+                    .repl_cursor_pos
+                    .lock()
+                    .expect("repl cursor pos mutex");
+                *repl_cursor = line_editor.current_insertion_point();
+                drop(repl_cursor);
                 let mut repl_buffer = engine_state
                     .repl_buffer_state
                     .lock()
