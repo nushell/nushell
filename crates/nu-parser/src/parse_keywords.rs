@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -118,13 +119,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let name = working_set.get_span_contents(spans[0]);
 
     // handle "export def" same as "def"
-    let (name, spans) = if name == b"export" && spans.len() >= 2 {
+    let (decl_name, spans) = if name == b"export" && spans.len() >= 2 {
         (working_set.get_span_contents(spans[1]), &spans[1..])
     } else {
         (name, spans)
     };
 
-    if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
+    if (decl_name == b"def" || decl_name == b"def-env") && spans.len() >= 4 {
         let starting_error_count = working_set.parse_errors.len();
         let name = working_set.get_span_contents(spans[1]);
         let name = trim_quotes(name);
@@ -159,7 +160,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"extern" && spans.len() >= 3 {
+    } else if decl_name == b"extern" && spans.len() == 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -336,6 +337,18 @@ pub fn parse_def(
         Some(decl_id) => {
             working_set.enter_scope();
             let (command_spans, rest_spans) = spans.split_at(split_id);
+
+            if let Some(name_span) = rest_spans.get(0) {
+                if let Some(err) = detect_params_in_name(
+                    working_set,
+                    *name_span,
+                    String::from_utf8_lossy(&def_call).as_ref(),
+                ) {
+                    working_set.error(err);
+                    return garbage_pipeline(spans);
+                }
+            }
+
             let starting_error_count = working_set.parse_errors.len();
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
@@ -496,6 +509,17 @@ pub fn parse_extern(
             working_set.enter_scope();
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
+
+            if let Some(name_span) = rest_spans.get(0) {
+                if let Some(err) = detect_params_in_name(
+                    working_set,
+                    *name_span,
+                    String::from_utf8_lossy(&extern_call).as_ref(),
+                ) {
+                    working_set.error(err);
+                    return garbage_pipeline(spans);
+                }
+            }
 
             let ParsedInternalCall { call, .. } =
                 parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
@@ -3110,4 +3134,36 @@ pub fn find_in_dirs(
 
     find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
         .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
+}
+
+fn detect_params_in_name(
+    working_set: &StateWorkingSet,
+    name_span: Span,
+    decl_name: &str,
+) -> Option<ParseError> {
+    let name = working_set.get_span_contents(name_span);
+
+    let extract_span = |delim: u8| {
+        // it is okay to unwrap because we know the slice contains the byte
+        let (idx, _) = name
+            .iter()
+            .find_position(|c| **c == delim)
+            .unwrap_or((name.len(), &b' '));
+        let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
+        let error = ParseError::LabeledErrorWithHelp(
+            "no space between name and parameters".into(),
+            format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            "expected space".into(),
+            param_span,
+        );
+        Some(error)
+    };
+
+    if name.contains(&b'[') {
+        extract_span(b'[')
+    } else if name.contains(&b'(') {
+        extract_span(b'(')
+    } else {
+        None
+    }
 }

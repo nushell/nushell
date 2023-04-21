@@ -418,6 +418,10 @@ pub enum ParseError {
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
+
+    #[error("{0}")]
+    #[diagnostic(help("{1}"))]
+    LabeledErrorWithHelp(String, String, String, #[label("{2}")] Span),
 }
 
 impl ParseError {
@@ -488,6 +492,7 @@ impl ParseError {
             ParseError::FileNotFound(_, s) => *s,
             ParseError::ReadingFile(_, s) => *s,
             ParseError::LabeledError(_, _, s) => *s,
+            ParseError::LabeledErrorWithHelp(_, _, _, s) => *s,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,
             ParseError::ShellErrRedirect(s) => *s,

@@ -525,3 +525,13 @@ register $file
 ";
     fail_test(input, "expected string, found int")
 }
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
+    fail_test("extern cmd[] {}", "expected space")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
+    fail_test("extern cmd(--flag) {}", "expected space")
+}
