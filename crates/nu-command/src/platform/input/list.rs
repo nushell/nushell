@@ -32,27 +32,31 @@ impl Command for Interact {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                // (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
                 // (Type::List(Box::new(Type::Any)), Type::Any),
                 // (Type::String, Type::String),
             ])
             .optional("prompt", SyntaxShape::String, "the prompt to display")
-            .switch("multi", "Use multiple results", Some('m'))
-            // record index uszie value string
-            .optional(
-                "validator",
-                SyntaxShape::Closure(Some(vec![
-                    SyntaxShape::List(Box::new(SyntaxShape::Record)),
-                    SyntaxShape::Int,
-                ])),
-                "validator for the selection (not implemented yet)",
+            .switch(
+                "multi",
+                "Use multiple results, you can press a to toggle all options on/off",
+                Some('m'),
             )
+            // record index uszie value string
+            // .optional(
+            //     "validator",
+            //     SyntaxShape::Closure(Some(vec![
+            //         SyntaxShape::List(Box::new(SyntaxShape::Record)),
+            //         SyntaxShape::Int,
+            //     ])),
+            //     "validator for the selection (not implemented yet)",
+            // )
             .allow_variants_without_examples(true)
             .category(Category::Misc)
     }
 
     fn usage(&self) -> &str {
-        "Show interactive menus."
+        "Show interactive menus. Abort with esc or q"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -171,7 +175,14 @@ impl Command for Interact {
                         .collect()
                 })
                 .collect(),
-            PipelineData::Value(Value::Record { cols, vals, span }, _) => {
+            PipelineData::Value(
+                Value::Record {
+                    cols,
+                    vals,
+                    span: _,
+                },
+                _,
+            ) => {
                 // if let Some(var) = block.signature.get_positional(0) {
                 //     if let Some(var_id) = &var.var_id {
                 //         stack.add_var(*var_id, x.clone());
@@ -207,8 +218,10 @@ impl Command for Interact {
                 MultiSelect::new()
                     .with_prompt(&prompt)
                     .items(&options)
-                    .interact()
-                    .ok(),
+                    .interact_on_opt(&Term::stderr())
+                    .map_err(|_| {
+                        ShellError::IOError("Oopsie, interact is a wip command...".to_owned())
+                    })?,
             )
         } else {
             InteractMode::Single(
@@ -259,11 +272,18 @@ impl Command for Interact {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Print an interactive menu and wait for a response.",
-            example: r#"[1 2 3] | interact"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Return a single value from a list",
+                example: r#"[1 2 3 4 5] | input list 'Rate it'"#,
+                result: None,
+            },
+            Example {
+                description: "Return multiple values from a list",
+                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list -m 'Add fruits to the basket'"#,
+                result: None,
+            },
+        ]
     }
 }
 
