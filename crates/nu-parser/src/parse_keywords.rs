@@ -1301,9 +1301,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, def-env, alias, use, module, or extern keyword".into(),
+            "def, def-env, extern, alias, use, or module keyword".into(),
             Span::new(export_span.end, export_span.end),
-            "def, def-env, alias, use, module, or extern keyword.".to_string(),
+            "def, def-env, extern, alias, use, or module keyword.".to_string(),
         ));
 
         vec![]
@@ -1494,6 +1494,11 @@ pub fn parse_module_block(
 
                             block.pipelines.push(pipeline)
                         }
+                        b"module" => {
+                            let pipeline = parse_module(working_set, &command);
+
+                            block.pipelines.push(pipeline)
+                        }
                         b"export" => {
                             let (pipe, exportables) =
                                 parse_export_in_module(working_set, command, module_name);
@@ -1527,7 +1532,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def or export keyword".into(),
+                                "def, def-env, extern, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 
