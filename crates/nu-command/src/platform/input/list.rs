@@ -157,7 +157,7 @@ impl Command for Interact {
             PipelineData::ListStream { .. } => input
                 .into_iter()
                 .map_while(move |x| {
-                    let record = x.as_record().unwrap();
+                    let record = x.as_record().ok()?;
 
                     record
                         .0
