@@ -1292,8 +1292,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    // TODO: Fill in more keywords as they come
-                    "def, def-env, alias, use, or extern keyword".into(),
+                    "def, def-env, alias, use, module, or extern keyword".into(),
                     spans[1],
                 ));
 
@@ -1302,9 +1301,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, def-env, alias, use, or extern keyword".into(), // TODO: keep filling more keywords as they come
+            "def, def-env, alias, use, module, or extern keyword".into(),
             Span::new(export_span.end, export_span.end),
-            "`def`, `def-env`, `alias`, use, or `extern` keyword.".to_string(),
+            "def, def-env, alias, use, module, or extern keyword.".to_string(),
         ));
 
         vec![]
