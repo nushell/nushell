@@ -528,7 +528,7 @@ register $file
 
 #[test]
 fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
-    fail_test("extern cmd[] {}", "expected space")
+    fail_test("extern cmd[]", "expected space")
 }
 
 #[test]
