@@ -2671,7 +2671,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            path.file_name().and_then(|x| x.to_str()),
+                            Some(&path.to_string_lossy()),
                             &contents,
                             scoped,
                         );
