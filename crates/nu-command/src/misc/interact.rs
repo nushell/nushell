@@ -1,21 +1,20 @@
-// use inquire::list_option::ListOption;
-use inquire::{MultiSelect, Select};
-use nu_engine::{eval_block_with_early_return, CallExt};
+use dialoguer::MultiSelect;
+use dialoguer::{console::Term, theme::ColorfulTheme, Select};
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, /*IntoInterruptiblePipelineData,*/ IntoPipelineData, PipelineData,
-    ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 // TODO:
 // - implement more interact modes
 // - add support for validation / formatting closures
-// - add support for customizing the prompts
 
 enum InteractMode {
-    Single(String),
-    Multi(Vec<String>),
+    Single(Option<usize>),
+    Multi(Option<Vec<usize>>),
 }
 
 #[derive(Clone)]
@@ -116,7 +115,7 @@ impl Command for Interact {
         // );
         // };
 
-        let options = match input {
+        let options: Vec<String> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..) => {
                 //| PipelineData::ListStream { .. } => {
@@ -125,7 +124,6 @@ impl Command for Interact {
                     .into_iter()
                     .map_while(move |x| {
                         // check if x is a string or a record
-
                         if let Ok(val) = x.as_string() {
                             Some(val)
                         } else if let Ok(record) = x.as_record() {
@@ -205,30 +203,56 @@ impl Command for Interact {
         let prompt = prompt.unwrap_or_default();
 
         let ans: InteractMode = if call.has_flag("multi") {
-            InteractMode::Multi(MultiSelect::new(&prompt, options).prompt().map_err(|_| {
-                ShellError::IOError("Oopsie, interact is a wip command...".to_owned())
-            })?)
+            InteractMode::Multi(
+                MultiSelect::new()
+                    .with_prompt(&prompt)
+                    .items(&options)
+                    .interact()
+                    .ok(),
+            )
         } else {
-            InteractMode::Single(Select::new(&prompt, options).prompt().map_err(|_| {
-                ShellError::IOError("Oopsie, interact is a wip command...".to_owned())
-            })?)
+            InteractMode::Single(
+                Select::with_theme(&ColorfulTheme::default())
+                    .items(&options)
+                    .with_prompt(&prompt)
+                    .interact_on_opt(&Term::stderr())
+                    .map_err(|_| {
+                        ShellError::IOError("Oopsie, interact is a wip command...".to_owned())
+                    })?,
+            )
         };
 
         match ans {
-            InteractMode::Multi(res) => Ok(Value::List {
-                vals: res
-                    .iter()
-                    .map(|s| Value::String {
-                        val: s.clone(),
+            InteractMode::Multi(res) => Ok({
+                match res {
+                    Some(opts) => Value::List {
+                        vals: opts
+                            .iter()
+                            .map(|s| Value::String {
+                                val: options[*s].clone(),
+                                span: head,
+                            })
+                            .collect(),
                         span: head,
-                    })
-                    .collect(),
-                span: head,
+                    },
+                    None => Value::List {
+                        vals: vec![],
+                        span: head,
+                    },
+                }
             }
             .into_pipeline_data()),
-            InteractMode::Single(res) => Ok(Value::String {
-                val: res,
-                span: head,
+            InteractMode::Single(res) => Ok({
+                match res {
+                    Some(opt) => Value::String {
+                        val: options[opt].clone(),
+                        span: head,
+                    },
+                    None => Value::String {
+                        val: "".to_string(),
+                        span: head,
+                    },
+                }
             }
             .into_pipeline_data()),
         }
