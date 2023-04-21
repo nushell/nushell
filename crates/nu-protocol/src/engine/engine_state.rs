@@ -1202,6 +1202,15 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, module_id) in modules {
+            overlay_frame.insert_module(name, Type::Any, module_id);
+            overlay_frame.visibility.use_module_id(&decl_id);
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 

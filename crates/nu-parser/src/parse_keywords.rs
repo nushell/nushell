@@ -1973,7 +1973,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let (import_pattern, module) = if let Some(module_id) = import_pattern.head.id {
+    let (import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
         let module = working_set.get_module(module_id).clone();
         (
             ImportPattern {
@@ -1986,6 +1986,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 hidden: HashSet::new(),
             },
             module,
+            module_id,
         )
     } else if let Some(module_id) = parse_module_file_or_dir(
         working_set,
@@ -2004,6 +2005,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 hidden: HashSet::new(),
             },
             module,
+            module_id,
         )
     } else {
         working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
@@ -2018,8 +2020,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         );
     };
 
-    let (decls_to_use, errors) =
-        module.resolve_import_pattern(working_set, &import_pattern.members);
+    let (decls_to_use, modules_to_use, errors) =
+        module.resolve_import_pattern(working_set, module_id, &import_pattern.members);
     working_set.parse_errors.extend(errors);
 
     let exportables = decls_to_use
@@ -2028,10 +2030,19 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             name: name.clone(),
             id: *decl_id,
         })
+        .chain(
+            modules_to_use
+                .iter()
+                .map(|(name, module_id)| Exportable::Module {
+                    name: name.clone(),
+                    id: *module_id,
+                }),
+        )
         .collect();
 
     // Extend the current scope with the module's exportables
     working_set.use_decls(decls_to_use);
+    working_set.use_modules(modules_to_use);
 
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
