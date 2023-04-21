@@ -1941,6 +1941,22 @@ impl<'a> StateWorkingSet<'a> {
             .collect();
         build_usage(&comment_lines)
     }
+
+    pub fn find_block_by_span(&self, span: Span) -> Option<Block> {
+        for block in &self.delta.blocks {
+            if Some(span) == block.span {
+                return Some(block.clone());
+            }
+        }
+
+        for block in &self.permanent_state.blocks {
+            if Some(span) == block.span {
+                return Some(block.clone());
+            }
+        }
+
+        None
+    }
 }
 
 impl Default for EngineState {
