@@ -27,6 +27,7 @@ impl Command for Ast {
                 SyntaxShape::String,
                 "the pipeline to print the ast for",
             )
+            .switch("json", "serialize to json", Some('j'))
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
@@ -39,26 +40,37 @@ impl Command for Ast {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let pipeline: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let to_json = call.has_flag("json");
         let mut working_set = StateWorkingSet::new(engine_state);
-
         let block_output = parse(&mut working_set, None, pipeline.item.as_bytes(), false);
-
-        let error_output = working_set.parse_errors.first();
-
-        let block_value = Value::String {
-            val: format!("{block_output:#?}"),
-            span: pipeline.span,
+        let block_span = match &block_output.span {
+            Some(span) => span,
+            None => &pipeline.span,
         };
-        let error_value = Value::String {
-            val: format!("{error_output:#?}"),
-            span: pipeline.span,
-        };
-        let output_record = Value::Record {
-            cols: vec!["block".to_string(), "error".to_string()],
-            vals: vec![block_value, error_value],
-            span: pipeline.span,
-        };
-        Ok(output_record.into_pipeline_data())
+        if to_json {
+            let block_json = match serde_json::to_string_pretty(&block_output) {
+                Ok(json) => json,
+                Err(e) => Err(ShellError::CantConvert {
+                    to_type: "string".to_string(),
+                    from_type: "block".to_string(),
+                    span: *block_span,
+                    help: Some(format!(
+                        "Error: {e}\nCan't convert {block_output:?} to string"
+                    )),
+                })?,
+            };
+            Ok(Value::String {
+                val: block_json,
+                span: pipeline.span,
+            }
+            .into_pipeline_data())
+        } else {
+            Ok(Value::String {
+                val: format!("{block_output:#?}"),
+                span: pipeline.span,
+            }
+            .into_pipeline_data())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
