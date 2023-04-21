@@ -169,19 +169,19 @@ fn rename(
                     if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
                         block_info.clone()
                     {
-                        for idx in 0..cols.len() {
+                        for c in &mut cols {
                             stack.with_env(&env_vars, &env_hidden);
 
                             if let Some(var) = block.signature.get_positional(0) {
                                 if let Some(var_id) = &var.var_id {
-                                    stack.add_var(*var_id, Value::string(cols[idx].clone(), span))
+                                    stack.add_var(*var_id, Value::string(c.clone(), span))
                                 }
                             }
                             let eval_result = eval_block_with_early_return(
                                 &engine_state,
                                 &mut stack,
                                 &block,
-                                Value::string(cols[idx].clone(), span).into_pipeline_data(),
+                                Value::string(c.clone(), span).into_pipeline_data(),
                                 redirect_stdout,
                                 redirect_stderr,
                             );
@@ -189,7 +189,7 @@ fn rename(
                                 Err(e) => return Value::Error { error: Box::new(e) },
                                 Ok(res) => match res.collect_string_strict(span) {
                                     Err(e) => return Value::Error { error: Box::new(e) },
-                                    Ok(c) => cols[idx] = c.0,
+                                    Ok(new_c) => *c = new_c.0,
                                 },
                             }
                         }
