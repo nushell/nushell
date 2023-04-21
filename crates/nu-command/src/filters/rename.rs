@@ -106,15 +106,6 @@ impl Command for Rename {
                     span: Span::test_data(),
                 }),
             },
-            Example {
-                description: "Rename fields based on fields' value",
-                example: "{a: abc, b: dec} | rename -b {|it| $it.value | str replace 'c' 'z'}",
-                result: Some(Value::Record {
-                    cols: vec!["abz".to_string(), "dez".to_string()],
-                    vals: vec![Value::test_string("abc"), Value::test_string("dec")],
-                    span: Span::test_data(),
-                }),
-            },
         ]
     }
 }
@@ -183,19 +174,7 @@ fn rename(
 
                             if let Some(var) = block.signature.get_positional(0) {
                                 if let Some(var_id) = &var.var_id {
-                                    // make argument to be something like this:
-                                    // {"index": col_name, "value": val}
-                                    stack.add_var(
-                                        *var_id,
-                                        Value::record(
-                                            vec!["index".to_string(), "value".to_string()],
-                                            vec![
-                                                Value::string(cols[idx].clone(), span),
-                                                vals[idx].clone(),
-                                            ],
-                                            span,
-                                        ),
-                                    )
+                                    stack.add_var(*var_id, Value::string(cols[idx].clone(), span))
                                 }
                             }
                             let eval_result = eval_block_with_early_return(
