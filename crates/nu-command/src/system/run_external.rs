@@ -42,7 +42,7 @@ impl Command for External {
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .switch("trim-end-newline", "trimming end newlines", None)
-            .required("command", SyntaxShape::Any, "external command to run")
+            .required("command", SyntaxShape::String, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
     }
