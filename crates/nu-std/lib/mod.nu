@@ -154,7 +154,43 @@ def "from ns" [] {
     [$in "ns"] | str join | into duration
 }
 
-# TODO
+# run a piece of `nushell` code multiple times and measure the time of execution.
+#
+# this command returns a benchmark report of the following form:
+# ```
+# record<
+#   mean: duration
+#   std: duration
+#   times: list<duration>
+# >
+# ```
+#
+# > **Note**  
+# > `std bench --pretty` will return a `string`.
+#
+# # Examples
+#     measure the performance of simple addition
+#     > std bench { 1 + 2 } -n 10
+#     ╭───────┬────────────────────╮
+#     │ mean  │ 4µs 956ns          │
+#     │ std   │ 4µs 831ns          │
+#     │       │ ╭───┬────────────╮ │
+#     │ times │ │ 0 │ 19µs 402ns │ │
+#     │       │ │ 1 │  4µs 322ns │ │
+#     │       │ │ 2 │  3µs 352ns │ │
+#     │       │ │ 3 │  2µs 966ns │ │
+#     │       │ │ 4 │        3µs │ │
+#     │       │ │ 5 │   3µs 86ns │ │
+#     │       │ │ 6 │   3µs 84ns │ │
+#     │       │ │ 7 │  3µs 604ns │ │
+#     │       │ │ 8 │   3µs 98ns │ │
+#     │       │ │ 9 │  3µs 653ns │ │
+#     │       │ ╰───┴────────────╯ │
+#     ╰───────┴────────────────────╯
+#
+#     get a pretty benchmark report
+#     > std bench { 1 + 2 } --pretty
+#     3µs 125ns +/- 2µs 408ns
 export def bench [
     code: closure  # the piece of `nushell` code to measure the performance of
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
