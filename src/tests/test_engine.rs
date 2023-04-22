@@ -323,6 +323,11 @@ fn default_value12() -> TestResult {
 }
 
 #[test]
+fn default_value_constant() -> TestResult {
+    run_test(r#"def foo [x = "foo"] { $x }; foo"#, "foo")
+}
+
+#[test]
 fn default_value_not_constant() -> TestResult {
     fail_test(
         r#"def foo [x = ("foo" | str length)] { $x }; foo"#,
