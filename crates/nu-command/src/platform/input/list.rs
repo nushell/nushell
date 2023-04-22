@@ -42,7 +42,7 @@ impl Command for InputList {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["prompt", "ask", "input", "menu"]
+        vec!["prompt", "ask", "menu"]
     }
 
     fn run(
