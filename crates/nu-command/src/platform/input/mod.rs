@@ -2,4 +2,4 @@ mod input_;
 mod list;
 
 pub use input_::Input;
-pub use list::Interact;
+pub use list::InputList;

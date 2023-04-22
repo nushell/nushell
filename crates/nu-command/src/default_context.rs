@@ -103,7 +103,6 @@ pub fn create_default_context() -> EngineState {
 
         // Misc
         bind_command! {
-            Interact,
             Tutor,
         };
 
@@ -257,6 +256,7 @@ pub fn create_default_context() -> EngineState {
             Clear,
             Du,
             Input,
+            InputList,
             Kill,
             Sleep,
             TermSize,
