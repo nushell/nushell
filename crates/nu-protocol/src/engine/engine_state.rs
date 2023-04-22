@@ -1553,18 +1553,23 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn list_variables(&self) -> Vec<&[u8]> {
         let mut removed_overlays = vec![];
-        let mut vars = vec![];
-        for scope_frame in self.delta.scope.iter().rev() {
-            for key in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-                .flat_map(|overlay_frame| overlay_frame.vars.keys())
-            {
-                vars.push(&key[..]);
-            }
-        }
-        vars
+        
+        let temp_vars: HashSet<&[u8]> = self
+            .delta
+            .scope
+            .iter()
+            .flat_map(|scope_frame| scope_frame.active_overlays(&mut removed_overlays))
+            .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]))
+            .collect();
+
+        let permanent_vars: HashSet<&[u8]> = self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .iter()
+            .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]))
+            .collect();
+
+        temp_vars.union(&permanent_vars).copied().collect()
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
