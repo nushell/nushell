@@ -157,18 +157,18 @@ def "from ns" [] {
 # TODO
 export def bench [
     code: closure  # the piece of `nushell` code to measure the performance of
-    -n: int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
+    --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
     --verbose (-v): bool  # be more verbose (namely prints the progress)
     --pretty: bool  # shows the results in human-readable format: "<mean> +/- <stddev>"
 ] {
     let times = (
-        seq 1 $n | each {|i|
-            if $verbose { print -n $"($i) / ($n)\r" }
+        seq 1 $rounds | each {|i|
+            if $verbose { print -n $"($i) / ($rounds)\r" }
             timeit { do $code } | into int | into decimal
         }
     )
 
-    if $verbose { print $"($n) / ($n)" }
+    if $verbose { print $"($rounds) / ($rounds)" }
 
     let report = {
         mean: ($times | math avg | from ns)
