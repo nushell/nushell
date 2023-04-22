@@ -112,34 +112,24 @@ pub fn eval_call(
             if let Some(var_id) = named.var_id {
                 let mut found = false;
                 for call_named in call.named_iter() {
-                    if let Some(spanned) = &call_named.1 {
-                        if let Some(short) = named.short {
-                            if spanned.item == short.to_string() {
-                                if let Some(arg) = &call_named.2 {
-                                    let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                                    callee_stack.add_var(var_id, result);
-                                } else if let Some(arg) = &named.default_value {
-                                    let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                                    callee_stack.add_var(var_id, result);
-                                } else {
-                                    callee_stack.add_var(var_id, Value::boolean(true, call.head))
-                                }
-                                found = true;
+                    if let (Some(spanned), Some(short)) = (&call_named.1, &named.short) {
+                        if spanned.item == short.to_string() {
+                            if let Some(arg) =
+                                named.default_value.as_ref().or(call_named.2.as_ref())
+                            {
+                                let result = eval_expression(engine_state, caller_stack, arg)?;
+                                callee_stack.add_var(var_id, result);
+                            } else {
+                                callee_stack.add_var(var_id, Value::boolean(true, call.head));
                             }
+                            found = true;
                         }
                     } else if call_named.0.item == named.long {
-                        if let Some(arg) = &call_named.2 {
+                        if let Some(arg) = named.default_value.as_ref().or(call_named.2.as_ref()) {
                             let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                            callee_stack.add_var(var_id, result);
-                        } else if let Some(arg) = &named.default_value {
-                            let result = eval_expression(engine_state, caller_stack, arg)?;
-
                             callee_stack.add_var(var_id, result);
                         } else {
-                            callee_stack.add_var(var_id, Value::boolean(true, call.head))
+                            callee_stack.add_var(var_id, Value::boolean(true, call.head));
                         }
                         found = true;
                     }

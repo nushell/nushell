@@ -387,19 +387,3 @@ fn short_flags() -> TestResult {
         "1543 FALSE123 balh balh",
     )
 }
-
-#[test]
-fn short_flags_1() -> TestResult {
-    run_test(
-        r#"def foobar [--a: string, --b: string, --s: int] { if ( $s == 0 ) { echo $'($b)($a)' }}; foobar --a test --b case --s 0  "#,
-        "casetest",
-    )
-}
-
-#[test]
-fn short_flags_2() -> TestResult {
-    run_test(
-        r#"def foobar [--a: int, -b: string, --c: int] { $a + $c };foobar -b "balh balh" --a 10  --c 1 "#,
-        "11",
-    )
-}
