@@ -3150,12 +3150,12 @@ fn detect_params_in_name(
             .find_position(|c| **c == delim)
             .unwrap_or((name.len(), &b' '));
         let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
-        let error = ParseError::LabeledErrorWithHelp(
-            "no space between name and parameters".into(),
-            format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
-            "expected space".into(),
-            param_span,
-        );
+        let error = ParseError::LabeledErrorWithHelp{
+            error: "no space between name and parameters".into(),
+            label: "expected space".into(),
+            help: format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            span: param_span,
+            };
         Some(error)
     };
 
