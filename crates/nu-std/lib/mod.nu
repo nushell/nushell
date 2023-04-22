@@ -155,7 +155,7 @@ def "from ns" [] {
 }
 
 # TODO
-def bench [
+export def bench [
     code: closure  # the piece of `nushell` code to measure the performance of
     -n: int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
     --verbose (-v): bool  # be more verbose (namely prints the progress)
