@@ -129,7 +129,7 @@ fn expanded_table_list(input: &[Value], row_offset: usize, opts: Options) -> Tab
 
     if with_index {
         if with_header {
-            data[0].push(Cell::new(String::from("#")));
+            data[0].push(Cell::exact(String::from("#"), 1, vec![]));
         }
 
         for (row, item) in input.iter().enumerate() {
@@ -347,7 +347,7 @@ fn expanded_table_list(input: &[Value], row_offset: usize, opts: Options) -> Tab
 
         let is_last_column = widths.len() == count_columns;
         if !is_last_column {
-            let shift = Cell::new(String::from("..."));
+            let shift = Cell::exact(String::from("..."), 3, vec![]);
             for row in &mut data {
                 row.push(shift.clone());
             }
