@@ -3449,9 +3449,9 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "papergrid"
-version = "0.8.2"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15c9836ed7642a9b6660873b3736609e7c66e791e53a6416a9fab49d9de9b13"
+checksum = "1fdfe703c51ddc52887ad78fc69cd2ea78d895ffcd6e955c9d03566db8ab5bb1"
 dependencies = [
  "ansi-str",
  "ansitok",
@@ -5091,9 +5091,9 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7063646fafe5b37f3d5a064dbda6717844d2574f8756c798a51599022753e252"
+checksum = "da1a2e56bbf7bfdd08aaa7592157a742205459eff774b73bc01809ae2d99dc2a"
 dependencies = [
  "ansi-str",
  "ansitok",

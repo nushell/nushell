@@ -210,7 +210,7 @@ fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
 struct SetRawStyle(RawStyle);
 
 impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetRawStyle {
-    fn change(&mut self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
+    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
         let borders = self.0.get_borders();
         *cfg = cfg.set_borders(borders);
     }
@@ -219,7 +219,7 @@ impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetRawStyle {
 struct SetBorderColor(StaticColor);
 
 impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetBorderColor {
-    fn change(&mut self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
+    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
         let borders = Borders::filled(self.0);
         *cfg = cfg.set_borders_color(borders);
     }
@@ -228,7 +228,7 @@ impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetBorderColor {
 struct SetAlignment(AlignmentHorizontal);
 
 impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetAlignment {
-    fn change(&mut self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
+    fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
         *cfg = cfg.set_alignment_horizontal(self.0);
     }
 }

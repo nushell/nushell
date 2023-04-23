@@ -57,7 +57,7 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     val_table.with(
         Settings::default()
             .with(Style::rounded().corner_top_left('├').corner_top_right('┤'))
-            .with(SetWidths(&widths))
+            .with(SetWidths(widths))
             .with(Wrap::new(width).priority::<PriorityMax>())
             .with(SetHorizontalChar::new('┼', '┴', 11 + 2 + 1)),
     );
@@ -297,7 +297,7 @@ mod global_horizontal_char {
     use tabled::{
         grid::{
             config::{ColoredConfig, Offset},
-            dimension::{CompleteDimension, Dimension},
+            dimension::{CompleteDimensionVecRecords, Dimension},
             records::{ExactRecords, Records},
         },
         settings::TableOption,
@@ -319,14 +319,14 @@ mod global_horizontal_char {
         }
     }
 
-    impl<R: Records + ExactRecords> TableOption<R, CompleteDimension<'_>, ColoredConfig>
+    impl<R: Records + ExactRecords> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig>
         for SetHorizontalChar
     {
         fn change(
-            &mut self,
+            self,
             records: &mut R,
             cfg: &mut ColoredConfig,
-            dimension: &mut CompleteDimension<'_>,
+            dimension: &mut CompleteDimensionVecRecords<'_>,
         ) {
             let count_columns = records.count_columns();
             let count_rows = records.count_rows();
@@ -370,7 +370,7 @@ mod global_horizontal_char {
         }
     }
 
-    fn get_widths(dims: &CompleteDimension<'_>, count_columns: usize) -> Vec<usize> {
+    fn get_widths(dims: &CompleteDimensionVecRecords<'_>, count_columns: usize) -> Vec<usize> {
         let mut widths = vec![0; count_columns];
         for (col, width) in widths.iter_mut().enumerate() {
             *width = dims.get_width(col);
@@ -382,15 +382,20 @@ mod global_horizontal_char {
 
 mod set_widths {
     use tabled::{
-        grid::{config::ColoredConfig, dimension::CompleteDimension},
+        grid::{config::ColoredConfig, dimension::CompleteDimensionVecRecords},
         settings::TableOption,
     };
 
-    pub struct SetWidths<'a>(pub &'a [usize]);
+    pub struct SetWidths(pub Vec<usize>);
 
-    impl<R> TableOption<R, CompleteDimension<'_>, ColoredConfig> for SetWidths<'_> {
-        fn change(&mut self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimension<'_>) {
-            dims.set_widths(self.0.to_vec());
+    impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetWidths {
+        fn change(
+            self,
+            _: &mut R,
+            _: &mut ColoredConfig,
+            dims: &mut CompleteDimensionVecRecords<'_>,
+        ) {
+            dims.set_widths(self.0);
         }
     }
 }

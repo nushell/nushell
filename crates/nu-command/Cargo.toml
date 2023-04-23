@@ -87,7 +87,7 @@ percent-encoding = "2.2.0"
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.32.0", features = ["serde"], optional = true }
 sysinfo = "0.28.2"
-tabled = "0.11.1"
+tabled = "0.12.0"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"

@@ -7,8 +7,8 @@ use tabled::{
     builder::Builder,
     grid::{
         color::AnsiColor,
-        config::{AlignmentHorizontal, ColoredConfig, Entity, Position},
-        dimension::CompleteDimension,
+        config::{AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Position},
+        dimension::CompleteDimensionVecRecords,
         records::{
             vec_records::{CellInfo, VecRecords},
             ExactRecords, Records,
@@ -34,7 +34,8 @@ pub struct NuTable {
 struct Styles {
     index: AnsiColor<'static>,
     header: AnsiColor<'static>,
-    data: HashMap<Position, AnsiColor<'static>>,
+    data: EntityMap<AnsiColor<'static>>,
+    data_is_set: bool,
 }
 
 type Data = VecRecords<Cell>;
@@ -67,10 +68,8 @@ impl NuTable {
     pub fn set_column_style(&mut self, column: usize, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = AnsiColor::from(convert_style(style));
-            self.styles.data.reserve(self.count_rows());
-            self.styles
-                .data
-                .extend((0..self.count_rows()).map(move |row| ((row, column), style.clone())));
+            self.styles.data.insert(Entity::Column(column), style);
+            self.styles.data_is_set = true;
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -82,7 +81,8 @@ impl NuTable {
     pub fn set_cell_style(&mut self, pos: Position, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = AnsiColor::from(convert_style(style));
-            self.styles.data.insert(pos, style);
+            self.styles.data.insert(Entity::Cell(pos.0, pos.1), style);
+            self.styles.data_is_set = true;
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -112,15 +112,8 @@ impl NuTable {
     pub fn set_data_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = AnsiColor::from(convert_style(style));
-            let count_rows = self.count_rows();
-            let count_columns = self.count_columns();
-            self.styles.data.reserve(count_rows * count_columns);
-            self.styles
-                .data
-                .extend((0..count_rows).flat_map(move |row| {
-                    let style = style.clone();
-                    (0..count_columns).map(move |col| ((row, col), style.clone()))
-                }));
+            self.styles.data.insert(Entity::Global, style);
+            self.styles.data_is_set = true;
         }
 
         self.alignments.data = convert_alignment(style.alignment);
@@ -350,34 +343,26 @@ fn colorize_table(
     with_footer: bool,
 ) {
     if with_index {
-        let count_rows = table.count_rows();
-        styles.data.reserve(count_rows);
-        styles
-            .data
-            .extend((0..count_rows).map(|row| ((row, 0), styles.index.clone())));
+        styles.data.insert(Entity::Column(0), styles.index);
+        styles.data_is_set = true;
     }
 
     if with_header {
-        let count_columns = table.count_columns();
-        styles.data.reserve(count_columns);
-        styles
-            .data
-            .extend((0..count_columns).map(|col| ((0, col), styles.header.clone())));
+        styles.data.insert(Entity::Row(0), styles.header.clone());
+        styles.data_is_set = true;
 
         if with_footer {
             let count_rows = table.count_rows();
             if count_rows > 1 {
                 let last_row = count_rows - 1;
-                styles.data.reserve(count_columns);
-                styles
-                    .data
-                    .extend((0..count_columns).map(|col| ((last_row, col), styles.header.clone())));
+                styles.data.insert(Entity::Row(last_row), styles.header);
             }
         }
     }
 
-    let cfg = table.get_config_mut().as_ref().clone();
-    *table.get_config_mut() = ColoredConfig::new(cfg, styles.data);
+    if styles.data_is_set {
+        table.get_config_mut().set_colors(styles.data);
+    }
 }
 
 fn load_theme(
@@ -409,7 +394,7 @@ fn load_theme(
 struct FooterStyle;
 
 impl<R: ExactRecords, D> TableOption<R, D, ColoredConfig> for FooterStyle {
-    fn change(&mut self, records: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
+    fn change(self, records: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
         if let Some(line) = cfg.get_horizontal_line(1).cloned() {
             let count_rows = records.count_rows();
             cfg.insert_horizontal_line(count_rows - 1, line);
@@ -678,7 +663,7 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
 struct SetAlignment(AlignmentHorizontal, Entity);
 
 impl<R, D> TableOption<R, D, ColoredConfig> for SetAlignment {
-    fn change(&mut self, _: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
+    fn change(self, _: &mut R, cfg: &mut ColoredConfig, _: &mut D) {
         cfg.set_alignment_horizontal(self.1, self.0);
     }
 }
@@ -689,9 +674,9 @@ fn convert_style(style: Style) -> Color {
 
 struct SetDimensions(Vec<usize>);
 
-impl<R> TableOption<R, CompleteDimension<'_>, ColoredConfig> for SetDimensions {
-    fn change(&mut self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimension<'_>) {
-        dims.set_widths(self.0.clone());
+impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetDimensions {
+    fn change(self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimensionVecRecords<'_>) {
+        dims.set_widths(self.0);
     }
 }
 
