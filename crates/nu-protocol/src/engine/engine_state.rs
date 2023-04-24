@@ -1553,7 +1553,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn list_variables(&self) -> Vec<&[u8]> {
         let mut removed_overlays = vec![];
-        
+
         let temp_vars: HashSet<&[u8]> = self
             .delta
             .scope
