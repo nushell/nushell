@@ -33,11 +33,11 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
 
         let flag_value = match arg.as_ref() {
             "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" => args.next().map(|a| escape_quote_string(&a)),
+            | "--env-config" | "-I" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "-I" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
+            | "--include-path" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
             | "--ide-check" => args.next(),
             _ => None,
         };

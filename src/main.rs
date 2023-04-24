@@ -141,7 +141,7 @@ fn main() -> Result<()> {
         let span = include_path.span;
         let vals: Vec<_> = include_path
             .item
-            .split(':')
+            .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
             .map(|x| Value::String {
                 val: x.trim().to_string(),
                 span,
