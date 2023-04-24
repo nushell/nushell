@@ -1,8 +1,9 @@
 use crate::{Span, Type};
 use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error, Diagnostic)]
+#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseError {
     /// The parser encountered unexpected tokens, when the code should have
     /// finished. You should remove these or finish adding what you intended

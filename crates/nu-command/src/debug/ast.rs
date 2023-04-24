@@ -6,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Type, Value,
 };
+use serde_json::json;
 
 #[derive(Clone)]
 pub struct Ast;
@@ -43,11 +44,13 @@ impl Command for Ast {
         let to_json = call.has_flag("json");
         let mut working_set = StateWorkingSet::new(engine_state);
         let block_output = parse(&mut working_set, None, pipeline.item.as_bytes(), false);
+        let error_output = working_set.parse_errors.first();
         let block_span = match &block_output.span {
             Some(span) => span,
             None => &pipeline.span,
         };
         if to_json {
+            // Get the block as json
             let block_json = match serde_json::to_string_pretty(&block_output) {
                 Ok(json) => json,
                 Err(e) => Err(ShellError::CantConvert {
@@ -59,17 +62,56 @@ impl Command for Ast {
                     )),
                 })?,
             };
+            // Get the error as json
+            let error_json = match serde_json::to_string_pretty(&error_output) {
+                Ok(json) => json,
+                Err(e) => Err(ShellError::CantConvert {
+                    to_type: "string".to_string(),
+                    from_type: "error".to_string(),
+                    span: *block_span,
+                    help: Some(format!(
+                        "Error: {e}\nCan't convert {error_output:?} to string"
+                    )),
+                })?,
+            };
+            // Create a new json, merging the block and error
+            let block_merge_json = json!({
+                "block": block_json,
+                "error": error_json,
+            });
+            // Convert the merged json to a string
+            let block_merge_str = match serde_json::to_string_pretty(&block_merge_json) {
+                Ok(json) => json,
+                Err(e) => Err(ShellError::CantConvert {
+                    to_type: "string".to_string(),
+                    from_type: "block+error".to_string(),
+                    span: *block_span,
+                    help: Some(format!(
+                        "Error: {e}\nCan't convert {block_merge_json:?} to string"
+                    )),
+                })?,
+            };
+            // Output the merged json as a string
             Ok(Value::String {
-                val: block_json,
+                val: block_merge_str,
                 span: pipeline.span,
             }
             .into_pipeline_data())
         } else {
-            Ok(Value::String {
+            let block_value = Value::String {
                 val: format!("{block_output:#?}"),
                 span: pipeline.span,
-            }
-            .into_pipeline_data())
+            };
+            let error_value = Value::String {
+                val: format!("{error_output:#?}"),
+                span: pipeline.span,
+            };
+            let output_record = Value::Record {
+                cols: vec!["block".to_string(), "error".to_string()],
+                vals: vec![block_value, error_value],
+                span: pipeline.span,
+            };
+            Ok(output_record.into_pipeline_data())
         }
     }
 
@@ -88,6 +130,11 @@ impl Command for Ast {
             Example {
                 description: "Print the ast of a pipeline with an error",
                 example: "ast 'for x in 1..10 { echo $x '",
+                result: None,
+            },
+            Example {
+                description: "Print the ast of a pipeline with an error, as json",
+                example: "ast 'for x in 1..10 { echo $x ' --json | from json",
                 result: None,
             },
         ]
