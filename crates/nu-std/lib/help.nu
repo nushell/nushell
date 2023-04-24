@@ -11,12 +11,12 @@ def error-fmt [] {
 
 def throw-error [error: string, msg: string, span: record] {
     error make {
-        msg: ($error | error-fmt)
-        label: {
-            text: $msg
-            start: $span.start
-            end: $span.end
-        }
+            msg: ($error | error-fmt)
+            label: {
+                text: $msg
+                start: $span.start
+                end: $span.end
+            }
     }
 }
 
@@ -250,7 +250,7 @@ def show-module [module: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── module not found
 #        ╰────
-export def "help modules" [
+export def "modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
@@ -360,7 +360,7 @@ def show-alias [alias: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── alias not found
 #        ╰────
-export def "help aliases" [
+export def "aliases" [
     ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
@@ -400,7 +400,7 @@ def show-extern [extern: record] {
 }
 
 # Show help on nushell externs.
-export def "help externs" [
+export def "externs" [
     ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
@@ -478,7 +478,7 @@ def show-operator [operator: record] {
 #        ·               ────────┬───────
 #        ·                       ╰── operator not found
 #        ╰────
-export def "help operators" [
+export def "operators" [
     ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
@@ -754,9 +754,9 @@ You can also learn more at ('https://www.nushell.sh/book/' | colorize default_it
 
     if not ($commands | is-empty) { return $commands }
 
-    let aliases = (try { help aliases $item --find $find })
+    let aliases = (try { aliases $item --find $find })
     if not ($aliases | is-empty) { return $aliases }
 
-    let modules = (try { help modules $item --find $find })
+    let modules = (try { modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
 }
