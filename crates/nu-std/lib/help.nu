@@ -1,16 +1,3 @@
-def debug-print [msg:string ...args:any] {
-    let old_in = $in
-    if (false) {
-    mut out = $"-dbg- ($msg)"
-    for a in $args {
-        let span = (metadata $a).span
-        $out = $"($out), (view span $span.start $span.end): <($a)>"
-    }
-    print $out
-    }
-    # return your input
-    $old_in
-}
 def error-fmt [] {
     $"(ansi red)($in)(ansi reset)"
 }
@@ -256,7 +243,7 @@ def show-module [module: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── module not found
 #        ╰────
-export def "modules" [
+export def "help modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
@@ -366,7 +353,7 @@ def show-alias [alias: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── alias not found
 #        ╰────
-export def "aliases" [
+export def "help aliases" [
     ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
@@ -406,7 +393,7 @@ def show-extern [extern: record] {
 }
 
 # Show help on nushell externs.
-export def "externs" [
+export def "help externs" [
     ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
@@ -484,7 +471,7 @@ def show-operator [operator: record] {
 #        ·               ────────┬───────
 #        ·                       ╰── operator not found
 #        ╰────
-export def "operators" [
+export def "help operators" [
     ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
@@ -555,10 +542,10 @@ def show-command [
                     $"(' ' * $indent)-($i.short_flag), --($i.parameter_name)" + (if ($i.parameter_type == "named") {" " + ($i.syntax_shape | format_token)} else {""})
                 },
                 "positional" => { 
-                    (' ' * $indent) + $i.parameter_name + ((": " + $i.syntax_shape) | format_type)
+                    (' ' * $indent) + $i.parameter_name + ((":" + $i.syntax_shape) | format_type)
                 },
                 "rest" => {
-                    (' ' * $indent) + "..." + (if (($i.parameter_name? | is-empty) or ($i.parameter_name == "")) {"rest"} else {$i.parameter_name}) + ((": " + $i.syntax_shape) | format_type)
+                    (' ' * $indent) + "..." + (if (($i.parameter_name? | is-empty) or ($i.parameter_name == "")) {"rest"} else {$i.parameter_name}) + ((":" + $i.syntax_shape) | format_type)
                  },
                 "output" => { 
                     $"   => ($i.syntax_shape | format_token)"
@@ -669,7 +656,7 @@ def show-command [
 }
 
 # Show help on nushell commands. 
-export def "commands" [
+export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
     --all (-a) # if showing help for single command, display all sections
@@ -759,17 +746,17 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
     let item = ($item | str join " ")
     let commands = (try { 
         if $all {
-            commands --all $item --find $find 
+            help commands --all $item --find $find 
         } else {
-            commands $item --find $find 
+            help commands $item --find $find 
         }
     })
 
     if not ($commands | is-empty) { return $commands }
 
-    let aliases = (try { aliases $item --find $find })
+    let aliases = (try { help aliases $item --find $find })
     if not ($aliases | is-empty) { return $aliases }
 
-    let modules = (try { modules $item --find $find })
+    let modules = (try { help modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
 }
