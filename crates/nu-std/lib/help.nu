@@ -250,7 +250,7 @@ def show-module [module: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── module not found
 #        ╰────
-export def "modules" [
+export def "help modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
@@ -360,7 +360,7 @@ def show-alias [alias: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── alias not found
 #        ╰────
-export def "aliases" [
+export def "help aliases" [
     ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
@@ -400,7 +400,7 @@ def show-extern [extern: record] {
 }
 
 # Show help on nushell externs.
-export def "externs" [
+export def "help externs" [
     ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
@@ -478,7 +478,7 @@ def show-operator [operator: record] {
 #        ·               ────────┬───────
 #        ·                       ╰── operator not found
 #        ╰────
-export def "operators" [
+export def "help operators" [
     ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
@@ -754,9 +754,9 @@ You can also learn more at ('https://www.nushell.sh/book/' | colorize default_it
 
     if not ($commands | is-empty) { return $commands }
 
-    let aliases = (try { aliases $item --find $find })
+    let aliases = (try { help aliases $item --find $find })
     if not ($aliases | is-empty) { return $aliases }
 
-    let modules = (try { modules $item --find $find })
+    let modules = (try { help modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
 }
