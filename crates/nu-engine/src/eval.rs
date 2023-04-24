@@ -1148,7 +1148,13 @@ pub fn eval_block(
                         let mut v: Vec<_> = exit_code.collect();
 
                         if let Some(v) = v.pop() {
+                            let break_loop = !matches!(v.as_i64(), Ok(0));
+
                             stack.add_env_var("LAST_EXIT_CODE".into(), v);
+                            if break_loop {
+                                input = PipelineData::empty();
+                                break;
+                            }
                         }
                     }
                 }
@@ -1171,15 +1177,9 @@ pub fn eval_subexpression(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-    mut input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    for pipeline in block.pipelines.iter() {
-        for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
-        }
-    }
-
-    Ok(input)
+    eval_block(engine_state, stack, block, input, true, false)
 }
 
 pub fn eval_variable(
