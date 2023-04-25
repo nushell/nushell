@@ -615,17 +615,15 @@ pub fn ast(engine_state: &mut EngineState, file_path: &String) {
 
         let flat = flatten_block(&working_set, &parsed_block);
         let mut json_val: JsonValue = json!([]);
-        for (idx, (span, shape)) in flat.iter().enumerate() {
-            let content = String::from_utf8_lossy(working_set.get_span_contents(*span)).to_string();
+        for (span, shape) in flat {
             let json = json!(
                 {
-                    "index": idx, // may not be necessary
+                    "type": "ast",
                     "span": {
                         "start": span.start,
                         "end": span.end,
                     },
-                    "shape": shape.to_string(),
-                    "content": content, // may not be necessary
+                    "shape": shape.to_string()
                 }
             );
             json_merge(&mut json_val, &json);
