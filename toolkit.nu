@@ -199,6 +199,7 @@ def report [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
+    let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
         fmt --check --verbose
     } catch {
