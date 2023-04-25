@@ -79,7 +79,11 @@ impl Module {
         working_set: &StateWorkingSet,
         self_id: ModuleId,
         members: &[ImportPatternMember],
-    ) -> (Vec<(Vec<u8>, DeclId)>, Vec<(Vec<u8>, ModuleId)>, Vec<ParseError>) {
+    ) -> (
+        Vec<(Vec<u8>, DeclId)>,
+        Vec<(Vec<u8>, ModuleId)>,
+        Vec<ParseError>,
+    ) {
         let (head, rest) = if let Some((head, rest)) = members.split_first() {
             (head, rest)
         } else {
@@ -89,7 +93,8 @@ impl Module {
 
             for (_, id) in &self.submodules {
                 let submodule = working_set.get_module(*id);
-                let (sub_results, _, sub_errors) = submodule.resolve_import_pattern(working_set, *id, &[]);
+                let (sub_results, _, sub_errors) =
+                    submodule.resolve_import_pattern(working_set, *id, &[]);
                 errors.extend(sub_errors);
 
                 for (sub_name, sub_decl_id) in sub_results {
@@ -193,6 +198,25 @@ impl Module {
 
         if let Some(decl_id) = self.main {
             result.push((self.name.clone(), decl_id));
+        }
+
+        result
+    }
+
+    pub fn submodules_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, ModuleId)> {
+        let mut result: Vec<(Vec<u8>, ModuleId)> = self
+            .submodules
+            .iter()
+            .map(|(name, id)| {
+                let mut new_name = head.to_vec();
+                new_name.push(b' ');
+                new_name.extend(name);
+                (new_name, *id)
+            })
+            .collect();
+
+        if let Some(module_id) = self.main {
+            result.push((self.name.clone(), module_id));
         }
 
         result

@@ -1852,7 +1852,7 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], prefixed);
+            self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 
         self.delta
@@ -1890,6 +1890,7 @@ impl<'a> StateWorkingSet<'a> {
         name: Vec<u8>,
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -1917,6 +1918,7 @@ impl<'a> StateWorkingSet<'a> {
         self.move_predecls_to_overlay();
 
         self.use_decls(decls);
+        self.use_modules(modules);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {

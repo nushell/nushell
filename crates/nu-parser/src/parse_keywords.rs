@@ -2278,7 +2278,13 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         vec![],
     );
 
-    working_set.add_overlay(overlay_name.as_bytes().to_vec(), module_id, vec![], false);
+    working_set.add_overlay(
+        overlay_name.as_bytes().to_vec(),
+        module_id,
+        vec![],
+        vec![],
+        false,
+    );
 
     pipeline
 }
@@ -2487,20 +2493,25 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             }
         };
 
-    let decls_to_lay = if is_module_updated {
+    todo!("Needs resolving of commands in submodules");
+    let (decls_to_lay, modules_to_lay) = if is_module_updated {
         if has_prefix {
-            origin_module.decls_with_head(final_overlay_name.as_bytes())
+            (
+                origin_module.decls_with_head(final_overlay_name.as_bytes()),
+                origin_module.submodules_with_head(final_overlay_name.as_bytes()),
+            )
         } else {
-            origin_module.decls()
+            (origin_module.decls(), origin_module.submodules())
         }
     } else {
-        vec![]
+        (vec![], vec![])
     };
 
     working_set.add_overlay(
         final_overlay_name.as_bytes().to_vec(),
         origin_module_id,
         decls_to_lay,
+        modules_to_lay,
         has_prefix,
     );
 
