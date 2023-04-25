@@ -4,12 +4,12 @@ def error-fmt [] {
 
 def throw-error [error: string, msg: string, span: record] {
     error make {
-            msg: ($error | error-fmt)
-            label: {
-                text: $msg
-                start: $span.start
-                end: $span.end
-            }
+        msg: ($error | error-fmt)
+        label: {
+            text: $msg
+            start: $span.start
+            end: $span.end
+        }
     }
 }
 
