@@ -1,3 +1,10 @@
+# <string> | colorize ...color => string
+# colorize input, not forgetting to reset afterwards.
+def colorize [...color_names: string] {
+    $"($color_names | each {|c| (ansi $c)} | str join '')($in)(ansi reset)"
+
+}
+
 def error-fmt [] {
     $"(ansi red)($in)(ansi reset)"
 }
@@ -101,7 +108,7 @@ def "nu-complete list-externs" [] {
 def help-header [
     text: string
 ] {
-    $"(ansi green)($text)(ansi reset):"
+    ($text | colorize green)
 }
 
 def print-help-header [
@@ -150,9 +157,9 @@ def show-module [module: record] {
     }
 
     if ($module.env_block? | is-empty) {
-        print $"This module (ansi cyan)does not export(ansi reset) environment."
+        print $"This module ('does not export' | colorize cyan) environment."
     } else {
-        print $"This module (ansi cyan)exports(ansi reset) environment."
+        print $"This module ('exports' | colorize cyan) environment."
         view source $module.env_block
     }
 }
@@ -433,7 +440,7 @@ def show-operator [operator: record] {
     print $"    ($operator.description)"
     print ""
     print-help-header -n "Operator"
-    print ($" ($operator.name) (char lparen)(ansi cyan_bold)($operator.operator)(ansi reset)(char rparen)")
+    print ($" ($operator.name) (char lparen)($operator.operator | colorize cyan_bold)(char rparen)")
     print-help-header -n "Type"
     print $" ($operator.type)"
     print-help-header -n "Precedence"
@@ -501,13 +508,6 @@ export def "help operators" [
 }
 
 
-# <string> | colorize name => string
-# colorize input, not forgetting to reset afterwards.
-
-def colorize [color_name: string] {
-    $"(ansi $color_name)($in)(ansi reset)"
-}
-
 # <token> | format_token => <string>
 # format a placeholder token which is a data type: in <> and italicized
 def format_token [ ] {
@@ -517,14 +517,14 @@ def format_token [ ] {
 
 # format datatype name: italicized in blue
 def format_type [ ] {
-    ((ansi light_blue_bold) + $in)  | colorize attr_italic
+    ($in  | colorize attr_italic ($env.config.color_config.shape_variable | default light_purple))
 }
 
 # show help for single command.  By default, show only essential sections, don't scroll usage off top of screen
 #todo remove debugging
 def show-command [
         command: record
-        --all (-a) # Show all sections
+        --verbose (-v) # Show more details
 ] {    
     mut out = []
     $out = ["", $"(help-header "Usage") ($command.usage?)", ""]
@@ -587,7 +587,7 @@ def show-command [
         $out = ($out | append "")
         $out = ($out | append (help-header "Subcommands"))
         for subcommand in $subcommands {
-            $out = ($out | append $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)")
+            $out = ($out | append $"  ($subcommand.name | colorize teal) - ($subcommand.usage)")
         }
     }
 
@@ -596,9 +596,7 @@ def show-command [
     print ""
 
     
-    #todo: measure size of rest of output, don't display if not --all and wouldn't fit without scrolling (inefficient!)
-
-    if $all {
+    if $verbose {
         if not ($command.search_terms? | is-empty) {
             print ""
             print-help-header -n "Search terms"
@@ -621,34 +619,34 @@ def show-command [
         print "This command:"
         []
         if ($command.creates_scope) {
-            print $"- (ansi cyan)does create(ansi reset) a scope."
+            print $"- ('does create' | colorize cyan) a scope."
         } else {
-            print $"- (ansi cyan)does not create(ansi reset) a scope."
+            print $"- ('does not create' | colorize cyan) a scope."
         }
         if ($command.is_builtin) {
-            print $"- (ansi cyan)is(ansi reset) a built-in command."
+            print $"- ('is' | colorize cyan) a built-in command."
         } else {
-            print $"- (ansi cyan)is not(ansi reset) a built-in command."
+            print $"- ('is not' | colorize cyan) a built-in command."
         }
         if ($command.is_sub) {
-            print $"- (ansi cyan)is(ansi reset) a subcommand."
+            print $"- ('is' | colorize cyan) a subcommand."
         } else {
-            print $"- (ansi cyan)is not(ansi reset) a subcommand."
+            print $"- ('is not' | colorize cyan) a subcommand."
         }
         if ($command.is_plugin) {
-            print $"- (ansi cyan)is part(ansi reset) of a plugin."
+            print $"- ('is part' | colorize cyan) of a plugin."
         } else {
-            print $"- (ansi cyan)is not part(ansi reset) of a plugin."
+            print $"- ('is not part' | colorize cyan) of a plugin."
         }
         if ($command.is_custom) {
-            print $"- (ansi cyan)is(ansi reset) a custom command."
+            print $"- ('is' | colorize cyan) a custom command."
         } else {
-            print $"- (ansi cyan)is not(ansi reset) a custom command."
+            print $"- ('is not' | colorize cyan) a custom command."
         }
         if ($command.is_keyword) {
-            print $"- (ansi cyan)is(ansi reset) a keyword."
+            print $"- ('is' | colorize cyan) a keyword."
         } else {
-            print $"- (ansi cyan)is not(ansi reset) a keyword."
+            print $"- ('is not' | colorize cyan) a keyword."
         }
 
         print ""
@@ -659,7 +657,8 @@ def show-command [
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
-    --all (-a) # if showing help for single command, display all sections
+    --verbose (-v) # Show more details
+
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
 
@@ -668,9 +667,9 @@ export def "help commands" [
         let found_commands = ($commands | find $find --columns [name usage search_terms])
 
         if ($found_commands | length) == 1 {
-            #todo refactor so only one invocation of show-command, because it's clunky to pass --all
-            if $all {
-                show-command --all ($found_commands | get 0)  
+            #todo refactor so only one invocation of show-command, because it's clunky to pass --verbose
+            if $verbose {
+                show-command --verbose ($found_commands | get 0)  
             } else {
                 show-command ($found_commands | get 0)
             }
@@ -683,9 +682,9 @@ export def "help commands" [
         if ($found_command | is-empty) {
             command-not-found-error (metadata $command | get span)
         }
-        #todo refactor so only one invocation of show-command, because it's clunky to pass --all
-        if $all {
-            show-command --all ($found_command | get 0)  
+        #todo refactor so only one invocation of show-command, because it's clunky to pass --verbose
+        if $verbose {
+            show-command --verbose ($found_command | get 0)  
         } else {
             show-command ($found_command | get 0)
         }
@@ -715,7 +714,7 @@ def pretty-cmd [] {
 export def main [
     ...item: string  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
-    --all (-a) # show all sections of command help
+    --verbose (-v) # Show more detail
 ] {
     if ($item | is-empty) and ($find | is-empty) {
         print $"Welcome to Nushell.
@@ -726,10 +725,10 @@ Here are some tips to help you get started.
   * ('help <name>' | pretty-cmd) - display help about a particular command, alias, or module
   * ('help --find <text to search>' | pretty-cmd) - search through all help commands table
 
-Nushell works on the idea of a "(ansi default_italic)pipeline(ansi reset)". Pipelines are commands connected with the '|' character.
+Nushell works on the idea of a "('pipeline' | colorize default_italic)". Pipelines are commands connected with the '|' character.
 Each stage in the pipeline works together to load, parse, and display information to you.
 
-(ansi green)Examples(ansi reset):
+('Examples' | colorize green):
     List the files in the current directory, sorted by size
     > ('ls | sort-by size' | nu-highlight)
 
@@ -739,14 +738,14 @@ Each stage in the pipeline works together to load, parse, and display informatio
     Get the processes on your system actively using CPU
     > ('ps | where cpu > 0' | nu-highlight)
 
-You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https://www.nushell.sh/book/(ansi reset)"
+You can also learn more at ('https://www.nushell.sh/book/' | colorize default_italic light_cyan_underline)"
         return
     }
 
     let item = ($item | str join " ")
     let commands = (try { 
-        if $all {
-            help commands --all $item --find $find 
+        if $verbose {
+            help commands --verbose $item --find $find 
         } else {
             help commands $item --find $find 
         }
