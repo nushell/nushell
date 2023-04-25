@@ -1206,8 +1206,8 @@ impl<'a> StateWorkingSet<'a> {
         let overlay_frame = self.last_overlay_mut();
 
         for (name, module_id) in modules {
-            overlay_frame.insert_module(name, Type::Any, module_id);
-            overlay_frame.visibility.use_module_id(&decl_id);
+            overlay_frame.insert_module(name, module_id);
+            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
         }
     }
 
