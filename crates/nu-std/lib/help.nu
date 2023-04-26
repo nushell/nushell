@@ -553,6 +553,7 @@ def show-command [
             }) 
 
             let rhs = ([
+                " ",                # extra blank in case lhs overflows tab_stop
                 $i.description,
                 (if $i.parameter_type == "positional" and $i.is_optional {$". Optional, default TBD"} else {""}),
             ] | str join "")
