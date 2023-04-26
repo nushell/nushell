@@ -318,7 +318,7 @@ fn default_value11() -> TestResult {
 fn default_value12() -> TestResult {
     fail_test(
         r#"def foo [--x:int = "a"] { $x }"#,
-        "default value should be int",
+        "expected default value to be `int`",
     )
 }
 

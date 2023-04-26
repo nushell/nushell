@@ -35,25 +35,28 @@ pub enum Type {
 
 impl Type {
     pub fn is_subtype(&self, other: &Type) -> bool {
+        // Structural subtyping
+        let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
+            if this.is_empty() || that.is_empty() {
+                true
+            } else if this.len() != that.len() {
+                false
+            } else {
+                this.iter()
+                    .zip(that.iter())
+                    .all(|(lhs, rhs)| lhs.0 == rhs.0 && lhs.1.is_subtype(&rhs.1))
+            }
+        };
+
         match (self, other) {
             (t, u) if t == u => true,
             (Type::Float, Type::Number) => true,
             (Type::Int, Type::Number) => true,
             (_, Type::Any) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype(u) => true, // List is covariant
-
-            // TODO: Currently Record types specify their field types. If we are
-            // going to continue to do that, then it might make sense to define
-            // a "structural subtyping" whereby r1 is a subtype of r2 is the
-            // fields of r1 are a "subset" of the fields of r2 (names are a
-            // subset and agree on types). However, if we do that, then we need
-            // a way to specify the supertype of all Records. For now, we define
-            // any Record to be a subtype of any other Record. This allows
-            // Record(vec![]) to be used as an ad-hoc supertype of all Records
-            // in command signatures. This comment applies to Tables also, with
-            // "columns" in place of "fields".
-            (Type::Record(_), Type::Record(_)) => true,
-            (Type::Table(_), Type::Table(_)) => true,
+            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
+                is_subtype_collection(this, that)
+            }
             _ => false,
         }
     }
@@ -87,7 +90,13 @@ impl Type {
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(_) => SyntaxShape::Record,
+            Type::Record(entries) => {
+                let entries = entries
+                    .iter()
+                    .map(|(key, val)| (key.clone(), val.to_shape()))
+                    .collect();
+                SyntaxShape::Record(entries)
+            }
             Type::Table(_) => SyntaxShape::Table,
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
