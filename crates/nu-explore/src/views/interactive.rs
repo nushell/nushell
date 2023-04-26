@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use tui::{
+use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     widgets::{BorderType, Borders, Paragraph},
@@ -67,7 +67,7 @@ impl View for InteractiveView<'_> {
         let border_color = self.border_color;
         let highlighted_color = self.highlighted_color;
 
-        let cmd_block = tui::widgets::Block::default()
+        let cmd_block = ratatui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Plain)
             .border_style(border_color);
@@ -119,7 +119,7 @@ impl View for InteractiveView<'_> {
             }
         }
 
-        let table_block = tui::widgets::Block::default()
+        let table_block = ratatui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Plain)
             .border_style(border_color);
