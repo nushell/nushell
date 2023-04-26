@@ -268,7 +268,7 @@ fn nested_suggestions(
             output
         }
         Value::List { vals, span: _ } => {
-            for column_name in get_columns(vals.iter()) {
+            for column_name in get_columns(vals.as_slice()) {
                 output.push(Suggestion {
                     value: column_name,
                     description: None,
@@ -323,7 +323,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 };
             }
             Value::List { vals, span } => {
-                for col in get_columns(vals.iter()) {
+                for col in get_columns(vals.as_slice()) {
                     if col.as_bytes().to_vec() == next_sublevel {
                         return recursive_value(
                             Value::List { vals, span }
