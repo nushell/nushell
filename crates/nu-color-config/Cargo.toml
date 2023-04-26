@@ -12,8 +12,6 @@ bench = false
 
 [dependencies]
 serde = { version="1.0.123", features=["derive"] }
-# used only for text_style Alignments
-tabled = { version = "0.10.0", features = ["color"], default-features = false }
 
 nu-protocol = { path = "../nu-protocol", version = "0.79.1"  }
 nu-ansi-term = "0.47.0"
