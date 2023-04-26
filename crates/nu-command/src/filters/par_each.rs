@@ -114,8 +114,10 @@ impl Command for ParEach {
         let max_threads = threads.unwrap_or(0);
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
+        let outer_ctrlc = engine_state.ctrlc.clone();
         let block_id = capture_block.block_id;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
@@ -146,16 +148,15 @@ impl Command for ParEach {
                                 redirect_stdout,
                                 redirect_stderr,
                             ) {
-                                Ok(v) => v,
+                                Ok(v) => v.into_value(span),
+
                                 Err(error) => Value::Error {
                                     error: Box::new(chain_error_with_input(error, val_span)),
-                                }
-                                .into_pipeline_data(),
+                                },
                             }
                         })
                         .collect::<Vec<_>>()
                         .into_iter()
-                        .flatten()
                         .into_pipeline_data(ctrlc)
                 })),
             PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(create_pool(max_threads)?
@@ -181,16 +182,14 @@ impl Command for ParEach {
                                 redirect_stdout,
                                 redirect_stderr,
                             ) {
-                                Ok(v) => v,
+                                Ok(v) => v.into_value(span),
                                 Err(error) => Value::Error {
                                     error: Box::new(chain_error_with_input(error, val_span)),
-                                }
-                                .into_pipeline_data(),
+                                },
                             }
                         })
                         .collect::<Vec<_>>()
                         .into_iter()
-                        .flatten()
                         .into_pipeline_data(ctrlc)
                 })),
             PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
@@ -216,16 +215,14 @@ impl Command for ParEach {
                             redirect_stdout,
                             redirect_stderr,
                         ) {
-                            Ok(v) => v,
+                            Ok(v) => v.into_value(span),
                             Err(error) => Value::Error {
                                 error: Box::new(chain_error_with_input(error, val_span)),
-                            }
-                            .into_pipeline_data(),
+                            },
                         }
                     })
                     .collect::<Vec<_>>()
                     .into_iter()
-                    .flatten()
                     .into_pipeline_data(ctrlc)
             })),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
@@ -242,7 +239,6 @@ impl Command for ParEach {
                                 return Value::Error {
                                     error: Box::new(err),
                                 }
-                                .into_pipeline_data()
                             }
                         };
 
@@ -264,16 +260,14 @@ impl Command for ParEach {
                             redirect_stdout,
                             redirect_stderr,
                         ) {
-                            Ok(v) => v,
+                            Ok(v) => v.into_value(span),
                             Err(error) => Value::Error {
                                 error: Box::new(error),
-                            }
-                            .into_pipeline_data(),
+                            },
                         }
                     })
                     .collect::<Vec<_>>()
                     .into_iter()
-                    .flatten()
                     .into_pipeline_data(ctrlc)
             })),
             // This match allows non-iterables to be accepted,
@@ -297,6 +291,7 @@ impl Command for ParEach {
                 )
             }
         }
+        .and_then(|x| x.filter(|v| !v.is_nothing(), outer_ctrlc))
         .map(|res| res.set_metadata(metadata))
     }
 }
