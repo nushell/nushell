@@ -611,19 +611,23 @@ pub fn ast(engine_state: &mut EngineState, file_path: &String) {
     let file = std::fs::read(file_path);
 
     if let Ok(contents) = file {
+        let offset = working_set.next_span_start();
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 
         let flat = flatten_block(&working_set, &parsed_block);
         let mut json_val: JsonValue = json!([]);
         for (span, shape) in flat {
+            let content = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+
             let json = json!(
                 {
                     "type": "ast",
                     "span": {
-                        "start": span.start,
-                        "end": span.end,
+                        "start": span.start - offset,
+                        "end": span.end - offset,
                     },
-                    "shape": shape.to_string()
+                    "shape": shape.to_string(),
+                    "content": content // may not be necessary, but helpful for debugging
                 }
             );
             json_merge(&mut json_val, &json);
