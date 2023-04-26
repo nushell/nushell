@@ -3735,8 +3735,19 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 }
                                             }
                                         }
+
+                                        *default_value = if let Ok(constant) =
+                                            eval_constant(working_set, &expression)
+                                        {
+                                            Some(constant)
+                                        } else {
+                                            working_set.error(ParseError::NonConstantDefaultValue(
+                                                expression.span,
+                                            ));
+                                            None
+                                        };
+
                                         *shape = expression.ty.to_shape();
-                                        *default_value = Some(expression);
                                         *required = false;
                                     }
                                     Arg::RestPositional(..) => {

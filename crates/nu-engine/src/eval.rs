@@ -72,9 +72,8 @@ pub fn eval_call(
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
-            } else if let Some(arg) = &param.default_value {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
-                callee_stack.add_var(var_id, result);
+            } else if let Some(value) = &param.default_value {
+                callee_stack.add_var(var_id, value.to_owned());
             } else {
                 callee_stack.add_var(var_id, Value::nothing(call.head));
             }
