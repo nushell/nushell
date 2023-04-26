@@ -2439,15 +2439,11 @@ pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> 
 
                         let var_name =
                             String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .trim_start_matches('$')
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            if is_const {
-                                working_set
-                                    .error(ParseError::ConstBuiltinVar(var_name, lvalue.span))
-                            } else {
-                                working_set.error(ParseError::LetBuiltinVar(var_name, lvalue.span))
-                            };
+                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                         }
 
                         let var_id = lvalue.as_var();
@@ -2551,10 +2547,11 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                         let var_name =
                             String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .trim_start_matches('$')
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            working_set.error(ParseError::MutBuiltinVar(var_name, lvalue.span));
+                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                         }
 
                         let var_id = lvalue.as_var();
@@ -2674,7 +2671,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            path.file_name().and_then(|x| x.to_str()),
+                            Some(&path.to_string_lossy()),
                             &contents,
                             scoped,
                         );

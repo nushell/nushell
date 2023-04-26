@@ -1998,7 +1998,7 @@ pub fn parse_full_cell_path(
 
             // Creating a Type scope to parse the new block. This will keep track of
             // the previous input type found in that block
-            let output = parse_block(working_set, &output, true, true);
+            let output = parse_block(working_set, &output, span, true, true);
             working_set
                 .type_scope
                 .add_type(working_set.type_scope.get_last_output());
@@ -4015,7 +4015,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
         _ => (None, 0),
     };
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], false, false);
+    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
     if let Some(signature) = signature {
         output.signature = signature.0;
@@ -4309,7 +4309,7 @@ pub fn parse_closure_expression(
         }
     }
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], false, false);
+    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
     if let Some(signature) = signature {
         output.signature = signature.0;
@@ -5196,6 +5196,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 pub fn parse_block(
     working_set: &mut StateWorkingSet,
     tokens: &[Token],
+    span: Span,
     scoped: bool,
     is_subexpression: bool,
 ) -> Block {
@@ -5351,6 +5352,8 @@ pub fn parse_block(
         working_set.exit_scope();
     }
     working_set.type_scope.exit_scope();
+
+    block.span = Some(span);
 
     block
 }
@@ -5816,12 +5819,20 @@ pub fn parse(
     let file_id = working_set.add_file(name, contents);
     let new_span = working_set.get_span_for_file(file_id);
 
-    let (output, err) = lex(contents, new_span.start, &[], &[], false);
-    if let Some(err) = err {
-        working_set.error(err)
-    }
+    let previously_parsed_block = working_set.find_block_by_span(new_span);
 
-    let mut output = parse_block(working_set, &output, scoped, false);
+    let mut output = {
+        if let Some(block) = previously_parsed_block {
+            return block;
+        } else {
+            let (output, err) = lex(contents, new_span.start, &[], &[], false);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
+
+            parse_block(working_set, &output, new_span, scoped, false)
+        }
+    };
 
     let mut seen = vec![];
     let mut seen_blocks = HashMap::new();

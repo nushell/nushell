@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -25,6 +25,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
+            .category(Category::Conversions)
     }
 
     fn usage(&self) -> &str {

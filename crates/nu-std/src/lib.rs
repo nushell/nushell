@@ -74,6 +74,7 @@ pub fn load_standard_library(
 
             // the rest of the library
             ("dirs", include_str!("../lib/dirs.nu")),
+            ("iter", include_str!("../lib/iter.nu")),
             ("help", include_str!("../lib/help.nu")),
             ("testing", include_str!("../lib/testing.nu")),
             ("xml", include_str!("../lib/xml.nu")),
