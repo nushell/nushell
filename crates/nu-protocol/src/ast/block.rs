@@ -1,10 +1,9 @@
+use super::Pipeline;
+use crate::{Signature, Span, VarId};
+use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
-use crate::{Signature, Span, VarId};
-
-use super::Pipeline;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub signature: Box<Signature>,
     pub pipelines: Vec<Pipeline>,

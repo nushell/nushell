@@ -718,8 +718,11 @@ pub fn evaluate_repl(
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
     match shape {
         NuCursorShape::Block => SetCursorStyle::SteadyBlock,
-        NuCursorShape::UnderScore => SetCursorStyle::DefaultUserShape,
-        NuCursorShape::Line => SetCursorStyle::BlinkingBar,
+        NuCursorShape::UnderScore => SetCursorStyle::SteadyUnderScore,
+        NuCursorShape::Line => SetCursorStyle::SteadyBar,
+        NuCursorShape::BlinkBlock => SetCursorStyle::BlinkingBlock,
+        NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
+        NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
     }
 }
 
