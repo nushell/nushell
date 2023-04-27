@@ -139,23 +139,23 @@ This command is a parser keyword. For details, check:
             },
             Example {
                 description: "Use a plain module name to import its definitions qualified by the module name",
-                example: r#"module spam { export def foo [] { "foo" } }; use spam; spam foo"#,
-                result: Some(Value::test_string("foo")),
+                example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam; (spam foo) + (spam bar)"#,
+                result: Some(Value::test_string("foobar")),
             },
             Example {
                 description: "Specify * to use all definitions in a module",
-                example: r#"use std *; [1 2 3] | iter find {|e| $e == 2}"#,
-                result: Some(Value::test_int(2)),
+                example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam *; (foo) + (bar)"#,
+                result: Some(Value::test_string("foobar")),
             },
             Example {
                 description: "To use commands with spaces, like subcommands, surround them with quotes",
-                example: r#"use std 'iter find'; [1 2 3] | iter find {|e| $e == 2}"#,
-                result: Some(Value::test_int(2)),
+                example: r#"module spam { export def 'foo bar' [] { "baz" } }; use spam 'foo bar'; foo bar"#,
+                result: Some(Value::test_string("baz")),
             },
             Example {
                 description: "To use multiple definitions from a module, wrap them in a list",
-                example: r#"use std ['iter find', 'assert']"#,
-                result: None,
+                example: r#"module spam { export def foo [] { "foo" }; export def 'foo bar' [] { "baz" } }; use spam ['foo', 'foo bar']; (foo) + (foo bar)"#,
+                result: Some(Value::test_string("foobaz")),
             },
         ]
     }
