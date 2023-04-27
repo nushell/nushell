@@ -14,7 +14,6 @@ fn filters_by_unit_size_comparison() {
 #[test]
 fn filters_with_nothing_comparison() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats",
         r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum"#
     );
 
@@ -33,20 +32,14 @@ fn where_inside_block_works() {
 
 #[test]
 fn filters_with_0_arity_block() {
-    let actual = nu!(
-        cwd: ".",
-        "[1 2 3 4] | where {|| $in < 3 } | to nuon"
-    );
+    let actual = nu!("[1 2 3 4] | where {|| $in < 3 } | to nuon");
 
     assert_eq!(actual.out, "[1, 2]");
 }
 
 #[test]
 fn filters_with_1_arity_block() {
-    let actual = nu!(
-        cwd: ".",
-        "[1 2 3 6 7 8] | where {|e| $e < 5 } | to nuon"
-    );
+    let actual = nu!("[1 2 3 6 7 8] | where {|e| $e < 5 } | to nuon");
 
     assert_eq!(actual.out, "[1, 2, 3]");
 }
@@ -64,7 +57,6 @@ fn unique_env_each_iteration() {
 #[test]
 fn where_in_table() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats",
         r#"'[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name in ["foo"] | get size | math sum"#
     );
 
@@ -74,7 +66,6 @@ fn where_in_table() {
 #[test]
 fn where_not_in_table() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats",
         r#"'[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in ["foo"] | get size | math sum"#
     );
 
@@ -83,10 +74,7 @@ fn where_not_in_table() {
 
 #[test]
 fn where_uses_enumerate_index() {
-    let actual = nu!(
-        cwd: ".",
-        r#"[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon"#
-    );
+    let actual = nu!("[7 8 9 10] | enumerate | where {|el| $el.index < 2 } | to nuon");
 
     assert_eq!(actual.out, "[[index, item]; [0, 7], [1, 8]]");
 }
