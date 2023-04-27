@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = 0.79.0
+# version = 0.79.1
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -283,9 +283,9 @@ let-env config = {
     format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
   }
   cursor_shape: {
-    emacs: line # block, underscore, line (line is the default)
-    vi_insert: block # block, underscore, line (block is the default)
-    vi_normal: underscore # block, underscore, line  (underscore is the default)
+    emacs: line # block, underscore, line, blink_block, blink_underscore, blink_line (line is the default)
+    vi_insert: block # block, underscore, line , blink_block, blink_underscore, blink_line (block is the default)
+    vi_normal: underscore # block, underscore, line, blink_block, blink_underscore, blink_line (underscore is the default)
   }
   color_config: $dark_theme   # if you want a light theme, replace `$dark_theme` to `$light_theme`
   use_grid_icons: true

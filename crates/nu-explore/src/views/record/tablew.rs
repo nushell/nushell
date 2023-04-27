@@ -6,7 +6,7 @@ use std::{
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::Value;
 use nu_table::string_width;
-use tui::{
+use ratatui::{
     buffer::Buffer,
     layout::Rect,
     text::Span,
@@ -91,8 +91,8 @@ impl StatefulWidget for TableW<'_> {
 
     fn render(
         self,
-        area: tui::layout::Rect,
-        buf: &mut tui::buffer::Buffer,
+        area: ratatui::layout::Rect,
+        buf: &mut ratatui::buffer::Buffer,
         state: &mut Self::State,
     ) {
         if area.width < 5 {
@@ -572,7 +572,7 @@ impl Widget for IndexColumn<'_> {
 
             let p = Paragraph::new(text)
                 .style(style)
-                .alignment(tui::layout::Alignment::Right);
+                .alignment(ratatui::layout::Alignment::Right);
             let area = Rect::new(area.x, area.y + row, area.width, 1);
 
             p.render(area, buf);
@@ -690,7 +690,7 @@ fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
 }
 
 fn repeat_vertical(
-    buf: &mut tui::buffer::Buffer,
+    buf: &mut ratatui::buffer::Buffer,
     x_offset: u16,
     y_offset: u16,
     width: u16,
@@ -755,7 +755,7 @@ fn calculate_column_width(column: &[NuText]) -> usize {
 }
 
 fn render_column(
-    buf: &mut tui::buffer::Buffer,
+    buf: &mut ratatui::buffer::Buffer,
     x: u16,
     y: u16,
     available_width: u16,

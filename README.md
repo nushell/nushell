@@ -46,8 +46,6 @@ To quickly install Nu:
 brew install nushell
 # Windows
 winget install nushell
-# Cross Platform installation if you have node and npm installed, Note that nu plugins were not included
-npm install -g nushell
 ```
 
 To use `Nu` in GitHub Action, check [setup-nu](https://github.com/marketplace/actions/setup-nu) for more detail.
