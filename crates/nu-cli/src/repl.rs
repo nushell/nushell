@@ -88,8 +88,6 @@ pub fn evaluate_repl(
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
-    // try to enable bracketed paste
-    let _ = line_editor.enable_bracketed_paste();
 
     // Now that reedline is created, get the history session id and store it in engine_state
     let hist_sesh = line_editor
@@ -107,6 +105,12 @@ pub fn evaluate_repl(
     );
 
     let config = engine_state.get_config();
+    if config.bracketed_paste {
+        // try to enable bracketed paste
+        // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+        #[cfg(not(target_os = "windows"))]
+        let _ = line_editor.enable_bracketed_paste();
+    }
 
     start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
