@@ -14,7 +14,7 @@ impl Command for Use {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module."
+        "Use definitions from a module, making them available in your shell."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -30,7 +30,10 @@ impl Command for Use {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
+        r#"See `help std` for the standard library module.
+See `help modules` to list all available modules.
+
+This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
@@ -133,6 +136,26 @@ impl Command for Use {
                 description: "Define a custom command that participates in the environment in a module and call it",
                 example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
+            },
+            Example {
+                description: "Use a plain module name to import its definitions qualified by the module name",
+                example: r#"module spam { export def foo [] { "foo" } }; use spam; spam foo"#,
+                result: Some(Value::test_string("foo")),
+            },
+            Example {
+                description: "Specify * to use all definitions in a module",
+                example: r#"use std *; [1 2 3] | iter find {|e| $e == 2}"#,
+                result: Some(Value::test_int(2)),
+            },
+            Example {
+                description: "To use commands with spaces, like subcommands, surround them with quotes",
+                example: r#"use std 'iter find'; [1 2 3] | iter find {|e| $e == 2}"#,
+                result: Some(Value::test_int(2)),
+            },
+            Example {
+                description: "To use multiple definitions from a module, wrap them in a list",
+                example: r#"use std ['iter find', 'assert']"#,
+                result: None,
             },
         ]
     }
