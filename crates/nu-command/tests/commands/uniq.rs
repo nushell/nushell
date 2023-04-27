@@ -180,14 +180,14 @@ fn uniq_unique() {
 
 #[test]
 fn uniq_simple_vals_ints() {
-    let actual = nu!("[1 2 3 4 1 5]| uniq");
+    let actual = nu!("[1 2 3 4 1 5] | uniq");
     let expected = nu!("[1 2 3 4 5]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn uniq_simple_vals_strs() {
-    let actual = nu!("[A B C A]| uniq");
+    let actual = nu!("[A B C A] | uniq");
     let expected = nu!("[A B C]");
     assert_eq!(actual.out, expected.out);
 }
