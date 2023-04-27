@@ -1,10 +1,7 @@
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::CallExt;
+use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 use indexmap::IndexMap;
 
@@ -26,7 +23,11 @@ impl Command for GroupBy {
                 Type::List(Box::new(Type::Any)),
                 Type::Record(vec![]),
             )])
-            .optional("grouper", SyntaxShape::Any, "the grouper value to use")
+            .optional(
+                "grouper",
+                SyntaxShape::CellPath,
+                "the path to the column to group on",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -48,6 +49,11 @@ impl Command for GroupBy {
             Example {
                 description: "Group items by the \"type\" column's values",
                 example: r#"ls | group-by type"#,
+                result: None,
+            },
+            Example {
+                description: "Group items by the \"foo\" column's values, ignoring records without a \"foo\" column",
+                example: r#"open cool.json | group-by foo?"#,
                 result: None,
             },
             Example {
@@ -81,140 +87,58 @@ impl Command for GroupBy {
     }
 }
 
-enum Grouper {
-    ByColumn(Option<Spanned<String>>),
-    ByBlock,
-}
-
 pub fn group_by(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let name = call.head;
+    let span = call.head;
 
-    let grouper: Option<Value> = call.opt(engine_state, stack, 0)?;
+    let cell_path: Option<CellPath> = call.opt(engine_state, stack, 0)?;
     let values: Vec<Value> = input.into_iter().collect();
-    let mut keys: Vec<Result<String, ShellError>> = vec![];
-    let mut group_strategy = Grouper::ByColumn(None);
 
     if values.is_empty() {
         return Err(ShellError::GenericError(
             "expected table from pipeline".into(),
             "requires a table input".into(),
-            Some(name),
+            Some(span),
             None,
             Vec::new(),
         ));
     }
 
-    let first = values[0].clone();
-
-    let value_list = Value::List {
-        vals: values.clone(),
-        span: name,
-    };
-
-    match grouper {
-        Some(Value::Block { .. }) | Some(Value::Closure { .. }) => {
-            let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
-            let error_key = "error";
-
-            for value in values {
-                if let Some(capture_block) = &block {
-                    let mut stack = stack.captures_to_stack(&capture_block.captures);
-                    let block = engine_state.get_block(capture_block.block_id);
-                    let pipeline = eval_block(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        value.into_pipeline_data(),
-                        call.redirect_stdout,
-                        call.redirect_stderr,
-                    );
-
-                    match pipeline {
-                        Ok(s) => {
-                            let collection: Vec<Value> = s.into_iter().collect();
-
-                            if collection.len() > 1 {
-                                return Err(ShellError::GenericError(
-                                    "expected one value from the block".into(),
-                                    "requires a table with one value for grouping".into(),
-                                    Some(name),
-                                    None,
-                                    Vec::new(),
-                                ));
-                            }
-
-                            let value = match collection.get(0) {
-                                Some(Value::Error { .. }) | None => Value::string(error_key, name),
-                                Some(return_value) => return_value.clone(),
-                            };
-
-                            keys.push(value.as_string());
-                        }
-                        Err(_) => {
-                            keys.push(Ok(error_key.into()));
-                        }
-                    }
-                }
-            }
-
-            group_strategy = Grouper::ByBlock;
-        }
-        Some(other) => {
-            group_strategy = Grouper::ByColumn(Some(Spanned {
-                item: other.as_string()?,
-                span: name,
-            }));
-        }
-        _ => {}
-    }
-
-    let name = if let Ok(span) = first.span() {
-        span
-    } else {
-        name
-    };
-
-    let group_value = match group_strategy {
-        Grouper::ByBlock => {
-            let map = keys;
-
-            let block = Box::new(move |idx: usize, row: &Value| match map.get(idx) {
-                Some(Ok(key)) => Ok(key.clone()),
-                Some(Err(reason)) => Err(reason.clone()),
-                None => row.as_string(),
-            });
-
-            data_group(&value_list, &Some(block), name)
-        }
-        Grouper::ByColumn(column_name) => group(&column_name, &value_list, name),
-    };
-
-    Ok(PipelineData::Value(group_value?, None))
+    let group_value = group(&cell_path, values, span)?;
+    Ok(PipelineData::Value(group_value, None))
 }
 
-#[allow(clippy::type_complexity)]
-pub fn data_group(
-    values: &Value,
-    grouper: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
+pub fn group(
+    column_name: &Option<CellPath>,
+    values: Vec<Value>,
     span: Span,
 ) -> Result<Value, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
-    for (idx, value) in values.clone().into_pipeline_data().into_iter().enumerate() {
-        let group_key = if let Some(ref grouper) = grouper {
-            grouper(idx, &value)
-        } else {
-            value.as_string()
-        };
+    if let Some(column_name) = column_name {
+        for value in values.into_iter() {
+            let group_key = value
+                .clone()
+                .follow_cell_path(&column_name.members, false)?;
+            if matches!(group_key, Value::Nothing { .. }) {
+                continue; // likely the result of a failed optional access, ignore this value
+            }
 
-        let group = groups.entry(group_key?).or_default();
-        group.push(value);
-    }
+            let group_key = group_key.as_string()?;
+            let group = groups.entry(group_key).or_default();
+            group.push(value);
+        }
+    } else {
+        for value in values.into_iter() {
+            let group_key = value.as_string()?;
+            let group = groups.entry(group_key).or_default();
+            group.push(value);
+        }
+    };
 
     let mut cols = vec![];
     let mut vals = vec![];
@@ -225,48 +149,6 @@ pub fn data_group(
     }
 
     Ok(Value::Record { cols, vals, span })
-}
-
-pub fn group(
-    column_name: &Option<Spanned<String>>,
-    values: &Value,
-    span: Span,
-) -> Result<Value, ShellError> {
-    let name = span;
-
-    let grouper = if let Some(column_name) = column_name {
-        Grouper::ByColumn(Some(column_name.clone()))
-    } else {
-        Grouper::ByColumn(None)
-    };
-
-    match grouper {
-        Grouper::ByColumn(Some(column_name)) => {
-            let block = Box::new(move |_, row: &Value| {
-                if let Value::Error { error } = row {
-                    return Err(*error.clone());
-                };
-                match row.get_data_by_key(&column_name.item) {
-                    Some(group_key) => Ok(group_key.as_string()?),
-                    None => Err(ShellError::CantFindColumn {
-                        col_name: column_name.item.to_string(),
-                        span: column_name.span,
-                        src_span: row.expect_span(),
-                    }),
-                }
-            });
-
-            data_group(values, &Some(block), name)
-        }
-        Grouper::ByColumn(None) => {
-            let block = Box::new(move |_, row: &Value| row.as_string());
-
-            data_group(values, &Some(block), name)
-        }
-        Grouper::ByBlock => Err(ShellError::NushellFailed {
-            msg: "Block not implemented: This should never happen.".into(),
-        }),
-    }
 }
 
 #[cfg(test)]

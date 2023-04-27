@@ -30,49 +30,7 @@ fn groups() {
 }
 
 #[test]
-fn errors_if_given_unknown_column_name() {
-    Playground::setup("group_by_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.json",
-            r#"
-                {
-                    "nu": {
-                        "committers": [
-                            {"name": "Andrés N. Robalino"},
-                            {"name": "JT Turner"},
-                            {"name": "Yehuda Katz"}
-                        ],
-                        "releases": [
-                            {"version": "0.2"}
-                            {"version": "0.8"},
-                            {"version": "0.9999999"}
-                        ],
-                        "0xATYKARNU": [
-                            ["Th", "e", " "],
-                            ["BIG", " ", "UnO"],
-                            ["punto", "cero"]
-                        ]
-                    }
-                }
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.json
-                | group-by {|| get nu.releases.version }
-            "#
-        ));
-
-        assert!(actual
-            .err
-            .contains("requires a table with one value for grouping"));
-    })
-}
-
-#[test]
-fn errors_if_block_given_evaluates_more_than_one_row() {
+fn errors_if_column_not_found() {
     Playground::setup("group_by_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
@@ -92,21 +50,19 @@ fn errors_if_block_given_evaluates_more_than_one_row() {
             "#
         ));
 
-        assert!(actual.err.contains("value originates here"),);
-        assert!(actual.err.contains("cannot find column"),);
+        assert!(actual.err.contains("did you mean 'type'"),);
     })
 }
 
 #[test]
 fn errors_if_input_empty() {
-    Playground::setup("group_by_empty_test", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-            group-by date
-        "#
-        ));
+    let actual = nu!("group-by date");
+    assert!(actual.err.contains("expected table from pipeline"));
+}
 
-        assert!(actual.err.contains("expected table from pipeline"));
-    });
+#[test]
+fn optional_cell_path_works() {
+    let actual = nu!("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo? | to nuon");
+    let expected = r#"{"123": [[foo]; [123]], "234": [[foo]; [234]]}"#;
+    assert_eq!(actual.out, expected)
 }
