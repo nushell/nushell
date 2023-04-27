@@ -28,7 +28,6 @@ nu-table = { path = "../nu-table", version = "0.79.1" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.79.1" }
 nu-utils = { path = "../nu-utils", version = "0.79.1" }
 num-format = { version = "0.4.3" }
-
 nu-ansi-term = "0.47.0"
 
 # Potential dependencies for extras
@@ -89,7 +88,7 @@ percent-encoding = "2.2.0"
 rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.32.0", features = ["serde"], optional = true }
 sysinfo = "0.28.2"
-tabled = "0.10.0"
+tabled = "0.12.0"
 terminal_size = "0.2.1"
 thiserror = "1.0.31"
 titlecase = "2.0.0"
