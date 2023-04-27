@@ -1,6 +1,6 @@
 #[cfg(windows)]
 fn main() {
-    let mut res = winres::WindowsResource::new();
+    let mut res = winresource::WindowsResource::new();
     res.set("ProductName", "Nushell");
     res.set("FileDescription", "Nushell");
     res.set("LegalCopyright", "Copyright (C) 2022");

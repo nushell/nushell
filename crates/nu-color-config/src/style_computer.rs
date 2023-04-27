@@ -1,3 +1,4 @@
+use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
 use nu_engine::eval_block;
@@ -5,7 +6,6 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
 };
-use tabled::alignment::AlignmentHorizontal;
 
 use std::{
     collections::HashMap,
@@ -111,34 +111,28 @@ impl<'a> StyleComputer<'a> {
 
     // Used only by the `table` command.
     pub fn style_primitive(&self, value: &Value) -> TextStyle {
+        use Alignment::*;
         let s = self.compute(&value.get_type().get_non_specified_string(), value);
         match *value {
-            Value::Bool { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Int { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::Filesize { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::Duration { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::Date { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Range { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Float { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::String { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Nothing { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Binary { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::CellPath { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
+            Value::Bool { .. } => TextStyle::with_style(Left, s),
+            Value::Int { .. } => TextStyle::with_style(Right, s),
+            Value::Filesize { .. } => TextStyle::with_style(Right, s),
+            Value::Duration { .. } => TextStyle::with_style(Right, s),
+            Value::Date { .. } => TextStyle::with_style(Left, s),
+            Value::Range { .. } => TextStyle::with_style(Left, s),
+            Value::Float { .. } => TextStyle::with_style(Right, s),
+            Value::String { .. } => TextStyle::with_style(Left, s),
+            Value::Nothing { .. } => TextStyle::with_style(Left, s),
+            Value::Binary { .. } => TextStyle::with_style(Left, s),
+            Value::CellPath { .. } => TextStyle::with_style(Left, s),
             Value::Record { .. } | Value::List { .. } | Value::Block { .. } => {
-                TextStyle::with_style(AlignmentHorizontal::Left, s)
+                TextStyle::with_style(Left, s)
             }
-            _ => TextStyle::basic_left(),
+            Value::Closure { .. }
+            | Value::CustomValue { .. }
+            | Value::Error { .. }
+            | Value::LazyRecord { .. }
+            | Value::MatchPattern { .. } => TextStyle::basic_left(),
         }
     }
 
