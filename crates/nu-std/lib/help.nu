@@ -246,7 +246,7 @@ export def "help modules" [
     let module = ($module | str join " ")
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | find $find)
+        let found_modules = ($modules | find $find --columns [name usage search_terms])
 
         if ($found_modules | length) == 1 {
             show-module ($found_modules | get 0)
@@ -356,7 +356,7 @@ export def "help aliases" [
     let alias = ($alias | str join " ")
 
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find)
+        let found_aliases = ($aliases | find $find --columns [name usage search_terms])
 
         if ($found_aliases | length) == 1 {
             show-alias ($found_aliases | get 0)
@@ -402,7 +402,7 @@ export def "help externs" [
     let extern = ($extern | str join " ")
 
     if not ($find | is-empty) {
-        let found_externs = ($externs | find $find)
+        let found_externs = ($externs | find $find --columns [name usage search_terms])
 
         if ($found_externs | length) == 1 {
             show-extern ($found_externs | get 0)
@@ -474,7 +474,7 @@ export def "help operators" [
     let operator = ($operator | str join " ")
 
     if not ($find | is-empty) {
-        let found_operators = ($operators | find $find)
+        let found_operators = ($operators | find $find --columns [name usage search_terms])
 
         if ($found_operators | length) == 1 {
             show-operator ($found_operators | get 0)
@@ -663,7 +663,7 @@ export def "help commands" [
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find)
+        let found_commands = ($commands | find $find --columns [name usage search_terms])
 
         if ($found_commands | length) == 1 {
             show-command ($found_commands | get 0)
