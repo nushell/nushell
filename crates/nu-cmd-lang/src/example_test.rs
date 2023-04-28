@@ -13,8 +13,11 @@ mod test_examples {
         check_example_evaluates_to_expected_output,
         check_example_input_and_output_types_match_command_signature,
     };
-    use crate::{Break, Collect, Describe, Mut};
-    use crate::{Echo, If, Let};
+    use crate::{
+        Break, Collect, Def, DefEnv, Describe, Echo, ExportCommand, ExportDef, ExportDefEnv, If,
+        Let, Module, Mut,
+    };
+    use nu_protocol::Value;
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type,
@@ -61,18 +64,26 @@ mod test_examples {
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_decl(Box::new(Break));
+            working_set.add_decl(Box::new(Collect));
+            working_set.add_decl(Box::new(Def));
+            working_set.add_decl(Box::new(DefEnv));
             working_set.add_decl(Box::new(Describe));
             working_set.add_decl(Box::new(Echo));
+            working_set.add_decl(Box::new(ExportCommand));
+            working_set.add_decl(Box::new(ExportDef));
+            working_set.add_decl(Box::new(ExportDefEnv));
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(Module));
             working_set.add_decl(Box::new(Mut));
-            working_set.add_decl(Box::new(Collect));
 
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 
             working_set.render()
         };
+
+        engine_state.add_env_var("PWD".to_string(), Value::test_string("."));
 
         engine_state
             .merge_delta(delta)
