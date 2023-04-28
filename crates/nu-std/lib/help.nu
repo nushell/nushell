@@ -243,8 +243,6 @@ export def "help modules" [
 ] {
     let modules = $nu.scope.modules
 
-    let module = ($module | str join " ")
-
     if not ($find | is-empty) {
         let found_modules = ($modules | find $find)
 
@@ -254,7 +252,7 @@ export def "help modules" [
             $found_modules
         }
     } else if not ($module | is-empty) {
-        let found_module = ($modules | where name == $module)
+        let found_module = ($modules | where name == ($module | str join " "))
 
         if ($found_module | is-empty) {
             module-not-found-error (metadata $module | get span)
@@ -353,8 +351,6 @@ export def "help aliases" [
 ] {
     let aliases = ($nu.scope.aliases | sort-by name)
 
-    let alias = ($alias | str join " ")
-
     if not ($find | is-empty) {
         let found_aliases = ($aliases | find $find)
 
@@ -364,7 +360,7 @@ export def "help aliases" [
             $found_aliases
         }
     } else if not ($alias | is-empty) {
-        let found_alias = ($aliases | where name == $alias)
+        let found_alias = ($aliases | where name == ($alias | str join " "))
 
         if ($found_alias | is-empty) {
             alias-not-found-error (metadata $alias | get span)
@@ -399,8 +395,6 @@ export def "help externs" [
         | str trim
     )
 
-    let extern = ($extern | str join " ")
-
     if not ($find | is-empty) {
         let found_externs = ($externs | find $find)
 
@@ -410,7 +404,7 @@ export def "help externs" [
             $found_externs
         }
     } else if not ($extern | is-empty) {
-        let found_extern = ($externs | where name == $extern)
+        let found_extern = ($externs | where name == ($extern | str join " "))
 
         if ($found_extern | is-empty) {
             extern-not-found-error (metadata $extern | get span)
@@ -471,8 +465,6 @@ export def "help operators" [
 ] {
     let operators = (get-all-operators)
 
-    let operator = ($operator | str join " ")
-
     if not ($find | is-empty) {
         let found_operators = ($operators | find $find)
 
@@ -482,7 +474,7 @@ export def "help operators" [
             $found_operators
         }
     } else if not ($operator | is-empty) {
-        let found_operator = ($operators | where name == $operator)
+        let found_operator = ($operators | where name == ($operator | str join " "))
 
         if ($found_operator | is-empty) {
             operator-not-found-error (metadata $operator | get span)
@@ -660,8 +652,6 @@ export def "help commands" [
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
 
-    let command = ($command | str join " ")
-
     if not ($find | is-empty) {
         let found_commands = ($commands | find $find)
 
@@ -671,7 +661,7 @@ export def "help commands" [
             $found_commands | select name category usage signatures search_terms
         }
     } else if not ($command | is-empty) {
-        let found_command = ($commands | where name == $command)
+        let found_command = ($commands | where name == ($command | str join " "))
 
         if ($found_command | is-empty) {
             command-not-found-error (metadata $command | get span)
