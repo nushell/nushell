@@ -107,8 +107,14 @@ def check-clipboard [
 export def clip [
     --silent: bool  # do not print the content of the clipboard to the standard output
     --no-notify: bool  # do not throw a notification (only on linux)
+    --expand (-e): bool  # auto-expand the data given as input
 ] {
-    let input = ($in | table | into string | ansi strip)
+    let input = (
+        $in
+        | if $expand { table --expand } else { table }
+        | into string
+        | ansi strip
+    )
 
     match $nu.os-info.name {
         "linux" => {
