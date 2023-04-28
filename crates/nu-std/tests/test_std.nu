@@ -24,5 +24,5 @@ export def test_path_add [] {
 }
 
 export def test_banner [] {
-    assert ((std banner | lines | length) == 15)
+    std assert ((std banner | lines | length) == 15)
 }
