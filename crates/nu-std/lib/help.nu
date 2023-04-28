@@ -257,7 +257,7 @@ export def "help modules" [
         let found_module = ($modules | where name == $module)
 
         if ($found_module | is-empty) {
-            module_not_found_error (metadata $module | get span)
+            module-not-found-error (metadata $module | get span)
         }
 
         show-module ($found_module | get 0)
