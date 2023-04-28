@@ -171,6 +171,10 @@ fn main() -> Result<()> {
         ide::check(&mut engine_state, &script_name, &max_errors);
 
         return Ok(());
+    } else if parsed_nu_cli_args.ide_ast.is_some() {
+        ide::ast(&mut engine_state, &script_name);
+
+        return Ok(());
     }
 
     start_time = std::time::Instant::now();
