@@ -241,7 +241,7 @@ export def "help modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
-    let modules = ($nu.scope.modules | sort-by name)
+    let modules = $nu.scope.modules
 
     let module = ($module | str join " ")
 
