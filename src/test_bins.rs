@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, Read, Write};
 
-use nu_cli::{eval_env_change_hook, eval_hook};
 use nu_command::create_default_context;
+use nu_command::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
@@ -172,7 +172,7 @@ pub fn nu_repl() {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     let source_lines = args();
 
-    let mut engine_state = create_default_context();
+    let mut engine_state = nu_cli::add_cli_context(create_default_context());
     let mut stack = Stack::new();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
@@ -209,6 +209,12 @@ pub fn nu_repl() {
 
         // Check for pre_execution hook
         let config = engine_state.get_config();
+
+        *engine_state
+            .repl_buffer_state
+            .lock()
+            .expect("repl buffer state mutex") = line.to_string();
+
         if let Some(hook) = config.hooks.pre_execution.clone() {
             if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
                 outcome_err(&engine_state, &err);
@@ -218,16 +224,15 @@ pub fn nu_repl() {
         // Eval the REPL line
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let (block, err) = parse(
+            let block = parse(
                 &mut working_set,
                 Some(&format!("line{i}")),
                 line.as_bytes(),
                 false,
-                &[],
             );
 
-            if let Some(err) = err {
-                outcome_err(&engine_state, &err);
+            if let Some(err) = working_set.parse_errors.first() {
+                outcome_err(&engine_state, err);
             }
             (block, working_set.render())
         };

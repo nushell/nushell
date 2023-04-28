@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 
 #[ignore = "TODO: This shows old-style aliases. New aliases are under commands"]
 #[test]

@@ -12,7 +12,7 @@ fn removes_duplicate_rows() {
                 Andrés,Robalino,10/11/2013,A
                 Afonso,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
-                Jonathan,Turner,11/12/2011,O
+                JT,Turner,11/12/2011,O
             "#,
         )]);
 
@@ -124,6 +124,13 @@ fn table() {
     print!("{}", actual.out);
     print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
+}
+
+#[test]
+fn uniq_by_empty() {
+    let actual = nu!("[] | uniq-by foo | to nuon");
+
+    assert_eq!(actual.out, "[]");
 }
 
 #[test]

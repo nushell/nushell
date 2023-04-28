@@ -87,8 +87,8 @@ impl Command for Mv {
 
         if sources.is_empty() {
             return Err(ShellError::GenericError(
-                "Invalid file or pattern".into(),
-                "invalid file or pattern".into(),
+                "File(s) not found".into(),
+                "could not find any files matching this glob pattern".into(),
                 Some(spanned_source.span),
                 None,
                 Vec::new(),
@@ -193,7 +193,9 @@ impl Command for Mv {
                     interactive,
                 );
                 if let Err(error) = result {
-                    Some(Value::Error { error })
+                    Some(Value::Error {
+                        error: Box::new(error),
+                    })
                 } else if verbose {
                     let val = match result {
                         Ok(true) => format!(

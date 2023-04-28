@@ -4,7 +4,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use tui::layout::Rect;
+use ratatui::layout::Rect;
 
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, run_command_with_value},

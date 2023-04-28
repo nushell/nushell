@@ -1,7 +1,11 @@
 use nu_ansi_term::{Color, Style};
-use std::fmt::Display;
 
-pub type Alignment = tabled::alignment::AlignmentHorizontal;
+#[derive(Debug, Clone, Copy)]
+pub enum Alignment {
+    Center,
+    Left,
+    Right,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct TextStyle {
@@ -238,25 +242,5 @@ impl TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl tabled::papergrid::Color for TextStyle {
-    fn fmt_prefix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(color) = &self.color_style {
-            color.prefix().fmt(f)?;
-        }
-
-        Ok(())
-    }
-
-    fn fmt_suffix(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(color) = &self.color_style {
-            if !color.is_plain() {
-                f.write_str("\u{1b}[0m")?;
-            }
-        }
-
-        Ok(())
     }
 }

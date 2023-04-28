@@ -597,6 +597,20 @@ pub enum ShellError {
         src_span: Span,
     },
 
+    /// Fields can only be defined once
+    ///
+    /// ## Resolution
+    ///
+    /// Check the record to ensure you aren't reusing the same field name
+    #[error("Record field used twice")]
+    #[diagnostic(code(nu::shell::not_a_list))]
+    ColumnDefinedTwice {
+        #[label = "field redefined here"]
+        second_use: Span,
+        #[label = "field first defined here"]
+        first_use: Span,
+    },
+
     /// An error happened while performing an external command.
     ///
     /// ## Resolution
@@ -1055,6 +1069,13 @@ pub enum ShellError {
         column_name: String,
         #[label("Could not access '{column_name}' on this record")]
         span: Span,
+    },
+
+    /// Operation interrupted by user
+    #[error("Operation interrupted by user")]
+    InterruptedByUser {
+        #[label("This operation was interrupted")]
+        span: Option<Span>,
     },
 }
 

@@ -58,6 +58,12 @@ impl Command for Find {
                 "dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s)",
                 Some('s'),
             )
+            .named(
+                "columns",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "column names to be searched (with rest parameter, not regex yet)",
+                Some('c'),
+            )
             .switch("invert", "invert the match", Some('v'))
             .rest("rest", SyntaxShape::Any, "terms to search")
             .category(Category::Filters)
@@ -119,7 +125,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find value in records",
-                example: r#"[[version name]; [0.1.0 nushell] [0.1.1 fish] [0.2.0 zsh]] | find -r "nu""#,
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu""#,
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
                         vec!["version", "name"],
@@ -131,6 +137,36 @@ impl Command for Find {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Remove ANSI sequences from result",
+                example: "[[foo bar]; [abc 123] [def 456]] | find 123 | get bar | ansi strip",
+                result: None, // This is None because ansi strip is not available in tests
+            },
+            Example {
+                description: "Find and highlight text in specific columns",
+                example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe -c [col1 col3]",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(
+                            vec!["col1".to_string(), "col2".to_string(), "col3".to_string()], 
+                            vec![
+                                Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_string()),
+                                Value::test_string("larry".to_string()),
+                                Value::test_string("curly".to_string()),
+                                ]
+                        ),
+                        Value::test_record(
+                            vec!["col1".to_string(), "col2".to_string(), "col3".to_string()], 
+                            vec![
+                                Value::test_string("larry".to_string()),
+                                Value::test_string("curly".to_string()),
+                                Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_string()),
+                                ]
+                        ),
+                    ],
+                    span: Span::test_data(),
+                }),
+            }
         ]
     }
 
@@ -174,13 +210,13 @@ fn find_with_regex(
 
     let flags = match (insensitive, multiline, dotall) {
         (false, false, false) => "",
-        (true, false, false) => "(?i)",
-        (false, true, false) => "(?m)",
-        (false, false, true) => "(?s)",
-        (true, true, false) => "(?im)",
-        (true, false, true) => "(?is)",
-        (false, true, true) => "(?ms)",
-        (true, true, true) => "(?ims)",
+        (true, false, false) => "(?i)", // case insensitive
+        (false, true, false) => "(?m)", // multi-line mode
+        (false, false, true) => "(?s)", // allow . to match \n
+        (true, true, false) => "(?im)", // case insensitive and multi-line mode
+        (true, false, true) => "(?is)", // case insensitive and allow . to match \n
+        (false, true, true) => "(?ms)", // multi-line mode and allow . to match \n
+        (true, true, true) => "(?ims)", // case insensitive, multi-line mode and allow . to match \n
     };
 
     let regex = flags.to_string() + regex.as_str();
@@ -221,7 +257,9 @@ fn find_with_regex(
     )
 }
 
-fn highlight_terms_in_record(
+#[allow(clippy::too_many_arguments)]
+fn highlight_terms_in_record_with_search_columns(
+    search_cols: &Vec<String>,
     cols: &mut [String],
     vals: &mut Vec<Value>,
     span: &mut Span,
@@ -230,23 +268,32 @@ fn highlight_terms_in_record(
     string_style: Style,
     ls_colors: &LsColors,
 ) -> Value {
+    let cols_to_search = if search_cols.is_empty() {
+        cols.to_vec()
+    } else {
+        search_cols.to_vec()
+    };
     let mut output = vec![];
-    for val in vals {
+    let mut potential_output = vec![];
+    let mut found_a_hit = false;
+    for (cur_col, val) in cols.iter().zip(vals) {
         let val_str = val.into_string("", config);
         let lower_val = val.into_string("", config).to_lowercase();
         let mut term_added_to_output = false;
         for term in terms {
             let term_str = term.into_string("", config);
             let lower_term = term.into_string("", config).to_lowercase();
-            if lower_val.contains(&lower_term) {
+            if lower_val.contains(&lower_term) && cols_to_search.contains(cur_col) {
+                found_a_hit = true;
+                term_added_to_output = true;
                 if config.use_ls_colors {
                     // Get the original LS_COLORS color
                     let style = ls_colors.style_for_path(val_str.clone());
                     let ansi_style = style
-                        .map(LsColors_Style::to_crossterm_style)
+                        .map(LsColors_Style::to_nu_ansi_term_style)
                         .unwrap_or_default();
 
-                    let ls_colored_val = ansi_style.apply(&val_str).to_string();
+                    let ls_colored_val = ansi_style.paint(&val_str).to_string();
 
                     let ansi_term_style = style
                         .map(to_nu_ansi_term_style)
@@ -258,11 +305,10 @@ fn highlight_terms_in_record(
                             Ok(hi) => hi,
                             Err(_) => string_style.paint(term_str.to_string()).to_string(),
                         };
-                    output.push(Value::String {
+                    potential_output.push(Value::String {
                         val: hi,
                         span: *span,
                     });
-                    term_added_to_output = true;
                 } else {
                     // No LS_COLORS support, so just use the original value
                     let hi = match highlight_search_string(&val_str, &term_str, &string_style) {
@@ -277,9 +323,14 @@ fn highlight_terms_in_record(
             }
         }
         if !term_added_to_output {
-            output.push(val.clone());
+            potential_output.push(val.clone());
         }
     }
+
+    if found_a_hit {
+        output.append(&mut potential_output);
+    }
+
     Value::Record {
         cols: cols.to_vec(),
         vals: output,
@@ -310,6 +361,7 @@ fn find_with_rest_and_highlight(
             }
         })
         .collect::<Vec<Value>>();
+    let columns_to_search: Option<Vec<String>> = call.get_flag(&engine_state, stack, "columns")?;
 
     let style_computer = StyleComputer::from_config(&engine_state, stack);
     // Currently, search results all use the same style.
@@ -323,20 +375,28 @@ fn find_with_rest_and_highlight(
     };
     let ls_colors = get_ls_colors(ls_colors_env_str);
 
+    let cols_to_search = match columns_to_search {
+        Some(cols) => cols,
+        None => vec![],
+    };
+
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(_, _) => input
             .map(
                 move |mut x| match &mut x {
-                    Value::Record { cols, vals, span } => highlight_terms_in_record(
-                        cols,
-                        vals,
-                        span,
-                        &config,
-                        &terms,
-                        string_style,
-                        &ls_colors,
-                    ),
+                    Value::Record { cols, vals, span } => {
+                        highlight_terms_in_record_with_search_columns(
+                            &cols_to_search,
+                            cols,
+                            vals,
+                            span,
+                            &config,
+                            &terms,
+                            string_style,
+                            &ls_colors,
+                        )
+                    }
                     _ => x,
                 },
                 ctrlc.clone(),
@@ -404,6 +464,7 @@ fn find_with_rest_and_highlight(
                             Err(_) => false,
                         },
                         Value::Binary { .. } => false,
+                        Value::MatchPattern { .. } => false,
                     }) != invert
                 },
                 ctrlc,
@@ -411,15 +472,18 @@ fn find_with_rest_and_highlight(
         PipelineData::ListStream(stream, meta) => Ok(ListStream::from_stream(
             stream
                 .map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, span } => highlight_terms_in_record(
-                        cols,
-                        vals,
-                        span,
-                        &config,
-                        &terms,
-                        string_style,
-                        &ls_colors,
-                    ),
+                    Value::Record { cols, vals, span } => {
+                        highlight_terms_in_record_with_search_columns(
+                            &cols_to_search,
+                            cols,
+                            vals,
+                            span,
+                            &config,
+                            &terms,
+                            string_style,
+                            &ls_colors,
+                        )
+                    }
                     _ => x,
                 })
                 .filter(move |value| {
@@ -484,6 +548,7 @@ fn find_with_rest_and_highlight(
                             Err(_) => false,
                         },
                         Value::Binary { .. } => false,
+                        Value::MatchPattern { .. } => false,
                     }) != invert
                 }),
             ctrlc.clone(),
@@ -522,7 +587,7 @@ fn find_with_rest_and_highlight(
                             }
                         }
                         // Propagate errors by explicitly matching them before the final case.
-                        Value::Error { error } => return Err(error),
+                        Value::Error { error } => return Err(*error),
                         other => {
                             return Err(ShellError::UnsupportedInput(
                                 "unsupported type from raw stream".into(),

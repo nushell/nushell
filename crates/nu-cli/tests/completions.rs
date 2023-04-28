@@ -524,10 +524,12 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(12, suggestions.len());
+    assert_eq!(14, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
+        "current-exe".into(),
+        "default-config-dir".into(),
         "env-path".into(),
         "history-path".into(),
         "home-path".into(),
@@ -551,6 +553,100 @@ fn variables_completions() {
 
     let expected: Vec<String> = vec!["history-path".into(), "home-path".into()];
 
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.os-info
+    let suggestions = completer.complete("$nu.os-info.", 12);
+    assert_eq!(4, suggestions.len());
+    let expected: Vec<String> = vec![
+        "arch".into(),
+        "family".into(),
+        "kernel_version".into(),
+        "name".into(),
+    ];
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.scope
+    let suggestions = completer.complete("$nu.scope.", 10);
+    assert_eq!(5, suggestions.len());
+    let expected: Vec<String> = vec![
+        "aliases".into(),
+        "commands".into(),
+        "engine_state".into(),
+        "modules".into(),
+        "vars".into(),
+    ];
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.scope.commands
+    let suggestions = completer.complete("$nu.scope.commands.", 19);
+    assert_eq!(15, suggestions.len());
+    let expected: Vec<String> = vec![
+        "category".into(),
+        "creates_scope".into(),
+        "examples".into(),
+        "extra_usage".into(),
+        "is_builtin".into(),
+        "is_custom".into(),
+        "is_extern".into(),
+        "is_keyword".into(),
+        "is_plugin".into(),
+        "is_sub".into(),
+        "module_name".into(),
+        "name".into(),
+        "search_terms".into(),
+        "signatures".into(),
+        "usage".into(),
+    ];
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.scope.commands.signatures
+    let suggestions = completer.complete("$nu.scope.commands.signatures.", 30);
+    assert_eq!(17, suggestions.len());
+    let expected: Vec<String> = vec![
+        "any".into(),
+        "binary".into(),
+        "bool".into(),
+        "datetime".into(),
+        "duration".into(),
+        "filesize".into(),
+        "int".into(),
+        "list<any>".into(),
+        "list<binary>".into(),
+        "list<number>".into(),
+        "list<string>".into(),
+        "nothing".into(),
+        "number".into(),
+        "range".into(),
+        "record".into(),
+        "string".into(),
+        "table".into(),
+    ];
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.scope.engine_state
+    let suggestions = completer.complete("$nu.scope.engine_state.", 23);
+    assert_eq!(6, suggestions.len());
+    let expected: Vec<String> = vec![
+        "num_blocks".into(),
+        "num_decls".into(),
+        "num_env_vars".into(),
+        "num_modules".into(),
+        "num_vars".into(),
+        "source_bytes".into(),
+    ];
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.scope.vars
+    let suggestions = completer.complete("$nu.scope.vars.", 15);
+    assert_eq!(3, suggestions.len());
+    let expected: Vec<String> = vec!["name".into(), "type".into(), "value".into()];
     // Match results
     match_suggestions(expected, suggestions);
 
@@ -663,8 +759,8 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     let (dir, _, mut engine_state, mut stack) = new_engine();
     let (_, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let (block, err) = parse(&mut working_set, None, block.as_bytes(), false, &[]);
-        assert!(err.is_none());
+        let block = parse(&mut working_set, None, block.as_bytes(), false);
+        assert!(working_set.parse_errors.is_empty());
 
         (block, working_set.render())
     };

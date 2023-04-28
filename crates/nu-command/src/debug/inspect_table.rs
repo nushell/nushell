@@ -1,119 +1,192 @@
 use nu_protocol::Value;
+use nu_table::{string_width, string_wrap};
 use tabled::{
-    builder::Builder,
-    peaker::PriorityMax,
-    width::{MinWidth, Wrap},
-    Style,
+    grid::config::ColoredConfig,
+    settings::{peaker::PriorityMax, width::Wrap, Settings, Style},
+    Table,
 };
 
-use self::{
-    global_horizontal_char::SetHorizontalChar, peak2::Peak2, table_column_width::GetColumnWidths,
-    truncate_table::TruncateTable, width_increase::IncWidth,
+use crate::debug::inspect_table::{
+    global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
 };
 
 pub fn build_table(value: Value, description: String, termsize: usize) -> String {
     let (head, mut data) = util::collect_input(value);
+    let count_columns = head.len();
     data.insert(0, head);
 
-    let mut val_table = Builder::from(data).build();
-    let val_table_width = val_table.total_width();
+    let mut desc = description;
+    let mut desc_width = string_width(&desc);
+    let mut desc_table_width = get_total_width_2_column_table(11, desc_width);
 
-    let desc = vec![vec![String::from("description"), description]];
+    let cfg = Table::default().with(Style::modern()).get_config().clone();
+    let mut widths = get_data_widths(&data, count_columns);
+    truncate_data(&mut data, &mut widths, &cfg, termsize);
 
-    let mut desc_table = Builder::from(desc).build();
-    let desc_table_width = desc_table.total_width();
+    let val_table_width = get_total_width2(&widths, &cfg);
+    if val_table_width < desc_table_width {
+        increase_widths(&mut widths, desc_table_width - val_table_width);
+        increase_data_width(&mut data, &widths);
+    }
 
-    let width = val_table_width.clamp(desc_table_width, termsize);
+    if val_table_width > desc_table_width {
+        increase_string_width(&mut desc, val_table_width);
+    }
 
-    desc_table
-        .with(Style::rounded().off_bottom())
-        .with(Wrap::new(width).priority::<PriorityMax>())
-        .with(MinWidth::new(width).priority::<Peak2>());
+    if desc_table_width > termsize {
+        let delete_width = desc_table_width - termsize;
+        if delete_width >= desc_width {
+            // we can't fit in a description; we consider it's no point in showing then?
+            return String::new();
+        }
 
-    val_table
-        .with(Style::rounded().top_left_corner('├').top_right_corner('┤'))
-        .with(TruncateTable(width))
-        .with(Wrap::new(width).priority::<PriorityMax>())
-        .with(IncWidth(width));
+        desc_width -= delete_width;
+        desc = string_wrap(&desc, desc_width, false);
+        desc_table_width = termsize;
+    }
 
-    let mut desc_widths = GetColumnWidths(Vec::new());
-    desc_table.with(&mut desc_widths);
+    add_padding_to_widths(&mut widths);
 
-    val_table.with(SetHorizontalChar::new('┼', '┴', 0, desc_widths.0[0]));
+    #[allow(clippy::manual_clamp)]
+    let width = val_table_width.max(desc_table_width).min(termsize);
+
+    let mut desc_table = Table::from_iter([[String::from("description"), desc]]);
+    desc_table.with(Style::rounded().remove_bottom().remove_horizontals());
+
+    let mut val_table = Table::from_iter(data);
+    val_table.with(
+        Settings::default()
+            .with(Style::rounded().corner_top_left('├').corner_top_right('┤'))
+            .with(SetWidths(widths))
+            .with(Wrap::new(width).priority::<PriorityMax>())
+            .with(SetHorizontalChar::new('┼', '┴', 11 + 2 + 1)),
+    );
 
     format!("{desc_table}\n{val_table}")
 }
 
-mod truncate_table {
-    use tabled::{
-        papergrid::{
-            records::{Records, RecordsMut, Resizable},
-            width::{CfgWidthFunction, WidthEstimator},
-            Estimate,
-        },
-        TableOption,
-    };
-
-    pub struct TruncateTable(pub usize);
-
-    impl<R> TableOption<R> for TruncateTable
-    where
-        R: Records + RecordsMut<String> + Resizable,
-    {
-        fn change(&mut self, table: &mut tabled::Table<R>) {
-            let width = table.total_width();
-            if width <= self.0 {
-                return;
-            }
-
-            let count_columns = table.get_records().count_columns();
-            if count_columns < 1 {
-                return;
-            }
-
-            let mut evaluator = WidthEstimator::default();
-            evaluator.estimate(table.get_records(), table.get_config());
-            let columns_width: Vec<_> = evaluator.into();
-
-            const SPLIT_LINE_WIDTH: usize = 1;
-            let mut width = 0;
-            let mut i = 0;
-            for w in columns_width {
-                width += w + SPLIT_LINE_WIDTH;
-
-                if width >= self.0 {
-                    break;
-                }
-
-                i += 1;
-            }
-
-            if i == 0 && count_columns > 0 {
-                i = 1;
-            } else if i + 1 == count_columns {
-                // we want to left at least 1 column
-                i -= 1;
-            }
-
-            let count_columns = table.get_records().count_columns();
-            let y = count_columns - i;
-
-            let mut column = count_columns;
-            for _ in 0..y {
-                column -= 1;
-                table.get_records_mut().remove_column(column);
-            }
-
-            table.get_records_mut().push_column();
-
-            let width_ctrl = CfgWidthFunction::from_cfg(table.get_config());
-            let last_column = table.get_records().count_columns() - 1;
-            for row in 0..table.get_records().count_rows() {
-                table
-                    .get_records_mut()
-                    .set((row, last_column), String::from("‥"), &width_ctrl)
-            }
+fn get_data_widths(data: &[Vec<String>], count_columns: usize) -> Vec<usize> {
+    let mut widths = vec![0; count_columns];
+    for row in data {
+        for col in 0..count_columns {
+            let text = &row[col];
+            let width = string_width(text);
+            widths[col] = std::cmp::max(widths[col], width);
         }
+    }
+
+    widths
+}
+
+fn add_padding_to_widths(widths: &mut [usize]) {
+    for width in widths {
+        *width += 2;
+    }
+}
+
+fn increase_widths(widths: &mut [usize], need: usize) {
+    let all = need / widths.len();
+    let mut rest = need - all * widths.len();
+
+    for width in widths {
+        *width += all;
+
+        if rest > 0 {
+            *width += 1;
+            rest -= 1;
+        }
+    }
+}
+
+fn increase_data_width(data: &mut Vec<Vec<String>>, widths: &[usize]) {
+    for row in data {
+        for (col, max_width) in widths.iter().enumerate() {
+            let text = &mut row[col];
+            increase_string_width(text, *max_width);
+        }
+    }
+}
+
+fn increase_string_width(text: &mut String, total: usize) {
+    let width = string_width(text);
+    let rest = total - width;
+
+    if rest > 0 {
+        text.extend(std::iter::repeat(' ').take(rest));
+    }
+}
+
+fn get_total_width_2_column_table(col1: usize, col2: usize) -> usize {
+    const PAD: usize = 1;
+    const SPLIT_LINE: usize = 1;
+    SPLIT_LINE + PAD + col1 + PAD + SPLIT_LINE + PAD + col2 + PAD + SPLIT_LINE
+}
+
+fn truncate_data(
+    data: &mut Vec<Vec<String>>,
+    widths: &mut Vec<usize>,
+    cfg: &ColoredConfig,
+    expected_width: usize,
+) {
+    const SPLIT_LINE_WIDTH: usize = 1;
+    const PAD: usize = 2;
+
+    let total_width = get_total_width2(widths, cfg);
+    if total_width <= expected_width {
+        return;
+    }
+
+    let mut width = 0;
+    let mut peak_count = 0;
+    for column_width in widths.iter() {
+        let next_width = width + *column_width + SPLIT_LINE_WIDTH + PAD;
+        if next_width >= expected_width {
+            break;
+        }
+
+        width = next_width;
+        peak_count += 1;
+    }
+
+    debug_assert!(peak_count < widths.len());
+
+    let left_space = expected_width - width;
+    let has_space_for_truncation_column = left_space > PAD;
+    if !has_space_for_truncation_column {
+        peak_count -= 1;
+    }
+
+    remove_columns(data, peak_count);
+    widths.drain(peak_count..);
+    push_empty_column(data);
+    widths.push(1);
+}
+
+fn remove_columns(data: &mut Vec<Vec<String>>, peak_count: usize) {
+    if peak_count == 0 {
+        for row in data {
+            row.clear();
+        }
+    } else {
+        for row in data {
+            row.drain(peak_count..);
+        }
+    }
+}
+
+fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
+    let pad = 2;
+    let total = widths.iter().sum::<usize>() + pad * widths.len();
+    let countv = cfg.count_vertical(widths.len());
+    let margin = cfg.get_margin();
+
+    total + countv + margin.left.size + margin.right.size
+}
+
+fn push_empty_column(data: &mut Vec<Vec<String>>) {
+    let empty_cell = String::from("‥");
+    for row in data {
+        row.push(empty_cell.clone());
     }
 }
 
@@ -136,7 +209,7 @@ mod util {
                 let mut columns = get_columns(&vals);
                 let data = convert_records_to_dataset(&columns, vals);
 
-                if columns.is_empty() && !data.is_empty() {
+                if columns.is_empty() {
                     columns = vec![String::from("")];
                 }
 
@@ -208,10 +281,11 @@ mod util {
                 let path = PathMember::String {
                     val: header.to_owned(),
                     span: Span::unknown(),
+                    optional: false,
                 };
 
                 item.clone()
-                    .follow_cell_path(&[path], false, false)
+                    .follow_cell_path(&[path], false)
                     .unwrap_or_else(|_| item.clone())
             }
             item => item.clone(),
@@ -219,247 +293,109 @@ mod util {
     }
 }
 
-mod style_no_left_right_1st {
-    use tabled::{papergrid::records::Records, Table, TableOption};
-
-    struct StyleOffLeftRightFirstLine;
-
-    impl<R> TableOption<R> for StyleOffLeftRightFirstLine
-    where
-        R: Records,
-    {
-        fn change(&mut self, table: &mut Table<R>) {
-            let shape = table.shape();
-            let cfg = table.get_config_mut();
-
-            let mut b = cfg.get_border((0, 0), shape);
-            b.left = Some(' ');
-            cfg.set_border((0, 0), b);
-
-            let mut b = cfg.get_border((0, shape.1 - 1), shape);
-            b.right = Some(' ');
-            cfg.set_border((0, 0), b);
-        }
-    }
-}
-
-mod peak2 {
-    use tabled::peaker::Peaker;
-
-    pub struct Peak2;
-
-    impl Peaker for Peak2 {
-        fn create() -> Self {
-            Self
-        }
-
-        fn peak(&mut self, _: &[usize], _: &[usize]) -> Option<usize> {
-            Some(1)
-        }
-    }
-}
-
-mod table_column_width {
-    use tabled::papergrid::{records::Records, Estimate};
-
-    pub struct GetColumnWidths(pub Vec<usize>);
-
-    impl<R> tabled::TableOption<R> for GetColumnWidths
-    where
-        R: Records,
-    {
-        fn change(&mut self, table: &mut tabled::Table<R>) {
-            let mut evaluator = tabled::papergrid::width::WidthEstimator::default();
-            evaluator.estimate(table.get_records(), table.get_config());
-            self.0 = evaluator.into();
-        }
-    }
-}
-
 mod global_horizontal_char {
     use tabled::{
-        papergrid::{records::Records, width::WidthEstimator, Estimate, Offset::Begin},
-        Table, TableOption,
+        grid::{
+            config::{ColoredConfig, Offset},
+            dimension::{CompleteDimensionVecRecords, Dimension},
+            records::{ExactRecords, Records},
+        },
+        settings::TableOption,
     };
 
     pub struct SetHorizontalChar {
-        c1: char,
-        c2: char,
-        line: usize,
-        position: usize,
+        intersection: char,
+        split: char,
+        index: usize,
     }
 
     impl SetHorizontalChar {
-        pub fn new(c1: char, c2: char, line: usize, position: usize) -> Self {
+        pub fn new(intersection: char, split: char, index: usize) -> Self {
             Self {
-                c1,
-                c2,
-                line,
-                position,
+                intersection,
+                split,
+                index,
             }
         }
     }
 
-    impl<R> TableOption<R> for SetHorizontalChar
-    where
-        R: Records,
+    impl<R: Records + ExactRecords> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig>
+        for SetHorizontalChar
     {
-        fn change(&mut self, table: &mut Table<R>) {
-            let shape = table.shape();
+        fn change(
+            self,
+            records: &mut R,
+            cfg: &mut ColoredConfig,
+            dimension: &mut CompleteDimensionVecRecords<'_>,
+        ) {
+            let count_columns = records.count_columns();
+            let count_rows = records.count_rows();
 
-            let is_last_line = self.line == (shape.0 * 2);
-            let mut row = self.line;
-            if is_last_line {
-                row = self.line - 1;
+            if count_columns == 0 || count_rows == 0 {
+                return;
             }
 
-            let mut evaluator = WidthEstimator::default();
-            evaluator.estimate(table.get_records(), table.get_config());
-            let widths: Vec<_> = evaluator.into();
+            let widths = get_widths(dimension, records.count_columns());
 
-            let mut i = 0;
-            #[allow(clippy::needless_range_loop)]
-            for column in 0..shape.1 {
-                let has_vertical = table.get_config().has_vertical(column, shape.1);
+            let has_vertical = cfg.has_vertical(0, count_columns);
+            if has_vertical && self.index == 0 {
+                let mut border = cfg.get_border((0, 0), (count_rows, count_columns));
+                border.left_top_corner = Some(self.intersection);
+                cfg.set_border((0, 0), border);
+                return;
+            }
 
+            let mut i = 1;
+            for (col, width) in widths.into_iter().enumerate() {
+                if self.index < i + width {
+                    let o = self.index - i;
+                    cfg.set_horizontal_char((0, col), self.split, Offset::Begin(o));
+                    return;
+                }
+
+                i += width;
+
+                let has_vertical = cfg.has_vertical(col, count_columns);
                 if has_vertical {
-                    if self.position == i {
-                        let mut border = table.get_config().get_border((row, column), shape);
-                        if is_last_line {
-                            border.left_bottom_corner = Some(self.c1);
-                        } else {
-                            border.left_top_corner = Some(self.c1);
-                        }
-
-                        table.get_config_mut().set_border((row, column), border);
-
+                    if self.index == i {
+                        let mut border = cfg.get_border((0, col), (count_rows, count_columns));
+                        border.right_top_corner = Some(self.intersection);
+                        cfg.set_border((0, col), border);
                         return;
                     }
 
                     i += 1;
                 }
-
-                let width = widths[column];
-
-                if self.position < i + width {
-                    let offset = self.position + 1 - i;
-                    // let offset = width - offset;
-
-                    table.get_config_mut().override_horizontal_border(
-                        (self.line, column),
-                        self.c2,
-                        Begin(offset),
-                    );
-
-                    return;
-                }
-
-                i += width;
-            }
-
-            let has_vertical = table.get_config().has_vertical(shape.1, shape.1);
-            if self.position == i && has_vertical {
-                let mut border = table.get_config().get_border((row, shape.1), shape);
-                if is_last_line {
-                    border.left_bottom_corner = Some(self.c1);
-                } else {
-                    border.left_top_corner = Some(self.c1);
-                }
-
-                table.get_config_mut().set_border((row, shape.1), border);
-            }
-        }
-    }
-}
-
-mod width_increase {
-    use tabled::{
-        object::Cell,
-        papergrid::{
-            records::{Records, RecordsMut},
-            width::WidthEstimator,
-            Entity, Estimate, GridConfig,
-        },
-        peaker::PriorityNone,
-        Modify, Width,
-    };
-
-    use tabled::{peaker::Peaker, Table, TableOption};
-
-    #[derive(Debug)]
-    pub struct IncWidth(pub usize);
-
-    impl<R> TableOption<R> for IncWidth
-    where
-        R: Records + RecordsMut<String>,
-    {
-        fn change(&mut self, table: &mut Table<R>) {
-            if table.is_empty() {
-                return;
-            }
-
-            let (widths, total_width) =
-                get_table_widths_with_total(table.get_records(), table.get_config());
-            if total_width >= self.0 {
-                return;
-            }
-
-            let increase_list =
-                get_increase_list(widths, self.0, total_width, PriorityNone::default());
-
-            for (col, width) in increase_list.into_iter().enumerate() {
-                for row in 0..table.get_records().count_rows() {
-                    let pad = table.get_config().get_padding(Entity::Cell(row, col));
-                    let width = width - pad.left.size - pad.right.size;
-
-                    table.with(Modify::new(Cell(row, col)).with(Width::increase(width)));
-                }
             }
         }
     }
 
-    fn get_increase_list<F>(
-        mut widths: Vec<usize>,
-        total_width: usize,
-        mut width: usize,
-        mut peaker: F,
-    ) -> Vec<usize>
-    where
-        F: Peaker,
-    {
-        while width != total_width {
-            let col = match peaker.peak(&[], &widths) {
-                Some(col) => col,
-                None => break,
-            };
-
-            widths[col] += 1;
-            width += 1;
+    fn get_widths(dims: &CompleteDimensionVecRecords<'_>, count_columns: usize) -> Vec<usize> {
+        let mut widths = vec![0; count_columns];
+        for (col, width) in widths.iter_mut().enumerate() {
+            *width = dims.get_width(col);
         }
 
         widths
     }
+}
 
-    fn get_table_widths_with_total<R>(records: R, cfg: &GridConfig) -> (Vec<usize>, usize)
-    where
-        R: Records,
-    {
-        let mut evaluator = WidthEstimator::default();
-        evaluator.estimate(&records, cfg);
-        let total_width = get_table_total_width(&records, cfg, &evaluator);
-        let widths = evaluator.into();
+mod set_widths {
+    use tabled::{
+        grid::{config::ColoredConfig, dimension::CompleteDimensionVecRecords},
+        settings::TableOption,
+    };
 
-        (widths, total_width)
-    }
+    pub struct SetWidths(pub Vec<usize>);
 
-    pub(crate) fn get_table_total_width<W, R>(records: R, cfg: &GridConfig, ctrl: &W) -> usize
-    where
-        W: Estimate<R>,
-        R: Records,
-    {
-        ctrl.total()
-            + cfg.count_vertical(records.count_columns())
-            + cfg.get_margin().left.size
-            + cfg.get_margin().right.size
+    impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetWidths {
+        fn change(
+            self,
+            _: &mut R,
+            _: &mut ColoredConfig,
+            dims: &mut CompleteDimensionVecRecords<'_>,
+        ) {
+            dims.set_widths(self.0);
+        }
     }
 }

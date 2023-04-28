@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
+use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
 mod environment;
@@ -140,6 +141,34 @@ fn nu_lib_dirs_relative_repl() {
     })
 }
 
+// TODO: add absolute path tests after we expand const capabilities (see #8310)
+#[test]
+fn const_nu_lib_dirs_relative() {
+    Playground::setup("const_nu_lib_dirs_relative", |dirs, sandbox| {
+        sandbox
+            .mkdir("scripts")
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "scripts/foo.nu",
+                r#"
+                    let-env FOO = "foo"
+                "#,
+            )])
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                    const NU_LIB_DIRS = [ 'scripts' ]
+                    source-env foo.nu
+                    $env.FOO
+                "#,
+            )]);
+
+        let outcome = nu!(cwd: dirs.test(), "source main.nu");
+
+        assert!(outcome.err.is_empty());
+        assert_eq!(outcome.out, "foo");
+    })
+}
+
 #[test]
 fn nu_lib_dirs_relative_script() {
     Playground::setup("nu_lib_dirs_relative_script", |dirs, sandbox| {
@@ -201,6 +230,7 @@ fn run_export_extern() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
@@ -215,6 +245,7 @@ fn run_in_login_mode() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_not_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
@@ -229,6 +260,7 @@ fn run_in_not_login_mode() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_interactive_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
@@ -243,6 +275,7 @@ fn run_in_interactive_mode() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn run_in_noninteractive_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")

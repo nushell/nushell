@@ -19,6 +19,7 @@ impl Command for Extern {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
+            .optional("body", SyntaxShape::Block, "wrapper function block")
             .category(Category::Core)
     }
 

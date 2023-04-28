@@ -84,3 +84,45 @@ fn print_created_paths() {
         assert!(actual.err.contains("dir_3"));
     })
 }
+
+#[test]
+fn creates_directory_three_dots() {
+    Playground::setup("mkdir_test_1", |dirs, _| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir test..."
+        );
+
+        let expected = dirs.test().join("test...");
+
+        assert!(expected.exists());
+    })
+}
+
+#[test]
+fn creates_directory_four_dots() {
+    Playground::setup("mkdir_test_1", |dirs, _| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir test...."
+        );
+
+        let expected = dirs.test().join("test....");
+
+        assert!(expected.exists());
+    })
+}
+
+#[test]
+fn creates_directory_three_dots_quotation_marks() {
+    Playground::setup("mkdir_test_1", |dirs, _| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir 'test...'"
+        );
+
+        let expected = dirs.test().join("test...");
+
+        assert!(expected.exists());
+    })
+}

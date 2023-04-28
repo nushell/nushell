@@ -141,7 +141,7 @@ fn rename(
                             // check if the specified column to be renamed exists
                             if !cols.contains(&c[0]) {
                                 return Value::Error {
-                                    error: ShellError::UnsupportedInput(
+                                    error: Box::new(ShellError::UnsupportedInput(
                                         format!(
                                             "The column '{}' does not exist in the input",
                                             &c[0]
@@ -151,7 +151,7 @@ fn rename(
                                         specified_col_span.unwrap_or(head_span),
                                         // Arrow 2 points at the input value.
                                         span,
-                                    ),
+                                    )),
                                 };
                             }
                             for (idx, val) in cols.iter_mut().enumerate() {
@@ -177,12 +177,12 @@ fn rename(
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { .. } => item.clone(),
                 other => Value::Error {
-                    error: ShellError::OnlySupportsThisInputType {
+                    error: Box::new(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head_span,
                         src_span: other.expect_span(),
-                    },
+                    }),
                 },
             },
             engine_state.ctrlc.clone(),

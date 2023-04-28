@@ -8,7 +8,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use tui::{layout::Rect, widgets::Block};
+use ratatui::{layout::Rect, widgets::Block};
 
 use crate::{
     nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},

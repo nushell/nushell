@@ -7,9 +7,9 @@ fn regular_columns() {
             echo [
                 [first_name, last_name, rusty_at, type];
 
-                [Andrés Robalino 10/11/2013 A]
-                [Jonathan Turner 10/12/2013 B]
-                [Yehuda Katz 10/11/2013 A]
+                [Andrés Robalino '10/11/2013' A]
+                [JT Turner '10/12/2013' B]
+                [Yehuda Katz '10/11/2013' A]
             ]
             | reject type first_name
             | columns
@@ -23,7 +23,7 @@ fn regular_columns() {
 #[test]
 fn skip_cell_rejection() {
     let actual = nu!(cwd: ".", pipeline(
-        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c.0"#));
+        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0"#));
 
     assert_eq!(actual.out, "txt");
 }
@@ -36,7 +36,7 @@ fn complex_nested_columns() {
                 "nu": {
                     "committers": [
                         {"name": "Andrés N. Robalino"},
-                        {"name": "Jonathan Turner"},
+                        {"name": "JT Turner"},
                         {"name": "Yehuda Katz"}
                     ],
                     "releases": [
@@ -85,7 +85,7 @@ fn reject_record_from_raw_eval() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-            {"a": 3, "a": 4} | reject a | describe
+            {"a": 3} | reject a | describe
             "#
         )
     );
@@ -98,7 +98,7 @@ fn reject_table_from_raw_eval() {
     let actual = nu!(
         cwd: ".", pipeline(
             r#"
-            [{"a": 3, "a": 4}] | reject a
+            [{"a": 3}] | reject a
             "#
         )
     );
@@ -117,4 +117,54 @@ fn reject_nested_field() {
     );
 
     assert_eq!(actual.out, "{a: {c: 5}}");
+}
+
+#[test]
+fn reject_two_identical_elements() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"[[a, a]; [1, 2]] | reject a"#
+        )
+    );
+    assert!(actual.out.contains("record 0 fields"));
+}
+
+#[test]
+fn reject_large_vec_with_two_identical_elements() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"[[a, b, c, d, e, a]; [1323, 23, 45, 100, 2, 2423]] | reject a"#
+        )
+    );
+    assert!(!actual.out.contains("1323"));
+    assert!(!actual.out.contains("2423"));
+    assert!(actual.out.contains('b'));
+    assert!(actual.out.contains('c'));
+    assert!(actual.out.contains('d'));
+    assert!(actual.out.contains('e'));
+    assert!(actual.out.contains("23"));
+    assert!(actual.out.contains("45"));
+    assert!(actual.out.contains("100"));
+    assert!(actual.out.contains('2'));
+}
+
+#[test]
+fn reject_optional_column() {
+    let actual = nu!("{} | reject foo? | to nuon");
+    assert_eq!(actual.out, "{}");
+
+    let actual = nu!("[{}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}]");
+
+    let actual = nu!("[{} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+
+    let actual = nu!("[{foo: 1} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+}
+
+#[test]
+fn reject_optional_row() {
+    let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
+    assert_eq!(actual.out, "[[foo]; [bar]]");
 }

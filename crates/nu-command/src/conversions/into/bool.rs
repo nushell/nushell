@@ -161,17 +161,19 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         },
         Value::String { val, .. } => match string_to_boolean(val, span) {
             Ok(val) => Value::Bool { val, span },
-            Err(error) => Value::Error { error },
+            Err(error) => Value::Error {
+                error: Box::new(error),
+            },
         },
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "bool, integer, float or string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

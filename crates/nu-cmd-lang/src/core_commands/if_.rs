@@ -20,7 +20,7 @@ impl Command for If {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("cond", SyntaxShape::Expression, "condition to check")
+            .required("cond", SyntaxShape::MathExpression, "condition to check")
             .required(
                 "then_block",
                 SyntaxShape::Block,
@@ -38,15 +38,6 @@ impl Command for If {
                 "expression or block to run if check fails",
             )
             .category(Category::Core)
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
-    }
-
-    fn is_parser_keyword(&self) -> bool {
-        true
     }
 
     fn run(

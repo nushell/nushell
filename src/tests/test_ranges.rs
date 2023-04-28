@@ -17,7 +17,7 @@ fn int_in_exclusive_range() -> TestResult {
 
 #[test]
 fn non_number_in_range() -> TestResult {
-    fail_test(r#"'a' in 1..3"#, "mismatched for operation")
+    fail_test(r#"'a' in 1..3"#, "subset comparison is not supported")
 }
 
 #[test]

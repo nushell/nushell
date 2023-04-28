@@ -75,6 +75,20 @@ impl RawStream {
             known_size: self.known_size,
         }
     }
+
+    pub fn drain(self) -> Result<(), ShellError> {
+        for next in self {
+            match next {
+                Ok(val) => {
+                    if let Value::Error { error } = val {
+                        return Err(*error);
+                    }
+                }
+                Err(err) => return Err(err),
+            }
+        }
+        Ok(())
+    }
 }
 impl Debug for RawStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -199,6 +213,15 @@ impl ListStream {
         self.map(|x: Value| x.into_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
+    }
+
+    pub fn drain(self) -> Result<(), ShellError> {
+        for next in self {
+            if let Value::Error { error } = next {
+                return Err(*error);
+            }
+        }
+        Ok(())
     }
 
     pub fn from_stream(

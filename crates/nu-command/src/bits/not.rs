@@ -90,7 +90,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
-                example: "[4 3 2] | bits not -n 2",
+                example: "[4 3 2] | bits not -n '2'",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_int(65531),
@@ -150,12 +150,12 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
             // Propagate errors inside the value
             Value::Error { .. } => other,
             _ => Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.expect_span(),
-                },
+                }),
             },
         },
     }

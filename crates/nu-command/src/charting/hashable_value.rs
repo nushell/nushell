@@ -79,7 +79,7 @@ impl HashableValue {
             Value::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
 
             // Explicitly propagate errors instead of dropping them.
-            Value::Error { error } => Err(error),
+            Value::Error { error } => Err(*error),
             _ => Err(ShellError::UnsupportedInput(
                 "input value is not hashable".into(),
                 format!("input type: {:?}", value.get_type()),
@@ -236,11 +236,15 @@ mod test {
             },
             Value::Nothing { span },
             Value::Error {
-                error: ShellError::DidYouMean("what?".to_string(), span),
+                error: Box::new(ShellError::DidYouMean("what?".to_string(), span)),
             },
             Value::CellPath {
                 val: CellPath {
-                    members: vec![PathMember::Int { val: 0, span }],
+                    members: vec![PathMember::Int {
+                        val: 0,
+                        span,
+                        optional: false,
+                    }],
                 },
                 span,
             },

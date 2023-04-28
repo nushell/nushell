@@ -175,7 +175,8 @@ These binaries interact with nu via a simple JSON-RPC protocol where the command
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
-The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins.
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins while the [showcase repo](https://github.com/nushell/showcase) *shows* off informative blog posts that have been written about Nushell along with videos that highlight technical
+topics that have been presented.
 
 ## Goals
 
@@ -221,6 +222,7 @@ Please submit an issue or PR to be added to this list.
 -   [oh-my-posh](https://ohmyposh.dev)
 -   [Couchbase Shell](https://couchbase.sh)
 -   [virtualenv](https://github.com/pypa/virtualenv)
+-   [atuin](https://github.com/ellie/atuin)
 
 ## Contributing
 

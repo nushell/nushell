@@ -98,11 +98,17 @@ impl Command for Histogram {
         let frequency_name_arg = call.opt::<Spanned<String>>(engine_state, stack, 1)?;
         let frequency_column_name = match frequency_name_arg {
             Some(inner) => {
-                if ["value", "count", "quantile", "percentage"].contains(&inner.item.as_str()) {
+                let forbidden_column_names = ["value", "count", "quantile", "percentage"];
+                if forbidden_column_names.contains(&inner.item.as_str()) {
                     return Err(ShellError::TypeMismatch {
-                        err_message:
-                            "frequency-column-name can't be 'value', 'count' or 'percentage'"
-                                .to_string(),
+                        err_message: format!(
+                            "frequency-column-name can't be {}",
+                            forbidden_column_names
+                                .iter()
+                                .map(|val| format!("'{}'", val))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ),
                         span: inner.span,
                     });
                 }
@@ -160,7 +166,7 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => {
                         let t = v.get_type();
                         let span = v.expect_span();
@@ -198,7 +204,7 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => continue,
                 }
             }

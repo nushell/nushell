@@ -21,22 +21,13 @@ impl Command for While {
         Signature::build("while")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("cond", SyntaxShape::Expression, "condition to check")
+            .required("cond", SyntaxShape::MathExpression, "condition to check")
             .required(
                 "block",
                 SyntaxShape::Block,
                 "block to loop if check succeeds",
             )
             .category(Category::Core)
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
-    }
-
-    fn is_parser_keyword(&self) -> bool {
-        true
     }
 
     fn run(
@@ -77,10 +68,13 @@ impl Command for While {
                                 return Err(err);
                             }
                             Ok(pipeline) => {
-                                let exit_code =
-                                    pipeline.print(engine_state, stack, false, false)?;
+                                let exit_code = pipeline.drain_with_exit_code()?;
                                 if exit_code != 0 {
-                                    break;
+                                    return Ok(
+                                        PipelineData::new_external_stream_with_only_exit_code(
+                                            exit_code,
+                                        ),
+                                    );
                                 }
                             }
                         }

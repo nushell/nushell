@@ -10,9 +10,9 @@ fn removes_duplicate_rows() {
             r#"
                 first_name,last_name,rusty_at,type
                 Andrés,Robalino,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
             "#,
         )]);
@@ -39,9 +39,9 @@ fn uniq_values() {
             r#"
                 first_name,last_name,rusty_at,type
                 Andrés,Robalino,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
             "#,
         )]);
@@ -59,6 +59,13 @@ fn uniq_values() {
 
         assert_eq!(actual.out, "2");
     })
+}
+
+#[test]
+fn uniq_empty() {
+    let actual = nu!("[] | uniq | to nuon");
+
+    assert_eq!(actual.out, "[]");
 }
 
 #[test]

@@ -36,7 +36,6 @@ pub fn create_default_context() -> EngineState {
             All,
             Any,
             Append,
-            Collect,
             Columns,
             Compact,
             Default,
@@ -57,6 +56,8 @@ pub fn create_default_context() -> EngineState {
             GroupBy,
             Headers,
             Insert,
+            Items,
+            Join,
             SplitBy,
             Take,
             Merge,
@@ -102,9 +103,7 @@ pub fn create_default_context() -> EngineState {
 
         // Misc
         bind_command! {
-            History,
             Tutor,
-            HistorySession,
         };
 
         // Path
@@ -168,6 +167,8 @@ pub fn create_default_context() -> EngineState {
             Encode,
             DecodeBase64,
             EncodeBase64,
+            DecodeHex,
+            EncodeHex,
             DetectColumns,
             Format,
             FileSize,
@@ -181,7 +182,6 @@ pub fn create_default_context() -> EngineState {
             Str,
             StrCamelCase,
             StrCapitalize,
-            StrCollect,
             StrContains,
             StrDistance,
             StrDowncase,
@@ -255,12 +255,8 @@ pub fn create_default_context() -> EngineState {
             AnsiLink,
             Clear,
             Du,
-            KeybindingsDefault,
             Input,
-            KeybindingsListen,
-            Keybindings,
             Kill,
-            KeybindingsList,
             Sleep,
             TermSize,
         };
@@ -386,6 +382,7 @@ pub fn create_default_context() -> EngineState {
             MathPi,
             MathTau,
             MathEuler,
+            MathExp,
             MathLn,
             MathLog,
         };
@@ -440,17 +437,18 @@ pub fn create_default_context() -> EngineState {
 
         // Deprecated
         bind_command! {
+            ExportOldAlias,
             HashBase64,
             LPadDeprecated,
-            RPadDeprecated,
-            Source,
-            StrDatetimeDeprecated,
-            StrDecimalDeprecated,
-            StrIntDeprecated,
-            StrFindReplaceDeprecated,
             MathEvalDeprecated,
             OldAlias,
-            ExportOldAlias,
+            RPadDeprecated,
+            Source,
+            StrCollectDeprecated,
+            StrDatetimeDeprecated,
+            StrDecimalDeprecated,
+            StrFindReplaceDeprecated,
+            StrIntDeprecated,
         };
 
         working_set.render()
@@ -459,6 +457,10 @@ pub fn create_default_context() -> EngineState {
     if let Err(err) = engine_state.merge_delta(delta) {
         eprintln!("Error creating default context: {err:?}");
     }
+
+    // Cache the table decl id so we don't have to look it up later
+    let table_decl_id = engine_state.find_decl("table".as_bytes(), &[]);
+    engine_state.table_decl_id = table_decl_id;
 
     engine_state
 }

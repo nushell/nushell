@@ -209,12 +209,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Error { .. } => return input.clone(),
         other => {
             return Value::Error {
-                error: ShellError::OnlySupportsThisInputType {
+                error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.expect_span(),
-                },
+                }),
             };
         }
     };
@@ -245,21 +245,21 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
                     Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
                     None => Value::Error {
-                        error: ShellError::DatetimeParseError(input.debug_value(), *span),
+                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
                     },
                 },
                 Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
                     Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
                     None => Value::Error {
-                        error: ShellError::DatetimeParseError(input.debug_value(), *span),
+                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
                     },
                 },
                 Zone::Error => Value::Error {
                     // This is an argument error, not an input error
-                    error: ShellError::TypeMismatch {
+                    error: Box::new(ShellError::TypeMismatch {
                         err_message: "Invalid timezone or offset".to_string(),
                         span: *span,
-                    },
+                    }),
                 },
             },
         };
@@ -273,7 +273,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ok(d) => Value::Date { val: d, span: head },
                     Err(reason) => {
                         Value::Error {
-                            error: ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                            error: Box::new(ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) }),
                         }
                     }
                 },
@@ -292,12 +292,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset_as_int() {
-        let date_int = Value::test_int(1614434140_000000000);
+        let date_int = Value::test_int(1_614_434_140_000_000_000);
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
