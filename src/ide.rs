@@ -642,15 +642,15 @@ pub fn ast(engine_state: &mut EngineState, file_path: &String) {
 
 fn json_merge(a: &mut JsonValue, b: &JsonValue) {
     match (a, b) {
-        (JsonValue::Object(ref mut a), &JsonValue::Object(ref b)) => {
+        (JsonValue::Object(ref mut a), JsonValue::Object(b)) => {
             for (k, v) in b {
                 json_merge(a.entry(k).or_insert(JsonValue::Null), v);
             }
         }
-        (JsonValue::Array(ref mut a), &JsonValue::Array(ref b)) => {
+        (JsonValue::Array(ref mut a), JsonValue::Array(b)) => {
             a.extend(b.clone());
         }
-        (JsonValue::Array(ref mut a), &JsonValue::Object(ref b)) => {
+        (JsonValue::Array(ref mut a), JsonValue::Object(b)) => {
             a.extend([JsonValue::Object(b.clone())]);
         }
         (a, b) => {
