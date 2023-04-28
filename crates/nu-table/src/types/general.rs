@@ -219,11 +219,11 @@ fn to_table_with_no_header(
     Ok(Some(table))
 }
 
-fn get_string_value_with_header(item: &Value, header: &String, opts: &BuildConfig) -> NuText {
+fn get_string_value_with_header(item: &Value, header: &str, opts: &BuildConfig) -> NuText {
     match item {
         Value::Record { .. } => {
             let path = PathMember::String {
-                val: header.clone(),
+                val: header.to_owned(),
                 span: Span::unknown(),
                 optional: false,
             };
