@@ -246,13 +246,7 @@ export def "help modules" [
     let module = ($module | str join " ")
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | find $find)
-
-        if ($found_modules | length) == 1 {
-            show-module ($found_modules | get 0)
-        } else {
-            $found_modules
-        }
+        $modules | find $find
     } else if not ($module | is-empty) {
         let found_module = ($modules | where name == $module)
 
@@ -356,13 +350,7 @@ export def "help aliases" [
     let alias = ($alias | str join " ")
 
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find)
-
-        if ($found_aliases | length) == 1 {
-            show-alias ($found_aliases | get 0)
-        } else {
-            $found_aliases
-        }
+        $aliases | find $find
     } else if not ($alias | is-empty) {
         let found_alias = ($aliases | where name == $alias)
 
@@ -402,13 +390,7 @@ export def "help externs" [
     let extern = ($extern | str join " ")
 
     if not ($find | is-empty) {
-        let found_externs = ($externs | find $find)
-
-        if ($found_externs | length) == 1 {
-            show-extern ($found_externs | get 0)
-        } else {
-            $found_externs
-        }
+        $externs | find $find
     } else if not ($extern | is-empty) {
         let found_extern = ($externs | where name == $extern)
 
@@ -474,13 +456,7 @@ export def "help operators" [
     let operator = ($operator | str join " ")
 
     if not ($find | is-empty) {
-        let found_operators = ($operators | find $find)
-
-        if ($found_operators | length) == 1 {
-            show-operator ($found_operators | get 0)
-        } else {
-            $found_operators
-        }
+        $operators | find $find
     } else if not ($operator | is-empty) {
         let found_operator = ($operators | where name == $operator)
 
@@ -663,13 +639,7 @@ export def "help commands" [
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find)
-
-        if ($found_commands | length) == 1 {
-            show-command ($found_commands | get 0)
-        } else {
-            $found_commands | select name category usage signatures search_terms
-        }
+        $commands | find $find | select name category usage signatures search_terms
     } else if not ($command | is-empty) {
         let found_command = ($commands | where name == $command)
 
