@@ -234,7 +234,7 @@ fn get_string_value_with_header(item: &Value, header: &String, opts: &BuildConfi
                 Err(_) => get_empty_style(opts.style_computer),
             }
         }
-        value => get_string_value(&value, opts),
+        value => get_string_value(value, opts),
     }
 }
 
