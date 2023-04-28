@@ -127,7 +127,16 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
 
     if (decl_name == b"def" || decl_name == b"def-env") && spans.len() >= 4 {
         let starting_error_count = working_set.parse_errors.len();
-        let name = working_set.get_span_contents(spans[1]);
+        let name = if let Some(err) = detect_params_in_name(
+            working_set,
+            spans[1],
+            String::from_utf8_lossy(decl_name).as_ref(),
+        ) {
+            working_set.error(err);
+            return;
+        } else {
+            working_set.get_span_contents(spans[1])
+        };
         let name = trim_quotes(name);
         let name = String::from_utf8_lossy(name).to_string();
 
