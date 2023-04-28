@@ -1,8 +1,22 @@
+
+# todo: help modules use "imported" and "subcommands" subsections to simplify display; use <sugbcommand> <usage> detail
+# todo: revert help commands param display to original +/-;
+#       retain consolidated for --concise
+# doc: --concise, not --verbose
+# doc: match uses <regex>
+# doc: --find is a switch
+# doc: Flags section and Command Type
+# doc: help -f <string> is unanchored match in multiple columns; 
+#      help <string> is whole word match, only in name column
+
+def variable_shape_color [] {
+    ($env.config.color_config.shape_variable | default light_purple))
+}
+
 # <string> | colorize ...color => string
 # colorize input, not forgetting to reset afterwards.
 def colorize [...color_names: string] {
     $"($color_names | each {|c| (ansi $c)} | str join '')($in)(ansi reset)"
-
 }
 
 def error-fmt [] {
@@ -124,15 +138,15 @@ def print-help-header [
     }
 }
 
-def show-module [module: record] {
+def show-module [module: record , --concise] {
+    print-help-header -n "Module"
+    print $" ($module.name)"
+    print ""
+
     if not ($module.usage? | is-empty) {
         print $module.usage
         print ""
     }
-
-    print-help-header -n "Module"
-    print $" ($module.name)"
-    print ""
 
     if not ($module.commands? | is-empty) {
         print-help-header "Exported commands"
@@ -151,17 +165,20 @@ def show-module [module: record] {
     }
 
     if not ($module.aliases? | is-empty) {
-        print-help-header -n "Exported aliases:"
+        print-help-header -n "Exported aliases"
         print $module.aliases
         print ""
     }
 
+    print-help-header "Exported environment"
+
     if ($module.env_block? | is-empty) {
-        print $"This module ('does not export' | colorize cyan) environment."
+        print ('$nothing' | colorize (variable_shape_color))
     } else {
-        print $"This module ('exports' | colorize cyan) environment."
-        view source $module.env_block
+        print (view source $module.env_block | nu-highlight)
     }
+
+    print ""
 }
 
 # Show help on nushell modules.
@@ -279,7 +296,7 @@ export def "help modules" [
     }
 }
 
-def show-alias [alias: record] {
+def show-alias [alias: record --concise] {
     if not ($alias.usage? | is-empty) {
         print $alias.usage
         print ""
@@ -517,21 +534,37 @@ def format_token [ ] {
 
 # format datatype name: italicized in blue
 def format_type [ ] {
-    ($in  | colorize attr_italic ($env.config.color_config.shape_variable | default light_purple))
+    ($in  | colorize attr_italic (variable_shape_color))
+}
+
+# <nothing> | cmd_type <signature> => <string>
+# return "command_type" based on signature bits
+def cmd_type [sig:record] {
+    if $sig.is_builtin {
+        'builtin command'
+    } else if $sig.is_extern { # must test before custom
+        'external command'
+    } else if $sig.is_custom {
+        'custom command'
+    } else if $sig.is_plugin {
+        'plugin'
+    } else {'other command'}
+
 }
 
 # show help for single command.  By default, show only essential sections, don't scroll usage off top of screen
 #todo remove debugging
 def show-command [
         command: record
-        --verbose (-v) # Show more details
+        --concise (-c) # Show less detail
 ] {    
     mut out = []
-    $out = ["", $"(help-header "Usage") ($command.usage?)", ""]
+    $out = ["", $"(help-header "Usage") ($command.usage?)"]
     mut indent = 5 # indent parameters under input verb name
     mut tab_stop = 40 # column to start descriptions
 
     for sig in ($command.signatures | transpose | get column1) {
+        $out = ($out | append " ")
         for i in $sig {
             let lhs = (match $i.parameter_type {
                 "input" => { 
@@ -548,7 +581,7 @@ def show-command [
                     (' ' * $indent) + "..." + (if (($i.parameter_name? | is-empty) or ($i.parameter_name == "")) {"rest"} else {$i.parameter_name}) + ((":" + $i.syntax_shape) | format_type)
                  },
                 "output" => { 
-                    $"   => ($i.syntax_shape | format_token)"
+                    $"  => ($i.syntax_shape | format_token)"
                 },
             }) 
 
@@ -597,7 +630,7 @@ def show-command [
     print ""
 
     
-    if $verbose {
+    if not $concise {
         if not ($command.search_terms? | is-empty) {
             print ""
             print-help-header -n "Search terms"
@@ -617,38 +650,12 @@ def show-command [
         }
 
         print ""
-        print "This command:"
-        []
-        if ($command.creates_scope) {
-            print $"- ('does create' | colorize cyan) a scope."
-        } else {
-            print $"- ('does not create' | colorize cyan) a scope."
-        }
-        if ($command.is_builtin) {
-            print $"- ('is' | colorize cyan) a built-in command."
-        } else {
-            print $"- ('is not' | colorize cyan) a built-in command."
-        }
-        if ($command.is_sub) {
-            print $"- ('is' | colorize cyan) a subcommand."
-        } else {
-            print $"- ('is not' | colorize cyan) a subcommand."
-        }
-        if ($command.is_plugin) {
-            print $"- ('is part' | colorize cyan) of a plugin."
-        } else {
-            print $"- ('is not part' | colorize cyan) of a plugin."
-        }
-        if ($command.is_custom) {
-            print $"- ('is' | colorize cyan) a custom command."
-        } else {
-            print $"- ('is not' | colorize cyan) a custom command."
-        }
-        if ($command.is_keyword) {
-            print $"- ('is' | colorize cyan) a keyword."
-        } else {
-            print $"- ('is not' | colorize cyan) a keyword."
-        }
+        print-help-header "Flags"
+        ""
+        print ({"Command type": (cmd_type $command),
+                "Creates scope": $command.creates_scope,
+                "Is parser keyword": $command.is_keyword
+        } | table)
 
         print ""
     }
@@ -658,7 +665,7 @@ def show-command [
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
-    --verbose (-v) # Show more details
+    --concise (-v) # Show more details
 
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
@@ -668,9 +675,9 @@ export def "help commands" [
         let found_commands = ($commands | find $find --columns [name usage search_terms])
 
         if ($found_commands | length) == 1 {
-            #todo refactor so only one invocation of show-command, because it's clunky to pass --verbose
-            if $verbose {
-                show-command --verbose ($found_commands | get 0)  
+            #todo refactor so only one invocation of show-command, because it's clunky to pass --concise
+            if $concise {
+                show-command --concise ($found_commands | get 0)  
             } else {
                 show-command ($found_commands | get 0)
             }
@@ -683,9 +690,9 @@ export def "help commands" [
         if ($found_command | is-empty) {
             command-not-found-error (metadata $command | get span)
         }
-        #todo refactor so only one invocation of show-command, because it's clunky to pass --verbose
-        if $verbose {
-            show-command --verbose ($found_command | get 0)  
+        #todo refactor so only one invocation of show-command, because it's clunky to pass --concise
+        if $concise {
+            show-command --concise ($found_command | get 0)  
         } else {
             show-command ($found_command | get 0)
         }
@@ -698,6 +705,48 @@ def pretty-cmd [] {
     let cmd = $in
     $"(ansi default_dimmed)(ansi default_italic)($cmd)(ansi reset)"
 }
+
+# find matching items in aliases, modules and commands
+def lookup-matches [target: string, # regex pattern to match on
+            $find:bool              # true -> search in more than just name column
+            --only:string=""        # one of 'modules', 'aliases', 'commands' to limit results to that kind
+] {
+
+
+    # prime search with list of columns in signatures to include in --find search.
+    mut match_cols = if $find {
+            {aliases: [name usage expansion],
+            commands: [name module_name category usage  search_terms],
+                            # and not: signatures examples is_* creates_scope extra_usage
+            modules: [name usage commands aliases env_block]
+            }
+        } else {
+            {aliases: [name],
+            commands: [name],
+            modules: [name]
+            }
+        }
+    
+    # restrict scope members searched, if requested
+    if $only != "" { 
+        $match_cols = ($match_cols | reject $only)
+    }
+
+    let retval = ($match_cols | items {| k v | 
+        ($nu.scope | get $k | find --ignore-case --columns $v --regex $target) |
+            insert kind { |r| 
+                match $k {
+                    'aliases' => 'alias'
+                    'modules' => 'module'
+                    'commands' => (cmd_type $r)
+                }
+            } |
+            select --ignore-errors name usage kind category 
+        } | flatten
+    )
+    return $retval
+}
+    
 
 # Display help information about different parts of Nushell.
 #
@@ -713,11 +762,11 @@ def pretty-cmd [] {
 #   search for string in command names, usage and search terms
 #   > help --find char
 export def main [
-    ...item: string  # the name of the help item to get help on
-    --find (-f): string  # string to find in help items names and usage
-    --verbose (-v) # Show more detail
+    ...item: string # the name or path of the item to get help on.
+    --find (-f)     # match not just on name but other info as well
+    --concise (-c)  # Show less detail
 ] {
-    if ($item | is-empty) and ($find | is-empty) {
+    if ($item | is-empty) and (not $find) {
         print $"Welcome to Nushell.
 
 Here are some tips to help you get started.
@@ -743,20 +792,41 @@ You can also learn more at ('https://www.nushell.sh/book/' | colorize default_it
         return
     }
 
-    let item = ($item | str join " ")
-    let commands = (try { 
-        if $verbose {
-            help commands --verbose $item --find $find 
-        } else {
-            help commands $item --find $find 
+    mut $target = ($item | str join " ")
+    if not $find { 
+        $target = '^' + $target + '$' 
+    }
+    
+    let $found_items = (lookup-matches $target $find)
+
+    if $find or ($found_items | length) != 1 {
+        $found_items
+    } else {
+        let victim = $found_items.0
+        match $found_items.0.kind {
+            'module' => {
+                if $concise {
+                    (show-module --concise ($nu.scope.modules | where name == $found_items.0.name | get 0) )
+                } else {
+                    (show-module           ($nu.scope.modules | where name == $found_items.0.name | get 0) )
+                }
+            }
+            'alias' => {
+                if $concise {
+                    (show-alias --concise ($nu.scope.aliases | where name == $found_items.0.name | get 0) )
+                } else {
+                    (show-alias           ($nu.scope.asiases | where name == $found_items.0.name | get 0) )
+                }
+            }
+            _ => {
+                if $concise {
+                    (show-command --concise ($nu.scope.commands | where name == $found_items.0.name | get 0) )
+                } else {
+                    (show-command           ($nu.scope.commands | where name == $found_items.0.name | get 0) )
+                }
+            }
         }
-    })
-
-    if not ($commands | is-empty) { return $commands }
-
-    let aliases = (try { help aliases $item --find $find })
-    if not ($aliases | is-empty) { return $aliases }
-
-    let modules = (try { help modules $item --find $find })
-    if not ($modules | is-empty) { return $modules }
+    }
+    
+    
 }
