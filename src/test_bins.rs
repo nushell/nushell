@@ -6,6 +6,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{CliError, PipelineData, Value};
+use nu_std::load_standard_library;
 // use nu_test_support::fs::in_directory;
 
 /// Echo's value of env keys from args
@@ -178,6 +179,8 @@ pub fn nu_repl() {
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
+
+    load_standard_library(&mut engine_state).expect("Could not load the standard library.");
 
     for (i, line) in source_lines.iter().enumerate() {
         let cwd = nu_engine::env::current_dir(&engine_state, &stack)
