@@ -244,5 +244,6 @@ Learn how to remove this at: (ansi green)https://nushell.sh/book/configuration.h
 It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
 ((date now) - 2019-05-10T09:59:12-07:00)
 
-Startup Time: ($nu.startup-time)"
+Startup Time: ($nu.startup-time)
+"
 }
