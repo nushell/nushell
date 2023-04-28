@@ -160,6 +160,17 @@ pub fn evaluate_repl(
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
+    if engine_state.get_config().show_banner {
+        eval_source(
+            engine_state,
+            stack,
+            r#"use std banner; banner"#.as_bytes(),
+            "show_banner",
+            PipelineData::empty(),
+            false,
+        );
+    }
+
     loop {
         let loop_start_time = std::time::Instant::now();
 

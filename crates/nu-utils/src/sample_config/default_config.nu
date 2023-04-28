@@ -538,8 +538,3 @@ let-env config = {
     }
   ]
 }
-
-if $env.config.show_banner and $nu.is-interactive {
-    use std banner
-    banner
-}
