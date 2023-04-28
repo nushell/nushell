@@ -653,33 +653,76 @@ def show-command [command: record] {
     print ""
 }
 
-# Show help on nushell commands.
+def show-command-extern [command: string] {
+    let flags = ["--help" "-h"]
+    let flags_length = ($flags | length)
+    let fall_back = "tldr"
+
+    def _try_flag [command: string, flag: string] {
+        try {
+            if (^$command $flag | complete | get exit_code) != 0 {
+                false
+            }
+            true
+        } catch {
+            false
+        }
+    }
+
+    mut command = $command
+    if ($command | str starts-with "^") {
+        $command = ($command | str substring 1..)
+    }
+    mut ret_flag = null
+    for $flag in $flags {
+        if (_try_flag $command $flag) {
+            $ret_flag = $flag
+            break
+        }
+    }
+
+    # TODO: find better way of doing this
+    print $"External command (($command)) help page:\n"
+    if $ret_flag == null {
+        ^$fall_back $command
+    } else {
+        ^$command $ret_flag
+    }
+}
+
+# Show help on commands.
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
-    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+    let nu_commands = ($nu.scope.commands | sort-by name | where not is_extern | reject is_extern )
 
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find)
+        # TODO: impl find for external commands
+        let nu_commands = ($nu_commands | find $find)
 
-        if ($found_commands | length) == 1 {
-            show-command ($found_commands | get 0)
+        if ($nu_commands | length) == 1 {
+            show-command ($nu_commands | get 0)
         } else {
-            $found_commands | select name category usage signatures search_terms
+            $nu_commands | select name category usage signatures search_terms
         }
     } else if not ($command | is-empty) {
-        let found_command = ($commands | where name == $command)
+        let found_command_nu = ($nu_commands | where name == $command)
 
-        if ($found_command | is-empty) {
-            command-not-found-error (metadata $command | get span)
+        if not ($found_command_nu | is-empty) {
+            show-command ($found_command_nu | get 0)
+        } else {
+            try {
+                show-command-extern $command
+            } catch {
+                command-not-found-error (metadata $command | get span)
+            }
         }
 
-        show-command ($found_command | get 0)
     } else {
-        $commands | select name category usage signatures search_terms
+        $nu_commands | select name category usage signatures search_terms
     }
 }
 
