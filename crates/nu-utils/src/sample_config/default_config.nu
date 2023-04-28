@@ -538,3 +538,8 @@ let-env config = {
     }
   ]
 }
+
+if $env.config.show_banner {
+    use std banner
+    banner
+}
