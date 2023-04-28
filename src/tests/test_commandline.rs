@@ -62,7 +62,27 @@ fn commandline_test_cursor() -> TestResult {
 }
 
 #[test]
-fn commandline_test_cursor_show_pos() -> TestResult {
+fn commandline_test_cursor_show_pos_begin() -> TestResult {
+    run_test(
+        "commandline --replace '0👩‍❤️‍👩'\n\
+        commandline --cursor '0'\n\
+        commandline --cursor",
+        "0",
+    )
+}
+
+#[test]
+fn commandline_test_cursor_show_pos_end() -> TestResult {
+    run_test(
+        "commandline --replace '0👩‍❤️‍👩'\n\
+        commandline --cursor '2'\n\
+        commandline --cursor",
+        "2",
+    )
+}
+
+#[test]
+fn commandline_test_cursor_show_pos_mid() -> TestResult {
     run_test(
         "commandline --replace '0👩‍❤️‍👩2'\n\
         commandline --cursor '1'\n\
