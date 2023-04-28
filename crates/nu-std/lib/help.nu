@@ -33,7 +33,7 @@ def command-not-found-error [span: record] {
     throw-error "std::help::command_not_found" "command not found" $span
 }
 
-def get-all-operators [] { return ([
+def get-all-operators [] { return [
     [type, operator, name, description, precedence];
 
     [Assignment, =, Assign, "Assigns a value to a variable.", 10]
@@ -71,7 +71,7 @@ def get-all-operators [] { return ([
     [Boolean, and, And, "Checks if two values are true.", 50]
     [Boolean, or, Or, "Checks if either value is true.", 40]
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
-] | sort-by name)}
+]}
 
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description
