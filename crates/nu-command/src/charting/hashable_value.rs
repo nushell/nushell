@@ -240,7 +240,11 @@ mod test {
             },
             Value::CellPath {
                 val: CellPath {
-                    members: vec![PathMember::Int { val: 0, span }],
+                    members: vec![PathMember::Int {
+                        val: 0,
+                        span,
+                        optional: false,
+                    }],
                 },
                 span,
             },

@@ -35,10 +35,10 @@ impl Command for FromXml {
     fn extra_usage(&self) -> &str {
         r#"Every XML entry is represented via a record with tag, attribute and content fields.
 To represent different types of entries different values are written to this fields:
-1. Tag entry: {tag: <tag name> attrs: {<attr name>: "<string value>" ...} content: [<entries>]}
-2. Comment entry: {tag: '!' attrs: null content: "<comment string>"}
-3. Processing instruction (PI): {tag: '?<pi name>' attrs: null content: "<pi content string>"}
-4. Text: {tag: null attrs: null content: "<text>"}.
+1. Tag entry: `{tag: <tag name> attrs: {<attr name>: "<string value>" ...} content: [<entries>]}`
+2. Comment entry: `{tag: '!' attrs: null content: "<comment string>"}`
+3. Processing instruction (PI): `{tag: '?<pi name>' attrs: null content: "<pi content string>"}`
+4. Text: `{tag: null attrs: null content: "<text>"}`.
 
 Unlike to xml command all null values are always present and text is never represented via plain
 string. This way content of every tag is always a table and is easier to parse"#
@@ -141,7 +141,6 @@ fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
 
     let content: Vec<Value> = n
         .children()
-        .into_iter()
         .filter_map(|node| from_node_to_value(&node, info))
         .collect();
     let content = Value::list(content, span);
@@ -395,7 +394,7 @@ mod tests {
     fn parses_empty_element() -> Result<(), roxmltree::Error> {
         let source = "<nu></nu>";
 
-        assert_eq!(parse(source)?, content_tag("nu", indexmap! {}, &vec![]));
+        assert_eq!(parse(source)?, content_tag("nu", indexmap! {}, &[]));
 
         Ok(())
     }
@@ -409,7 +408,7 @@ mod tests {
             content_tag(
                 "nu",
                 indexmap! {},
-                &vec![content_string("La era de los tres caballeros")]
+                &[content_string("La era de los tres caballeros")]
             )
         );
 
@@ -421,7 +420,7 @@ mod tests {
         let source = "\
 <nu>
     <dev>Andrés</dev>
-    <dev>Jonathan</dev>
+    <dev>JT</dev>
     <dev>Yehuda</dev>
 </nu>";
 
@@ -431,9 +430,9 @@ mod tests {
                 "nu",
                 indexmap! {},
                 &vec![
-                    content_tag("dev", indexmap! {}, &vec![content_string("Andrés")]),
-                    content_tag("dev", indexmap! {}, &vec![content_string("Jonathan")]),
-                    content_tag("dev", indexmap! {}, &vec![content_string("Yehuda")])
+                    content_tag("dev", indexmap! {}, &[content_string("Andrés")]),
+                    content_tag("dev", indexmap! {}, &[content_string("JT")]),
+                    content_tag("dev", indexmap! {}, &[content_string("Yehuda")])
                 ]
             )
         );
@@ -449,7 +448,7 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            content_tag("nu", indexmap! {"version" => "2.0"}, &vec![])
+            content_tag("nu", indexmap! {"version" => "2.0"}, &[])
         );
 
         Ok(())
@@ -467,10 +466,10 @@ mod tests {
             content_tag(
                 "nu",
                 indexmap! {"version" => "2.0"},
-                &vec![content_tag(
+                &[content_tag(
                     "version",
                     indexmap! {},
-                    &vec![content_string("2.0")]
+                    &[content_string("2.0")]
                 )]
             )
         );
@@ -486,7 +485,7 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            content_tag("nu", indexmap! {"version" => "2.0", "age" => "25"}, &vec![])
+            content_tag("nu", indexmap! {"version" => "2.0", "age" => "25"}, &[])
         );
 
         Ok(())

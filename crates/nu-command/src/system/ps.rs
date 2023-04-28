@@ -67,6 +67,11 @@ impl Command for Ps {
                 example: "ps | where name =~ 'nu'",
                 result: None,
             },
+            Example {
+                description: "Get the parent process id of the current nu process",
+                example: "ps | where pid == $nu.pid | get ppid",
+                result: None,
+            },
         ]
     }
 }
@@ -83,6 +88,12 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
         cols.push("pid".to_string());
         vals.push(Value::Int {
             val: proc.pid() as i64,
+            span,
+        });
+
+        cols.push("ppid".to_string());
+        vals.push(Value::Int {
+            val: proc.ppid() as i64,
             span,
         });
 

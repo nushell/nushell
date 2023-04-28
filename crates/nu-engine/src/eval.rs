@@ -6,10 +6,9 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, ProfilingConfig, Stack},
-    Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
+    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use nu_utils::stdout_write_all_and_flush;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -73,9 +72,8 @@ pub fn eval_call(
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
                 callee_stack.add_var(var_id, result);
-            } else if let Some(arg) = &param.default_value {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
-                callee_stack.add_var(var_id, result);
+            } else if let Some(value) = &param.default_value {
+                callee_stack.add_var(var_id, value.to_owned());
             } else {
                 callee_stack.add_var(var_id, Value::nothing(call.head));
             }
@@ -113,7 +111,22 @@ pub fn eval_call(
             if let Some(var_id) = named.var_id {
                 let mut found = false;
                 for call_named in call.named_iter() {
-                    if call_named.0.item == named.long {
+                    if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
+                        if spanned.item == short.to_string() {
+                            if let Some(arg) = &call_named.2 {
+                                let result = eval_expression(engine_state, caller_stack, arg)?;
+
+                                callee_stack.add_var(var_id, result);
+                            } else if let Some(arg) = &named.default_value {
+                                let result = eval_expression(engine_state, caller_stack, arg)?;
+
+                                callee_stack.add_var(var_id, result);
+                            } else {
+                                callee_stack.add_var(var_id, Value::boolean(true, call.head))
+                            }
+                            found = true;
+                        }
+                    } else if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.2 {
                             let result = eval_expression(engine_state, caller_stack, arg)?;
 
@@ -300,7 +313,7 @@ pub fn eval_expression(
         Expr::FullCellPath(cell_path) => {
             let value = eval_expression(engine_state, stack, &cell_path.head)?;
 
-            value.follow_cell_path(&cell_path.tail, false, false)
+            value.follow_cell_path(&cell_path.tail, false)
         }
         Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Overlay(_) => {
@@ -336,6 +349,11 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::MatchPattern(pattern) => Ok(Value::MatchPattern {
+            val: pattern.clone(),
+            span: expr.span,
+        }),
+        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
@@ -455,7 +473,7 @@ pub fn eval_expression(
                         Expr::Var(var_id) | Expr::VarDecl(var_id) => {
                             let var_info = engine_state.get_var(*var_id);
                             if var_info.mutable {
-                                stack.vars.insert(*var_id, rhs);
+                                stack.add_var(*var_id, rhs);
                                 Ok(Value::nothing(lhs.span))
                             } else {
                                 Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
@@ -484,7 +502,6 @@ pub fn eval_expression(
                                         let vardata = lhs.follow_cell_path(
                                             &[cell_path.tail[0].clone()],
                                             false,
-                                            false,
                                         )?;
                                         match &cell_path.tail[0] {
                                             PathMember::String { val, .. } => {
@@ -496,7 +513,7 @@ pub fn eval_expression(
                                             }
                                         }
                                     } else {
-                                        stack.vars.insert(*var_id, lhs);
+                                        stack.add_var(*var_id, lhs);
                                     }
                                     Ok(Value::nothing(cell_path.head.span))
                                 } else {
@@ -557,7 +574,10 @@ pub fn eval_expression(
                 let pos = cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
-                        vals[index] = eval_expression(engine_state, stack, val)?;
+                        return Err(ShellError::ColumnDefinedTwice {
+                            second_use: col.span,
+                            first_use: fields[index].0.span,
+                        })
                     }
                     None => {
                         cols.push(col_name);
@@ -700,19 +720,35 @@ pub fn eval_expression_with_input(
             input = eval_subexpression(engine_state, stack, block, input)?;
         }
 
+        elem @ Expression {
+            expr: Expr::FullCellPath(full_cell_path),
+            ..
+        } => match &full_cell_path.head {
+            Expression {
+                expr: Expr::Subexpression(block_id),
+                span,
+                ..
+            } => {
+                let block = engine_state.get_block(*block_id);
+
+                // FIXME: protect this collect with ctrl-c
+                input = eval_subexpression(engine_state, stack, block, input)?;
+                let value = input.into_value(*span);
+                input = value
+                    .follow_cell_path(&full_cell_path.tail, false)?
+                    .into_pipeline_data()
+            }
+            _ => {
+                input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            }
+        },
+
         elem => {
             input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
         }
     };
 
-    // Note: for `table` command, it mights returns `ExternalStream with stdout`
-    // whatever `redirect_output` is true or false, so we only want to consume ExternalStream
-    // if relative stdout is None.
-    if let PipelineData::ExternalStream { stdout: None, .. } = input {
-        Ok(might_consume_external_result(input))
-    } else {
-        Ok((input, false))
-    }
+    Ok(might_consume_external_result(input))
 }
 
 // Try to catch and detect if external command runs to failed.
@@ -837,7 +873,7 @@ pub fn eval_element_with_input(
                             ],
                             redirect_stdout: false,
                             redirect_stderr: false,
-                            parser_info: vec![],
+                            parser_info: HashMap::new(),
                         },
                         input,
                     )
@@ -908,7 +944,7 @@ pub fn eval_element_with_input(
                             ],
                             redirect_stdout: false,
                             redirect_stderr: false,
-                            parser_info: vec![],
+                            parser_info: HashMap::new(),
                         },
                         input,
                     )
@@ -1120,24 +1156,7 @@ pub fn eval_block(
                 } => {
                     let exit_code = exit_code.take();
 
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(Span::new(0, 0)),
-                                input,
-                            )?;
-
-                            print_or_return(table, config)?;
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
+                    input.drain()?;
 
                     if let Some(exit_code) = exit_code {
                         let mut v: Vec<_> = exit_code.collect();
@@ -1147,40 +1166,7 @@ pub fn eval_block(
                         }
                     }
                 }
-                _ => {
-                    // Drain the input to the screen via tabular output
-                    let config = engine_state.get_config();
-
-                    match engine_state.find_decl("table".as_bytes(), &[]) {
-                        Some(decl_id) => {
-                            let table = engine_state.get_decl(decl_id);
-
-                            if let Some(block_id) = table.get_block_id() {
-                                let block = engine_state.get_block(block_id);
-                                eval_block(
-                                    engine_state,
-                                    stack,
-                                    block,
-                                    input,
-                                    redirect_stdout,
-                                    redirect_stderr,
-                                )?;
-                            } else {
-                                let table = table.run(
-                                    engine_state,
-                                    stack,
-                                    &Call::new(Span::new(0, 0)),
-                                    input,
-                                )?;
-
-                                print_or_return(table, config)?;
-                            }
-                        }
-                        None => {
-                            print_or_return(input, config)?;
-                        }
-                    };
-                }
+                _ => input.drain()?,
             }
 
             input = PipelineData::empty()
@@ -1195,21 +1181,6 @@ pub fn eval_block(
     }
 }
 
-fn print_or_return(pipeline_data: PipelineData, config: &Config) -> Result<(), ShellError> {
-    for item in pipeline_data {
-        if let Value::Error { error } = item {
-            return Err(*error);
-        }
-
-        let mut out = item.into_string("\n", config);
-        out.push('\n');
-
-        stdout_write_all_and_flush(out)?;
-    }
-
-    Ok(())
-}
-
 pub fn eval_subexpression(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -1217,70 +1188,12 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        for (expr_indx, expr) in pipeline.elements.iter().enumerate() {
-            if expr_indx != pipeline.elements.len() - 1 {
-                input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0;
-            } else {
-                // In subexpression, we always need to redirect stdout because the result is substituted to a Value.
-                //
-                // But we can check if external result is failed to run when it's the last expression
-                // in pipeline.  e.g: (^false; echo aaa)
-                //
-                // If external command is failed to run, it can't be convert into value, in this case
-                // we throws out `ShellError::ExternalCommand`.  And show it's stderr message information.
-                // In the case, we need to capture stderr first during eval.
-                input = eval_element_with_input(engine_state, stack, expr, input, true, true)?.0;
-                if matches!(input, PipelineData::ExternalStream { .. }) {
-                    input = check_subexp_substitution(input)?;
-                }
-            }
+        for expr in pipeline.elements.iter() {
+            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
         }
     }
 
     Ok(input)
-}
-
-fn check_subexp_substitution(mut input: PipelineData) -> Result<PipelineData, ShellError> {
-    let consume_result = might_consume_external_result(input);
-    input = consume_result.0;
-    let failed_to_run = consume_result.1;
-    if let PipelineData::ExternalStream {
-        stdout,
-        stderr,
-        exit_code,
-        span,
-        metadata,
-        trim_end_newline,
-    } = input
-    {
-        let stderr_msg = match stderr {
-            None => "".to_string(),
-            Some(stderr_stream) => stderr_stream.into_string().map(|s| s.item)?,
-        };
-        if failed_to_run {
-            Err(ShellError::ExternalCommand {
-                label: "External command failed".to_string(),
-                help: stderr_msg,
-                span,
-            })
-        } else {
-            // we've captured stderr message, but it's running success.
-            // So we need to re-print stderr message out.
-            if !stderr_msg.is_empty() {
-                eprintln!("{stderr_msg}");
-            }
-            Ok(PipelineData::ExternalStream {
-                stdout,
-                stderr: None,
-                exit_code,
-                span,
-                metadata,
-                trim_end_newline,
-            })
-        }
-    } else {
-        Ok(input)
-    }
 }
 
 pub fn eval_variable(

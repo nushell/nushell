@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
 };
+use regex::Regex;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -30,6 +31,7 @@ impl Command for SubCommand {
                 "the character or string that denotes what separates columns",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
+            .switch("regex", "separator is a regular expression", Some('r'))
             .rest(
                 "rest",
                 SyntaxShape::String,
@@ -117,6 +119,25 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Split a list of strings into a table, ignoring padding",
+                example: r"['a -  b' 'c  -    d'] | split column -r '\s*-\s*'",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["column1".to_string(), "column2".to_string()],
+                            vals: vec![Value::test_string("a"), Value::test_string("b")],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["column1".to_string(), "column2".to_string()],
+                            vals: vec![Value::test_string("c"), Value::test_string("d")],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -132,30 +153,43 @@ fn split_column(
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
+    let regex = if call.has_flag("regex") {
+        Regex::new(&separator.item)
+    } else {
+        let escaped = regex::escape(&separator.item);
+        Regex::new(&escaped)
+    }
+    .map_err(|err| {
+        ShellError::GenericError(
+            "Error with regular expression".into(),
+            err.to_string(),
+            Some(separator.span),
+            None,
+            Vec::new(),
+        )
+    })?;
+
     input.flat_map(
-        move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span),
+        move |x| split_column_helper(&x, &regex, &rest, collapse_empty, name_span),
         engine_state.ctrlc.clone(),
     )
 }
 
 fn split_column_helper(
     v: &Value,
-    separator: &Spanned<String>,
+    separator: &Regex,
     rest: &[Spanned<String>],
     collapse_empty: bool,
     head: Span,
 ) -> Vec<Value> {
     if let Ok(s) = v.as_string() {
-        let split_result: Vec<_> = if collapse_empty {
-            s.split(&separator.item).filter(|s| !s.is_empty()).collect()
-        } else {
-            s.split(&separator.item).collect()
-        };
-
+        let split_result: Vec<_> = separator
+            .split(&s)
+            .filter(|x| !(collapse_empty && x.is_empty()))
+            .collect();
         let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
         // If they didn't provide column names, make up our own
-
         let mut cols = vec![];
         let mut vals = vec![];
         if positional.is_empty() {

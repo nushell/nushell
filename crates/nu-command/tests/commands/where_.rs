@@ -15,7 +15,7 @@ fn filters_by_unit_size_comparison() {
 fn filters_with_nothing_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get -i foo | compact | where $it > 1 | math sum"#
+        r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum"#
     );
 
     assert_eq!(actual.out, "7");
@@ -35,7 +35,7 @@ fn where_inside_block_works() {
 fn filters_with_0_arity_block() {
     let actual = nu!(
         cwd: ".",
-        "[1 2 3 4] | where { $in < 3 } | to nuon"
+        "[1 2 3 4] | where {|| $in < 3 } | to nuon"
     );
 
     assert_eq!(actual.out, "[1, 2]");
@@ -55,7 +55,7 @@ fn filters_with_1_arity_block() {
 fn unique_env_each_iteration() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "[1 2] | where { print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
+        "[1 2] | where {|| print ($env.PWD | str ends-with 'formats') | cd '/' | true } | to nuon"
     );
 
     assert_eq!(actual.out, "truetrue[1, 2]");
@@ -193,4 +193,11 @@ fn fail_on_non_iterator() {
     let actual = nu!(cwd: ".", pipeline(r#"{"name": "foo", "size": 3} | where name == "foo""#));
 
     assert!(actual.err.contains("only_supports_this_input_type"));
+}
+
+// Test that filtering on columns that might be missing/null works
+#[test]
+fn where_gt_null() {
+    let actual = nu!("[{foo: 123} {}] | where foo? > 10 | to nuon");
+    assert_eq!(actual.out, "[[foo]; [123]]");
 }

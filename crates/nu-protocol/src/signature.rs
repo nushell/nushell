@@ -11,6 +11,7 @@ use crate::PipelineData;
 use crate::ShellError;
 use crate::SyntaxShape;
 use crate::Type;
+use crate::Value;
 use crate::VarId;
 use std::fmt::Write;
 
@@ -35,7 +36,7 @@ pub struct PositionalArg {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<Expression>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

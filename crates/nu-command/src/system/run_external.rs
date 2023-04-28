@@ -1,3 +1,4 @@
+use crate::hook::eval_hook;
 use fancy_regex::Regex;
 use itertools::Itertools;
 use nu_engine::env_to_strings;
@@ -41,7 +42,7 @@ impl Command for External {
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
             .switch("trim-end-newline", "trimming end newlines", None)
-            .required("command", SyntaxShape::Any, "external command to run")
+            .required("command", SyntaxShape::String, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
     }
@@ -311,7 +312,12 @@ impl ExternalCommand {
                                             format!("command '{cmd_name}' was not found but it exists in module '{module_name}'; try importing it with `use`")
                                         }
                                     } else {
-                                        format!("did you mean '{s}'?")
+                                        // If command and suggestion are the same, display not found
+                                        if cmd_name == &s {
+                                            format!("'{cmd_name}' was not found")
+                                        } else {
+                                            format!("did you mean '{s}'?")
+                                        }
                                     }
                                 }
                             }
@@ -324,9 +330,34 @@ impl ExternalCommand {
                             }
                         };
 
+                        let mut err_str = err.to_string();
+                        if engine_state.is_interactive {
+                            let mut engine_state = engine_state.clone();
+                            if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
+                            {
+                                if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
+                                    eval_hook(
+                                        &mut engine_state,
+                                        stack,
+                                        None,
+                                        vec![(
+                                            "cmd_name".into(),
+                                            Value::string(
+                                                self.name.item.to_string(),
+                                                self.name.span,
+                                            ),
+                                        )],
+                                        &hook,
+                                    )
+                                {
+                                    err_str = format!("{}\n{}", err_str, val);
+                                }
+                            }
+                        }
+
                         Err(ShellError::ExternalCommand {
                             label,
-                            help: err.to_string(),
+                            help: err_str,
                             span: self.name.span,
                         })
                     }
@@ -517,7 +548,7 @@ impl ExternalCommand {
         }
     }
 
-    fn create_process(
+    pub fn create_process(
         &self,
         input: &PipelineData,
         use_cmd: bool,
@@ -752,7 +783,8 @@ fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => (chars.collect(), false, true),
         (Some('\''), Some('\'')) => (chars.collect(), false, true),
-        (Some('`'), Some('`')) => (chars.collect(), true, true),
+        // We treat back-quoted strings as bare words, so there's no need to keep them as raw strings
+        (Some('`'), Some('`')) => (chars.collect(), true, false),
         _ => (input.to_string(), true, false),
     }
 }

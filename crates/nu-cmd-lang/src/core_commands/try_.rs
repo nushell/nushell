@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -26,20 +26,14 @@ impl Command for Try {
                 "catch_block",
                 SyntaxShape::Keyword(
                     b"catch".to_vec(),
-                    Box::new(SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))),
+                    Box::new(SyntaxShape::OneOf(vec![
+                        SyntaxShape::Closure(None),
+                        SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                    ])),
                 ),
                 "block to run if try block fails",
             )
             .category(Category::Core)
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
-    }
-
-    fn is_parser_keyword(&self) -> bool {
-        true
     }
 
     fn run(
@@ -59,17 +53,13 @@ impl Command for Try {
         match result {
             Err(error) => {
                 let error = intercept_block_control(error)?;
-                let err_value = Value::Error {
-                    error: Box::new(error),
-                };
-                handle_catch(err_value, catch_block, engine_state, stack)
+                let err_record = err_to_record(error, call.head);
+                handle_catch(err_record, catch_block, engine_state, stack)
             }
             Ok(PipelineData::Value(Value::Error { error }, ..)) => {
                 let error = intercept_block_control(*error)?;
-                let err_value = Value::Error {
-                    error: Box::new(error),
-                };
-                handle_catch(err_value, catch_block, engine_state, stack)
+                let err_record = err_to_record(error, call.head);
+                handle_catch(err_record, catch_block, engine_state, stack)
             }
             // external command may fail to run
             Ok(pipeline) => {
@@ -143,6 +133,19 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
         nu_protocol::ShellError::Return(_, _) => Err(error),
         _ => Ok(error),
     }
+}
+
+/// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
+fn err_to_record(error: ShellError, head: Span) -> Value {
+    let cols = vec!["msg".to_string(), "debug".to_string(), "raw".to_string()];
+    let vals = vec![
+        Value::string(error.to_string(), head),
+        Value::string(format!("{error:?}"), head),
+        Value::Error {
+            error: Box::new(error),
+        },
+    ];
+    Value::record(cols, vals, head)
 }
 
 #[cfg(test)]

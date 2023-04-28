@@ -115,7 +115,7 @@ fn proper_variable_captures() -> TestResult {
 #[test]
 fn proper_variable_captures_with_calls() -> TestResult {
     run_test(
-        r#"def foo [] { let y = 60; def bar [] { $y }; { bar } }; do (foo)"#,
+        r#"def foo [] { let y = 60; def bar [] { $y }; {|| bar } }; do (foo)"#,
         "60",
     )
 }
@@ -146,7 +146,7 @@ fn date_comparison() -> TestResult {
 #[test]
 fn let_sees_input() -> TestResult {
     run_test(
-        r#"def c [] { let x = str length; $x }; "hello world" | c"#,
+        r#"def c [] { let x = (str length); $x }; "hello world" | c"#,
         "11",
     )
 }
@@ -318,18 +318,29 @@ fn default_value11() -> TestResult {
 fn default_value12() -> TestResult {
     fail_test(
         r#"def foo [--x:int = "a"] { $x }"#,
-        "default value should be int",
+        "expected default value to be `int`",
     )
 }
 
 #[test]
-fn default_value_expression() -> TestResult {
-    run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
+fn default_value_constant() -> TestResult {
+    run_test(r#"def foo [x = "foo"] { $x }; foo"#, "foo")
+}
+
+#[test]
+fn default_value_not_constant() -> TestResult {
+    fail_test(
+        r#"def foo [x = ("foo" | str length)] { $x }; foo"#,
+        "expected a constant",
+    )
 }
 
 #[test]
 fn loose_each() -> TestResult {
-    run_test(r#"[[1, 2, 3], [4, 5, 6]] | each { $in.1 } | math sum"#, "7")
+    run_test(
+        r#"[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum"#,
+        "7",
+    )
 }
 
 #[test]
@@ -340,7 +351,7 @@ fn in_means_input() -> TestResult {
 #[test]
 fn in_iteration() -> TestResult {
     run_test(
-        r#"[3, 4, 5] | each { echo $"hi ($in)" } | str join"#,
+        r#"[3, 4, 5] | each {|| echo $"hi ($in)" } | str join"#,
         "hi 3hi 4hi 5",
     )
 }
@@ -375,4 +386,28 @@ fn assignment_to_in_var_no_panic() -> TestResult {
 #[test]
 fn assignment_to_env_no_panic() -> TestResult {
     fail_test(r#"$env = 3"#, "cannot_replace_env")
+}
+
+#[test]
+fn short_flags() -> TestResult {
+    run_test(
+        r#"def foobar [-a: int, -b: string, -c: string] { echo $'($a) ($c) ($b)' }; foobar -b "balh balh" -a 1543  -c "FALSE123""#,
+        "1543 FALSE123 balh balh",
+    )
+}
+
+#[test]
+fn short_flags_1() -> TestResult {
+    run_test(
+        r#"def foobar [-a: string, -b: string, -s: int] { if ( $s == 0 ) { echo $'($b)($a)' }}; foobar -a test -b case -s 0  "#,
+        "casetest",
+    )
+}
+
+#[test]
+fn short_flags_2() -> TestResult {
+    run_test(
+        r#"def foobar [-a: int, -b: string, -c: int] { $a + $c };foobar -b "balh balh" -a 10  -c 1 "#,
+        "11",
+    )
 }

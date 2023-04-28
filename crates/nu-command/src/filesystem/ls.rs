@@ -129,7 +129,7 @@ impl Command for Ls {
                         ));
                     }
                     if is_empty_dir(&expanded) {
-                        return Ok(Value::nothing(call_span).into_pipeline_data());
+                        return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
                     p.push("*");
                 }
@@ -141,7 +141,7 @@ impl Command for Ls {
                 if directory {
                     (PathBuf::from("."), call_span, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
-                    return Ok(Value::nothing(call_span).into_pipeline_data());
+                    return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
                     (PathBuf::from("./*"), call_span, false)
                 }
@@ -315,7 +315,7 @@ impl Command for Ls {
             },
             Example {
                 description: "List given paths and show directories themselves",
-                example: "['/path/to/directory' '/path/to/file'] | each { ls -D $in } | flatten",
+                example: "['/path/to/directory' '/path/to/file'] | each {|| ls -D $in } | flatten",
                 result: None,
             },
         ]

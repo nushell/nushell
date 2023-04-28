@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use nu_protocol::ast::PathMember;
+use nu_protocol::ast::{Call, Expr, PathMember};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
 
@@ -17,8 +17,6 @@ const ENV_PATH_NAME_SECONDARY: &str = "PATH";
 const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
-
-static LIB_DIRS_ENV: &str = "NU_LIB_DIRS";
 
 enum ConversionResult {
     Ok(Value),
@@ -224,6 +222,17 @@ pub fn path_str(
     env_to_string(pathname, &pathval, engine_state, stack)
 }
 
+pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
+pub fn get_dirs_var_from_call(call: &Call) -> Option<VarId> {
+    call.get_parser_info(DIR_VAR_PARSER_INFO).and_then(|x| {
+        if let Expr::Var(id) = x.expr {
+            Some(id)
+        } else {
+            None
+        }
+    })
+}
+
 /// This helper function is used to find files during eval
 ///
 /// First, the actual current working directory is selected as
@@ -239,6 +248,7 @@ pub fn find_in_dirs_env(
     filename: &str,
     engine_state: &EngineState,
     stack: &Stack,
+    dirs_var: Option<VarId>,
 ) -> Result<Option<PathBuf>, ShellError> {
     // Choose whether to use file-relative or PWD-relative path
     let cwd = if let Some(pwd) = stack.get_env_var(engine_state, "FILE_PWD") {
@@ -262,36 +272,35 @@ pub fn find_in_dirs_env(
         current_dir_str(engine_state, stack)?
     };
 
-    if let Ok(p) = canonicalize_with(filename, &cwd) {
-        Ok(Some(p))
-    } else {
-        let path = Path::new(filename);
-
-        if path.is_relative() {
-            if let Some(lib_dirs) = stack.get_env_var(engine_state, LIB_DIRS_ENV) {
-                if let Ok(dirs) = lib_dirs.as_list() {
-                    for lib_dir in dirs {
-                        if let Ok(dir) = lib_dir.as_path() {
-                            // make sure the dir is absolute path
-                            if let Ok(dir_abs) = canonicalize_with(dir, &cwd) {
-                                if let Ok(path) = canonicalize_with(filename, dir_abs) {
-                                    return Ok(Some(path));
-                                }
-                            }
-                        }
-                    }
-
-                    Ok(None)
-                } else {
-                    Ok(None)
-                }
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
+    let check_dir = |lib_dirs: Option<Value>| -> Option<PathBuf> {
+        if let Ok(p) = canonicalize_with(filename, &cwd) {
+            return Some(p);
         }
-    }
+        let path = Path::new(filename);
+        if !path.is_relative() {
+            return None;
+        }
+
+        lib_dirs?
+            .as_list()
+            .ok()?
+            .iter()
+            .map(|lib_dir| -> Option<PathBuf> {
+                let dir = lib_dir.as_path().ok()?;
+                let dir_abs = canonicalize_with(dir, &cwd).ok()?;
+                canonicalize_with(filename, dir_abs).ok()
+            })
+            .find(Option::is_some)
+            .flatten()
+    };
+
+    let lib_dirs = dirs_var
+        .and_then(|dirs_var| engine_state.find_constant(dirs_var, &[]))
+        .cloned();
+    // TODO: remove (see #8310)
+    let lib_dirs_fallback = stack.get_env_var(engine_state, "NU_LIB_DIRS");
+
+    Ok(check_dir(lib_dirs).or_else(|| check_dir(lib_dirs_fallback)))
 }
 
 fn get_converted_value(
@@ -319,10 +328,12 @@ fn get_converted_value(
             PathMember::String {
                 val: name.to_string(),
                 span: env_span,
+                optional: false,
             },
             PathMember::String {
                 val: direction.to_string(),
                 span: env_span,
+                optional: false,
             },
         ];
 

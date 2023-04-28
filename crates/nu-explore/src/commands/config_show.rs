@@ -4,7 +4,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use tui::layout::Rect;
+use ratatui::layout::Rect;
 
 use crate::{
     nu_common::{try_build_table, NuSpan},

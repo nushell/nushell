@@ -70,12 +70,12 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.4.3
+      uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.72.1
+        version: 0.78.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -269,7 +269,7 @@ impl Command for Watch {
         vec![
             Example {
                 description: "Run `cargo test` whenever a Rust file changes",
-                example: r#"watch . --glob=**/*.rs { cargo test }"#,
+                example: r#"watch . --glob=**/*.rs {|| cargo test }"#,
                 result: None,
             },
             Example {

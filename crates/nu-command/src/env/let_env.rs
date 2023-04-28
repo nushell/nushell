@@ -24,7 +24,7 @@ impl Command for LetEnv {
             .required("var_name", SyntaxShape::String, "variable name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",
             )
             .category(Category::Env)
@@ -51,7 +51,7 @@ impl Command for LetEnv {
                 .0
                 .into_value(call.head);
 
-        if env_var.item == "FILE_PWD" || env_var.item == "PWD" {
+        if env_var.item == "FILE_PWD" || env_var.item == "CURRENT_FILE" || env_var.item == "PWD" {
             return Err(ShellError::AutomaticEnvVarSetManually {
                 envvar_name: env_var.item,
                 span: env_var.span,

@@ -10,7 +10,7 @@ fn splits() {
             r#"
                 first_name,last_name,rusty_at,type
                 Andrés,Robalino,10/11/2013,A
-                Jonathan,Turner,10/12/2013,B
+                JT,Turner,10/12/2013,B
                 Yehuda,Katz,10/11/2013,A
             "#,
         )]);

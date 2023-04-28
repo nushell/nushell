@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -133,15 +132,6 @@ impl Command for ViewSource {
                             Vec::new(),
                         ))
                     }
-                } else if let Some(alias_id) = engine_state.find_alias(val.as_bytes(), &[]) {
-                    let contents = &mut engine_state.get_alias(alias_id).iter().map(|span| {
-                        String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string()
-                    });
-                    Ok(Value::String {
-                        val: contents.join(" "),
-                        span: call.head,
-                    }
-                    .into_pipeline_data())
                 } else {
                     Err(ShellError::GenericError(
                         "Cannot view value".to_string(),
@@ -166,7 +156,7 @@ impl Command for ViewSource {
         vec![
             Example {
                 description: "View the source of a code block",
-                example: r#"let abc = { echo 'hi' }; view source $abc"#,
+                example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
                 result: Some(Value::test_string("{ echo 'hi' }")),
             },
             Example {

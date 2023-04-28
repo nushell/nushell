@@ -118,3 +118,10 @@ fn sort_record_values_insensitive_reverse() {
 
     assert_eq!(actual.out, r#"{"2": zed, "3": ABE, "1": abe}"#);
 }
+
+#[test]
+fn sort_empty() {
+    let actual = nu!("[] | sort | to nuon");
+
+    assert_eq!(actual.out, "[]");
+}

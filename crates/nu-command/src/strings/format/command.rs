@@ -279,12 +279,10 @@ fn format_record(
                     .map(|path| PathMember::String {
                         val: path.to_string(),
                         span: *span,
+                        optional: false,
                     })
                     .collect();
-                match data_as_value
-                    .clone()
-                    .follow_cell_path(&path_members, false, false)
-                {
+                match data_as_value.clone().follow_cell_path(&path_members, false) {
                     Ok(value_at_column) => {
                         output.push_str(value_at_column.into_string(", ", config).as_str())
                     }
@@ -292,8 +290,8 @@ fn format_record(
                 }
             }
             FormatOperation::ValueNeedEval(_col_name, span) => {
-                let (exp, may_parse_err) = parse_expression(working_set, &[*span], &[], false);
-                match may_parse_err {
+                let exp = parse_expression(working_set, &[*span], false);
+                match working_set.parse_errors.first() {
                     None => {
                         let parsed_result = eval_expression(engine_state, stack, &exp);
                         if let Ok(val) = parsed_result {
