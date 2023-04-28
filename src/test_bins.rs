@@ -176,7 +176,7 @@ pub fn nu_repl() {
     let mut engine_state = nu_cli::add_cli_context(create_default_context());
     let mut stack = Stack::new();
 
-    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
 
