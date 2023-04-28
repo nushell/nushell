@@ -31,9 +31,9 @@ export def "iter find" [ # -> any | null
     fn: closure          # the closure used to perform the search 
 ] {
     try {
-       filter $fn | get 0?
+        filter $fn | get 0?
     } catch {
-       null
+        null
     }
 }
 
@@ -51,11 +51,11 @@ export def "iter intersperse" [ # -> list<any>
     separator: any,             # the separator to be used
 ] {
     reduce -f [] {|it, acc|
-          $acc ++ [$it, $separator]
+        $acc ++ [$it, $separator]
     } 
     | match $in {
-         [] => [],
-         $xs => ($xs | take (($xs | length) - 1 ))
+        [] => [],
+        $xs => ($xs | take (($xs | length) - 1 ))
     }
 }
 
@@ -72,7 +72,7 @@ export def "iter intersperse" [ # -> list<any>
 #
 # assert equal $scanned [0, 1, 3, 6]
 #
-# # use the --noinit(-n) flag to remove the initial value from
+# # use the --no-init(-n) flag to remove the initial value from
 # # the final result
 # let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y} -n)
 #
@@ -81,16 +81,16 @@ export def "iter intersperse" [ # -> list<any>
 export def "iter scan" [ # -> list<any>
     init: any            # initial value to seed the initial state
     fn: closure          # the closure to perform the scan
-    --noinit(-n)         # remove the initial value from the result
+    --no-init(-n)        # remove the initial value from the result
 ] {                      
-   reduce -f [$init] {|it, acc|
-      $acc ++ [(do $fn ($acc | last) $it)]
-   }
-   | if $noinit {
-     $in | skip
-   } else {
-      $in
-   }
+    reduce -f [$init] {|it, acc|
+        $acc ++ [(do $fn ($acc | last) $it)]
+    }
+    | if $no-init {
+        $in | skip
+    } else {
+        $in
+    }
 }
 
 # Returns a list of values for which the supplied closure does not

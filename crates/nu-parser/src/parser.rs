@@ -52,7 +52,6 @@ fn is_identifier_byte(b: u8) -> bool {
         && b != b'('
         && b != b'{'
         && b != b'+'
-        && b != b'-'
         && b != b'*'
         && b != b'^'
         && b != b'/'
@@ -135,7 +134,9 @@ fn is_identifier(bytes: &[u8]) -> bool {
 }
 
 pub fn is_variable(bytes: &[u8]) -> bool {
-    if bytes.len() > 1 && bytes[0] == b'$' {
+    if bytes.starts_with(b"-") {
+        false
+    } else if bytes.len() > 1 && bytes[0] == b'$' {
         is_identifier(&bytes[1..])
     } else {
         is_identifier(bytes)
@@ -3415,13 +3416,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
 
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                let mut variable_name = flags[0][2..].to_vec();
-                                // Replace the '-' in a variable name with '_'
-                                (0..variable_name.len()).for_each(|idx| {
-                                    if variable_name[idx] == b'-' {
-                                        variable_name[idx] = b'_';
-                                    }
-                                });
+                                let variable_name = flags[0][2..].to_vec();
 
                                 if !is_variable(&variable_name) {
                                     working_set.error(ParseError::Expected(
@@ -3470,13 +3465,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         String::from_utf8_lossy(short_flag).to_string();
                                     let chars: Vec<char> = short_flag.chars().collect();
                                     let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                    let mut variable_name = flags[0][2..].to_vec();
-
-                                    (0..variable_name.len()).for_each(|idx| {
-                                        if variable_name[idx] == b'-' {
-                                            variable_name[idx] = b'_';
-                                        }
-                                    });
+                                    let variable_name = flags[0][2..].to_vec();
 
                                     if !is_variable(&variable_name) {
                                         working_set.error(ParseError::Expected(

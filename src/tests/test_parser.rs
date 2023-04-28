@@ -141,11 +141,6 @@ fn bad_var_name() -> TestResult {
 }
 
 #[test]
-fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")
-}
-
-#[test]
 fn long_flag() -> TestResult {
     run_test(
         r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
@@ -156,6 +151,34 @@ fn long_flag() -> TestResult {
 #[test]
 fn let_not_statement() -> TestResult {
     fail_test(r#"let x = "hello" | str length"#, "used in pipeline")
+}
+
+#[test]
+fn variable_name_with_hyphen_1() -> TestResult {
+    run_test("let my-var = 42; $my-var", "42")
+}
+
+#[test]
+fn variable_name_with_hyphen_2() -> TestResult {
+    fail_test("let -my-var = 42; $my-var", "expected valid variable name")
+}
+
+#[test]
+fn variable_name_with_hyphen_3() -> TestResult {
+    run_test("def my-cmd [my-param] { $my-param }; my-cmd 42", "42")
+}
+
+#[test]
+fn variable_name_with_hyphen_4() -> TestResult {
+    run_test(
+        "def my-cmd [--my-param: int] { $my-param }; my-cmd --my-param 42",
+        "42",
+    )
+}
+
+#[test]
+fn variable_name_with_hyphen_5() -> TestResult {
+    run_test("def my-cmd [my-param?: int] { $my-param }; my-cmd 42", "42")
 }
 
 #[test]

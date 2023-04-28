@@ -104,7 +104,7 @@ def print-help-header [
 ] {
     let header = $"(ansi green)($text)(ansi reset):"
 
-    if $no_newline {
+    if $no-newline {
         print -n $header
     } else {
         print $header

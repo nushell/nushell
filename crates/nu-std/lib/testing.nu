@@ -46,7 +46,7 @@ export def assert [
     let span = (metadata $condition).span
     error make {
         msg: ($message | default "Assertion failed."),
-        label: ($error_label | default {
+        label: ($error-label | default {
             text: "It is not true.",
             start: (metadata $condition).span.start,
             end: (metadata $condition).span.end
