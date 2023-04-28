@@ -158,6 +158,8 @@ pub fn evaluate_repl(
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
 
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
     loop {
         let loop_start_time = std::time::Instant::now();
 
@@ -417,10 +419,6 @@ pub fn evaluate_repl(
         );
 
         entry_num += 1;
-
-        if entry_num == 1 {
-            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-        }
 
         start_time = std::time::Instant::now();
         let input = line_editor.read_line(prompt);
