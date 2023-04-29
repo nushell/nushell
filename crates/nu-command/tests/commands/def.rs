@@ -141,3 +141,11 @@ fn def_with_paren_params() {
 
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn extern_with_block() {
+    let actual =
+        nu!("extern foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x");
+
+    assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
+}
