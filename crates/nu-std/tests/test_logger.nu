@@ -36,3 +36,26 @@ export def test_debug [] {
     assert no message INFO debug 
     assert message DEBUG debug DBG
 }
+
+
+def "run custom" [system_level, format, message_level] {
+    do {
+        ^$nu.current-exe -c $'use std; NU_LOG_LEVEL=($system_level) std log custom "test message" $format $message_level' 
+    } | complete | get -i stderr
+}
+
+def "assert custom message" [system_level, format, message_level] {
+    let output = (run custom $system_level $format $message_level)
+    assert equal $output ($format | str replace "%MSG%" "test message")
+}
+
+def "assert no custom message" [system_level, format, message_level] {
+    let output = (run custom $system_level $format $message_level)
+    assert equal $output ""
+}
+
+export def test_custom [] {
+    assert no custom message ERROR "%MSG%" debug
+    assert custom message debug "%MSG" info
+    assert custom message warn $"(ansi red)my_msg: %MSG%(ansi reset)" critical
+}

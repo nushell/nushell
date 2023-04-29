@@ -1,14 +1,15 @@
-def CRITICAL_LEVEL [] { 50 }
-def ERROR_LEVEL    [] { 40 }
-def WARNING_LEVEL  [] { 30 }
-def INFO_LEVEL     [] { 20 }
-def DEBUG_LEVEL    [] { 10 }
+export def "log CRITICAL_LEVEL" [] { 50 }
+export def "log ERROR_LEVEL"    [] { 40 }
+export def "log WARNING_LEVEL"  [] { 30 }
+export def "log INFO_LEVEL"     [] { 20 }
+export def "log DEBUG_LEVEL"    [] { 10 }
 
 def parse-string-level [level: string] {
     (
         if $level == "CRITICAL" { (CRITICAL_LEVEL)}
         else if $level == "CRIT" { (CRITICAL_LEVEL)}
         else if $level == "ERROR" { (ERROR_LEVEL) }
+        else if $level == "ERR" { (ERROR_LEVEL) }
         else if $level == "WARNING" { (WARNING_LEVEL) }
         else if $level == "WARN" { (WARNING_LEVEL) }
         else if $level == "INFO" { (INFO_LEVEL) }
@@ -60,4 +61,20 @@ export def "log debug" [message: string] {
     if (current-log-level) > (DEBUG_LEVEL) { return }
 
     print --stderr $"(ansi default_dimmed)DBG|(now)|($message)(ansi reset)"
+}
+
+# Log with custom message format and verbosity level
+# # Usage:
+# ```
+# use std
+# std log custom "my message" $"(ansi yellow)MY MESSAGE: %MSG%(ansi reset)" (std log WARNING_LEVEL)
+# ```
+export def "log custom" [
+    message: string, # Message inserted into the log template
+    format: string, # A string to be printed into stderr. Add %MSG% in place where the $message argument should be placed
+    log_level: int # Log's verbosity level
+    ] {
+    if (current-log-level) > ($log_level) { return }
+
+    print --stderr ($format | str replace "%MSG%" $message)
 }
