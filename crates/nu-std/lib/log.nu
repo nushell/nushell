@@ -6,15 +6,17 @@ export def "log DEBUG_LEVEL"    [] { 10 }
 
 def parse-string-level [level: string] {
     (
-        if $level == "CRITICAL" { (log CRITICAL_LEVEL)}
-        else if $level == "CRIT" { (log CRITICAL_LEVEL)}
-        else if $level == "ERROR" { (log ERROR_LEVEL) }
-        else if $level == "ERR" { (log ERROR_LEVEL) }
-        else if $level == "WARNING" { (log WARNING_LEVEL) }
-        else if $level == "WARN" { (log WARNING_LEVEL) }
-        else if $level == "INFO" { (log INFO_LEVEL) }
-        else if $level == "DEBUG" { (log DEBUG_LEVEL) }
-        else { (log INFO_LEVEL) }
+        match $level {
+            "CRITICAL" => { log CRITICAL_LEVEL },
+            "CRIT" => { log CRITICAL_LEVEL },
+            "ERROR" => { log ERROR_LEVEL },
+            "ERR" => { log ERROR_LEVEL },
+            "WARNING" => { log WARNING_LEVEL },
+            "WARN" => { log WARNING_LEVEL },
+            "INFO" => { log INFO_LEVEL },
+            "DEBUG" => { log DEBUG_LEVEL },
+            _ => { log INFO_LEVEL },
+        }
     )
 }
 
