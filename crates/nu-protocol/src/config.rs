@@ -106,6 +106,7 @@ pub struct Config {
     pub cursor_shape_vi_normal: NuCursorShape,
     pub cursor_shape_emacs: NuCursorShape,
     pub help_flags: Vec<String>,
+    pub help_fallback: String,
 }
 
 impl Default for Config {
@@ -150,6 +151,7 @@ impl Default for Config {
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
             cursor_shape_emacs: NuCursorShape::Line,
             help_flags: vec!["--help".into(), "-h".into()],
+            help_fallback: "man".into(),
         }
     }
 }
@@ -1216,14 +1218,28 @@ impl Value {
                                 if let Value::String { val, .. } = val {
                                     flags.push(val.to_owned());
                                 } else {
-                                    let span = val.span().expect("should not be a error");
-                                    invalid!(Some(span), "should be a string");
+                                    invalid!(
+                                        Some(val.span().expect("should not be a error")),
+                                        "should be a string"
+                                    );
                                 }
                             }
                             config.help_flags = flags;
                         } else {
-                            let span = value.span().expect("should not be a error");
-                            invalid!(Some(span), "should be a list");
+                            invalid!(
+                                Some(value.span().expect("should not be a error")),
+                                "should be a list"
+                            );
+                        }
+                    }
+                    "help_fallback" => {
+                        if let Ok(v) = value.as_string() {
+                            config.help_fallback = v;
+                        } else {
+                            invalid!(
+                                Some(value.span().expect("should not be a error")),
+                                "should be a string"
+                            );
                         }
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
