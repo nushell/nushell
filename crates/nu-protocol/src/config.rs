@@ -1216,13 +1216,13 @@ impl Value {
                                 if let Value::String { val, .. } = val {
                                     flags.push(val.to_owned());
                                 } else {
-                                    let span = val.span().unwrap();
+                                    let span = val.span().expect("should not be a error");
                                     invalid!(Some(span), "should be a string");
                                 }
                             }
                             config.help_flags = flags;
                         } else {
-                            let span = value.span().unwrap();
+                            let span = value.span().expect("should not be a error");
                             invalid!(Some(span), "should be a list");
                         }
                     }

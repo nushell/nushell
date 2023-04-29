@@ -654,7 +654,12 @@ def show-command [command: record] {
 }
 
 def show-command-extern [command: string] {
-    let flags = ["--help" "-h"]
+    # Default flags
+    # TODO: find a better way to set defaults
+    mut flags = ["--help" "-h"]
+    try {
+        $flags = $env.config.help_flags
+    }
     let flags_length = ($flags | length)
     let fall_back = "man"
 
