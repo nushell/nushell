@@ -5,6 +5,21 @@ use nu_protocol::{
 };
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
+    // Structural subtyping
+    let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
+        // the expected type is `any`
+        if expected.is_empty() {
+            true
+        } else if expected.len() != found.len() {
+            false
+        } else {
+            expected
+                .iter()
+                .zip(found.iter())
+                .all(|(lhs, rhs)| lhs.0 == rhs.0 && type_compatible(&lhs.1, &rhs.1))
+        }
+    };
+
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
         (Type::Number, Type::Int) => true,
@@ -13,20 +28,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Any, _) => true,
         (_, Type::Any) => true,
         (Type::Record(fields_lhs), Type::Record(fields_rhs)) => {
-            // Structural subtyping
-            'outer: for field_lhs in fields_lhs {
-                for field_rhs in fields_rhs {
-                    if field_lhs.0 == field_rhs.0 {
-                        if type_compatible(&field_lhs.1, &field_rhs.1) {
-                            continue 'outer;
-                        } else {
-                            return false;
-                        }
-                    }
-                }
-                return false;
-            }
-            true
+            is_compatible(fields_lhs, fields_rhs)
         }
         (lhs, rhs) => lhs == rhs,
     }

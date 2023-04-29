@@ -37,7 +37,7 @@ export def clippy [
     }
 
     try {
-        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
     } catch {
         error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
     }
@@ -199,6 +199,7 @@ def report [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
+    let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
         fmt --check --verbose
     } catch {

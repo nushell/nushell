@@ -5,6 +5,7 @@ export-env {
     use dirs *
 }
 export use help *
+export use iter *
 export use log *
 export use testing *
 export use xml *
@@ -107,10 +108,7 @@ export def clip [
     --silent: bool  # do not print the content of the clipboard to the standard output
     --no-notify: bool  # do not throw a notification (only on linux)
 ] {
-    let input = $in
-    let input = if ($input | describe) == "string" {
-        $input | ansi strip
-    } else { $input }
+    let input = ($in | table | into string | ansi strip)
 
     match $nu.os-info.name {
         "linux" => {
@@ -143,12 +141,7 @@ export def clip [
 
     if not $silent {
         print $input
-
-        print --no-newline $"(ansi white_italic)(ansi white_dimmed)saved to clipboard"
-        if ($input | describe) == "string" {
-            print " (stripped)"
-        }
-        print --no-newline $"(ansi reset)"
+        print $"(ansi white_italic)(ansi white_dimmed)saved to clipboard(ansi reset)"
     }
 
     if (not $no_notify) and ($nu.os-info.name == linux) {

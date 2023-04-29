@@ -7,7 +7,7 @@ use nu_protocol::{
     Value,
 };
 use nu_table::TextStyle;
-use tui::{
+use ratatui::{
     layout::Rect,
     style::Style,
     widgets::{BorderType, Borders, Paragraph},
@@ -197,13 +197,13 @@ impl View for ConfigurationView {
 
         let view_content_area = Rect::new(view_content_x1, 1, view_content_w, view_content_h);
 
-        let option_block = tui::widgets::Block::default()
+        let option_block = ratatui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Plain)
             .border_style(border_color);
         let option_area = Rect::new(option_b_x1, area.y, OPTION_BLOCK_WIDTH, area.height);
 
-        let view_block = tui::widgets::Block::default()
+        let view_block = ratatui::widgets::Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Plain)
             .border_style(border_color);

@@ -24,7 +24,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use tui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
+use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
 use crate::{
     nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
@@ -43,8 +43,8 @@ use super::views::{Layout, View};
 
 use events::UIEvents;
 
-pub type Frame<'a> = tui::Frame<'a, CrosstermBackend<Stdout>>;
-pub type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
+pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
 pub type ConfigMap = HashMap<String, Value>;
 
 #[derive(Debug, Clone)]

@@ -1,10 +1,9 @@
+use super::Pipeline;
+use crate::{Signature, Span, VarId};
+use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
-use crate::{Signature, Span, VarId};
-
-use super::Pipeline;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub signature: Box<Signature>,
     pub pipelines: Vec<Pipeline>,
@@ -49,6 +48,17 @@ impl Block {
         Self {
             signature: Box::new(Signature::new("")),
             pipelines: vec![],
+            captures: vec![],
+            redirect_env: false,
+            span: None,
+            recursive: None,
+        }
+    }
+
+    pub fn new_with_capacity(capacity: usize) -> Self {
+        Self {
+            signature: Box::new(Signature::new("")),
+            pipelines: Vec::with_capacity(capacity),
             captures: vec![],
             redirect_env: false,
             span: None,
