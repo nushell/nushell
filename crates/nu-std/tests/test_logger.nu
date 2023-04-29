@@ -55,7 +55,7 @@ def "assert no custom message" [system_level, format, message_level] {
 }
 
 export def test_custom [] {
-    assert no custom message ERROR "%MSG%" debug
-    assert custom message debug "%MSG" info
-    assert custom message warn $"(ansi red)my_msg: %MSG%(ansi reset)" critical
+    assert no custom message (log ERROR_LEVEL) "%MSG%" (log DEBUG_LEVEL)
+    assert custom message (log DEBUG_LEVEL) "%MSG" (log INFO_LEVEL)
+    assert custom message (log WARNING_LEVEL) $"(ansi red)my_msg: %MSG%(ansi reset)" (log CRITICAL_LEVEL)
 }
