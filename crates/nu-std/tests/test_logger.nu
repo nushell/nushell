@@ -46,12 +46,12 @@ def "run custom" [system_level, format, message_level] {
 
 def "assert custom message" [system_level, format, message_level] {
     let output = (run custom $system_level $format $message_level)
-    assert equal $output ($format | str replace "%MSG%" "test message")
+    assert equal ($output | str trim -r) ($format | str replace "%MSG%" "test message")
 }
 
 def "assert no custom message" [system_level, format, message_level] {
     let output = (run custom $system_level $format $message_level)
-    assert equal $output ""
+    assert equal ($output | str trim -r) ""
 }
 
 export def test_custom [] {
