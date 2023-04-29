@@ -40,7 +40,7 @@ export def test_debug [] {
 
 def "run custom" [system_level, format, message_level] {
     do {
-        ^$nu.current-exe -c $'use std; NU_LOG_LEVEL=($system_level) std log custom "test message" $format $message_level' 
+        ^$nu.current-exe -c $'use std; NU_LOG_LEVEL=($system_level) std log custom "test message" ($format) ($message_level)' 
     } | complete | get -i stderr
 }
 
