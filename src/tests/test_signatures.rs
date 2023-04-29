@@ -132,3 +132,133 @@ fn list_annotations_with_extra_characters() -> TestResult {
     let expected = "Extra characters in the parameter name";
     fail_test(input, expected)
 }
+
+#[test]
+fn record_annotations_none() -> TestResult {
+    let input = "def run [rec: record] { $rec }; run {} | describe";
+    let expected = "record";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations() -> TestResult {
+    let input = "def run [rec: record<age: int>] { $rec }; run {age: 3} | describe";
+    let expected = "record<age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_two_types() -> TestResult {
+    let input = "def run [rec: record<name: string age: int>] { $rec }; run {name: nushell age: 3} | describe";
+    let expected = "record<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_two_types_comma_sep() -> TestResult {
+    let input = "def run [rec: record<name: string, age: int>] { $rec }; run {name: nushell age: 3} | describe";
+    let expected = "record<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_key_with_no_type() -> TestResult {
+    let input = "def run [rec: record<name>] { $rec }; run {name: nushell} | describe";
+    let expected = "record<name: string>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_two_types_one_with_no_type() -> TestResult {
+    let input =
+        "def run [rec: record<name: string, age>] { $rec }; run {name: nushell age: 3} | describe";
+    let expected = "record<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_two_types_both_with_no_types() -> TestResult {
+    let input = "def run [rec: record<name age>] { $rec }; run {name: nushell age: 3} | describe";
+    let expected = "record<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_nested() -> TestResult {
+    let input = "def run [
+        err: record<
+            msg: string,
+            label: record<
+               text: string
+               start: int,
+               end: int,
+            >>
+    ] {
+        $err 
+    }; run {
+        msg: 'error message'
+        label: {
+            text: 'here is the error'
+            start: 0
+            end: 69
+        }
+    } | describe";
+    let expected = "record<msg: string, label: record<text: string, start: int, end: int>>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_type_inference_1() -> TestResult {
+    let input = "def run [rec: record<age: any>] { $rec }; run {age: 2wk} | describe";
+    let expected = "record<age: duration>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_type_inference_2() -> TestResult {
+    let input = "def run [rec: record<size>] { $rec }; run {size: 2mb} | describe";
+    let expected = "record<size: filesize>";
+    run_test(input, expected)
+}
+
+#[test]
+fn record_annotations_not_terminated() -> TestResult {
+    let input = "def run [rec: record<age: int] { $rec }";
+    let expected = "expected closing >";
+    fail_test(input, expected)
+}
+
+#[test]
+fn record_annotations_not_terminated_inner() -> TestResult {
+    let input = "def run [rec: record<name: string, repos: list<string>] { $rec }";
+    let expected = "expected closing >";
+    fail_test(input, expected)
+}
+
+#[test]
+fn record_annotations_no_type_after_colon() -> TestResult {
+    let input = "def run [rec: record<name: >] { $rec }";
+    let expected = "type after colon";
+    fail_test(input, expected)
+}
+
+#[test]
+fn record_annotations_type_mismatch_key() -> TestResult {
+    let input = "def run [rec: record<name: string>] { $rec }; run {nme: nushell}";
+    let expected = "expected record<name: string>, found record<nme: string>";
+    fail_test(input, expected)
+}
+
+#[test]
+fn record_annotations_type_mismatch_shape() -> TestResult {
+    let input = "def run [rec: record<age: int>] { $rec }; run {age: 2wk}";
+    let expected = "expected record<age: int>, found record<age: duration>";
+    fail_test(input, expected)
+}
+
+#[test]
+fn record_annotations_with_extra_characters() -> TestResult {
+    let input = "def run [list: record<int>extra] {$list | length}; run [1 2 3]";
+    let expected = "Extra characters in the parameter name";
+    fail_test(input, expected)
+}

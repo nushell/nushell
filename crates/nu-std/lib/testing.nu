@@ -240,7 +240,7 @@ def show-pretty-test [indent: int = 4] {
             _ => { char failed }
         })
         " "
-        $"($test.module) ($test.name)"
+        $"($test.module) ($test.test)"
         (ansi reset)
     ] | str join
 }
@@ -261,8 +261,8 @@ def throw-error [error: record] {
 # It executes exported "test_*" commands in "test_*" modules
 export def 'run-tests' [
     --path: path, # Path to look for tests. Default: current directory.
-    --module: string, # Module to run tests. Default: all test modules found.
-    --command: string, # Test command to run. Default: all test command found in the files.
+    --module: string, # Test module to run. Default: all test modules found.
+    --test: string, # Individual test to run. Default: all test command found in the files.
     --list, # list the selected tests without running them.
 ] {
     let module_search_pattern = ('**' | path join ({
@@ -304,11 +304,11 @@ export def 'run-tests' [
         | upsert teardown {|module| "teardown" in $module.commands }
         | reject commands
         | flatten
-        | rename file module name
+        | rename file module test
     )
 
-    let tests_to_run = (if not ($command | is-empty) {
-        $tests | where name == $command
+    let tests_to_run = (if not ($test | is-empty) {
+        $tests | where test == $test
     } else if not ($module | is-empty) {
         $tests | where module == $module
     } else {
@@ -316,7 +316,7 @@ export def 'run-tests' [
     })
 
     if $list {
-        return ($tests_to_run | select module name file)
+        return ($tests_to_run | select module test file)
     }
 
     if ($tests_to_run | is-empty) {
@@ -328,9 +328,9 @@ export def 'run-tests' [
         | group-by module
         | transpose name tests
         | each {|module|
-            log info $"Running tests in ($module.name)"
+            log info $"Running tests in module ($module.name)"
             $module.tests | each {|test|
-                log debug $"Running test ($test.name)"
+                log debug $"Running test ($test.test)"
 
                 let context_setup = if $test.setup {
                     $"use `($test.file)` setup; let context = \(setup\)"
@@ -346,9 +346,9 @@ export def 'run-tests' [
 
                 let nu_script = $'
                     ($context_setup)
-                    use `($test.file)` ($test.name)
+                    use `($test.file)` ($test.test)
                     try {
-                        $context | ($test.name)
+                        $context | ($test.test)
                         ($context_teardown)
                     } catch { |err|
                         ($context_teardown)
@@ -367,7 +367,7 @@ export def 'run-tests' [
                     _ => "fail",
                 }
                 if $result == "skip" {
-                    log warning $"Test case ($test.name) is skipped"
+                    log warning $"Test case ($test.test) is skipped"
                 }
                 $test | merge ({result: $result})
             }

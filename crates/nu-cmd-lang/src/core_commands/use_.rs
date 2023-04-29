@@ -14,7 +14,7 @@ impl Command for Use {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module."
+        "Use definitions from a module, making them available in your shell."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -30,7 +30,10 @@ impl Command for Use {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
+        r#"See `help std` for the standard library module.
+See `help modules` to list all available modules.
+
+This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
@@ -133,6 +136,26 @@ impl Command for Use {
                 description: "Define a custom command that participates in the environment in a module and call it",
                 example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
+            },
+            Example {
+                description: "Use a plain module name to import its definitions qualified by the module name",
+                example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam; (spam foo) + (spam bar)"#,
+                result: Some(Value::test_string("foobar")),
+            },
+            Example {
+                description: "Specify * to use all definitions in a module",
+                example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam *; (foo) + (bar)"#,
+                result: Some(Value::test_string("foobar")),
+            },
+            Example {
+                description: "To use commands with spaces, like subcommands, surround them with quotes",
+                example: r#"module spam { export def 'foo bar' [] { "baz" } }; use spam 'foo bar'; foo bar"#,
+                result: Some(Value::test_string("baz")),
+            },
+            Example {
+                description: "To use multiple definitions from a module, wrap them in a list",
+                example: r#"module spam { export def foo [] { "foo" }; export def 'foo bar' [] { "baz" } }; use spam ['foo', 'foo bar']; (foo) + (foo bar)"#,
+                result: Some(Value::test_string("foobaz")),
             },
         ]
     }

@@ -160,7 +160,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"extern" && spans.len() == 3 {
+    } else if name == b"extern" && spans.len() >= 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -431,40 +431,7 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let mut block = working_set.get_block_mut(block_id);
-            let calls_itself = block.pipelines.iter().any(|pipeline| {
-                pipeline
-                    .elements
-                    .iter()
-                    .any(|pipe_element| match pipe_element {
-                        PipelineElement::Expression(
-                            _,
-                            Expression {
-                                expr: Expr::Call(call_expr),
-                                ..
-                            },
-                        ) => {
-                            if call_expr.decl_id == decl_id {
-                                return true;
-                            }
-                            call_expr.arguments.iter().any(|arg| match arg {
-                                Argument::Positional(Expression { expr, .. }) => match expr {
-                                    Expr::Keyword(.., expr) => {
-                                        let expr = expr.as_ref();
-                                        let Expression { expr, .. } = expr;
-                                        match expr {
-                                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                            _ => false,
-                                        }
-                                    }
-                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                    _ => false,
-                                },
-                                _ => false,
-                            })
-                        }
-                        _ => false,
-                    })
-            });
+            let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
@@ -544,6 +511,7 @@ pub fn parse_extern(
     };
     let name_expr = call.positional_nth(0);
     let sig = call.positional_nth(1);
+    let body = call.positional_nth(2);
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
@@ -582,13 +550,29 @@ pub fn parse_extern(
                 signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
-                let decl = KnownExternal {
-                    name: external_name,
-                    usage: [usage, extra_usage].join("\n"),
-                    signature,
-                };
+                if let Some(block_id) = body.and_then(|x| x.as_block()) {
+                    if signature.rest_positional.is_none() {
+                        working_set.error(ParseError::InternalError(
+                            "Extern block must have a rest positional argument".into(),
+                            name_expr.span,
+                        ));
+                    } else {
+                        *declaration = signature.clone().into_block_command(block_id);
 
-                *declaration = Box::new(decl);
+                        let block = working_set.get_block_mut(block_id);
+                        let calls_itself = block_calls_itself(block, decl_id);
+                        block.recursive = Some(calls_itself);
+                        block.signature = signature;
+                    }
+                } else {
+                    let decl = KnownExternal {
+                        name: external_name,
+                        usage: [usage, extra_usage].join("\n"),
+                        signature,
+                    };
+
+                    *declaration = Box::new(decl);
+                }
             } else {
                 working_set.error(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
@@ -613,6 +597,43 @@ pub fn parse_extern(
         ty: Type::Any,
         custom_completion: None,
     }])
+}
+
+fn block_calls_itself(block: &Block, decl_id: usize) -> bool {
+    block.pipelines.iter().any(|pipeline| {
+        pipeline
+            .elements
+            .iter()
+            .any(|pipe_element| match pipe_element {
+                PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(call_expr),
+                        ..
+                    },
+                ) => {
+                    if call_expr.decl_id == decl_id {
+                        return true;
+                    }
+                    call_expr.arguments.iter().any(|arg| match arg {
+                        Argument::Positional(Expression { expr, .. }) => match expr {
+                            Expr::Keyword(.., expr) => {
+                                let expr = expr.as_ref();
+                                let Expression { expr, .. } = expr;
+                                match expr {
+                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                    _ => false,
+                                }
+                            }
+                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                            _ => false,
+                        },
+                        _ => false,
+                    })
+                }
+                _ => false,
+            })
+    })
 }
 
 pub fn parse_alias(
@@ -2647,15 +2668,11 @@ pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> 
 
                         let var_name =
                             String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .trim_start_matches('$')
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            if is_const {
-                                working_set
-                                    .error(ParseError::ConstBuiltinVar(var_name, lvalue.span))
-                            } else {
-                                working_set.error(ParseError::LetBuiltinVar(var_name, lvalue.span))
-                            };
+                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                         }
 
                         let var_id = lvalue.as_var();
@@ -2759,10 +2776,11 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                         let var_name =
                             String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .trim_start_matches('$')
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            working_set.error(ParseError::MutBuiltinVar(var_name, lvalue.span));
+                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                         }
 
                         let var_id = lvalue.as_var();
@@ -2882,7 +2900,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            path.file_name().and_then(|x| x.to_str()),
+                            Some(&path.to_string_lossy()),
                             &contents,
                             scoped,
                         );

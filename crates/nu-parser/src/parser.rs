@@ -1998,7 +1998,7 @@ pub fn parse_full_cell_path(
 
             // Creating a Type scope to parse the new block. This will keep track of
             // the previous input type found in that block
-            let output = parse_block(working_set, &output, true, true);
+            let output = parse_block(working_set, &output, span, true, true);
             working_set
                 .type_scope
                 .add_type(working_set.type_scope.get_last_output());
@@ -2775,7 +2775,7 @@ pub fn parse_shape_name(
         b"operator" => SyntaxShape::Operator,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        b"record" => SyntaxShape::Record,
+        _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         b"table" => SyntaxShape::Table,
@@ -2814,38 +2814,129 @@ pub fn parse_shape_name(
     result
 }
 
+fn parse_collection_shape(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> SyntaxShape {
+    assert!(bytes.starts_with(b"record"));
+    let name = "record";
+    let mk_shape = SyntaxShape::Record;
+
+    if bytes == name.as_bytes() {
+        mk_shape(vec![])
+    } else if bytes.starts_with(b"record<") {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 7) else {
+            return SyntaxShape::Any;
+        };
+
+        // record<> or table<>
+        if inner_span.end - inner_span.start == 0 {
+            return mk_shape(vec![]);
+        }
+        let source = working_set.get_span_contents(inner_span);
+        let (tokens, err) = lex_signature(
+            source,
+            inner_span.start,
+            &[b'\n', b'\r'],
+            &[b':', b','],
+            true,
+        );
+
+        if let Some(err) = err {
+            working_set.error(err);
+            // lexer errors cause issues with span overflows
+            return mk_shape(vec![]);
+        }
+
+        let mut sig = vec![];
+        let mut idx = 0;
+
+        let key_error = |span| {
+            ParseError::LabeledError(
+                format!("`{name}` type annotations key not string"),
+                "must be a string".into(),
+                span,
+            )
+        };
+
+        while idx < tokens.len() {
+            let TokenContents::Item = tokens[idx].contents else {
+                working_set.error(key_error(tokens[idx].span));
+                return mk_shape(vec![])
+            };
+
+            let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+            if key_bytes.first().copied() == Some(b',') {
+                idx += 1;
+                continue;
+            }
+
+            let Some(key) = parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string() else {
+                working_set.error(key_error(tokens[idx].span));
+                return mk_shape(vec![]);
+            };
+
+            // we want to allow such an annotation
+            // `record<name>` where the user leaves out the type
+            if idx + 1 == tokens.len() {
+                sig.push((key, SyntaxShape::Any));
+                break;
+            } else {
+                idx += 1;
+            }
+
+            let maybe_colon = working_set.get_span_contents(tokens[idx].span).to_vec();
+            match maybe_colon.as_slice() {
+                b":" => {
+                    if idx + 1 == tokens.len() {
+                        working_set.error(ParseError::Expected(
+                            "type after colon".into(),
+                            tokens[idx].span,
+                        ));
+                        break;
+                    } else {
+                        idx += 1;
+                    }
+                }
+                // a key provided without a type
+                b"," => {
+                    idx += 1;
+                    sig.push((key, SyntaxShape::Any));
+                    continue;
+                }
+                // a key provided without a type
+                _ => {
+                    sig.push((key, SyntaxShape::Any));
+                    continue;
+                }
+            }
+
+            let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+            let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
+            sig.push((key, shape));
+            idx += 1;
+        }
+
+        mk_shape(sig)
+    } else {
+        working_set.error(ParseError::UnknownType(span));
+
+        SyntaxShape::Any
+    }
+}
+
 fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> SyntaxShape {
     assert!(bytes.starts_with(b"list"));
 
     if bytes == b"list" {
         SyntaxShape::List(Box::new(SyntaxShape::Any))
     } else if bytes.starts_with(b"list<") {
-        let start = span.start + 5;
-
-        // if the annotation is unterminated, we want to return early to avoid
-        // overflows with spans
-        let end = if bytes.ends_with(b">") {
-            span.end - 1
-        // extra characters after the >
-        } else if bytes.contains(&b'>') {
-            let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
-            let span = Span::new(span.start + angle_start, span.end);
-
-            working_set.error(ParseError::LabeledError(
-                "Extra characters in the parameter name".into(),
-                "extra characters".into(),
-                span,
-            ));
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 5) else {
             return SyntaxShape::Any;
-        } else {
-            working_set.error(ParseError::Unclosed(">".into(), span));
-            return SyntaxShape::List(Box::new(SyntaxShape::Any));
         };
 
-        let inner_span = Span::new(start, end);
-
         let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
-
         // remove any extra whitespace, for example `list< string >` becomes `list<string>`
         let inner_bytes = inner_text.trim().as_bytes().to_vec();
 
@@ -2861,6 +2952,34 @@ fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span)
         working_set.error(ParseError::UnknownType(span));
 
         SyntaxShape::List(Box::new(SyntaxShape::Any))
+    }
+}
+
+fn prepare_inner_span(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+    prefix_len: usize,
+) -> Option<Span> {
+    let start = span.start + prefix_len;
+
+    if bytes.ends_with(b">") {
+        let end = span.end - 1;
+        Some(Span::new(start, end))
+    } else if bytes.contains(&b'>') {
+        let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
+        let span = Span::new(span.start + angle_start, span.end);
+
+        working_set.error(ParseError::LabeledError(
+            "Extra characters in the parameter name".into(),
+            "extra characters".into(),
+            span,
+        ));
+
+        None
+    } else {
+        working_set.error(ParseError::Unclosed(">".into(), span));
+        None
     }
 }
 
@@ -3594,43 +3713,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                     expression.ty.clone(),
                                                 );
                                             }
-                                            Type::List(param_ty) => {
-                                                if let Type::List(expr_ty) = &expression.ty {
-                                                    if param_ty == expr_ty
-                                                        || **param_ty == Type::Any
-                                                    {
-                                                        working_set.set_variable_type(
-                                                            var_id,
-                                                            expression.ty.clone(),
-                                                        );
-                                                    } else {
-                                                        working_set.error(ParseError::AssignmentMismatch(
-                                                                        "Default value wrong type"
-                                                                            .into(),
-                                                                        format!(
-                                                                            "expected default value to be `{var_type}`",
-                                                                        ),
-                                                                        expression.span,
-                                                                    ),
-                                                                )
-                                                    }
-                                                } else {
-                                                    working_set.error(ParseError::AssignmentMismatch(
-                                                            "Default value wrong type".into(),
-                                                            format!(
-                                                                "expected default value to be `{var_type}`",
-                                                            ),
-                                                            expression.span,
-                                                        ))
-                                                }
-                                            }
-                                            t => {
-                                                if t != &expression.ty {
+                                            _ => {
+                                                if !type_compatible(var_type, &expression.ty) {
                                                     working_set.error(
                                                         ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
                                                             format!(
-                                                            "expected default value to be `{t}`"
+                                                            "expected default value to be `{var_type}`"
                                                         ),
                                                             expression.span,
                                                         ),
@@ -3638,8 +3727,19 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 }
                                             }
                                         }
+
+                                        *default_value = if let Ok(constant) =
+                                            eval_constant(working_set, &expression)
+                                        {
+                                            Some(constant)
+                                        } else {
+                                            working_set.error(ParseError::NonConstantDefaultValue(
+                                                expression.span,
+                                            ));
+                                            None
+                                        };
+
                                         *shape = expression.ty.to_shape();
-                                        *default_value = Some(expression);
                                         *required = false;
                                     }
                                     Arg::RestPositional(..) => {
@@ -3678,7 +3778,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                                 "Default value is the wrong type"
                                                                     .into(),
                                                                 format!(
-                                                                    "default value should be {t}"
+                                                            "expected default value to be `{t}`"
                                                                 ),
                                                                 expression_span,
                                                             ),
@@ -4007,7 +4107,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
         _ => (None, 0),
     };
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], false, false);
+    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
     if let Some(signature) = signature {
         output.signature = signature.0;
@@ -4301,7 +4401,7 @@ pub fn parse_closure_expression(
         }
     }
 
-    let mut output = parse_block(working_set, &output[amt_to_skip..], false, false);
+    let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
     if let Some(signature) = signature {
         output.signature = signature.0;
@@ -4477,7 +4577,7 @@ pub fn parse_value(
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
         // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
-        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record => {
+        SyntaxShape::Block | SyntaxShape::Closure(..) | SyntaxShape::Record(_) => {
             working_set.error(ParseError::Expected(
                 "block, closure or record".into(),
                 span,
@@ -4497,7 +4597,7 @@ pub fn parse_value(
                     SyntaxShape::Duration,
                     SyntaxShape::Range,
                     SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
-                    SyntaxShape::Record,
+                    SyntaxShape::Record(vec![]),
                     SyntaxShape::Closure(None),
                     SyntaxShape::Block,
                     SyntaxShape::Int,
@@ -5188,6 +5288,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 pub fn parse_block(
     working_set: &mut StateWorkingSet,
     tokens: &[Token],
+    span: Span,
     scoped: bool,
     is_subexpression: bool,
 ) -> Block {
@@ -5343,6 +5444,8 @@ pub fn parse_block(
         working_set.exit_scope();
     }
     working_set.type_scope.exit_scope();
+
+    block.span = Some(span);
 
     block
 }
@@ -5808,12 +5911,20 @@ pub fn parse(
     let file_id = working_set.add_file(name, contents);
     let new_span = working_set.get_span_for_file(file_id);
 
-    let (output, err) = lex(contents, new_span.start, &[], &[], false);
-    if let Some(err) = err {
-        working_set.error(err)
-    }
+    let previously_parsed_block = working_set.find_block_by_span(new_span);
 
-    let mut output = parse_block(working_set, &output, scoped, false);
+    let mut output = {
+        if let Some(block) = previously_parsed_block {
+            return block;
+        } else {
+            let (output, err) = lex(contents, new_span.start, &[], &[], false);
+            if let Some(err) = err {
+                working_set.error(err)
+            }
+
+            parse_block(working_set, &output, new_span, scoped, false)
+        }
+    };
 
     let mut seen = vec![];
     let mut seen_blocks = HashMap::new();

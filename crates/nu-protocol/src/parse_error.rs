@@ -1,8 +1,9 @@
 use crate::{Span, Type};
 use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error, Diagnostic)]
+#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseError {
     /// The parser encountered unexpected tokens, when the code should have
     /// finished. You should remove these or finish adding what you intended
@@ -142,26 +143,14 @@ pub enum ParseError {
     )]
     AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
 
-    #[error("Let used with builtin variable name.")]
+    #[error("`{0}` used as variable name.")]
     #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `let` cannot assign to it.")
+        code(nu::parser::name_is_builtin_var),
+        help(
+            "'{0}' is the name of a builtin Nushell variable and cannot be used as a variable name"
+        )
     )]
-    LetBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Const used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `const` cannot assign to it.")
-    )]
-    ConstBuiltinVar(String, #[label("already a builtin variable")] Span),
-
-    #[error("Mut used with builtin variable name.")]
-    #[diagnostic(
-        code(nu::parser::let_builtin_var),
-        help("'{0}' is the name of a builtin Nushell variable. `mut` cannot assign to it.")
-    )]
-    MutBuiltinVar(String, #[label("already a builtin variable")] Span),
+    NameIsBuiltinVar(String, #[label("already a builtin variable")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
@@ -349,6 +338,10 @@ pub enum ParseError {
         #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
     ),
 
+    #[error("Default values should be constant expressions.")]
+    #[diagnostic(code(nu::parser::non_constant_default_value))]
+    NonConstantDefaultValue(#[label = "expected a constant value"] Span),
+
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns))]
     ExtraColumns(
@@ -445,9 +438,7 @@ impl ParseError {
             ParseError::CantAliasExpression(_, s) => *s,
             ParseError::BuiltinCommandInPipeline(_, s) => *s,
             ParseError::AssignInPipeline(_, _, _, s) => *s,
-            ParseError::LetBuiltinVar(_, s) => *s,
-            ParseError::MutBuiltinVar(_, s) => *s,
-            ParseError::ConstBuiltinVar(_, s) => *s,
+            ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
@@ -485,6 +476,7 @@ impl ParseError {
             ParseError::IncompleteParser(s) => *s,
             ParseError::RestNeedsName(s) => *s,
             ParseError::ParameterMismatchType(_, _, _, s) => *s,
+            ParseError::NonConstantDefaultValue(s) => *s,
             ParseError::ExtraColumns(_, s) => *s,
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,

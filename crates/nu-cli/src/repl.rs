@@ -477,6 +477,12 @@ pub fn evaluate_repl(
                     }
                 }
 
+                let mut repl_cursor = engine_state
+                    .repl_cursor_pos
+                    .lock()
+                    .expect("repl cursor pos mutex");
+                *repl_cursor = line_editor.current_insertion_point();
+                drop(repl_cursor);
                 let mut repl_buffer = engine_state
                     .repl_buffer_state
                     .lock()
@@ -710,8 +716,11 @@ pub fn evaluate_repl(
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
     match shape {
         NuCursorShape::Block => SetCursorStyle::SteadyBlock,
-        NuCursorShape::UnderScore => SetCursorStyle::DefaultUserShape,
-        NuCursorShape::Line => SetCursorStyle::BlinkingBar,
+        NuCursorShape::UnderScore => SetCursorStyle::SteadyUnderScore,
+        NuCursorShape::Line => SetCursorStyle::SteadyBar,
+        NuCursorShape::BlinkBlock => SetCursorStyle::BlinkingBlock,
+        NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
+        NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
     }
 }
 

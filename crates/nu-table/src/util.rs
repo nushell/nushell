@@ -1,7 +1,11 @@
-use tabled::{builder::Builder, object::Cell, Modify, Padding, Style, Width};
+use tabled::{
+    builder::Builder,
+    grid::util::string::string_width_multiline,
+    settings::{width::Truncate, Modify, Padding, Style, Width},
+};
 
 pub fn string_width(text: &str) -> usize {
-    tabled::papergrid::util::string_width_multiline_tab(text, 4)
+    string_width_multiline(text)
 }
 
 pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
@@ -24,7 +28,7 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
         .build()
         .with(Style::empty())
         .with(Padding::zero())
-        .with(Modify::new(Cell(0, 0)).with(wrap))
+        .with(Modify::new((0, 0)).with(wrap))
         .to_string()
 }
 
@@ -36,10 +40,5 @@ pub fn string_truncate(text: &str, width: usize) -> String {
         None => return String::new(),
     };
 
-    Builder::from_iter([[line]])
-        .build()
-        .with(Style::empty())
-        .with(Padding::zero())
-        .with(Width::truncate(width))
-        .to_string()
+    Truncate::truncate_text(line, width).into_owned()
 }

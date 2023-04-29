@@ -60,6 +60,9 @@ pub enum NuCursorShape {
     UnderScore,
     Line,
     Block,
+    BlinkUnderScore,
+    BlinkLine,
+    BlinkBlock,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -654,6 +657,9 @@ impl Value {
                                         NuCursorShape::Line => "line",
                                         NuCursorShape::Block => "block",
                                         NuCursorShape::UnderScore => "underscore",
+                                        NuCursorShape::BlinkLine => "blink_line",
+                                        NuCursorShape::BlinkBlock => "blink_block",
+                                        NuCursorShape::BlinkUnderScore => "blink_underscore",
                                     },
                                     *$span,
                                 )
@@ -680,9 +686,21 @@ impl Value {
                                                     config.cursor_shape_vi_insert =
                                                         NuCursorShape::UnderScore;
                                                 }
+                                                "blink_line" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::BlinkLine;
+                                                }
+                                                "blink_block" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::BlinkBlock;
+                                                }
+                                                "blink_underscore" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::BlinkUnderScore;
+                                                }
                                                 _ => {
                                                     invalid!(Some(*span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -716,9 +734,21 @@ impl Value {
                                                     config.cursor_shape_vi_normal =
                                                         NuCursorShape::UnderScore;
                                                 }
+                                                "blink_line" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::BlinkLine;
+                                                }
+                                                "blink_block" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::BlinkBlock;
+                                                }
+                                                "blink_underscore" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::BlinkUnderScore;
+                                                }
                                                 _ => {
                                                     invalid!(Some(*span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -751,9 +781,21 @@ impl Value {
                                                     config.cursor_shape_emacs =
                                                         NuCursorShape::UnderScore;
                                                 }
+                                                "blink_line" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::BlinkLine;
+                                                }
+                                                "blink_block" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::BlinkBlock;
+                                                }
+                                                "blink_underscore" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::BlinkUnderScore;
+                                                }
                                                 _ => {
                                                     invalid!(Some(*span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(

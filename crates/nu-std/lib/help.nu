@@ -33,7 +33,7 @@ def command-not-found-error [span: record] {
     throw-error "std::help::command_not_found" "command not found" $span
 }
 
-def get-all-operators [] { return ([
+def get-all-operators [] { return [
     [type, operator, name, description, precedence];
 
     [Assignment, =, Assign, "Assigns a value to a variable.", 10]
@@ -71,7 +71,7 @@ def get-all-operators [] { return ([
     [Boolean, and, And, "Checks if two values are true.", 50]
     [Boolean, or, Or, "Checks if either value is true.", 40]
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
-] | sort-by name)}
+]}
 
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description
@@ -241,12 +241,12 @@ export def "help modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
-    let modules = ($nu.scope.modules | sort-by name)
+    let modules = $nu.scope.modules
 
     let module = ($module | str join " ")
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | find $find)
+        let found_modules = ($modules | find $find --columns [name usage])
 
         if ($found_modules | length) == 1 {
             show-module ($found_modules | get 0)
@@ -356,7 +356,7 @@ export def "help aliases" [
     let alias = ($alias | str join " ")
 
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find)
+        let found_aliases = ($aliases | find $find --columns [name usage])
 
         if ($found_aliases | length) == 1 {
             show-alias ($found_aliases | get 0)
@@ -402,7 +402,7 @@ export def "help externs" [
     let extern = ($extern | str join " ")
 
     if not ($find | is-empty) {
-        let found_externs = ($externs | find $find)
+        let found_externs = ($externs | find $find --columns [name usage])
 
         if ($found_externs | length) == 1 {
             show-extern ($found_externs | get 0)
@@ -474,7 +474,7 @@ export def "help operators" [
     let operator = ($operator | str join " ")
 
     if not ($find | is-empty) {
-        let found_operators = ($operators | find $find)
+        let found_operators = ($operators | find $find --columns [type name])
 
         if ($found_operators | length) == 1 {
             show-operator ($found_operators | get 0)
@@ -663,7 +663,7 @@ export def "help commands" [
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find)
+        let found_commands = ($commands | find $find --columns [name usage search_terms])
 
         if ($found_commands | length) == 1 {
             show-command ($found_commands | get 0)
