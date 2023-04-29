@@ -105,6 +105,7 @@ pub struct Config {
     pub cursor_shape_vi_insert: NuCursorShape,
     pub cursor_shape_vi_normal: NuCursorShape,
     pub cursor_shape_emacs: NuCursorShape,
+    pub help_flags: Vec<String>,
 }
 
 impl Default for Config {
@@ -148,6 +149,7 @@ impl Default for Config {
             cursor_shape_vi_insert: NuCursorShape::Block,
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
             cursor_shape_emacs: NuCursorShape::Line,
+            help_flags: vec!["--help".into(), "-h".into()],
         }
     }
 }
@@ -1206,6 +1208,23 @@ impl Value {
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
+                    }
+                    "help_flags" => {
+                        if let Value::List { vals, .. } = value {
+                            let mut flags: Vec<String> = vec![];
+                            for val in vals {
+                                if let Value::String { val, .. } = val {
+                                    flags.push(val.to_owned());
+                                } else {
+                                    let span = val.span().unwrap();
+                                    invalid!(Some(span), "should be a string");
+                                }
+                            }
+                            config.help_flags = flags;
+                        } else {
+                            let span = value.span().unwrap();
+                            invalid!(Some(span), "should be a list");
+                        }
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
                     // Legacy options do NOT reconstruct their values on error

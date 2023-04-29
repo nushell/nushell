@@ -656,7 +656,7 @@ def show-command [command: record] {
 def show-command-extern [command: string] {
     let flags = ["--help" "-h"]
     let flags_length = ($flags | length)
-    let fall_back = "tldr"
+    let fall_back = "man"
 
     def _try_flag [command: string, flag: string] {
         try {
