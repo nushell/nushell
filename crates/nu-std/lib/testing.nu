@@ -54,6 +54,24 @@ export def assert [
     }
 }
 
+export def assert-false [
+    condition: bool, # Condition, which should be false
+    message?: string, # Optional error message
+    --error-label: record # Label for `error make` if you want to create a custom assert
+] {
+    if $condition {
+        let span = (metadata $condition).span
+        error make {
+            msg: ($message | default "Assertion failed."),
+            label: ($error_label | default {
+                text: "It is not true.",
+                start: (metadata $condition).span.start,
+                end: (metadata $condition).span.end
+            })
+        }
+    }
+}
+
 # Assert that executing the code generates an error
 #
 # For more documentation see the assert command

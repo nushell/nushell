@@ -4,18 +4,41 @@ export def "log WARNING_LEVEL"  [] { 30 }
 export def "log INFO_LEVEL"     [] { 20 }
 export def "log DEBUG_LEVEL"    [] { 10 }
 
+export def "log CRITICAL_LEVEL_PREFIX" [] { "CRT" }
+export def "log ERROR_LEVEL_PREFIX"    [] { "ERR" }
+export def "log WARNING_LEVEL_PREFIX"  [] { "WRN" }
+export def "log INFO_LEVEL_PREFIX"     [] { "INF" }
+export def "log DEBUG_LEVEL_PREFIX"    [] { "DBG" }   
+
 def parse-string-level [level: string] {
     (
         match $level {
-            "CRITICAL" => { log CRITICAL_LEVEL },
+            (log CRITICAL_LEVEL_PREFIX) => { log CRITICAL_LEVEL },
             "CRIT" => { log CRITICAL_LEVEL },
+            "CRITICAL" => { log CRITICAL_LEVEL },
+            (log ERROR_LEVEL_PREFIX) => { log ERROR_LEVEL },
             "ERROR" => { log ERROR_LEVEL },
-            "ERR" => { log ERROR_LEVEL },
-            "WARNING" => { log WARNING_LEVEL },
+            (log WARNING_LEVEL_PREFIX) => { log WARNING_LEVEL },
             "WARN" => { log WARNING_LEVEL },
+            "WARNING" => { log WARNING_LEVEL },
+            (log INFO_LEVEL_PREFIX) => { log INFO_LEVEL },
             "INFO" => { log INFO_LEVEL },
+            (log DEBUG_LEVEL_PREFIX) => { log DEBUG_LEVEL },
             "DEBUG" => { log DEBUG_LEVEL },
             _ => { log INFO_LEVEL },
+        }
+    )
+}
+
+def parse-int-level [level: int] {
+    (
+        match $level {
+            (log CRITICAL_LEVEL) => { log CRITICAL_LEVEL_PREFIX },
+            (log ERROR_LEVEL) => { log ERROR_LEVEL_PREFIX },
+            (log WARNING_LEVEL) => { log WARNING_LEVEL_PREFIX },
+            (log INFO_LEVEL) => { log INFO_LEVEL_PREFIX },
+            (log DEBUG_LEVEL) => { log DEBUG_LEVEL_PREFIX },
+            _ => { log INFO_LEVEL_PREFIX },
         }
     )
 }
@@ -66,17 +89,20 @@ export def "log debug" [message: string] {
 }
 
 # Log with custom message format and verbosity level
-# # Usage:
-# ```
-# use std
-# std log custom "my message" $"(ansi yellow)MY MESSAGE: %MSG%(ansi reset)" (std log WARNING_LEVEL)
-# ```
+# 
+# Format reference:
+#   > %MSG% will be replaced by $message
+#   > %DATE% will be replaced by the timestamp of log in standard Nushell's log format: "%Y-%m-%dT%H:%M:%S%.3f"
+#   > %LEVEL% will be replaced by the standard Nushell's log verbosity prefixes, e.g. "CRT"
+#
+# Examples:
+#   > std log custom "my message" $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" (std log WARNING_LEVEL) 
 export def "log custom" [
     message: string, # Message inserted into the log template
-    format: string, # A string to be printed into stderr. Add %MSG% in place where the $message argument should be placed
+    format: string, # A string to be printed into stderr. 
     log_level: int # Log's verbosity level
     ] {
     if (current-log-level) > ($log_level) { return }
 
-    print --stderr ($format | str replace "%MSG%" $message)
+    print --stderr ($format | str replace "%MSG%" $message | str replace "%DATE%" (now) | str replace "%LEVEL%" (parse-int-level $log_level | into string))
 }
