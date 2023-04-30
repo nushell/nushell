@@ -12,20 +12,16 @@ export def "log DEBUG_LEVEL_PREFIX"    [] { "DBG" }
 
 def parse-string-level [level: string] {
     (
-        match $level {
-            (log CRITICAL_LEVEL_PREFIX) => { log CRITICAL_LEVEL },
-            "CRIT" => { log CRITICAL_LEVEL },
-            "CRITICAL" => { log CRITICAL_LEVEL },
-            (log ERROR_LEVEL_PREFIX) => { log ERROR_LEVEL },
-            "ERROR" => { log ERROR_LEVEL },
-            (log WARNING_LEVEL_PREFIX) => { log WARNING_LEVEL },
-            "WARN" => { log WARNING_LEVEL },
-            "WARNING" => { log WARNING_LEVEL },
-            (log INFO_LEVEL_PREFIX) => { log INFO_LEVEL },
-            "INFO" => { log INFO_LEVEL },
-            (log DEBUG_LEVEL_PREFIX) => { log DEBUG_LEVEL },
-            "DEBUG" => { log DEBUG_LEVEL },
-            _ => { log INFO_LEVEL },
+        if ($level in [(log CRITICAL_LEVEL_PREFIX) "CRIT" "CRITICAL"]) {
+            log CRITICAL_LEVEL
+        } else if ($level in [(log ERROR_LEVEL_PREFIX) "ERROR" ]) {
+            log ERROR_LEVEL
+        } else if ($level in [(log WARNING_LEVEL_PREFIX) "WARN" "WARNING"]) {
+            log WARNING_LEVEL
+        } else if ($level in [(log DEBUG_LEVEL_PREFIX) "DEBUG"]) {
+            log DEBUG_LEVEL
+        } else {
+            log INFO_LEVEL
         }
     )
 }
