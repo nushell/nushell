@@ -17,7 +17,7 @@ use log *
 # >_ assert (3 == 3)
 # >_ assert (42 == 3)
 # Error:
-#   × Assertion failed: 
+#   × Assertion failed:
 #     ╭─[myscript.nu:11:1]
 #  11 │ assert (3 == 3)
 #  12 │ assert (42 == 3)
@@ -38,7 +38,7 @@ use log *
 # }
 # ```
 export def assert [
-    condition: bool, # Condition, which should be true 
+    condition: bool, # Condition, which should be true
     message?: string, # Optional error message
     --error-label: record # Label for `error make` if you want to create a custom assert
 ] {
@@ -57,7 +57,7 @@ export def assert [
 # Assert that executing the code generates an error
 #
 # For more documentation see the assert command
-# 
+#
 # # Examples
 #
 # > assert error {|| missing_command} # passes
@@ -89,7 +89,7 @@ export def "assert skip" [] {
 # For more documentation see the assert command
 #
 # # Examples
-# 
+#
 # > assert equal 1 1 # passes
 # > assert equal (0.1 + 0.2) 0.3
 # > assert equal 1 2 # fails

@@ -64,20 +64,20 @@ pub fn load_standard_library(
 ) -> Result<(), miette::ErrReport> {
     let delta = {
         let name = "std".to_string();
-        let content = include_str!("../lib/mod.nu");
+        let content = include_str!("../std/mod.nu");
 
         // these modules are loaded in the order they appear in this list
         #[rustfmt::skip]
         let submodules = vec![
             // helper modules that could be used in other parts of the library
-            ("log", include_str!("../lib/log.nu")),
+            ("log", include_str!("../std/log.nu")),
 
             // the rest of the library
-            ("dirs", include_str!("../lib/dirs.nu")),
-            ("iter", include_str!("../lib/iter.nu")),
-            ("help", include_str!("../lib/help.nu")),
-            ("testing", include_str!("../lib/testing.nu")),
-            ("xml", include_str!("../lib/xml.nu")),
+            ("dirs", include_str!("../std/dirs.nu")),
+            ("iter", include_str!("../std/iter.nu")),
+            ("help", include_str!("../std/help.nu")),
+            ("testing", include_str!("../std/testing.nu")),
+            ("xml", include_str!("../std/xml.nu")),
         ];
 
         // Define commands to be preloaded into the default (top level, unprefixed) namespace.
@@ -97,6 +97,8 @@ pub fn load_standard_library(
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
+
+        working_set.currently_parsed_cwd = Some(PathBuf::from());
 
         for (name, content) in submodules {
             let (module, comments) =

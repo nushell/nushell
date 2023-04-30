@@ -1,14 +1,11 @@
 # std.nu, `used` to load all standard library components
 
-export use dirs *
 export-env {
-    use dirs *
+    # The following should work but it requires virtual file--aware file cache
+    # source-env dirs.nu
+    # ... therefore we need to use this workaround by assuming "dirs" module is already loaded
+    use dirs
 }
-export use help *
-export use iter *
-export use log *
-export use testing *
-export use xml *
 
 # Add the given paths to the PATH.
 #
@@ -171,7 +168,7 @@ def "from ns" [] {
 # >
 # ```
 #
-# > **Note**  
+# > **Note**
 # > `std bench --pretty` will return a `string`.
 #
 # # Examples
