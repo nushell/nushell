@@ -679,7 +679,7 @@ export def "help commands" [
         } else {
             try {
                 # Default flags
-                let help_command = (try { $env.HELPER } catch { "man" })
+                let help_command = (try { $env.NU_HELPER } catch { "man" })
 
                 # TODO: find better way of doing this
                 print $"(ansi default_italic)Help pages from external command (($command) | pretty-cmd):(ansi reset)"
