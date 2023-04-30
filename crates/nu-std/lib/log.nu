@@ -32,13 +32,16 @@ def parse-string-level [level: string] {
 
 def parse-int-level [level: int] {
     (
-        match $level {
-            (log CRITICAL_LEVEL) => { log CRITICAL_LEVEL_PREFIX },
-            (log ERROR_LEVEL) => { log ERROR_LEVEL_PREFIX },
-            (log WARNING_LEVEL) => { log WARNING_LEVEL_PREFIX },
-            (log INFO_LEVEL) => { log INFO_LEVEL_PREFIX },
-            (log DEBUG_LEVEL) => { log DEBUG_LEVEL_PREFIX },
-            _ => { log INFO_LEVEL_PREFIX },
+        if ($level >= (log CRITICAL_LEVEL)) {
+            log CRITICAL_LEVEL_PREFIX
+        } else if ($level >= (log ERROR_LEVEL)) {
+            log ERROR_LEVEL_PREFIX
+        } else if ($level >= (log WARNING_LEVEL)) {
+            log WARNING_LEVEL_PREFIX
+        } else if ($level >= (log INFO_LEVEL)) {
+            log INFO_LEVEL_PREFIX
+        } else {
+            log DEBUG_LEVEL_PREFIX
         }
     )
 }
@@ -61,31 +64,31 @@ def now [] {
 export def "log critical" [message: string] {
     if (current-log-level) > (log CRITICAL_LEVEL) { return }
 
-    print --stderr $"(ansi red_bold)CRT|(now)|($message)(ansi reset)"
+    print --stderr $"(ansi red_bold)(log CRITICAL_LEVEL_PREFIX)|(now)|($message)(ansi reset)"
 }
 # Log error message
 export def "log error" [message: string] {
     if (current-log-level) > (log ERROR_LEVEL) { return }
 
-    print --stderr $"(ansi red)ERR|(now)|($message)(ansi reset)"
+    print --stderr $"(ansi red)(log ERROR_LEVEL_PREFIX)|(now)|($message)(ansi reset)"
 }
 # Log warning message
 export def "log warning" [message: string] {
     if (current-log-level) > (log WARNING_LEVEL) { return }
 
-    print --stderr $"(ansi yellow)WRN|(now)|($message)(ansi reset)"
+    print --stderr $"(ansi yellow)(log WARNING_LEVEL_PREFIX)|(now)|($message)(ansi reset)"
 }
 # Log info message
 export def "log info" [message: string] {
     if (current-log-level) > (log INFO_LEVEL) { return }
 
-    print --stderr $"(ansi default)INF|(now)|($message)(ansi reset)"
+    print --stderr $"(ansi default)(log INFO_LEVEL_PREFIX)|(now)|($message)(ansi reset)"
 }
 # Log debug message
 export def "log debug" [message: string] {
     if (current-log-level) > (log DEBUG_LEVEL) { return }
 
-    print --stderr $"(ansi default_dimmed)DBG|(now)|($message)(ansi reset)"
+    print --stderr $"(ansi default_dimmed)(log DEBUG_LEVEL_PREFIX)|(now)|($message)(ansi reset)"
 }
 
 # Log with custom message format and verbosity level
