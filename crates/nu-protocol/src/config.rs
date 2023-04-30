@@ -105,8 +105,6 @@ pub struct Config {
     pub cursor_shape_vi_insert: NuCursorShape,
     pub cursor_shape_vi_normal: NuCursorShape,
     pub cursor_shape_emacs: NuCursorShape,
-    pub help_flags: Vec<String>,
-    pub help_fallback: String,
 }
 
 impl Default for Config {
@@ -150,8 +148,6 @@ impl Default for Config {
             cursor_shape_vi_insert: NuCursorShape::Block,
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
             cursor_shape_emacs: NuCursorShape::Line,
-            help_flags: vec!["--help".into(), "-h".into()],
-            help_fallback: "man".into(),
         }
     }
 }
@@ -1210,37 +1206,6 @@ impl Value {
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
-                    }
-                    "help_flags" => {
-                        if let Value::List { vals, .. } = value {
-                            let mut flags: Vec<String> = vec![];
-                            for val in vals {
-                                if let Value::String { val, .. } = val {
-                                    flags.push(val.to_owned());
-                                } else {
-                                    invalid!(
-                                        Some(val.span().expect("should not be a error")),
-                                        "should be a string"
-                                    );
-                                }
-                            }
-                            config.help_flags = flags;
-                        } else {
-                            invalid!(
-                                Some(value.span().expect("should not be a error")),
-                                "should be a list"
-                            );
-                        }
-                    }
-                    "help_fallback" => {
-                        if let Ok(v) = value.as_string() {
-                            config.help_fallback = v;
-                        } else {
-                            invalid!(
-                                Some(value.span().expect("should not be a error")),
-                                "should be a string"
-                            );
-                        }
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
                     // Legacy options do NOT reconstruct their values on error

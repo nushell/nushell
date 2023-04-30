@@ -296,8 +296,6 @@ let-env config = {
   edit_mode: emacs # emacs, vi
   shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
-  help_flags: [--help -h] # used when trying to find help pages in external commands
-  help_fallback: man # used if `help` could not find help pages when using `help_flags`
 
   hooks: {
     pre_prompt: [{||

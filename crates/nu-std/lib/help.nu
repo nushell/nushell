@@ -653,51 +653,6 @@ def show-command [command: record] {
     print ""
 }
 
-def show-command-extern [command: string] {
-    # Default flags
-    # TODO: find a better way to set defaults
-    mut flags = ["--help" "-h"]
-    mut fall_back = "man"
-    try {
-        $flags = $env.config.help_flags
-    }
-    try {
-        $fall_back = $env.config.help_fallback
-    }
-    let flags_length = ($flags | length)
-
-    def _try_flag [command: string, flag: string] {
-        try {
-            if (^$command $flag | complete | get exit_code) != 0 {
-                false
-            }
-            true
-        } catch {
-            false
-        }
-    }
-
-    mut command = $command
-    if ($command | str starts-with "^") {
-        $command = ($command | str substring 1..)
-    }
-    mut ret_flag = null
-    for $flag in $flags {
-        if (_try_flag $command $flag) {
-            $ret_flag = $flag
-            break
-        }
-    }
-
-    # TODO: find better way of doing this
-    print $"External command (($command)) help page:\n"
-    if $ret_flag == null {
-        ^$fall_back $command
-    } else {
-        ^$command $ret_flag
-    }
-}
-
 # Show help on commands.
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
@@ -723,7 +678,12 @@ export def "help commands" [
             show-command ($found_command_nu | get 0)
         } else {
             try {
-                show-command-extern $command
+                # Default flags
+                let help_command = (try { $env.HELPER } catch { "man" })
+
+                # TODO: find better way of doing this
+                print $"External command (($command)) help page:\n"
+                ^$help_command $command
             } catch {
                 command-not-found-error (metadata $command | get span)
             }
