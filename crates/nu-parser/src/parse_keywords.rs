@@ -6,8 +6,8 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg, Span, Spanned,
-    SyntaxShape, Type, VarId,
+    span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
@@ -1516,7 +1516,7 @@ pub fn parse_module_block(
                             block.pipelines.push(pipeline)
                         }
                         b"module" => {
-                            let pipeline = parse_module(working_set, &command);
+                            let pipeline = parse_module(working_set, command);
 
                             block.pipelines.push(pipeline)
                         }
@@ -1658,9 +1658,9 @@ fn parse_module_file_or_dir(
     working_set: &mut StateWorkingSet,
     path: &[u8],
     path_span: Span,
+    name_override: Option<String>,
 ) -> Option<ModuleId> {
     let (module_path_str, err) = unescape_unquote_string(path, path_span);
-
     if let Some(err) = err {
         working_set.error(err);
         return None;
@@ -1687,25 +1687,23 @@ fn parse_module_file_or_dir(
 
             let mut file_paths = vec![];
 
-            for entry in dir_contents {
-                if let Ok(entry) = entry {
-                    let entry_path = entry.path();
+            for entry in dir_contents.flatten() {
+                let entry_path = entry.path();
 
-                    if entry_path.is_file()
-                        && entry_path.extension() == Some(OsStr::new("nu"))
-                        && entry_path.file_stem() != Some(OsStr::new("mod"))
-                    {
-                        if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
-                            working_set.error(ParseError::InvalidModuleFileName(
-                                module_path.to_string_lossy().to_string(),
-                                module_name,
-                                path_span,
-                            ));
-                            return None;
-                        }
-
-                        file_paths.push(entry_path);
+                if entry_path.is_file()
+                    && entry_path.extension() == Some(OsStr::new("nu"))
+                    && entry_path.file_stem() != Some(OsStr::new("mod"))
+                {
+                    if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
+                        working_set.error(ParseError::InvalidModuleFileName(
+                            module_path.to_string_lossy().to_string(),
+                            module_name,
+                            path_span,
+                        ));
+                        return None;
                     }
+
+                    file_paths.push(entry_path);
                 }
             }
 
@@ -1727,9 +1725,12 @@ fn parse_module_file_or_dir(
             let mod_nu_path = module_path.join("mod.nu");
 
             if mod_nu_path.exists() && mod_nu_path.is_file() {
-                if let Some(module_id) =
-                    parse_module_file(working_set, mod_nu_path, path_span, Some(module_name))
-                {
+                if let Some(module_id) = parse_module_file(
+                    working_set,
+                    mod_nu_path,
+                    path_span,
+                    name_override.or(Some(module_name)),
+                ) {
                     let module = working_set.get_module_mut(module_id);
 
                     for (submodule_name, submodule_id) in submodules {
@@ -1754,7 +1755,7 @@ fn parse_module_file_or_dir(
             None
         }
     } else if module_path.is_file() {
-        parse_module_file(working_set, module_path, path_span, None)
+        parse_module_file(working_set, module_path, path_span, name_override)
     } else {
         working_set.error(ParseError::ModuleNotFound(path_span));
         None
@@ -1843,6 +1844,7 @@ pub fn parse_module(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 working_set,
                 path_str.as_bytes(),
                 module_name_or_path_span,
+                None,
             );
             return pipeline;
         } else {
@@ -2016,6 +2018,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         working_set,
         &import_pattern.head.name,
         import_pattern.head.span,
+        None,
     ) {
         let module = working_set.get_module(module_id).clone();
         (
@@ -2044,18 +2047,20 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         );
     };
 
-    let (decls_to_use, modules_to_use, errors) =
-        module.resolve_import_pattern(working_set, module_id, &import_pattern.members);
+    let (definitions, errors) =
+        module.resolve_import_pattern(working_set, module_id, &import_pattern.members, None);
     working_set.parse_errors.extend(errors);
 
-    let exportables = decls_to_use
+    let exportables = definitions
+        .decls
         .iter()
         .map(|(name, decl_id)| Exportable::Decl {
             name: name.clone(),
             id: *decl_id,
         })
         .chain(
-            modules_to_use
+            definitions
+                .modules
                 .iter()
                 .map(|(name, module_id)| Exportable::Module {
                     name: name.clone(),
@@ -2065,8 +2070,8 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         .collect();
 
     // Extend the current scope with the module's exportables
-    working_set.use_decls(decls_to_use);
-    working_set.use_modules(modules_to_use);
+    working_set.use_decls(definitions.decls);
+    working_set.use_modules(definitions.modules);
 
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
@@ -2377,8 +2382,6 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         custom_completion: None,
     }]);
 
-    let cwd = working_set.get_cwd();
-
     let (final_overlay_name, origin_module, origin_module_id, is_module_updated) =
         if let Some(overlay_frame) = working_set.find_overlay(overlay_name.as_bytes()) {
             // Activate existing overlay
@@ -2439,7 +2442,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 (overlay_name, Module::new(module_name), module_id, true)
             }
         } else {
-            // Create a new overlay from a module
+            // Create a new overlay
             if let Some(module_id) =
                 // the name is a module
                 working_set.find_module(overlay_name.as_bytes())
@@ -2450,94 +2453,61 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     module_id,
                     true,
                 )
+            } else if let Some(module_id) = parse_module_file_or_dir(
+                working_set,
+                overlay_name.as_bytes(),
+                overlay_name_span,
+                new_name.as_ref().map(|spanned| spanned.item.clone()),
+            ) {
+                // try file or directory
+                let new_module = working_set.get_module(module_id).clone();
+                (
+                    new_name
+                        .map(|spanned| spanned.item)
+                        .unwrap_or(String::from_utf8_lossy(&new_module.name).to_string()),
+                    new_module,
+                    module_id,
+                    true,
+                )
             } else {
-                // try if the name is a file
-                if let Ok(module_filename) =
-                    String::from_utf8(trim_quotes(overlay_name.as_bytes()).to_vec())
-                {
-                    if let Some(module_path) =
-                        find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_VAR)
-                    {
-                        let overlay_name = if let Some(stem) = module_path.file_stem() {
-                            stem.to_string_lossy().to_string()
-                        } else {
-                            working_set
-                                .error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
-                            return pipeline;
-                        };
-
-                        if let Ok(contents) = std::fs::read(&module_path) {
-                            let file_id = working_set.add_file(module_filename, &contents);
-                            let new_span = working_set.get_span_for_file(file_id);
-
-                            // Change currently parsed directory
-                            let prev_currently_parsed_cwd =
-                                if let Some(parent) = module_path.parent() {
-                                    let prev = working_set.currently_parsed_cwd.clone();
-
-                                    working_set.currently_parsed_cwd = Some(parent.into());
-
-                                    prev
-                                } else {
-                                    working_set.currently_parsed_cwd.clone()
-                                };
-
-                            let (block, module, module_comments) =
-                                parse_module_block(working_set, new_span, overlay_name.as_bytes());
-
-                            // Restore the currently parsed directory back
-                            working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
-
-                            let _ = working_set.add_block(block);
-                            let module_id = working_set.add_module(
-                                &overlay_name,
-                                module.clone(),
-                                module_comments,
-                            );
-
-                            (
-                                new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
-                                module,
-                                module_id,
-                                true,
-                            )
-                        } else {
-                            working_set
-                                .error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
-                            return pipeline;
-                        }
-                    } else {
-                        working_set.error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
-                        return pipeline;
-                    }
-                } else {
-                    working_set.error(ParseError::NonUtf8(overlay_name_span));
-                    return garbage_pipeline(&[call_span]);
-                }
+                working_set.error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
+                return pipeline;
             }
         };
 
-    todo!("Needs resolving of commands in submodules");
-    let (decls_to_lay, modules_to_lay) = if is_module_updated {
+    let (definitions, errors) = if is_module_updated {
         if has_prefix {
-            (
-                origin_module.decls_with_head(final_overlay_name.as_bytes()),
-                origin_module.submodules_with_head(final_overlay_name.as_bytes()),
+            origin_module.resolve_import_pattern(
+                working_set,
+                origin_module_id,
+                &[],
+                Some(final_overlay_name.as_bytes()),
             )
         } else {
-            (origin_module.decls(), origin_module.submodules())
+            origin_module.resolve_import_pattern(
+                working_set,
+                origin_module_id,
+                &[ImportPatternMember::Glob {
+                    span: overlay_name_span,
+                }],
+                Some(final_overlay_name.as_bytes()),
+            )
         }
     } else {
-        (vec![], vec![])
+        (ResolvedImportPattern::new(vec![], vec![]), vec![])
     };
 
-    working_set.add_overlay(
-        final_overlay_name.as_bytes().to_vec(),
-        origin_module_id,
-        decls_to_lay,
-        modules_to_lay,
-        has_prefix,
-    );
+    if errors.is_empty() {
+        working_set.add_overlay(
+            final_overlay_name.as_bytes().to_vec(),
+            origin_module_id,
+            definitions.decls,
+            definitions.modules,
+            has_prefix,
+        );
+    } else {
+        working_set.parse_errors.extend(errors);
+    }
 
     // Change the call argument to include the Overlay expression with the module ID
     let mut call = call;
