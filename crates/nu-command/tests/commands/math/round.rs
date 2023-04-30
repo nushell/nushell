@@ -19,3 +19,23 @@ fn can_round_very_large_numbers_with_precision() {
 
     assert_eq!(actual.out, "18.137254478")
 }
+
+#[test]
+fn can_round_integer_with_negative_precision() {
+    let actual = nu!(
+        cwd: ".",
+        "echo 123 | math round -p -1"
+    );
+
+    assert_eq!(actual.out, "120")
+}
+
+#[test]
+fn can_round_float_with_negative_precision() {
+    let actual = nu!(
+        cwd: ".",
+        "echo 123.3 | math round -p -1"
+    );
+
+    assert_eq!(actual.out, "120")
+}
