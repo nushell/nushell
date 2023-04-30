@@ -640,3 +640,10 @@ fn module_dir() {
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert_eq!(actual.out, "spambaz");
 }
+
+#[test]
+fn not_allowed_submodule_file() {
+    let inp = &["use samples/not_allowed"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("invalid_module_file_name"));
+}

@@ -1678,27 +1678,6 @@ fn parse_module_file_or_dir(
 
     if module_path.is_dir() {
         if let Ok(dir_contents) = std::fs::read_dir(&module_path) {
-            let mut file_paths: Vec<PathBuf> = dir_contents
-                .filter_map(|res| {
-                    if let Ok(entry) = res {
-                        let entry_path = entry.path();
-
-                        if entry_path.is_file()
-                            && entry_path.extension() == Some(OsStr::new("nu"))
-                            && entry_path.file_stem() != Some(OsStr::new("mod"))
-                        {
-                            Some(entry_path)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            file_paths.sort();
-
             let module_name = if let Some(stem) = module_path.file_stem() {
                 stem.to_string_lossy().to_string()
             } else {
@@ -1706,7 +1685,31 @@ fn parse_module_file_or_dir(
                 return None;
             };
 
-            todo!("Disallow file names with the same name as the module");
+            let mut file_paths = vec![];
+
+            for entry in dir_contents {
+                if let Ok(entry) = entry {
+                    let entry_path = entry.path();
+
+                    if entry_path.is_file()
+                        && entry_path.extension() == Some(OsStr::new("nu"))
+                        && entry_path.file_stem() != Some(OsStr::new("mod"))
+                    {
+                        if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
+                            working_set.error(ParseError::InvalidModuleFileName(
+                                module_path.to_string_lossy().to_string(),
+                                module_name,
+                                path_span,
+                            ));
+                            return None;
+                        }
+
+                        file_paths.push(entry_path);
+                    }
+                }
+            }
+
+            file_paths.sort();
 
             // working_set.enter_scope();
 
