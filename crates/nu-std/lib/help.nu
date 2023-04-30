@@ -682,7 +682,7 @@ export def "help commands" [
                 let help_command = (try { $env.HELPER } catch { "man" })
 
                 # TODO: find better way of doing this
-                print $"External command (($command)) help page:\n"
+                print $"(ansi default_italic)Help pages from external command (($command) | pretty-cmd):(ansi reset)"
                 ^$help_command $command
             } catch {
                 command-not-found-error (metadata $command | get span)
