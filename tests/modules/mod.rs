@@ -647,3 +647,27 @@ fn not_allowed_submodule_file() {
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert!(actual.err.contains("invalid_module_file_name"));
 }
+
+#[ignore = "TODO"]
+#[test]
+fn not_allowed_submodule() {
+    let inp = &["module spam { module spam {} }"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("invalid_module_name"));
+
+    let inp = &["module spam { export module spam {} }"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("invalid_module_name"));
+}
+
+#[ignore = "TODO"]
+#[test]
+fn module_self_name() {
+    let inp = &[
+        "module spam { export module mod { export def main [] { 'spam' } } }",
+        "use spam",
+        "spam",
+    ];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spam");
+}
