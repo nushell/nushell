@@ -33,11 +33,11 @@ def parse-string-level [level: string] {
 def parse-int-level [level: int] {
     (
         match $level {
-            (log CRITICAL_LEVEL | into int) => { log CRITICAL_LEVEL_PREFIX },
-            (log ERROR_LEVEL | into int) => { log ERROR_LEVEL_PREFIX },
-            (log WARNING_LEVEL | into int) => { log WARNING_LEVEL_PREFIX },
-            (log INFO_LEVEL | into int) => { log INFO_LEVEL_PREFIX },
-            (log DEBUG_LEVEL | into int) => { log DEBUG_LEVEL_PREFIX },
+            (log CRITICAL_LEVEL) => { log CRITICAL_LEVEL_PREFIX },
+            (log ERROR_LEVEL) => { log ERROR_LEVEL_PREFIX },
+            (log WARNING_LEVEL) => { log WARNING_LEVEL_PREFIX },
+            (log INFO_LEVEL) => { log INFO_LEVEL_PREFIX },
+            (log DEBUG_LEVEL) => { log DEBUG_LEVEL_PREFIX },
             _ => { log INFO_LEVEL_PREFIX },
         }
     )
