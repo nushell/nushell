@@ -173,7 +173,7 @@ def "from ns" [] {
 #
 # # Examples
 #     measure the performance of simple addition
-#     > std bench { 1 + 2 } -n 10
+#     > std bench { 1 + 2 } -n 10 | table -e
 #     ╭───────┬────────────────────╮
 #     │ mean  │ 4µs 956ns          │
 #     │ std   │ 4µs 831ns          │
