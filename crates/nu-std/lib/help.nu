@@ -2,26 +2,25 @@
 #
 # todo: revert help commands param display to original +/-;
 #       retain consolidated for --concise
-# todo: shouldn't it be help command <string> rather than help command*s* <string>?  But it's also help commands <nothing>.  Do both?
-# todo: missing '{command,module,alias,operator,extrn}-not-found error; currently returns empty list but no error
+# todo: `help command <foo>` gives error "no such command 'command'" -- bogus!
+# todo: but `help commands` should still give useful output.  Same for all kinds
 # todo: slow to format signature section!
-# todo: extra blank lines between examples (commands)
-# todo: `help module <any>` never works,  should be `help modules <any>`.  Same for commands, aliases, externs, operators
-#       Both should work, but how do you splat a ...rest?
-# doc: no error for `help module`, `help alaises` (sic) ... because we want `help <any>` to try to lookup something
-# doc: now `help --find <thing>` that matches just 1 <thing> will return the (1 line) list, not expand the item.
+# todo: fix format where single flag or  double flag is not defined
+# todo: output a string for `help commands <specificCommand>`.  Today it's print output, may be why it's slow.
 
 # doc: --concise, not --verbose
 # doc: match item is <regex>.  use .* not *
-# doc: --find is a switch
-# doc: (Flags section and Command Type
 # doc: help -f <string> is unanchored match in multiple columns; 
 #      help <string> is whole word match, only in name column
-# doc: help aliases, help modules working
+# doc: --find is a switch, not separate arg.  Can no longer say `help -f <foo> <bar>`; now that means search for pat "<foo> <bar"
+# doc: (Details section and Command Type
 # doc: show-modules: display imported commands with (*) prefix (maybe color later)
 # doc: only shows -h for custom cmds and for builtins that explicitly add it to signature
-# doc: operatos info not searched for `help <operator>`, must use `help operators <operator>`
-# fix: never use dark blue -- invisible on black screen
+# doc: operators info not searched for `help <operator>`, must use `help operators <operator>`
+# fixed: never use dark blue -- invisible on black screen
+# fixed: missing '{command,module,alias,operator,extrn}-not-found error; currently returns empty list but no error
+# fixed: extra blank lines between examples (commands)
+# fixed: now `help --find <thing>` that matches just 1 <thing> does display the item
 
 ## themeing and formatting of various snippets
 
@@ -227,10 +226,10 @@ def show-item [ $item: record    # item's scope record (name, signatures, ...)
     match $item.scope {
         "aliases" => {
             show-alias $item
-        }
+        },
         "commands" => {
             show-command $item
-        }
+        },
         "modules" => {
             show-module $item
         }
@@ -320,7 +319,7 @@ def show-command-concise [
             let lhs = (match $i.parameter_type {
                 "input" => { 
                     $"($i.syntax_shape | fmt-token) | ($command.name | colorize attr_bold)"
-                }
+                },
                 "switch" | "named" => {
                     $"($indent)-($i.short_flag), --($i.parameter_name)" + (if ($i.parameter_type == "named") {" " + ($i.syntax_shape | fmt-token)} else {""})
                 },
@@ -354,11 +353,11 @@ def show-command-concise [
 
     let examples = ($command.examples | 
                         par-each {|r| ["", 
-                                    $r.description,
-                                    $"> ($r.example | nu-highlight)",
-                                    ($r.result | str join "\n")
+                                    ($r.description | str join ' '),
+                                    $"> ($r.example | str join ' ' | nu-highlight)",
+                                    ($r.result | str join " ")
                                     ] | str join "\n"
-                            } | str join "\n"
+                            } | str join "\n" | str replace "\n\n" "\n"
                         ) 
     print-help-section "Examples" $examples
 
@@ -384,7 +383,7 @@ def show-command [
             let lhs = (match $i.parameter_type {
                 "input" => { 
                     $"($i.syntax_shape | fmt-token) | ($command.name | colorize attr_bold)"
-                }
+                },
                 "switch" | "named" => {
                     $"($indent)-($i.short_flag), --($i.parameter_name)" + (if ($i.parameter_type == "named") {" " + ($i.syntax_shape | fmt-token)} else {""})
                 },
@@ -418,11 +417,11 @@ def show-command [
 
     let examples = ($command.examples | 
                         par-each {|r| ["", 
-                                    ($r.description | str join "\n"),
-                                    $"> ($r.example | str join "\n" | nu-highlight)",
-                                    ($r.result | str join "\n")
-                                    ] | str join "\n" 
-                            } | str join "\n" 
+                                    ($r.description) ## | str join ' '),
+                                    $"> ($r.example | nu-highlight)"  ## | str join ' ' | nu-highlight)",
+                                    ($r.result ) ##| str join " " | nu-highlight)
+                                    ] | str join "\n"
+                            } | str join "\n" | str replace --all '\n\s*\n\s*\n' "\n\n"
                         ) 
     print-help-section "Examples" $examples
     
@@ -472,17 +471,19 @@ def lookup-matches [
 
     # help with no target and no --find should list all possibilities (even though -f not specified)
     let target = (
-        if $find or ($item == "") {
+        if item == "" {
             ""
-        } else if (not $find) {
-            $"^($item)$"
         } else {
-            $item
+            if $find {
+                $item
+            } else {
+                $"^($item)$"
+            }
         }
     )
 
     # find matching entries in all scope kinds
-    let retval = ($match_cols | items {| k v | 
+    ($match_cols | items {| k v | 
         ($nu.scope | get $k | find --ignore-case --columns $v --regex $target) |
         insert scope $k |
         insert kind {|sc| match $k {
@@ -493,7 +494,6 @@ def lookup-matches [
                     } |
         } | flatten
     )
-    return $retval
 }
     
 
@@ -591,11 +591,17 @@ export def "help modules" [
 ] {
     let $found_items = (lookup-matches ($item | str join " ") $find --only modules)
 
-    if $find or ($found_items | length) != 1 {
-        $found_items | select name usage kind
-    } else {
-        show-module $found_items.0
-        "" # return string
+    match ($found_items | length) {
+        0 => {
+                module-not-found-error (metadata $item).span
+        }, 
+        1 => {
+               show-module $found_items.0
+                "" # return string
+        },
+        _ => {
+                $found_items | select name usage kind
+        }        
     }
 }
 
@@ -673,11 +679,17 @@ export def "help aliases" [
 ] {
     let $found_items = (lookup-matches ($item | str join " ") $find --only aliases)
 
-    if $find or ($found_items | length) != 1 {
-        $found_items | select name usage kind
-    } else {
-        show-alias $found_items.0
-        "" # return string
+    match ($found_items | length) {
+        0 => {
+                alias-not-found-error (metadata $item).span
+        }, 
+        1 => {
+               show-alias $found_items.0
+                "" # return string
+        },
+        _ => {
+                $found_items | select name usage kind
+        }        
     }
 }
 
@@ -686,14 +698,19 @@ export def "help externs" [
     ...item: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f)     # show list of matches
 ] {
-
     let $found_items = (lookup-matches ($item | str join " ") $find --only commands | where is_extern == true)
 
-    if $find or ($found_items | length) != 1 {
-        $found_items | select name usage kind
-    } else {
-        show-command $found_items.0
-        "" # return string
+    match ($found_items | length) {
+        0 => {
+                extern-not-found-error (metadata $item).span
+        }, 
+        1 => {
+               show-command $found_items.0
+                "" # return string
+        },
+        _ => {
+                $found_items | select name usage kind
+        }        
     }
 }
 
@@ -734,19 +751,25 @@ export def "help operators" [
 ] {
     let operators = (get-all-operators)
 
-    mut operator = ($item | str join " ")
+    mut target = ($item | str join " ")
 
-    if (not $find) and $operator != "" {
-        $operator = $"^($operator)$"
+    if (not $find) and $target != "" {
+        $target = $"^($target)$"
     }
 
-    let found_operators = ($operators | find --regex $operator)
+    let found_items = ($operators | find --regex $target)
 
-    if $find or ($found_operators | length) != 1 {
-        $found_operators
-    } else {
-        show-operator ($found_operators | get 0)
-        "" # return string
+    match ($found_items | length) {
+        0 => {
+                operator-not-found-error (metadata $item).span
+        }, 
+        1 => {
+               show-operator $found_items.0
+                "" # return string
+        },
+        _ => {
+                $found_items
+        }        
     }
 }
 
@@ -758,15 +781,21 @@ export def "help commands" [
 ] {
     let $found_items = (lookup-matches ($item | str join " ") $find --only commands)
 
-    if $find or ($found_items | length) != 1 {
-        $found_items | select name usage kind
-    } else {
-        if $concise {
-            show-command-concise $found_items.0
-        } else {
-            show-command $found_items.0
-        }
-        "" # return string
+    match ($found_items | length) {
+        0 => {
+                command-not-found-error (metadata $item).span
+        }, 
+        1 => {
+                if $concise {
+                    show-command-concise $found_items.0
+                } else {
+                    show-command $found_items.0
+                }
+                "" # return string
+        },
+        _ => {
+                $found_items | select name usage kind
+        }        
     }
 }
 
@@ -816,15 +845,21 @@ You can also learn more at ('https://www.nushell.sh/book/' | colorize default_it
 
     let $found_items = (lookup-matches ($item | str join " ") $find)
 
-    # show list of found items (possibly empty)
-    if $find or ($found_items | length) != 1 {
-        $found_items | select name usage kind
-    } else {
-        # show detail on individual item, if only one, in concise or default view
-        if $concise {
-            show-item-concise   $found_items.0
-        } else {
-            show-item           $found_items.0
+    match ($found_items | length) {
+        0 => {
+            command-not-found-error (metadata $item).span
+        },
+        1 => {
+            # show detail on individual item, if only one, in concise or default view
+            if $concise {
+                show-item-concise   $found_items.0
+            } else {
+                show-item           $found_items.0
+            }
+            "" # return a string
+        }, 
+        _ => {
+            $found_items | select name usage kind
         }
     }
 }
