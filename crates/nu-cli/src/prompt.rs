@@ -109,9 +109,10 @@ impl Prompt for NushellPrompt {
             let prompt = default
                 .render_prompt_left()
                 .to_string()
-                .replace('\n', "\r\n");
+                .replace('\n', "\r\n")
+                + " ";
 
-            (prompt + " ").into()
+            prompt.into()
         }
     }
 
