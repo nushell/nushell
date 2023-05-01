@@ -5414,9 +5414,6 @@ pub fn parse_block(
                 | LiteElement::Redirection(_, _, command)
                 | LiteElement::SeparateRedirection {
                     out: (_, command), ..
-                }
-                | LiteElement::SameTargetRedirection {
-                    cmd: (_, command), ..
                 } => {
                     let mut pipeline =
                         parse_builtin_commands(working_set, command, is_subexpression);
@@ -5468,6 +5465,25 @@ pub fn parse_block(
                         }
                     }
                     block.pipelines.push(pipeline)
+                }
+                LiteElement::SameTargetRedirection {
+                    cmd: (span, command),
+                    redirection: (redirect_span, redirect_cmd),
+                } => {
+                    trace!("parsing: pipeline element: same target redirection");
+                    let expr = parse_expression(working_set, &command.parts, is_subexpression);
+                    working_set.type_scope.add_type(expr.ty.clone());
+
+                    let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
+
+                    working_set.type_scope.add_type(redirect_expr.ty.clone());
+
+                    block.pipelines.push(Pipeline {
+                        elements: vec![PipelineElement::SameTargetRedirection {
+                            cmd: (*span, expr),
+                            redirection: (*redirect_span, redirect_expr),
+                        }],
+                    })
                 }
             }
         }
