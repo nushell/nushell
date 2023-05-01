@@ -1,13 +1,29 @@
-
-# todo: help modules use "imported" and "subcommands" subsections to simplify display; use <sugbcommand> <usage> detail
+# new help
+#
 # todo: revert help commands param display to original +/-;
 #       retain consolidated for --concise
+# todo: shouldn't it be help command <string> rather than help command*s* <string>?  But it's also help commands <nothing>.  Do both?
+# todo: missing '{command,module,alias,operator,extrn}-not-found error; currently returns empty list but no error
+# todo: slow to format signature section!
+# todo: extra blank lines between examples (commands)
+# todo: `help module <any>` never works,  should be `help modules <any>`.  Same for commands, aliases, externs, operators
+#       Both should work, but how do you splat a ...rest?
+# doc: no error for `help module`, `help alaises` (sic) ... because we want `help <any>` to try to lookup something
+# doc: now `help --find <thing>` that matches just 1 <thing> will return the (1 line) list, not expand the item.
+
 # doc: --concise, not --verbose
-# doc: match uses <regex>
+# doc: match item is <regex>.  use .* not *
 # doc: --find is a switch
-# doc: Flags section and Command Type
+# doc: (Flags section and Command Type
 # doc: help -f <string> is unanchored match in multiple columns; 
 #      help <string> is whole word match, only in name column
+# doc: help aliases, help modules working
+# doc: show-modules: display imported commands with (*) prefix (maybe color later)
+# doc: only shows -h for custom cmds and for builtins that explicitly add it to signature
+# doc: operatos info not searched for `help <operator>`, must use `help operators <operator>`
+# fix: never use dark blue -- invisible on black screen
+
+## themeing and formatting of various snippets
 
 def variable_shape_color [] {
     ($env.config.color_config.shape_variable | default light_purple))
@@ -19,13 +35,91 @@ def colorize [...color_names: string] {
     $"($color_names | each {|c| (ansi $c)} | str join '')($in)(ansi reset)"
 }
 
-def error-fmt [] {
-    $"(ansi red)($in)(ansi reset)"
+def fmt-error [] {
+    ($in | colorize 'red')
 }
+
+def fmt-bold [] {
+    ($in | colorize 'attr_bold')
+}
+
+def fmt-header [] {
+    ($in | colorize green)
+}
+
+# format a placeholder token which is a data type: in <> and italicized
+def fmt-token [ ] {
+    ($"<($in)>" | fmt-type)
+}
+
+# format datatype name: italicized in blue
+def fmt-type [ ] {
+    ($in  | colorize attr_italic (variable_shape_color))
+}
+
+def pretty-cmd [] {
+    ($in | colorize default_dimmed default_italic)
+}
+
+## whole line formatting helpers
+
+# print section header and optional title line for the section
+def print-help-header [
+    text: string
+    title?: string = "" # optional title
+    --no_newline (-n)   # suppress the default leading NL
+] {
+    if not $no_newline {
+        print ""
+    }
+    print $"($text | fmt-header) ($title)"
+}
+
+# print detail line under section (indented)
+def print-help-detail [text: string, indent?:int = 2] {
+    $text | lines | each {|l| print $"(' ' * $indent)($l)" }
+}
+
+# Print section header and content in one fell swoop.  Or skip it if empty.
+def print-help-section [section:string,  # section name, skip printing if ''
+                        body?:string = ""
+] {
+    if not ($body | is-empty) {
+        if $section != "" {
+            print-help-header $section
+        } else {print ""}
+        print-help-detail $body
+    }
+}
+
+# Print section header and 1 line detail.  Detail is expected to be name and usage
+def print-help-section-name [section:string, name:string, usage?:string = ""] {
+    print-help-header $section
+    mut l = ($name | fmt-bold)
+    if not ($usage | is-empty) { 
+        $l += $" - ($usage)"
+    }
+    print-help-detail $l 
+}
+
+# "command_type" based on signature bits (commands only)
+def cmd_type [] {
+    if $in.is_builtin {
+        'builtin command'
+    } else if $in.is_extern { # must test before custom
+        'external command'
+    } else if $in.is_custom {
+        'custom command'
+    } else if $in.is_plugin {
+        'plugin'
+    } else {'other command'}
+}
+
+## Errors
 
 def throw-error [error: string, msg: string, span: record] {
     error make {
-        msg: ($error | error-fmt)
+        msg: ($error | fmt-error)
         label: {
             text: $msg
             start: $span.start
@@ -54,7 +148,9 @@ def command-not-found-error [span: record] {
     throw-error "std::help::command_not_found" "command not found" $span
 }
 
-def get-all-operators [] { return [
+## Completers
+
+def get-all-operators [] { return ([
     [type, operator, name, description, precedence];
 
     [Assignment, =, Assign, "Assigns a value to a variable.", 10]
@@ -92,7 +188,7 @@ def get-all-operators [] { return [
     [Boolean, and, And, "Checks if two values are true.", 50]
     [Boolean, or, Or, "Checks if either value is true.", 40]
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
-]}
+] | sort-by name)}
 
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description
@@ -119,67 +215,289 @@ def "nu-complete list-externs" [] {
     $nu.scope.commands | where is_extern | select name usage | rename value description
 }
 
-def help-header [
-    text: string
+## views for individual items
+## all depend on the scope record with 2 added fields: 
+#   scope (section it came from)
+#   kind (user-presentable description of item)
+
+# show detail for one item in default view
+def show-item [ $item: record    # item's scope record (name, signatures, ...)
 ] {
-    ($text | colorize green)
+    
+    match $item.scope {
+        "aliases" => {
+            show-alias $item
+        }
+        "commands" => {
+            show-command $item
+        }
+        "modules" => {
+            show-module $item
+        }
+    }
 }
 
-def print-help-header [
-    text: string
-    --no-newline (-n): bool
-] {
-    let header = (help-header $text)
 
-    if $no_newline {
-        print -n $header
-    } else {
-        print $header
+# show detail for one item in *concise* view
+def show-item-concise [ item: record    # item's scope record (name, signatures, ...)
+] {
+
+    match $item.scope {
+        "aliases" => {
+            show-alias $item
+        }
+        "commands" => {
+            show-command-concise $item
+        }
+        "modules" => {
+            show-module $item
+        }
     }
 }
 
-def show-module [module: record , --concise] {
-    print-help-header -n "Module"
-    print $" ($module.name)"
-    print ""
+def show-module [module: record] {
+    print-help-section-name "Module" $module.name $module.usage
 
-    if not ($module.usage? | is-empty) {
-        print $module.usage
-        print ""
-    }
+    # categorize subcommands exported vs unexported
+    let commands = $module.commands?
+    if not ($commands | is-empty) {
+        let all_commands = ($nu.scope.commands | select name)
 
-    if not ($module.commands? | is-empty) {
-        print-help-header "Exported commands"
-        print -n "    "
-
-        let commands_string = (
-            $module.commands
-            | each {|command|
-                $"($command) (char lparen)($module.name) ($command)(char rparen)"
-            }
-            | str join ", "
-        )
-
-        print $commands_string
-        print ""
-    }
-
-    if not ($module.aliases? | is-empty) {
-        print-help-header -n "Exported aliases"
-        print $module.aliases
-        print ""
-    }
+        let sc = ($commands | each {|c|
+            [ $c,
+            #($all_commands | find --regex $"^($c)$|($module.name) ($c)$" | get name),
+            ($all_commands | find --regex $"^($c)$|($module.name) ($c)$" | get name | par-each {|n| '(*)' + $n}),
+            ] | flatten | uniq | str join ", "
+        } | grid)
+        print-help-header "Available commands" "(*) - currently imported"
+        print-help-detail $sc
+    } ##
+    
+    print-help-section "Exported aliases" $module.aliases?
 
     print-help-header "Exported environment"
 
     if ($module.env_block? | is-empty) {
-        print ('$nothing' | colorize (variable_shape_color))
+        print-help-detail ('$nothing' | colorize (variable_shape_color))
     } else {
-        print (view source $module.env_block | nu-highlight)
+        print-help-detail (view source $module.env_block | nu-highlight)
+    }
+    "" # return string
+}
+
+def show-alias [alias: record ] {
+
+    print-help-section-name "Alias" $alias.name $alias.usage
+    print-help-section "Expansion" $alias.expansion
+}
+
+def show-extern [extern: record] {
+    print-help-section-name "Extern" $extern.name $extern.usage
+}
+
+
+def show-operator [operator: record] {
+    print-help-section-name Operator $operator.operator $operator.name
+    print-help-section Description $operator.description
+    print-help-section Type $operator.type
+    print-help-section Precedence ($operator.precedence | into string)
+}
+
+# show concise help for single command.
+def show-command-concise [
+        command: record
+] {
+    print-help-section "Usage" 
+    print-help-detail $"($command | cmd_type) ($command.name | fmt-bold) - ($command.usage)"
+    
+    let indent = ((($command.signatures | values | first | where parameter_type == "input" | first |
+                                get syntax_shape | str length -g ) + 3) * " ") # indent flags, params... under verb
+    let tab_stop = 40 # column to start descriptions
+
+    for sig in ($command.signatures | transpose | get column1) {
+        print ""
+        for i in $sig {
+            let lhs = (match $i.parameter_type {
+                "input" => { 
+                    $"($i.syntax_shape | fmt-token) | ($command.name | colorize attr_bold)"
+                }
+                "switch" | "named" => {
+                    $"($indent)-($i.short_flag), --($i.parameter_name)" + (if ($i.parameter_type == "named") {" " + ($i.syntax_shape | fmt-token)} else {""})
+                },
+                "positional" => { 
+                    $"($indent)($i.parameter_name): ($i.syntax_shape | fmt-type)"
+                },
+                "rest" => {
+                    let rp = if ($i.parameter_name? | is-empty) or $i.parameter_name == '') {
+                        'rest'
+                     } else { 
+                        $i.parameter_name
+                    }
+                    $"($indent)...($rp): ($i.syntax_shape | fmt-type)"
+                 },
+                "output" => { 
+                    $"  => ($i.syntax_shape | fmt-token)"
+                },
+            }) 
+
+            let rhs = ([
+                " ",                # extra blank in case lhs overflows tab_stop
+                $i.description,
+                (if $i.is_optional and ($i.parameter_type == "positional" or $i.parameter_type == "rest") {$". Optional, default TBD"} else {""}),
+            ] | str join "")
+            
+            print-help-detail (($lhs | fill --character " " --alignment left --width $tab_stop) + $rhs)
+        }
     }
 
-    print ""
+    print-help-section "" $command.extra_usage?
+
+    let examples = ($command.examples | 
+                        par-each {|r| ["", 
+                                    $r.description,
+                                    $"> ($r.example | nu-highlight)",
+                                    ($r.result | str join "\n")
+                                    ] | str join "\n"
+                            } | str join "\n"
+                        ) 
+    print-help-section "Examples" $examples
+
+    
+    let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | 
+                            each {|r| $"($r.name | colorize teal) - ($r.usage)"} | str join "\n")
+    print-help-section "Subcommands" $subcommands 
 }
+
+# show normal help for single command.
+def show-command [
+        command: record
+] { 
+    print-help-section-name "Usage" $command.name $command.usage
+    
+    let indent = (($command.signatures | values | first | where parameter_type == "input" | first |
+                                get syntax_shape | str length -g ) + 3) * " "  # indent flags, params... under verb
+    mut tab_stop = 40 # column to start descriptions
+
+    for sig in ($command.signatures | transpose | get column1) {
+        print ""
+        for i in $sig {
+            let lhs = (match $i.parameter_type {
+                "input" => { 
+                    $"($i.syntax_shape | fmt-token) | ($command.name | colorize attr_bold)"
+                }
+                "switch" | "named" => {
+                    $"($indent)-($i.short_flag), --($i.parameter_name)" + (if ($i.parameter_type == "named") {" " + ($i.syntax_shape | fmt-token)} else {""})
+                },
+                "positional" => { 
+                    $"($indent)($i.parameter_name): ($i.syntax_shape | fmt-type)"
+                },
+                "rest" => {
+                    let rp = if ($i.parameter_name? | is-empty) or $i.parameter_name == '') {
+                        'rest'
+                     } else { 
+                        $i.parameter_name
+                    }
+                    $"($indent)...($rp): ($i.syntax_shape | fmt-type)"
+                 },
+                "output" => { 
+                    $"  => ($i.syntax_shape | fmt-token)"
+                },
+            }) 
+
+            let rhs = ([
+                " ",                # extra blank in case lhs overflows tab_stop
+                $i.description,
+                (if $i.is_optional and ($i.parameter_type == "positional" or $i.parameter_type == "rest") {$". Optional, default TBD"} else {""}),
+            ] | str join "")
+            
+            print-help-detail (($lhs | fill --character " " --alignment left --width $tab_stop) + $rhs)
+        }
+    }
+
+    print-help-section "" $command.extra_usage?
+
+    let examples = ($command.examples | 
+                        par-each {|r| ["", 
+                                    ($r.description | str join "\n"),
+                                    $"> ($r.example | str join "\n" | nu-highlight)",
+                                    ($r.result | str join "\n")
+                                    ] | str join "\n" 
+                            } | str join "\n" 
+                        ) 
+    print-help-section "Examples" $examples
+    
+    print-help-section "Search terms" $command.search_terms
+
+    print-help-section Module $command.module_name
+
+    print-help-section  Category $command.category
+
+    print-help-header "Details"
+    print-help-detail $"Command type:      ($command | cmd_type)"
+    print-help-detail $"Creates scope:     ($command.creates_scope)"
+    print-help-detail $"Is parser keyword: ($command.is_keyword)"
+    
+    let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | 
+                            par-each {|r| $"($r.name | colorize teal) - ($r.usage)"} | str join "\n")
+    print-help-section "Subcommands" $subcommands 
+
+}
+
+## item lookups
+
+# find matching items in aliases, modules and/or commands
+def lookup-matches [
+        item: string        # regex pattern to match on
+        find:bool          # true -> search in more than just name column
+        --only:string=""    # one of 'modules', 'aliases', 'commands' to limit results to that kind
+] {
+    # prime search with list of columns in signatures to include in --find search.
+    mut match_cols = if $find {
+            { aliases: [name usage expansion],
+              commands: [name module_name category usage  search_terms],
+                            # and not: signatures examples is_* creates_scope extra_usage
+              modules: [name usage commands aliases env_block]
+            }
+        } else {
+            {aliases: [name],
+            commands: [name],
+            modules: [name]
+            }
+        }
+    
+    # restrict scope members searched, if requested
+    if $only != "" { 
+        $match_cols = ($match_cols | select $only)
+    }
+
+    # help with no target and no --find should list all possibilities (even though -f not specified)
+    let target = (
+        if $find or ($item == "") {
+            ""
+        } else if (not $find) {
+            $"^($item)$"
+        } else {
+            $item
+        }
+    )
+
+    # find matching entries in all scope kinds
+    let retval = ($match_cols | items {| k v | 
+        ($nu.scope | get $k | find --ignore-case --columns $v --regex $target) |
+        insert scope $k |
+        insert kind {|sc| match $k {
+                            'modules' => 'module',
+                            'aliases' => 'alias',
+                            'commands' => ($sc | cmd_type)
+                        } 
+                    } |
+        } | flatten
+    )
+    return $retval
+}
+    
+
+## entry points
 
 # Show help on nushell modules.
 #
@@ -268,45 +586,17 @@ def show-module [module: record , --concise] {
 #        ·                      ╰── module not found
 #        ╰────
 export def "help modules" [
-    ...module: string@"nu-complete list-modules"  # the name of module to get help on
-    --find (-f): string  # string to find in module names
+    ...item: string@"nu-complete list-modules"  # the name of module to get help on
+    --find (-f) # show list of matches
 ] {
-    let modules = $nu.scope.modules
+    let $found_items = (lookup-matches ($item | str join " ") $find --only modules)
 
-    let module = ($module | str join " ")
-
-    if not ($find | is-empty) {
-        let found_modules = ($modules | find $find --columns [name usage])
-
-        if ($found_modules | length) == 1 {
-            show-module ($found_modules | get 0)
-        } else {
-            $found_modules
-        }
-    } else if not ($module | is-empty) {
-        let found_module = ($modules | where name == $module)
-
-        if ($found_module | is-empty) {
-            module_not_found_error (metadata $module | get span)
-        }
-
-        show-module ($found_module | get 0)
+    if $find or ($found_items | length) != 1 {
+        $found_items | select name usage kind
     } else {
-        $modules
+        show-module $found_items.0
+        "" # return string
     }
-}
-
-def show-alias [alias: record --concise] {
-    if not ($alias.usage? | is-empty) {
-        print $alias.usage
-        print ""
-    }
-
-    print-help-header -n "Alias"
-    print $" ($alias.name)"
-    print ""
-    print-help-header "Expansion"
-    print $"  ($alias.expansion)"
 }
 
 # Show help on nushell aliases.
@@ -378,90 +668,33 @@ def show-alias [alias: record --concise] {
 #        ·                      ╰── alias not found
 #        ╰────
 export def "help aliases" [
-    ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
-    --find (-f): string  # string to find in alias names
+    ...item: string@"nu-complete list-aliases"  # the name of alias to get help on
+    --find (-f)  # show list of matches
 ] {
-    let aliases = ($nu.scope.aliases | sort-by name)
+    let $found_items = (lookup-matches ($item | str join " ") $find --only aliases)
 
-    let alias = ($alias | str join " ")
-
-    if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find --columns [name usage])
-
-        if ($found_aliases | length) == 1 {
-            show-alias ($found_aliases | get 0)
-        } else {
-            $found_aliases
-        }
-    } else if not ($alias | is-empty) {
-        let found_alias = ($aliases | where name == $alias)
-
-        if ($found_alias | is-empty) {
-            alias-not-found-error (metadata $alias | get span)
-        }
-
-        show-alias ($found_alias | get 0)
+    if $find or ($found_items | length) != 1 {
+        $found_items | select name usage kind
     } else {
-        $aliases
+        show-alias $found_items.0
+        "" # return string
     }
-}
-
-def show-extern [extern: record] {
-    if not ($extern.usage? | is-empty) {
-        print $extern.usage
-        print ""
-    }
-
-    print-help-header -n "Extern"
-    print $" ($extern.name)"
 }
 
 # Show help on nushell externs.
 export def "help externs" [
-    ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
-    --find (-f): string  # string to find in extern names
+    ...item: string@"nu-complete list-externs"  # the name of extern to get help on
+    --find (-f)     # show list of matches
 ] {
-    let externs = (
-        $nu.scope.commands
-        | where is_extern
-        | select name module_name usage
-        | sort-by name
-        | str trim
-    )
 
-    let extern = ($extern | str join " ")
+    let $found_items = (lookup-matches ($item | str join " ") $find --only commands | where is_extern == true)
 
-    if not ($find | is-empty) {
-        let found_externs = ($externs | find $find --columns [name usage])
-
-        if ($found_externs | length) == 1 {
-            show-extern ($found_externs | get 0)
-        } else {
-            $found_externs
-        }
-    } else if not ($extern | is-empty) {
-        let found_extern = ($externs | where name == $extern)
-
-        if ($found_extern | is-empty) {
-            extern-not-found-error (metadata $extern | get span)
-        }
-
-        show-extern ($found_extern | get 0)
+    if $find or ($found_items | length) != 1 {
+        $found_items | select name usage kind
     } else {
-        $externs
+        show-command $found_items.0
+        "" # return string
     }
-}
-
-def show-operator [operator: record] {
-    print-help-header "Description"
-    print $"    ($operator.description)"
-    print ""
-    print-help-header -n "Operator"
-    print ($" ($operator.name) (char lparen)($operator.operator | colorize cyan_bold)(char rparen)")
-    print-help-header -n "Type"
-    print $" ($operator.type)"
-    print-help-header -n "Precedence"
-    print $" ($operator.precedence)"
 }
 
 # Show help on nushell operators.
@@ -496,257 +729,46 @@ def show-operator [operator: record] {
 #        ·                       ╰── operator not found
 #        ╰────
 export def "help operators" [
-    ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
-    --find (-f): string  # string to find in operator names
+    ...item: string@"nu-complete list-operators"  # the name of operator to get help on
+    --find (-f)       # show list of matches
 ] {
     let operators = (get-all-operators)
 
-    let operator = ($operator | str join " ")
+    mut operator = ($item | str join " ")
 
-    if not ($find | is-empty) {
-        let found_operators = ($operators | find $find --columns [type name])
+    if (not $find) and $operator != "" {
+        $operator = $"^($operator)$"
+    }
 
-        if ($found_operators | length) == 1 {
-            show-operator ($found_operators | get 0)
-        } else {
-            $found_operators
-        }
-    } else if not ($operator | is-empty) {
-        let found_operator = ($operators | where name == $operator)
+    let found_operators = ($operators | find --regex $operator)
 
-        if ($found_operator | is-empty) {
-            operator-not-found-error (metadata $operator | get span)
-        }
-
-        show-operator ($found_operator | get 0)
+    if $find or ($found_operators | length) != 1 {
+        $found_operators
     } else {
-        $operators
-    }
-}
-
-
-# <token> | format_token => <string>
-# format a placeholder token which is a data type: in <> and italicized
-def format_token [ ] {
-
-    ($"<($in)>" | format_type)
-}
-
-# format datatype name: italicized in blue
-def format_type [ ] {
-    ($in  | colorize attr_italic (variable_shape_color))
-}
-
-# <nothing> | cmd_type <signature> => <string>
-# return "command_type" based on signature bits
-def cmd_type [sig:record] {
-    if $sig.is_builtin {
-        'builtin command'
-    } else if $sig.is_extern { # must test before custom
-        'external command'
-    } else if $sig.is_custom {
-        'custom command'
-    } else if $sig.is_plugin {
-        'plugin'
-    } else {'other command'}
-
-}
-
-# show help for single command.  By default, show only essential sections, don't scroll usage off top of screen
-#todo remove debugging
-def show-command [
-        command: record
-        --concise (-c) # Show less detail
-] {    
-    mut out = []
-    $out = ["", $"(help-header "Usage") ($command.usage?)"]
-    mut indent = 5 # indent parameters under input verb name
-    mut tab_stop = 40 # column to start descriptions
-
-    for sig in ($command.signatures | transpose | get column1) {
-        $out = ($out | append " ")
-        for i in $sig {
-            let lhs = (match $i.parameter_type {
-                "input" => { 
-                    $indent = ($i.syntax_shape | str length -g ) + 3  # indent flags, params... under verb
-                    $"($i.syntax_shape | format_token) | ($command.name | colorize attr_bold)"
-                }
-                "switch" | "named" => {
-                    $"(' ' * $indent)-($i.short_flag), --($i.parameter_name)" + (if ($i.parameter_type == "named") {" " + ($i.syntax_shape | format_token)} else {""})
-                },
-                "positional" => { 
-                    (' ' * $indent) + $i.parameter_name + ((":" + $i.syntax_shape) | format_type)
-                },
-                "rest" => {
-                    (' ' * $indent) + "..." + (if (($i.parameter_name? | is-empty) or ($i.parameter_name == "")) {"rest"} else {$i.parameter_name}) + ((":" + $i.syntax_shape) | format_type)
-                 },
-                "output" => { 
-                    $"  => ($i.syntax_shape | format_token)"
-                },
-            }) 
-
-            let rhs = ([
-                " ",                # extra blank in case lhs overflows tab_stop
-                $i.description,
-                (if $i.parameter_type == "positional" and $i.is_optional {$". Optional, default TBD"} else {""}),
-            ] | str join "")
-            
-            $out = ($out | append (($lhs | fill --character " " --alignment left --width $tab_stop) + $rhs))
-        }
-    }
-
-    if not ($command.extra_usage? | is-empty) {
-        $out = ($out | append "")
-        $out = ($out | append $command.extra_usage )
-    }
-
-    if not ($command.examples? | is-empty) {
-        $out = ($out | append "")
-        $out = ($out | append (help-header "Examples"))
-        for example in $command.examples {
-            $out = ($out | append "")
-            $out = ($out | append $"  ($example.description)")
-            $out = ($out | append $"  > ($example.example | nu-highlight)")
-            if not ($example.result? | is-empty) {
-                for line in $example.result {
-                    $out = ($out | append $"  ($line)")
-                }
-            }
-        }
-    }
-
-    
-    let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
-    if not ($subcommands | is-empty) {
-        $out = ($out | append "")
-        $out = ($out | append (help-header "Subcommands"))
-        for subcommand in $subcommands {
-            $out = ($out | append $"  ($subcommand.name | colorize teal) - ($subcommand.usage)")
-        }
-    }
-
-    # dump to screen
-    print ($out | str join "\n")
-    print ""
-
-    
-    if not $concise {
-        if not ($command.search_terms? | is-empty) {
-            print ""
-            print-help-header -n "Search terms"
-            print $" ($command.search_terms)"
-        }
-
-        if not ($command.module_name? | is-empty) {
-            print ""
-            print-help-header -n "Module"
-            print $" ($command.module_name)"
-        }
-
-        if not ($command.category? | is-empty) {
-            print ""
-            print-help-header -n "Category"
-            print $" ($command.category)"
-        }
-
-        print ""
-        print-help-header "Flags"
-        ""
-        print ({"Command type": (cmd_type $command),
-                "Creates scope": $command.creates_scope,
-                "Is parser keyword": $command.is_keyword
-        } | table)
-
-        print ""
+        show-operator ($found_operators | get 0)
+        "" # return string
     }
 }
 
 # Show help on nushell commands. 
 export def "help commands" [
-    ...command: string@"nu-complete list-commands"  # the name of command to get help on
-    --find (-f): string  # string to find in command names and usage
-    --concise (-v) # Show more details
-
+    ...item: string@"nu-complete list-commands"  # the name of command to get help on
+    --find (-f)     # show list of matches
+    --concise (-c) # Show more compact display
 ] {
-    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+    let $found_items = (lookup-matches ($item | str join " ") $find --only commands)
 
-    let command = ($command | str join " ")
-    if not ($find | is-empty) {
-        let found_commands = ($commands | find $find --columns [name usage search_terms])
-
-        if ($found_commands | length) == 1 {
-            #todo refactor so only one invocation of show-command, because it's clunky to pass --concise
-            if $concise {
-                show-command --concise ($found_commands | get 0)  
-            } else {
-                show-command ($found_commands | get 0)
-            }
-        } else {
-            $found_commands | select name category usage signatures search_terms
-        }
-    } else if not ($command | is-empty) {
-        let found_command = ($commands | where name == $command)
-        
-        if ($found_command | is-empty) {
-            command-not-found-error (metadata $command | get span)
-        }
-        #todo refactor so only one invocation of show-command, because it's clunky to pass --concise
-        if $concise {
-            show-command --concise ($found_command | get 0)  
-        } else {
-            show-command ($found_command | get 0)
-        }
+    if $find or ($found_items | length) != 1 {
+        $found_items | select name usage kind
     } else {
-        $commands | select name category usage signatures search_terms
-    }
-}
-
-def pretty-cmd [] {
-    let cmd = $in
-    $"(ansi default_dimmed)(ansi default_italic)($cmd)(ansi reset)"
-}
-
-# find matching items in aliases, modules and commands
-def lookup-matches [target: string, # regex pattern to match on
-            $find:bool              # true -> search in more than just name column
-            --only:string=""        # one of 'modules', 'aliases', 'commands' to limit results to that kind
-] {
-
-
-    # prime search with list of columns in signatures to include in --find search.
-    mut match_cols = if $find {
-            {aliases: [name usage expansion],
-            commands: [name module_name category usage  search_terms],
-                            # and not: signatures examples is_* creates_scope extra_usage
-            modules: [name usage commands aliases env_block]
-            }
+        if $concise {
+            show-command-concise $found_items.0
         } else {
-            {aliases: [name],
-            commands: [name],
-            modules: [name]
-            }
+            show-command $found_items.0
         }
-    
-    # restrict scope members searched, if requested
-    if $only != "" { 
-        $match_cols = ($match_cols | reject $only)
+        "" # return string
     }
-
-    let retval = ($match_cols | items {| k v | 
-        ($nu.scope | get $k | find --ignore-case --columns $v --regex $target) |
-            insert kind { |r| 
-                match $k {
-                    'aliases' => 'alias'
-                    'modules' => 'module'
-                    'commands' => (cmd_type $r)
-                }
-            } |
-            select --ignore-errors name usage kind category 
-        } | flatten
-    )
-    return $retval
 }
-    
 
 # Display help information about different parts of Nushell.
 #
@@ -792,41 +814,17 @@ You can also learn more at ('https://www.nushell.sh/book/' | colorize default_it
         return
     }
 
-    mut $target = ($item | str join " ")
-    if not $find { 
-        $target = '^' + $target + '$' 
-    }
-    
-    let $found_items = (lookup-matches $target $find)
+    let $found_items = (lookup-matches ($item | str join " ") $find)
 
+    # show list of found items (possibly empty)
     if $find or ($found_items | length) != 1 {
-        $found_items
+        $found_items | select name usage kind
     } else {
-        let victim = $found_items.0
-        match $found_items.0.kind {
-            'module' => {
-                if $concise {
-                    (show-module --concise ($nu.scope.modules | where name == $found_items.0.name | get 0) )
-                } else {
-                    (show-module           ($nu.scope.modules | where name == $found_items.0.name | get 0) )
-                }
-            }
-            'alias' => {
-                if $concise {
-                    (show-alias --concise ($nu.scope.aliases | where name == $found_items.0.name | get 0) )
-                } else {
-                    (show-alias           ($nu.scope.asiases | where name == $found_items.0.name | get 0) )
-                }
-            }
-            _ => {
-                if $concise {
-                    (show-command --concise ($nu.scope.commands | where name == $found_items.0.name | get 0) )
-                } else {
-                    (show-command           ($nu.scope.commands | where name == $found_items.0.name | get 0) )
-                }
-            }
+        # show detail on individual item, if only one, in concise or default view
+        if $concise {
+            show-item-concise   $found_items.0
+        } else {
+            show-item           $found_items.0
         }
     }
-    
-    
 }
