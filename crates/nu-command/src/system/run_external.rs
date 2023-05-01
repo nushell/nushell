@@ -962,4 +962,3 @@ mod test {
         assert_eq!("bash -c 'echo a'", res)
     }
 }
-
