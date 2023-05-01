@@ -169,7 +169,6 @@ pub fn create_external_command(
         redirect_stderr,
         redirect_combine,
         env_vars: env_vars_str,
-        out_file,
         trim_end_newline,
     })
 }
@@ -183,7 +182,6 @@ pub struct ExternalCommand {
     pub redirect_stderr: bool,
     pub redirect_combine: bool,
     pub env_vars: HashMap<String, String>,
-    pub out_file: Option<Spanned<String>>,
     pub trim_end_newline: bool,
 }
 
@@ -633,22 +631,6 @@ impl ExternalCommand {
             None
         };
 
-        if let Some(f_path) = &self.out_file {
-            // try to create a file to write.
-            let outputs = std::fs::File::create(&f_path.item).map_err(|err| {
-                ShellError::GenericError(
-                    "Permission denied".into(),
-                    err.to_string(),
-                    Some(f_path.span),
-                    None,
-                    Vec::new(),
-                )
-            })?;
-            let errors = outputs.try_clone()?;
-            process.stdout(Stdio::from(outputs));
-            process.stderr(Stdio::from(errors));
-        };
-
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
         if !input.is_nothing() {
@@ -980,3 +962,4 @@ mod test {
         assert_eq!("bash -c 'echo a'", res)
     }
 }
+

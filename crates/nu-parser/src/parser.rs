@@ -5376,6 +5376,20 @@ pub fn parse_block(
                             err: (*err_span, err_expr),
                         }
                     }
+                    LiteElement::SameTargetRedirection {
+                        cmd: (cmd_span, command),
+                        redirection: (redirect_span, redirect_command),
+                    } => {
+                        trace!("parsing: pipeline element: same target redirection");
+                        let expr = parse_expression(working_set, &command.parts, is_subexpression);
+                        working_set.type_scope.add_type(expr.ty.clone());
+                        let redirect_expr = parse_string(working_set, redirect_command.parts[0]);
+                        working_set.type_scope.add_type(redirect_expr.ty.clone());
+                        PipelineElement::SameTargetRedirection {
+                            cmd: (*cmd_span, expr),
+                            redirection: (*redirect_span, redirect_expr),
+                        }
+                    }
                 })
                 .collect::<Vec<PipelineElement>>();
 
@@ -5400,6 +5414,9 @@ pub fn parse_block(
                 | LiteElement::Redirection(_, _, command)
                 | LiteElement::SeparateRedirection {
                     out: (_, command), ..
+                }
+                | LiteElement::SameTargetRedirection {
+                    cmd: (_, command), ..
                 } => {
                     let mut pipeline =
                         parse_builtin_commands(working_set, command, is_subexpression);
@@ -5540,17 +5557,12 @@ pub fn discover_captures_in_pipeline_element(
             Ok(())
         }
         PipelineElement::SameTargetRedirection {
-            cmd: (_, cmd_exp),
-            redirection: (_, redirect_exp),
+            cmd: (_, cmd_expr),
+            redirection: (_, redirect_expr),
         } => {
-            let mut result = discover_captures_in_expr(working_set, cmd_exp, seen, seen_blocks)?;
-            result.append(&mut discover_captures_in_expr(
-                working_set,
-                redirect_exp,
-                seen,
-                seen_blocks,
-            )?);
-            Ok(result)
+            discover_captures_in_expr(working_set, cmd_expr, seen, seen_blocks, output)?;
+            discover_captures_in_expr(working_set, redirect_expr, seen, seen_blocks, output)?;
+            Ok(())
         }
     }
 }
