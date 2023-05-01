@@ -1,11 +1,22 @@
-# std.nu, `used` to load all standard library components
+# Nushell Standard Library
+#
+# TODO: This file should be named "mod.nu" and loaded by importing the parent directory
+# (requires file/directory cache)
 
 export-env {
-    # The following should work but it requires virtual file--aware file cache
-    source-env dirs.nu
-    # ... therefore we need to use this workaround by assuming "dirs" module is already loaded
-    # use dirs
+    # The following should work but it (probably) requires file cache
+    # source-env dirs.nu
+    # ... therefore we need to use this workaround by assuming "dirs" module is already loaded at eval
+    use dirs
 }
+
+# TODO: The following are not necessary when importing as a directory
+export use dirs
+export use help
+export use iter
+export use log
+export use testing
+export use xml
 
 # Add the given paths to the PATH.
 #
