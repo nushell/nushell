@@ -80,17 +80,17 @@ impl Command for SubCommand {
 }
 
 fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
-    let mut result_value = value.clone();
-
     // We treat int values as float values in order to avoid code repetition in the match closure
-    if let Value::Int { val, span } = result_value {
-        result_value = Value::Float {
+    let value = if let Value::Int { val, span } = value {
+        Value::Float {
             val: val as f64,
             span,
-        };
-    }
+        }
+    } else {
+        value
+    };
 
-    match result_value {
+    match value {
         Value::Float { val, span } => match precision {
             Some(precision_number) => Value::Float {
                 val: ((val * ((10_f64).powf(precision_number as f64))).round()
@@ -102,7 +102,6 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
                 span,
             },
         },
-        Value::Error { .. } => value,
         other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
