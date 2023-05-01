@@ -59,6 +59,7 @@ mod network;
 mod nu_check;
 mod open;
 mod p;
+mod par_each;
 mod parse;
 mod path;
 mod platform;

@@ -159,7 +159,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"extern" && spans.len() == 3 {
+    } else if name == b"extern" && spans.len() >= 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -232,6 +232,17 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             let decl = working_set.get_decl(decl_id);
             let sig = decl.signature();
 
+            let starting_error_count = working_set.parse_errors.len();
+            check_call(working_set, call_span, &sig, &call);
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+                return Expression {
+                    expr: Expr::Call(call),
+                    span: call_span,
+                    ty: output,
+                    custom_completion: None,
+                };
+            }
+
             // Let's get our block and make sure it has the right signature
             if let Some(arg) = call.positional_nth(2) {
                 match arg {
@@ -245,21 +256,10 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
                     } => {
                         let block = working_set.get_block_mut(*block_id);
 
-                        block.signature = Box::new(sig.clone());
+                        block.signature = Box::new(sig);
                     }
                     _ => {}
                 }
-            }
-
-            let starting_error_count = working_set.parse_errors.len();
-            check_call(working_set, call_span, &sig, &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
-                return Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: output,
-                    custom_completion: None,
-                };
             }
 
             (call, call_span)
@@ -430,40 +430,7 @@ pub fn parse_def(
             *declaration = signature.clone().into_block_command(block_id);
 
             let mut block = working_set.get_block_mut(block_id);
-            let calls_itself = block.pipelines.iter().any(|pipeline| {
-                pipeline
-                    .elements
-                    .iter()
-                    .any(|pipe_element| match pipe_element {
-                        PipelineElement::Expression(
-                            _,
-                            Expression {
-                                expr: Expr::Call(call_expr),
-                                ..
-                            },
-                        ) => {
-                            if call_expr.decl_id == decl_id {
-                                return true;
-                            }
-                            call_expr.arguments.iter().any(|arg| match arg {
-                                Argument::Positional(Expression { expr, .. }) => match expr {
-                                    Expr::Keyword(.., expr) => {
-                                        let expr = expr.as_ref();
-                                        let Expression { expr, .. } = expr;
-                                        match expr {
-                                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                            _ => false,
-                                        }
-                                    }
-                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                    _ => false,
-                                },
-                                _ => false,
-                            })
-                        }
-                        _ => false,
-                    })
-            });
+            let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
@@ -543,6 +510,7 @@ pub fn parse_extern(
     };
     let name_expr = call.positional_nth(0);
     let sig = call.positional_nth(1);
+    let body = call.positional_nth(2);
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
@@ -581,13 +549,29 @@ pub fn parse_extern(
                 signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
-                let decl = KnownExternal {
-                    name: external_name,
-                    usage: [usage, extra_usage].join("\n"),
-                    signature,
-                };
+                if let Some(block_id) = body.and_then(|x| x.as_block()) {
+                    if signature.rest_positional.is_none() {
+                        working_set.error(ParseError::InternalError(
+                            "Extern block must have a rest positional argument".into(),
+                            name_expr.span,
+                        ));
+                    } else {
+                        *declaration = signature.clone().into_block_command(block_id);
 
-                *declaration = Box::new(decl);
+                        let block = working_set.get_block_mut(block_id);
+                        let calls_itself = block_calls_itself(block, decl_id);
+                        block.recursive = Some(calls_itself);
+                        block.signature = signature;
+                    }
+                } else {
+                    let decl = KnownExternal {
+                        name: external_name,
+                        usage: [usage, extra_usage].join("\n"),
+                        signature,
+                    };
+
+                    *declaration = Box::new(decl);
+                }
             } else {
                 working_set.error(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
@@ -612,6 +596,43 @@ pub fn parse_extern(
         ty: Type::Any,
         custom_completion: None,
     }])
+}
+
+fn block_calls_itself(block: &Block, decl_id: usize) -> bool {
+    block.pipelines.iter().any(|pipeline| {
+        pipeline
+            .elements
+            .iter()
+            .any(|pipe_element| match pipe_element {
+                PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(call_expr),
+                        ..
+                    },
+                ) => {
+                    if call_expr.decl_id == decl_id {
+                        return true;
+                    }
+                    call_expr.arguments.iter().any(|arg| match arg {
+                        Argument::Positional(Expression { expr, .. }) => match expr {
+                            Expr::Keyword(.., expr) => {
+                                let expr = expr.as_ref();
+                                let Expression { expr, .. } = expr;
+                                match expr {
+                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                    _ => false,
+                                }
+                            }
+                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                            _ => false,
+                        },
+                        _ => false,
+                    })
+                }
+                _ => false,
+            })
+    })
 }
 
 pub fn parse_alias(
@@ -1403,88 +1424,90 @@ pub fn parse_module_block(
 
     let mut module = Module::from_span(module_name.to_vec(), span);
 
-    let block: Block = output
-        .block
-        .iter()
-        .map(|pipeline| {
-            if pipeline.commands.len() == 1 {
-                match &pipeline.commands[0] {
-                    LiteElement::Command(_, command) => {
-                        let name = working_set.get_span_contents(command.parts[0]);
+    let mut block = Block::new_with_capacity(output.block.len());
 
-                        match name {
-                            b"def" | b"def-env" => {
-                                parse_def(
-                                    working_set,
-                                    command,
-                                    None, // using commands named as the module locally is OK
-                                )
-                            }
-                            b"extern" => parse_extern(working_set, command, None),
-                            b"alias" => {
-                                parse_alias(
-                                    working_set,
-                                    command,
-                                    None, // using aliases named as the module locally is OK
-                                )
-                            }
-                            b"use" => {
-                                let (pipeline, _) = parse_use(working_set, &command.parts);
+    for pipeline in output.block.iter() {
+        if pipeline.commands.len() == 1 {
+            match &pipeline.commands[0] {
+                LiteElement::Command(_, command) => {
+                    let name = working_set.get_span_contents(command.parts[0]);
 
-                                pipeline
-                            }
-                            b"export" => {
-                                let (pipe, exportables) =
-                                    parse_export_in_module(working_set, command, module_name);
+                    match name {
+                        b"def" | b"def-env" => {
+                            block.pipelines.push(parse_def(
+                                working_set,
+                                command,
+                                None, // using commands named as the module locally is OK
+                            ))
+                        }
+                        b"extern" => block
+                            .pipelines
+                            .push(parse_extern(working_set, command, None)),
+                        b"alias" => {
+                            block.pipelines.push(parse_alias(
+                                working_set,
+                                command,
+                                None, // using aliases named as the module locally is OK
+                            ))
+                        }
+                        b"use" => {
+                            let (pipeline, _) = parse_use(working_set, &command.parts);
 
-                                for exportable in exportables {
-                                    match exportable {
-                                        Exportable::Decl { name, id } => {
-                                            if &name == b"main" {
-                                                module.main = Some(id);
-                                            } else {
-                                                module.add_decl(name, id);
-                                            }
+                            block.pipelines.push(pipeline)
+                        }
+                        b"export" => {
+                            let (pipe, exportables) =
+                                parse_export_in_module(working_set, command, module_name);
+
+                            for exportable in exportables {
+                                match exportable {
+                                    Exportable::Decl { name, id } => {
+                                        if &name == b"main" {
+                                            module.main = Some(id);
+                                        } else {
+                                            module.add_decl(name, id);
                                         }
                                     }
                                 }
-
-                                pipe
                             }
-                            b"export-env" => {
-                                let (pipe, maybe_env_block) =
-                                    parse_export_env(working_set, &command.parts);
 
-                                if let Some(block_id) = maybe_env_block {
-                                    module.add_env_block(block_id);
-                                }
+                            block.pipelines.push(pipe)
+                        }
+                        b"export-env" => {
+                            let (pipe, maybe_env_block) =
+                                parse_export_env(working_set, &command.parts);
 
-                                pipe
+                            if let Some(block_id) = maybe_env_block {
+                                module.add_env_block(block_id);
                             }
-                            _ => {
-                                working_set.error(ParseError::ExpectedKeyword(
-                                    "def or export keyword".into(),
-                                    command.parts[0],
-                                ));
 
-                                garbage_pipeline(&command.parts)
-                            }
+                            block.pipelines.push(pipe)
+                        }
+                        _ => {
+                            working_set.error(ParseError::ExpectedKeyword(
+                                "def or export keyword".into(),
+                                command.parts[0],
+                            ));
+
+                            block.pipelines.push(garbage_pipeline(&command.parts))
                         }
                     }
-                    LiteElement::Redirection(_, _, command) => garbage_pipeline(&command.parts),
-                    LiteElement::SeparateRedirection {
-                        out: (_, command), ..
-                    } => garbage_pipeline(&command.parts),
-                    LiteElement::SameTargetRedirection {
-                        cmd: (_, command), ..
-                    } => garbage_pipeline(&command.parts),
                 }
-            } else {
-                working_set.error(ParseError::Expected("not a pipeline".into(), span));
-                garbage_pipeline(&[span])
+                LiteElement::Redirection(_, _, command) => {
+                    block.pipelines.push(garbage_pipeline(&command.parts))
+                }
+                LiteElement::SeparateRedirection {
+                    out: (_, command), ..
+                } => block.pipelines.push(garbage_pipeline(&command.parts)),
+                LiteElement::SameTargetRedirection {
+                    cmd: (_, command), ..
+                } => block.pipelines.push(garbage_pipeline(&command.parts)),
             }
-        })
-        .into();
+        } else {
+            working_set.error(ParseError::Expected("not a pipeline".into(), span));
+            block.pipelines.push(garbage_pipeline(&[span]))
+        }
+    }
 
     working_set.exit_scope();
 
@@ -2440,15 +2463,11 @@ pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> 
 
                         let var_name =
                             String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .trim_start_matches('$')
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            if is_const {
-                                working_set
-                                    .error(ParseError::ConstBuiltinVar(var_name, lvalue.span))
-                            } else {
-                                working_set.error(ParseError::LetBuiltinVar(var_name, lvalue.span))
-                            };
+                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                         }
 
                         let var_id = lvalue.as_var();
@@ -2552,10 +2571,11 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                         let var_name =
                             String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                                .trim_start_matches('$')
                                 .to_string();
 
                         if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            working_set.error(ParseError::MutBuiltinVar(var_name, lvalue.span));
+                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                         }
 
                         let var_id = lvalue.as_var();
@@ -2675,7 +2695,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            path.file_name().and_then(|x| x.to_str()),
+                            Some(&path.to_string_lossy()),
                             &contents,
                             scoped,
                         );

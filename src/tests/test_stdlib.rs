@@ -1,8 +1,8 @@
-use crate::tests::{fail_test, run_test, TestResult};
+use crate::tests::{fail_test, run_test_std, TestResult};
 
 #[test]
 fn library_loaded() -> TestResult {
-    run_test(
+    run_test_std(
         "help std | lines | first 1 | to text",
         "std.nu, `used` to load all standard library components",
     )
@@ -10,7 +10,7 @@ fn library_loaded() -> TestResult {
 
 #[test]
 fn prelude_loaded() -> TestResult {
-    run_test("std help commands | where name == open | length", "1")
+    run_test_std("std help commands | where name == open | length", "1")
 }
 
 #[test]
@@ -20,5 +20,5 @@ fn not_loaded() -> TestResult {
 
 #[test]
 fn use_command() -> TestResult {
-    run_test("use std assert; assert true; print 'it works'", "it works")
+    run_test_std("use std assert; assert true; print 'it works'", "it works")
 }

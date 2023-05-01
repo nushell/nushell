@@ -8,7 +8,10 @@ use nu_table::{TableConfig, TableTheme as theme};
 fn test_expand() {
     let table = create_table(
         vec![create_row(4); 3],
-        TableConfig::new(theme::rounded(), true, false, false).expand(),
+        TableConfig::new()
+            .theme(theme::rounded())
+            .with_header(true)
+            .expand(true),
         50,
     );
 

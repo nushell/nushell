@@ -1,7 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn let_parse_error() {
+fn let_name_builtin_var() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"

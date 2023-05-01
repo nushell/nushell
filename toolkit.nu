@@ -37,7 +37,7 @@ export def clippy [
     }
 
     try {
-        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
     } catch {
         error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
     }
@@ -199,6 +199,7 @@ def report [
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
 ] {
+    let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
         fmt --check --verbose
     } catch {
@@ -231,16 +232,16 @@ export def "check pr" [
 # set up git hooks to run:
 # - `toolkit fmt --check --verbose` on `git commit`
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
-export def set-git-hooks [] {
+export def setup-git-hooks [] {
     if $nu.os-info.name == windows {
         return (print "This git hook isn't available on Windows. Sorry!")
     }
 
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
     if (input) == "y" {
-        print $"running ('toolkit set-git-hooks' | pretty-print-command)"
+        print $"running ('toolkit setup-git-hooks' | pretty-print-command)"
         git config --local core.hooksPath .githooks
     } else {
-        print $"aborting ('toolkit set-git-hooks' | pretty-print-command)"
+        print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
     }
 }

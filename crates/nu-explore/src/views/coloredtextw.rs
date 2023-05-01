@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use ansi_str::{get_blocks, AnsiStr};
-use tui::{
+use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     widgets::Widget,
@@ -24,7 +24,7 @@ impl<'a> ColoredTextW<'a> {
 }
 
 impl Widget for ColoredTextW<'_> {
-    fn render(self, area: Rect, buf: &mut tui::buffer::Buffer) {
+    fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
         let text = cut_string(self.text, area, self.col);
 
         let mut offset = 0;

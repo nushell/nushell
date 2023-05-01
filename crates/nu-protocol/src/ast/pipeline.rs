@@ -1,8 +1,8 @@
+use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
+use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
-use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Redirection {
     Stdout,
     Stderr,
@@ -10,7 +10,7 @@ pub enum Redirection {
 }
 
 // Note: Span in the below is for the span of the connector not the whole element
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
     Redirection(Span, Redirection, Expression),
@@ -132,7 +132,7 @@ impl PipelineElement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pipeline {
     pub elements: Vec<PipelineElement>,
 }

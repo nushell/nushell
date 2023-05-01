@@ -91,7 +91,7 @@ impl Command for History {
                 match engine_state.config.history_file_format {
                     HistoryFileFormat::PlainText => Ok(history_reader
                         .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward))
+                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
                                 .ok()
                         })
                         .map(move |entries| {
@@ -114,7 +114,7 @@ impl Command for History {
                         .into_pipeline_data(ctrlc)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward))
+                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
                                 .ok()
                         })
                         .map(move |entries| {

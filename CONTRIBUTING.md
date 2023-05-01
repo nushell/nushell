@@ -59,7 +59,7 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
 - Run Clippy on Nushell:
 
   ```shell
-  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
   ```
   or via the `toolkit.nu` command:
   ```shell
@@ -139,7 +139,7 @@ This includes discarded approaches. Also we want to quickly identify regressions
 
 ### How we merge PRs
 
-In general the maintainers **squash** all changes of your PR into a single commit when merging. 
+In general the maintainers **squash** all changes of your PR into a single commit when merging.
 
 This keeps a clean enough linear history, while not forcing you to conform to a too strict style while iterating in your PR or fixing small problems. As an added benefit the commits on the `main` branch are tied to the discussion that happened in the PR through their `#1234` issue number.
 
@@ -201,13 +201,13 @@ You can help us to make the review process a smooth experience:
   - In general, added tests help us to understand which assumptions go into a particular addition/change.
   - Try to also test corner cases where those assumptions might break. This can be more valuable than simply adding many similar tests.
 - Commit history inside a PR during code review:
-  - Good **atomic commits** can help follow larger changes, but we are not pedantic. 
+  - Good **atomic commits** can help follow larger changes, but we are not pedantic.
   - We don't shame fixup commits while you try to figure out a problem. They can help others see what you tried and what didn't work. (see our [squash policy](#how-we-merge-prs))
   - During active review constant **force pushing** just to amend changes can be confusing!
     - GitHub's UI presents reviewers with less options to compare diffs
     - fetched branches for experimentation become invalid!
     - the notification a maintainer receives has a low signal-to-noise ratio
-  - Git pros *can* use their judgement to rebase/squash to clean up the history *if it aids the understanding* of a larger change during review 
+  - Git pros *can* use their judgement to rebase/squash to clean up the history *if it aids the understanding* of a larger change during review
 - Merge conflicts:
   - In general you should take care of resolving merge conflicts.
     - Use your judgement whether to `git merge main` or to `git rebase main`

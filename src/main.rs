@@ -22,6 +22,7 @@ use nu_cli::gather_parent_env_vars;
 use nu_command::{create_default_context, get_init_cwd};
 use nu_protocol::{report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::{ctrlc_protection, sigquit_protection};
@@ -141,7 +142,7 @@ fn main() -> Result<()> {
         let span = include_path.span;
         let vals: Vec<_> = include_path
             .item
-            .split(':')
+            .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
             .map(|x| Value::String {
                 val: x.trim().to_string(),
                 span,
@@ -169,6 +170,10 @@ fn main() -> Result<()> {
         return Ok(());
     } else if let Some(max_errors) = parsed_nu_cli_args.ide_check {
         ide::check(&mut engine_state, &script_name, &max_errors);
+
+        return Ok(());
+    } else if parsed_nu_cli_args.ide_ast.is_some() {
+        ide::ast(&mut engine_state, &script_name);
 
         return Ok(());
     }
@@ -245,6 +250,10 @@ fn main() -> Result<()> {
         column!(),
         use_color,
     );
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(&mut engine_state)?;
+    }
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

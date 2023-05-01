@@ -11,6 +11,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundProcess;
+use os_pipe::PipeReader;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -41,14 +42,13 @@ impl Command for External {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
-            .switch("trim-end-newline", "trimming end newlines", None)
-            .required("command", SyntaxShape::Any, "external command to run")
-            .named(
-                "out-to-file",
-                SyntaxShape::Filepath,
-                "redirect both stdout and stderr to file",
+            .switch(
+                "redirect-combine",
+                "redirect both stdout and stderr combined to the pipeline (collected in stdout)",
                 None,
             )
+            .switch("trim-end-newline", "trimming end newlines", None)
+            .required("command", SyntaxShape::String, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
             .category(Category::System)
     }
@@ -60,19 +60,19 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut redirect_stdout = call.has_flag("redirect-stdout");
-        let mut redirect_stderr = call.has_flag("redirect-stderr");
-        let out_file: Option<Spanned<String>> =
-            call.get_flag(engine_state, stack, "out-to-file")?;
-        if out_file.is_some() {
-            // user wants to redirect stdout and stderr to file
-            // reset `redirect_stdout`, `redirect_stderr` to false so nushell don't
-            // need to make process's stdout, stderr to `piped()`.
-            redirect_stdout = false;
-            redirect_stderr = false;
-        }
-
+        let redirect_stdout = call.has_flag("redirect-stdout");
+        let redirect_stderr = call.has_flag("redirect-stderr");
+        let redirect_combine = call.has_flag("redirect-combine");
         let trim_end_newline = call.has_flag("trim-end-newline");
+
+        if redirect_combine && (redirect_stdout || redirect_stderr) {
+            return Err(ShellError::ExternalCommand {
+                label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
+                    .into(),
+                help: "use either --redirect-combine or redirect a single output stream".into(),
+                span: call.head,
+            });
+        }
 
         let command = create_external_command(
             engine_state,
@@ -80,7 +80,7 @@ impl Command for External {
             call,
             redirect_stdout,
             redirect_stderr,
-            out_file,
+            redirect_combine,
             trim_end_newline,
         )?;
 
@@ -110,7 +110,7 @@ pub fn create_external_command(
     call: &Call,
     redirect_stdout: bool,
     redirect_stderr: bool,
-    out_file: Option<Spanned<String>>,
+    redirect_combine: bool,
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -167,6 +167,7 @@ pub fn create_external_command(
         arg_keep_raw,
         redirect_stdout,
         redirect_stderr,
+        redirect_combine,
         env_vars: env_vars_str,
         out_file,
         trim_end_newline,
@@ -180,6 +181,7 @@ pub struct ExternalCommand {
     pub arg_keep_raw: Vec<bool>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
+    pub redirect_combine: bool,
     pub env_vars: HashMap<String, String>,
     pub out_file: Option<Spanned<String>>,
     pub trim_end_newline: bool,
@@ -197,10 +199,10 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut fg_process = ForegroundProcess::new(
-            self.create_process(&input, false, head)?,
-            engine_state.pipeline_externals_state.clone(),
-        );
+        #[allow(unused_mut)]
+        let (cmd, mut reader) = self.create_process(&input, false, head)?;
+        let mut fg_process =
+            ForegroundProcess::new(cmd, engine_state.pipeline_externals_state.clone());
         // mut is used in the windows branch only, suppress warning on other platforms
         #[allow(unused_mut)]
         let mut child;
@@ -231,8 +233,10 @@ impl ExternalCommand {
                         .any(|&cmd| command_name_upper == cmd);
 
                     if looks_like_cmd_internal {
+                        let (cmd, new_reader) = self.create_process(&input, true, head)?;
+                        reader = new_reader;
                         let mut cmd_process = ForegroundProcess::new(
-                            self.create_process(&input, true, head)?,
+                            cmd,
                             engine_state.pipeline_externals_state.clone(),
                         );
                         child = cmd_process.spawn();
@@ -262,9 +266,11 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
+                                                let (cmd, new_reader) = new_command
+                                                    .create_process(&input, true, head)?;
+                                                reader = new_reader;
                                                 let mut cmd_process = ForegroundProcess::new(
-                                                    new_command
-                                                        .create_process(&input, true, head)?,
+                                                    cmd,
                                                     engine_state.pipeline_externals_state.clone(),
                                                 );
                                                 child = cmd_process.spawn();
@@ -439,6 +445,7 @@ impl ExternalCommand {
                 let commandname = self.name.item.clone();
                 let redirect_stdout = self.redirect_stdout;
                 let redirect_stderr = self.redirect_stderr;
+                let redirect_combine = self.redirect_combine;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
                 let stderr_ctrlc = ctrlc.clone();
@@ -461,6 +468,12 @@ impl ExternalCommand {
                                         .to_string(), span }
                             })?;
 
+                            read_and_redirect_message(stdout, stdout_tx, ctrlc)
+                        } else if redirect_combine {
+                            let stdout = reader.ok_or_else(|| {
+                                ShellError::ExternalCommand { label: "Error taking combined stdout and stderr from external".to_string(), help: "Combined redirects need access to reader pipe of an external command"
+                                        .to_string(), span }
+                            })?;
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         }
 
@@ -536,7 +549,7 @@ impl ExternalCommand {
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
                 Ok(PipelineData::ExternalStream {
-                    stdout: if redirect_stdout {
+                    stdout: if redirect_stdout || redirect_combine {
                         Some(RawStream::new(
                             Box::new(stdout_receiver),
                             output_ctrlc.clone(),
@@ -568,12 +581,12 @@ impl ExternalCommand {
         }
     }
 
-    fn create_process(
+    pub fn create_process(
         &self,
         input: &PipelineData,
         use_cmd: bool,
         span: Span,
-    ) -> Result<CommandSys, ShellError> {
+    ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
                 self.spawn_cmd_command(d)
@@ -603,13 +616,22 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        if self.redirect_stdout {
-            process.stdout(Stdio::piped());
-        }
+        let reader = if self.redirect_combine {
+            let (reader, writer) = os_pipe::pipe()?;
+            let writer_clone = writer.try_clone()?;
+            process.stdout(writer);
+            process.stderr(writer_clone);
+            Some(reader)
+        } else {
+            if self.redirect_stdout {
+                process.stdout(Stdio::piped());
+            }
 
-        if self.redirect_stderr {
-            process.stderr(Stdio::piped());
-        }
+            if self.redirect_stderr {
+                process.stderr(Stdio::piped());
+            }
+            None
+        };
 
         if let Some(f_path) = &self.out_file {
             // try to create a file to write.
@@ -633,7 +655,7 @@ impl ExternalCommand {
             process.stdin(Stdio::piped());
         }
 
-        Ok(process)
+        Ok((process, reader))
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
