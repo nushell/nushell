@@ -1654,7 +1654,7 @@ fn parse_module_file(
     Some(module_id)
 }
 
-fn parse_module_file_or_dir(
+pub fn parse_module_file_or_dir(
     working_set: &mut StateWorkingSet,
     path: &[u8],
     path_span: Span,

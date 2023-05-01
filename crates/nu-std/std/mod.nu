@@ -2,9 +2,9 @@
 
 export-env {
     # The following should work but it requires virtual file--aware file cache
-    # source-env dirs.nu
+    source-env dirs.nu
     # ... therefore we need to use this workaround by assuming "dirs" module is already loaded
-    use dirs
+    # use dirs
 }
 
 # Add the given paths to the PATH.

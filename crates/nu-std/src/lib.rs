@@ -1,4 +1,4 @@
-use nu_parser::{parse, parse_module_block};
+use nu_parser::{parse, parse_module_block, parse_module_file_or_dir};
 use nu_protocol::report_error;
 use nu_protocol::{engine::StateWorkingSet, Module, ShellError, Span};
 
@@ -63,6 +63,19 @@ pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let delta = {
+        let mut path = file!().to_string();
+        path.push_str("../std");
+
+        let src = format!("module {path}");
+
+        let mut working_set = StateWorkingSet::new(engine_state);
+
+        let _ = parse(&mut working_set, Some("loading stdlib"), src.as_bytes(), false);
+
+        working_set.render()
+    };
+
+    let _ = if false {
         let name = "std".to_string();
         let content = include_str!("../std/mod.nu");
 
@@ -98,8 +111,6 @@ pub fn load_standard_library(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        working_set.currently_parsed_cwd = Some(PathBuf::from());
-
         for (name, content) in submodules {
             let (module, comments) =
                 add_file(&mut working_set, &name.to_string(), content.as_bytes());
@@ -110,7 +121,7 @@ pub fn load_standard_library(
         load_prelude(&mut working_set, prelude, &module);
         working_set.add_module(&name, module, comments);
 
-        working_set.render()
+        working_set.render();
     };
 
     engine_state.merge_delta(delta)?;
