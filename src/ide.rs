@@ -578,6 +578,9 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
 }
 
 pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &Value) {
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
     let stack = Stack::new();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
