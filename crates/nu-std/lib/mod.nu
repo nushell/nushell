@@ -1,22 +1,14 @@
-# Nushell Standard Library
-#
-# TODO: This file should be named "mod.nu" and loaded by importing the parent directory
-# (requires file/directory cache)
+# std.nu, `used` to load all standard library components
 
+export use dirs *
 export-env {
-    # The following should work but it (probably) requires file cache
-    # source-env dirs.nu
-    # ... therefore we need to use this workaround by assuming "dirs" module is already loaded at eval
-    use dirs
+    use dirs *
 }
-
-# TODO: The following are not necessary when importing as a directory
-export use dirs
-export use help
-export use iter
-export use log
-export use testing
-export use xml
+export use help *
+export use iter *
+export use log *
+export use testing *
+export use xml *
 
 # Add the given paths to the PATH.
 #
@@ -179,7 +171,7 @@ def "from ns" [] {
 # >
 # ```
 #
-# > **Note**
+# > **Note**  
 # > `std bench --pretty` will return a `string`.
 #
 # # Examples

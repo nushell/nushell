@@ -237,7 +237,7 @@ def show-module [module: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── module not found
 #        ╰────
-export def modules [
+export def "help modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
@@ -347,7 +347,7 @@ def show-alias [alias: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── alias not found
 #        ╰────
-export def aliases [
+export def "help aliases" [
     ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
@@ -387,7 +387,7 @@ def show-extern [extern: record] {
 }
 
 # Show help on nushell externs.
-export def externs [
+export def "help externs" [
     ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {
@@ -465,7 +465,7 @@ def show-operator [operator: record] {
 #        ·               ────────┬───────
 #        ·                       ╰── operator not found
 #        ╰────
-export def operators [
+export def "help operators" [
     ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
@@ -654,7 +654,7 @@ def show-command [command: record] {
 }
 
 # Show help on nushell commands.
-export def commands [
+export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {

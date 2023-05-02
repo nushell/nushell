@@ -63,28 +63,21 @@ pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let delta = {
-        // TODO: The following snippet requires file/directory--aware, need to use a workaround
-        // let mut path = Path::new(file!()).parent().unwrap().parent().unwrap().join("std");
-        // let src = format!("module {}", path.to_string_lossy());
-        // let _ = parse(&mut working_set, Some("loading stdlib"), src.as_bytes(), false);
-
-        // This workaround method is not ideal because it misses circular import protection and
-        // file-relative paths might be broken as well.
         let name = "std".to_string();
-        let content = include_str!("../std/mod.nu");
+        let content = include_str!("../lib/mod.nu");
 
         // these modules are loaded in the order they appear in this list
         #[rustfmt::skip]
         let submodules = vec![
             // helper modules that could be used in other parts of the library
-            ("log", include_str!("../std/log.nu")),
+            ("log", include_str!("../lib/log.nu")),
 
             // the rest of the library
-            ("dirs", include_str!("../std/dirs.nu")),
-            ("iter", include_str!("../std/iter.nu")),
-            ("help", include_str!("../std/help.nu")),
-            ("testing", include_str!("../std/testing.nu")),
-            ("xml", include_str!("../std/xml.nu")),
+            ("dirs", include_str!("../lib/dirs.nu")),
+            ("iter", include_str!("../lib/iter.nu")),
+            ("help", include_str!("../lib/help.nu")),
+            ("testing", include_str!("../lib/testing.nu")),
+            ("xml", include_str!("../lib/xml.nu")),
         ];
 
         // Define commands to be preloaded into the default (top level, unprefixed) namespace.

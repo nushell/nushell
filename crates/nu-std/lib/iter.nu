@@ -1,8 +1,8 @@
 # | Filter Extensions
-#
+# 
 # This module implements extensions to the `filters` commands
 #
-# They are prefixed with `iter` so as to avoid conflicts with
+# They are prefixed with `iter` so as to avoid conflicts with 
 # the inbuilt filters
 
 # Returns the first element of the list that matches the
@@ -19,16 +19,16 @@
 # ```
 # use std ["assert equal" "iter find"]
 #
-# let haystack = ["shell", "abc", "around", "nushell", "std"]
+# let haystack = ["shell", "abc", "around", "nushell", "std"] 
 #
 # let found = ($haystack | iter find {|it| $it starts-with "a" })
 # let not_found = ($haystack | iter find {|it| $it mod 2 == 0})
-#
+# 
 # assert equal $found "abc"
 # assert equal $not_found null
 # ```
-export def find [ # -> any | null
-    fn: closure          # the closure used to perform the search
+export def "iter find" [ # -> any | null  
+    fn: closure          # the closure used to perform the search 
 ] {
     try {
        filter $fn | get 0?
@@ -47,12 +47,12 @@ export def find [ # -> any | null
 # let res = ([1 2 3 4] | iter intersperse 0)
 # assert equal $res [1 0 2 0 3 0 4]
 # ```
-export def intersperse [ # -> list<any>
+export def "iter intersperse" [ # -> list<any>
     separator: any,             # the separator to be used
 ] {
     reduce -f [] {|it, acc|
           $acc ++ [$it, $separator]
-    }
+    } 
     | match $in {
          [] => [],
          $xs => ($xs | take (($xs | length) - 1 ))
@@ -78,11 +78,11 @@ export def intersperse [ # -> list<any>
 #
 # assert equal $scanned [1, 3, 6]
 # ```
-export def scan [ # -> list<any>
+export def "iter scan" [ # -> list<any>
     init: any            # initial value to seed the initial state
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
-] {
+] {                      
    reduce -f [$init] {|it, acc|
       $acc ++ [(do $fn ($acc | last) $it)]
    }
@@ -94,7 +94,7 @@ export def scan [ # -> list<any>
 }
 
 # Returns a list of values for which the supplied closure does not
-# return `null` or an error. It is equivalent to
+# return `null` or an error. It is equivalent to 
 #     `$in | each $fn | filter $fn`
 #
 # # Example
@@ -105,16 +105,16 @@ export def scan [ # -> list<any>
 #
 # assert equal $res [4 25 49]
 # ```
-export def filter-map [ # -> list<any>
+export def "iter filter-map" [ # -> list<any>
     fn: closure                # the closure to apply to the input
 ] {
     each {|$it|
         try {
-            do $fn $it
+            do $fn $it 
         } catch {
-            null
+            null 
         }
-    }
+    } 
     | filter {|it|
         $it != null
     }
