@@ -1,4 +1,5 @@
 use crate::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn concrete_variable_assignment() -> TestResult {
@@ -61,6 +62,20 @@ fn scope_variable() -> TestResult {
     run_test(
         r#"let x = 3; $nu.scope.vars | where name == "$x" | get type.0"#,
         "int",
+    )
+}
+#[rstest]
+#[case("a", "<> nothing")]
+#[case("b", "<1.23> float")]
+
+fn scope_command(#[case] var: &str, #[case] default_type: &str) -> TestResult {
+    run_test(
+        &format!(
+            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }}; 
+            let rslt = ($nu.scope.commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
+            $"<($rslt)> ($rslt | describe)""#
+        ),
+        &format!("{default_type}"),
     )
 }
 
