@@ -4,7 +4,7 @@ use crate::tests::{fail_test, run_test_std, TestResult};
 fn library_loaded() -> TestResult {
     run_test_std(
         "help std | lines | first 1 | to text",
-        "Nushell Standard Library",
+        "std.nu, `used` to load all standard library components",
     )
 }
 
