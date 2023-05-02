@@ -409,7 +409,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     extract_custom_completion_from_arg(self.engine_state, &rest.shape),
                     span,
                 ),
-                Value::nothing(span), // rest_positional does have default, but parser prohibits specifiying it?!
+                Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
             ];
 
             sig_records.push(Value::Record {
