@@ -543,7 +543,8 @@ pub fn eval_expression(
             let block = engine_state.get_block(*block_id);
 
             for var_id in &block.captures {
-                captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
+                let var_span = engine_state.get_var(*var_id).declaration_span;
+                captures.insert(*var_id, stack.get_var(*var_id, var_span)?);
             }
             Ok(Value::Closure {
                 val: *block_id,
