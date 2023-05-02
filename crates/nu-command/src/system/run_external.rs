@@ -1,6 +1,4 @@
 use crate::hook::eval_hook;
-use fancy_regex::Regex;
-use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -651,8 +649,6 @@ impl ExternalCommand {
             } else {
                 self.spawn_simple_command(cwd)
             }
-        } else if self.name.item.ends_with(".sh") {
-            Ok(self.spawn_sh_command())
         } else {
             self.spawn_simple_command(cwd)
         }
@@ -696,19 +692,6 @@ impl ExternalCommand {
             trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
         }
 
-        process
-    }
-
-    /// Spawn a sh command with `sh -c args...`
-    pub fn spawn_sh_command(&self) -> std::process::Command {
-        let joined_and_escaped_arguments = self
-            .args
-            .iter()
-            .map(|arg| shell_arg_escape(&arg.item))
-            .join(" ");
-        let cmd_with_args = vec![self.name.item.clone(), joined_and_escaped_arguments].join(" ");
-        let mut process = std::process::Command::new("sh");
-        process.arg("-c").arg(cmd_with_args);
         process
     }
 }
@@ -792,23 +775,6 @@ fn suggest_command(attempted_command: &str, engine_state: &EngineState) -> Optio
         None => {
             let command_names: Vec<String> = commands.iter().map(|sig| sig.name.clone()).collect();
             did_you_mean(&command_names, attempted_command)
-        }
-    }
-}
-
-fn has_unsafe_shell_characters(arg: &str) -> bool {
-    let re: Regex = Regex::new(r"[^\w@%+=:,./-]").expect("regex to be valid");
-
-    re.is_match(arg).unwrap_or(false)
-}
-
-fn shell_arg_escape(arg: &str) -> String {
-    match arg {
-        "" => String::from("''"),
-        s if !has_unsafe_shell_characters(s) => String::from(s),
-        _ => {
-            let single_quotes_escaped = arg.split('\'').join("'\"'\"'");
-            format!("'{single_quotes_escaped}'")
         }
     }
 }
