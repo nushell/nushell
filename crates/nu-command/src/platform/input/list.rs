@@ -53,7 +53,11 @@ impl Command for InputList {
     }
 
     fn usage(&self) -> &str {
-        "Interactive list selection. Abort with esc or q"
+        "Interactive list selection."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Abort with esc or q."
     }
 
     fn search_terms(&self) -> Vec<&str> {
