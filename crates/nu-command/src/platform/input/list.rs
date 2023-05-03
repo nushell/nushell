@@ -1,3 +1,4 @@
+use nu_ansi_term::Color;
 use std::fmt::{Display, Formatter};
 
 use dialoguer::MultiSelect;
@@ -85,7 +86,13 @@ impl Command for InputList {
                         let mut options = Vec::new();
                         for (col, val) in record.0.iter().zip(record.1.iter()) {
                             if let Ok(val) = val.as_string() {
-                                options.push(format!(" {}: {} |", &col, &val));
+                                options.push(format!(
+                                    " {}{}{}: {} |\t",
+                                    Color::Cyan.prefix().to_string(),
+                                    col,
+                                    Color::Cyan.suffix().to_string(),
+                                    &val
+                                ));
                             }
                         }
                         Some(Options {
@@ -100,12 +107,19 @@ impl Command for InputList {
 
             _ => {
                 return Err(ShellError::TypeMismatch {
-                    err_message: "expected string or list".to_string(),
+                    err_message: "expected a list or table".to_string(),
                     span: head,
                 })
             }
         };
         let prompt = prompt.unwrap_or_default();
+
+        if options.is_empty() {
+            return Err(ShellError::TypeMismatch {
+                err_message: "expected a list or table, it can also be a problem with the an inner type of your list.".to_string(),
+                span: head,
+            });
+        }
 
         let ans: InteractMode = if call.has_flag("multi") {
             InteractMode::Multi(
