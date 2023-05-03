@@ -88,9 +88,9 @@ impl Command for InputList {
                             if let Ok(val) = val.as_string() {
                                 options.push(format!(
                                     " {}{}{}: {} |\t",
-                                    Color::Cyan.prefix().to_string(),
+                                    Color::Cyan.prefix(),
                                     col,
-                                    Color::Cyan.suffix().to_string(),
+                                    Color::Cyan.suffix(),
                                     &val
                                 ));
                             }
