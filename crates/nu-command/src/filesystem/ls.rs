@@ -1,3 +1,4 @@
+use crate::sort;
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
@@ -178,7 +179,7 @@ impl Command for Ls {
 
         let hidden_dirs = Arc::new(Mutex::new(Vec::new()));
 
-        Ok(paths_peek
+        let mut vec_data = paths_peek
             .into_iter()
             .par_bridge()
             .filter_map(move |x| match x {
@@ -279,14 +280,19 @@ impl Command for Ls {
                 }
                 _ => Some(Value::Nothing { span: call_span }),
             })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .into_pipeline_data_with_metadata(
-                Box::new(PipelineMetadata {
-                    data_source: DataSource::Ls,
-                }),
-                engine_state.ctrlc.clone(),
-            ))
+            .collect::<Vec<_>>();
+
+        let columns: Vec<String> = vec!["type".to_string(), "name".to_string()];
+        let insensitive = true;
+        let natural = true;
+        sort(&mut vec_data, columns, call_span, insensitive, natural)?;
+
+        Ok(vec_data.into_pipeline_data_with_metadata(
+            Box::new(PipelineMetadata {
+                data_source: DataSource::Ls,
+            }),
+            engine_state.ctrlc.clone(),
+        ))
     }
 
     fn examples(&self) -> Vec<Example> {
