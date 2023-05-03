@@ -40,26 +40,19 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
 
-        match decl.run(
+        if let Ok(output) = decl.run(
             engine_state,
             stack,
             &Call::new(Span::unknown()),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
-            Ok(output) => {
-                let result = output.into_value(Span::unknown());
-                match result.as_string() {
-                    Ok(s) => {
-                        return s; // successfully highlighted string
-                    }
-                    _ => {}
-                }
+            let result = output.into_value(Span::unknown());
+            if let Ok(s) = result.as_string() {
+                return s; // successfully highlighted string
             }
-            Err(_) => {}
         }
     }
-
-    return code_string.to_string();
+    code_string.to_string()
 }
 
 #[allow(clippy::cognitive_complexity)]
@@ -188,7 +181,7 @@ fn get_documentation(
                             )
                         )
                     } else {
-                        format!(" (optional)")
+                        (" (optional)").to_string()
                     };
 
                     format!(
