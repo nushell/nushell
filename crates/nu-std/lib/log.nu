@@ -27,7 +27,7 @@ def parse-string-level [level: string] {
         else if $level == "WARN" { WARNING_LEVEL }
         else if $level == "INFO" { INFO_LEVEL }
         else if $level == "DEBUG" { DEBUG_LEVEL }
-        else { (INFO_LEVEL) }
+        else { INFO_LEVEL }
     )
 }
 
