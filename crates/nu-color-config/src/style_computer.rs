@@ -251,7 +251,7 @@ fn test_computable_style_closure_basic() {
                 }
             };"#,
             "[bell book candle] | table | ignore",
-            "ls | get name | to nuon",
+            "ls | get name | sort-by name | to nuon",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual_repl.err, "");
