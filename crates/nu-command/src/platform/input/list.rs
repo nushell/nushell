@@ -1,8 +1,8 @@
 use nu_ansi_term::Color;
 use std::fmt::{Display, Formatter};
 
-use dialoguer::MultiSelect;
 use dialoguer::{console::Term, theme::ColorfulTheme, Select};
+use dialoguer::{FuzzySelect, MultiSelect};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -48,6 +48,7 @@ impl Command for InputList {
                 "Use multiple results, you can press a to toggle all options on/off",
                 Some('m'),
             )
+            .switch("fuzzy", "Use a fuzzy select.", Some('f'))
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
@@ -126,11 +127,29 @@ impl Command for InputList {
         }
 
         let ans: InteractMode = if call.has_flag("multi") {
-            InteractMode::Multi(
-                MultiSelect::new()
-                    .with_prompt(&prompt)
+            if call.has_flag("fuzzy") {
+                return Err(ShellError::TypeMismatch {
+                    err_message: "Fuzzy search is not supported for multi select".to_string(),
+                    span: head,
+                });
+            } else {
+                InteractMode::Multi(
+                    MultiSelect::new()
+                        .with_prompt(&prompt)
                         .report(false)
+                        .items(&options)
+                        .interact_on_opt(&Term::stderr())
+                        .map_err(|_| {
+                            ShellError::IOError("Oopsie, list input is a wip command...".to_owned())
+                        })?,
+                )
+            }
+        } else if call.has_flag("fuzzy") {
+            InteractMode::Single(
+                FuzzySelect::with_theme(&ColorfulTheme::default())
                     .items(&options)
+                    .report(false)
+                    .with_prompt(&prompt)
                     .interact_on_opt(&Term::stderr())
                     .map_err(|_| {
                         ShellError::IOError("Oopsie, list input is a wip command...".to_owned())

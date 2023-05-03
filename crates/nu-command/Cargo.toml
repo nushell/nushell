@@ -46,7 +46,7 @@ chrono-humanize = "0.2.1"
 chrono-tz = "0.8.1"
 crossterm = "0.26"
 csv = "1.2.0"
-dialoguer = { default-features = false, version = "0.10.3" }
+dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10.3" }
 digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.4.0"
 encoding_rs = "0.8.30"
