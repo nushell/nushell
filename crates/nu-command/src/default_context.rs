@@ -438,11 +438,9 @@ pub fn create_default_context() -> EngineState {
 
         // Deprecated
         bind_command! {
-            ExportOldAlias,
             HashBase64,
             LPadDeprecated,
             MathEvalDeprecated,
-            OldAlias,
             RPadDeprecated,
             StrCollectDeprecated,
             StrDatetimeDeprecated,
