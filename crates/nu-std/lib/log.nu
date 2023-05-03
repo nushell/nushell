@@ -1,8 +1,8 @@
-def CRITICAL_LEVEL [] { 50 }
-def ERROR_LEVEL [] { 40 }
-def WARNING_LEVEL [] { 30 }
-def INFO_LEVEL [] { 20 }
-def DEBUG_LEVEL [] { 10 }
+const CRITICAL_LEVEL = 50
+const ERROR_LEVEL = 40
+const WARNING_LEVEL = 30
+const INFO_LEVEL = 20
+const DEBUG_LEVEL = 10
 
 def parse-string-level [level: string] {
     (
