@@ -35,7 +35,7 @@ def current-log-level [] {
     let env_level = ($env | get --ignore-errors NU_LOG_LEVEL | default (INFO_LEVEL))
 
     try {
-        (env_level | into int)
+        ($env_level | into int)
     } catch {
         parse-string-level $env_level
     }
