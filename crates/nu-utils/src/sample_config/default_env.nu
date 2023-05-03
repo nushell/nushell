@@ -25,11 +25,13 @@ def create_left_prompt [] {
 }
 
 def create_right_prompt [] {
+    let time_segment_color = (ansi magenta)
+
     let time_segment = ([
         (ansi reset)
-        (ansi magenta)
+        $time_segment_color
         (date now | date format '%m/%d/%Y %r')
-    ] | str join)
+    ] | str join | str replace --all "([/:])" $"(ansi light_magenta_bold)${1}($time_segment_color)")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
         (ansi rb)
@@ -57,12 +59,12 @@ let-env PROMPT_MULTILINE_INDICATOR = {|| "::: " }
 # Note: The conversions happen *after* config.nu is loaded
 let-env ENV_CONVERSIONS = {
   "PATH": {
-    from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-    to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
+    from_string: { |s| $s | split row (char esep) | path expand -n }
+    to_string: { |v| $v | path expand -n | str join (char esep) }
   }
   "Path": {
-    from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-    to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
+    from_string: { |s| $s | split row (char esep) | path expand -n }
+    to_string: { |v| $v | path expand -n | str join (char esep) }
   }
 }
 
