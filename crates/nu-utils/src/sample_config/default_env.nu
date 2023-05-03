@@ -31,7 +31,8 @@ def create_right_prompt [] {
         (ansi reset)
         $time_segment_color
         (date now | date format '%m/%d/%Y %r')
-    ] | str join | str replace --all "([/:])" $"(ansi light_magenta_bold)${1}($time_segment_color)")
+    ] | str join | str replace --all "([/:])" $"(ansi light_magenta_bold)${1}($time_segment_color)" |
+        str replace --all "([AP]M)" $"(ansi light_magenta_underline)${1}")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
         (ansi rb)
