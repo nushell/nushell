@@ -1,36 +1,30 @@
 @echo off
-@echo -------------------------------------------------------------------
-@echo Building nushell (nu.exe) with dataframes and all the plugins
-@echo -------------------------------------------------------------------
-@echo.
+echo -------------------------------------------------------------------
+echo Building nushell (nu.exe) with dataframes and all the plugins
+echo -------------------------------------------------------------------
+echo.
 
 echo Building nushell.exe
 cargo build --features=dataframe
-@echo.
+echo.
 
-@cd crates\nu_plugin_example
-echo Building nu_plugin_example.exe
-cargo build
-@echo.
+call :build crates\nu_plugin_example nu_plugin_example.exe
+call :build ..\..\crates\nu_plugin_gstat nu_plugin_gstat.exe
+call :build ..\..\crates\nu_plugin_inc nu_plugin_inc.exe
+call :build ..\..\crates\nu_plugin_query nu_plugin_query.exe
+call :build ..\..\crates\nu_plugin_custom_values nu_plugin_custom_values.exe
 
-@cd ..\..\crates\nu_plugin_gstat
-echo Building nu_plugin_gstat.exe
-cargo build
-@echo.
+cd ..\..
+exit /b 0
 
-@cd ..\..\crates\nu_plugin_inc
-echo Building nu_plugin_inc.exe
-cargo build
-@echo.
+:build
+    setlocal
+    set "location=%~1"
+    set "target=%~2"
 
-@cd ..\..\crates\nu_plugin_query
-echo Building nu_plugin_query.exe
-cargo build
-@echo.
-
-@cd ..\..\crates\nu_plugin_custom_values
-echo Building nu_plugin_custom_values.exe
-cargo build
-@echo.
-
-@cd ..\..
+    cd "%location%"
+    echo Building %target%
+    cargo build
+    echo.
+    endlocal
+exit /b 0
