@@ -102,6 +102,16 @@ pub fn parse_keyword(
     {
         // Apply parse keyword side effects
         let cmd = working_set.get_decl(call.decl_id);
+        // check help flag first.
+        if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+            let call_span = call.span();
+            return Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: call_span,
+                ty: Type::Any,
+                custom_completion: None,
+            }]);
+        }
 
         match cmd.name() {
             "overlay hide" => parse_overlay_hide(working_set, call),
