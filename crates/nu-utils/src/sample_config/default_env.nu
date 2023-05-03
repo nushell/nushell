@@ -18,9 +18,10 @@ def create_left_prompt [] {
     ] | str join)
 
     let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
+    let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
     let path_segment = $"($path_color)($dir)"
 
-    $path_segment | str replace --all / $"(ansi light_green_bold)/($path_color)"
+    $path_segment | str replace --all / $"($separator_color)/($path_color)"
 }
 
 def create_right_prompt [] {
