@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use dialoguer::MultiSelect;
 use dialoguer::{console::Term, theme::ColorfulTheme, Select};
 use nu_engine::CallExt;
@@ -11,6 +13,18 @@ use nu_protocol::{
 enum InteractMode {
     Single(Option<usize>),
     Multi(Option<Vec<usize>>),
+}
+
+#[derive(Clone)]
+struct Options {
+    name: String,
+    value: Value,
+}
+
+impl Display for Options {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 #[derive(Clone)]
@@ -55,65 +69,35 @@ impl Command for InputList {
         let head = call.head;
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
 
-        let options: Vec<String> = match input {
+        let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..) => {
-                input
-                    .into_iter()
-                    .map_while(move |x| {
-                        // check if x is a string or a record
-                        if let Ok(val) = x.as_string() {
-                            Some(val)
-                        } else if let Ok(record) = x.as_record() {
-                            let mut options = Vec::new();
-                            for (col, val) in record.0.iter().zip(record.1.iter()) {
-                                if let Ok(val) = val.as_string() {
-                                    options.push(format!(" {}: {} |", &col, &val));
-                                }
-                            }
-                            Some(options.join(""))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
-
-            PipelineData::ListStream { .. } => input
+            | PipelineData::Value(Value::List { .. }, ..)
+            | PipelineData::ListStream { .. }
+            | PipelineData::Value(Value::Record { .. }, ..) => input
                 .into_iter()
                 .map_while(move |x| {
-                    let record = x.as_record().ok()?;
-
-                    record
-                        .0
-                        .iter()
-                        .zip(record.1.iter())
-                        .map(|(col, val)| {
-                            println!("col: {:?}", col);
-                            println!("val: {:?}", val);
-                            if let Ok(val) = val.as_string() {
-                                Some(format!(" {}: {} |", &col, &val))
-                            } else {
-                                None
-                            }
+                    if let Ok(val) = x.as_string() {
+                        Some(Options {
+                            name: val,
+                            value: x,
                         })
-                        .collect()
+                    } else if let Ok(record) = x.as_record() {
+                        let mut options = Vec::new();
+                        for (col, val) in record.0.iter().zip(record.1.iter()) {
+                            if let Ok(val) = val.as_string() {
+                                options.push(format!(" {}: {} |", &col, &val));
+                            }
+                        }
+                        Some(Options {
+                            name: options.join(""),
+                            value: x,
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect(),
-            PipelineData::Value(
-                Value::Record {
-                    cols,
-                    vals,
-                    span: _,
-                },
-                _,
-            ) => {
-                println!("cols: {:?}", cols);
 
-                vals.iter()
-                    .map(|x| x.as_string().unwrap_or_else(|_| "RECORD".to_string()))
-                    .collect()
-            }
             _ => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected string or list".to_string(),
@@ -149,13 +133,7 @@ impl Command for InputList {
             InteractMode::Multi(res) => Ok({
                 match res {
                     Some(opts) => Value::List {
-                        vals: opts
-                            .iter()
-                            .map(|s| Value::String {
-                                val: options[*s].clone(),
-                                span: head,
-                            })
-                            .collect(),
+                        vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
                         span: head,
                     },
                     None => Value::List {
@@ -167,10 +145,8 @@ impl Command for InputList {
             .into_pipeline_data()),
             InteractMode::Single(res) => Ok({
                 match res {
-                    Some(opt) => Value::String {
-                        val: options[opt].clone(),
-                        span: head,
-                    },
+                    Some(opt) => options[opt].value.clone(),
+
                     None => Value::String {
                         val: "".to_string(),
                         span: head,
