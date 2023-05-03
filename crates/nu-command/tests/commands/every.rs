@@ -16,6 +16,7 @@ fn gets_all_rows_by_every_zero() {
             cwd: dirs.test(), pipeline(
             "
                 ls
+                | sort-by name
                 | get name
                 | every 0
                 | to json --raw
@@ -67,6 +68,7 @@ fn gets_all_rows_by_every_one() {
             cwd: dirs.test(), pipeline(
             "
                 ls
+                | sort-by name
                 | get name
                 | every 1
                 | to json --raw
@@ -143,6 +145,7 @@ fn gets_all_rows_except_first_by_every_skip_too_much() {
             cwd: dirs.test(), pipeline(
             "
                 ls
+                | sort-by name
                 | get name
                 | every 999 --skip
                 | to json --raw
