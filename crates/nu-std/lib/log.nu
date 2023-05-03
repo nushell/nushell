@@ -39,8 +39,8 @@ def log-formatted [
 
 # Log a critical message
 export def "log critical" [
-    message: string,
-    --short (-s)
+    message: string, # A message
+    --short (-s) # Whether to use a short prefix
 ] {
     if (current-log-level) > $CRITICAL_LEVEL { return }
 
@@ -50,8 +50,8 @@ export def "log critical" [
 
 # Log an error message
 export def "log error" [
-    message: string,
-    --short (-s)
+    message: string, # A message
+    --short (-s) # Whether to use a short prefix
 ] {
     if (current-log-level) > $ERROR_LEVEL { return }
 
@@ -61,8 +61,8 @@ export def "log error" [
 
 # Log a warning message
 export def "log warning" [
-    message: string,
-    --short (-s)
+    message: string, # A message
+    --short (-s) # Whether to use a short prefix
 ] {
     if (current-log-level) > $WARNING_LEVEL { return }
 
@@ -72,8 +72,8 @@ export def "log warning" [
 
 # Log an info message
 export def "log info" [
-    message: string,
-    --short (-s)
+    message: string, # A message
+    --short (-s) # Whether to use a short prefix
 ] {
     if (current-log-level) > $INFO_LEVEL { return }
 
@@ -83,8 +83,8 @@ export def "log info" [
 
 # Log a debug message
 export def "log debug" [
-    message: string,
-    --short (-s)
+    message: string, # A message
+    --short (-s) # Whether to use a short prefix
 ] {
     if (current-log-level) > $DEBUG_LEVEL { return }
 
