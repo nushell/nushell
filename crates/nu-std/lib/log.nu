@@ -30,36 +30,56 @@ def now [] {
 }
 
 # Log a critical message
-export def "log critical" [message: string] {
+export def "log critical" [
+    message: string,
+    --short (-s)
+] {
     if (current-log-level) > $CRITICAL_LEVEL { return }
 
-    print --stderr $"(ansi red_bold)CRT|(now)|($message)(ansi reset)"
+    let prefix = (if $short { "C" } else { "CRT" })
+    print --stderr $"(ansi red_bold)($prefix)|(now)|($message)(ansi reset)"
 }
 
 # Log an error message
-export def "log error" [message: string] {
+export def "log error" [
+    message: string,
+    --short (-s)
+] {
     if (current-log-level) > $ERROR_LEVEL { return }
 
-    print --stderr $"(ansi red)ERR|(now)|($message)(ansi reset)"
+    let prefix = (if $short { "E" } else { "ERR" })
+    print --stderr $"(ansi red)($prefix)|(now)|($message)(ansi reset)"
 }
 
 # Log a warning message
-export def "log warning" [message: string] {
+export def "log warning" [
+    message: string,
+    --short (-s)
+] {
     if (current-log-level) > $WARNING_LEVEL { return }
 
-    print --stderr $"(ansi yellow)WRN|(now)|($message)(ansi reset)"
+    let prefix = (if $short { "W" } else { "WRN" })
+    print --stderr $"(ansi yellow)($prefix)|(now)|($message)(ansi reset)"
 }
 
 # Log an info message
-export def "log info" [message: string] {
+export def "log info" [
+    message: string,
+    --short (-s)
+] {
     if (current-log-level) > $INFO_LEVEL { return }
 
-    print --stderr $"(ansi default)INF|(now)|($message)(ansi reset)"
+    let prefix = (if $short { "I" } else { "INF" })
+    print --stderr $"(ansi default)($prefix)|(now)|($message)(ansi reset)"
 }
 
 # Log a debug message
-export def "log debug" [message: string] {
+export def "log debug" [
+    message: string,
+    --short (-s)
+] {
     if (current-log-level) > $DEBUG_LEVEL { return }
 
-    print --stderr $"(ansi default_dimmed)DBG|(now)|($message)(ansi reset)"
+    let prefix = (if $short { "D" } else { "DBG" })
+    print --stderr $"(ansi default_dimmed)($prefix)|(now)|($message)(ansi reset)"
 }
