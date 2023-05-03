@@ -115,6 +115,7 @@ impl Command for Glob {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
         let path = current_dir(engine_state, stack)?;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -154,7 +155,7 @@ impl Command for Glob {
         };
 
         #[allow(clippy::needless_collect)]
-        let glob_results: Vec<Value> = glob
+        let glob_results = glob
             .walk_with_behavior(
                 path,
                 WalkBehavior {
@@ -162,21 +163,27 @@ impl Command for Glob {
                     ..Default::default()
                 },
             )
-            .flatten()
-            .filter(|entry| {
-                let file_type = entry.file_type();
+            .flatten();
+        let mut result: Vec<Value> = Vec::new();
+        for entry in glob_results {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                result.clear();
+                break;
+            }
+            let file_type = entry.file_type();
 
-                !(no_dirs && file_type.is_dir()
-                    || no_files && file_type.is_file()
-                    || no_symlinks && file_type.is_symlink())
-            })
-            .map(|entry| Value::String {
-                val: entry.into_path().to_string_lossy().to_string(),
-                span,
-            })
-            .collect();
+            if !(no_dirs && file_type.is_dir()
+                || no_files && file_type.is_file()
+                || no_symlinks && file_type.is_symlink())
+            {
+                result.push(Value::String {
+                    val: entry.into_path().to_string_lossy().to_string(),
+                    span,
+                });
+            }
+        }
 
-        Ok(glob_results
+        Ok(result
             .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone()))
     }
