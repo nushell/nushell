@@ -193,6 +193,7 @@ fn skips_every_third_row() {
             cwd: dirs.test(), pipeline(
             "
                 ls
+                | sort-by name
                 | get name
                 | every 3 --skip
                 | to json --raw
