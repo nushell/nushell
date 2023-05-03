@@ -75,6 +75,18 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Apply negative precision to a list of numbers",
+                example: "[123, 123.3, -123.4] | math round -p -1",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(120),
+                        Value::test_int(120),
+                        Value::test_int(-120),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -102,6 +114,7 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
                 span,
             },
         },
+        Value::Error { .. } => value,
         other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
