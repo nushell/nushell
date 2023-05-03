@@ -34,7 +34,7 @@ def log-formatted [
     prefix: string,
     message: string
 ] {
-    print --stderr $"($color)($prefix)|(now)|($message)(ansi reset)"
+    print --stderr $"($color)($prefix)|(now)|(ansi u)($message)(ansi reset)"
 }
 
 # Log a critical message
