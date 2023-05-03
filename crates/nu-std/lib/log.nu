@@ -18,16 +18,15 @@ def DEBUG_LEVEL [] {
 	10
 }
 
-
 def parse-string-level [level: string] {
     (
-        if $level == "CRITICAL" { (CRITICAL_LEVEL)}
-        else if $level == "CRIT" { (CRITICAL_LEVEL)}
-        else if $level == "ERROR" { (ERROR_LEVEL) }
-        else if $level == "WARNING" { (WARNING_LEVEL) }
-        else if $level == "WARN" { (WARNING_LEVEL) }
-        else if $level == "INFO" { (INFO_LEVEL) }
-        else if $level == "DEBUG" { (DEBUG_LEVEL) }
+        if $level == "CRITICAL" { CRITICAL_LEVEL }
+        else if $level == "CRIT" { CRITICAL_LEVEL }
+        else if $level == "ERROR" { ERROR_LEVEL }
+        else if $level == "WARNING" { WARNING_LEVEL }
+        else if $level == "WARN" { WARNING_LEVEL }
+        else if $level == "INFO" { INFO_LEVEL }
+        else if $level == "DEBUG" { DEBUG_LEVEL }
         else { (INFO_LEVEL) }
     )
 }
