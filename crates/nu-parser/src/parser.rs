@@ -3763,13 +3763,22 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         default_value,
                                         ..
                                     }) => {
-                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let var_type = &working_set.get_variable(var_id).ty;
-
-                                        let expression_ty = expression.ty.clone();
                                         let expression_span = expression.span;
 
-                                        *default_value = Some(expression);
+                                        *default_value = if let Ok(value) =
+                                            eval_constant(working_set, &expression)
+                                        {
+                                            Some(value)
+                                        } else {
+                                            working_set.error(ParseError::NonConstantDefaultValue(
+                                                expression_span,
+                                            ));
+                                            None
+                                        };
+
+                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
+                                        let var_type = &working_set.get_variable(var_id).ty;
+                                        let expression_ty = expression.ty.clone();
 
                                         // Flags with a boolean type are just present/not-present switches
                                         if var_type != &Type::Bool {
