@@ -106,6 +106,14 @@ pub fn evaluate_repl(
 
     let config = engine_state.get_config();
 
+    // Setup history_isolation aka "history per session"
+    let history_isolation = config.history_isolation;
+    let history_session_id = if history_isolation {
+        Reedline::create_history_session_id()
+    } else {
+        None
+    };
+
     start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
         nushell_path,
@@ -124,7 +132,9 @@ pub fn evaluate_repl(
                 SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?,
             ),
         };
-        line_editor = line_editor.with_history(history);
+        line_editor = line_editor
+            .with_history_session_id(history_session_id)
+            .with_history(history);
     };
     perf(
         "setup history",
@@ -477,6 +487,12 @@ pub fn evaluate_repl(
                     }
                 }
 
+                let mut repl_cursor = engine_state
+                    .repl_cursor_pos
+                    .lock()
+                    .expect("repl cursor pos mutex");
+                *repl_cursor = line_editor.current_insertion_point();
+                drop(repl_cursor);
                 let mut repl_buffer = engine_state
                     .repl_buffer_state
                     .lock()
@@ -710,8 +726,11 @@ pub fn evaluate_repl(
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
     match shape {
         NuCursorShape::Block => SetCursorStyle::SteadyBlock,
-        NuCursorShape::UnderScore => SetCursorStyle::DefaultUserShape,
-        NuCursorShape::Line => SetCursorStyle::BlinkingBar,
+        NuCursorShape::UnderScore => SetCursorStyle::SteadyUnderScore,
+        NuCursorShape::Line => SetCursorStyle::SteadyBar,
+        NuCursorShape::BlinkBlock => SetCursorStyle::BlinkingBlock,
+        NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
+        NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
     }
 }
 

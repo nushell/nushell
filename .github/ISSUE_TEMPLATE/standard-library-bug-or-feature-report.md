@@ -2,7 +2,7 @@
 name: standard library bug or feature report
 about: Used to submit issues related to the nu standard library
 title: ''
-labels: std-library
+labels: ['needs-triage', 'std-library']
 assignees: ''
 
 ---

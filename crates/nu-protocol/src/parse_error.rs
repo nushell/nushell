@@ -1,8 +1,14 @@
-use crate::{Span, Type};
+use std::{
+    fmt::Display,
+    str::{from_utf8, Utf8Error},
+};
+
+use crate::{did_you_mean, Span, Type};
 use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error, Diagnostic)]
+#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseError {
     /// The parser encountered unexpected tokens, when the code should have
     /// finished. You should remove these or finish adding what you intended
@@ -161,7 +167,7 @@ pub enum ParseError {
 
     #[error("Variable not found.")]
     #[diagnostic(code(nu::parser::variable_not_found))]
-    VariableNotFound(#[label = "variable not found"] Span),
+    VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
@@ -337,6 +343,10 @@ pub enum ParseError {
         #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
     ),
 
+    #[error("Default values should be constant expressions.")]
+    #[diagnostic(code(nu::parser::non_constant_default_value))]
+    NonConstantDefaultValue(#[label = "expected a constant value"] Span),
+
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns))]
     ExtraColumns(
@@ -437,7 +447,7 @@ impl ParseError {
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
-            ParseError::VariableNotFound(s) => *s,
+            ParseError::VariableNotFound(_, s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
@@ -471,6 +481,7 @@ impl ParseError {
             ParseError::IncompleteParser(s) => *s,
             ParseError::RestNeedsName(s) => *s,
             ParseError::ParameterMismatchType(_, _, _, s) => *s,
+            ParseError::NonConstantDefaultValue(s) => *s,
             ParseError::ExtraColumns(_, s) => *s,
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
@@ -489,6 +500,40 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DidYouMean(Option<String>);
+
+fn did_you_mean_impl(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> Option<String> {
+    let input = from_utf8(input_bytes).ok()?;
+    let possibilities = possibilities_bytes
+        .iter()
+        .map(|p| from_utf8(p))
+        .collect::<Result<Vec<&str>, Utf8Error>>()
+        .ok()?;
+    did_you_mean(&possibilities, input)
+}
+impl DidYouMean {
+    pub fn new(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> DidYouMean {
+        DidYouMean(did_you_mean_impl(possibilities_bytes, input_bytes))
+    }
+}
+
+impl From<Option<String>> for DidYouMean {
+    fn from(value: Option<String>) -> Self {
+        Self(value)
+    }
+}
+
+impl Display for DidYouMean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(suggestion) = &self.0 {
+            write!(f, "Did you mean '{}'?", suggestion)
+        } else {
+            write!(f, "")
         }
     }
 }
