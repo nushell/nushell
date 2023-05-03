@@ -29,6 +29,14 @@ def now [] {
     date now | date format "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
+def log-formatted [
+    color: string,
+    prefix: string,
+    message: string
+] {
+    print --stderr $"($color)($prefix)|(now)|($message)(ansi reset)"
+}
+
 # Log a critical message
 export def "log critical" [
     message: string,
@@ -37,7 +45,7 @@ export def "log critical" [
     if (current-log-level) > $CRITICAL_LEVEL { return }
 
     let prefix = (if $short { "C" } else { "CRT" })
-    print --stderr $"(ansi red_bold)($prefix)|(now)|($message)(ansi reset)"
+    log-formatted (ansi red_bold) $prefix $message
 }
 
 # Log an error message
@@ -48,7 +56,7 @@ export def "log error" [
     if (current-log-level) > $ERROR_LEVEL { return }
 
     let prefix = (if $short { "E" } else { "ERR" })
-    print --stderr $"(ansi red)($prefix)|(now)|($message)(ansi reset)"
+    log-formatted (ansi red) $prefix $message
 }
 
 # Log a warning message
@@ -59,7 +67,7 @@ export def "log warning" [
     if (current-log-level) > $WARNING_LEVEL { return }
 
     let prefix = (if $short { "W" } else { "WRN" })
-    print --stderr $"(ansi yellow)($prefix)|(now)|($message)(ansi reset)"
+    log-formatted (ansi yellow) $prefix $message
 }
 
 # Log an info message
@@ -70,7 +78,7 @@ export def "log info" [
     if (current-log-level) > $INFO_LEVEL { return }
 
     let prefix = (if $short { "I" } else { "INF" })
-    print --stderr $"(ansi default)($prefix)|(now)|($message)(ansi reset)"
+    log-formatted (ansi default) $prefix $message
 }
 
 # Log a debug message
@@ -81,5 +89,5 @@ export def "log debug" [
     if (current-log-level) > $DEBUG_LEVEL { return }
 
     let prefix = (if $short { "D" } else { "DBG" })
-    print --stderr $"(ansi default_dimmed)($prefix)|(now)|($message)(ansi reset)"
+    log-formatted (ansi default_dimmed) $prefix $message
 }
