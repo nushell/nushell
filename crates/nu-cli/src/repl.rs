@@ -112,6 +112,14 @@ pub fn evaluate_repl(
         let _ = line_editor.enable_bracketed_paste();
     }
 
+    // Setup history_isolation aka "history per session"
+    let history_isolation = config.history_isolation;
+    let history_session_id = if history_isolation {
+        Reedline::create_history_session_id()
+    } else {
+        None
+    };
+
     start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
         nushell_path,
@@ -130,7 +138,9 @@ pub fn evaluate_repl(
                 SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?,
             ),
         };
-        line_editor = line_editor.with_history(history);
+        line_editor = line_editor
+            .with_history_session_id(history_session_id)
+            .with_history(history);
     };
     perf(
         "setup history",

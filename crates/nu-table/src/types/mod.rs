@@ -46,7 +46,8 @@ pub fn value_to_clean_styled_string(val: &Value, cfg: &Config, style: &StyleComp
 }
 
 pub fn clean_charset(text: &str) -> String {
-    text.replace(['\r', '\t'], " ")
+    // todo: optimize, I bet it can be done in 1 path
+    text.replace('\t', "    ").replace('\r', "")
 }
 
 const INDEX_COLUMN_NAME: &str = "index";

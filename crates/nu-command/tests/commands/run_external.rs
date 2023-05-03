@@ -320,3 +320,18 @@ fn quotes_trimmed_when_shelling_out() {
 
     assert_eq!(actual.out, "foo");
 }
+
+#[test]
+fn redirect_combine() {
+    Playground::setup("redirect_combine", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                run-external --redirect-combine sh [-c 'echo Foo; echo >&2 Bar']
+            "#
+        ));
+
+        // Lines are collapsed in the nu! macro
+        assert_eq!(actual.out, "FooBar");
+    });
+}
