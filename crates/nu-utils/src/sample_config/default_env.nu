@@ -13,17 +13,14 @@ def create_left_prompt [] {
     }
 
     let dir = ([
-        ($env.PWD | str substring 0..($home | str length) | str replace -s $home "~"),
+        ($env.PWD | str substring 0..($home | str length) | str replace --string $home "~"),
         ($env.PWD | str substring ($home | str length)..)
     ] | str join)
 
-    let path_segment = if (is-admin) {
-        $"(ansi red_bold)($dir)"
-    } else {
-        $"(ansi green_bold)($dir)"
-    }
+    let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
+    let path_segment = $"($path_color)($dir)"
 
-    $path_segment
+    $path_segment | str replace --all / $"(ansi light_green_bold)/($path_color)"
 }
 
 def create_right_prompt [] {
