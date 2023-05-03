@@ -1,23 +1,24 @@
 use crate::DirBuilder;
 use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
+use nu_engine::{env::current_dir, CallExt};
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
-
+use rayon::prelude::*;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -175,22 +176,33 @@ impl Command for Ls {
             ));
         }
 
-        let mut hidden_dirs = vec![];
+        let hidden_dirs = Arc::new(Mutex::new(Vec::new()));
 
         Ok(paths_peek
+            .into_iter()
+            .par_bridge()
             .filter_map(move |x| match x {
                 Ok(path) => {
                     let metadata = match std::fs::symlink_metadata(&path) {
                         Ok(metadata) => Some(metadata),
                         Err(_) => None,
                     };
-                    if path_contains_hidden_folder(&path, &hidden_dirs) {
-                        return None;
+                    {
+                        let hidden_dir_clone = Arc::clone(&hidden_dirs);
+                        let hidden_dir_mutex = hidden_dir_clone
+                            .lock()
+                            .expect("Unable to acquire lock for hidden_dirs");
+                        if path_contains_hidden_folder(&path, &hidden_dir_mutex) {
+                            return None;
+                        }
                     }
-
                     if !all && !hidden_dir_specified && is_hidden_dir(&path) {
                         if path.is_dir() {
-                            hidden_dirs.push(path);
+                            let hidden_dir_clone = Arc::clone(&hidden_dirs);
+                            let mut hidden_dir_mutex = hidden_dir_clone
+                                .lock()
+                                .expect("Unable to acquire lock for hidden_dirs in all block");
+                            hidden_dir_mutex.push(path);
                         }
                         return None;
                     }
@@ -267,6 +279,8 @@ impl Command for Ls {
                 }
                 _ => Some(Value::Nothing { span: call_span }),
             })
+            .collect::<Vec<_>>()
+            .into_iter()
             .into_pipeline_data_with_metadata(
                 Box::new(PipelineMetadata {
                     data_source: DataSource::Ls,
