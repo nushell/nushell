@@ -318,8 +318,8 @@ fn rm(
     }
 
     all_targets
-        .into_keys()
-        .map(move |f| {
+        .into_iter()
+        .map(move |(f, span)| {
             let is_empty = || match f.read_dir() {
                 Ok(mut p) => p.next().is_none(),
                 Err(_) => false,
