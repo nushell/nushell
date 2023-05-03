@@ -129,6 +129,7 @@ impl Command for InputList {
             InteractMode::Multi(
                 MultiSelect::new()
                     .with_prompt(&prompt)
+                        .report(false)
                     .items(&options)
                     .interact_on_opt(&Term::stderr())
                     .map_err(|_| {
@@ -139,6 +140,7 @@ impl Command for InputList {
             InteractMode::Single(
                 Select::with_theme(&ColorfulTheme::default())
                     .items(&options)
+                    .report(false)
                     .with_prompt(&prompt)
                     .interact_on_opt(&Term::stderr())
                     .map_err(|_| {
