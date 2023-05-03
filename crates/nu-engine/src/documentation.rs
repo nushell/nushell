@@ -35,6 +35,33 @@ struct DocumentationConfig {
     brief: bool,
 }
 
+// Utility returns nu-highlighted string
+fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> String {
+    if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
+        let decl = engine_state.get_decl(highlighter);
+
+        match decl.run(
+            engine_state,
+            stack,
+            &Call::new(Span::unknown()),
+            Value::string(code_string, Span::unknown()).into_pipeline_data(),
+        ) {
+            Ok(output) => {
+                let result = output.into_value(Span::unknown());
+                match result.as_string() {
+                    Ok(s) => {
+                        return s; // successfully highlighted string
+                    }
+                    _ => {}
+                }
+            }
+            Err(_) => {}
+        }
+    }
+
+    return code_string.to_string();
+}
+
 #[allow(clippy::cognitive_complexity)]
 fn get_documentation(
     sig: &Signature,
@@ -45,9 +72,11 @@ fn get_documentation(
     is_parser_keyword: bool,
 ) -> String {
     // Create ansi colors
+    //todo make these configurable -- pull from enginestate.config
     const G: &str = "\x1b[32m"; // green
     const C: &str = "\x1b[36m"; // cyan
-    const BB: &str = "\x1b[1;34m"; // bold blue
+                                // was const BB: &str = "\x1b[1;34m"; // bold blue
+    const BB: &str = "\x1b[94m"; // light blue (nobold, should be bolding the *names*)
     const RESET: &str = "\x1b[0m"; // reset
 
     let cmd_name = &sig.name;
@@ -142,18 +171,32 @@ fn get_documentation(
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  (optional) {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {}",
+                        "  {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {} (optional)",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
                     )
                 }
                 _ => {
+                    let opt_suffix = if let Some(value) = &positional.default_value {
+                        format!(
+                            " (optional, default: {})",
+                            nu_highlight_string(
+                                &value.into_string(",", &engine_state.config),
+                                engine_state,
+                                stack
+                            )
+                        )
+                    } else {
+                        format!(" (optional)")
+                    };
+
                     format!(
-                        "  (optional) {C}{}{RESET} <{BB}{}{RESET}>: {}",
+                        "  {C}{}{RESET} <{BB}{}{RESET}>: {}{}",
                         positional.name,
                         document_shape(positional.shape.clone()),
-                        positional.desc
+                        positional.desc,
+                        opt_suffix,
                     )
                 }
             };
@@ -255,20 +298,28 @@ pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
 }
 
 pub fn get_flags_section(signature: &Signature) -> String {
+    //todo make these configurable -- pull from enginestate.config
     const G: &str = "\x1b[32m"; // green
     const C: &str = "\x1b[36m"; // cyan
-    const BB: &str = "\x1b[1;34m"; // bold blue
+                                // was const BB: &str = "\x1b[1;34m"; // bold blue
+    const BB: &str = "\x1b[94m"; // light blue (nobold, should be bolding the *names*)
     const RESET: &str = "\x1b[0m"; // reset
     const D: &str = "\x1b[39m"; // default
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
     for flag in &signature.named {
+        let default_str = if let Some(_value) = &flag.default_value {
+            format!(" (default: {BB}{}{RESET})", "coming soon") //todo no display impl value.to_string())
+        } else {
+            "".to_string()
+        };
+
         let msg = if let Some(arg) = &flag.arg {
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  {C}-{}{}{RESET} (required parameter) {:?} - {}\n",
+                        "  {C}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
                             format!("{D},{RESET} {C}--{}", flag.long)
@@ -276,11 +327,12 @@ pub fn get_flags_section(signature: &Signature) -> String {
                             "".into()
                         },
                         arg,
-                        flag.desc
+                        flag.desc,
+                        default_str,
                     )
                 } else {
                     format!(
-                        "  {C}-{}{}{RESET} <{BB}{:?}{RESET}> - {}\n",
+                        "  {C}-{}{}{RESET} <{BB}{:?}{RESET}> - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
                             format!("{D},{RESET} {C}--{}", flag.long)
@@ -288,48 +340,51 @@ pub fn get_flags_section(signature: &Signature) -> String {
                             "".into()
                         },
                         arg,
-                        flag.desc
+                        flag.desc,
+                        default_str,
                     )
                 }
             } else if flag.required {
                 format!(
-                    "  {C}--{}{RESET} (required parameter) <{BB}{:?}{RESET}> - {}\n",
-                    flag.long, arg, flag.desc
+                    "  {C}--{}{RESET} (required parameter) <{BB}{:?}{RESET}> - {}{}\n",
+                    flag.long, arg, flag.desc, default_str,
                 )
             } else {
                 format!(
-                    "  {C}--{}{RESET} <{BB}{:?}{RESET}> - {}\n",
-                    flag.long, arg, flag.desc
+                    "  {C}--{}{RESET} <{BB}{:?}{RESET}> - {}{}\n",
+                    flag.long, arg, flag.desc, default_str,
                 )
             }
         } else if let Some(short) = flag.short {
             if flag.required {
                 format!(
-                    "  {C}-{}{}{RESET} (required parameter) - {}\n",
+                    "  {C}-{}{}{RESET} (required parameter) - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
                         format!("{D},{RESET} {C}--{}", flag.long)
                     } else {
                         "".into()
                     },
-                    flag.desc
+                    flag.desc,
+                    default_str,
                 )
             } else {
                 format!(
-                    "  {C}-{}{}{RESET} - {}\n",
+                    "  {C}-{}{}{RESET} - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
                         format!("{D},{RESET} {C}--{}", flag.long)
                     } else {
                         "".into()
                     },
-                    flag.desc
+                    flag.desc,
+                    default_str
                 )
             }
         } else if flag.required {
             format!(
-                "  {C}--{}{RESET} (required parameter) - {}\n",
-                flag.long, flag.desc
+                "  {C}--{}{RESET} (required parameter) - {}{}\n",
+                flag.long, flag.desc, default_str,
             )
         } else {
             format!("  {C}--{}{RESET} - {}\n", flag.long, flag.desc)
