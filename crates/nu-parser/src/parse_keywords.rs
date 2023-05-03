@@ -104,9 +104,10 @@ pub fn parse_keyword(
         let cmd = working_set.get_decl(call.decl_id);
         // check help flag first.
         if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+            let call_span = call.span();
             return Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
-                span: call.span(),
+                span: call_span,
                 ty: Type::Any,
                 custom_completion: None,
             }]);
