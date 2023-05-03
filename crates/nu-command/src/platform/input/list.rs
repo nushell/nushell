@@ -208,6 +208,11 @@ impl Command for InputList {
                 example: r#"[Banana Kiwi Pear Peach Strawberry] | input list -m 'Add fruits to the basket'"#,
                 result: None,
             },
+            Example {
+                description: "Return a single record from a table with fuzzy search",
+                example: r#"ls | input list -f 'Select the target'"#,
+                result: None,
+            },
         ]
     }
 }
