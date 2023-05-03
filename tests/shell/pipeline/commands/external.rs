@@ -464,7 +464,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    nu --testbin cococo (ls | get name)
+                    nu --testbin cococo (ls | sort-by name | get name)
                 "#
                 ));
 
