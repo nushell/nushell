@@ -16,8 +16,8 @@ use nu_protocol::{
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
-    span, BlockId, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
-    Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1820,9 +1820,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         };
     }
 
-    let id = parse_variable(working_set, span);
-
-    if let Some(id) = id {
+    if let Some(id) = parse_variable(working_set, span) {
         Expression {
             expr: Expr::Var(id),
             span,
@@ -1830,7 +1828,9 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             custom_completion: None,
         }
     } else {
-        working_set.error(ParseError::VariableNotFound(span));
+        let ws = &*working_set;
+        let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
+        working_set.error(ParseError::VariableNotFound(suggestion, span));
         garbage(span)
     }
 }
