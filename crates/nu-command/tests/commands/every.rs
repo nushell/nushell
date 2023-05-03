@@ -168,6 +168,7 @@ fn gets_every_third_row() {
             cwd: dirs.test(), pipeline(
             "
                 ls
+                | sort-by name
                 | get name
                 | every 3
                 | to json --raw
