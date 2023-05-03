@@ -190,22 +190,18 @@ impl Command for Ls {
                     };
                     {
                         let hidden_dir_clone = Arc::clone(&hidden_dirs);
-                        let hidden_dir_mutex = hidden_dir_clone
+                        let mut hidden_dir_mutex = hidden_dir_clone
                             .lock()
                             .expect("Unable to acquire lock for hidden_dirs");
                         if path_contains_hidden_folder(&path, &hidden_dir_mutex) {
                             return None;
                         }
-                    }
-                    if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                        if path.is_dir() {
-                            let hidden_dir_clone = Arc::clone(&hidden_dirs);
-                            let mut hidden_dir_mutex = hidden_dir_clone
-                                .lock()
-                                .expect("Unable to acquire lock for hidden_dirs in all block");
-                            hidden_dir_mutex.push(path);
+                        if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                            if path.is_dir() {
+                                hidden_dir_mutex.push(path);
+                            }
+                            return None;
                         }
-                        return None;
                     }
 
                     let display_name = if short_names {
