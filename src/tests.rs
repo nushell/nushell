@@ -8,6 +8,7 @@ mod test_custom_commands;
 mod test_engine;
 mod test_env;
 mod test_hiding;
+mod test_help;
 mod test_ide;
 mod test_iteration;
 mod test_known_external;
