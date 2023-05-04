@@ -271,7 +271,7 @@ fn get_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.into_string_parsable("", engine_state.get_config())
+                    item.into_string("", engine_state.get_config())
                         .replace('\n', "\n  ")
                         .trim()
                 );

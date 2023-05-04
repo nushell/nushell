@@ -74,7 +74,7 @@ impl NuHelpCompleter {
                         let opt_suffix = if let Some(value) = &positional.default_value {
                             format!(
                                 " (optional, default: {})",
-                                    &value.into_string_parsable(", ", &self.0.config),
+                                &value.into_string_parsable(", ", &self.0.config),
                             )
                         } else {
                             (" (optional)").to_string()

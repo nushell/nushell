@@ -643,9 +643,9 @@ impl Value {
         format!("{self:#?}")
     }
 
-    /// Convert Value into a parsable string (quote strings) 
+    /// Convert Value into a parsable string (quote strings)
     /// bugbug other, rarer types not handled
-    
+
     pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
@@ -669,7 +669,7 @@ impl Value {
             ),
 
             // defer to standard handling for types where standard representation is parsable
-            _ => self.into_string( separator, config) ,
+            _ => self.into_string(separator, config),
         }
     }
 
