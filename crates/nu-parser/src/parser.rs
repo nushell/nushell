@@ -16,7 +16,7 @@ use nu_protocol::{
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
-    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
+    span, BlockId, Category, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
     SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
@@ -592,7 +592,14 @@ fn calculate_end_span(
             } else if positional_idx < signature.required_positional.len()
                 && spans.len() > (signature.required_positional.len() - positional_idx)
             {
-                spans.len() - (signature.required_positional.len() - positional_idx - 1)
+                spans.len()
+                    - (signature.required_positional.len()
+                        - positional_idx
+                        - (if signature.category == Category::Core {
+                            1
+                        } else {
+                            2
+                        }))
             } else {
                 spans_idx + 1
             }
