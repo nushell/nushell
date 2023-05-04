@@ -100,6 +100,7 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -144,6 +145,7 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            bracketed_paste: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
@@ -1211,6 +1213,9 @@ impl Value {
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
+                    }
+                    "bracketed_paste" => {
+                        try_bool!(cols, vals, index, span, bracketed_paste);
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
                     // Legacy options do NOT reconstruct their values on error

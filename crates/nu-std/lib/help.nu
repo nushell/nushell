@@ -285,16 +285,16 @@ def show-alias [alias: record] {
 #     > let us define a bunch of aliases
 #     > ```nushell
 #     > # my foo alias
-#     > old-alias foo = echo "this is foo"
+#     > alias foo = echo "this is foo"
 #     >
 #     > # my bar alias
-#     > old-alias bar = echo "this is bar"
+#     > alias bar = echo "this is bar"
 #     >
 #     > # my baz alias
-#     > old-alias baz = echo "this is baz"
+#     > alias baz = echo "this is baz"
 #     >
 #     > # a multiline alias
-#     > old-alias multi = echo "this
+#     > alias multi = echo "this
 #     > is
 #     > a
 #     > multiline
