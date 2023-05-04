@@ -1543,6 +1543,24 @@ impl<'a> StateWorkingSet<'a> {
         num_permanent_vars + self.delta.vars.len()
     }
 
+    pub fn list_variables(&self) -> Vec<&[u8]> {
+        let mut removed_overlays = vec![];
+        let mut variables = HashSet::new();
+        for scope_frame in self.delta.scope.iter() {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays) {
+                variables.extend(overlay_frame.vars.keys().map(|k| &k[..]));
+            }
+        }
+
+        let permanent_vars = self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]));
+
+        variables.extend(permanent_vars);
+        variables.into_iter().collect()
+    }
+
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         let mut removed_overlays = vec![];
 
@@ -1589,7 +1607,6 @@ impl<'a> StateWorkingSet<'a> {
         mutable: bool,
     ) -> VarId {
         let next_id = self.next_var_id();
-
         // correct name if necessary
         if !name.starts_with(b"$") {
             name.insert(0, b'$');
@@ -2097,6 +2114,8 @@ fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
 
 #[cfg(test)]
 mod engine_state_tests {
+    use std::str::{from_utf8, Utf8Error};
+
     use super::*;
 
     #[test]
@@ -2137,6 +2156,27 @@ mod engine_state_tests {
         assert_eq!(&engine_state.files[0].0, "test.nu");
         assert_eq!(&engine_state.files[1].0, "child.nu");
 
+        Ok(())
+    }
+
+    #[test]
+    fn list_variables() -> Result<(), Utf8Error> {
+        let varname = "something";
+        let varname_with_sigil = "$".to_owned() + varname;
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_variable(
+            varname.as_bytes().into(),
+            Span { start: 0, end: 1 },
+            Type::Int,
+            false,
+        );
+        let variables = working_set
+            .list_variables()
+            .into_iter()
+            .map(|v| from_utf8(v))
+            .collect::<Result<Vec<&str>, Utf8Error>>()?;
+        assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())
     }
 }

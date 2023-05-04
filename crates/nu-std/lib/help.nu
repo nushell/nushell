@@ -244,7 +244,7 @@ export def "help modules" [
     let modules = $nu.scope.modules
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | find $find)
+        let found_modules = ($modules | find $find --columns [name usage])
 
         if ($found_modules | length) == 1 {
             show-module ($found_modules | get 0)
@@ -283,16 +283,16 @@ def show-alias [alias: record] {
 #     > let us define a bunch of aliases
 #     > ```nushell
 #     > # my foo alias
-#     > old-alias foo = echo "this is foo"
+#     > alias foo = echo "this is foo"
 #     >
 #     > # my bar alias
-#     > old-alias bar = echo "this is bar"
+#     > alias bar = echo "this is bar"
 #     >
 #     > # my baz alias
-#     > old-alias baz = echo "this is baz"
+#     > alias baz = echo "this is baz"
 #     >
 #     > # a multiline alias
-#     > old-alias multi = echo "this
+#     > alias multi = echo "this
 #     > is
 #     > a
 #     > multiline
@@ -352,7 +352,7 @@ export def "help aliases" [
     let aliases = ($nu.scope.aliases | sort-by name)
 
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find)
+        let found_aliases = ($aliases | find $find --columns [name usage])
 
         if ($found_aliases | length) == 1 {
             show-alias ($found_aliases | get 0)
@@ -396,7 +396,7 @@ export def "help externs" [
     )
 
     if not ($find | is-empty) {
-        let found_externs = ($externs | find $find)
+        let found_externs = ($externs | find $find --columns [name usage])
 
         if ($found_externs | length) == 1 {
             show-extern ($found_externs | get 0)
@@ -466,7 +466,7 @@ export def "help operators" [
     let operators = (get-all-operators)
 
     if not ($find | is-empty) {
-        let found_operators = ($operators | find $find)
+        let found_operators = ($operators | find $find --columns [type name])
 
         if ($found_operators | length) == 1 {
             show-operator ($found_operators | get 0)
@@ -645,15 +645,16 @@ def show-command [command: record] {
     print ""
 }
 
-# Show help on nushell commands.
+# Show help on commands.
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
-    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name )
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find)
+        # TODO: impl find for external commands
+        let found_commands = ($commands | find $find --columns [name usage search_terms])
 
         if ($found_commands | length) == 1 {
             show-command ($found_commands | get 0)
@@ -661,13 +662,19 @@ export def "help commands" [
             $found_commands | select name category usage signatures search_terms
         }
     } else if not ($command | is-empty) {
-        let found_command = ($commands | where name == ($command | str join " "))
+        let found_commands = ($commands | where name == ($command | str join " "))
 
-        if ($found_command | is-empty) {
-            command-not-found-error (metadata $command | get span)
+        if not ($found_commands | is-empty) {
+            show-command ($found_commands | get 0)
+        } else {
+            try {
+                print $"(ansi default_italic)Help pages from external command ($command | pretty-cmd):(ansi reset)"
+                 ^($env.NU_HELPER? | default "man") $command
+            } catch {
+                command-not-found-error (metadata $command | get span)
+            }
         }
 
-        show-command ($found_command | get 0)
     } else {
         $commands | select name category usage signatures search_terms
     }
