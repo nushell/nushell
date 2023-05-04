@@ -748,4 +748,14 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let modules = (try { help modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
+
+    let span = (metadata $item | get span)
+    error make {
+        msg: ("std::help::item_not_found"  | error-fmt)
+        label: {
+            text: "item not found"
+            start: $span.start
+            end: $span.end
+        }
+    }
 }
