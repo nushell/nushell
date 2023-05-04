@@ -359,7 +359,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     extract_custom_completion_from_arg(self.engine_state, &req.shape),
                     span,
                 ),
-                Value::nothing(span), // default
+                Value::nothing(span),
             ];
 
             sig_records.push(Value::Record {
@@ -453,10 +453,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                 short_flag,
                 Value::string(&named.desc, span),
                 Value::string(custom_completion_command_name, span),
-                //todo named default is expression, how to coerce to value?
-                // if let Some(val) = named.default_value
-                //   {val} else {Value::nothing(span)},
-                Value::nothing(span),
+                if let Some(val) = &named.default_value {
+                    val.clone()
+                } else {
+                    Value::nothing(span)
+                },
             ];
 
             sig_records.push(Value::Record {
@@ -477,7 +478,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
-                Value::nothing(span), // default
+                Value::nothing(span),
             ],
             span,
         });

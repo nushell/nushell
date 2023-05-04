@@ -120,7 +120,13 @@ fn get_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(sig))
+        long_desc.push_str(&get_flags_section(sig, |v| {
+            nu_highlight_string(
+                &v.into_string_parsable(", ", &engine_state.config),
+                engine_state,
+                stack,
+            )
+        }))
     }
 
     if !is_parser_keyword && !sig.input_output_types.is_empty() {
@@ -175,7 +181,7 @@ fn get_documentation(
                         format!(
                             " (optional, default: {})",
                             nu_highlight_string(
-                                &value.into_string(",", &engine_state.config),
+                                &value.into_string_parsable(", ", &engine_state.config),
                                 engine_state,
                                 stack
                             )
@@ -290,7 +296,13 @@ pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
     }
 }
 
-pub fn get_flags_section(signature: &Signature) -> String {
+pub fn get_flags_section<F>(
+    signature: &Signature,
+    mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
+) -> String
+where
+    F: FnMut(&nu_protocol::Value) -> String,
+{
     //todo make these configurable -- pull from enginestate.config
     const G: &str = "\x1b[32m"; // green
     const C: &str = "\x1b[36m"; // cyan
@@ -302,8 +314,8 @@ pub fn get_flags_section(signature: &Signature) -> String {
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
     for flag in &signature.named {
-        let default_str = if let Some(_value) = &flag.default_value {
-            format!(" (default: {BB}{}{RESET})", "coming soon") //todo no display impl value.to_string())
+        let default_str = if let Some(value) = &flag.default_value {
+            format!(" (default: {BB}{}{RESET})", &value_formatter(value))
         } else {
             "".to_string()
         };
