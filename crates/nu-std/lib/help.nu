@@ -674,9 +674,7 @@ export def "help commands" [
     } else if not ($command | is-empty) {
         let found_command = ($commands | where name == $command)
 
-        if not ($found_commands | is-empty) {
-            show-command ($found_commands | get 0)
-        } else {
+        if ($found_command | is-empty) {
             try {
                 print $"(ansi default_italic)Help pages from external command ($command | pretty-cmd):(ansi reset)"
                 ^($env.NU_HELPER? | default "man") $command
@@ -685,6 +683,7 @@ export def "help commands" [
             }
         }
 
+        show-command ($found_command | get 0)
     } else {
         $commands | select name category usage signatures search_terms
     }
