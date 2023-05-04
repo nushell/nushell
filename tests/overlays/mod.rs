@@ -1312,3 +1312,13 @@ fn alias_overlay_new() {
     assert_eq!(actual.out, "eggs");
     assert_eq!(actual_repl.out, "eggs");
 }
+
+#[test]
+fn overlay_help_no_error() {
+    let actual = nu!(cwd: ".", "overlay hide -h");
+    assert!(actual.err.is_empty());
+    let actual = nu!(cwd: ".", "overlay new -h");
+    assert!(actual.err.is_empty());
+    let actual = nu!(cwd: ".", "overlay use -h");
+    assert!(actual.err.is_empty());
+}

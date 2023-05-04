@@ -1045,6 +1045,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59c6f2989294b9a498d3ad5491a79c6deb604617378e1cdc4bfc1c1361fe2f87"
 dependencies = [
  "console",
+ "fuzzy-matcher",
  "shell-words",
 ]
 
@@ -4326,8 +4327,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b8684e0f5d6fb8529156a19c637645dd7fd5018efbdeaa306f53f54e3b404de"
+source = "git+https://github.com/nushell/reedline.git?branch=main#65c4e7a419122a526b66adb9695d9d924bf921f6"
 dependencies = [
  "chrono",
  "crossterm 0.26.1",

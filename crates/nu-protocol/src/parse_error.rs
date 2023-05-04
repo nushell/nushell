@@ -1,4 +1,9 @@
-use crate::{Span, Type};
+use std::{
+    fmt::Display,
+    str::{from_utf8, Utf8Error},
+};
+
+use crate::{did_you_mean, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -162,7 +167,7 @@ pub enum ParseError {
 
     #[error("Variable not found.")]
     #[diagnostic(code(nu::parser::variable_not_found))]
-    VariableNotFound(#[label = "variable not found"] Span),
+    VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
@@ -442,7 +447,7 @@ impl ParseError {
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
-            ParseError::VariableNotFound(s) => *s,
+            ParseError::VariableNotFound(_, s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
@@ -495,6 +500,40 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DidYouMean(Option<String>);
+
+fn did_you_mean_impl(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> Option<String> {
+    let input = from_utf8(input_bytes).ok()?;
+    let possibilities = possibilities_bytes
+        .iter()
+        .map(|p| from_utf8(p))
+        .collect::<Result<Vec<&str>, Utf8Error>>()
+        .ok()?;
+    did_you_mean(&possibilities, input)
+}
+impl DidYouMean {
+    pub fn new(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> DidYouMean {
+        DidYouMean(did_you_mean_impl(possibilities_bytes, input_bytes))
+    }
+}
+
+impl From<Option<String>> for DidYouMean {
+    fn from(value: Option<String>) -> Self {
+        Self(value)
+    }
+}
+
+impl Display for DidYouMean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(suggestion) = &self.0 {
+            write!(f, "Did you mean '{}'?", suggestion)
+        } else {
+            write!(f, "")
         }
     }
 }
