@@ -640,7 +640,7 @@ export def "help commands" [
 
     if not ($find | is-empty) {
         # TODO: impl find for external commands
-        $commands | find $find --columns [name usage search_terms]) | select name category usage signatures search_terms
+        $commands | find $find --columns [name usage search_terms] | select name category usage signatures search_terms
     } else if not ($command | is-empty) {
         let found_commands = ($commands | where name == $command)
 
