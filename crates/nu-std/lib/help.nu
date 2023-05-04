@@ -653,16 +653,17 @@ def show-command [command: record] {
     print ""
 }
 
-# Show help on nushell commands.
+# Show help on commands.
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
-    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name )
 
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
+        # TODO: impl find for external commands
         let found_commands = ($commands | find $find --columns [name usage search_terms])
 
         if ($found_commands | length) == 1 {
@@ -671,13 +672,19 @@ export def "help commands" [
             $found_commands | select name category usage signatures search_terms
         }
     } else if not ($command | is-empty) {
-        let found_command = ($commands | where name == $command)
+        let found_commands = ($commands | where name == $command)
 
-        if ($found_command | is-empty) {
-            command-not-found-error (metadata $command | get span)
+        if not ($found_commands | is-empty) {
+            show-command ($found_commands | get 0)
+        } else {
+            try {
+                print $"(ansi default_italic)Help pages from external command ($command | pretty-cmd):(ansi reset)"
+                 ^($env.NU_HELPER? | default "man") $command
+            } catch {
+                command-not-found-error (metadata $command | get span)
+            }
         }
 
-        show-command ($found_command | get 0)
     } else {
         $commands | select name category usage signatures search_terms
     }
