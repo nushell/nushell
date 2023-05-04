@@ -238,7 +238,7 @@ fn rm(
         match nu_glob::glob_with(
             &path.to_string_lossy(),
             nu_glob::MatchOptions {
-                require_literal_leading_dot: false,
+                require_literal_leading_dot: true,
                 ..GLOB_PARAMS
             },
         ) {
