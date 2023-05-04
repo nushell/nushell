@@ -1,8 +1,6 @@
-use nu_ansi_term::Color;
-use std::fmt::{Display, Formatter};
-
-use dialoguer::{console::Term, theme::ColorfulTheme, Select};
+use dialoguer::{console::Term, Select};
 use dialoguer::{FuzzySelect, MultiSelect};
+use nu_ansi_term::Color;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -10,6 +8,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::fmt::{Display, Formatter};
 
 enum InteractMode {
     Single(Option<usize>),
@@ -30,6 +29,8 @@ impl Display for Options {
 
 #[derive(Clone)]
 pub struct InputList;
+
+const INTERACT_ERROR: &str = "Interact error, could not process options";
 
 impl Command for InputList {
     fn name(&self) -> &str {
@@ -126,6 +127,12 @@ impl Command for InputList {
             });
         }
 
+        // could potentially be used to map the use theme colors at some point
+        // let theme = dialoguer::theme::ColorfulTheme {
+        //     active_item_style: Style::new().fg(Color::Cyan).bold(),
+        //     ..Default::default()
+        // };
+
         let ans: InteractMode = if call.has_flag("multi") {
             if call.has_flag("fuzzy") {
                 return Err(ShellError::TypeMismatch {
@@ -133,38 +140,48 @@ impl Command for InputList {
                     span: head,
                 });
             } else {
+                let mut multi_select = MultiSelect::new(); //::with_theme(&theme);
+
                 InteractMode::Multi(
-                    MultiSelect::new()
-                        .with_prompt(&prompt)
-                        .report(false)
-                        .items(&options)
-                        .interact_on_opt(&Term::stderr())
-                        .map_err(|_| {
-                            ShellError::IOError("Oopsie, list input is a wip command...".to_owned())
-                        })?,
+                    if !prompt.is_empty() {
+                        multi_select.with_prompt(&prompt)
+                    } else {
+                        &mut multi_select
+                    }
+                    .items(&options)
+                    .report(false)
+                    .interact_on_opt(&Term::stderr())
+                    .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
                 )
             }
         } else if call.has_flag("fuzzy") {
+            let mut fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
+
             InteractMode::Single(
-                FuzzySelect::with_theme(&ColorfulTheme::default())
-                    .items(&options)
-                    .report(false)
-                    .with_prompt(&prompt)
-                    .interact_on_opt(&Term::stderr())
-                    .map_err(|_| {
-                        ShellError::IOError("Oopsie, list input is a wip command...".to_owned())
-                    })?,
+                if !prompt.is_empty() {
+                    fuzzy_select.with_prompt(&prompt)
+                } else {
+                    &mut fuzzy_select
+                }
+                .items(&options)
+                .default(0)
+                .report(false)
+                .interact_on_opt(&Term::stderr())
+                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
             )
         } else {
+            let mut select = Select::new(); //::with_theme(&theme);
             InteractMode::Single(
-                Select::with_theme(&ColorfulTheme::default())
-                    .items(&options)
-                    .report(false)
-                    .with_prompt(&prompt)
-                    .interact_on_opt(&Term::stderr())
-                    .map_err(|_| {
-                        ShellError::IOError("Oopsie, list input is a wip command...".to_owned())
-                    })?,
+                if !prompt.is_empty() {
+                    select.with_prompt(&prompt)
+                } else {
+                    &mut select
+                }
+                .items(&options)
+                .default(0)
+                .report(false)
+                .interact_on_opt(&Term::stderr())
+                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
             )
         };
 
