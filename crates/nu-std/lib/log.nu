@@ -154,7 +154,7 @@ export def "log info" [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (logINFO_LEVEL) {
+    if (current-log-level) > (log INFO_LEVEL) {
         return
     }
 
