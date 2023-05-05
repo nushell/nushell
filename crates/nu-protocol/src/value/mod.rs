@@ -643,6 +643,36 @@ impl Value {
         format!("{self:#?}")
     }
 
+    /// Convert Value into a parsable string (quote strings)
+    /// bugbug other, rarer types not handled
+
+    pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
+        match self {
+            // give special treatment to the simple types to make them parsable
+            Value::String { val, .. } => format!("'{}'", val),
+
+            // recurse back into this function for recursive formatting
+            Value::List { vals: val, .. } => format!(
+                "[{}]",
+                val.iter()
+                    .map(|x| x.into_string_parsable(", ", config))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+            Value::Record { cols, vals, .. } => format!(
+                "{{{}}}",
+                cols.iter()
+                    .zip(vals.iter())
+                    .map(|(x, y)| format!("{}: {}", x, y.into_string_parsable(", ", config)))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+
+            // defer to standard handling for types where standard representation is parsable
+            _ => self.into_string(separator, config),
+        }
+    }
+
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn debug_string(&self, separator: &str, config: &Config) -> String {
         match self {
