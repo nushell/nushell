@@ -103,9 +103,15 @@ export def "log critical" [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log CRITICAL_LEVEL) { return }
+    if (current-log-level) > (log CRITICAL_LEVEL) {
+        return
+    }
 
-    let prefix = (if $short { "C" } else { "CRT" })
+    let prefix = (if $short {
+	    "C"
+    } else {
+        "CRT"
+    })
     log-formatted (ansi red_bold) $prefix $message
 }
 
@@ -114,9 +120,15 @@ export def "log error" [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log ERROR_LEVEL) { return }
+    if (current-log-level) > (log ERROR_LEVEL) {
+        return
+    }
 
-    let prefix = (if $short { "E" } else { "ERR" })
+    let prefix = (if $short {
+        "E"
+    } else {
+        "ERR"
+    })
     log-formatted (ansi red) $prefix $message
 }
 
@@ -125,9 +137,15 @@ export def "log warning" [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log WARNING_LEVEL) { return }
+    if (current-log-level) > (log WARNING_LEVEL) {
+        return
+    }
 
-    let prefix = (if $short { "W" } else { "WRN" })
+    let prefix = (if $short {
+        "W"
+    } else {
+        "WRN"
+    })
     log-formatted (ansi yellow) $prefix $message
 }
 
@@ -136,9 +154,15 @@ export def "log info" [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (logINFO_LEVEL) { return }
+    if (current-log-level) > (logINFO_LEVEL) {
+        return
+    }
 
-    let prefix = (if $short { "I" } else { "INF" })
+    let prefix = (if $short {
+        "I"
+    } else {
+        "INF"
+    })
     log-formatted (ansi default) $prefix $message
 }
 
@@ -147,9 +171,15 @@ export def "log debug" [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log DEBUG_LEVEL) { return }
+    if (current-log-level) > (log DEBUG_LEVEL) {
+        return
+    }
 
-    let prefix = (if $short { "D" } else { "DBG" })
+    let prefix = (if $short {
+        "D"
+    } else {
+        "DBG"
+    })
     log-formatted (ansi default_dimmed) $prefix $message
 }
 
@@ -167,7 +197,9 @@ export def "log custom" [
     format: string, # A format
     log_level: int # A log level
 ] {
-    if (current-log-level) > ($log_level) { return }
+    if (current-log-level) > ($log_level) {
+        return
+    }
 
     print --stderr ($format |
         str replace "%MSG%" $message |
