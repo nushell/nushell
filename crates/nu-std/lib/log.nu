@@ -201,8 +201,11 @@ export def "log custom" [
         return
     }
 
-    print --stderr ($format |
-        str replace "%MSG%" $message |
-        str replace "%DATE%" (now) |
-        str replace "%LEVEL%" (parse-int-level $log_level | into string))
+    print --stderr ([
+        ["%MSG%" $message]
+        ["%DATE%" (now)]
+        ["%LEVEL%" (parse-int-level $log_level | into string)]
+    ] | reduce --fold $format {
+        |it, acc| $acc | str replace --all $it.0 $it.1 
+    })
 }
