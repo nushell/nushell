@@ -105,6 +105,12 @@ pub fn evaluate_repl(
     );
 
     let config = engine_state.get_config();
+    if config.bracketed_paste {
+        // try to enable bracketed paste
+        // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+        #[cfg(not(target_os = "windows"))]
+        let _ = line_editor.enable_bracketed_paste();
+    }
 
     // Setup history_isolation aka "history per session"
     let history_isolation = config.history_isolation;
