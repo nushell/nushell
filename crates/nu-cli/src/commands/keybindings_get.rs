@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,6 +39,7 @@ impl Command for KeybindingsGet {
         r#"
         There can be 5 different type of events: focus, key, mouse, paste, resize. Each will empit a
         corresponding record, distinguished by field type:
+        {type: focus event: gained|lost}
         {type: resize columns: <int> rows: <int>}
         "#
     }
@@ -153,14 +153,50 @@ fn parse_event(
     filter: &EventTypeFilter,
 ) -> Option<Value> {
     match event {
-        crossterm::event::Event::FocusGained => None,
-        crossterm::event::Event::FocusLost => None,
+        crossterm::event::Event::FocusGained => {
+            create_focus_event(head, filter, FocusEventType::Gained)
+        }
+        crossterm::event::Event::FocusLost => {
+            create_focus_event(head, filter, FocusEventType::Lost)
+        }
         crossterm::event::Event::Key(_) => None,
         crossterm::event::Event::Mouse(_) => None,
         crossterm::event::Event::Paste(_) => None,
         crossterm::event::Event::Resize(cols, rows) => {
             create_resize_event(head, filter, *cols, *rows)
         }
+    }
+}
+
+enum FocusEventType {
+    Gained,
+    Lost,
+}
+
+impl FocusEventType {
+    fn string(self) -> String {
+        match self {
+            FocusEventType::Gained => "gained".to_string(),
+            FocusEventType::Lost => "lost".to_string(),
+        }
+    }
+}
+
+fn create_focus_event(
+    head: Span,
+    filter: &EventTypeFilter,
+    event_type: FocusEventType,
+) -> Option<Value> {
+    if filter.listen_focus {
+        let cols = vec!["type".to_string(), "event".to_string()];
+        let vals = vec![
+            Value::string("focus", head),
+            Value::string(event_type.string(), head),
+        ];
+
+        Some(Value::record(cols, vals, head))
+    } else {
+        None
     }
 }
 
