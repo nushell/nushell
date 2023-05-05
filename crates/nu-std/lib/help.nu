@@ -662,14 +662,15 @@ export def "help commands" [
             $found_commands | select name category usage signatures search_terms
         }
     } else if not ($command | is-empty) {
-        let found_commands = ($commands | where name == ($command | str join " "))
+        let target_command = ($command | str join " ")
+        let found_commands = ($commands | where name == $target_command)
 
         if not ($found_commands | is-empty) {
             show-command ($found_commands | get 0)
         } else {
             try {
-                print $"(ansi default_italic)Help pages from external command ($command | pretty-cmd):(ansi reset)"
-                 ^($env.NU_HELPER? | default "man") $command
+                print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
+                 ^($env.NU_HELPER? | default "man") $target_command
             } catch {
                 command-not-found-error (metadata $command | get span)
             }
