@@ -158,6 +158,32 @@ fn parse_event(
         crossterm::event::Event::Key(_) => None,
         crossterm::event::Event::Mouse(_) => None,
         crossterm::event::Event::Paste(_) => None,
-        crossterm::event::Event::Resize(_, _) => None,
+        crossterm::event::Event::Resize(cols, rows) => {
+            create_resize_event(head, filter, *cols, *rows)
+        }
+    }
+}
+
+fn create_resize_event(
+    head: Span,
+    filter: &EventTypeFilter,
+    columns: u16,
+    rows: u16,
+) -> Option<Value> {
+    if filter.listen_resize {
+        let cols = vec![
+            "type".to_string(),
+            "columns".to_string(),
+            "rows".to_string(),
+        ];
+        let vals = vec![
+            Value::string("resize", head),
+            Value::int(columns as i64, head),
+            Value::int(rows as i64, head),
+        ];
+
+        Some(Value::record(cols, vals, head))
+    } else {
+        None
     }
 }
