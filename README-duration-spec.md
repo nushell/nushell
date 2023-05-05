@@ -14,7 +14,7 @@ There is a second issue related to this: doing datetime calculations involving d
 So, how to fix this for Nushell, and make Duration useful for the longer time intervals?  
 
 The key is for the `Duration` type to retain the duration unit of measure as well as a quantity, like a Rust enumeration of tuple types.  
-Given that, duration calculations (and rounding) can always be done accurately over the range of dates suppoted by the calendar. (it says here...)
+Given that, duration calculations (and rounding) can always be done accurately over the range of dates supported by the calendar. (it says here...)
 
 ## Deliverables
 (a SWAG)
@@ -79,7 +79,7 @@ Not needed, given <duration> into record?
 ### Rounding and truncating, dates and durations
 [[I think these are covered by converting to record then munging that.]]
 ## Future examples
-Given the design above, we should be able to support the follwing snippets.  These could be unit tests!
+Given the design above, we should be able to support the following snippets.  These could be unit tests!
 
 ### Difference between 2 dates, in desired units of duration
 
