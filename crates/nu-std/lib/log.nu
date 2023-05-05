@@ -161,9 +161,9 @@ export def "log critical" [
     }
 
     let prefix = (if $short {
-	    "C"
+	    log CRITICAL_LEVEL_PREFIX --short
     } else {
-        "CRT"
+        log CRITICAL_LEVEL_PREFIX
     })
     log-formatted (ansi red_bold) $prefix $message
 }
@@ -178,9 +178,9 @@ export def "log error" [
     }
 
     let prefix = (if $short {
-        "E"
+	    log ERROR_LEVEL_PREFIX --short
     } else {
-        "ERR"
+        log ERROR_LEVEL_PREFIX
     })
     log-formatted (ansi red) $prefix $message
 }
@@ -195,9 +195,9 @@ export def "log warning" [
     }
 
     let prefix = (if $short {
-        "W"
+	    log WARNING_LEVEL_PREFIX --short
     } else {
-        "WRN"
+        log WARNING_LEVEL_PREFIX
     })
     log-formatted (ansi yellow) $prefix $message
 }
@@ -212,9 +212,9 @@ export def "log info" [
     }
 
     let prefix = (if $short {
-        "I"
+	    log INFO_LEVEL_PREFIX --short
     } else {
-        "INF"
+        log INFO_LEVEL_PREFIX
     })
     log-formatted (ansi default) $prefix $message
 }
@@ -229,9 +229,9 @@ export def "log debug" [
     }
 
     let prefix = (if $short {
-        "D"
+	    log DEBUG_LEVEL_PREFIX --short
     } else {
-        "DBG"
+        log DEBUG_LEVEL_PREFIX
     })
     log-formatted (ansi default_dimmed) $prefix $message
 }
