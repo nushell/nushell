@@ -1,63 +1,38 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn find_with_list_search_with_string() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-    r#"
-        [moe larry curly] | find moe | get 0
-    "#
-    ));
+    let actual = nu!("[moe larry curly] | find moe | get 0");
 
     assert_eq!(actual.out, "moe");
 }
 
 #[test]
 fn find_with_list_search_with_char() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-    r#"
-        [moe larry curly] | find l | to json -r
-    "#
-    ));
+    let actual = nu!("[moe larry curly] | find l | to json -r");
 
     assert_eq!(actual.out, r#"["larry","curly"]"#);
 }
 
 #[test]
 fn find_with_list_search_with_number() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-    r#"
-        [1 2 3 4 5] | find 3 | get 0
-    "#
-    ));
+    let actual = nu!("[1 2 3 4 5] | find 3 | get 0");
 
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn find_with_string_search_with_string() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-    r#"
-        echo Cargo.toml | find toml
-    "#
-    ));
+    let actual = nu!("echo Cargo.toml | find toml");
 
     assert_eq!(actual.out, "Cargo.toml");
 }
 
 #[test]
 fn find_with_string_search_with_string_not_found() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-    r#"
-        [moe larry curly] | find shemp | is-empty
-    "#
-    ));
+    let actual = nu!("[moe larry curly] | find shemp | is-empty");
 
     assert_eq!(actual.out, "true");
 }
@@ -73,14 +48,9 @@ fn find_with_filepath_search_with_string() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | get name
-                | find arep
-                | to json -r
-            "#
-        ));
+            cwd: dirs.test(),
+            "ls | get name | find arep | to json -r"
+        );
 
         assert_eq!(actual.out, r#"["arepas.clu"]"#);
     })
@@ -97,14 +67,9 @@ fn find_with_filepath_search_with_multiple_patterns() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | get name
-                | find arep ami
-                | to json -r
-            "#
-        ));
+            cwd: dirs.test(),
+            "ls | get name | find arep ami | to json -r"
+        );
 
         assert_eq!(actual.out, r#"["amigos.txt","arepas.clu"]"#);
     })
@@ -112,12 +77,45 @@ fn find_with_filepath_search_with_multiple_patterns() {
 
 #[test]
 fn find_takes_into_account_linebreaks_in_string() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-    r#"
-        "atest\nanothertest\nnohit\n" | find a | length
-        "#
-    ));
+    let actual = nu!(r#""atest\nanothertest\nnohit\n" | find a | length"#);
 
     assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
+    Playground::setup("filepath_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls | find --regex t.t | get name | to json -r"
+        );
+
+        assert_eq!(actual.out, r#"["amigos.txt","los.txt","tres.txt"]"#);
+    })
+}
+
+#[test]
+fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() {
+    Playground::setup("filepath_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls | find --regex t.t --invert | get name | to json -r"
+        );
+
+        assert_eq!(actual.out, r#"["arepas.clu"]"#);
+    })
 }

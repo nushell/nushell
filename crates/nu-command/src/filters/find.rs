@@ -124,7 +124,7 @@ impl Command for Find {
                 }),
             },
             Example {
-                description: "Find value in records",
+                description: "Find value in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu""#,
                 result: Some(Value::List {
                     vals: vec![Value::test_record(
@@ -134,6 +134,56 @@ impl Command for Find {
                             Value::test_string("nushell".to_string()),
                         ],
                     )],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find inverted values in records using regex",
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu" --invert"#,
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(
+                        vec!["version", "name"],
+                        vec![
+                            Value::test_string("0.1.1"),
+                            Value::test_string("fish".to_string()),
+                        ],
+                    ),
+                    Value::test_record(
+                        vec!["version", "name"],
+                        vec![
+                            Value::test_string("0.2.0"),
+                            Value::test_string("zsh".to_string()),
+                        ],
+                    ),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find value in list using regex",
+                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find -r "rr""#,
+                result: Some(Value::List {
+                    vals: vec![Value::List {
+                        vals: vec![
+                            Value::test_string("Larry"),
+                            Value::test_string("Moe"),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Find inverted values in records using regex",
+                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find -r "rr" --invert"#,
+                result: Some(Value::List {
+                    vals: vec![Value::List {
+                        vals: vec![
+                            Value::test_string("Victor"),
+                            Value::test_string("Marina"),
+                        ],
+                        span: Span::test_data(),
+                    }],
                     span: Span::test_data(),
                 }),
             },
@@ -229,32 +279,27 @@ fn find_with_regex(
     input.filter(
         move |value| match value {
             Value::String { val, .. } => re.is_match(val.as_str()).unwrap_or(false) != invert,
-            Value::Record { cols: _, vals, .. } => {
-                let matches: Vec<bool> = vals
-                    .iter()
-                    .map(|v| {
-                        re.is_match(v.into_string(" ", &config).as_str())
-                            .unwrap_or(false)
-                            != invert
-                    })
-                    .collect();
-                matches.iter().any(|b| *b)
-            }
-            Value::List { vals, .. } => {
-                let matches: Vec<bool> = vals
-                    .iter()
-                    .map(|v| {
-                        re.is_match(v.into_string(" ", &config).as_str())
-                            .unwrap_or(false)
-                            != invert
-                    })
-                    .collect();
-                matches.iter().any(|b| *b)
+            Value::Record { vals, .. } | Value::List { vals, .. } => {
+                values_match_find(vals, &re, &config, invert)
             }
             _ => false,
         },
         ctrlc,
     )
+}
+
+fn values_match_find(values: &[Value], re: &Regex, config: &Config, invert: bool) -> bool {
+    match invert {
+        true => !record_matches_regex(values, re, config),
+        false => record_matches_regex(values, re, config),
+    }
+}
+
+fn record_matches_regex(values: &[Value], re: &Regex, config: &Config) -> bool {
+    values.iter().any(|v| {
+        re.is_match(v.into_string(" ", config).as_str())
+            .unwrap_or(false)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
