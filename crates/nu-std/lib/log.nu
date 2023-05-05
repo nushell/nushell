@@ -18,7 +18,9 @@ export def "log DEBUG_LEVEL" [] {
 	10
 }
 
-def parse-string-level [level: string] {
+def parse-string-level [
+    level: string
+] {
     (
         if $level == "CRITICAL" {
             log CRITICAL_LEVEL
