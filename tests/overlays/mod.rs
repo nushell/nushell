@@ -1370,3 +1370,13 @@ fn overlay_use_module_dir_prefix() {
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert_eq!(actual.out, "spambaz");
 }
+
+#[test]
+fn overlay_help_no_error() {
+    let actual = nu!(cwd: ".", "overlay hide -h");
+    assert!(actual.err.is_empty());
+    let actual = nu!(cwd: ".", "overlay new -h");
+    assert!(actual.err.is_empty());
+    let actual = nu!(cwd: ".", "overlay use -h");
+    assert!(actual.err.is_empty());
+}

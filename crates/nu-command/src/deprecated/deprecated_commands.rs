@@ -24,5 +24,6 @@ pub fn deprecated_commands() -> HashMap<String, String> {
         ("str rpad".to_string(), "fill".to_string()),
         ("benchmark".to_string(), "timeit".to_string()),
         ("str collect".to_string(), "str join".to_string()),
+        ("old-alias".to_string(), "alias".to_string()),
     ])
 }

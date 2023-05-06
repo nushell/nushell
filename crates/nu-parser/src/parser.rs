@@ -16,8 +16,8 @@ use nu_protocol::{
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
-    span, BlockId, Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type,
-    Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1820,9 +1820,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         };
     }
 
-    let id = parse_variable(working_set, span);
-
-    if let Some(id) = id {
+    if let Some(id) = parse_variable(working_set, span) {
         Expression {
             expr: Expr::Var(id),
             span,
@@ -1830,7 +1828,9 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             custom_completion: None,
         }
     } else {
-        working_set.error(ParseError::VariableNotFound(span));
+        let ws = &*working_set;
+        let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
+        working_set.error(ParseError::VariableNotFound(suggestion, span));
         garbage(span)
     }
 }
@@ -3755,13 +3755,22 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         default_value,
                                         ..
                                     }) => {
-                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let var_type = &working_set.get_variable(var_id).ty;
-
-                                        let expression_ty = expression.ty.clone();
                                         let expression_span = expression.span;
 
-                                        *default_value = Some(expression);
+                                        *default_value = if let Ok(value) =
+                                            eval_constant(working_set, &expression)
+                                        {
+                                            Some(value)
+                                        } else {
+                                            working_set.error(ParseError::NonConstantDefaultValue(
+                                                expression_span,
+                                            ));
+                                            None
+                                        };
+
+                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
+                                        let var_type = &working_set.get_variable(var_id).ty;
+                                        let expression_ty = expression.ty.clone();
 
                                         // Flags with a boolean type are just present/not-present switches
                                         if var_type != &Type::Bool {
