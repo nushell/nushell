@@ -253,7 +253,7 @@ export def "log custom" [
         return
     }
 
-    mut level = ((if $short {
+    let level = ((if $short {
         parse-int-level $log_level --short
     } else {
         parse-int-level $log_level
