@@ -229,11 +229,6 @@ fn convert_str_from_unit_to_unit(
         ("ns", "hr") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0),
         ("ns", "day") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
         ("ns", "wk") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
-        ("ns", "month") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
-        ("ns", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-        ("ns", "dec") => {
-            Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0)
-        }
 
         ("us", "ns") => Ok(val as f64 * 1000.0),
         ("us", "us") => Ok(val as f64),
@@ -245,9 +240,6 @@ fn convert_str_from_unit_to_unit(
         ("us", "hr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0),
         ("us", "day") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
         ("us", "wk") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
-        ("us", "month") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
-        ("us", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-        ("us", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
 
         // Micro sign
         ("µs", "ns") => Ok(val as f64 * 1000.0),
@@ -260,9 +252,6 @@ fn convert_str_from_unit_to_unit(
         ("µs", "hr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0),
         ("µs", "day") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
         ("µs", "wk") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
-        ("µs", "month") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
-        ("µs", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-        ("µs", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
 
         // Greek small letter
         ("μs", "ns") => Ok(val as f64 * 1000.0),
@@ -275,9 +264,6 @@ fn convert_str_from_unit_to_unit(
         ("μs", "hr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0),
         ("μs", "day") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
         ("μs", "wk") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
-        ("μs", "month") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
-        ("μs", "yr") => Ok(val as f64 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-        ("μs", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
 
         ("ms", "ns") => Ok(val as f64 * 1000.0 * 1000.0),
         ("ms", "us") => Ok(val as f64 * 1000.0),
@@ -289,9 +275,6 @@ fn convert_str_from_unit_to_unit(
         ("ms", "hr") => Ok(val as f64 / 1000.0 / 60.0 / 60.0),
         ("ms", "day") => Ok(val as f64 / 1000.0 / 60.0 / 60.0 / 24.0),
         ("ms", "wk") => Ok(val as f64 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
-        ("ms", "month") => Ok(val as f64 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
-        ("ms", "yr") => Ok(val as f64 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-        ("ms", "dec") => Ok(val as f64 / 10.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
 
         ("sec", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0),
         ("sec", "us") => Ok(val as f64 * 1000.0 * 1000.0),
@@ -303,9 +286,6 @@ fn convert_str_from_unit_to_unit(
         ("sec", "hr") => Ok(val as f64 / 60.0 / 60.0),
         ("sec", "day") => Ok(val as f64 / 60.0 / 60.0 / 24.0),
         ("sec", "wk") => Ok(val as f64 / 60.0 / 60.0 / 24.0 / 7.0),
-        ("sec", "month") => Ok(val as f64 / 60.0 / 60.0 / 24.0 / 30.0),
-        ("sec", "yr") => Ok(val as f64 / 60.0 / 60.0 / 24.0 / 365.0),
-        ("sec", "dec") => Ok(val as f64 / 10.0 / 60.0 / 60.0 / 24.0 / 365.0),
 
         ("min", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0),
         ("min", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0),
@@ -317,9 +297,6 @@ fn convert_str_from_unit_to_unit(
         ("min", "hr") => Ok(val as f64 / 60.0),
         ("min", "day") => Ok(val as f64 / 60.0 / 24.0),
         ("min", "wk") => Ok(val as f64 / 60.0 / 24.0 / 7.0),
-        ("min", "month") => Ok(val as f64 / 60.0 / 24.0 / 30.0),
-        ("min", "yr") => Ok(val as f64 / 60.0 / 24.0 / 365.0),
-        ("min", "dec") => Ok(val as f64 / 10.0 / 60.0 / 24.0 / 365.0),
 
         ("hr", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0),
         ("hr", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0),
@@ -331,9 +308,6 @@ fn convert_str_from_unit_to_unit(
         ("hr", "hr") => Ok(val as f64),
         ("hr", "day") => Ok(val as f64 / 24.0),
         ("hr", "wk") => Ok(val as f64 / 24.0 / 7.0),
-        ("hr", "month") => Ok(val as f64 / 24.0 / 30.0),
-        ("hr", "yr") => Ok(val as f64 / 24.0 / 365.0),
-        ("hr", "dec") => Ok(val as f64 / 10.0 / 24.0 / 365.0),
 
         ("day", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0),
         ("day", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0),
@@ -345,9 +319,6 @@ fn convert_str_from_unit_to_unit(
         ("day", "hr") => Ok(val as f64 * 24.0),
         ("day", "day") => Ok(val as f64),
         ("day", "wk") => Ok(val as f64 / 7.0),
-        ("day", "month") => Ok(val as f64 / 30.0),
-        ("day", "yr") => Ok(val as f64 / 365.0),
-        ("day", "dec") => Ok(val as f64 / 10.0 / 365.0),
 
         ("wk", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0),
         ("wk", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 7.0),
@@ -359,37 +330,6 @@ fn convert_str_from_unit_to_unit(
         ("wk", "hr") => Ok(val as f64 * 24.0 * 7.0),
         ("wk", "day") => Ok(val as f64 * 7.0),
         ("wk", "wk") => Ok(val as f64),
-        ("wk", "month") => Ok(val as f64 / 4.0),
-        ("wk", "yr") => Ok(val as f64 / 52.0),
-        ("wk", "dec") => Ok(val as f64 / 10.0 / 52.0),
-
-        ("month", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0),
-        ("month", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0),
-        ("month", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0), // Micro sign
-        ("month", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0), // Greek small letter
-        ("month", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0 * 24.0 * 30.0),
-        ("month", "sec") => Ok(val as f64 * 60.0 * 60.0 * 24.0 * 30.0),
-        ("month", "min") => Ok(val as f64 * 60.0 * 24.0 * 30.0),
-        ("month", "hr") => Ok(val as f64 * 24.0 * 30.0),
-        ("month", "day") => Ok(val as f64 * 30.0),
-        ("month", "wk") => Ok(val as f64 * 4.0),
-        ("month", "month") => Ok(val as f64),
-        ("month", "yr") => Ok(val as f64 / 12.0),
-        ("month", "dec") => Ok(val as f64 / 10.0 / 12.0),
-
-        ("yr", "ns") => Ok(val as f64 * 1000.0 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0),
-        ("yr", "us") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0),
-        ("yr", "µs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0), // Micro sign
-        ("yr", "μs") => Ok(val as f64 * 1000.0 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0), // Greek small letter
-        ("yr", "ms") => Ok(val as f64 * 1000.0 * 60.0 * 60.0 * 24.0 * 365.0),
-        ("yr", "sec") => Ok(val as f64 * 60.0 * 60.0 * 24.0 * 365.0),
-        ("yr", "min") => Ok(val as f64 * 60.0 * 24.0 * 365.0),
-        ("yr", "hr") => Ok(val as f64 * 24.0 * 365.0),
-        ("yr", "day") => Ok(val as f64 * 365.0),
-        ("yr", "wk") => Ok(val as f64 * 52.0),
-        ("yr", "month") => Ok(val as f64 * 12.0),
-        ("yr", "yr") => Ok(val as f64),
-        ("yr", "dec") => Ok(val as f64 / 10.0),
 
         _ => Err(ShellError::CantConvertWithValue {
             to_type: "string duration".to_string(),
@@ -397,10 +337,7 @@ fn convert_str_from_unit_to_unit(
             details: to_unit.to_string(),
             dst_span: span,
             src_span: value_span,
-            help: Some(
-                "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                    .to_string(),
-            ),
+            help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
         }),
     }
 }
@@ -430,10 +367,7 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,
-        help: Some(
-            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                .to_string(),
-        ),
+        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
     })
 }
 
@@ -467,10 +401,7 @@ fn string_to_unit_duration(
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,
-        help: Some(
-            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                .to_string(),
-        ),
+        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
     })
 }
 

@@ -3420,8 +3420,6 @@ pub enum TimePeriod {
     Hours(i64),
     Days(i64),
     Weeks(i64),
-    Months(i64),
-    Years(i64),
 }
 
 impl TimePeriod {
@@ -3435,8 +3433,6 @@ impl TimePeriod {
             Self::Hours(n) => format!("{n} hr").into(),
             Self::Days(n) => format!("{n} day").into(),
             Self::Weeks(n) => format!("{n} wk").into(),
-            Self::Months(n) => format!("{n} month").into(),
-            Self::Years(n) => format!("{n} yr").into(),
         }
     }
 }
@@ -3465,8 +3461,6 @@ pub fn format_duration(duration: i64) -> String {
 pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
     // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
-    const DAYS_IN_YEAR: i64 = 365;
-    const DAYS_IN_MONTH: i64 = 30;
 
     let (sign, duration) = if duration >= 0 {
         (1, duration)
@@ -3475,20 +3469,6 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     };
 
     let dur = Duration::nanoseconds(duration);
-
-    /// Split this a duration into number of whole years and the remainder
-    fn split_years(duration: Duration) -> (Option<i64>, Duration) {
-        let years = duration.num_days() / DAYS_IN_YEAR;
-        let remainder = duration - Duration::days(years * DAYS_IN_YEAR);
-        normalize_split(years, remainder)
-    }
-
-    /// Split this a duration into number of whole months and the remainder
-    fn split_months(duration: Duration) -> (Option<i64>, Duration) {
-        let months = duration.num_days() / DAYS_IN_MONTH;
-        let remainder = duration - Duration::days(months * DAYS_IN_MONTH);
-        normalize_split(months, remainder)
-    }
 
     /// Split this a duration into number of whole weeks and the remainder
     fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
@@ -3555,17 +3535,8 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     }
 
     let mut periods = vec![];
-    let (years, remainder) = split_years(dur);
-    if let Some(years) = years {
-        periods.push(TimePeriod::Years(years));
-    }
 
-    let (months, remainder) = split_months(remainder);
-    if let Some(months) = months {
-        periods.push(TimePeriod::Months(months));
-    }
-
-    let (weeks, remainder) = split_weeks(remainder);
+    let (weeks, remainder) = split_weeks(dur);
     if let Some(weeks) = weeks {
         periods.push(TimePeriod::Weeks(weeks));
     }
