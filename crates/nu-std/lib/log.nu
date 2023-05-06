@@ -1,51 +1,49 @@
 export def "log CRITICAL_LEVEL" [] {
-	50
+    50
 }
 
 export def "log ERROR_LEVEL" [] {
-	40
+    40
 }
 
 export def "log WARNING_LEVEL" [] {
-	30
+    30
 }
 
 export def "log INFO_LEVEL" [] {
-	20
+    20
 }
 
 export def "log DEBUG_LEVEL" [] {
-	10
+    10
 }
 
 def parse-string-level [
     level: string
 ] {
-    (
-        if $level == "CRITICAL" {
-            log CRITICAL_LEVEL
-        } else if $level == "CRIT" {
-            log CRITICAL_LEVEL
-        } else if $level == "ERROR" {
-            log ERROR_LEVEL
-        } else if $level == "WARNING" {
-            log WARNING_LEVEL
-        } else if $level == "WARN" {
-            log WARNING_LEVEL
-        } else if $level == "INFO" {
-            log INFO_LEVEL
-        } else if $level == "DEBUG" {
-            log DEBUG_LEVEL
-        } else {
-            log INFO_LEVEL
-        }
-    )
+    if $level == "CRITICAL" {
+        log CRITICAL_LEVEL
+    } else if $level == "CRIT" {
+        log CRITICAL_LEVEL
+    } else if $level == "ERROR" {
+        log ERROR_LEVEL
+    } else if $level == "WARNING" {
+        log WARNING_LEVEL
+    } else if $level == "WARN" {
+        log WARNING_LEVEL
+    } else if $level == "INFO" {
+        log INFO_LEVEL
+    } else if $level == "DEBUG" {
+        log DEBUG_LEVEL
+    } else {
+        log INFO_LEVEL
+    }
 }
 
 export def "log CRITICAL_LEVEL_PREFIX" [
     --short (-s)
 ] {
-    if $short { 
+    if $short {
         "C"
     } else {
         "CRT"
@@ -55,7 +53,7 @@ export def "log CRITICAL_LEVEL_PREFIX" [
 export def "log ERROR_LEVEL_PREFIX" [
     --short (-s)
 ] {
-    if $short { 
+    if $short {
         "E"
     } else {
         "ERR"
@@ -65,7 +63,7 @@ export def "log ERROR_LEVEL_PREFIX" [
 export def "log WARNING_LEVEL_PREFIX" [
     --short (-s)
 ] {
-    if $short { 
+    if $short {
         "W"
     } else {
         "WRN"
@@ -75,7 +73,7 @@ export def "log WARNING_LEVEL_PREFIX" [
 export def "log INFO_LEVEL_PREFIX" [
     --short (-s)
 ] {
-    if $short { 
+    if $short {
         "I"
     } else {
         "INF"
@@ -85,57 +83,55 @@ export def "log INFO_LEVEL_PREFIX" [
 export def "log DEBUG_LEVEL_PREFIX" [
     --short (-s)
 ] {
-    if $short { 
+    if $short {
         "D"
     } else {
         "DBG"
     }
-}   
+}
 
 def parse-int-level [
     level: int,
     --short (-s)
 ] {
-    (
-        if $level >= (log CRITICAL_LEVEL) {
-            if $short { 
-                log CRITICAL_LEVEL_PREFIX --short
-            } else {
-                log CRITICAL_LEVEL_PREFIX
-            }
-        } else if $level >= (log ERROR_LEVEL) {
-            if $short { 
-                log ERROR_LEVEL_PREFIX --short
-            } else {
-                log ERROR_LEVEL_PREFIX
-            }
-        } else if $level >= (log WARNING_LEVEL) {
-            if $short { 
-                log WARNING_LEVEL_PREFIX --short
-            } else {
-                log WARNING_LEVEL_PREFIX
-            }
-        } else if $level >= (log INFO_LEVEL) {
-            if $short { 
-                log INFO_LEVEL_PREFIX --short
-            } else {
-                log INFO_LEVEL_PREFIX
-            }
+    if $level >= (log CRITICAL_LEVEL) {
+        if $short {
+            log CRITICAL_LEVEL_PREFIX --short
         } else {
-            if $short { 
-                log DEBUG_LEVEL_PREFIX --short
-            } else {
-                log DEBUG_LEVEL_PREFIX
-            }
+            log CRITICAL_LEVEL_PREFIX
         }
-    )
+    } else if $level >= (log ERROR_LEVEL) {
+        if $short {
+            log ERROR_LEVEL_PREFIX --short
+        } else {
+            log ERROR_LEVEL_PREFIX
+        }
+    } else if $level >= (log WARNING_LEVEL) {
+        if $short {
+            log WARNING_LEVEL_PREFIX --short
+        } else {
+            log WARNING_LEVEL_PREFIX
+        }
+    } else if $level >= (log INFO_LEVEL) {
+        if $short {
+            log INFO_LEVEL_PREFIX --short
+        } else {
+            log INFO_LEVEL_PREFIX
+        }
+    } else {
+        if $short {
+            log DEBUG_LEVEL_PREFIX --short
+        } else {
+            log DEBUG_LEVEL_PREFIX
+        }
+    }
 }
 
 def current-log-level [] {
-    let env_level = ($env | get --ignore-errors NU_LOG_LEVEL | default (log INFO_LEVEL))
+    let env_level = ($env.NU_LOG_LEVEL? | default (log INFO_LEVEL))
 
     try {
-        ($env_level | into int)
+        $env_level | into int
     } catch {
         parse-string-level $env_level
     }
@@ -162,11 +158,11 @@ export def "log critical" [
         return
     }
 
-    let prefix = (if $short {
-	    log CRITICAL_LEVEL_PREFIX --short
+    let prefix = if $short {
+        log CRITICAL_LEVEL_PREFIX --short
     } else {
         log CRITICAL_LEVEL_PREFIX
-    })
+    }
     log-formatted (ansi red_bold) $prefix $message
 }
 
@@ -179,11 +175,11 @@ export def "log error" [
         return
     }
 
-    let prefix = (if $short {
-	    log ERROR_LEVEL_PREFIX --short
+    let prefix = if $short {
+        log ERROR_LEVEL_PREFIX --short
     } else {
         log ERROR_LEVEL_PREFIX
-    })
+    }
     log-formatted (ansi red) $prefix $message
 }
 
@@ -196,11 +192,11 @@ export def "log warning" [
         return
     }
 
-    let prefix = (if $short {
-	    log WARNING_LEVEL_PREFIX --short
+    let prefix = if $short {
+        log WARNING_LEVEL_PREFIX --short
     } else {
         log WARNING_LEVEL_PREFIX
-    })
+    }
     log-formatted (ansi yellow) $prefix $message
 }
 
@@ -213,11 +209,11 @@ export def "log info" [
         return
     }
 
-    let prefix = (if $short {
-	    log INFO_LEVEL_PREFIX --short
+    let prefix = if $short {
+        log INFO_LEVEL_PREFIX --short
     } else {
         log INFO_LEVEL_PREFIX
-    })
+    }
     log-formatted (ansi default) $prefix $message
 }
 
@@ -230,11 +226,11 @@ export def "log debug" [
         return
     }
 
-    let prefix = (if $short {
-	    log DEBUG_LEVEL_PREFIX --short
+    let prefix = if $short {
+        log DEBUG_LEVEL_PREFIX --short
     } else {
         log DEBUG_LEVEL_PREFIX
-    })
+    }
     log-formatted (ansi default_dimmed) $prefix $message
 }
 
@@ -268,6 +264,6 @@ export def "log custom" [
         ["%DATE%" (now)]
         ["%LEVEL%" $level]
     ] | reduce --fold $format {
-        |it, acc| $acc | str replace --all $it.0 $it.1 
+        |it, acc| $acc | str replace --all $it.0 $it.1
     })
 }
