@@ -65,18 +65,6 @@ impl Module {
         self.env_block = Some(block_id);
     }
 
-    pub fn extend(&mut self, other: &Module) {
-        self.decls.extend(other.decls.clone());
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.decls.is_empty()
-    }
-
-    pub fn get_decl_id(&self, name: &[u8]) -> Option<DeclId> {
-        self.decls.get(name).copied()
-    }
-
     pub fn has_decl(&self, name: &[u8]) -> bool {
         if name == self.name && self.main.is_some() {
             return true;
