@@ -149,7 +149,31 @@ fn rm(
 
     let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
+    let mut unique_argument_check = None;
+
+    let currentdir_path = current_dir(engine_state, stack)?;
+
+    let home: Option<String> = nu_path::home_dir().map(|path| {
+        {
+            if path.exists() {
+                match nu_path::canonicalize_with(&path, &currentdir_path) {
+                    Ok(canon_path) => canon_path,
+                    Err(_) => path,
+                }
+            } else {
+                path
+            }
+        }
+        .to_string_lossy()
+        .into()
+    });
+
     for (idx, path) in targets.clone().into_iter().enumerate() {
+        if let Some(ref home) = home {
+            if &path.item == home {
+                unique_argument_check = Some(path.span);
+            }
+        }
         let corrected_path = Spanned {
             item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
@@ -199,6 +223,17 @@ fn rm(
         ));
     }
 
+    if unique_argument_check.is_some() && !(interactive_once || interactive) {
+        return Err(ShellError::GenericError(
+            "It seems you want to remove your home dir".into(),
+            "please make a check, if you really want to remove it, use -I or -i to confirm it"
+                .into(),
+            unique_argument_check,
+            None,
+            Vec::new(),
+        ));
+    }
+
     let targets_span = Span::new(
         targets
             .iter()
@@ -212,18 +247,12 @@ fn rm(
             .expect("targets were empty"),
     );
 
-    let path = current_dir(engine_state, stack)?;
-
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
     for target in targets {
-        if path.to_string_lossy() == target.item
-            || path.as_os_str().to_string_lossy().starts_with(&format!(
-                "{}{}",
-                target.item,
-                std::path::MAIN_SEPARATOR
-            ))
+        if currentdir_path.to_string_lossy() == target.item
+            || currentdir_path.starts_with(&format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError(
                 "Cannot remove any parent directory".into(),
@@ -234,7 +263,7 @@ fn rm(
             ));
         }
 
-        let path = path.join(&target.item);
+        let path = currentdir_path.join(&target.item);
         match nu_glob::glob_with(
             &path.to_string_lossy(),
             nu_glob::MatchOptions {
