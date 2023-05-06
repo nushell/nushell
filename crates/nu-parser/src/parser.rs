@@ -5198,7 +5198,7 @@ pub fn parse_builtin_commands(
             Pipeline::from_vec(vec![expr])
         }
         b"alias" => parse_alias(working_set, lite_command, None),
-        b"module" => parse_module(working_set, lite_command),
+        b"module" => parse_module(working_set, lite_command, None),
         b"use" => {
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
             pipeline

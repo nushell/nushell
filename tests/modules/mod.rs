@@ -648,19 +648,20 @@ fn not_allowed_submodule_file() {
     assert!(actual.err.contains("invalid_module_file_name"));
 }
 
-#[ignore = "TODO"]
 #[test]
-fn not_allowed_submodule() {
+fn allowed_local_module() {
     let inp = &["module spam { module spam {} }"];
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
-    assert!(actual.err.contains("invalid_module_name"));
-
-    let inp = &["module spam { export module spam {} }"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
-    assert!(actual.err.contains("invalid_module_name"));
+    assert!(actual.err.is_empty());
 }
 
-#[ignore = "TODO"]
+#[test]
+fn not_allowed_submodule() {
+    let inp = &["module spam { export module spam {} }"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("named_as_module"));
+}
+
 #[test]
 fn module_self_name() {
     let inp = &[
@@ -670,4 +671,35 @@ fn module_self_name() {
     ];
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn module_self_name_main_not_allowed() {
+    let inp = &[
+        r#"module spam {
+            export def main [] { 'main spam' };
+
+            export module mod {
+                export def main [] { 'mod spam' }
+            }
+        }"#,
+        "use spam",
+        "spam",
+    ];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("module_double_main"));
+
+    let inp = &[
+        r#"module spam {
+            export module mod {
+                export def main [] { 'mod spam' }
+            };
+
+            export def main [] { 'main spam' }
+        }"#,
+        "use spam",
+        "spam",
+    ];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("module_double_main"));
 }

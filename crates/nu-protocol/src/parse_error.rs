@@ -200,12 +200,23 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `main` custom command.")
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
     )]
     NamedAsModule(
         String,
         String,
+        String,
         #[label = "can't export from module {1}"] Span,
+    ),
+
+    #[error("Module already contains 'main' command.")]
+    #[diagnostic(
+        code(nu::parser::module_double_main),
+        help("Tried to add 'main' command to module '{0}' but it has already been added.")
+    )]
+    ModuleDoubleMain(
+        String,
+        #[label = "module '{0}' already contains 'main'"] Span,
     ),
 
     #[error("Invalid module file name")]
@@ -463,7 +474,8 @@ impl ParseError {
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
-            ParseError::NamedAsModule(_, _, s) => *s,
+            ParseError::NamedAsModule(_, _, _, s) => *s,
+            ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::InvalidModuleFileName(_, _, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
