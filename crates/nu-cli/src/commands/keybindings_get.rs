@@ -38,10 +38,11 @@ impl Command for KeybindingsGet {
 
     fn extra_usage(&self) -> &str {
         r#"
-        There can be 5 different type of events: focus, key, mouse, paste, resize. Each will empit a
-        corresponding record, distinguished by field type:
-        {type: focus event: gained|lost}
-        {type: resize columns: <int> rows: <int>}
+There can be 5 different type of events: focus, key, mouse, paste, resize. Each will empit a
+corresponding record, distinguished by field type:
+{ type: focus event: (gained|lost) }
+{ type: key key: <string> modifiers: [ (shift|control|alt|super|hyper|meta) ... ] }
+{ type: resize columns: <int> rows: <int> }
         "#
     }
 
@@ -109,8 +110,8 @@ impl EventTypeFilter {
     fn from_value(value: Value, head: Span) -> Result<EventTypeFilter, ShellError> {
         if let Value::List { vals, .. } = value {
             let mut filter = Self::none();
-            for eventType in vals {
-                if let Value::String { val, span } = eventType {
+            for event_type in vals {
+                if let Value::String { val, span } = event_type {
                     match val.as_str() {
                         "focus" => filter.listen_focus = true,
                         "key" => filter.listen_key = true,
@@ -120,7 +121,7 @@ impl EventTypeFilter {
                         _ => return Err(Self::wrong_type_error(head, val.as_str(), span)),
                     }
                 } else {
-                    return Err(Self::bad_list_error(head, &eventType));
+                    return Err(Self::bad_list_error(head, &event_type));
                 }
             }
             Ok(filter)
@@ -258,7 +259,7 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
 
     let parsed_modifiers = ALL_MODIFIERS.iter()
         .filter(|m| modifiers.contains(**m))
-        .map(|m| format!("modifier_{m:?}").to_lowercase())
+        .map(|m| format!("{m:?}").to_lowercase())
         .map(|string| Value::string(string, head))
         .collect();
 
