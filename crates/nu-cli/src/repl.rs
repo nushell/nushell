@@ -43,6 +43,7 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
+    load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
     use nu_command::hook;
@@ -160,7 +161,7 @@ pub fn evaluate_repl(
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
-    if engine_state.get_config().show_banner {
+    if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
             engine_state,
             stack,
