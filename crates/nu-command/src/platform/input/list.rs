@@ -185,32 +185,26 @@ impl Command for InputList {
             )
         };
 
-        match ans {
-            InteractMode::Multi(res) => Ok({
-                match res {
-                    Some(opts) => Value::List {
-                        vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
-                        span: head,
-                    },
-                    None => Value::List {
-                        vals: vec![],
-                        span: head,
-                    },
-                }
-            }
-            .into_pipeline_data()),
-            InteractMode::Single(res) => Ok({
-                match res {
-                    Some(opt) => options[opt].value.clone(),
-
-                    None => Value::String {
-                        val: "".to_string(),
-                        span: head,
-                    },
-                }
-            }
-            .into_pipeline_data()),
+        Ok(match ans {
+            InteractMode::Multi(res) => match res {
+                Some(opts) => Value::List {
+                    vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
+                    span: head,
+                },
+                None => Value::List {
+                    vals: vec![],
+                    span: head,
+                },
+            },
+            InteractMode::Single(res) => match res {
+                Some(opt) => options[opt].value.clone(),
+                None => Value::String {
+                    val: "".to_string(),
+                    span: head,
+                },
+            },
         }
+        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
