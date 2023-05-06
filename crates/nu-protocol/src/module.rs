@@ -229,25 +229,6 @@ impl Module {
         result
     }
 
-    pub fn submodules_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, ModuleId)> {
-        let mut result: Vec<(Vec<u8>, ModuleId)> = self
-            .submodules
-            .iter()
-            .map(|(name, id)| {
-                let mut new_name = head.to_vec();
-                new_name.push(b' ');
-                new_name.extend(name);
-                (new_name, *id)
-            })
-            .collect();
-
-        if let Some(module_id) = self.main {
-            result.push((self.name.clone(), module_id));
-        }
-
-        result
-    }
-
     pub fn decl_names_with_head(&self, head: &[u8]) -> Vec<Vec<u8>> {
         let mut result: Vec<Vec<u8>> = self
             .decls

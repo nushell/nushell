@@ -703,3 +703,14 @@ fn module_self_name_main_not_allowed() {
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert!(actual.err.contains("module_double_main"));
 }
+
+#[test]
+fn module_main_not_found() {
+    let inp = &["module spam {}", "use spam main"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("export_not_found"));
+
+    let inp = &["module spam {}", "use spam [ main ]"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("export_not_found"));
+}
