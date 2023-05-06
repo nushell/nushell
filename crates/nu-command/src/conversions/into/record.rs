@@ -86,18 +86,10 @@ impl Command for SubCommand {
                 description: "convert duration to record",
                 example: "-500day | into record",
                 result: Some(Value::Record {
-                    cols: vec![
-                        "year".into(),
-                        "month".into(),
-                        "week".into(),
-                        "day".into(),
-                        "sign".into(),
-                    ],
+                    cols: vec!["week".into(), "day".into(), "sign".into()],
                     vals: vec![
-                        Value::Int { val: 1, span },
-                        Value::Int { val: 4, span },
-                        Value::Int { val: 2, span },
-                        Value::Int { val: 1, span },
+                        Value::Int { val: 71, span },
+                        Value::Int { val: 3, span },
                         Value::String {
                             val: "-".into(),
                             span,
