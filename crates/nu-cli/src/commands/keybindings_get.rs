@@ -1,3 +1,4 @@
+use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -159,7 +160,7 @@ fn parse_event(
         crossterm::event::Event::FocusLost => {
             create_focus_event(head, filter, FocusEventType::Lost)
         }
-        crossterm::event::Event::Key(_) => None,
+        crossterm::event::Event::Key(event) => create_key_event(head, filter, event),
         crossterm::event::Event::Mouse(_) => None,
         crossterm::event::Event::Paste(_) => None,
         crossterm::event::Event::Resize(cols, rows) => {
@@ -198,6 +199,70 @@ fn create_focus_event(
     } else {
         None
     }
+}
+
+fn create_key_event(
+    head: Span,
+    filter: &EventTypeFilter,
+    event: &crossterm::event::KeyEvent,
+) -> Option<Value> {
+    if filter.listen_key {
+        let crossterm::event::KeyEvent {
+            code,
+            modifiers,
+            kind,
+            ..
+        } = event;
+
+        // Ignore release events on windows.
+        // Refer to crossterm::event::PushKeyboardEnhancementFlags. According to the doc
+        // KeyEventKind and KeyEventState work correctly only on windows and with kitty
+        // keyboard protocol. Because of this `keybindings get` currently ignores anything
+        // but KeyEventKind::Press
+        if let KeyEventKind::Release | KeyEventKind::Repeat = kind {
+            return None;
+        }
+
+        let cols = vec!["type".to_string(), "key".to_string(), "modifiers".to_string()];
+
+        let typ = Value::string("key".to_string(), head);
+        let key = Value::string(get_keycode_name(code), head);
+        let modifiers = parse_modifiers(head, modifiers);
+        let vals = vec![typ, key, modifiers];
+
+        Some(Value::record(cols, vals, head))
+    } else {
+        None
+    }
+}
+
+fn get_keycode_name(code: &KeyCode) -> String {
+    match code {
+        KeyCode::F(n) => format!("f_{n}"),
+        KeyCode::Char(c) => c.to_string(),
+        KeyCode::Media(m) => format!("media_{m:?}").to_lowercase(),
+        KeyCode::Modifier(m) => format!("modifier_{m:?}").to_lowercase(),
+        _ => format!("{code:?}").to_lowercase(),
+    }
+}
+
+fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
+    const ALL_MODIFIERS: [KeyModifiers; 6] = [
+        KeyModifiers::SHIFT,
+        KeyModifiers::CONTROL,
+        KeyModifiers::ALT,
+        KeyModifiers::SUPER,
+        KeyModifiers::HYPER,
+        KeyModifiers::META,
+    ];
+
+    let parsed_modifiers = ALL_MODIFIERS.iter()
+        .filter(|m| modifiers.contains(**m))
+        .map(|m| format!("modifier_{m:?}").to_lowercase())
+        .map(|string| Value::string(string, head))
+        .collect();
+
+    Value::list(parsed_modifiers, head)
 }
 
 fn create_resize_event(
