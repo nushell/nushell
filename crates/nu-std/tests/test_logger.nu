@@ -5,7 +5,7 @@ def run [
     message_level
 ] {
     do {
-        ^$nu.current-exe -c $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
+        ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"' 
     } | complete | get --ignore-errors stderr
 }
 
@@ -44,7 +44,7 @@ export def test_warning [] {
 
 export def test_info [] {
     assert no message WARNING info 
-    assert message INFO info "INF" #INF has to be quoted, otherwise it is the `inf` float
+    assert message INFO info "INF" # INF has to be quoted, otherwise it is the `inf` float
 }
 
 export def test_debug [] {
@@ -59,19 +59,21 @@ def "run custom" [
     message_level
 ] {
     do {
-        ^$nu.current-exe -c $'use std; NU_LOG_LEVEL=($system_level) std log custom "test message" "($format)" ($message_level)' 
-    } | complete | get -i stderr
+        ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "test message" "($format)" ($message_level)' 
+    } | complete | get --ignore-errors stderr
 }
 
-def "assert custom message" [system_level,
+def "assert custom message" [
+    system_level,
     format,
     message_level
 ] {
     let output = (run custom $system_level $format $message_level)
-    assert equal ($output | str trim -r) ($format | str replace "%MSG%" "test message")
+    assert equal ($output | str trim --right) ($format | str replace "%MSG%" "test message")
 }
 
-def "assert custom message contains" [system_level,
+def "assert custom message contains" [
+    system_level,
     format,
     message_level,
     tested_str
@@ -81,7 +83,8 @@ def "assert custom message contains" [system_level,
     assert ($output | str contains "test message")
 }
 
-def "assert custom message not contains" [system_level,
+def "assert custom message not contains" [
+    system_level,
     format,
     message_level,
     tested_str
@@ -97,7 +100,7 @@ def "assert no custom message" [
     message_level
 ] {
     let output = (run custom $system_level $format $message_level)
-    assert equal ($output | str trim -r) ""
+    assert equal ($output | str trim --right) ""
 }
 
 export def test_custom [] {
