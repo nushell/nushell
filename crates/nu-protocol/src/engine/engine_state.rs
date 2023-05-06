@@ -1202,6 +1202,15 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, module_id) in modules {
+            overlay_frame.insert_module(name, module_id);
+            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
@@ -1770,6 +1779,18 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_module_mut(&mut self, module_id: ModuleId) -> &mut Module {
+        let num_permanent_modules = self.permanent_state.num_modules();
+        if module_id < num_permanent_modules {
+            panic!("Attempt to mutate a module that is in the permanent (immutable) state")
+        } else {
+            self.delta
+                .modules
+                .get_mut(module_id - num_permanent_modules)
+                .expect("internal error: missing module")
+        }
+    }
+
     pub fn get_block_mut(&mut self, block_id: BlockId) -> &mut Block {
         let num_permanent_blocks = self.permanent_state.num_blocks();
         if block_id < num_permanent_blocks {
@@ -1848,7 +1869,7 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], prefixed);
+            self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 
         self.delta
@@ -1886,6 +1907,7 @@ impl<'a> StateWorkingSet<'a> {
         name: Vec<u8>,
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -1913,6 +1935,7 @@ impl<'a> StateWorkingSet<'a> {
         self.move_predecls_to_overlay();
 
         self.use_decls(decls);
+        self.use_modules(modules);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {

@@ -200,12 +200,34 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `main` custom command.")
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
     )]
     NamedAsModule(
         String,
         String,
+        String,
         #[label = "can't export from module {1}"] Span,
+    ),
+
+    #[error("Module already contains 'main' command.")]
+    #[diagnostic(
+        code(nu::parser::module_double_main),
+        help("Tried to add 'main' command to module '{0}' but it has already been added.")
+    )]
+    ModuleDoubleMain(
+        String,
+        #[label = "module '{0}' already contains 'main'"] Span,
+    ),
+
+    #[error("Invalid module file name")]
+    #[diagnostic(
+        code(nu::parser::invalid_module_file_name),
+        help("File {0} resolves to module name {1} which is the same as the parent module. Either rename the file or, save it as 'mod.nu' to define the parent module.")
+    )]
+    InvalidModuleFileName(
+        String,
+        String,
+        #[label = "submodule can't have the same name as the parent module"] Span,
     ),
 
     #[error("Can't export alias defined as 'main'.")]
@@ -371,7 +393,7 @@ pub enum ParseError {
 
     #[error("Wrong import pattern structure.")]
     #[diagnostic(code(nu::parser::missing_import_pattern))]
-    WrongImportPattern(#[label = "invalid import pattern structure"] Span),
+    WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]
     #[diagnostic(code(nu::parser::export_not_found))]
@@ -452,7 +474,9 @@ impl ParseError {
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
-            ParseError::NamedAsModule(_, _, s) => *s,
+            ParseError::NamedAsModule(_, _, _, s) => *s,
+            ParseError::ModuleDoubleMain(_, s) => *s,
+            ParseError::InvalidModuleFileName(_, _, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
@@ -486,7 +510,7 @@ impl ParseError {
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
             ParseError::MissingImportPattern(s) => *s,
-            ParseError::WrongImportPattern(s) => *s,
+            ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,

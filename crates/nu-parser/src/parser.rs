@@ -3009,7 +3009,10 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     let Some(head_span) = spans.get(0) else {
-        working_set.error(ParseError::WrongImportPattern(span(spans)));
+        working_set.error(ParseError::WrongImportPattern(
+            "needs at least one component of import pattern".to_string(),
+            span(spans),
+        ));
         return garbage(span(spans));
     };
 
@@ -3029,98 +3032,87 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         }
     };
 
-    let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
-        // FIXME: expand this to handle deeper imports once we support module imports
-        let tail = working_set.get_span_contents(*tail_span);
-        if tail == b"*" {
-            (
-                ImportPattern {
-                    head: ImportPatternHead {
-                        name: head_name,
-                        id: maybe_module_id,
-                        span: *head_span,
-                    },
-                    members: vec![ImportPatternMember::Glob { span: *tail_span }],
-                    hidden: HashSet::new(),
-                },
-                None,
-            )
-        } else if tail.starts_with(b"[") {
-            let result = parse_list_expression(working_set, *tail_span, &SyntaxShape::String);
+    let mut import_pattern = ImportPattern {
+        head: ImportPatternHead {
+            name: head_name,
+            id: maybe_module_id,
+            span: *head_span,
+        },
+        members: vec![],
+        hidden: HashSet::new(),
+    };
 
-            let mut output = vec![];
+    if spans.len() > 1 {
+        let mut leaf_member_span = None;
 
-            match result {
-                Expression {
+        for tail_span in spans[1..].iter() {
+            if let Some(prev_span) = leaf_member_span {
+                let what = if working_set.get_span_contents(prev_span) == b"*" {
+                    "glob"
+                } else {
+                    "list"
+                };
+                working_set.error(ParseError::WrongImportPattern(
+                    format!(
+                        "{} member can be only at the end of an import pattern",
+                        what
+                    ),
+                    prev_span,
+                ));
+                return Expression {
+                    expr: Expr::ImportPattern(import_pattern),
+                    span: prev_span,
+                    ty: Type::List(Box::new(Type::String)),
+                    custom_completion: None,
+                };
+            }
+
+            let tail = working_set.get_span_contents(*tail_span);
+
+            if tail == b"*" {
+                import_pattern
+                    .members
+                    .push(ImportPatternMember::Glob { span: *tail_span });
+
+                leaf_member_span = Some(*tail_span);
+            } else if tail.starts_with(b"[") {
+                let result = parse_list_expression(working_set, *tail_span, &SyntaxShape::String);
+
+                let mut output = vec![];
+
+                if let Expression {
                     expr: Expr::List(list),
                     ..
-                } => {
+                } = result
+                {
                     for expr in list {
                         let contents = working_set.get_span_contents(expr.span);
                         output.push((trim_quotes(contents).to_vec(), expr.span));
                     }
 
-                    (
-                        ImportPattern {
-                            head: ImportPatternHead {
-                                name: head_name,
-                                id: maybe_module_id,
-                                span: *head_span,
-                            },
-                            members: vec![ImportPatternMember::List { names: output }],
-                            hidden: HashSet::new(),
-                        },
-                        None,
-                    )
+                    import_pattern
+                        .members
+                        .push(ImportPatternMember::List { names: output });
+                } else {
+                    working_set.error(ParseError::ExportNotFound(result.span));
+                    return Expression {
+                        expr: Expr::ImportPattern(import_pattern),
+                        span: span(spans),
+                        ty: Type::List(Box::new(Type::String)),
+                        custom_completion: None,
+                    };
                 }
-                _ => (
-                    ImportPattern {
-                        head: ImportPatternHead {
-                            name: head_name,
-                            id: maybe_module_id,
-                            span: *head_span,
-                        },
-                        members: vec![],
-                        hidden: HashSet::new(),
-                    },
-                    Some(ParseError::ExportNotFound(result.span)),
-                ),
-            }
-        } else {
-            let tail = trim_quotes(tail);
-            (
-                ImportPattern {
-                    head: ImportPatternHead {
-                        name: head_name,
-                        id: maybe_module_id,
-                        span: *head_span,
-                    },
-                    members: vec![ImportPatternMember::Name {
-                        name: tail.to_vec(),
-                        span: *tail_span,
-                    }],
-                    hidden: HashSet::new(),
-                },
-                None,
-            )
-        }
-    } else {
-        (
-            ImportPattern {
-                head: ImportPatternHead {
-                    name: head_name,
-                    id: maybe_module_id,
-                    span: *head_span,
-                },
-                members: vec![],
-                hidden: HashSet::new(),
-            },
-            None,
-        )
-    };
 
-    if let Some(err) = err {
-        working_set.error(err);
+                leaf_member_span = Some(*tail_span);
+            } else {
+                let tail = trim_quotes(tail);
+
+                import_pattern.members.push(ImportPatternMember::Name {
+                    name: tail.to_vec(),
+                    span: *tail_span,
+                });
+            }
+        }
     }
 
     Expression {
@@ -5206,7 +5198,7 @@ pub fn parse_builtin_commands(
             Pipeline::from_vec(vec![expr])
         }
         b"alias" => parse_alias(working_set, lite_command, None),
-        b"module" => parse_module(working_set, lite_command),
+        b"module" => parse_module(working_set, lite_command, None),
         b"use" => {
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
             pipeline
