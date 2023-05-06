@@ -111,3 +111,19 @@ export def test_custom [] {
     assert custom message contains (log DEBUG_LEVEL) $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" (log WARNING_LEVEL) (log WARNING_LEVEL_PREFIX)
     assert custom message not contains (log DEBUG_LEVEL) $"(ansi yellow)MY MESSAGE: %MSG% [%DATE%](ansi reset)" (log WARNING_LEVEL) (log WARNING_LEVEL_PREFIX)
 }
+
+export def "test_long_prefixes" [] {
+    assert equal (log CRITICAL_LEVEL_PREFIX) "CRT"
+    assert equal (log ERROR_LEVEL_PREFIX) "ERR"
+    assert equal (log WARNING_LEVEL_PREFIX) "WRN"
+    assert equal (log INFO_LEVEL_PREFIX) "INF"
+    assert equal (log DEBUG_LEVEL_PREFIX) "DBG"
+}
+
+export def "test_short_prefixes" [] {
+    assert equal (log CRITICAL_LEVEL_PREFIX --short) "C"
+    assert equal (log ERROR_LEVEL_PREFIX --short) "E"
+    assert equal (log WARNING_LEVEL_PREFIX --short) "W"
+    assert equal (log INFO_LEVEL_PREFIX --short) "I"
+    assert equal (log DEBUG_LEVEL_PREFIX --short) "D"
+}
