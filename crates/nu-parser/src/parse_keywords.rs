@@ -929,7 +929,7 @@ pub fn parse_export_in_block(
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
             pipeline
         }
-        b"export module" => parse_module(working_set, lite_command, None),
+        b"export module" => parse_module(working_set, lite_command, None).0,
         b"export extern" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
@@ -1270,7 +1270,8 @@ pub fn parse_export_in_module(
                 exportables
             }
             b"module" => {
-                let pipeline = parse_module(working_set, lite_command, Some(module_name));
+                let (pipeline, maybe_module_id) =
+                    parse_module(working_set, lite_command, Some(module_name));
 
                 let export_module_decl_id =
                     if let Some(id) = working_set.find_decl(b"export module", &Type::Any) {
@@ -1309,14 +1310,17 @@ pub fn parse_export_in_module(
                     let module_name = working_set.get_span_contents(*module_name_span);
                     let module_name = trim_quotes(module_name);
 
-                    if let Some(module_id) = working_set.find_module(module_name) {
+                    if let Some(module_id) = maybe_module_id {
                         result.push(Exportable::Module {
-                            name: module_name.to_vec(),
+                            name: working_set.get_module(module_id).name(),
                             id: module_id,
                         });
                     } else {
                         working_set.error(ParseError::InternalError(
-                            "failed to find added module".into(),
+                            format!(
+                                "failed to find added module '{}'",
+                                String::from_utf8_lossy(module_name)
+                            ),
                             span(&spans[1..]),
                         ));
                     }
@@ -1529,7 +1533,7 @@ pub fn parse_module_block(
                             block.pipelines.push(pipeline)
                         }
                         b"module" => {
-                            let pipeline = parse_module(
+                            let (pipeline, _) = parse_module(
                                 working_set,
                                 command,
                                 None, // using modules named as the module locally is OK
@@ -1865,7 +1869,7 @@ pub fn parse_module(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
-) -> Pipeline {
+) -> (Pipeline, Option<ModuleId>) {
     // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
     // visible and usable in this module's scope). We want to disable that for files.
 
@@ -1891,12 +1895,15 @@ pub fn parse_module(
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
             if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
-                return Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: output,
-                    custom_completion: None,
-                }]);
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
             }
 
             (call, call_span)
@@ -1906,7 +1913,7 @@ pub fn parse_module(
                 "internal error: 'module' or 'export module' declaration not found".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return (garbage_pipeline(spans), None);
         }
     };
 
@@ -1921,12 +1928,15 @@ pub fn parse_module(
                             "mod".to_string(),
                             name.span,
                         ));
-                        return Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]);
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            None,
+                        );
                     }
                 }
                 (s, name.span, name.clone())
@@ -1935,14 +1945,14 @@ pub fn parse_module(
                     "internal error: name not a string".into(),
                     span(spans),
                 ));
-                return garbage_pipeline(spans);
+                return (garbage_pipeline(spans), None);
             }
         } else {
             working_set.error(ParseError::UnknownState(
                 "internal error: missing positional".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return (garbage_pipeline(spans), None);
         };
 
     let pipeline = Pipeline::from_vec(vec![Expression {
@@ -1959,16 +1969,16 @@ pub fn parse_module(
             find_in_dirs(&module_name_or_path, working_set, &cwd, LIB_DIRS_VAR)
         {
             let path_str = module_path.to_string_lossy().to_string();
-            let _ = parse_module_file_or_dir(
+            let maybe_module_id = parse_module_file_or_dir(
                 working_set,
                 path_str.as_bytes(),
                 module_name_or_path_span,
                 None,
             );
-            return pipeline;
+            return (pipeline, maybe_module_id);
         } else {
             working_set.error(ParseError::ModuleNotFound(module_name_or_path_span));
-            return pipeline;
+            return (pipeline, None);
         }
     }
 
@@ -1978,7 +1988,7 @@ pub fn parse_module(
             span(spans),
         ));
 
-        return garbage_pipeline(spans);
+        return (garbage_pipeline(spans), None);
     }
 
     let module_name = module_name_or_path;
@@ -1992,7 +2002,7 @@ pub fn parse_module(
         start += 1;
     } else {
         working_set.error(ParseError::Expected("block".into(), block_span));
-        return garbage_pipeline(spans);
+        return (garbage_pipeline(spans), None);
     }
 
     if block_bytes.ends_with(b"}") {
@@ -2009,7 +2019,7 @@ pub fn parse_module(
     let block_id = working_set.add_block(block);
 
     module_comments.extend(inner_comments);
-    let _ = working_set.add_module(&module_name, module, module_comments);
+    let module_id = working_set.add_module(&module_name, module, module_comments);
 
     let block_expr = Expression {
         expr: Expr::Block(block_id),
@@ -2034,12 +2044,15 @@ pub fn parse_module(
         parser_info: HashMap::new(),
     });
 
-    Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: span(spans),
-        ty: Type::Any,
-        custom_completion: None,
-    }])
+    (
+        Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: span(spans),
+            ty: Type::Any,
+            custom_completion: None,
+        }]),
+        Some(module_id),
+    )
 }
 
 pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline, Vec<Exportable>) {
