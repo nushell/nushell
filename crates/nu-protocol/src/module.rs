@@ -282,17 +282,10 @@ impl Module {
     }
 
     pub fn submodules(&self) -> Vec<(Vec<u8>, ModuleId)> {
-        let mut result: Vec<(Vec<u8>, ModuleId)> = self
-            .submodules
+        self.submodules
             .iter()
             .map(|(name, id)| (name.clone(), *id))
-            .collect();
-
-        if let Some(module_id) = self.main {
-            result.push((self.name.clone(), module_id));
-        }
-
-        result
+            .collect()
     }
 
     pub fn decl_names(&self) -> Vec<Vec<u8>> {
