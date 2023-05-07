@@ -1838,13 +1838,25 @@ pub fn parse_module_file_or_dir(
                     path_span,
                     name_override.or(Some(module_name)),
                 ) {
-                    let module = working_set.get_module_mut(module_id);
+                    let mut module = working_set.get_module(module_id).clone();
 
                     for (submodule_name, submodule_id) in submodules {
                         module.add_submodule(submodule_name, submodule_id);
                     }
 
-                    Some(module_id)
+                    let module_name = String::from_utf8_lossy(&module.name).to_string();
+
+                    let module_comments =
+                        if let Some(comments) = working_set.get_module_comments(module_id) {
+                            comments.to_vec()
+                        } else {
+                            vec![]
+                        };
+
+                    let new_module_id =
+                        working_set.add_module(&module_name, module, module_comments);
+
+                    Some(new_module_id)
                 } else {
                     None
                 }

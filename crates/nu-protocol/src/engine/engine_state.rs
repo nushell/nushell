@@ -1322,6 +1322,13 @@ impl<'a> StateWorkingSet<'a> {
         module_id
     }
 
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.delta
+            .usage
+            .get_module_comments(module_id)
+            .or_else(|| self.permanent_state.get_module_comments(module_id))
+    }
+
     pub fn next_span_start(&self) -> usize {
         let permanent_span_start = self.permanent_state.next_span_start();
 
@@ -1775,18 +1782,6 @@ impl<'a> StateWorkingSet<'a> {
             self.delta
                 .modules
                 .get(module_id - num_permanent_modules)
-                .expect("internal error: missing module")
-        }
-    }
-
-    pub fn get_module_mut(&mut self, module_id: ModuleId) -> &mut Module {
-        let num_permanent_modules = self.permanent_state.num_modules();
-        if module_id < num_permanent_modules {
-            panic!("Attempt to mutate a module that is in the permanent (immutable) state")
-        } else {
-            self.delta
-                .modules
-                .get_mut(module_id - num_permanent_modules)
                 .expect("internal error: missing module")
         }
     }
