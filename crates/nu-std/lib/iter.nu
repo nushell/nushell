@@ -60,29 +60,17 @@ export def "iter find" [ # -> any | null
 export def "iter find-index" [ # -> int
     fn: closure                # the closure used to perform the search
 ] {
-    match $in {
-        []   => -1,
-
-        [$x] => (if (do $fn $x) {
-             0
-        } else {
-            -1
-        }),
-
-        [$x, ..$xs] => (if (do $fn $x) {
-             0
-        # only recurse if there's an element that satisfies the predicate
-        } else if ($xs | any $fn) {
-             1 + ($xs | iter find-index $fn)
-        } else {
-            -1
-        }),
-
-        $x   => (if (do $fn $x) {
-             0
-        } else {
-            -1
-        })
+    try {
+        $in 
+        | enumerate 
+        | each {|it|
+            if (do $fn $it.item) {
+                $it.index
+            }
+        } 
+        | first
+    } catch {
+        (-1)
     }
 }
 
