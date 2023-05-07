@@ -1,6 +1,9 @@
 use nu_parser::{parse, parse_module_block};
 use nu_protocol::report_error;
-use nu_protocol::{engine::StateWorkingSet, Module, ShellError, Span};
+use nu_protocol::{engine::StateWorkingSet, engine::VirtualPath, Module, ShellError, Span};
+
+// Virtual std directory unlikely to appear in user's file system
+const NU_STD_VIRTUAL_DIR: &str = "NU_STD_VIRTUAL_DIR";
 
 fn add_file(
     working_set: &mut StateWorkingSet,
@@ -60,55 +63,131 @@ fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, m
 }
 
 pub fn load_standard_library(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut nu_protocol::engine::EngineState
 ) -> Result<(), miette::ErrReport> {
     let delta = {
-        let name = "std".to_string();
-        let content = include_str!("../lib/mod.nu");
-
-        // these modules are loaded in the order they appear in this list
-        #[rustfmt::skip]
-        let submodules = vec![
-            // helper modules that could be used in other parts of the library
-            ("log", include_str!("../lib/log.nu")),
-
-            // the rest of the library
-            ("dirs", include_str!("../lib/dirs.nu")),
-            ("iter", include_str!("../lib/iter.nu")),
-            ("help", include_str!("../lib/help.nu")),
-            ("testing", include_str!("../lib/testing.nu")),
-            ("xml", include_str!("../lib/xml.nu")),
+        let std_files = vec![
+            // top-level
+            (
+                format!("{}/std/mod.nu", NU_STD_VIRTUAL_DIR),
+                include_str!("../std/mod.nu"),
+            ),
+            // testing
+            (
+                format!("{}/std/test.nu", NU_STD_VIRTUAL_DIR),
+                include_str!("../std/test.nu"),
+            ),
         ];
 
-        // Define commands to be preloaded into the default (top level, unprefixed) namespace.
-        // User can invoke these without having to `use std` beforehand.
-        // Entries are: (name to add to default namespace, path under std to find implementation)
-        //
-        // Conventionally, for a command implemented as `std foo`, the name added
-        // is either `std foo` or bare `foo`, not some arbitrary rename.
+        let std_dirs_files = vec![
+            (
+                format!("{}/std/dirs/mod.nu", NU_STD_VIRTUAL_DIR),
+                include_str!("../std/dirs/mod.nu"),
+            ),
+            (
+                format!("{}/std/dirs/spam.nu", NU_STD_VIRTUAL_DIR),
+                include_str!("../std/dirs/spam.nu"),
+            ),
 
-        let prelude = vec![
-            ("std help", "help"),
-            ("std help commands", "help commands"),
-            ("std help aliases", "help aliases"),
-            ("std help modules", "help modules"),
-            ("std help externs", "help externs"),
-            ("std help operators", "help operators"),
+            // helper modules that could be used in other parts of the library
+            // (format!("{}/std/log.nu", NU_STD_VIRTUAL_DIR),     include_str!("../lib/log.nu")),
+
+            // the rest of the library
+            // (format!("{}/std/dirs.nu", NU_STD_VIRTUAL_DIR),    include_str!("../lib/dirs.nu")),
+            // (format!("{}/std/iter.nu", NU_STD_VIRTUAL_DIR),    include_str!("../lib/iter.nu")),
+            // (format!("{}/std/help.nu", NU_STD_VIRTUAL_DIR),    include_str!("../lib/help.nu")),
+            // (format!("{}/std/testing.nu", NU_STD_VIRTUAL_DIR), include_str!("../lib/testing.nu")),
+            // (format!("{}/std/xml.nu", NU_STD_VIRTUAL_DIR),     include_str!("../lib/xml.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
+        let mut std_virt_paths = vec![];
+        let mut std_dirs_virt_files = vec![];
 
-        for (name, content) in submodules {
-            let (module, comments) =
-                add_file(&mut working_set, &name.to_string(), content.as_bytes());
-            working_set.add_module(name, module, comments);
+        for (name, content) in std_files {
+            let file_id = working_set.add_file(name.clone(), content.as_bytes());
+            // TODO: Error on redefinition:
+            let _ = working_set.add_virtual_path(name.clone(), VirtualPath::File(file_id));
+            std_virt_paths.push((name, VirtualPath::File(file_id)));
         }
 
-        let (module, comments) = add_file(&mut working_set, &name, content.as_bytes());
-        load_prelude(&mut working_set, prelude, &module);
-        working_set.add_module(&name, module, comments);
+        for (name, content) in std_dirs_files {
+            let file_id = working_set.add_file(name.clone(), content.as_bytes());
+            // TODO: Error on redefinition:
+            let _ = working_set.add_virtual_path(name.clone(), VirtualPath::File(file_id));
+            std_dirs_virt_files.push((name, VirtualPath::File(file_id)));
+        }
+
+        let std_dir = format!("{}/std/", NU_STD_VIRTUAL_DIR);
+        let std_dirs_dir = format!("{}/std/dirs/", NU_STD_VIRTUAL_DIR);
+
+        let _ = working_set.add_virtual_path(std_dirs_dir.clone(), VirtualPath::Dir(std_dirs_virt_files.clone()));
+        std_virt_paths.push((std_dirs_dir, VirtualPath::Dir(std_dirs_virt_files)));
+
+        let source = format!(r#"module {}"#, std_dir);
+
+        // TODO: Error on redefinition:
+        let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
+
+        parse(
+            &mut working_set,
+            Some("loading stdlib"),
+            source.as_bytes(),
+            false,
+        );
+
+        if let Some(err) = working_set.parse_errors.first() {
+            report_error(&working_set, err);
+        }
 
         working_set.render()
+
+        // let name = "std".to_string();
+        // let content = include_str!("../lib/mod.nu");
+
+        // // these modules are loaded in the order they appear in this list
+        // #[rustfmt::skip]
+        // let submodules = vec![
+        //     // helper modules that could be used in other parts of the library
+        //     ("log", include_str!("../lib/log.nu")),
+
+        //     // the rest of the library
+        //     ("dirs", include_str!("../lib/dirs.nu")),
+        //     ("iter", include_str!("../lib/iter.nu")),
+        //     ("help", include_str!("../lib/help.nu")),
+        //     ("testing", include_str!("../lib/testing.nu")),
+        //     ("xml", include_str!("../lib/xml.nu")),
+        // ];
+
+        // // Define commands to be preloaded into the default (top level, unprefixed) namespace.
+        // // User can invoke these without having to `use std` beforehand.
+        // // Entries are: (name to add to default namespace, path under std to find implementation)
+        // //
+        // // Conventionally, for a command implemented as `std foo`, the name added
+        // // is either `std foo` or bare `foo`, not some arbitrary rename.
+
+        // let prelude = vec![
+        //     ("std help", "help"),
+        //     ("std help commands", "help commands"),
+        //     ("std help aliases", "help aliases"),
+        //     ("std help modules", "help modules"),
+        //     ("std help externs", "help externs"),
+        //     ("std help operators", "help operators"),
+        // ];
+
+        // let mut working_set = StateWorkingSet::new(engine_state);
+
+        // for (name, content) in submodules {
+        //     let (module, comments) =
+        //         add_file(&mut working_set, &name.to_string(), content.as_bytes());
+        //     working_set.add_module(name, module, comments);
+        // }
+
+        // let (module, comments) = add_file(&mut working_set, &name, content.as_bytes());
+        // load_prelude(&mut working_set, prelude, &module);
+        // working_set.add_module(&name, module, comments);
+
+        // working_set.render()
     };
 
     engine_state.merge_delta(delta)?;

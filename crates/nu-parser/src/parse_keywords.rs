@@ -5,7 +5,7 @@ use nu_protocol::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
-    engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
+    engine::{StateWorkingSet, VirtualPath, DEFAULT_OVERLAY_NAME},
     span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
@@ -1684,14 +1684,14 @@ pub fn parse_module_block(
 
 fn parse_module_file(
     working_set: &mut StateWorkingSet,
-    path: PathBuf,
+    path: ParserPath,
     path_span: Span,
     name_override: Option<String>,
 ) -> Option<ModuleId> {
     if let Some(i) = working_set
         .parsed_module_files
         .iter()
-        .rposition(|p| p == &path)
+        .rposition(|p| p == &path.path())
     {
         let mut files: Vec<String> = working_set
             .parsed_module_files
@@ -1700,7 +1700,7 @@ fn parse_module_file(
             .map(|p| p.to_string_lossy().to_string())
             .collect();
 
-        files.push(path.to_string_lossy().to_string());
+        files.push(path.path().to_string_lossy().to_string());
 
         let msg = files.join("\nuses ");
 
@@ -1717,14 +1717,14 @@ fn parse_module_file(
         return None;
     };
 
-    let contents = if let Ok(contents) = std::fs::read(&path) {
+    let contents = if let Some(contents) = path.read(&working_set) {
         contents
     } else {
         working_set.error(ParseError::ModuleNotFound(path_span));
         return None;
     };
 
-    let file_id = working_set.add_file(path.to_string_lossy().to_string(), &contents);
+    let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
@@ -1743,7 +1743,7 @@ fn parse_module_file(
     };
 
     // Add the file to the stack of parsed module files
-    working_set.parsed_module_files.push(path);
+    working_set.parsed_module_files.push(path.path_buf());
 
     // Parse the module
     let (block, module, module_comments) =
@@ -1784,7 +1784,7 @@ pub fn parse_module_file_or_dir(
         };
 
     if module_path.is_dir() {
-        let Ok(dir_contents) = std::fs::read_dir(&module_path) else {
+        let Some(dir_contents) = module_path.read_dir() else {
             working_set.error(ParseError::ModuleNotFound(path_span));
             return None;
         };
@@ -1798,16 +1798,14 @@ pub fn parse_module_file_or_dir(
 
         let mut file_paths = vec![];
 
-        for entry in dir_contents.flatten() {
-            let entry_path = entry.path();
-
+        for entry_path in dir_contents {
             if entry_path.is_file()
                 && entry_path.extension() == Some(OsStr::new("nu"))
                 && entry_path.file_stem() != Some(OsStr::new("mod"))
             {
                 if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
                     working_set.error(ParseError::InvalidModuleFileName(
-                        module_path.to_string_lossy().to_string(),
+                        module_path.path().to_string_lossy().to_string(),
                         module_name,
                         path_span,
                     ));
@@ -1976,19 +1974,27 @@ pub fn parse_module(
     }]);
 
     if spans.len() == split_id + 1 {
-        let cwd = working_set.get_cwd();
+        // let cwd = working_set.get_cwd();
 
-        if let Some(module_path) =
-            find_in_dirs(&module_name_or_path, working_set, &cwd, LIB_DIRS_VAR)
-        {
-            let path_str = module_path.to_string_lossy().to_string();
-            let maybe_module_id = parse_module_file_or_dir(
-                working_set,
-                path_str.as_bytes(),
-                module_name_or_path_span,
-                None,
-            );
-            return (pipeline, maybe_module_id);
+        // if let Some(module_path) =
+        //     find_in_dirs(&module_name_or_path, working_set, &cwd, LIB_DIRS_VAR)
+        // {
+        //     let path_str = module_path.to_string_lossy().to_string();
+        //     let maybe_module_id = parse_module_file_or_dir(
+        //         working_set,
+        //         path_str.as_bytes(),
+        //         module_name_or_path_span,
+        //         None,
+        //     );
+        //     return (pipeline, maybe_module_id);
+
+        if let Some(module_id) = parse_module_file_or_dir(
+            working_set,
+            module_name_or_path.as_bytes(),
+            module_name_or_path_span,
+            None,
+        ) {
+            return (pipeline, Some(module_id));
         } else {
             working_set.error(ParseError::ModuleNotFound(module_name_or_path_span));
             return (pipeline, None);
@@ -3002,7 +3008,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
-                    if let Ok(contents) = std::fs::read(&path) {
+                    if let Some(contents) = path.read(&working_set) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
                             let prev = working_set.currently_parsed_cwd.clone();
@@ -3018,7 +3024,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            Some(&path.to_string_lossy()),
+                            Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
@@ -3259,6 +3265,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
         Some(signature) => arguments.and_then(|(path, path_span)| {
+            let path = path.path_buf();
             // restrict plugin file name starts with `nu_plugin_`
             let valid_plugin_name = path
                 .file_name()
@@ -3279,13 +3286,14 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             }
         }),
         None => arguments.and_then(|(path, path_span)| {
+            let path = path.path_buf();
             // restrict plugin file name starts with `nu_plugin_`
             let valid_plugin_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
             if let Some(true) = valid_plugin_name {
-                get_signature(path.as_path(), &shell, &current_envs)
+                get_signature(&path, &shell, &current_envs)
                     .map_err(|err| {
                         ParseError::LabeledError(
                             "Error getting signatures".into(),
@@ -3328,6 +3336,118 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     }])
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ParserPath {
+    RealPath(PathBuf),
+    VirtualFile(PathBuf, usize),
+    VirtualDir(PathBuf, Vec<ParserPath>),
+}
+
+impl ParserPath {
+    pub fn is_dir(&self) -> bool {
+        match self {
+            ParserPath::RealPath(p) => p.is_dir(),
+            ParserPath::VirtualFile(..) => false,
+            ParserPath::VirtualDir(..) => true,
+        }
+    }
+
+    pub fn is_file(&self) -> bool {
+        match self {
+            ParserPath::RealPath(p) => p.is_file(),
+            ParserPath::VirtualFile(..) => true,
+            ParserPath::VirtualDir(..) => false,
+        }
+    }
+
+    pub fn exists(&self) -> bool {
+        match self {
+            ParserPath::RealPath(p) => p.exists(),
+            ParserPath::VirtualFile(..) => true,
+            ParserPath::VirtualDir(..) => true,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        match self {
+            ParserPath::RealPath(p) => p,
+            ParserPath::VirtualFile(p, _) => p,
+            ParserPath::VirtualDir(p, _) => p,
+        }
+    }
+
+    pub fn path_buf(self) -> PathBuf {
+        match self {
+            ParserPath::RealPath(p) => p,
+            ParserPath::VirtualFile(p, _) => p,
+            ParserPath::VirtualDir(p, _) => p,
+        }
+    }
+
+    pub fn parent(&self) -> Option<&Path> {
+        match self {
+            ParserPath::RealPath(p) => p.parent(),
+            ParserPath::VirtualFile(p, _) => p.parent(),
+            ParserPath::VirtualDir(p, _) => p.parent(),
+        }
+    }
+
+    pub fn read_dir(&self) -> Option<Vec<ParserPath>> {
+        match self {
+            ParserPath::RealPath(p) => p.read_dir().ok().map(|read_dir| {
+                read_dir
+                    .flatten()
+                    .map(|dir_entry| ParserPath::RealPath(dir_entry.path()))
+                    .collect()
+            }),
+            ParserPath::VirtualFile(..) => None,
+            ParserPath::VirtualDir(_, files) => Some(files.clone()),
+        }
+    }
+
+    pub fn file_stem(&self) -> Option<&OsStr> {
+        self.path().file_stem()
+    }
+
+    pub fn extension(&self) -> Option<&OsStr> {
+        self.path().extension()
+    }
+
+    pub fn join(self, path: impl AsRef<Path>) -> ParserPath {
+        match self {
+            ParserPath::RealPath(p) => ParserPath::RealPath(p.join(path)),
+            ParserPath::VirtualFile(p, file_id) => ParserPath::VirtualFile(p.join(path), file_id),
+            ParserPath::VirtualDir(p, files) => ParserPath::VirtualDir(p.join(path), files),
+        }
+    }
+
+    pub fn read<'a>(&'a self, working_set: &'a StateWorkingSet) -> Option<Vec<u8>> {
+        match self {
+            ParserPath::RealPath(p) => std::fs::read(p).ok(),
+            ParserPath::VirtualFile(_, file_id) => working_set
+                .get_contents_of_file(*file_id)
+                .map(|bytes| bytes.to_vec()),
+
+            ParserPath::VirtualDir(..) => None,
+        }
+    }
+
+    pub fn from_virtual_path(name: &str, virtual_path: &VirtualPath) -> Self {
+        match virtual_path {
+            VirtualPath::File(file_id) => ParserPath::VirtualFile(PathBuf::from(name), *file_id),
+            VirtualPath::Dir(entries) => ParserPath::VirtualDir(
+                PathBuf::from(name),
+                entries
+                    .iter()
+                    .map(|(sub_name, sub_virt_path)| {
+                        ParserPath::from_virtual_path(sub_name, sub_virt_path)
+                    })
+                    .collect(),
+            ),
+        }
+    }
+}
+
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
     working_set
         .find_variable(format!("${}", var_name).as_bytes())
@@ -3352,7 +3472,7 @@ pub fn find_in_dirs(
     working_set: &StateWorkingSet,
     cwd: &str,
     dirs_var_name: &str,
-) -> Option<PathBuf> {
+) -> Option<ParserPath> {
     pub fn find_in_dirs_with_id(
         filename: &str,
         working_set: &StateWorkingSet,
@@ -3434,6 +3554,26 @@ pub fn find_in_dirs(
         }
     }
 
-    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
-        .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
+    if let Some(virtual_path) = working_set.find_virtual_path(filename) {
+        Some(ParserPath::from_virtual_path(filename, virtual_path))
+        // match virtual_path {
+        //     VirtualPath::File(file_id) => {
+        //         Some(ParserPath::VirtualFile(PathBuf::from(filename), *file_id))
+        //     }
+        //     VirtualPath::Dir(file_ids) =>
+
+        //     //     ::VirtualDir(
+        //     //     PathBuf::from(filename),
+        //     //     file_ids
+        //     //         .iter()
+        //     //         .map(|(name, id)| ParserPath::VirtualFile(PathBuf::from(name), *id))
+        //     //         .collect(),
+        //     // )
+        //         ),
+        // }
+    } else {
+        find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
+            .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
+            .map(|p| ParserPath::RealPath(p))
+    }
 }

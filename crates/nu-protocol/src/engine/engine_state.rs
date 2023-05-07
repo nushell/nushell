@@ -56,6 +56,12 @@ impl Default for Usage {
     }
 }
 
+#[derive(Clone)]
+pub enum VirtualPath {
+    File(usize),               // file ID if the file
+    Dir(Vec<(String, VirtualPath)>), // file IDs of files in the virtual dir
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -102,6 +108,7 @@ impl Default for Usage {
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<(Vec<u8>, usize, usize)>,
+    virtual_paths: HashMap<String, VirtualPath>,
     vars: Vec<Variable>,
     decls: Vec<Box<dyn Command + 'static>>,
     blocks: Vec<Block>,
@@ -144,6 +151,7 @@ impl EngineState {
         Self {
             files: vec![],
             file_contents: vec![],
+            virtual_paths: HashMap::new(),
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -196,6 +204,7 @@ impl EngineState {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
+        self.virtual_paths.extend(delta.virtual_paths);
         self.decls.extend(delta.decls);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
@@ -840,28 +849,28 @@ impl EngineState {
         self.files.iter()
     }
 
-    pub fn get_filename(&self, file_id: usize) -> String {
-        for file in self.files.iter().enumerate() {
-            if file.0 == file_id {
-                return file.1 .0.clone();
-            }
-        }
+    // pub fn get_filename(&self, file_id: usize) -> String {
+    //     for file in self.files.iter().enumerate() {
+    //         if file.0 == file_id {
+    //             return file.1 .0.clone();
+    //         }
+    //     }
 
-        "<unknown>".into()
-    }
+    //     "<unknown>".into()
+    // }
 
-    pub fn get_file_source(&self, file_id: usize) -> String {
-        for file in self.files.iter().enumerate() {
-            if file.0 == file_id {
-                let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
-                let output = String::from_utf8_lossy(contents).to_string();
+    // pub fn get_file_source(&self, file_id: usize) -> String {
+    //     for file in self.files.iter().enumerate() {
+    //         if file.0 == file_id {
+    //             let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
+    //             let output = String::from_utf8_lossy(contents).to_string();
 
-                return output;
-            }
-        }
+    //             return output;
+    //         }
+    //     }
 
-        "<unknown>".into()
-    }
+    //     "<unknown>".into()
+    // }
 
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         let next_span_start = self.next_span_start();
@@ -1009,6 +1018,7 @@ impl TypeScope {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
+    virtual_paths: HashMap<String, VirtualPath>,
     vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Block>,       // indexed by BlockId
@@ -1031,6 +1041,7 @@ impl StateDelta {
         StateDelta {
             files: vec![],
             file_contents: vec![],
+            virtual_paths: HashMap::new(),
             vars: vec![],
             decls: vec![],
             blocks: vec![],
@@ -1347,29 +1358,45 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
 
-    pub fn get_filename(&self, file_id: usize) -> String {
-        for file in self.files().enumerate() {
-            if file.0 == file_id {
-                return file.1 .0.clone();
+    // pub fn get_filename(&self, file_id: usize) -> String {
+    //     for file in self.files().enumerate() {
+    //         if file.0 == file_id {
+    //             return file.1 .0.clone();
+    //         }
+    //     }
+
+    //     "<unknown>".into()
+    // }
+
+    // pub fn get_file_source(&self, file_id: usize) -> String {
+    //     for file in self.files().enumerate() {
+    //         if file.0 == file_id {
+    //             let output = String::from_utf8_lossy(
+    //                 self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
+    //             )
+    //             .to_string();
+
+    //             return output;
+    //         }
+    //     }
+
+    //     "<unknown>".into()
+    // }
+
+    pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
+        for (id, (contents, _, _)) in self.delta.file_contents.iter().enumerate() {
+            if self.permanent_state.num_files() + id == file_id {
+                return Some(contents);
             }
         }
 
-        "<unknown>".into()
-    }
-
-    pub fn get_file_source(&self, file_id: usize) -> String {
-        for file in self.files().enumerate() {
-            if file.0 == file_id {
-                let output = String::from_utf8_lossy(
-                    self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
-                )
-                .to_string();
-
-                return output;
+        for (id, (contents, _, _)) in self.permanent_state.file_contents.iter().enumerate() {
+            if id == file_id {
+                return Some(contents);
             }
         }
 
-        "<unknown>".into()
+        None
     }
 
     #[must_use]
@@ -1396,6 +1423,11 @@ impl<'a> StateWorkingSet<'a> {
             .push((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
+    }
+
+    #[must_use]
+    pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> Option<VirtualPath> {
+        self.delta.virtual_paths.insert(name, virtual_path)
     }
 
     pub fn get_span_for_file(&self, file_id: usize) -> Span {
@@ -2007,6 +2039,13 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
+        self.delta
+            .virtual_paths
+            .get(name)
+            .or_else(|| self.permanent_state.virtual_paths.get(name))
     }
 }
 
