@@ -1997,6 +1997,22 @@ impl<'a> StateWorkingSet<'a> {
 
         None
     }
+
+    pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
+        for (id, module) in self.delta.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(self.permanent_state.num_modules() + id);
+            }
+        }
+
+        for (module_id, module) in self.permanent_state.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(module_id);
+            }
+        }
+
+        None
+    }
 }
 
 impl Default for EngineState {
