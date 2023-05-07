@@ -152,6 +152,10 @@ fn main() -> Result<()> {
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
     }
 
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(&mut engine_state)?;
+    }
+
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -250,10 +254,6 @@ fn main() -> Result<()> {
         column!(),
         use_color,
     );
-
-    if parsed_nu_cli_args.no_std_lib.is_none() {
-        load_standard_library(&mut engine_state)?;
-    }
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
