@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_repl_code, pipeline};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -639,6 +639,14 @@ fn module_dir() {
     let inp = &[import, "spam baz"];
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert_eq!(actual.out, "spambaz");
+}
+
+#[test]
+fn module_dir_import_twice_no_panic() {
+    let import = "use samples/spam";
+    let inp = &[import, import, "spam"];
+    let actual_repl = nu!(cwd: "tests/modules", nu_repl_code(inp));
+    assert_eq!(actual_repl.out, "spam");
 }
 
 #[test]

@@ -1322,6 +1322,13 @@ impl<'a> StateWorkingSet<'a> {
         module_id
     }
 
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.delta
+            .usage
+            .get_module_comments(module_id)
+            .or_else(|| self.permanent_state.get_module_comments(module_id))
+    }
+
     pub fn next_span_start(&self) -> usize {
         let permanent_span_start = self.permanent_state.next_span_start();
 
@@ -1779,18 +1786,6 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn get_module_mut(&mut self, module_id: ModuleId) -> &mut Module {
-        let num_permanent_modules = self.permanent_state.num_modules();
-        if module_id < num_permanent_modules {
-            panic!("Attempt to mutate a module that is in the permanent (immutable) state")
-        } else {
-            self.delta
-                .modules
-                .get_mut(module_id - num_permanent_modules)
-                .expect("internal error: missing module")
-        }
-    }
-
     pub fn get_block_mut(&mut self, block_id: BlockId) -> &mut Block {
         let num_permanent_blocks = self.permanent_state.num_blocks();
         if block_id < num_permanent_blocks {
@@ -1992,6 +1987,22 @@ impl<'a> StateWorkingSet<'a> {
         for block in &self.permanent_state.blocks {
             if Some(span) == block.span {
                 return Some(block.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
+        for (id, module) in self.delta.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(self.permanent_state.num_modules() + id);
+            }
+        }
+
+        for (module_id, module) in self.permanent_state.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(module_id);
             }
         }
 
