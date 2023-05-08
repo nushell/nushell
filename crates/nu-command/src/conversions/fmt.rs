@@ -82,6 +82,7 @@ fn fmt(
 
 fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
+        Value::Float { val, .. } => fmt_it_64(*val, span),
         Value::Int { val, .. } => fmt_it(*val, span),
         Value::Filesize { val, .. } => fmt_it(*val, span),
         // Propagate errors by explicitly matching them before the final case.
@@ -131,6 +132,39 @@ fn fmt_it(num: i64, span: Span) -> Value {
     Value::Record { cols, vals, span }
 }
 
+fn fmt_it_64(num: f64, span: Span) -> Value {
+    let mut cols = vec![];
+    let mut vals = vec![];
+
+    cols.push("binary".into());
+    vals.push(Value::string(format!("{:b}", num.to_bits()), span));
+
+    cols.push("debug".into());
+    vals.push(Value::string(format!("{num:#?}"), span));
+
+    cols.push("display".into());
+    vals.push(Value::string(format!("{num}"), span));
+
+    cols.push("lowerexp".into());
+    vals.push(Value::string(format!("{num:#e}"), span));
+
+    cols.push("lowerhex".into());
+    vals.push(Value::string(format!("{:x}", num.to_bits()), span));
+
+    cols.push("octal".into());
+    vals.push(Value::string(format!("{:o}", num.to_bits()), span));
+
+    // cols.push("pointer".into());
+    // vals.push(Value::string(format!("{:#p}", &num), span));
+
+    cols.push("upperexp".into());
+    vals.push(Value::string(format!("{num:#E}"), span));
+
+    cols.push("upperhex".into());
+    vals.push(Value::string(format!("{:X}", num.to_bits()), span));
+
+    Value::Record { cols, vals, span }
+}
 #[cfg(test)]
 mod test {
     use super::*;
