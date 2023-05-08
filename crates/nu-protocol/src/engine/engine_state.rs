@@ -1202,6 +1202,15 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, module_id) in modules {
+            overlay_frame.insert_module(name, module_id);
+            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
@@ -1311,6 +1320,13 @@ impl<'a> StateWorkingSet<'a> {
         self.last_overlay_mut().modules.insert(name, module_id);
 
         module_id
+    }
+
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.delta
+            .usage
+            .get_module_comments(module_id)
+            .or_else(|| self.permanent_state.get_module_comments(module_id))
     }
 
     pub fn next_span_start(&self) -> usize {
@@ -1848,7 +1864,7 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], prefixed);
+            self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 
         self.delta
@@ -1886,6 +1902,7 @@ impl<'a> StateWorkingSet<'a> {
         name: Vec<u8>,
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -1913,6 +1930,7 @@ impl<'a> StateWorkingSet<'a> {
         self.move_predecls_to_overlay();
 
         self.use_decls(decls);
+        self.use_modules(modules);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
@@ -1969,6 +1987,22 @@ impl<'a> StateWorkingSet<'a> {
         for block in &self.permanent_state.blocks {
             if Some(span) == block.span {
                 return Some(block.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
+        for (id, module) in self.delta.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(self.permanent_state.num_modules() + id);
+            }
+        }
+
+        for (module_id, module) in self.permanent_state.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(module_id);
             }
         }
 

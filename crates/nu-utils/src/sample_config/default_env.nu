@@ -13,25 +13,26 @@ def create_left_prompt [] {
     }
 
     let dir = ([
-        ($env.PWD | str substring 0..($home | str length) | str replace -s $home "~"),
+        ($env.PWD | str substring 0..($home | str length) | str replace --string $home "~"),
         ($env.PWD | str substring ($home | str length)..)
     ] | str join)
 
-    let path_segment = if (is-admin) {
-        $"(ansi red_bold)($dir)"
-    } else {
-        $"(ansi green_bold)($dir)"
-    }
+    let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
+    let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
+    let path_segment = $"($path_color)($dir)"
 
-    $path_segment
+    $path_segment | str replace --all (char path_sep) $"($separator_color)/($path_color)"
 }
 
 def create_right_prompt [] {
+    let time_segment_color = (ansi magenta)
+
     let time_segment = ([
         (ansi reset)
-        (ansi magenta)
+        $time_segment_color
         (date now | date format '%m/%d/%Y %r')
-    ] | str join)
+    ] | str join | str replace --all "([/:])" $"(ansi light_magenta_bold)${1}($time_segment_color)" |
+        str replace --all "([AP]M)" $"(ansi light_magenta_underline)${1}")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
         (ansi rb)
@@ -59,12 +60,12 @@ let-env PROMPT_MULTILINE_INDICATOR = {|| "::: " }
 # Note: The conversions happen *after* config.nu is loaded
 let-env ENV_CONVERSIONS = {
   "PATH": {
-    from_string: { |s| $s | split row (char esep) | path expand -n }
-    to_string: { |v| $v | path expand -n | str join (char esep) }
+    from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+    to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
   }
   "Path": {
-    from_string: { |s| $s | split row (char esep) | path expand -n }
-    to_string: { |v| $v | path expand -n | str join (char esep) }
+    from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+    to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
   }
 }
 
