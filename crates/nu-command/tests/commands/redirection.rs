@@ -130,7 +130,6 @@ fn separate_redirection() {
 
 #[test]
 fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
-    use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
     Playground::setup("external with many stderr message", |dirs, sandbox| {
@@ -143,14 +142,14 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
         nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-            sh -c "cat a_large_file.txt 1>&2" out+err> another_large_file.txt
-            "#,
+            &format!("
+            with-env [LARGE {large_file_body}] {{ nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt }}
+            "),
         ));
 
         let expected_file = dirs.test().join("another_large_file.txt");
         let actual = file_contents(expected_file);
-        assert_eq!(actual, large_file_body);
+        assert_eq!(actual.trim(), large_file_body);
     })
 }
 
