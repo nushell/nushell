@@ -245,3 +245,5 @@ export def setup-git-hooks [] {
         print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
     }
 }
+
+export def main [] { help toolkit }
