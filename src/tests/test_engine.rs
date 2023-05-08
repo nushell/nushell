@@ -328,9 +328,17 @@ fn default_value_constant() -> TestResult {
 }
 
 #[test]
-fn default_value_not_constant() -> TestResult {
+fn default_value_not_constant1() -> TestResult {
     fail_test(
         r#"def foo [x = ("foo" | str length)] { $x }; foo"#,
+        "expected a constant",
+    )
+}
+
+#[test]
+fn default_value_not_constant2() -> TestResult {
+    fail_test(
+        r#"def foo [--x = ("foo" | str length)] { $x }; foo"#,
         "expected a constant",
     )
 }

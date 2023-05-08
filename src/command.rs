@@ -33,7 +33,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
 
         let flag_value = match arg.as_ref() {
             "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" | "-I" => args.next().map(|a| escape_quote_string(&a)),
+            | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
@@ -104,16 +104,18 @@ pub(crate) fn parse_commandline_args(
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let execute: Option<Expression> = call.get_flag_expr("execute");
-            let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
+            // ide flags
+            let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let ide_goto_def: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
             let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
             let ide_complete: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-complete")?;
             let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
+            let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
             fn extract_contents(
                 expression: Option<Expression>,
@@ -192,6 +194,7 @@ pub(crate) fn parse_commandline_args(
                 ide_hover,
                 ide_complete,
                 ide_check,
+                ide_ast,
                 table_mode,
             });
         }
@@ -230,6 +233,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
     pub(crate) ide_check: Option<Value>,
+    pub(crate) ide_ast: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -317,7 +321,8 @@ impl Command for Nu {
                 SyntaxShape::Int,
                 "run a diagnostic check on the given source",
                 None,
-            );
+            )
+            .switch("ide-ast", "generate the ast on the given source", None);
 
         #[cfg(feature = "plugin")]
         {

@@ -86,6 +86,7 @@ pub struct Config {
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
     pub history_file_format: HistoryFileFormat,
+    pub history_isolation: bool,
     pub log_level: String,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
@@ -99,6 +100,7 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -129,6 +131,7 @@ impl Default for Config {
             max_history_size: i64::MAX,
             sync_history_on_enter: true,
             history_file_format: HistoryFileFormat::PlainText,
+            history_isolation: false,
             log_level: String::new(),
             keybindings: Vec::new(),
             menus: Vec::new(),
@@ -142,6 +145,7 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            bracketed_paste: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
@@ -419,6 +423,9 @@ impl Value {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
+                                    "history_isolation" => {
+                                        try_bool!(cols, vals, index, span, history_isolation)
+                                    }
                                     "sync_on_enter" => {
                                         try_bool!(cols, vals, index, span, sync_history_on_enter)
                                     }
@@ -1206,6 +1213,9 @@ impl Value {
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
+                    }
+                    "bracketed_paste" => {
+                        try_bool!(cols, vals, index, span, bracketed_paste);
                     }
                     // Legacy config options (deprecated as of 2022-11-02)
                     // Legacy options do NOT reconstruct their values on error

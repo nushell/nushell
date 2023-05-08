@@ -21,7 +21,7 @@ impl Command for Use {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("module", SyntaxShape::String, "Module or module file")
-            .optional(
+            .rest(
                 "members",
                 SyntaxShape::Any,
                 "Which members of the module to import",

@@ -164,7 +164,7 @@ impl SQLContext {
                         .unwrap_or_default()
                         .schema()
                         .get_index(shm_p)
-                        .unwrap_or((&"".to_string(), &DataType::Null))
+                        .unwrap_or((&"".into(), &DataType::Null))
                         .0)
                 })
                 .collect::<Vec<_>>();
