@@ -910,7 +910,7 @@ fn fill_todo(
                 Ok(mut children) => {
                     if options.require_literal_leading_dot {
                         children.retain(|x| {
-                            !x.file_name()
+                            x.file_name()
                                 .expect("internal error: getting filename")
                                 .to_str()
                                 .expect("internal error: filename to_str")
