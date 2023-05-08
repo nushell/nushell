@@ -9,7 +9,7 @@ export use iter *
 export use log *
 export use testing *
 export use xml *
-export use dt datetime-diff
+export use dt [datetime-diff, pretty-print-duration]
 
 # Add the given paths to the PATH.
 #
@@ -172,7 +172,7 @@ def "from ns" [] {
 # >
 # ```
 #
-# > **Note**  
+# > **Note**
 # > `std bench --pretty` will return a `string`.
 #
 # # Examples
@@ -244,7 +244,7 @@ Our (ansi green)Documentation(ansi reset) is located at (ansi green)https://nush
 Learn how to remove this at: (ansi green)https://nushell.sh/book/configuration.html#remove-welcome-message(ansi reset)
 
 It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
-(($dt).year)yr (($dt).month)month (($dt).day)day (($dt).hour)hr (($dt).minute)min (($dt).second)sec (($dt).millisecond)ms (($dt).microsecond)µs
+(pretty-print-duration $dt)
 
 Startup Time: ($nu.startup-time)
 "

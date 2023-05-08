@@ -8,7 +8,6 @@ def borrow-year [from: record, current: record] {
 }
 
 def leap-year-days [year] {
-    # ($year mod 4) == 0 and (($year mod 100 != 0) or ($year mod 400 == 0))
     if $year mod 400 == 0  {
         29
     } else if $year mod 4 == 0 and $year mod 100 != 0 {
@@ -34,7 +33,6 @@ def borrow-month [from: record, current: record] {
         }
     } else {
         # oh February
-        # let num_days_feb = if $current.from mod 400 == 0 { 29 } else if $current.from mod 4 == 0 and $current.from mod 100 != 0 { 29 } else { 28 }
         let num_days_feb = (leap-year-days $current.year)
         $current.day = $current.day + $num_days_feb
         $current.month = $current.month - 1
@@ -152,10 +150,77 @@ export def datetime-diff [from: datetime, to: datetime] {
     }
 
     $result.millisecond = ($result.nanosecond / 1_000_000 | into int) # don't want a decimal
-    $result.microsecond = (($result.nanosecond mod 1_000_000) / 1_000)
-    $result.nanosecond = ($result.nanosecond mod 1_000)
+    $result.microsecond = (($result.nanosecond mod 1_000_000) / 1_000 | into int)
+    $result.nanosecond = ($result.nanosecond mod 1_000 | into int)
 
     $result
 }
 
+export def pretty-print-duration [dur: duration] {
+    mut result = ""
+    if $dur.year > 0 {
+        if $dur.year > 1 {
+            $result = $"($dur.year)yrs "
+        } else {
+            $result = $"($dur.year)yr "
+        }
+    }
+    if $dur.month > 0 {
+        if $dur.month > 1 {
+            $result = $"($result)($dur.month)months "
+        } else {
+            $result = $"($result)($dur.month)month "
+        }
+    }
+    if $dur.day > 0 {
+        if $dur.day > 1 {
+            $result = $"($result)($dur.day)days "
+        } else {
+            $result = $"($result)($dur.day)day "
+        }
+    }
+    if $dur.hour > 0 {
+        if $dur.hour > 1 {
+            $result = $"($result)($dur.hour)hrs "
+        } else {
+            $result = $"($result)($dur.hour)hr "
+        }
+    }
+    if $dur.minute > 0 {
+        if $dur.minute > 1 {
+            $result = $"($result)($dur.minute)mins "
+        } else {
+            $result = $"($result)($dur.minute)min "
+        }
+    }
+    if $dur.second > 0 {
+        if $dur.second > 1 {
+            $result = $"($result)($dur.second)secs "
+        } else {
+            $result = $"($result)($dur.second)sec "
+        }
+    }
+    if $dur.millisecond > 0 {
+        if $dur.millisecond > 1 {
+            $result = $"($result)($dur.millisecond)ms "
+        } else {
+            $result = $"($result)($dur.millisecond)ms "
+        }
+    }
+    if $dur.microsecond > 0 {
+        if $dur.microsecond > 1 {
+            $result = $"($result)($dur.microsecond)µs "
+        } else {
+            $result = $"($result)($dur.microsecond)µs "
+        }
+    }
+    if $dur.nanosecond > 0 {
+        if $dur.nanosecond > 1 {
+            $result = $"($result)($dur.nanosecond)ns "
+        } else {
+            $result = $"($result)($dur.nanosecond)ns "
+        }
+    }
 
+    $result
+}
