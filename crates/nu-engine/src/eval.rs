@@ -969,7 +969,6 @@ pub fn eval_element_with_input(
                 )
                 .map(|x| x.0)?,
             };
-            println!("debug redirect input: {input:?}");
             eval_element_with_input(
                 engine_state,
                 stack,
