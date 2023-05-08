@@ -426,25 +426,29 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             }
         }
-        Expr::SortBy { expr, by, reverse } => {
+        Expr::SortBy {
+            expr,
+            by,
+            descending,
+        } => {
             let expr = expr_to_value(expr.as_ref(), span);
             let by: Vec<Value> = by.iter().map(|b| expr_to_value(b, span)).collect();
             let by = Value::List { vals: by, span };
 
-            let reverse: Vec<Value> = reverse
+            let descending: Vec<Value> = descending
                 .iter()
                 .map(|r| Value::Bool { val: *r, span })
                 .collect();
-            let reverse = Value::List {
-                vals: reverse,
+            let descending = Value::List {
+                vals: descending,
                 span,
             };
 
-            let cols = vec!["expr".into(), "by".into(), "reverse".into()];
+            let cols = vec!["expr".into(), "by".into(), "descending".into()];
 
             Value::Record {
                 cols,
-                vals: vec![expr, by, reverse],
+                vals: vec![expr, by, descending],
                 span,
             }
         }
