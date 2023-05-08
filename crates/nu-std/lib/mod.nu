@@ -9,6 +9,7 @@ export use iter *
 export use log *
 export use testing *
 export use xml *
+export use dt datetime-diff
 
 # Add the given paths to the PATH.
 #
@@ -230,6 +231,7 @@ export def bench [
 # Example:
 # an example can be found in [this asciinema recording](https://asciinema.org/a/566513)
 export def banner [] {
+let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 $"(ansi green)     __  ,(ansi reset)
 (ansi green) .--\(\)°'.' (ansi reset)Welcome to (ansi green)Nushell(ansi reset),
 (ansi green)'|, . ,'   (ansi reset)based on the (ansi green)nu(ansi reset) language,
@@ -242,7 +244,7 @@ Our (ansi green)Documentation(ansi reset) is located at (ansi green)https://nush
 Learn how to remove this at: (ansi green)https://nushell.sh/book/configuration.html#remove-welcome-message(ansi reset)
 
 It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
-((date now) - 2019-05-10T09:59:12-07:00)
+(($dt).year)yr (($dt).month)month (($dt).day)day (($dt).hour)hr (($dt).minute)min (($dt).second)sec (($dt).millisecond)ms (($dt).microsecond)µs
 
 Startup Time: ($nu.startup-time)
 "
