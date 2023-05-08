@@ -82,7 +82,7 @@ fn command(
         )
     })?;
 
-    let res = chunked.contains(&pattern).map_err(|e| {
+    let res = chunked.contains(&pattern, false).map_err(|e| {
         ShellError::GenericError(
             "Error searching in series".into(),
             e.to_string(),
