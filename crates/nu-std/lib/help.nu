@@ -569,7 +569,6 @@ def show-command [command: record] {
 
         print ""
         print-help-header "Flags"
-        print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for flag in $flags {
             let flag_parts = [ "  ",
                 (if ($flag.short_flag | is-empty) { "" } else {
@@ -590,6 +589,7 @@ def show-command [command: record] {
             ]
             print ($flag_parts | str join "")
         }
+        print $"  (ansi teal)-h(ansi reset), --(ansi teal)help(ansi reset) - Display the help message for this command"
 
         print ""
         print-help-header "Signatures"
