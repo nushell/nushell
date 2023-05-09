@@ -72,8 +72,8 @@ fn test_no_color_flag() {
     );
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body>Change directory.<br><br>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help - Display the help message for this command<br><br>Signatures:<br>  &lt;nothing&gt; | cd &lt;string?&gt; -&gt; &lt;nothing&gt;<br>  &lt;string&gt; | cd &lt;string?&gt; -&gt; &lt;nothing&gt;<br><br>Parameters:<br>  (optional) path &lt;directory&gt;: the path to change to<br><br>Examples:<br>  Change to your home directory<br>  &gt; cd ~<br><br>  Change to a directory via abbreviations<br>  &gt; cd d/s/9<br><br>  Change to the previous working directory ($OLDPWD)<br>  &gt; cd -<br><br></body></html>"
-    );
+        r"<html><style>body { background-color:white;color:black; }</style><body>Change directory.<br><br>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help - Display the help message for this command<br><br>Signatures:<br>  &lt;nothing&gt; | cd &lt;string?&gt; -&gt; &lt;nothing&gt;<br>  &lt;string&gt; | cd &lt;string?&gt; -&gt; &lt;nothing&gt;<br><br>Parameters:<br>  path &lt;directory&gt;: the path to change to (optional)<br><br>Examples:<br>  Change to your home directory<br>  &gt; cd ~<br><br>  Change to a directory via abbreviations<br>  &gt; cd d/s/9<br><br>  Change to the previous working directory ($OLDPWD)<br>  &gt; cd -<br><br></body></html>"
+    )
 }
 
 #[test]
