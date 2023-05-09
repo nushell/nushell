@@ -141,7 +141,7 @@ expr_command!(
         example: "",
         result: None,
     }],
-    list,
+    implode,
     test_list
 );
 

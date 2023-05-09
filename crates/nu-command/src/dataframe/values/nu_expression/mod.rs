@@ -277,7 +277,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 | AggExpr::First(expr)
                 | AggExpr::Last(expr)
                 | AggExpr::Mean(expr)
-                | AggExpr::List(expr)
+                | AggExpr::Implode(expr)
                 | AggExpr::Count(expr)
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
