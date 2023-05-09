@@ -372,7 +372,7 @@ fn rm_prints_filenames_on_error() {
         let test_dir = dirs.test();
 
         set_dir_read_only(test_dir, true);
-        let _cleanup = Cleanup{dir_to_clean: &dirs.test};
+        let _cleanup = Cleanup{dir_to_clean: &test_dir};
 
         let actual = nu!(
             cwd: test_dir,
