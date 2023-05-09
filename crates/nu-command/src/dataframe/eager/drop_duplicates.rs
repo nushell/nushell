@@ -97,7 +97,7 @@ fn command(
     };
 
     df.as_ref()
-        .unique(subset_slice, keep_strategy)
+        .unique(subset_slice, keep_strategy, None)
         .map_err(|e| {
             ShellError::GenericError(
                 "Error dropping duplicates".into(),

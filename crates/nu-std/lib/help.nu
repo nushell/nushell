@@ -246,13 +246,7 @@ export def "help modules" [
     let module = ($module | str join " ")
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | find $find --columns [name usage])
-
-        if ($found_modules | length) == 1 {
-            show-module ($found_modules | get 0)
-        } else {
-            $found_modules
-        }
+        $modules | find $find --columns [name usage]
     } else if not ($module | is-empty) {
         let found_module = ($modules | where name == $module)
 
@@ -285,16 +279,16 @@ def show-alias [alias: record] {
 #     > let us define a bunch of aliases
 #     > ```nushell
 #     > # my foo alias
-#     > old-alias foo = echo "this is foo"
+#     > alias foo = echo "this is foo"
 #     >
 #     > # my bar alias
-#     > old-alias bar = echo "this is bar"
+#     > alias bar = echo "this is bar"
 #     >
 #     > # my baz alias
-#     > old-alias baz = echo "this is baz"
+#     > alias baz = echo "this is baz"
 #     >
 #     > # a multiline alias
-#     > old-alias multi = echo "this
+#     > alias multi = echo "this
 #     > is
 #     > a
 #     > multiline
@@ -356,13 +350,7 @@ export def "help aliases" [
     let alias = ($alias | str join " ")
 
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find --columns [name usage])
-
-        if ($found_aliases | length) == 1 {
-            show-alias ($found_aliases | get 0)
-        } else {
-            $found_aliases
-        }
+        $aliases | find $find --columns [name usage]
     } else if not ($alias | is-empty) {
         let found_alias = ($aliases | where name == $alias)
 
@@ -402,13 +390,7 @@ export def "help externs" [
     let extern = ($extern | str join " ")
 
     if not ($find | is-empty) {
-        let found_externs = ($externs | find $find --columns [name usage])
-
-        if ($found_externs | length) == 1 {
-            show-extern ($found_externs | get 0)
-        } else {
-            $found_externs
-        }
+        $externs | find $find --columns [name usage]
     } else if not ($extern | is-empty) {
         let found_extern = ($externs | where name == $extern)
 
@@ -474,13 +456,7 @@ export def "help operators" [
     let operator = ($operator | str join " ")
 
     if not ($find | is-empty) {
-        let found_operators = ($operators | find $find --columns [type name])
-
-        if ($found_operators | length) == 1 {
-            show-operator ($found_operators | get 0)
-        } else {
-            $found_operators
-        }
+        $operators | find $find --columns [type name]
     } else if not ($operator | is-empty) {
         let found_operator = ($operators | where name == $operator)
 
@@ -653,7 +629,7 @@ def show-command [command: record] {
     print ""
 }
 
-# Show help on nushell commands.
+# Show help on commands.
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
@@ -663,18 +639,18 @@ export def "help commands" [
     let command = ($command | str join " ")
 
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find --columns [name usage search_terms])
-
-        if ($found_commands | length) == 1 {
-            show-command ($found_commands | get 0)
-        } else {
-            $found_commands | select name category usage signatures search_terms
-        }
+        # TODO: impl find for external commands
+        $commands | find $find --columns [name usage search_terms] | select name category usage signatures search_terms
     } else if not ($command | is-empty) {
         let found_command = ($commands | where name == $command)
 
         if ($found_command | is-empty) {
-            command-not-found-error (metadata $command | get span)
+            try {
+                print $"(ansi default_italic)Help pages from external command ($command | pretty-cmd):(ansi reset)"
+                ^($env.NU_HELPER? | default "man") $command
+            } catch {
+                command-not-found-error (metadata $command | get span)
+            }
         }
 
         show-command ($found_command | get 0)
@@ -741,4 +717,14 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let modules = (try { help modules $item --find $find })
     if not ($modules | is-empty) { return $modules }
+
+    let span = (metadata $item | get span)
+    error make {
+        msg: ("std::help::item_not_found"  | error-fmt)
+        label: {
+            text: "item not found"
+            start: $span.start
+            end: $span.end
+        }
+    }
 }

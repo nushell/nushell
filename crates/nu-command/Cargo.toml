@@ -38,12 +38,15 @@ base64 = "0.21.0"
 byteorder = "1.4.3"
 bytesize = "1.2.0"
 calamine = "0.19.1"
-chrono = { version = "0.4.23", features = ["std", "unstable-locales"], default-features = false }
+chrono = { version = "0.4.23", features = [
+	"std",
+	"unstable-locales",
+], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.8.1"
 crossterm = "0.26"
 csv = "1.2.0"
-dialoguer = { default-features = false, version = "0.10.3" }
+dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10.3" }
 digest = { default-features = false, version = "0.10.0" }
 dtparse = "1.4.0"
 encoding_rs = "0.8.30"
@@ -73,7 +76,12 @@ quick-xml = "0.28"
 rand = "0.8"
 rayon = "1.7.0"
 regex = "1.7.1"
-ureq = { version = "2.6.2", default-features = false, features = ["json", "charset", "native-tls", "gzip"] }
+ureq = { version = "2.6.2", default-features = false, features = [
+	"json",
+	"charset",
+	"native-tls",
+	"gzip",
+] }
 native-tls = "0.2.11"
 roxmltree = "0.18.0"
 rust-embed = "6.6.0"
@@ -143,7 +151,7 @@ features = [
 	"to_dummies",
 ]
 optional = true
-version = "0.27.2"
+version = "0.28.0"
 
 [target.'cfg(windows)'.dependencies.windows]
 features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
@@ -152,7 +160,9 @@ version = "0.48.0"
 [features]
 dataframe = ["num", "polars", "sqlparser"]
 plugin = ["nu-parser/plugin"]
-sqlite = ["rusqlite"]                      # TODO: given that rusqlite is included in reedline, should we just always include it?
+sqlite = [
+	"rusqlite",
+] # TODO: given that rusqlite is included in reedline, should we just always include it?
 trash-support = ["trash"]
 which-support = ["which"]
 

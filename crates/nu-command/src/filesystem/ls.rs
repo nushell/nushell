@@ -143,7 +143,7 @@ impl Command for Ls {
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("./*"), call_span, false)
+                    (PathBuf::from("*"), call_span, false)
                 }
             }
         };
