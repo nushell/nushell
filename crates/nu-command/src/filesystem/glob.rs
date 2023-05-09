@@ -44,7 +44,7 @@ impl Command for Glob {
             .named(
                 "not",
                 SyntaxShape::String,
-                "Pattern NOT to match",
+                "Pattern to exclude from the results",
                 Some('n'),
             )
             .category(Category::FileSystem)
@@ -108,7 +108,7 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description: "Search for files name tsconfig.json that are not in node_modules directories",
+                description: "Search for files named tsconfig.json that are not in node_modules directories",
                 example: r#"glob **/tsconfig.json --not **/node_modules/**"#,
                 result: None,
             },
