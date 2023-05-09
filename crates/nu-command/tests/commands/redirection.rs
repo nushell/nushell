@@ -149,7 +149,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
         let expected_file = dirs.test().join("another_large_file.txt");
         let actual = file_contents(expected_file);
-        assert_eq!(actual.trim(), large_file_body);
+        assert_eq!(actual, format!("{large_file_body}\n"));
     })
 }
 
