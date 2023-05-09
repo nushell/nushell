@@ -571,11 +571,24 @@ def show-command [command: record] {
         print-help-header "Flags"
         print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for flag in $flags {
-            print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
-            if not ($flag.syntax_shape | is-empty) {
-                print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
-            }
-            print $" - ($flag.description)"
+            let flag_parts = [ "  ",
+                (if ($flag.short_flag | is-empty) { "" } else {
+                    $"-(ansi teal)($flag.short_flag)(ansi reset), "
+                }),
+                (if ($flag.parameter_name | is-empty) { "" } else {
+                    $"--(ansi teal)($flag.parameter_name)(ansi reset)"
+                }),
+                (if ($flag.syntax_shape | is-empty) { "" } else {
+                    $": <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+                }),
+                (if ($flag.description | is-empty) { "" } else {
+                    $" - ($flag.description)"
+                }),
+                (if ($flag.parameter_default | is-empty) { "" } else {
+                    $" \(default: ($flag.parameter_default)\)"
+                }),
+            ]
+            print ($flag_parts | str join "")
         }
 
         print ""
