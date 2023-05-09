@@ -60,17 +60,19 @@ export def "iter find" [ # -> any | null
 export def "iter find-index" [ # -> int
     fn: closure                # the closure used to perform the search
 ] {
-    try {
-        $in 
-        | enumerate 
+    let matches = (
+        enumerate
         | each {|it|
             if (do $fn $it.item) {
                 $it.index
             }
-        } 
-        | first
-    } catch {
-        (-1)
+        }
+    )
+
+    if ($matches | is-empty) {
+        -1
+    } else {
+        $matches | first
     }
 }
 
@@ -166,6 +168,7 @@ export def "iter filter-map" [ # -> list<any>
 # let res = (
 #     [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
 # )
+# assert equal $res [6 9 18]
 # ```
 export def "iter flat-map" [ # -> list<any>
     fn: closure              # the closure to map to the nested structures
@@ -189,8 +192,7 @@ export def "iter zip-with" [ # -> list<any>
     other: any               # the structure to zip with
     fn: closure              # the closure to apply to the zips
 ] {
-    $in 
-    | zip $other 
+    zip $other 
     | each {|it|
         reduce {|it, acc| do $fn $acc $it }
     }
