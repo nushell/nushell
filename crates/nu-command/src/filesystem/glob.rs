@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use wax::{Glob as WaxGlob, WalkBehavior};
 
@@ -40,6 +40,12 @@ impl Command for Glob {
                 "no-symlink",
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
+            )
+            .named(
+                "not",
+                SyntaxShape::String,
+                "Pattern NOT to match",
+                Some('n'),
             )
             .category(Category::FileSystem)
     }
@@ -101,6 +107,12 @@ impl Command for Glob {
                 example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
                 result: None,
             },
+            Example {
+                description: "Search for files name tsconfig.json that are not in node_modules directories",
+                example: r#"glob **/tsconfig.json --not **/node_modules/**"#,
+                result: None,
+            },
+
         ]
     }
 
@@ -120,10 +132,10 @@ impl Command for Glob {
         let path = current_dir(engine_state, stack)?;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
-
         let no_dirs = call.has_flag("no-dir");
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
+        let not_pattern: Option<Spanned<String>> = call.get_flag(engine_state, stack, "not")?;
 
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
@@ -154,7 +166,12 @@ impl Command for Glob {
             }
         };
 
-        #[allow(clippy::needless_collect)]
+        let (not_pat, not_span) = if let Some(not_pat) = not_pattern {
+            (not_pat.item, not_pat.span)
+        } else {
+            (String::new(), Span::test_data())
+        };
+
         let glob_results = glob
             .walk_with_behavior(
                 path,
@@ -163,7 +180,18 @@ impl Command for Glob {
                     ..Default::default()
                 },
             )
+            .not([not_pat.as_str()])
+            .map_err(|err| {
+                ShellError::GenericError(
+                    "error with glob's not pattern".to_string(),
+                    format!("{err}"),
+                    Some(not_span),
+                    None,
+                    Vec::new(),
+                )
+            })?
             .flatten();
+
         let mut result: Vec<Value> = Vec::new();
         for entry in glob_results {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
