@@ -152,7 +152,7 @@ fn fmt_it_64(num: f64, span: Span) -> Value {
     vals.push(Value::string(format!("{:x}", num.to_bits()), span));
 
     cols.push("octal".into());
-    vals.push(Value::string(format!("{:o}", num.trunc() as i64), span));
+    vals.push(Value::string(format!("{:o}", num.to_bits()), span));
 
     // cols.push("pointer".into());
     // vals.push(Value::string(format!("{:#p}", &num), span));
