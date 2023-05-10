@@ -234,6 +234,7 @@ pub(crate) fn run_repl(
         &mut stack,
         config_files::NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,
+        parsed_nu_cli_args.no_std_lib,
         entire_start_time,
     );
     perf(

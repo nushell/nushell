@@ -11,13 +11,13 @@ use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
 use nu_command::hook::eval_hook;
 use nu_command::util::get_guaranteed_cwd;
-use nu_engine::{convert_env_values, eval_block};
-use nu_parser::{lex, parse, trim_quotes_str};
+use nu_engine::convert_env_values;
+use nu_parser::{lex, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    format_duration, report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError,
-    Span, Spanned, Value,
+    report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_utils::utils::perf;
 use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
@@ -43,6 +43,7 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
+    load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
     use nu_command::hook;
@@ -153,19 +154,8 @@ pub fn evaluate_repl(
 
     start_time = std::time::Instant::now();
     let sys = sysinfo::System::new();
-
-    let show_banner = config.show_banner;
-    let use_ansi = config.use_ansi_coloring;
-    if show_banner {
-        let banner = get_banner(engine_state, stack);
-        if use_ansi {
-            println!("{banner}");
-        } else {
-            println!("{}", nu_utils::strip_ansi_string_likely(banner));
-        }
-    }
     perf(
-        "get sysinfo/show banner",
+        "get sysinfo",
         start_time,
         file!(),
         line!(),
@@ -183,6 +173,19 @@ pub fn evaluate_repl(
             false,
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
+    }
+
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
+    if load_std_lib.is_none() && engine_state.get_config().show_banner {
+        eval_source(
+            engine_state,
+            stack,
+            r#"use std banner; banner"#.as_bytes(),
+            "show_banner",
+            PipelineData::empty(),
+            false,
+        );
     }
 
     loop {
@@ -444,16 +447,6 @@ pub fn evaluate_repl(
         );
 
         entry_num += 1;
-
-        if entry_num == 1 {
-            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-            if show_banner {
-                println!(
-                    "Startup Time: {}",
-                    format_duration(engine_state.get_startup_time())
-                );
-            }
-        }
 
         start_time = std::time::Instant::now();
         let input = line_editor.read_line(prompt);
@@ -738,104 +731,6 @@ fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
         NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
         NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
     }
-}
-
-fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
-    let age = match eval_string_with_input(
-        engine_state,
-        stack,
-        None,
-        "(date now) - ('2019-05-10 09:59:12-0700' | into datetime)",
-    ) {
-        Ok(Value::Duration { val, .. }) => format_duration(val),
-        _ => "".to_string(),
-    };
-
-    let banner = format!(
-        r#"{}     __  ,
-{} .--()°'.' {}Welcome to {}Nushell{},
-{}'|, . ,'   {}based on the {}nu{} language,
-{} !_-(_\    {}where all data is structured!
-
-Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
-Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
-Our {}Documentation{} is located at {}https://nushell.sh{}
-{}Tweet{} us at {}@nu_shell{}
-Learn how to remove this at: {}https://nushell.sh/book/configuration.html#remove-welcome-message{}
-
-It's been this long since {}Nushell{}'s first commit:
-{}{}
-"#,
-        "\x1b[32m",   //start line 1 green
-        "\x1b[32m",   //start line 2
-        "\x1b[0m",    //before welcome
-        "\x1b[32m",   //before nushell
-        "\x1b[0m",    //after nushell
-        "\x1b[32m",   //start line 3
-        "\x1b[0m",    //before based
-        "\x1b[32m",   //before nu
-        "\x1b[0m",    //after nu
-        "\x1b[32m",   //start line 4
-        "\x1b[0m",    //before where
-        "\x1b[35m",   //before Discord purple
-        "\x1b[0m",    //after Discord
-        "\x1b[35m",   //before Discord URL
-        "\x1b[0m",    //after Discord URL
-        "\x1b[1;32m", //before GitHub green_bold
-        "\x1b[0m",    //after GitHub
-        "\x1b[1;32m", //before GitHub URL
-        "\x1b[0m",    //after GitHub URL
-        "\x1b[32m",   //before Documentation
-        "\x1b[0m",    //after Documentation
-        "\x1b[32m",   //before Documentation URL
-        "\x1b[0m",    //after Documentation URL
-        "\x1b[36m",   //before Tweet blue
-        "\x1b[0m",    //after Tweet
-        "\x1b[1;36m", //before @nu_shell cyan_bold
-        "\x1b[0m",    //after @nu_shell
-        "\x1b[32m",   //before Welcome Message
-        "\x1b[0m",    //after Welcome Message
-        "\x1b[32m",   //before Nushell
-        "\x1b[0m",    //after Nushell
-        age,
-        "\x1b[0m", //after banner disable
-    );
-
-    banner
-}
-
-// Taken from Nana's simple_eval
-/// Evaluate a block of Nu code, optionally with input.
-/// For example, source="$in * 2" will multiply the value in input by 2.
-pub fn eval_string_with_input(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    input: Option<Value>,
-    source: &str,
-) -> Result<Value, ShellError> {
-    let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let output = parse(&mut working_set, None, source.as_bytes(), false);
-
-        (output, working_set.render())
-    };
-
-    engine_state.merge_delta(delta)?;
-
-    let input_as_pipeline_data = match input {
-        Some(input) => PipelineData::Value(input, None),
-        None => PipelineData::empty(),
-    };
-
-    eval_block(
-        engine_state,
-        stack,
-        &block,
-        input_as_pipeline_data,
-        false,
-        true,
-    )
-    .map(|x| x.into_value(Span::unknown()))
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
