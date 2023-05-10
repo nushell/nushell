@@ -119,3 +119,44 @@ fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() 
         assert_eq!(actual.out, r#"["arepas.clu"]"#);
     })
 }
+
+#[test]
+fn find_in_table_only_keep_rows_with_matches_on_selected_columns() {
+    Playground::setup("filepath_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("file.txt"),
+            EmptyFile("arepas.clu"),
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls | find file --columns [name] | get name | to json -r"
+        );
+
+        assert!(actual.out.contains("file"));
+        assert!(!actual.out.contains("arepas"));
+        assert!(!actual.out.contains("los"));
+        assert!(!actual.out.contains("tres"));
+    })
+}
+
+#[test]
+fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
+    Playground::setup("filepath_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("file.txt"),
+            EmptyFile("arepas.clu"),
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "ls | find file --columns [name] --invert | get name | to json -r"
+        );
+
+        assert_eq!(actual.out, r#"["arepas.clu","los.txt","tres.txt"]"#);
+    })
+}
