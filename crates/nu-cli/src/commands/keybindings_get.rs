@@ -43,9 +43,10 @@ impl Command for KeybindingsGet {
 There can be 5 different type of events: focus, key, mouse, paste, resize. Each will empit a
 corresponding record, distinguished by field type:
 { type: focus event: (gained|lost) }
-{ type: key key: <string> modifiers: [ (shift|control|alt|super|hyper|meta) ... ] }
-{ type: mouse }
+{ type: key key: <string> modifiers: [ <modifier> ... ] }
+{ type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
 { type: resize col: <int> row: <int> }
+There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
         "#
     }
 
