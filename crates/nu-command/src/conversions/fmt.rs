@@ -89,7 +89,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer or filesize".into(),
+                exp_input_type: "float , integer or filesize".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.expect_span(),
