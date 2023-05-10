@@ -40,11 +40,12 @@ impl Command for KeybindingsGet {
 
     fn extra_usage(&self) -> &str {
         r#"
-There can be 5 different type of events: focus, key, mouse, paste, resize. Each will empit a
+There can be 5 different type of events: focus, key, mouse, paste, resize. Each will emit a
 corresponding record, distinguished by field type:
 { type: focus event: (gained|lost) }
 { type: key key: <string> modifiers: [ <modifier> ... ] }
 { type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
+{ type: paste content: <string> }
 { type: resize col: <int> row: <int> }
 There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
         "#
@@ -167,7 +168,7 @@ fn parse_event(
         }
         crossterm::event::Event::Key(event) => create_key_event(head, filter, event),
         crossterm::event::Event::Mouse(event) => create_mouse_event(head, filter, event),
-        crossterm::event::Event::Paste(_) => None,
+        crossterm::event::Event::Paste(content) => create_paste_event(head, filter, content),
         crossterm::event::Event::Resize(cols, rows) => {
             create_resize_event(head, filter, *cols, *rows)
         }
@@ -301,6 +302,23 @@ fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) 
         let modifiers = parse_modifiers(head, &event.modifiers);
 
         let vals = vec![typ, col, row, kind, modifiers];
+
+        Some(Value::record(cols, vals, head))
+    } else {
+        None
+    }
+}
+
+fn create_paste_event(
+    head: Span,
+    filter: &EventTypeFilter,
+    content: &String) -> Option<Value> {
+    if filter.listen_paste {
+        let cols = vec!["type".to_string(), "content".to_string()];
+        let vals = vec![
+            Value::string("paste", head),
+            Value::string(content.clone(), head),
+        ];
 
         Some(Value::record(cols, vals, head))
     } else {
