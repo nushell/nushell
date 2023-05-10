@@ -3006,6 +3006,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "rstest",
  "serde",
  "serde_json",
  "strum",

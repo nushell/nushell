@@ -644,12 +644,16 @@ impl Value {
     }
 
     /// Convert Value into a parsable string (quote strings)
-    /// bugbug other, rarer types not handled
-
+    ///
+    /// Strings with single quote will be problematic, but
+    /// Nu doesn't have a quoting rule for a string that
+    /// has an embedded single quote.  Worst case is
+    /// a string that has both embedded backtic and single quote.
     pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
-            Value::String { val, .. } => format!("'{}'", val),
+            Value::String { val, .. } => format!("'{}'", val), // explicitly not val.replace("'", "''")
+            Value::Date { val, .. } => val.to_rfc3339(), // date in rfc 2229 format not parsable
 
             // recurse back into this function for recursive formatting
             Value::List { vals: val, .. } => format!(
@@ -667,6 +671,15 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
+            Value::LazyRecord { val, .. } => {
+                let collected = match val.collect() {
+                    Ok(val) => val,
+                    Err(error) => Value::Error {
+                        error: Box::new(error),
+                    },
+                };
+                collected.into_string_parsable(separator, config)
+            }
 
             // defer to standard handling for types where standard representation is parsable
             _ => self.into_string(separator, config),
@@ -805,9 +818,7 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
-                                return Err(ShellError::AccessBeyondEndOfStream {
-  span: *origin_span
-});
+                                return Err(ShellError::AccessBeyondEndOfStream {span: *origin_span});
                             }
                         }
                         Value::CustomValue { val, .. } => {
@@ -1676,6 +1687,14 @@ impl Value {
         }
     }
 
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_list(vals: Vec<Value>) -> Value {
+        Value::List {
+            vals,
+            span: Span::test_data(),
+        }
+    }
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
