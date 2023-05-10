@@ -161,10 +161,11 @@ fn fmt_it_64(num: f64, span: Span) -> Value {
     vals.push(Value::string(format!("{num:#E}"), span));
 
     cols.push("upperhex".into());
-    vals.push(Value::string(format!("{:}", num.to_bits()), span));
+    vals.push(Value::string(format!("{:X}", num.to_bits()), span));
 
     Value::Record { cols, vals, span }
 }
+
 #[cfg(test)]
 mod test {
     use super::*;
