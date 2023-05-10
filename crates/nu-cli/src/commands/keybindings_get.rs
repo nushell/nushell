@@ -1,4 +1,6 @@
-use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -42,7 +44,8 @@ There can be 5 different type of events: focus, key, mouse, paste, resize. Each 
 corresponding record, distinguished by field type:
 { type: focus event: (gained|lost) }
 { type: key key: <string> modifiers: [ (shift|control|alt|super|hyper|meta) ... ] }
-{ type: resize columns: <int> rows: <int> }
+{ type: mouse }
+{ type: resize col: <int> row: <int> }
         "#
     }
 
@@ -162,7 +165,7 @@ fn parse_event(
             create_focus_event(head, filter, FocusEventType::Lost)
         }
         crossterm::event::Event::Key(event) => create_key_event(head, filter, event),
-        crossterm::event::Event::Mouse(_) => None,
+        crossterm::event::Event::Mouse(event) => create_mouse_event(head, filter, event),
         crossterm::event::Event::Paste(_) => None,
         crossterm::event::Event::Resize(cols, rows) => {
             create_resize_event(head, filter, *cols, *rows)
@@ -224,7 +227,11 @@ fn create_key_event(
             return None;
         }
 
-        let cols = vec!["type".to_string(), "key".to_string(), "modifiers".to_string()];
+        let cols = vec![
+            "type".to_string(),
+            "key".to_string(),
+            "modifiers".to_string(),
+        ];
 
         let typ = Value::string("key".to_string(), head);
         let key = Value::string(get_keycode_name(code), head);
@@ -257,13 +264,47 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
         KeyModifiers::META,
     ];
 
-    let parsed_modifiers = ALL_MODIFIERS.iter()
+    let parsed_modifiers = ALL_MODIFIERS
+        .iter()
         .filter(|m| modifiers.contains(**m))
         .map(|m| format!("{m:?}").to_lowercase())
         .map(|string| Value::string(string, head))
         .collect();
 
     Value::list(parsed_modifiers, head)
+}
+
+fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) -> Option<Value> {
+    if filter.listen_mouse {
+        let cols = vec![
+            "type".to_string(),
+            "col".to_string(),
+            "row".to_string(),
+            "kind".to_string(),
+            "modifiers".to_string(),
+        ];
+
+        let typ = Value::string("mouse".to_string(), head);
+        let col = Value::int(event.column as i64, head);
+        let row = Value::int(event.row as i64, head);
+
+        let kind = match event.kind {
+            MouseEventKind::Down(btn) => format!("{btn:?}_down").to_string(),
+            MouseEventKind::Up(btn) => format!("{btn:?}_up").to_string(),
+            MouseEventKind::Drag(btn) => format!("{btn:?}_drag").to_string(),
+            MouseEventKind::Moved => "moved".to_string(),
+            MouseEventKind::ScrollDown => "scroll_down".to_string(),
+            MouseEventKind::ScrollUp => "scroll_up".to_string(),
+        };
+        let kind = Value::string(kind, head);
+        let modifiers = parse_modifiers(head, &event.modifiers);
+
+        let vals = vec![typ, col, row, kind, modifiers];
+
+        Some(Value::record(cols, vals, head))
+    } else {
+        None
+    }
 }
 
 fn create_resize_event(
@@ -273,11 +314,7 @@ fn create_resize_event(
     rows: u16,
 ) -> Option<Value> {
     if filter.listen_resize {
-        let cols = vec![
-            "type".to_string(),
-            "columns".to_string(),
-            "rows".to_string(),
-        ];
+        let cols = vec!["type".to_string(), "col".to_string(), "row".to_string()];
         let vals = vec![
             Value::string("resize", head),
             Value::int(columns as i64, head),
