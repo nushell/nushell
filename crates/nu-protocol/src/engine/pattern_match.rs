@@ -149,9 +149,6 @@ impl Matcher for Pattern {
 
                         if let Expr::Int(size) = amount.expr {
                             &unit.item.to_value(size, span) == value
-                        } else if let Expr::Float(size) = amount.expr {
-                            let size = size.to_bits() as i64;
-                            &unit.item.to_value(size, span) == value
                         } else {
                             false
                         }
