@@ -10,6 +10,7 @@ export use log *
 export use testing *
 export use xml *
 export use dt [datetime-diff, pretty-print-duration]
+export use random-list *
 
 # Add the given paths to the PATH.
 #
