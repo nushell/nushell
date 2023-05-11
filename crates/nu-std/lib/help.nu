@@ -569,14 +569,27 @@ def show-command [command: record] {
 
         print ""
         print-help-header "Flags"
-        print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for flag in $flags {
-            print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
-            if not ($flag.syntax_shape | is-empty) {
-                print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
-            }
-            print $" - ($flag.description)"
+            let flag_parts = [ "  ",
+                (if ($flag.short_flag | is-empty) { "" } else {
+                    $"-(ansi teal)($flag.short_flag)(ansi reset), "
+                }),
+                (if ($flag.parameter_name | is-empty) { "" } else {
+                    $"--(ansi teal)($flag.parameter_name)(ansi reset)"
+                }),
+                (if ($flag.syntax_shape | is-empty) { "" } else {
+                    $": <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+                }),
+                (if ($flag.description | is-empty) { "" } else {
+                    $" - ($flag.description)"
+                }),
+                (if ($flag.parameter_default | is-empty) { "" } else {
+                    $" \(default: ($flag.parameter_default)\)"
+                }),
+            ]
+            print ($flag_parts | str join "")
         }
+        print $"  (ansi teal)-h(ansi reset), --(ansi teal)help(ansi reset) - Display the help message for this command"
 
         print ""
         print-help-header "Signatures"
@@ -595,16 +608,24 @@ def show-command [command: record] {
             print ""
             print-help-header "Parameters"
             for positional in $positionals {
-                print -n "  "
-                if ($positional.is_optional) {
-                    print -n "(optional) "
-                }
-                print $"(ansi teal)($positional.parameter_name)(ansi reset) <(ansi light_blue)($positional.syntax_shape)(ansi reset)>: ($positional.description)"
+                let arg_parts = [ "  ",
+                    $"(ansi teal)($positional.parameter_name)(ansi reset)",
+                    (if ($positional.syntax_shape | is-empty) { "" } else {
+                        $": <(ansi light_blue)($positional.syntax_shape)(ansi reset)>"
+                    }),
+                    (if ($positional.description | is-empty) { "" } else {
+                        $" ($positional.description)"
+                    }),
+                    (if ($positional.parameter_default | is-empty) { "" } else {
+                        $" \(optional, default: ($positional.parameter_default)\)"
+                    })
+                ]
+                print ($arg_parts | str join "")
             }
 
             if $is_rest {
                 let rest = ($parameters | where parameter_type == rest | get 0)
-                print $"  ...(ansi teal)rest(ansi reset) <(ansi light_blue)($rest.syntax_shape)(ansi reset)>: ($rest.description)"
+                print $"  ...(ansi teal)rest(ansi reset): <(ansi light_blue)($rest.syntax_shape)(ansi reset)> ($rest.description)"
             }
         }
     }
