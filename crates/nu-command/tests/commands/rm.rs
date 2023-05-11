@@ -360,7 +360,7 @@ impl<'a> Drop for Cleanup<'a> {
 
 #[test]
 // This test is only about verifying file names are included in rm error messages. It is easier
-// to only have this work on non-windows systems (i.e., unix-lik) than to try to get the
+// to only have this work on non-windows systems (i.e., unix-like) than to try to get the
 // permissions to work on all platforms.
 #[cfg(not(windows))]
 fn rm_prints_filenames_on_error() {
