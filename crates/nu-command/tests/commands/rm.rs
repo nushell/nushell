@@ -359,6 +359,10 @@ impl<'a> Drop for Cleanup<'a> {
 }
 
 #[test]
+// This test is only about verifying file names are included in rm error messages. It is easier
+// to only have this work on non-windows systems (i.e., unix-lik) than to try to get the
+// permissions to work on all platforms.
+#[cfg(not(windows))]
 fn rm_prints_filenames_on_error() {
     Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
         let file_names = vec!["test1.txt", "test2.txt"];
@@ -376,6 +380,7 @@ fn rm_prints_filenames_on_error() {
             dir_to_clean: &test_dir,
         };
 
+        // This rm is expected to fail, and stderr output indicating so is also expected.
         let actual = nu!(cwd: test_dir, "rm test*.txt");
 
         assert!(files_exist_at(file_names.clone(), test_dir));
