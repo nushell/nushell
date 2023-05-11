@@ -37,6 +37,45 @@ export def "iter find" [ # -> any | null
     }
 }
 
+# Returns the index of the first element that matches the predicate or
+# -1 if none
+#
+# # Invariant
+# > The closure has to return a bool
+#
+# # Example
+# ```nu
+# use std ["assert equal" "iter find-index"]
+#
+# let res = (
+#     ["iter", "abc", "shell", "around", "nushell", "std"]
+#     | iter find-index {|x| $x starts-with 's'}
+# )
+# assert equal $res 2
+#
+# let is_even = {|x| $x mod 2 == 0}
+# let res = ([3 5 13 91] | iter find-index $is_even)
+# assert equal $res -1
+# ```
+export def "iter find-index" [ # -> int
+    fn: closure                # the closure used to perform the search
+] {
+    let matches = (
+        enumerate
+        | each {|it|
+            if (do $fn $it.item) {
+                $it.index
+            }
+        }
+    )
+
+    if ($matches | is-empty) {
+        -1
+    } else {
+        $matches | first
+    }
+}
+
 # Returns a new list with the separator between adjacent
 # items of the original list
 #
@@ -48,10 +87,10 @@ export def "iter find" [ # -> any | null
 # assert equal $res [1 0 2 0 3 0 4]
 # ```
 export def "iter intersperse" [ # -> list<any>
-    separator: any,             # the separator to be used
+    separator: any              # the separator to be used
 ] {
     reduce -f [] {|it, acc|
-          $acc ++ [$it, $separator]
+         $acc ++ [$it, $separator]
     } 
     | match $in {
          [] => [],
@@ -83,14 +122,14 @@ export def "iter scan" [ # -> list<any>
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
 ] {                      
-   reduce -f [$init] {|it, acc|
-      $acc ++ [(do $fn ($acc | last) $it)]
-   }
-   | if $noinit {
-     $in | skip
-   } else {
-      $in
-   }
+    reduce -f [$init] {|it, acc|
+        $acc ++ [(do $fn ($acc | last) $it)]
+    }
+    | if $noinit {
+        $in | skip
+    } else {
+        $in
+    }
 }
 
 # Returns a list of values for which the supplied closure does not
@@ -117,5 +156,44 @@ export def "iter filter-map" [ # -> list<any>
     } 
     | filter {|it|
         $it != null
+    }
+}
+
+# Maps a closure to each nested structure and flattens the result
+#
+# # Example
+# ```nu
+# use std ["assert equal" "iter flat-map"]
+#
+# let res = (
+#     [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
+# )
+# assert equal $res [6 9 18]
+# ```
+export def "iter flat-map" [ # -> list<any>
+    fn: closure              # the closure to map to the nested structures
+] {
+    each {|it| do $fn $it } | flatten
+}
+
+# Zips two structures and applies a closure to each of the zips
+#
+# # Example
+# ```nu
+# use std ["assert equal" "iter iter zip-with"]
+#
+# let res = (
+#     [1 2 3] | iter zip-with [2 3 4] {|a, b| $a + $b }
+# )
+#
+# assert equal $res [3 5 7]
+# ```
+export def "iter zip-with" [ # -> list<any>
+    other: any               # the structure to zip with
+    fn: closure              # the closure to apply to the zips
+] {
+    zip $other 
+    | each {|it|
+        reduce {|it, acc| do $fn $acc $it }
     }
 }

@@ -61,7 +61,7 @@
 #![doc(
     html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
     html_favicon_url = "https://www.rust-lang.org/favicon.ico",
-    html_root_url = "https://docs.rs/glob/0.3.0"
+    html_root_url = "https://docs.rs/glob/0.3.1"
 )]
 #![deny(missing_docs)]
 
@@ -80,8 +80,10 @@ use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::str::FromStr;
 
+use CharSpecifier::{CharRange, SingleChar};
 use MatchResult::{EntirePatternDoesntMatch, Match, SubPatternDoesntMatch};
-use PatternToken::{AnyChar, AnyRecursiveSequence, AnySequence, Char};
+use PatternToken::AnyExcept;
+use PatternToken::{AnyChar, AnyRecursiveSequence, AnySequence, AnyWithin, Char};
 
 /// An iterator that yields `Path`s from the filesystem that match a particular
 /// pattern.
@@ -179,7 +181,10 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
     #[cfg(windows)]
     fn check_windows_verbatim(p: &Path) -> bool {
         match p.components().next() {
-            Some(Component::Prefix(ref p)) => p.kind().is_verbatim(),
+            Some(Component::Prefix(ref p)) => {
+                // Allow VerbatimDisk paths. std canonicalize() generates them, and they work fine
+                p.kind().is_verbatim() && !matches!(p.kind(), std::path::Prefix::VerbatimDisk(_))
+            }
             _ => false,
         }
     }
@@ -297,6 +302,11 @@ impl GlobError {
 }
 
 impl Error for GlobError {
+    #[allow(deprecated)]
+    fn description(&self) -> &str {
+        self.error.description()
+    }
+
     #[allow(unknown_lints, bare_trait_objects)]
     fn cause(&self) -> Option<&dyn Error> {
         Some(&self.error)
@@ -488,6 +498,21 @@ impl fmt::Display for PatternError {
 ///   sequence **must** form a single path component, so both `**a` and `b**`
 ///   are invalid and will result in an error.  A sequence of more than two
 ///   consecutive `*` characters is also invalid.
+///
+/// - `[...]` matches any character inside the brackets.  Character sequences
+///   can also specify ranges of characters, as ordered by Unicode, so e.g.
+///   `[0-9]` specifies any character between 0 and 9 inclusive. An unclosed
+///   bracket is invalid.
+///
+/// - `[!...]` is the negation of `[...]`, i.e. it matches any characters
+///   **not** in the brackets.
+///
+/// - The metacharacters `?`, `*`, `[`, `]` can be matched by using brackets
+///   (e.g. `[?]`).  When a `]` occurs immediately following `[` or `[!` then it
+///   is interpreted as being part of, rather then ending, the character set, so
+///   `]` and NOT `]` can be matched by `[]]` and `[!]]` respectively.  The `-`
+///   character can be specified inside a character sequence pattern by placing
+///   it at the start or the end, e.g. `[abc-]`.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Debug)]
 pub struct Pattern {
     original: String,
@@ -516,10 +541,17 @@ enum PatternToken {
     AnyChar,
     AnySequence,
     AnyRecursiveSequence,
+    AnyWithin(Vec<CharSpecifier>),
+    AnyExcept(Vec<CharSpecifier>),
 }
 
-#[allow(clippy::enum_variant_names)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+enum CharSpecifier {
+    SingleChar(char),
+    CharRange(char, char),
+}
+
+#[derive(Copy, Clone, PartialEq)]
 enum MatchResult {
     Match,
     SubPatternDoesntMatch,
@@ -529,6 +561,7 @@ enum MatchResult {
 const ERROR_WILDCARDS: &str = "wildcards are either regular `*` or recursive `**`";
 const ERROR_RECURSIVE_WILDCARDS: &str = "recursive wildcards must form a single path \
                                          component";
+const ERROR_INVALID_RANGE: &str = "invalid range pattern";
 
 impl Pattern {
     /// This function compiles Unix shell style patterns.
@@ -604,6 +637,36 @@ impl Pattern {
                         tokens.push(AnySequence);
                     }
                 }
+                '[' => {
+                    if i + 4 <= chars.len() && chars[i + 1] == '!' {
+                        match chars[i + 3..].iter().position(|x| *x == ']') {
+                            None => (),
+                            Some(j) => {
+                                let chars = &chars[i + 2..i + 3 + j];
+                                let cs = parse_char_specifiers(chars);
+                                tokens.push(AnyExcept(cs));
+                                i += j + 4;
+                                continue;
+                            }
+                        }
+                    } else if i + 3 <= chars.len() && chars[i + 1] != '!' {
+                        match chars[i + 2..].iter().position(|x| *x == ']') {
+                            None => (),
+                            Some(j) => {
+                                let cs = parse_char_specifiers(&chars[i + 1..i + 2 + j]);
+                                tokens.push(AnyWithin(cs));
+                                i += j + 3;
+                                continue;
+                            }
+                        }
+                    }
+
+                    // if we get here then this is not a valid range pattern
+                    return Err(PatternError {
+                        pos: i,
+                        msg: ERROR_INVALID_RANGE,
+                    });
+                }
                 c => {
                     tokens.push(Char(c));
                     i += 1;
@@ -618,6 +681,28 @@ impl Pattern {
         })
     }
 
+    /// Escape metacharacters within the given string by surrounding them in
+    /// brackets. The resulting string will, when compiled into a `Pattern`,
+    /// match the input string and nothing else.
+    pub fn escape(s: &str) -> String {
+        let mut escaped = String::new();
+        for c in s.chars() {
+            match c {
+                // note that ! does not need escaping because it is only special
+                // inside brackets
+                '?' | '*' | '[' | ']' => {
+                    escaped.push('[');
+                    escaped.push(c);
+                    escaped.push(']');
+                }
+                c => {
+                    escaped.push(c);
+                }
+            }
+        }
+        escaped
+    }
+
     /// Return if the given `str` matches this `Pattern` using the default
     /// match options (i.e. `MatchOptions::new()`).
     ///
@@ -627,6 +712,7 @@ impl Pattern {
     /// use nu_glob::Pattern;
     ///
     /// assert!(Pattern::new("c?t").unwrap().matches("cat"));
+    /// assert!(Pattern::new("k[!e]tteh").unwrap().matches("kitteh"));
     /// assert!(Pattern::new("d*g").unwrap().matches("doog"));
     /// ```
     pub fn matches(&self, str: &str) -> bool {
@@ -715,7 +801,7 @@ impl Pattern {
                     let is_sep = path::is_separator(c);
 
                     if !match *token {
-                        AnyChar
+                        AnyChar | AnyWithin(..) | AnyExcept(..)
                             if (options.require_literal_separator && is_sep)
                                 || (follows_separator
                                     && options.require_literal_leading_dot
@@ -724,6 +810,8 @@ impl Pattern {
                             false
                         }
                         AnyChar => true,
+                        AnyWithin(ref specifiers) => in_char_specifiers(specifiers, c, options),
+                        AnyExcept(ref specifiers) => !in_char_specifiers(specifiers, c, options),
                         Char(c2) => chars_eq(c, c2, options.case_sensitive),
                         AnySequence | AnyRecursiveSequence => unreachable!(),
                     } {
@@ -820,6 +908,16 @@ fn fill_todo(
             });
             match dirs {
                 Ok(mut children) => {
+                    // FIXME: This check messes up a lot of tests for some reason
+                    // if options.require_literal_leading_dot {
+                    //     children.retain(|x| {
+                    //         !x.file_name()
+                    //             .expect("internal error: getting filename")
+                    //             .to_str()
+                    //             .expect("internal error: filename to_str")
+                    //             .starts_with('.')
+                    //     });
+                    // }
                     children.sort_by(|p1, p2| p2.file_name().cmp(&p1.file_name()));
                     todo.extend(children.into_iter().map(|x| Ok((x, idx))));
 
@@ -850,6 +948,64 @@ fn fill_todo(
     }
 }
 
+fn parse_char_specifiers(s: &[char]) -> Vec<CharSpecifier> {
+    let mut cs = Vec::new();
+    let mut i = 0;
+    while i < s.len() {
+        if i + 3 <= s.len() && s[i + 1] == '-' {
+            cs.push(CharRange(s[i], s[i + 2]));
+            i += 3;
+        } else {
+            cs.push(SingleChar(s[i]));
+            i += 1;
+        }
+    }
+    cs
+}
+
+fn in_char_specifiers(specifiers: &[CharSpecifier], c: char, options: MatchOptions) -> bool {
+    for &specifier in specifiers.iter() {
+        match specifier {
+            SingleChar(sc) => {
+                if chars_eq(c, sc, options.case_sensitive) {
+                    return true;
+                }
+            }
+            CharRange(start, end) => {
+                // FIXME: work with non-ascii chars properly (issue #1347)
+                if !options.case_sensitive && c.is_ascii() && start.is_ascii() && end.is_ascii() {
+                    let start = start.to_ascii_lowercase();
+                    let end = end.to_ascii_lowercase();
+
+                    let start_up = start
+                        .to_uppercase()
+                        .next()
+                        .expect("internal error: getting start uppercase");
+                    let end_up = end
+                        .to_uppercase()
+                        .next()
+                        .expect("internal error: getting end uppercase");
+
+                    // only allow case insensitive matching when
+                    // both start and end are within a-z or A-Z
+                    if start != start_up && end != end_up {
+                        let c = c.to_ascii_lowercase();
+                        if c >= start && c <= end {
+                            return true;
+                        }
+                    }
+                }
+
+                if c >= start && c <= end {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 /// A helper function to determine if two chars are (possibly case-insensitively) equal.
 fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
     if cfg!(windows) && path::is_separator(a) && path::is_separator(b) {
@@ -863,6 +1019,7 @@ fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
 }
 
 /// Configuration options to modify the behaviour of `Pattern::matches_with(..)`.
+#[allow(missing_copy_implementations)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct MatchOptions {
     /// Whether or not patterns should be matched in a case-sensitive manner.
@@ -903,6 +1060,11 @@ impl MatchOptions {
     ///     recursive_match_hidden_dir: true,
     /// }
     /// ```
+    ///
+    /// # Note
+    /// The behavior of this method doesn't match `default()`'s. This returns
+    /// `case_sensitive` as `true` while `default()` does it as `false`.
+    // FIXME: Consider unity the behavior with `default()` in a next major release.
     pub fn new() -> Self {
         Self {
             case_sensitive: true,
@@ -926,16 +1088,29 @@ mod test {
 
     #[test]
     fn test_wildcard_errors() {
-        assert_eq!(Pattern::new("a/**b").unwrap_err().pos, 4);
-        assert_eq!(Pattern::new("a/bc**").unwrap_err().pos, 3);
-        assert_eq!(Pattern::new("a/*****").unwrap_err().pos, 4);
-        assert_eq!(Pattern::new("a/b**c**d").unwrap_err().pos, 2);
-        assert_eq!(Pattern::new("a**b").unwrap_err().pos, 0);
+        assert!(Pattern::new("a/**b").unwrap_err().pos == 4);
+        assert!(Pattern::new("a/bc**").unwrap_err().pos == 3);
+        assert!(Pattern::new("a/*****").unwrap_err().pos == 4);
+        assert!(Pattern::new("a/b**c**d").unwrap_err().pos == 2);
+        assert!(Pattern::new("a**b").unwrap_err().pos == 0);
+    }
+
+    #[test]
+    fn test_unclosed_bracket_errors() {
+        assert!(Pattern::new("abc[def").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[!def").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[!").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[d").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[!d").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[]").unwrap_err().pos == 3);
+        assert!(Pattern::new("abc[!]").unwrap_err().pos == 3);
     }
 
     #[test]
     fn test_glob_errors() {
-        assert_eq!(glob("a/**b").err().unwrap().pos, 4);
+        assert!(glob("a/**b").err().unwrap().pos == 4);
+        assert!(glob("abc[def").err().unwrap().pos == 3);
     }
 
     // this test assumes that there is a /root directory and that
@@ -1019,6 +1194,7 @@ mod test {
         assert!(Pattern::new("a*a*a*a*a*a*a*a*a")
             .unwrap()
             .matches("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(Pattern::new("a*b[xyz]c*d").unwrap().matches("abxcdbxcddd"));
     }
 
     #[test]
@@ -1072,7 +1248,57 @@ mod test {
     #[test]
     fn test_lots_of_files() {
         // this is a good test because it touches lots of differently named files
-        glob("/*/*/*/*").unwrap().nth(10000);
+        glob("/*/*/*/*").unwrap().skip(10000).next();
+    }
+
+    #[test]
+    fn test_range_pattern() {
+        let pat = Pattern::new("a[0-9]b").unwrap();
+        for i in 0..10 {
+            assert!(pat.matches(&format!("a{}b", i)));
+        }
+        assert!(!pat.matches("a_b"));
+
+        let pat = Pattern::new("a[!0-9]b").unwrap();
+        for i in 0..10 {
+            assert!(!pat.matches(&format!("a{}b", i)));
+        }
+        assert!(pat.matches("a_b"));
+
+        let pats = ["[a-z123]", "[1a-z23]", "[123a-z]"];
+        for &p in pats.iter() {
+            let pat = Pattern::new(p).unwrap();
+            for c in "abcdefghijklmnopqrstuvwxyz".chars() {
+                assert!(pat.matches(&c.to_string()));
+            }
+            for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
+                let options = MatchOptions {
+                    case_sensitive: false,
+                    ..MatchOptions::new()
+                };
+                assert!(pat.matches_with(&c.to_string(), options));
+            }
+            assert!(pat.matches("1"));
+            assert!(pat.matches("2"));
+            assert!(pat.matches("3"));
+        }
+
+        let pats = ["[abc-]", "[-abc]", "[a-c-]"];
+        for &p in pats.iter() {
+            let pat = Pattern::new(p).unwrap();
+            assert!(pat.matches("a"));
+            assert!(pat.matches("b"));
+            assert!(pat.matches("c"));
+            assert!(pat.matches("-"));
+            assert!(!pat.matches("d"));
+        }
+
+        let pat = Pattern::new("[2-1]").unwrap();
+        assert!(!pat.matches("1"));
+        assert!(!pat.matches("2"));
+
+        assert!(Pattern::new("[-]").unwrap().matches("-"));
+        assert!(!Pattern::new("[!-]").unwrap().matches("-"));
     }
 
     #[test]
@@ -1094,6 +1320,13 @@ mod test {
     }
 
     #[test]
+    fn test_pattern_escape() {
+        let s = "_[_]_?_*_!_";
+        assert_eq!(Pattern::escape(s), "_[[]_[]]_[?]_[*]_!_".to_string());
+        assert!(Pattern::new(&Pattern::escape(s)).unwrap().matches(s));
+    }
+
+    #[test]
     fn test_pattern_matches_case_insensitive() {
         let pat = Pattern::new("aBcDeFg").unwrap();
         let options = MatchOptions {
@@ -1107,6 +1340,33 @@ mod test {
         assert!(pat.matches_with("abcdefg", options));
         assert!(pat.matches_with("ABCDEFG", options));
         assert!(pat.matches_with("AbCdEfG", options));
+    }
+
+    #[test]
+    fn test_pattern_matches_case_insensitive_range() {
+        let pat_within = Pattern::new("[a]").unwrap();
+        let pat_except = Pattern::new("[!a]").unwrap();
+
+        let options_case_insensitive = MatchOptions {
+            case_sensitive: false,
+            require_literal_separator: false,
+            require_literal_leading_dot: false,
+            recursive_match_hidden_dir: false,
+        };
+        let options_case_sensitive = MatchOptions {
+            case_sensitive: true,
+            require_literal_separator: false,
+            require_literal_leading_dot: false,
+            recursive_match_hidden_dir: false,
+        };
+
+        assert!(pat_within.matches_with("a", options_case_insensitive));
+        assert!(pat_within.matches_with("A", options_case_insensitive));
+        assert!(!pat_within.matches_with("A", options_case_sensitive));
+
+        assert!(!pat_except.matches_with("a", options_case_insensitive));
+        assert!(!pat_except.matches_with("A", options_case_insensitive));
+        assert!(pat_except.matches_with("A", options_case_sensitive));
     }
 
     #[test]
@@ -1133,6 +1393,9 @@ mod test {
         assert!(!Pattern::new("abc*def")
             .unwrap()
             .matches_with("abc/def", options_require_literal));
+        assert!(!Pattern::new("abc[/]def")
+            .unwrap()
+            .matches_with("abc/def", options_require_literal));
 
         assert!(Pattern::new("abc/def")
             .unwrap()
@@ -1141,6 +1404,9 @@ mod test {
             .unwrap()
             .matches_with("abc/def", options_not_require_literal));
         assert!(Pattern::new("abc*def")
+            .unwrap()
+            .matches_with("abc/def", options_not_require_literal));
+        assert!(Pattern::new("abc[/]def")
             .unwrap()
             .matches_with("abc/def", options_not_require_literal));
     }
@@ -1202,6 +1468,14 @@ mod test {
 
         let f = |options| {
             Pattern::new("aaa/?bbb")
+                .unwrap()
+                .matches_with("aaa/.bbb", options)
+        };
+        assert!(f(options_not_require_literal_leading_dot));
+        assert!(!f(options_require_literal_leading_dot));
+
+        let f = |options| {
+            Pattern::new("aaa/[.]bbb")
                 .unwrap()
                 .matches_with("aaa/.bbb", options)
         };

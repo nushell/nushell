@@ -9,8 +9,8 @@ use nu_protocol::{
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use polars::prelude::{
-    CsvEncoding, CsvReader, IpcReader, JsonReader, LazyCsvReader, LazyFrame, ParallelStrategy,
-    ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+    CsvEncoding, CsvReader, IpcReader, JsonReader, LazyCsvReader, LazyFileListReader, LazyFrame,
+    ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
 #[derive(Clone)]
@@ -146,6 +146,7 @@ fn from_parquet(
             row_count: None,
             low_memory: false,
             cloud_options: None,
+            use_statistics: false,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)

@@ -98,7 +98,10 @@ fn command(
         multithreaded: true,
     };
 
-    let mut res = df.as_series(call.head)?.argsort(sort_options).into_series();
+    let mut res = df
+        .as_series(call.head)?
+        .arg_sort(sort_options)
+        .into_series();
     res.rename("arg_sort");
 
     NuDataFrame::try_from_series(vec![res], call.head)

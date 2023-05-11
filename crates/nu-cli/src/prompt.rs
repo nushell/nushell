@@ -106,11 +106,13 @@ impl Prompt for NushellPrompt {
             prompt_string.replace('\n', "\r\n").into()
         } else {
             let default = DefaultPrompt::default();
-            default
+            let prompt = default
                 .render_prompt_left()
                 .to_string()
                 .replace('\n', "\r\n")
-                .into()
+                + " ";
+
+            prompt.into()
         }
     }
 

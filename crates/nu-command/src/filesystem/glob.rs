@@ -1,12 +1,15 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
-use wax::{Glob as WaxGlob, WalkBehavior};
+use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
 pub struct Glob;
@@ -40,6 +43,12 @@ impl Command for Glob {
                 "no-symlink",
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
+            )
+            .named(
+                "not",
+                SyntaxShape::String,
+                "Pattern to exclude from the results",
+                Some('n'),
             )
             .category(Category::FileSystem)
     }
@@ -101,6 +110,12 @@ impl Command for Glob {
                 example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
                 result: None,
             },
+            Example {
+                description: "Search for files named tsconfig.json that are not in node_modules directories",
+                example: r#"glob **/tsconfig.json --not **/node_modules/**"#,
+                result: None,
+            },
+
         ]
     }
 
@@ -120,10 +135,10 @@ impl Command for Glob {
         let path = current_dir(engine_state, stack)?;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
-
         let no_dirs = call.has_flag("no-dir");
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
+        let not_pattern: Option<Spanned<String>> = call.get_flag(engine_state, stack, "not")?;
 
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
@@ -154,37 +169,80 @@ impl Command for Glob {
             }
         };
 
-        #[allow(clippy::needless_collect)]
-        let glob_results = glob
-            .walk_with_behavior(
-                path,
-                WalkBehavior {
-                    depth: folder_depth,
-                    ..Default::default()
-                },
-            )
-            .flatten();
-        let mut result: Vec<Value> = Vec::new();
-        for entry in glob_results {
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                result.clear();
-                break;
-            }
-            let file_type = entry.file_type();
+        let (not_pat, not_span) = if let Some(not_pat) = not_pattern.clone() {
+            (not_pat.item, not_pat.span)
+        } else {
+            (String::new(), Span::test_data())
+        };
 
-            if !(no_dirs && file_type.is_dir()
-                || no_files && file_type.is_file()
-                || no_symlinks && file_type.is_symlink())
-            {
-                result.push(Value::String {
-                    val: entry.into_path().to_string_lossy().to_string(),
-                    span,
-                });
-            }
-        }
-
-        Ok(result
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(if not_pattern.is_some() {
+            let glob_results = glob
+                .walk_with_behavior(
+                    path,
+                    WalkBehavior {
+                        depth: folder_depth,
+                        ..Default::default()
+                    },
+                )
+                .not([not_pat.as_str()])
+                .map_err(|err| {
+                    ShellError::GenericError(
+                        "error with glob's not pattern".to_string(),
+                        format!("{err}"),
+                        Some(not_span),
+                        None,
+                        Vec::new(),
+                    )
+                })?
+                .flatten();
+            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
+            result
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+        } else {
+            let glob_results = glob
+                .walk_with_behavior(
+                    path,
+                    WalkBehavior {
+                        depth: folder_depth,
+                        ..Default::default()
+                    },
+                )
+                .flatten();
+            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
+            result
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+        })
     }
+}
+
+fn glob_to_value<'a>(
+    ctrlc: Option<Arc<AtomicBool>>,
+    glob_results: impl Iterator<Item = WalkEntry<'a>>,
+    no_dirs: bool,
+    no_files: bool,
+    no_symlinks: bool,
+    span: Span,
+) -> Result<Vec<Value>, ShellError> {
+    let mut result: Vec<Value> = Vec::new();
+    for entry in glob_results {
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            result.clear();
+            return Err(ShellError::InterruptedByUser { span: None });
+        }
+        let file_type = entry.file_type();
+
+        if !(no_dirs && file_type.is_dir()
+            || no_files && file_type.is_file()
+            || no_symlinks && file_type.is_symlink())
+        {
+            result.push(Value::String {
+                val: entry.into_path().to_string_lossy().to_string(),
+                span,
+            });
+        }
+    }
+
+    Ok(result)
 }

@@ -127,6 +127,13 @@ impl Command for InputList {
             });
         }
 
+        if call.has_flag("multi") && call.has_flag("fuzzy") {
+            return Err(ShellError::TypeMismatch {
+                err_message: "Fuzzy search is not supported for multi select".to_string(),
+                span: head,
+            });
+        }
+
         // could potentially be used to map the use theme colors at some point
         // let theme = dialoguer::theme::ColorfulTheme {
         //     active_item_style: Style::new().fg(Color::Cyan).bold(),
@@ -134,26 +141,19 @@ impl Command for InputList {
         // };
 
         let ans: InteractMode = if call.has_flag("multi") {
-            if call.has_flag("fuzzy") {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "Fuzzy search is not supported for multi select".to_string(),
-                    span: head,
-                });
-            } else {
-                let mut multi_select = MultiSelect::new(); //::with_theme(&theme);
+            let mut multi_select = MultiSelect::new(); //::with_theme(&theme);
 
-                InteractMode::Multi(
-                    if !prompt.is_empty() {
-                        multi_select.with_prompt(&prompt)
-                    } else {
-                        &mut multi_select
-                    }
-                    .items(&options)
-                    .report(false)
-                    .interact_on_opt(&Term::stderr())
-                    .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
-                )
-            }
+            InteractMode::Multi(
+                if !prompt.is_empty() {
+                    multi_select.with_prompt(&prompt)
+                } else {
+                    &mut multi_select
+                }
+                .items(&options)
+                .report(false)
+                .interact_on_opt(&Term::stderr())
+                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+            )
         } else if call.has_flag("fuzzy") {
             let mut fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
 
@@ -185,32 +185,26 @@ impl Command for InputList {
             )
         };
 
-        match ans {
-            InteractMode::Multi(res) => Ok({
-                match res {
-                    Some(opts) => Value::List {
-                        vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
-                        span: head,
-                    },
-                    None => Value::List {
-                        vals: vec![],
-                        span: head,
-                    },
-                }
-            }
-            .into_pipeline_data()),
-            InteractMode::Single(res) => Ok({
-                match res {
-                    Some(opt) => options[opt].value.clone(),
-
-                    None => Value::String {
-                        val: "".to_string(),
-                        span: head,
-                    },
-                }
-            }
-            .into_pipeline_data()),
+        Ok(match ans {
+            InteractMode::Multi(res) => match res {
+                Some(opts) => Value::List {
+                    vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
+                    span: head,
+                },
+                None => Value::List {
+                    vals: vec![],
+                    span: head,
+                },
+            },
+            InteractMode::Single(res) => match res {
+                Some(opt) => options[opt].value.clone(),
+                None => Value::String {
+                    val: "".to_string(),
+                    span: head,
+                },
+            },
         }
+        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
