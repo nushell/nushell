@@ -578,6 +578,21 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             }
         }
+        Expr::Cache { input, id } => {
+            let input = expr_to_value(input.as_ref(), span);
+            let id = Value::String {
+                val: format!("{id:?}"),
+                span,
+            };
+
+            let cols = vec!["input".into(), "id".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![input, id],
+                span,
+            }
+        }
         Expr::Window {
             function,
             partition_by,
