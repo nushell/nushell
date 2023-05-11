@@ -43,7 +43,7 @@ export def "random-list chars" [
 # Generate a random decimal list.
 export def "random-list decimal" [
     list_length: int, # A length of the list
-    range: range = 1..10 # A range of the value
+    range: range # A range of the value
 ] {
     if $list_length < 0  {
         error make {
@@ -86,7 +86,7 @@ export def "random-list dice" [
 # Generate a random integer list.
 export def "random-list integer" [
     list_length: int # A length of the list
-    range: range = 1..10 # A range of the value
+    range: range # A range of the value
 ] {
     if $list_length < 0  {
         error make {
