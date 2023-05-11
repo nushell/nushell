@@ -736,7 +736,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
     let casted = series.utf8();
     match casted {
         Ok(casted) => {
-            let res = casted.contains(pat);
+            let res = casted.contains(pat, false);
 
             match res {
                 Ok(res) => {

@@ -78,6 +78,7 @@ pub fn load_standard_library(
             ("help", include_str!("../lib/help.nu")),
             ("testing", include_str!("../lib/testing.nu")),
             ("xml", include_str!("../lib/xml.nu")),
+            ("dt", include_str!("../lib/dt.nu")),
         ];
 
         // Define commands to be preloaded into the default (top level, unprefixed) namespace.
