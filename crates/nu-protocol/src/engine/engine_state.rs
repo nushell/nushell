@@ -236,6 +236,19 @@ impl EngineState {
 
         let mut activated_ids = self.translate_overlay_ids(&first);
 
+        let mut deleted_ids = vec![];
+        for name in &first.deleted_overlays {
+            if let Some(overlay_id) = self.find_overlay(name) {
+                deleted_ids.push(overlay_id);
+            }
+        }
+        self.scope
+            .active_overlays
+            .retain(|id| !deleted_ids.contains(id));
+        self.scope
+            .overlays
+            .retain(|overlay_info| !first.deleted_overlays.contains(&overlay_info.0));
+
         let mut removed_ids = vec![];
 
         for name in &first.removed_overlays {
@@ -1950,6 +1963,38 @@ impl<'a> StateWorkingSet<'a> {
 
         if let Some(module_id) = maybe_module_id {
             last_scope_frame.removed_overlays.push(name.to_owned());
+
+            if keep_custom {
+                let origin_module = self.get_module(module_id);
+
+                let decls = self
+                    .decls_of_overlay(name)
+                    .into_iter()
+                    .filter(|(n, _)| !origin_module.has_decl(n))
+                    .collect();
+
+                self.use_decls(decls);
+            }
+        }
+    }
+
+    pub fn delete_overlay(&mut self, name: &[u8], keep_custom: bool) {
+        let last_scope_frame = self.delta.last_scope_frame_mut();
+
+        let maybe_module_id = if let Some(overlay_id) = last_scope_frame.find_overlay(name) {
+            last_scope_frame
+                .active_overlays
+                .retain(|id| id != &overlay_id);
+
+            Some(last_scope_frame.get_overlay(overlay_id).origin)
+        } else {
+            self.permanent_state
+                .find_overlay(name)
+                .map(|id| self.permanent_state.get_overlay(id).origin)
+        };
+
+        if let Some(module_id) = maybe_module_id {
+            last_scope_frame.deleted_overlays.push(name.to_owned());
 
             if keep_custom {
                 let origin_module = self.get_module(module_id);

@@ -126,7 +126,7 @@ impl Command for OverlayHide {
                 result: None,
             },
             Example {
-                description: "Keep the current working directory when removing an overlay",
+                description: "Keep the current working directory when hiding an overlay",
                 example: r#"overlay new spam
     cd some-dir
     overlay hide --keep-env [ PWD ] spam"#,

@@ -61,6 +61,9 @@ pub struct ScopeFrame {
     /// Removed overlays from previous scope frames / permanent state
     pub removed_overlays: Vec<Vec<u8>>,
 
+    /// Deleted overlays from previous scope frames / permanent state
+    pub deleted_overlays: Vec<Vec<u8>>,
+
     /// temporary storage for predeclarations
     pub predecls: HashMap<Vec<u8>, DeclId>,
 }
@@ -71,6 +74,7 @@ impl ScopeFrame {
             overlays: vec![],
             active_overlays: vec![],
             removed_overlays: vec![],
+            deleted_overlays: vec![],
             predecls: HashMap::new(),
         }
     }
@@ -80,6 +84,7 @@ impl ScopeFrame {
             overlays: vec![(name, OverlayFrame::from_origin(origin, prefixed))],
             active_overlays: vec![0],
             removed_overlays: vec![],
+            deleted_overlays: vec![],
             predecls: HashMap::new(),
         }
     }

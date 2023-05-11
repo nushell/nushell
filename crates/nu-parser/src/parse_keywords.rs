@@ -116,6 +116,7 @@ pub fn parse_keyword(
 
         match cmd.name() {
             "overlay hide" => parse_overlay_hide(working_set, call),
+            "overlay delete" => parse_overlay_delete(working_set, call),
             "overlay new" => parse_overlay_new(working_set, call),
             "overlay use" => parse_overlay_use(working_set, call),
             _ => Pipeline::from_vec(vec![call_expr]),
@@ -2682,6 +2683,14 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 }
 
 pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
+    del_overlay(working_set, call, true)
+}
+
+pub fn parse_overlay_delete(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
+    del_overlay(working_set, call, false)
+}
+
+fn del_overlay(working_set: &mut StateWorkingSet, call: Box<Call>, permanently: bool) -> Pipeline {
     let call_span = call.span();
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
@@ -2736,11 +2745,14 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
         return pipeline;
     }
 
-    working_set.remove_overlay(overlay_name.as_bytes(), keep_custom);
+    if permanently {
+        working_set.remove_overlay(overlay_name.as_bytes(), keep_custom);
+    } else {
+        working_set.delete_overlay(overlay_name.as_bytes(), keep_custom);
+    }
 
     pipeline
 }
-
 pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     let name = working_set.get_span_contents(spans[0]);
 
