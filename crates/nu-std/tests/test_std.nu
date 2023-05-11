@@ -22,3 +22,7 @@ export def test_path_add [] {
         assert equal $env.PATH ["fooooo", "foo", "bar", "baz"]
     }
 }
+
+export def test_banner [] {
+    std assert ((std banner | lines | length) == 15)
+}

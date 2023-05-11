@@ -59,3 +59,54 @@ export def test_iter_filter_map [] {
         )
     assert equal $res [3 42 69]
 }
+
+export def test_iter_find_index [] {
+    let res = (
+         ["iter", "abc", "shell", "around", "nushell", "std"]
+         | iter find-index {|x| $x starts-with 's'}
+    )
+    assert equal $res 2
+
+    let is_even = {|x| $x mod 2 == 0}
+    let res = ([3 5 13 91] | iter find-index $is_even)
+    assert equal $res (-1)
+
+    let res = (42 | iter find-index {|x| $x == 42})
+    assert equal $res 0
+}
+
+export def test_iter_zip_with [] {
+    let res = (
+        [1 2 3] | iter zip-with [2 3 4] {|a, b| $a + $b }
+    )
+
+    assert equal $res [3 5 7]
+
+    let res = (42 | iter zip-with [1 2 3] {|a, b| $a // $b})
+    assert equal $res [42]
+
+    let res = (2..5 | iter zip-with 4 {|a, b| $a * $b})
+    assert equal $res [8]
+
+    let res = (
+        [[name repo]; [rust github] [haskell gitlab]]
+        | iter zip-with 1.. {|data, num|
+            { name: $data.name, repo: $data.repo position: $num }
+        }
+    )
+    assert equal $res [
+        [name    repo    position];
+        [rust    github  1]
+        [haskell gitlab  2]
+    ] 
+}
+
+export def test_iter_flat_map [] {
+    let res = (
+        [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
+    )
+    assert equal $res [6 9 18]
+
+    let res = ([1 2 3] | iter flat-map {|it| $it + ($it * 10)})
+    assert equal $res [11 22 33]
+}
