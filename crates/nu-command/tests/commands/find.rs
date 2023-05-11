@@ -1,6 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::nu;
-use nu_test_support::playground::Playground;
 
 #[test]
 fn find_with_list_search_with_string() {
@@ -39,40 +37,18 @@ fn find_with_string_search_with_string_not_found() {
 
 #[test]
 fn find_with_filepath_search_with_string() {
-    Playground::setup("filepath_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-        ]);
+    let actual =
+        nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep | to json -r"#);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | get name | find arep | to json -r"
-        );
-
-        assert_eq!(actual.out, r#"["arepas.clu"]"#);
-    })
+    assert_eq!(actual.out, r#"["arepas.clu"]"#);
 }
 
 #[test]
 fn find_with_filepath_search_with_multiple_patterns() {
-    Playground::setup("filepath_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-        ]);
+    let actual =
+        nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep ami | to json -r"#);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | get name | find arep ami | to json -r"
-        );
-
-        assert_eq!(actual.out, r#"["amigos.txt","arepas.clu"]"#);
-    })
+    assert_eq!(actual.out, r#"["amigos.txt","arepas.clu"]"#);
 }
 
 #[test]
@@ -84,79 +60,37 @@ fn find_takes_into_account_linebreaks_in_string() {
 
 #[test]
 fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
-    Playground::setup("filepath_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-        ]);
+    let actual = nu!(
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex ce | get name | to json -r"
+    );
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | find --regex t.t | get name | to json -r"
-        );
-
-        assert_eq!(actual.out, r#"["amigos.txt","los.txt","tres.txt"]"#);
-    })
+    assert_eq!(actual.out, r#"["Maurice","Laurence"]"#);
 }
 
 #[test]
 fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() {
-    Playground::setup("filepath_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("amigos.txt"),
-            EmptyFile("arepas.clu"),
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-        ]);
+    let actual = nu!(
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex moe --invert | get name | to json -r"
+    );
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | find --regex t.t --invert | get name | to json -r"
-        );
-
-        assert_eq!(actual.out, r#"["arepas.clu"]"#);
-    })
+    assert_eq!(actual.out, r#"["Laurence"]"#);
 }
 
 #[test]
 fn find_in_table_only_keep_rows_with_matches_on_selected_columns() {
-    Playground::setup("filepath_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("file.txt"),
-            EmptyFile("arepas.clu"),
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-        ]);
+    let actual = nu!(
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] | get name | to json -r"
+    );
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | find file --columns [name] | get name | to json -r"
-        );
-
-        assert!(actual.out.contains("file"));
-        assert!(!actual.out.contains("arepas"));
-        assert!(!actual.out.contains("los"));
-        assert!(!actual.out.contains("tres"));
-    })
+    assert!(actual.out.contains("Laurence"));
+    assert!(!actual.out.contains("Maurice"));
 }
 
 #[test]
 fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
-    Playground::setup("filepath_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("file.txt"),
-            EmptyFile("arepas.clu"),
-            EmptyFile("los.txt"),
-            EmptyFile("tres.txt"),
-        ]);
+    let actual = nu!(
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] --invert | get name | to json -r"
+    );
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "ls | find file --columns [name] --invert | get name | to json -r"
-        );
-
-        assert_eq!(actual.out, r#"["arepas.clu","los.txt","tres.txt"]"#);
-    })
+    assert_eq!(actual.out, r#"["Maurice"]"#);
 }
