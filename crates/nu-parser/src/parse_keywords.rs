@@ -1832,14 +1832,15 @@ pub fn parse_module_file_or_dir(
                 return None;
             }
 
-            let mut file_paths = vec![];
+            let mut paths = vec![];
 
             for entry in dir_contents.flatten() {
                 let entry_path = entry.path();
 
-                if entry_path.is_file()
+                if (entry_path.is_file()
                     && entry_path.extension() == Some(OsStr::new("nu"))
-                    && entry_path.file_stem() != Some(OsStr::new("mod"))
+                    && entry_path.file_stem() != Some(OsStr::new("mod")))
+                    || (entry_path.is_dir() && !entry_path.starts_with("."))
                 {
                     if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
                         working_set.error(ParseError::InvalidModuleFileName(
@@ -1850,20 +1851,23 @@ pub fn parse_module_file_or_dir(
                         return None;
                     }
 
-                    file_paths.push(entry_path);
+                    paths.push(entry_path);
                 }
             }
 
-            file_paths.sort();
+            paths.sort();
 
             // working_set.enter_scope();
 
             let mut submodules = vec![];
 
-            for file_path in file_paths {
-                if let Some(submodule_id) =
-                    parse_module_file(working_set, file_path, path_span, None)
-                {
+            for p in paths {
+                if let Some(submodule_id) = parse_module_file_or_dir(
+                    working_set,
+                    p.to_string_lossy().as_bytes(),
+                    path_span,
+                    None,
+                ) {
                     let submodule_name = working_set.get_module(submodule_id).name();
                     submodules.push((submodule_name, submodule_id));
                 }
