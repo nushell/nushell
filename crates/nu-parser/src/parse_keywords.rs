@@ -1840,7 +1840,7 @@ pub fn parse_module_file_or_dir(
                 if (entry_path.is_file()
                     && entry_path.extension() == Some(OsStr::new("nu"))
                     && entry_path.file_stem() != Some(OsStr::new("mod")))
-                    || (entry_path.is_dir() && !entry_path.starts_with("."))
+                    || (entry_path.is_dir() && entry_path.join("mod.nu").exists())
                 {
                     if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
                         working_set.error(ParseError::InvalidModuleFileName(
