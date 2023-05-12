@@ -4006,11 +4006,8 @@ pub fn parse_table_expression(
                 } => {
                     let mut table_headers = vec![];
 
-                    let headers = parse_value(
-                        working_set,
-                        command.parts[0],
-                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                    );
+                    let headers =
+                        parse_list_expression(working_set, command.parts[0], &SyntaxShape::Any);
 
                     if let Expression {
                         expr: Expr::List(headers),
@@ -4028,11 +4025,8 @@ pub fn parse_table_expression(
                         } => {
                             let mut rows = vec![];
                             for part in &command.parts {
-                                let values = parse_value(
-                                    working_set,
-                                    *part,
-                                    &SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                                );
+                                let values =
+                                    parse_list_expression(working_set, *part, &SyntaxShape::Any);
                                 if let Expression {
                                     expr: Expr::List(values),
                                     span,
