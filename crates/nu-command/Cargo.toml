@@ -151,7 +151,7 @@ features = [
 	"to_dummies",
 ]
 optional = true
-version = "0.27.2"
+version = "0.28.0"
 
 [target.'cfg(windows)'.dependencies.windows]
 features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]

@@ -36,7 +36,7 @@ impl Command for ExprLit {
             example: "dfr lit 2 | dfr into-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
-                vals: vec![Value::test_string("literal"), Value::test_string("2i64")],
+                vals: vec![Value::test_string("literal"), Value::test_string("2")],
                 span: Span::test_data(),
             }),
         }]
