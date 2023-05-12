@@ -142,10 +142,12 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
         nu!(
             cwd: dirs.test(), pipeline(
-            &format!("
-            with-env [LARGE {large_file_body}] {{ nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt }}
-            "),
-        ));
+                r#"
+                let-env LARGE = (open --raw a_large_file.txt);
+                nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt
+                "#
+            ),
+        );
 
         let expected_file = dirs.test().join("another_large_file.txt");
         let actual = file_contents(expected_file);
