@@ -445,6 +445,16 @@ pub enum ParseError {
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
+
+    #[error("{error}")]
+    #[diagnostic(help("{help}"))]
+    LabeledErrorWithHelp {
+        error: String,
+        label: String,
+        help: String,
+        #[label("{label}")]
+        span: Span,
+    },
 }
 
 impl ParseError {
@@ -524,6 +534,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+            ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
         }
     }
 }
