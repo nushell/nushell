@@ -1825,14 +1825,22 @@ pub fn parse_module_file_or_dir(
                 return None;
             };
 
-            let mut file_paths = vec![];
+            let mod_nu_path = module_path.join("mod.nu");
+
+            if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
+                working_set.error(ParseError::ModuleMissingModNuFile(path_span));
+                return None;
+            }
+
+            let mut paths = vec![];
 
             for entry in dir_contents.flatten() {
                 let entry_path = entry.path();
 
-                if entry_path.is_file()
+                if (entry_path.is_file()
                     && entry_path.extension() == Some(OsStr::new("nu"))
-                    && entry_path.file_stem() != Some(OsStr::new("mod"))
+                    && entry_path.file_stem() != Some(OsStr::new("mod")))
+                    || (entry_path.is_dir() && entry_path.join("mod.nu").exists())
                 {
                     if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
                         working_set.error(ParseError::InvalidModuleFileName(
@@ -1843,64 +1851,54 @@ pub fn parse_module_file_or_dir(
                         return None;
                     }
 
-                    file_paths.push(entry_path);
+                    paths.push(entry_path);
                 }
             }
 
-            file_paths.sort();
+            paths.sort();
 
             // working_set.enter_scope();
 
             let mut submodules = vec![];
 
-            for file_path in file_paths {
-                if let Some(submodule_id) =
-                    parse_module_file(working_set, file_path, path_span, None)
-                {
+            for p in paths {
+                if let Some(submodule_id) = parse_module_file_or_dir(
+                    working_set,
+                    p.to_string_lossy().as_bytes(),
+                    path_span,
+                    None,
+                ) {
                     let submodule_name = working_set.get_module(submodule_id).name();
                     submodules.push((submodule_name, submodule_id));
                 }
             }
 
-            let mod_nu_path = module_path.join("mod.nu");
-
-            if mod_nu_path.exists() && mod_nu_path.is_file() {
-                if let Some(module_id) = parse_module_file(
-                    working_set,
-                    mod_nu_path,
-                    path_span,
-                    name_override.or(Some(module_name)),
-                ) {
-                    let mut module = working_set.get_module(module_id).clone();
-
-                    for (submodule_name, submodule_id) in submodules {
-                        module.add_submodule(submodule_name, submodule_id);
-                    }
-
-                    let module_name = String::from_utf8_lossy(&module.name).to_string();
-
-                    let module_comments =
-                        if let Some(comments) = working_set.get_module_comments(module_id) {
-                            comments.to_vec()
-                        } else {
-                            vec![]
-                        };
-
-                    let new_module_id =
-                        working_set.add_module(&module_name, module, module_comments);
-
-                    Some(new_module_id)
-                } else {
-                    None
-                }
-            } else {
-                let mut module = Module::new(module_name.as_bytes().to_vec());
+            if let Some(module_id) = parse_module_file(
+                working_set,
+                mod_nu_path,
+                path_span,
+                name_override.or(Some(module_name)),
+            ) {
+                let mut module = working_set.get_module(module_id).clone();
 
                 for (submodule_name, submodule_id) in submodules {
                     module.add_submodule(submodule_name, submodule_id);
                 }
 
-                Some(working_set.add_module(&module_name, module, vec![]))
+                let module_name = String::from_utf8_lossy(&module.name).to_string();
+
+                let module_comments =
+                    if let Some(comments) = working_set.get_module_comments(module_id) {
+                        comments.to_vec()
+                    } else {
+                        vec![]
+                    };
+
+                let new_module_id = working_set.add_module(&module_name, module, module_comments);
+
+                Some(new_module_id)
+            } else {
+                None
             }
         } else {
             working_set.error(ParseError::ModuleNotFound(path_span));

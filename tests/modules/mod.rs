@@ -642,6 +642,27 @@ fn module_dir() {
 }
 
 #[test]
+fn module_dir_deep() {
+    let import = "use samples/spam";
+
+    let inp = &[import, "spam bacon"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "bacon");
+
+    let inp = &[import, "spam bacon foo"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "bacon foo");
+
+    let inp = &[import, "spam bacon beans"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "beans");
+
+    let inp = &[import, "spam bacon beans foo"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "beans foo");
+}
+
+#[test]
 fn module_dir_import_twice_no_panic() {
     let import = "use samples/spam";
     let inp = &[import, import, "spam"];
@@ -654,6 +675,13 @@ fn not_allowed_submodule_file() {
     let inp = &["use samples/not_allowed"];
     let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
     assert!(actual.err.contains("invalid_module_file_name"));
+}
+
+#[test]
+fn module_dir_missing_mod_nu() {
+    let inp = &["use samples/missing_mod_nu"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("module_missing_mod_nu_file"));
 }
 
 #[test]

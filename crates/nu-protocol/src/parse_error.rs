@@ -193,6 +193,13 @@ pub enum ParseError {
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
+    #[error("Missing mod.nu file.")]
+    #[diagnostic(
+        code(nu::parser::module_missing_mod_nu_file),
+        help("When importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+    )]
+    ModuleMissingModNuFile(#[label = "module directory is missing a mod.nu file"] Span),
+
     #[error("Cyclical module import.")]
     #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
     CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
@@ -484,6 +491,7 @@ impl ParseError {
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
+            ParseError::ModuleMissingModNuFile(s) => *s,
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::InvalidModuleFileName(_, _, s) => *s,
