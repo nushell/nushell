@@ -249,6 +249,24 @@ impl EngineState {
             .overlays
             .retain(|overlay_info| !first.deleted_overlays.contains(&overlay_info.0));
 
+        // overlays are saved as a vector, the overlay id is vector' index
+        // so after delete overlays, active overlays need to be changed accordingly.
+        // or else active_overlay ids will be incorrect.
+        for overlay_id in &mut self.scope.active_overlays {
+            for del_id in deleted_ids.iter() {
+                if *overlay_id > *del_id {
+                    *overlay_id -= 1;
+                }
+            }
+        }
+        for overlay_id in &mut activated_ids {
+            for del_id in deleted_ids.iter() {
+                if *overlay_id > *del_id {
+                    *overlay_id -= 1;
+                }
+            }
+        }
+
         let mut removed_ids = vec![];
 
         for name in &first.removed_overlays {

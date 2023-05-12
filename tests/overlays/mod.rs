@@ -1380,3 +1380,330 @@ fn overlay_help_no_error() {
     let actual = nu!(cwd: ".", "overlay use -h");
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn delete_overlay() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use spam"#,
+        r#"overlay delete spam"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert_ne!(actual_repl.out, "foo");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn delete_last_overlay() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use spam"#,
+        r#"overlay delete"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert_ne!(actual_repl.out, "foo");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn delete_overlay_scoped() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use spam"#,
+        r#"do { overlay delete spam }"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn delete_overlay_env() {
+    let inp = &[
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
+        r#"overlay use spam"#,
+        r#"overlay delete spam"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
+}
+
+#[test]
+fn delete_overlay_scoped_env() {
+    let inp = &[
+        r#"module spam { export-env { let-env FOO = "foo" } }"#,
+        r#"overlay use spam"#,
+        r#"do { overlay delete spam }"#,
+        r#"$env.FOO"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "foo");
+    assert_eq!(actual_repl.out, "foo");
+}
+
+#[test]
+fn delete_overlay_discard_decl() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"def bagr [] { "bagr" }"#,
+        r#"overlay delete spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert_ne!(actual_repl.out, "bagr");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn delete_overlay_discard_alias() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"alias bagr = echo "bagr""#,
+        r#"overlay delete spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert_ne!(actual_repl.out, "bagr");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn delete_overlay_discard_env() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"let-env BAGR = 'bagr'"#,
+        r#"overlay delete spam"#,
+        r#"$env.BAGR"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
+}
+
+#[test]
+fn delete_overlay_keep_decl() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"def bagr [] { "bagr" }"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn delete_overlay_keep_alias() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"alias bagr = echo 'bagr'"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn delete_overlay_dont_keep_env() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"let-env BAGR = 'bagr'"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"$env.BAGR"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
+}
+
+#[test]
+fn delete_overlay_dont_keep_overwritten_decl() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"def foo [] { 'bar' }"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert_ne!(actual_repl.out, "bagr");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn delete_overlay_dont_keep_overwritten_alias() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"alias bar = echo `baz`"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"bar"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(!actual.err.is_empty());
+    #[cfg(windows)]
+    assert_ne!(actual_repl.out, "bagr");
+    #[cfg(not(windows))]
+    assert!(!actual_repl.err.is_empty());
+}
+
+#[test]
+fn delete_overlay_dont_keep_overwritten_env() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"let-env BAZ = 'bagr'"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"$env.BAZ"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
+}
+
+#[test]
+fn delete_overlay_keep_decl_in_latest_overlay() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"def bagr [] { 'bagr' }"#,
+        r#"module eggs { }"#,
+        r#"overlay use eggs"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn delete_overlay_keep_alias_in_latest_overlay() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"alias bagr = echo 'bagr'"#,
+        r#"module eggs { }"#,
+        r#"overlay use eggs"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"bagr"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.out.contains("bagr"));
+    assert!(actual_repl.out.contains("bagr"));
+}
+
+#[test]
+fn delete_overlay_dont_keep_env_in_latest_overlay() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"let-env BAGR = 'bagr'"#,
+        r#"module eggs { }"#,
+        r#"overlay use eggs"#,
+        r#"overlay delete --keep-custom spam"#,
+        r#"$env.BAGR"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("not_found"));
+    assert!(actual_repl.err.contains("not_found"));
+}
+
+#[test]
+fn overlay_delete_renamed_overlay() {
+    let inp = &[
+        r#"module spam { export def foo [] { "foo" } }"#,
+        r#"overlay use spam as eggs"#,
+        r#"overlay delete eggs"#,
+        r#"foo"#,
+    ];
+
+    let actual = nu!(cwd: "tests/overlays", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual.err.contains("external_command"));
+    assert!(actual_repl.err.contains("external_command"));
+}
+
+#[test]
+fn overlay_delete_make_overlay_not_recordable() {
+    let inp = &[
+        r#"overlay use samples/spam.nu"#,
+        r#"let-env BAGR = 'bagr'"#,
+        r#"overlay delete spam"#,
+        r#"overlay use samples/spam.nu"#,
+        r#"$env.BAGR"#,
+    ];
+
+    let actual_repl = nu!(cwd: "tests/overlays", nu_repl_code(inp));
+
+    assert!(actual_repl.err.contains("not_found"));
+}

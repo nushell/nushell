@@ -112,6 +112,11 @@ impl ScopeFrame {
                 removed_overlays.push(name.clone());
             }
         }
+        for name in &self.deleted_overlays {
+            if !removed_overlays.contains(name) {
+                removed_overlays.push(name.clone());
+            }
+        }
 
         self.active_overlays
             .iter()
