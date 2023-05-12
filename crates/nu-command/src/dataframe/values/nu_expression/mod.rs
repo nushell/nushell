@@ -277,7 +277,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 | AggExpr::First(expr)
                 | AggExpr::Last(expr)
                 | AggExpr::Mean(expr)
-                | AggExpr::List(expr)
+                | AggExpr::Implode(expr)
                 | AggExpr::Count(expr)
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
@@ -575,6 +575,21 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             Value::Record {
                 cols,
                 vals: vec![input, function, options],
+                span,
+            }
+        }
+        Expr::Cache { input, id } => {
+            let input = expr_to_value(input.as_ref(), span);
+            let id = Value::String {
+                val: format!("{id:?}"),
+                span,
+            };
+
+            let cols = vec!["input".into(), "id".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![input, id],
                 span,
             }
         }

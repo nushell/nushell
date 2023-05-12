@@ -160,7 +160,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::First(e)
             | polars::prelude::AggExpr::Last(e)
             | polars::prelude::AggExpr::Mean(e)
-            | polars::prelude::AggExpr::List(e)
+            | polars::prelude::AggExpr::Implode(e)
             | polars::prelude::AggExpr::Count(e)
             | polars::prelude::AggExpr::Sum(e)
             | polars::prelude::AggExpr::AggGroups(e)
@@ -170,6 +170,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         },
         Expr::Filter { input: expr, .. }
         | Expr::Slice { input: expr, .. }
+        | Expr::Cache { input: expr, .. }
         | Expr::Cast { expr, .. }
         | Expr::Sort { expr, .. }
         | Expr::Take { expr, .. }

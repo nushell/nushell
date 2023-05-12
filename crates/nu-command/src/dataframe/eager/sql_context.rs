@@ -163,7 +163,7 @@ impl SQLContext {
                         .collect()
                         .unwrap_or_default()
                         .schema()
-                        .get_index(shm_p)
+                        .get_at_index(shm_p)
                         .unwrap_or((&"".into(), &DataType::Null))
                         .0)
                 })
