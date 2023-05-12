@@ -64,10 +64,10 @@ pub use arcsinh::SubCommand as MathArcSinH;
 pub use arctan::SubCommand as MathArcTan;
 pub use arctanh::SubCommand as MathArcTanH;
 
-pub use euler::SubCommand as MathEuler;
 pub use egamma::SubCommand as MathEulerGamma;
-pub use pi::SubCommand as MathPi;
+pub use euler::SubCommand as MathEuler;
 pub use phi::SubCommand as MathPhi;
+pub use pi::SubCommand as MathPi;
 pub use tau::SubCommand as MathTau;
 
 pub use self::log::SubCommand as MathLog;
