@@ -180,7 +180,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if decl_name == b"extern" && spans.len() == 3 {
+    } else if decl_name == b"extern" && spans.len() >= 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
