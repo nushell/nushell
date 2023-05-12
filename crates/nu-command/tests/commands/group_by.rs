@@ -35,34 +35,34 @@ fn errors_if_given_unknown_column_name() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.json",
             r#"
-                    {
-                        "nu": {
-                            "committers": [
-                                {"name": "Andrés N. Robalino"},
-                                {"name": "JT Turner"},
-                                {"name": "Yehuda Katz"}
-                            ],
-                            "releases": [
-                                {"version": "0.2"}
-                                {"version": "0.8"},
-                                {"version": "0.9999999"}
-                            ],
-                            "0xATYKARNU": [
-                                ["Th", "e", " "],
-                                ["BIG", " ", "UnO"],
-                                ["punto", "cero"]
-                            ]
-                        }
+                {
+                    "nu": {
+                        "committers": [
+                            {"name": "Andrés N. Robalino"},
+                            {"name": "JT Turner"},
+                            {"name": "Yehuda Katz"}
+                        ],
+                        "releases": [
+                            {"version": "0.2"}
+                            {"version": "0.8"},
+                            {"version": "0.9999999"}
+                        ],
+                        "0xATYKARNU": [
+                            ["Th", "e", " "],
+                            ["BIG", " ", "UnO"],
+                            ["punto", "cero"]
+                        ]
                     }
-                "#,
+                }
+            "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                    open los_tres_caballeros.json
-                    | group-by {|| get nu.releases.version }
-                "#
+                open los_tres_caballeros.json
+                | group-by {|| get nu.releases.version }
+            "#
         ));
 
         assert!(actual
