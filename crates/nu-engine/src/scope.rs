@@ -327,6 +327,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             "short_flag".to_string(),
             "description".to_string(),
             "custom_completion".to_string(),
+            "parameter_default".to_string(),
         ];
 
         // input
@@ -337,6 +338,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string("input", span),
                 Value::string(input_type.to_shape().to_string(), span),
                 Value::boolean(false, span),
+                Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
@@ -357,6 +359,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     extract_custom_completion_from_arg(self.engine_state, &req.shape),
                     span,
                 ),
+                Value::nothing(span),
             ];
 
             sig_records.push(Value::Record {
@@ -379,6 +382,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                     extract_custom_completion_from_arg(self.engine_state, &opt.shape),
                     span,
                 ),
+                if let Some(val) = &opt.default_value {
+                    val.clone()
+                } else {
+                    Value::nothing(span)
+                },
             ];
 
             sig_records.push(Value::Record {
@@ -401,6 +409,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     extract_custom_completion_from_arg(self.engine_state, &rest.shape),
                     span,
                 ),
+                Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
             ];
 
             sig_records.push(Value::Record {
@@ -444,6 +453,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                 short_flag,
                 Value::string(&named.desc, span),
                 Value::string(custom_completion_command_name, span),
+                if let Some(val) = &named.default_value {
+                    val.clone()
+                } else {
+                    Value::nothing(span)
+                },
             ];
 
             sig_records.push(Value::Record {
@@ -461,6 +475,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string("output", span),
                 Value::string(output_type.to_shape().to_string(), span),
                 Value::boolean(false, span),
+                Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
