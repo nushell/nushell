@@ -19,7 +19,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Returns the Euler–Mascheroni constant γ. ( 1 | math gamma)."
+        "Returns the Euler–Mascheroni constant γ. ( 1 | math egamma)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
