@@ -564,7 +564,7 @@ fn value_list_to_string(
     (buf, TextStyle::default())
 }
 
-fn dive_options<'a, 'b>(opts: &'a Options<'b>, span: Span) -> Options<'b> {
+fn dive_options<'b>(opts: &Options<'b>, span: Span) -> Options<'b> {
     let mut opts = opts.clone();
     opts.span = span;
     if let Some(deep) = opts.format.expand_limit.as_mut() {

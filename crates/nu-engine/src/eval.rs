@@ -117,10 +117,8 @@ pub fn eval_call(
                                 let result = eval_expression(engine_state, caller_stack, arg)?;
 
                                 callee_stack.add_var(var_id, result);
-                            } else if let Some(arg) = &named.default_value {
-                                let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                                callee_stack.add_var(var_id, result);
+                            } else if let Some(value) = &named.default_value {
+                                callee_stack.add_var(var_id, value.to_owned());
                             } else {
                                 callee_stack.add_var(var_id, Value::boolean(true, call.head))
                             }
@@ -131,10 +129,8 @@ pub fn eval_call(
                             let result = eval_expression(engine_state, caller_stack, arg)?;
 
                             callee_stack.add_var(var_id, result);
-                        } else if let Some(arg) = &named.default_value {
-                            let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                            callee_stack.add_var(var_id, result);
+                        } else if let Some(value) = &named.default_value {
+                            callee_stack.add_var(var_id, value.to_owned());
                         } else {
                             callee_stack.add_var(var_id, Value::boolean(true, call.head))
                         }
@@ -145,10 +141,8 @@ pub fn eval_call(
                 if !found {
                     if named.arg.is_none() {
                         callee_stack.add_var(var_id, Value::boolean(false, call.head))
-                    } else if let Some(arg) = &named.default_value {
-                        let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                        callee_stack.add_var(var_id, result);
+                    } else if let Some(value) = named.default_value {
+                        callee_stack.add_var(var_id, value);
                     } else {
                         callee_stack.add_var(var_id, Value::Nothing { span: call.head })
                     }

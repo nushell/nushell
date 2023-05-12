@@ -1,6 +1,4 @@
 use crate::hook::eval_hook;
-use fancy_regex::Regex;
-use itertools::Itertools;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -11,6 +9,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundProcess;
+use os_pipe::PipeReader;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -41,6 +40,11 @@ impl Command for External {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
+            .switch(
+                "redirect-combine",
+                "redirect both stdout and stderr combined to the pipeline (collected in stdout)",
+                None,
+            )
             .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::String, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
@@ -56,7 +60,17 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let redirect_stdout = call.has_flag("redirect-stdout");
         let redirect_stderr = call.has_flag("redirect-stderr");
+        let redirect_combine = call.has_flag("redirect-combine");
         let trim_end_newline = call.has_flag("trim-end-newline");
+
+        if redirect_combine && (redirect_stdout || redirect_stderr) {
+            return Err(ShellError::ExternalCommand {
+                label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
+                    .into(),
+                help: "use either --redirect-combine or redirect a single output stream".into(),
+                span: call.head,
+            });
+        }
 
         let command = create_external_command(
             engine_state,
@@ -64,6 +78,7 @@ impl Command for External {
             call,
             redirect_stdout,
             redirect_stderr,
+            redirect_combine,
             trim_end_newline,
         )?;
 
@@ -93,6 +108,7 @@ pub fn create_external_command(
     call: &Call,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    redirect_combine: bool,
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -149,6 +165,7 @@ pub fn create_external_command(
         arg_keep_raw,
         redirect_stdout,
         redirect_stderr,
+        redirect_combine,
         env_vars: env_vars_str,
         trim_end_newline,
     })
@@ -161,6 +178,7 @@ pub struct ExternalCommand {
     pub arg_keep_raw: Vec<bool>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
+    pub redirect_combine: bool,
     pub env_vars: HashMap<String, String>,
     pub trim_end_newline: bool,
 }
@@ -177,10 +195,10 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut fg_process = ForegroundProcess::new(
-            self.create_process(&input, false, head)?,
-            engine_state.pipeline_externals_state.clone(),
-        );
+        #[allow(unused_mut)]
+        let (cmd, mut reader) = self.create_process(&input, false, head)?;
+        let mut fg_process =
+            ForegroundProcess::new(cmd, engine_state.pipeline_externals_state.clone());
         // mut is used in the windows branch only, suppress warning on other platforms
         #[allow(unused_mut)]
         let mut child;
@@ -211,8 +229,10 @@ impl ExternalCommand {
                         .any(|&cmd| command_name_upper == cmd);
 
                     if looks_like_cmd_internal {
+                        let (cmd, new_reader) = self.create_process(&input, true, head)?;
+                        reader = new_reader;
                         let mut cmd_process = ForegroundProcess::new(
-                            self.create_process(&input, true, head)?,
+                            cmd,
                             engine_state.pipeline_externals_state.clone(),
                         );
                         child = cmd_process.spawn();
@@ -242,9 +262,11 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
+                                                let (cmd, new_reader) = new_command
+                                                    .create_process(&input, true, head)?;
+                                                reader = new_reader;
                                                 let mut cmd_process = ForegroundProcess::new(
-                                                    new_command
-                                                        .create_process(&input, true, head)?,
+                                                    cmd,
                                                     engine_state.pipeline_externals_state.clone(),
                                                 );
                                                 child = cmd_process.spawn();
@@ -419,6 +441,7 @@ impl ExternalCommand {
                 let commandname = self.name.item.clone();
                 let redirect_stdout = self.redirect_stdout;
                 let redirect_stderr = self.redirect_stderr;
+                let redirect_combine = self.redirect_combine;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
                 let stderr_ctrlc = ctrlc.clone();
@@ -441,6 +464,12 @@ impl ExternalCommand {
                                         .to_string(), span }
                             })?;
 
+                            read_and_redirect_message(stdout, stdout_tx, ctrlc)
+                        } else if redirect_combine {
+                            let stdout = reader.ok_or_else(|| {
+                                ShellError::ExternalCommand { label: "Error taking combined stdout and stderr from external".to_string(), help: "Combined redirects need access to reader pipe of an external command"
+                                        .to_string(), span }
+                            })?;
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         }
 
@@ -516,7 +545,7 @@ impl ExternalCommand {
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
                 Ok(PipelineData::ExternalStream {
-                    stdout: if redirect_stdout {
+                    stdout: if redirect_stdout || redirect_combine {
                         Some(RawStream::new(
                             Box::new(stdout_receiver),
                             output_ctrlc.clone(),
@@ -553,7 +582,7 @@ impl ExternalCommand {
         input: &PipelineData,
         use_cmd: bool,
         span: Span,
-    ) -> Result<CommandSys, ShellError> {
+    ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
                 self.spawn_cmd_command(d)
@@ -583,13 +612,22 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        if self.redirect_stdout {
-            process.stdout(Stdio::piped());
-        }
+        let reader = if self.redirect_combine {
+            let (reader, writer) = os_pipe::pipe()?;
+            let writer_clone = writer.try_clone()?;
+            process.stdout(writer);
+            process.stderr(writer_clone);
+            Some(reader)
+        } else {
+            if self.redirect_stdout {
+                process.stdout(Stdio::piped());
+            }
 
-        if self.redirect_stderr {
-            process.stderr(Stdio::piped());
-        }
+            if self.redirect_stderr {
+                process.stderr(Stdio::piped());
+            }
+            None
+        };
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
@@ -597,7 +635,7 @@ impl ExternalCommand {
             process.stdin(Stdio::piped());
         }
 
-        Ok(process)
+        Ok((process, reader))
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
@@ -611,8 +649,6 @@ impl ExternalCommand {
             } else {
                 self.spawn_simple_command(cwd)
             }
-        } else if self.name.item.ends_with(".sh") {
-            Ok(self.spawn_sh_command())
         } else {
             self.spawn_simple_command(cwd)
         }
@@ -656,19 +692,6 @@ impl ExternalCommand {
             trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
         }
 
-        process
-    }
-
-    /// Spawn a sh command with `sh -c args...`
-    pub fn spawn_sh_command(&self) -> std::process::Command {
-        let joined_and_escaped_arguments = self
-            .args
-            .iter()
-            .map(|arg| shell_arg_escape(&arg.item))
-            .join(" ");
-        let cmd_with_args = vec![self.name.item.clone(), joined_and_escaped_arguments].join(" ");
-        let mut process = std::process::Command::new("sh");
-        process.arg("-c").arg(cmd_with_args);
         process
     }
 }
@@ -752,23 +775,6 @@ fn suggest_command(attempted_command: &str, engine_state: &EngineState) -> Optio
         None => {
             let command_names: Vec<String> = commands.iter().map(|sig| sig.name.clone()).collect();
             did_you_mean(&command_names, attempted_command)
-        }
-    }
-}
-
-fn has_unsafe_shell_characters(arg: &str) -> bool {
-    let re: Regex = Regex::new(r"[^\w@%+=:,./-]").expect("regex to be valid");
-
-    re.is_match(arg).unwrap_or(false)
-}
-
-fn shell_arg_escape(arg: &str) -> String {
-    match arg {
-        "" => String::from("''"),
-        s if !has_unsafe_shell_characters(s) => String::from(s),
-        _ => {
-            let single_quotes_escaped = arg.split('\'').join("'\"'\"'");
-            format!("'{single_quotes_escaped}'")
         }
     }
 }

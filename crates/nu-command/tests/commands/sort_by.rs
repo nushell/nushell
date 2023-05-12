@@ -117,19 +117,14 @@ fn ls_sort_by_type_name_insensitive() {
 
 #[test]
 fn no_column_specified_fails() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [2 0 1] | sort-by
-        "#
-    ));
+    let actual = nu!("[2 0 1] | sort-by");
 
     assert!(actual.err.contains("missing parameter"));
 }
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(cwd: ".", pipeline("1 | sort-by"));
+    let actual = nu!("1 | sort-by");
 
     assert!(actual.err.contains("only_supports_this_input_type"));
 }

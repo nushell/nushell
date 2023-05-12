@@ -1202,6 +1202,15 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (name, module_id) in modules {
+            overlay_frame.insert_module(name, module_id);
+            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
@@ -1311,6 +1320,13 @@ impl<'a> StateWorkingSet<'a> {
         self.last_overlay_mut().modules.insert(name, module_id);
 
         module_id
+    }
+
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.delta
+            .usage
+            .get_module_comments(module_id)
+            .or_else(|| self.permanent_state.get_module_comments(module_id))
     }
 
     pub fn next_span_start(&self) -> usize {
@@ -1543,6 +1559,24 @@ impl<'a> StateWorkingSet<'a> {
         num_permanent_vars + self.delta.vars.len()
     }
 
+    pub fn list_variables(&self) -> Vec<&[u8]> {
+        let mut removed_overlays = vec![];
+        let mut variables = HashSet::new();
+        for scope_frame in self.delta.scope.iter() {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays) {
+                variables.extend(overlay_frame.vars.keys().map(|k| &k[..]));
+            }
+        }
+
+        let permanent_vars = self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]));
+
+        variables.extend(permanent_vars);
+        variables.into_iter().collect()
+    }
+
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         let mut removed_overlays = vec![];
 
@@ -1589,7 +1623,6 @@ impl<'a> StateWorkingSet<'a> {
         mutable: bool,
     ) -> VarId {
         let next_id = self.next_var_id();
-
         // correct name if necessary
         if !name.starts_with(b"$") {
             name.insert(0, b'$');
@@ -1831,7 +1864,7 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], prefixed);
+            self.add_overlay(name, origin, vec![], vec![], prefixed);
         }
 
         self.delta
@@ -1869,6 +1902,7 @@ impl<'a> StateWorkingSet<'a> {
         name: Vec<u8>,
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -1896,6 +1930,7 @@ impl<'a> StateWorkingSet<'a> {
         self.move_predecls_to_overlay();
 
         self.use_decls(decls);
+        self.use_modules(modules);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
@@ -1952,6 +1987,22 @@ impl<'a> StateWorkingSet<'a> {
         for block in &self.permanent_state.blocks {
             if Some(span) == block.span {
                 return Some(block.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
+        for (id, module) in self.delta.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(self.permanent_state.num_modules() + id);
+            }
+        }
+
+        for (module_id, module) in self.permanent_state.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(module_id);
             }
         }
 
@@ -2097,6 +2148,8 @@ fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
 
 #[cfg(test)]
 mod engine_state_tests {
+    use std::str::{from_utf8, Utf8Error};
+
     use super::*;
 
     #[test]
@@ -2137,6 +2190,27 @@ mod engine_state_tests {
         assert_eq!(&engine_state.files[0].0, "test.nu");
         assert_eq!(&engine_state.files[1].0, "child.nu");
 
+        Ok(())
+    }
+
+    #[test]
+    fn list_variables() -> Result<(), Utf8Error> {
+        let varname = "something";
+        let varname_with_sigil = "$".to_owned() + varname;
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_variable(
+            varname.as_bytes().into(),
+            Span { start: 0, end: 1 },
+            Type::Int,
+            false,
+        );
+        let variables = working_set
+            .list_variables()
+            .into_iter()
+            .map(|v| from_utf8(v))
+            .collect::<Result<Vec<&str>, Utf8Error>>()?;
+        assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())
     }
 }
