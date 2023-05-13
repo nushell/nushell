@@ -301,6 +301,7 @@ pub fn create_default_context() -> EngineState {
             ToJson,
             ToMd,
             ToNuon,
+            ToParsable,
             ToText,
             ToToml,
             ToTsv,
