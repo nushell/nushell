@@ -60,6 +60,8 @@ export def-env "dirs drop" [] {
     _fetch 0
 }
 
+export alias dexit = dirs drop
+
 # Display current working directories.
 export def-env "dirs show" [] {
     mut out = []

@@ -102,6 +102,7 @@ pub fn load_standard_library(
             ("g", "g"),
             ("n", "n"),
             ("p", "p"),
+            ("dexit", "dexit"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
