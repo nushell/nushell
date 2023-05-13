@@ -654,8 +654,10 @@ impl Value {
             // give special treatment to the simple types to make them parsable
             Value::String { val, .. } => format!("'{}'", val), // explicitly not val.replace("'", "''")
             Value::Date { val, .. } => val.to_rfc3339(), // date in rfc 2229 format not parsable
+            Value::Duration { val, .. } => format!("{val}ns"),
+            Value::Filesize { val, .. } => format!("{val}b"),
 
-            // recurse back into this function for recursive formatting
+            // recurse back into this function for compound structures
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
