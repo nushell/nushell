@@ -27,6 +27,8 @@ export def-env "dirs add" [
     _fetch 0
 }
 
+export alias enter = dirs add
+
 # Advance to the next directory in the list or wrap to beginning.
 export def-env "dirs next" [
     N:int = 1   # number of positions to move.
@@ -34,12 +36,16 @@ export def-env "dirs next" [
     _fetch $N    
 }
 
+export alias n = dirs next
+
 # Back up to the previous directory or wrap to the end.
 export def-env "dirs prev" [
     N:int = 1   # number of positions to move.
 ] {
     _fetch (-1 * $N)    
 }
+
+export alias p = dirs prev
 
 # Drop the current directory from the list, if it's not the only one.
 # PWD becomes the next working directory
@@ -66,6 +72,9 @@ export def-env "dirs show" [] {
 
     $out
 }
+
+export alias shells = dirs show
+export alias g = dirs show
 
 # fetch item helper
 def-env  _fetch [
