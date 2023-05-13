@@ -2270,7 +2270,7 @@ pub fn parse_unit_value<'res>(
                     ParseError::LabeledError(
                         format!("{name} value must be a number"),
                         "not a number".into(),
-                        unit_span,
+                        lhs_span,
                     )
                 };
                 return Some(Err(Box::new(mk_err)));
