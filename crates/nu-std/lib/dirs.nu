@@ -27,6 +27,8 @@ export def-env "dirs add" [
     _fetch 0
 }
 
+export alias enter = dirs add
+
 # Advance to the next directory in the list or wrap to beginning.
 export def-env "dirs next" [
     N:int = 1   # number of positions to move.
@@ -34,12 +36,16 @@ export def-env "dirs next" [
     _fetch $N    
 }
 
+export alias n = dirs next
+
 # Back up to the previous directory or wrap to the end.
 export def-env "dirs prev" [
     N:int = 1   # number of positions to move.
 ] {
     _fetch (-1 * $N)    
 }
+
+export alias p = dirs prev
 
 # Drop the current directory from the list, if it's not the only one.
 # PWD becomes the next working directory
@@ -54,6 +60,8 @@ export def-env "dirs drop" [] {
     _fetch 0
 }
 
+export alias dexit = dirs drop
+
 # Display current working directories.
 export def-env "dirs show" [] {
     mut out = []
@@ -66,6 +74,31 @@ export def-env "dirs show" [] {
 
     $out
 }
+
+export alias shells = dirs show
+
+export def-env "dirs goto" [shell?: int] {
+    if $shell == null {
+        return (dirs show)
+    }
+
+    if $shell < 0 or $shell >= ($env.DIRS_LIST | length) {
+        let span = (metadata $shell | get span)
+        error make {
+            msg: $"(ansi red_bold)invalid_shell_index(ansi reset)"
+            label: {
+                text: $"`shell` should be between 0 and (($env.DIRS_LIST | length) - 1)"
+                start: $span.start
+                end: $span.end
+            }
+        }
+    }
+    let-env DIRS_POSITION = $shell
+
+    cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+}
+
+export alias g = dirs goto
 
 # fetch item helper
 def-env  _fetch [

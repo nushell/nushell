@@ -277,12 +277,7 @@ pub fn create_default_context() -> EngineState {
 
         // Shells
         bind_command! {
-            Enter,
             Exit,
-            GotoShell,
-            NextShell,
-            PrevShell,
-            Shells,
         };
 
         // Formats
