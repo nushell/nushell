@@ -88,6 +88,7 @@ pub fn load_standard_library(
         // Conventionally, for a command implemented as `std foo`, the name added
         // is either `std foo` or bare `foo`, not some arbitrary rename.
 
+        #[rustfmt::skip]
         let prelude = vec![
             ("std help", "help"),
             ("std help commands", "help commands"),
@@ -95,6 +96,12 @@ pub fn load_standard_library(
             ("std help modules", "help modules"),
             ("std help externs", "help externs"),
             ("std help operators", "help operators"),
+
+            ("enter", "enter"),
+            ("shells", "shells"),
+            ("g", "g"),
+            ("n", "n"),
+            ("p", "p"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
