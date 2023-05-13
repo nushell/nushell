@@ -72,6 +72,12 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo test --workspace
   ```
+
+  along with dataframe tests
+
+  ```shell
+  cargo test --workspace --features=dataframe
+  ```
   or via the `toolkit.nu` command:
   ```shell
   use toolkit.nu test
