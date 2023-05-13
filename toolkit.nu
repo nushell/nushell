@@ -31,13 +31,18 @@ export def fmt [
 # > it is important to make `clippy` happy :relieved:
 export def clippy [
     --verbose: bool # print extra information about the command's progress
+    --dataframe: bool # use the dataframe feature
 ] {
     if $verbose {
         print $"running ('toolkit clippy' | pretty-print-command)"
     }
 
     try {
-        cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+        if $dataframe {
+            cargo clippy --workspace --features=dataframe -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+        } else {
+            cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+        }
     } catch {
         error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
     }
@@ -46,9 +51,14 @@ export def clippy [
 # check that all the tests pass
 export def test [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+    --dataframe: bool # use the dataframe feature
 ] {
-    if ($fast) {
-        cargo nextest --workspace
+    if ($fast and $dataframe) {
+        cargo nextest run --all --features=dataframe
+    } else if ($fast) {
+        cargo nextest run --all
+    } else if ($dataframe) {
+        cargo test --workspace --features=dataframe
     } else {
         cargo test --workspace
     }
@@ -198,6 +208,7 @@ def report [
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+    --dataframe: bool # use the dataframe feature
 ] {
     let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
@@ -207,14 +218,24 @@ export def "check pr" [
     }
 
     try {
-        clippy --verbose
+        if $dataframe { 
+            clippy --dataframe --verbose 
+        } else { 
+            clippy --verbose 
+        }
     } catch {
         return (report --fail-clippy)
     }
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
-        if $fast { test --fast } else { test }
+        if $fast and $dataframe { 
+            test --fast --dataframe 
+        } else if $fast { 
+            test --fast 
+        } else { 
+            test 
+        }
     } catch {
         return (report --fail-test)
     }
@@ -233,10 +254,6 @@ export def "check pr" [
 # - `toolkit fmt --check --verbose` on `git commit`
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`
 export def setup-git-hooks [] {
-    if $nu.os-info.name == windows {
-        return (print "This git hook isn't available on Windows. Sorry!")
-    }
-
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
     if (input) == "y" {
         print $"running ('toolkit setup-git-hooks' | pretty-print-command)"
@@ -245,3 +262,5 @@ export def setup-git-hooks [] {
         print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
     }
 }
+
+export def main [] { help toolkit }

@@ -33,7 +33,7 @@ def command-not-found-error [span: record] {
     throw-error "std::help::command_not_found" "command not found" $span
 }
 
-def get-all-operators [] { return ([
+def get-all-operators [] { return [
     [type, operator, name, description, precedence];
 
     [Assignment, =, Assign, "Assigns a value to a variable.", 10]
@@ -71,7 +71,7 @@ def get-all-operators [] { return ([
     [Boolean, and, And, "Checks if two values are true.", 50]
     [Boolean, or, Or, "Checks if either value is true.", 40]
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
-] | sort-by name)}
+]}
 
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description
@@ -241,23 +241,15 @@ export def "help modules" [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
-    let modules = ($nu.scope.modules | sort-by name)
-
-    let module = ($module | str join " ")
+    let modules = $nu.scope.modules
 
     if not ($find | is-empty) {
-        let found_modules = ($modules | find $find)
-
-        if ($found_modules | length) == 1 {
-            show-module ($found_modules | get 0)
-        } else {
-            $found_modules
-        }
+        $modules | find $find --columns [name usage]
     } else if not ($module | is-empty) {
-        let found_module = ($modules | where name == $module)
+        let found_module = ($modules | where name == ($module | str join " "))
 
         if ($found_module | is-empty) {
-            module_not_found_error (metadata $module | get span)
+            module-not-found-error (metadata $module | get span)
         }
 
         show-module ($found_module | get 0)
@@ -285,16 +277,16 @@ def show-alias [alias: record] {
 #     > let us define a bunch of aliases
 #     > ```nushell
 #     > # my foo alias
-#     > old-alias foo = echo "this is foo"
+#     > alias foo = echo "this is foo"
 #     >
 #     > # my bar alias
-#     > old-alias bar = echo "this is bar"
+#     > alias bar = echo "this is bar"
 #     >
 #     > # my baz alias
-#     > old-alias baz = echo "this is baz"
+#     > alias baz = echo "this is baz"
 #     >
 #     > # a multiline alias
-#     > old-alias multi = echo "this
+#     > alias multi = echo "this
 #     > is
 #     > a
 #     > multiline
@@ -353,18 +345,10 @@ export def "help aliases" [
 ] {
     let aliases = ($nu.scope.aliases | sort-by name)
 
-    let alias = ($alias | str join " ")
-
     if not ($find | is-empty) {
-        let found_aliases = ($aliases | find $find)
-
-        if ($found_aliases | length) == 1 {
-            show-alias ($found_aliases | get 0)
-        } else {
-            $found_aliases
-        }
+        $aliases | find $find --columns [name usage]
     } else if not ($alias | is-empty) {
-        let found_alias = ($aliases | where name == $alias)
+        let found_alias = ($aliases | where name == ($alias | str join " "))
 
         if ($found_alias | is-empty) {
             alias-not-found-error (metadata $alias | get span)
@@ -399,18 +383,10 @@ export def "help externs" [
         | str trim
     )
 
-    let extern = ($extern | str join " ")
-
     if not ($find | is-empty) {
-        let found_externs = ($externs | find $find)
-
-        if ($found_externs | length) == 1 {
-            show-extern ($found_externs | get 0)
-        } else {
-            $found_externs
-        }
+        $externs | find $find --columns [name usage]
     } else if not ($extern | is-empty) {
-        let found_extern = ($externs | where name == $extern)
+        let found_extern = ($externs | where name == ($extern | str join " "))
 
         if ($found_extern | is-empty) {
             extern-not-found-error (metadata $extern | get span)
@@ -471,18 +447,10 @@ export def "help operators" [
 ] {
     let operators = (get-all-operators)
 
-    let operator = ($operator | str join " ")
-
     if not ($find | is-empty) {
-        let found_operators = ($operators | find $find)
-
-        if ($found_operators | length) == 1 {
-            show-operator ($found_operators | get 0)
-        } else {
-            $found_operators
-        }
+        $operators | find $find --columns [type name]
     } else if not ($operator | is-empty) {
-        let found_operator = ($operators | where name == $operator)
+        let found_operator = ($operators | where name == ($operator | str join " "))
 
         if ($found_operator | is-empty) {
             operator-not-found-error (metadata $operator | get span)
@@ -593,14 +561,27 @@ def show-command [command: record] {
 
         print ""
         print-help-header "Flags"
-        print $"  (ansi teal)-h(ansi reset), (ansi teal)--help(ansi reset) - Display the help message for this command"
         for flag in $flags {
-            print -n $"  (ansi teal)-($flag.short_flag)(ansi reset), (ansi teal)--($flag.parameter_name)(ansi reset)"
-            if not ($flag.syntax_shape | is-empty) {
-                print -n $" <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
-            }
-            print $" - ($flag.description)"
+            let flag_parts = [ "  ",
+                (if ($flag.short_flag | is-empty) { "" } else {
+                    $"-(ansi teal)($flag.short_flag)(ansi reset), "
+                }),
+                (if ($flag.parameter_name | is-empty) { "" } else {
+                    $"--(ansi teal)($flag.parameter_name)(ansi reset)"
+                }),
+                (if ($flag.syntax_shape | is-empty) { "" } else {
+                    $": <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+                }),
+                (if ($flag.description | is-empty) { "" } else {
+                    $" - ($flag.description)"
+                }),
+                (if ($flag.parameter_default | is-empty) { "" } else {
+                    $" \(default: ($flag.parameter_default)\)"
+                }),
+            ]
+            print ($flag_parts | str join "")
         }
+        print $"  (ansi teal)-h(ansi reset), --(ansi teal)help(ansi reset) - Display the help message for this command"
 
         print ""
         print-help-header "Signatures"
@@ -619,16 +600,24 @@ def show-command [command: record] {
             print ""
             print-help-header "Parameters"
             for positional in $positionals {
-                print -n "  "
-                if ($positional.is_optional) {
-                    print -n "(optional) "
-                }
-                print $"(ansi teal)($positional.parameter_name)(ansi reset) <(ansi light_blue)($positional.syntax_shape)(ansi reset)>: ($positional.description)"
+                let arg_parts = [ "  ",
+                    $"(ansi teal)($positional.parameter_name)(ansi reset)",
+                    (if ($positional.syntax_shape | is-empty) { "" } else {
+                        $": <(ansi light_blue)($positional.syntax_shape)(ansi reset)>"
+                    }),
+                    (if ($positional.description | is-empty) { "" } else {
+                        $" ($positional.description)"
+                    }),
+                    (if ($positional.parameter_default | is-empty) { "" } else {
+                        $" \(optional, default: ($positional.parameter_default)\)"
+                    })
+                ]
+                print ($arg_parts | str join "")
             }
 
             if $is_rest {
                 let rest = ($parameters | where parameter_type == rest | get 0)
-                print $"  ...(ansi teal)rest(ansi reset) <(ansi light_blue)($rest.syntax_shape)(ansi reset)>: ($rest.description)"
+                print $"  ...(ansi teal)rest(ansi reset): <(ansi light_blue)($rest.syntax_shape)(ansi reset)> ($rest.description)"
             }
         }
     }
@@ -653,28 +642,27 @@ def show-command [command: record] {
     print ""
 }
 
-# Show help on nushell commands.
+# Show help on commands.
 export def "help commands" [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
     let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
 
-    let command = ($command | str join " ")
-
     if not ($find | is-empty) {
-        let found_commands = ($commands | find $find)
-
-        if ($found_commands | length) == 1 {
-            show-command ($found_commands | get 0)
-        } else {
-            $found_commands | select name category usage signatures search_terms
-        }
+        # TODO: impl find for external commands
+        $commands | find $find --columns [name usage search_terms] | select name category usage signatures search_terms
     } else if not ($command | is-empty) {
-        let found_command = ($commands | where name == $command)
+        let target_command = ($command | str join " ")
+        let found_command = ($commands | where name == $target_command)
 
         if ($found_command | is-empty) {
-            command-not-found-error (metadata $command | get span)
+            try {
+                print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
+                ^($env.NU_HELPER? | default "man") $target_command
+            } catch {
+                command-not-found-error (metadata $command | get span)
+            }
         }
 
         show-command ($found_command | get 0)
@@ -731,14 +719,24 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
         return
     }
 
-    let item = ($item | str join " ")
+    let target_item = ($item | str join " ")
 
-    let commands = (try { help commands $item --find $find })
+    let commands = (try { help commands $target_item --find $find })
     if not ($commands | is-empty) { return $commands }
 
-    let aliases = (try { help aliases $item --find $find })
+    let aliases = (try { help aliases $target_item --find $find })
     if not ($aliases | is-empty) { return $aliases }
 
-    let modules = (try { help modules $item --find $find })
+    let modules = (try { help modules $target_item --find $find })
     if not ($modules | is-empty) { return $modules }
+
+    let span = (metadata $item | get span)
+    error make {
+        msg: ("std::help::item_not_found"  | error-fmt)
+        label: {
+            text: "item not found"
+            start: $span.start
+            end: $span.end
+        }
+    }
 }

@@ -277,7 +277,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 | AggExpr::First(expr)
                 | AggExpr::Last(expr)
                 | AggExpr::Mean(expr)
-                | AggExpr::List(expr)
+                | AggExpr::Implode(expr)
                 | AggExpr::Count(expr)
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
@@ -426,25 +426,29 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             }
         }
-        Expr::SortBy { expr, by, reverse } => {
+        Expr::SortBy {
+            expr,
+            by,
+            descending,
+        } => {
             let expr = expr_to_value(expr.as_ref(), span);
             let by: Vec<Value> = by.iter().map(|b| expr_to_value(b, span)).collect();
             let by = Value::List { vals: by, span };
 
-            let reverse: Vec<Value> = reverse
+            let descending: Vec<Value> = descending
                 .iter()
                 .map(|r| Value::Bool { val: *r, span })
                 .collect();
-            let reverse = Value::List {
-                vals: reverse,
+            let descending = Value::List {
+                vals: descending,
                 span,
             };
 
-            let cols = vec!["expr".into(), "by".into(), "reverse".into()];
+            let cols = vec!["expr".into(), "by".into(), "descending".into()];
 
             Value::Record {
                 cols,
-                vals: vec![expr, by, reverse],
+                vals: vec![expr, by, descending],
                 span,
             }
         }
@@ -571,6 +575,21 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             Value::Record {
                 cols,
                 vals: vec![input, function, options],
+                span,
+            }
+        }
+        Expr::Cache { input, id } => {
+            let input = expr_to_value(input.as_ref(), span);
+            let id = Value::String {
+                val: format!("{id:?}"),
+                span,
+            };
+
+            let cols = vec!["input".into(), "id".into()];
+
+            Value::Record {
+                cols,
+                vals: vec![input, id],
                 span,
             }
         }

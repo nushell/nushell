@@ -238,3 +238,13 @@ fn call_command_with_non_ascii_argument() {
 
     assert_eq!(actual.err.len(), 0);
 }
+
+#[test]
+fn parse_long_duration() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            "78.797877879789789sec" | into duration
+        "#);
+
+    assert_eq!(actual.out, "1min 18sec 797ms");
+}

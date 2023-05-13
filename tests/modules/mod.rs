@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_repl_code, pipeline};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -562,4 +562,191 @@ fn main_inside_module_is_main() {
     let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
 
     assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn module_as_file() {
+    let inp = &[r#"module samples/spam.nu"#, "use spam foo", "foo"];
+
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn export_module_as_file() {
+    let inp = &[r#"export module samples/spam.nu"#, "use spam foo", "foo"];
+
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn deep_import_patterns() {
+    let module_decl = r#"
+        module spam {
+            export module eggs {
+                export module beans {
+                    export def foo [] { 'foo' };
+                    export def bar [] { 'bar' }
+                };
+            };
+        }
+    "#;
+
+    let inp = &[module_decl, "use spam", "spam eggs beans foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[module_decl, "use spam eggs", "eggs beans foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[module_decl, "use spam eggs beans", "beans foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[module_decl, "use spam eggs beans foo", "foo"];
+    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn module_dir() {
+    let import = "use samples/spam";
+
+    let inp = &[import, "spam"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spam");
+
+    let inp = &[import, "spam foo"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[import, "spam bar"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "bar");
+
+    let inp = &[import, "spam foo baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foobaz");
+
+    let inp = &[import, "spam bar baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "barbaz");
+
+    let inp = &[import, "spam baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spambaz");
+}
+
+#[test]
+fn module_dir_deep() {
+    let import = "use samples/spam";
+
+    let inp = &[import, "spam bacon"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "bacon");
+
+    let inp = &[import, "spam bacon foo"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "bacon foo");
+
+    let inp = &[import, "spam bacon beans"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "beans");
+
+    let inp = &[import, "spam bacon beans foo"];
+    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual_repl.out, "beans foo");
+}
+
+#[test]
+fn module_dir_import_twice_no_panic() {
+    let import = "use samples/spam";
+    let inp = &[import, import, "spam"];
+    let actual_repl = nu!(cwd: "tests/modules", nu_repl_code(inp));
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
+fn not_allowed_submodule_file() {
+    let inp = &["use samples/not_allowed"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("invalid_module_file_name"));
+}
+
+#[test]
+fn module_dir_missing_mod_nu() {
+    let inp = &["use samples/missing_mod_nu"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("module_missing_mod_nu_file"));
+}
+
+#[test]
+fn allowed_local_module() {
+    let inp = &["module spam { module spam {} }"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn not_allowed_submodule() {
+    let inp = &["module spam { export module spam {} }"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("named_as_module"));
+}
+
+#[test]
+fn module_self_name() {
+    let inp = &[
+        "module spam { export module mod { export def main [] { 'spam' } } }",
+        "use spam",
+        "spam",
+    ];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn module_self_name_main_not_allowed() {
+    let inp = &[
+        r#"module spam {
+            export def main [] { 'main spam' };
+
+            export module mod {
+                export def main [] { 'mod spam' }
+            }
+        }"#,
+        "use spam",
+        "spam",
+    ];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("module_double_main"));
+
+    let inp = &[
+        r#"module spam {
+            export module mod {
+                export def main [] { 'mod spam' }
+            };
+
+            export def main [] { 'main spam' }
+        }"#,
+        "use spam",
+        "spam",
+    ];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("module_double_main"));
+}
+
+#[test]
+fn module_main_not_found() {
+    let inp = &["module spam {}", "use spam main"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("export_not_found"));
+
+    let inp = &["module spam {}", "use spam [ main ]"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert!(actual.err.contains("export_not_found"));
 }

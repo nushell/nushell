@@ -103,6 +103,7 @@ pub fn create_default_context() -> EngineState {
 
         // Misc
         bind_command! {
+            Source,
             Tutor,
         };
 
@@ -256,6 +257,7 @@ pub fn create_default_context() -> EngineState {
             Clear,
             Du,
             Input,
+            InputList,
             Kill,
             Sleep,
             TermSize,
@@ -432,13 +434,10 @@ pub fn create_default_context() -> EngineState {
 
         // Deprecated
         bind_command! {
-            ExportOldAlias,
             HashBase64,
             LPadDeprecated,
             MathEvalDeprecated,
-            OldAlias,
             RPadDeprecated,
-            Source,
             StrCollectDeprecated,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
