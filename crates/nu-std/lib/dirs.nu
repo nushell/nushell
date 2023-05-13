@@ -76,7 +76,29 @@ export def-env "dirs show" [] {
 }
 
 export alias shells = dirs show
-export alias g = dirs show
+
+export def-env "dirs goto" [shell?: int] {
+    if $shell == null {
+        return (dirs show)
+    }
+
+    if $shell < 0 or $shell >= ($env.DIRS_LIST | length) {
+        let span = (metadata $shell | get span)
+        error make {
+            msg: $"(ansi red_bold)invalid_shell_index(ansi reset)"
+            label: {
+                text: $"`shell` should be between 0 and (($env.DIRS_LIST | length) - 1)"
+                start: $span.start
+                end: $span.end
+            }
+        }
+    }
+    let-env DIRS_POSITION = $shell
+
+    cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+}
+
+export alias g = dirs goto
 
 # fetch item helper
 def-env  _fetch [
