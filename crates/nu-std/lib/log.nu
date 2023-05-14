@@ -21,16 +21,16 @@ export def DEBUG_LEVEL [] {
 def parse-string-level [
     level: string
 ] {
-    if $level in [(log CRITICAL_LEVEL_PREFIX) (log CRITICAL_LEVEL_PREFIX --short) "CRIT" "CRITICAL"] {
-        log CRITICAL_LEVEL
-    } else if $level in [(log ERROR_LEVEL_PREFIX) (log ERROR_LEVEL_PREFIX --short) "ERROR" ] {
-        log ERROR_LEVEL
-    } else if $level in [(log WARNING_LEVEL_PREFIX) (log WARNING_LEVEL_PREFIX --short) "WARN" "WARNING"] {
-        log WARNING_LEVEL
-    } else if $level in [(log DEBUG_LEVEL_PREFIX) (log DEBUG_LEVEL_PREFIX --short) "DEBUG"] {
-        log DEBUG_LEVEL
+    if $level in [(CRITICAL_LEVEL_PREFIX) (CRITICAL_LEVEL_PREFIX --short) "CRIT" "CRITICAL"] {
+        CRITICAL_LEVEL
+    } else if $level in [(ERROR_LEVEL_PREFIX) (ERROR_LEVEL_PREFIX --short) "ERROR" ] {
+        ERROR_LEVEL
+    } else if $level in [(WARNING_LEVEL_PREFIX) (WARNING_LEVEL_PREFIX --short) "WARN" "WARNING"] {
+        WARNING_LEVEL
+    } else if $level in [(DEBUG_LEVEL_PREFIX) (DEBUG_LEVEL_PREFIX --short) "DEBUG"] {
+        DEBUG_LEVEL
     } else {
-        log INFO_LEVEL
+        INFO_LEVEL
     }
 }
 
