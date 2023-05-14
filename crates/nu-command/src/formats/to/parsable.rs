@@ -75,7 +75,7 @@ impl Command for ToParsable {
                 result: Some(Value::test_string(r#"{date: 2001-05-11T00:00:00+00:00, string: 'embedded: delimiter', duration: 548640000000000ns, filesize: 7b}"#)),
             },
             Example {
-                description: "Without this help, simple types could produce unparsable text and cause mis-highlighting.",
+                description: "Without this help, simple types could produce unparsable text and cause incorrect highlighting.",
                 //example: r#"$"({date: 2001-05-11 string:'embedded: delimiter' duration:6.35day filesize: 7b})" | nu-highlight"#,
                 example: r#"$"({date: 2001-05-11 string:'embedded: delimiter' duration:6.35day filesize: 7b})""#,
                 result: Some(Value::test_string(r#"{date: Fri, 11 May 2001 00:00:00 +0000 (22 years ago), string: embedded: delimiter, duration: 6day 8hr 24min, filesize: 7 B}"#)),

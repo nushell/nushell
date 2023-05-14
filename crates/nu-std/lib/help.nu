@@ -253,7 +253,6 @@ export def "help modules" [
         }
 
         show-module ($found_module | get 0)
-        " " # signal something was shown
     } else {
         $modules
     }
@@ -356,7 +355,6 @@ export def "help aliases" [
         }
 
         show-alias ($found_alias | get 0)
-        " " # signal something was shown
     } else {
         $aliases
     }
@@ -395,7 +393,6 @@ export def "help externs" [
         }
 
         show-extern ($found_extern | get 0)
-        " " # signal something was shown
     } else {
         $externs
     }
@@ -460,7 +457,6 @@ export def "help operators" [
         }
 
         show-operator ($found_operator | get 0)
-        " " # signal something was shown
     } else {
         $operators
     }
@@ -670,7 +666,6 @@ export def "help commands" [
         }
 
         show-command ($found_command | get 0)
-        " " # signal something was shown
     } else {
         $commands | select name category usage signatures search_terms
     }
