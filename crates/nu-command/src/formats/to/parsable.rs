@@ -68,7 +68,7 @@ impl Command for ToParsable {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![ 
+        vec![
             Example {
                 description: "Ensures simple types do not print with unquoted embedded blanks or other NU delimiters",
                 example: r#"{date: 2001-05-11 string:'embedded: delimiter' duration:6.35day filesize: 7b} | to parsable"#,

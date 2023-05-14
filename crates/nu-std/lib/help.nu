@@ -576,7 +576,7 @@ def show-command [command: record] {
                     $" - ($flag.description)"
                 }),
                 (if ($flag.parameter_default | is-empty) { "" } else {
-                    $" \(default: ($flag.parameter_default)\)"
+                    $" \(default: ($flag.parameter_default | to parsable | nu-highlight)\)"
                 }),
             ]
             print ($flag_parts | str join "")
@@ -666,6 +666,7 @@ export def "help commands" [
         }
 
         show-command ($found_command | get 0)
+        "" # signal command help was shown
     } else {
         $commands | select name category usage signatures search_terms
     }
