@@ -1,6 +1,6 @@
 mod from;
 
-use from::{eml, ics, ini, vcf};
+use from::{eml, hcl, ics, ini, vcf};
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{Category, PluginSignature, SyntaxShape, Type, Value};
 
@@ -35,6 +35,11 @@ impl Plugin for FromCmds {
                 .usage("Parse text as .ini and create table.")
                 .plugin_examples(ini::examples())
                 .category(Category::Formats),
+            PluginSignature::build(hcl::CMD_NAME)
+                .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+                .usage("Parse text as .hcl and create record.")
+                .plugin_examples(hcl::examples())
+                .category(Category::Formats),
         ]
     }
 
@@ -49,6 +54,7 @@ impl Plugin for FromCmds {
             ics::CMD_NAME => ics::from_ics_call(call, input),
             vcf::CMD_NAME => vcf::from_vcf_call(call, input),
             ini::CMD_NAME => ini::from_ini_call(call, input),
+            hcl::CMD_NAME => hcl::from_hcl_call(call, input),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
                 msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),
