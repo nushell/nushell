@@ -1,6 +1,6 @@
 # std.nu, `used` to load all standard library components
 
-export use dirs *
+export use dirs
 export-env {
     use dirs *
 }
