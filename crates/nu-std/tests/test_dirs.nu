@@ -1,5 +1,4 @@
-use std "assert length"
-use std "assert equal"
+use std testing assert
 
 export def setup [] {
     {base_path: ($nu.temp-path | path join $"test_dirs_(random uuid)")}
@@ -27,7 +26,7 @@ export def test_dirs_command [] {
     use std "dirs drop"
     use std "dirs show"
 
-    assert length $env.DIRS_LIST 1 "list is just pwd after initialization"
+    assert len $env.DIRS_LIST 1 "list is just pwd after initialization"
     assert equal $base_path $env.DIRS_LIST.0 "list is just pwd after initialization"
 
     dirs next
@@ -38,7 +37,7 @@ export def test_dirs_command [] {
 
     dirs add $path_b $path_a
     assert equal $path_b $env.PWD "add changes PWD to first added dir"
-    assert length $env.DIRS_LIST 3 "add in fact adds to list"
+    assert len $env.DIRS_LIST 3 "add in fact adds to list"
     assert equal $path_a $env.DIRS_LIST.2 "add in fact adds to list"
 
     dirs next 2
@@ -48,7 +47,7 @@ export def test_dirs_command [] {
     assert equal $path_a $env.PWD "prev wraps at start of list"
 
     dirs drop
-    assert length $env.DIRS_LIST 2 "drop removes from list"
+    assert len $env.DIRS_LIST 2 "drop removes from list"
     assert equal $base_path $env.PWD "drop changes PWD to next in list (after dropped element)"
 
     assert equal (dirs show) [[active path]; [true $base_path] [false $path_b]] "show table contains expected information"

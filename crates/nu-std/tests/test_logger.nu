@@ -1,4 +1,5 @@
-use std *
+use std testing assert
+use std log
 
 def run [
     system_level,
@@ -28,8 +29,8 @@ def "assert message" [
     message_level_str
 ] {
     let output = (run $system_level $message_level)
-    assert str contains $output $message_level_str
-    assert str contains $output "test message"
+    assert str includes $output $message_level_str
+    assert str includes $output "test message"
 }
 
 def "assert message short" [
@@ -38,8 +39,8 @@ def "assert message short" [
     message_level_str
 ] {
     let output = (run --short $system_level $message_level)
-    assert str contains $output $message_level_str
-    assert str contains $output "test message"
+    assert str includes $output $message_level_str
+    assert str includes $output "test message"
 }
 
 export def test_critical [] {

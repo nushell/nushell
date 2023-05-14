@@ -5,7 +5,7 @@
 # Assert commands and test runner.
 #
 ##################################################################################
-use log *
+use log
 
 export module assert {
     # Universal assert command

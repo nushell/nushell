@@ -1,4 +1,4 @@
-use std *
+use std testing assert
 
 export def test_assert [] {
     assert true
@@ -53,8 +53,8 @@ export def test_assert_greater_or_equal [] {
 }
 
 export def test_assert_length [] {
-    assert length [0, 0, 0]  3
-    assert error { assert length [0, 0] 3 }
+    assert len [0, 0, 0]  3
+    assert error { assert len [0, 0] 3 }
 }
 
 export def test_assert_skip [] {
