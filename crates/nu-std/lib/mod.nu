@@ -8,7 +8,7 @@ export use help *
 export use iter
 export use log
 export use testing *
-export use xml *
+export use xml
 use dt [datetime-diff, pretty-print-duration]
 
 # Add the given paths to the PATH.
