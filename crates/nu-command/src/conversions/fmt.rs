@@ -149,10 +149,10 @@ fn fmt_it_64(num: f64, span: Span) -> Value {
     vals.push(Value::string(format!("{num:#e}"), span));
 
     cols.push("lowerhex".into());
-    vals.push(Value::string(format!("{:x}", num.to_bits()), span));
+    vals.push(Value::string(format!("{:0x}", num.to_bits()), span));
 
     cols.push("octal".into());
-    vals.push(Value::string(format!("{:o}", num.to_bits()), span));
+    vals.push(Value::string(format!("{:0o}", num.to_bits()), span));
 
     // cols.push("pointer".into());
     // vals.push(Value::string(format!("{:#p}", &num), span));
@@ -161,7 +161,7 @@ fn fmt_it_64(num: f64, span: Span) -> Value {
     vals.push(Value::string(format!("{num:#E}"), span));
 
     cols.push("upperhex".into());
-    vals.push(Value::string(format!("{:X}", num.to_bits()), span));
+    vals.push(Value::string(format!("{:0X}", num.to_bits()), span));
 
     Value::Record { cols, vals, span }
 }
