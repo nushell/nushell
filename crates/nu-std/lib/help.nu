@@ -123,6 +123,7 @@ def show-module [module: record] {
 
     if not ($module.commands? | is-empty) {
         print-help-header "Exported commands"
+        let indent = "    "
         print -n "    "
 
         let commands_string = (
@@ -138,8 +139,8 @@ def show-module [module: record] {
     }
 
     if not ($module.aliases? | is-empty) {
-        print-help-header -n "Exported aliases:"
-        print $module.aliases
+        print-help-header "Exported aliases"
+        print $"    ($module.aliases | str join ', ')"
         print ""
     }
 
@@ -147,7 +148,7 @@ def show-module [module: record] {
         print $"This module (ansi cyan)does not export(ansi reset) environment."
     } else {
         print $"This module (ansi cyan)exports(ansi reset) environment."
-        view source $module.env_block
+        print (view source $module.env_block)
     }
 }
 
