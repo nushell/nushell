@@ -47,7 +47,7 @@ impl Command for LazyMake {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["lazy", "deferred", "record", "procedural"]
+        vec!["deferred", "record", "procedural"]
     }
 
     fn run(
