@@ -23,7 +23,7 @@ impl Command for LoadEnv {
             .allow_variants_without_examples(true)
             .optional(
                 "update",
-                SyntaxShape::Record,
+                SyntaxShape::Record(vec![]),
                 "the record to use for updates",
             )
             .category(Category::FileSystem)
@@ -42,23 +42,26 @@ impl Command for LoadEnv {
         match arg {
             Some((cols, vals)) => {
                 for (env_var, rhs) in cols.into_iter().zip(vals) {
-                    if env_var == "FILE_PWD" {
-                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                    let env_var_ = env_var.as_str();
+                    if ["FILE_PWD", "CURRENT_FILE", "PWD"].contains(&env_var_) {
+                        return Err(ShellError::AutomaticEnvVarSetManually {
+                            envvar_name: env_var,
+                            span: call.head,
+                        });
                     }
-
-                    if env_var == "PWD" {
-                        return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
-                    } else {
-                        stack.add_env_var(env_var, rhs);
-                    }
+                    stack.add_env_var(env_var, rhs);
                 }
                 Ok(PipelineData::empty())
             }
             None => match input {
                 PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                     for (env_var, rhs) in cols.into_iter().zip(vals) {
-                        if env_var == "FILE_PWD" {
-                            return Err(ShellError::AutomaticEnvVarSetManually(env_var, call.head));
+                        let env_var_ = env_var.as_str();
+                        if ["FILE_PWD", "CURRENT_FILE"].contains(&env_var_) {
+                            return Err(ShellError::AutomaticEnvVarSetManually {
+                                envvar_name: env_var,
+                                span: call.head,
+                            });
                         }
 
                         if env_var == "PWD" {

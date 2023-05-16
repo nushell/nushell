@@ -1,7 +1,7 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block, eval_expression_with_input};
 use nu_protocol::{
     ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
@@ -16,15 +16,15 @@ impl Command for TimeIt {
     }
 
     fn usage(&self) -> &str {
-        "Time the running time of a closure."
+        "Time the running time of a block."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("timeit")
             .required(
-                "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
+                "command",
+                SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
+                "the command or block to run",
             )
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
@@ -45,37 +45,36 @@ impl Command for TimeIt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let block = engine_state.get_block(capture_block.block_id);
-
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
-
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
-
-        // In order to provide the pipeline as a positional, it must be converted into a value.
-        // But because pipelines do not have Clone, this one has to be cloned as a value
-        // and then converted back into a pipeline for eval_block().
-        // So, the metadata must be saved here and restored at that point.
-        let input_metadata = input.metadata();
-        let input_val = input.into_value(call.head);
-
-        if let Some(var) = block.signature.get_positional(0) {
-            if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, input_val.clone());
-            }
-        }
+        let command_to_run = call.positional_nth(0);
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
-        eval_block(
-            engine_state,
-            &mut stack,
-            block,
-            input_val.into_pipeline_data_with_metadata(input_metadata),
-            redirect_stdout,
-            redirect_stderr,
-        )?
+
+        if let Some(command_to_run) = command_to_run {
+            if let Some(block_id) = command_to_run.as_block() {
+                let block = engine_state.get_block(block_id);
+                eval_block(
+                    engine_state,
+                    stack,
+                    block,
+                    input,
+                    call.redirect_stdout,
+                    call.redirect_stderr,
+                )?
+            } else {
+                eval_expression_with_input(
+                    engine_state,
+                    stack,
+                    command_to_run,
+                    input,
+                    call.redirect_stdout,
+                    call.redirect_stderr,
+                )
+                .map(|res| res.0)?
+            }
+        } else {
+            PipelineData::empty()
+        }
         .into_value(call.head);
 
         let end_time = Instant::now();
@@ -100,6 +99,11 @@ impl Command for TimeIt {
                 example: "http get https://www.nushell.sh/book/ | timeit { split chars }",
                 result: None,
             },
+            Example {
+                description: "Times a command invocation",
+                example: "timeit ls -la",
+                result: None,
+            },
         ]
     }
 }
@@ -107,11 +111,11 @@ impl Command for TimeIt {
 #[test]
 // Due to difficulty in observing side-effects from time closures,
 // checks that the closures have run correctly must use the filesystem.
-fn test_time_closure() {
+fn test_time_block() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_closure", |dirs, _| {
+    Playground::setup("test_time_block", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit { to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
@@ -121,11 +125,11 @@ fn test_time_closure() {
 }
 
 #[test]
-fn test_time_closure_2() {
+fn test_time_block_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
-    Playground::setup("test_time_closure", |dirs, _| {
+    Playground::setup("test_time_block", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit {|e| {result: $e} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

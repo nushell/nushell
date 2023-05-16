@@ -461,13 +461,13 @@ pub fn create_column(
                             Some(val) => val,
                             None => {
                                 return Value::Error {
-                                    error: ShellError::UnsupportedInput(
+                                    error: Box::new(ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
                                         format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
-                                    ),
+                                    )),
                                 }
                             }
                         };
@@ -476,13 +476,13 @@ pub fn create_column(
                             Some(val) => val,
                             None => {
                                 return Value::Error {
-                                    error: ShellError::UnsupportedInput(
+                                    error: Box::new(ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
                                         format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
-                                    ),
+                                    )),
                                 }
                             }
                         };
@@ -526,13 +526,13 @@ pub fn create_column(
                             Some(val) => val,
                             None => {
                                 return Value::Error {
-                                    error: ShellError::UnsupportedInput(
+                                    error: Box::new(ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
                                         format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
-                                    ),
+                                    )),
                                 }
                             }
                         };
@@ -541,13 +541,13 @@ pub fn create_column(
                             Some(val) => val,
                             None => {
                                 return Value::Error {
-                                    error: ShellError::UnsupportedInput(
+                                    error: Box::new(ShellError::UnsupportedInput(
                                         "The given local datetime representation is invalid."
                                             .to_string(),
                                         format!("timestamp is {a:?}"),
                                         span,
                                         Span::unknown(),
-                                    ),
+                                    )),
                                 }
                             }
                         };

@@ -128,13 +128,13 @@ pub(super) fn compute_between_series(
                     )),
                 }
             }
-            _ => Err(ShellError::IncompatibleParametersSingle(
-                format!(
+            _ => Err(ShellError::IncompatibleParametersSingle {
+                msg: format!(
                     "Operation {} can only be done with boolean values",
                     operator.item
                 ),
-                operation_span,
-            )),
+                span: operation_span,
+            }),
         },
         Operator::Boolean(Boolean::Or) => match lhs.dtype() {
             DataType::Boolean => {
@@ -157,13 +157,13 @@ pub(super) fn compute_between_series(
                     )),
                 }
             }
-            _ => Err(ShellError::IncompatibleParametersSingle(
-                format!(
+            _ => Err(ShellError::IncompatibleParametersSingle {
+                msg: format!(
                     "Operation {} can only be done with boolean values",
                     operator.item
                 ),
-                operation_span,
-            )),
+                span: operation_span,
+            }),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
@@ -270,14 +270,14 @@ pub(super) fn compute_series_single_value(
         Operator::Math(Math::Divide) => match &right {
             Value::Int { val, span } => {
                 if *val == 0 {
-                    Err(ShellError::DivisionByZero(*span))
+                    Err(ShellError::DivisionByZero { span: *span })
                 } else {
                     compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
                 }
             }
             Value::Float { val, span } => {
                 if val.is_zero() {
-                    Err(ShellError::DivisionByZero(*span))
+                    Err(ShellError::DivisionByZero { span: *span })
                 } else {
                     compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
                 }
@@ -736,7 +736,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
     let casted = series.utf8();
     match casted {
         Ok(casted) => {
-            let res = casted.contains(pat);
+            let res = casted.contains(pat, false);
 
             match res {
                 Ok(res) => {

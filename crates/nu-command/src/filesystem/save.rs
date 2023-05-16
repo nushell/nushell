@@ -101,12 +101,10 @@ impl Command for Save {
 
                 let res = stream_to_file(stream, file, span, progress);
                 if let Some(h) = handler {
-                    h.join().map_err(|err| {
-                        ShellError::ExternalCommand(
-                            "Fail to receive external commands stderr message".to_string(),
-                            format!("{err:?}"),
-                            span,
-                        )
+                    h.join().map_err(|err| ShellError::ExternalCommand {
+                        label: "Fail to receive external commands stderr message".to_string(),
+                        help: format!("{err:?}"),
+                        span,
                     })??;
                     res
                 } else {
@@ -252,7 +250,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
             Ok(val.into_bytes())
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(error),
+        Value::Error { error } => Err(*error),
         other => Ok(other.as_string()?.into_bytes()),
     }
 }
@@ -378,7 +376,7 @@ fn stream_to_file(
                     Value::String { val, .. } => val.into_bytes(),
                     Value::Binary { val, .. } => val,
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "string or binary".into(),

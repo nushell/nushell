@@ -11,7 +11,7 @@ fn row() {
                 r#"
                 name,country,luck
                 Andrés,Ecuador,0
-                Jonathan,USA,0
+                JT,USA,0
                 Jason,Canada,0
                 Yehuda,USA,0
             "#,
@@ -21,7 +21,7 @@ fn row() {
                 r#"
                 name,country,luck
                 Andrés Robalino,Guayaquil Ecuador,1
-                Jonathan Turner,New Zealand,1
+                JT Turner,New Zealand,1
             "#,
             ),
         ]);

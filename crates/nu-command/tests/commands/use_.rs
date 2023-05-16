@@ -172,7 +172,7 @@ fn use_export_env_combined() {
             "spam.nu",
             r#"
                 alias bar = foo
-                export-env { let-env FOO = bar }
+                export-env { let-env FOO = (bar) }
                 def foo [] { 'foo' }
             "#,
         )]);

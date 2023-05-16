@@ -60,7 +60,10 @@ impl Command for UniqBy {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
 
         if columns.is_empty() {
-            return Err(ShellError::MissingParameter("columns".into(), call.head));
+            return Err(ShellError::MissingParameter {
+                param_name: "columns".into(),
+                span: call.head,
+            });
         }
 
         let metadata = input.metadata();
@@ -104,21 +107,11 @@ impl Command for UniqBy {
 }
 
 fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
-    if vec.is_empty() {
-        return Err(ShellError::GenericError(
-            "no values to work with".to_string(),
-            "".to_string(),
-            None,
-            Some("no values to work with".to_string()),
-            Vec::new(),
-        ));
-    }
-
-    if let Value::Record {
+    if let Some(Value::Record {
         cols,
         vals: _input_vals,
         span: val_span,
-    } = &vec[0]
+    }) = vec.first()
     {
         if columns.is_empty() {
             // This uses the same format as the 'requires a column name' error in split_by.rs
@@ -132,7 +125,11 @@ fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), Sh
         }
 
         if let Some(nonexistent) = nonexistent_column(columns.clone(), cols.to_vec()) {
-            return Err(ShellError::CantFindColumn(nonexistent, span, *val_span));
+            return Err(ShellError::CantFindColumn {
+                col_name: nonexistent,
+                span,
+                src_span: *val_span,
+            });
         }
     }
 

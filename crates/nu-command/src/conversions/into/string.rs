@@ -154,10 +154,10 @@ fn string_helper(
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     if let Some(decimal_val) = decimals_value {
         if decimals && decimal_val.is_negative() {
-            return Err(ShellError::TypeMismatch(
-                "Cannot accept negative integers for decimals arguments".to_string(),
-                head,
-            ));
+            return Err(ShellError::TypeMismatch {
+                err_message: "Cannot accept negative integers for decimals arguments".to_string(),
+                span: head,
+            });
         }
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
@@ -247,28 +247,28 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span: _,
         } => Value::Error {
             // Watch out for CantConvert's argument order
-            error: ShellError::CantConvert(
-                "string".into(),
-                "record".into(),
+            error: Box::new(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "record".into(),
                 span,
-                Some("try using the `to nuon` command".into()),
-            ),
+                help: Some("try using the `to nuon` command".into()),
+            }),
         },
         Value::Binary { .. } => Value::Error {
-            error: ShellError::CantConvert(
-                "string".into(),
-                "binary".into(),
+            error: Box::new(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "binary".into(),
                 span,
-                Some("try using the `decode` command".into()),
-            ),
+                help: Some("try using the `decode` command".into()),
+            }),
         },
         x => Value::Error {
-            error: ShellError::CantConvert(
-                String::from("string"),
-                x.get_type().to_string(),
+            error: Box::new(ShellError::CantConvert {
+                to_type: String::from("string"),
+                from_type: x.get_type().to_string(),
                 span,
-                None,
-            ),
+                help: None,
+            }),
         },
     }
 }

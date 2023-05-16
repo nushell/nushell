@@ -50,21 +50,15 @@ impl Command for Rm {
                 "filename",
                 SyntaxShape::Filepath,
                 "the path of the file you want to remove",
-            );
-        #[cfg(all(
-            feature = "trash-support",
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
-        let sig = sig
+            )
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting",
+                "move to the platform's trash instead of permanently deleting. not used on android and ios",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option",
+                "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
@@ -169,18 +163,13 @@ fn rm(
 
     let rm_always_trash = config.rm_always_trash;
 
-    #[cfg(any(
-        not(feature = "trash-support"),
-        target_os = "android",
-        target_os = "ios"
-    ))]
+    #[cfg(not(feature = "trash-support"))]
     {
         if rm_always_trash {
             return Err(ShellError::GenericError(
                 "Cannot execute `rm`; the current configuration specifies \
                     `always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support` or trash is not supported on \
-                    your platform."
+                    built with feature `trash_support`."
                     .into(),
                 "trash required to be true but not supported".into(),
                 Some(span),
@@ -189,8 +178,7 @@ fn rm(
             ));
         } else if trash {
             return Err(ShellError::GenericError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not \
-                    enabled or trash is not supported on your platform"
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled"
                     .into(),
                 "this option is only available if nu is built with the `trash-support` feature"
                     .into(),
@@ -330,8 +318,8 @@ fn rm(
     }
 
     all_targets
-        .into_keys()
-        .map(move |f| {
+        .into_iter()
+        .map(move |(f, span)| {
             let is_empty = || match f.read_dir() {
                 Ok(mut p) => p.next().is_none(),
                 Err(_) => false,
@@ -405,13 +393,13 @@ fn rm(
                     if let Err(e) = result {
                         let msg = format!("Could not delete because: {e:}");
                         Value::Error {
-                            error: ShellError::GenericError(
+                            error: Box::new(ShellError::GenericError(
                                 msg,
                                 e.to_string(),
                                 Some(span),
                                 None,
                                 Vec::new(),
-                            ),
+                            )),
                         }
                     } else if verbose {
                         let msg = if interactive && !confirmed {
@@ -427,25 +415,25 @@ fn rm(
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
                     Value::Error {
-                        error: ShellError::GenericError(
+                        error: Box::new(ShellError::GenericError(
                             msg,
                             "cannot remove non-empty directory".into(),
                             Some(span),
                             None,
                             Vec::new(),
-                        ),
+                        )),
                     }
                 }
             } else {
                 let msg = format!("no such file or directory: {:}", f.to_string_lossy());
                 Value::Error {
-                    error: ShellError::GenericError(
+                    error: Box::new(ShellError::GenericError(
                         msg,
                         "no such file or directory".into(),
                         Some(span),
                         None,
                         Vec::new(),
-                    ),
+                    )),
                 }
             }
         })

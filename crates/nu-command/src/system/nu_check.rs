@@ -1,4 +1,4 @@
-use nu_engine::{find_in_dirs_env, CallExt};
+use nu_engine::{find_in_dirs_env, get_dirs_var_from_call, CallExt};
 use nu_parser::{parse, parse_module_block, unescape_unquote_string};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
@@ -106,7 +106,12 @@ impl Command for NuCheck {
             _ => {
                 if let Some(path_str) = path {
                     // look up the path as relative to FILE_PWD or inside NU_LIB_DIRS (same process as source-env)
-                    let path = match find_in_dirs_env(&path_str.item, engine_state, stack) {
+                    let path = match find_in_dirs_env(
+                        &path_str.item,
+                        engine_state,
+                        stack,
+                        get_dirs_var_from_call(call),
+                    ) {
                         Ok(path) => {
                             if let Some(path) = path {
                                 path
@@ -255,9 +260,14 @@ fn heuristic_parse_file(
     call: &Call,
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
-    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
-    if err.is_none() {
-        if let Ok(contents) = std::fs::read(&path) {
+    let starting_error_count = working_set.parse_errors.len();
+    let bytes = working_set.get_span_contents(call.head);
+    let (filename, err) = unescape_unquote_string(bytes, call.head);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
+    if starting_error_count == working_set.parse_errors.len() {
+        if let Ok(contents) = std::fs::read(path) {
             match parse_script(
                 working_set,
                 Some(filename.as_str()),
@@ -291,7 +301,7 @@ fn heuristic_parse_file(
             Err(ShellError::IOError("Can not read input".to_string()))
         }
     } else {
-        Err(ShellError::NotFound(call.head))
+        Err(ShellError::NotFound { span: call.head })
     }
 }
 
@@ -304,18 +314,20 @@ fn parse_module(
 ) -> Result<PipelineData, ShellError> {
     let filename = filename.unwrap_or_else(|| "empty".to_string());
 
-    let start = working_set.next_span_start();
-    working_set.add_file(filename.clone(), contents);
-    let end = working_set.next_span_start();
+    let file_id = working_set.add_file(filename.clone(), contents);
+    let new_span = working_set.get_span_for_file(file_id);
 
-    let new_span = Span::new(start, end);
-    let (_, _, _, err) = parse_module_block(working_set, new_span, filename.as_bytes(), &[]);
+    let starting_error_count = working_set.parse_errors.len();
+    parse_module_block(working_set, new_span, filename.as_bytes());
 
-    if err.is_some() {
+    if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
             let msg = format!(
                 r#"Found : {}"#,
-                err.expect("Unable to parse content as module")
+                working_set
+                    .parse_errors
+                    .first()
+                    .expect("Unable to parse content as module")
             );
             Err(ShellError::GenericError(
                 "Failed to parse content".to_string(),
@@ -339,9 +351,16 @@ fn parse_script(
     is_debug: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (_, err) = parse(working_set, filename, contents, false, &[]);
-    if err.is_some() {
-        let msg = format!(r#"Found : {}"#, err.expect("Unable to parse content"));
+    let starting_error_count = working_set.parse_errors.len();
+    parse(working_set, filename, contents, false);
+    if starting_error_count != working_set.parse_errors.len() {
+        let msg = format!(
+            r#"Found : {}"#,
+            working_set
+                .parse_errors
+                .first()
+                .expect("Unable to parse content")
+        );
         if is_debug {
             Err(ShellError::GenericError(
                 "Failed to parse content".to_string(),
@@ -364,9 +383,14 @@ fn parse_file_script(
     call: &Call,
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
-    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
-    if err.is_none() {
-        if let Ok(contents) = std::fs::read(&path) {
+    let starting_error_count = working_set.parse_errors.len();
+    let bytes = working_set.get_span_contents(call.head);
+    let (filename, err) = unescape_unquote_string(bytes, call.head);
+    if let Some(err) = err {
+        working_set.error(err)
+    }
+    if starting_error_count == working_set.parse_errors.len() {
+        if let Ok(contents) = std::fs::read(path) {
             parse_script(
                 working_set,
                 Some(filename.as_str()),
@@ -378,7 +402,7 @@ fn parse_file_script(
             Err(ShellError::IOError("Can not read path".to_string()))
         }
     } else {
-        Err(ShellError::NotFound(call.head))
+        Err(ShellError::NotFound { span: call.head })
     }
 }
 
@@ -388,14 +412,19 @@ fn parse_file_module(
     call: &Call,
     is_debug: bool,
 ) -> Result<PipelineData, ShellError> {
-    let (filename, err) = unescape_unquote_string(path.as_bytes(), call.head);
-    if err.is_none() {
+    let starting_error_count = working_set.parse_errors.len();
+    let bytes = working_set.get_span_contents(call.head);
+    let (filename, err) = unescape_unquote_string(bytes, call.head);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
+    if starting_error_count == working_set.parse_errors.len() {
         if let Ok(contents) = std::fs::read(path) {
             parse_module(working_set, Some(filename), &contents, is_debug, call.head)
         } else {
             Err(ShellError::IOError("Can not read path".to_string()))
         }
     } else {
-        Err(ShellError::NotFound(call.head))
+        Err(ShellError::NotFound { span: call.head })
     }
 }

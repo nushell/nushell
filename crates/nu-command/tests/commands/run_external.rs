@@ -139,17 +139,6 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     })
 }
 
-#[test]
-fn semicolon_works_within_subcommand() {
-    Playground::setup("external failed command with semicolon", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(r#"(nu --testbin outcome_err "aa"; echo done)"#
-        ));
-
-        assert!(!actual.out.contains("done"));
-    })
-}
-
 #[cfg(not(windows))]
 #[test]
 fn external_args_with_quoted() {
@@ -220,6 +209,17 @@ fn external_command_not_expand_tilde_with_quotes() {
         |dirs, _| {
             let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu "~""#));
             assert_eq!(actual.out, r#"~"#);
+        },
+    )
+}
+
+#[test]
+fn external_command_expand_tilde_with_back_quotes() {
+    Playground::setup(
+        "external command not expand tilde with quotes",
+        |dirs, _| {
+            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu `~`"#));
+            assert!(!actual.out.contains('~'));
         },
     )
 }
@@ -319,4 +319,19 @@ fn quotes_trimmed_when_shelling_out() {
     ));
 
     assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn redirect_combine() {
+    Playground::setup("redirect_combine", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                run-external --redirect-combine sh [-c 'echo Foo; echo >&2 Bar']
+            "#
+        ));
+
+        // Lines are collapsed in the nu! macro
+        assert_eq!(actual.out, "FooBar");
+    });
 }

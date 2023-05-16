@@ -21,7 +21,7 @@ impl Command for Const {
             .required("const_name", SyntaxShape::VarWithOptType, "constant name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by constant value",
             )
             .category(Category::Core)
@@ -60,11 +60,11 @@ impl Command for Const {
 
             Ok(PipelineData::empty())
         } else {
-            Err(ShellError::NushellFailedSpanned(
-                "Missing Constant".to_string(),
-                "constant not added by the parser".to_string(),
-                call.head,
-            ))
+            Err(ShellError::NushellFailedSpanned {
+                msg: "Missing Constant".to_string(),
+                label: "constant not added by the parser".to_string(),
+                span: call.head,
+            })
         }
     }
 

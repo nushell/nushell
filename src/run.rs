@@ -16,9 +16,11 @@ pub(crate) fn run_commands(
     use_color: bool,
     commands: &nu_protocol::Spanned<String>,
     input: PipelineData,
+    entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
+
     #[cfg(feature = "plugin")]
     read_plugin_file(
         engine_state,
@@ -69,6 +71,8 @@ pub(crate) fn run_commands(
         use_color,
     );
 
+    // Before running commands, set up the startup time
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_commands(
         commands,
@@ -194,22 +198,25 @@ pub(crate) fn run_file(
 }
 
 pub(crate) fn run_repl(
-    mut engine_state: nu_protocol::engine::EngineState,
+    engine_state: &mut nu_protocol::engine::EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 
-    setup_config(
-        &mut engine_state,
-        &mut stack,
-        #[cfg(feature = "plugin")]
-        parsed_nu_cli_args.plugin_file,
-        parsed_nu_cli_args.config_file,
-        parsed_nu_cli_args.env_file,
-        parsed_nu_cli_args.login_shell.is_some(),
-    );
+    if parsed_nu_cli_args.no_config_file.is_none() {
+        setup_config(
+            engine_state,
+            &mut stack,
+            #[cfg(feature = "plugin")]
+            parsed_nu_cli_args.plugin_file,
+            parsed_nu_cli_args.config_file,
+            parsed_nu_cli_args.env_file,
+            parsed_nu_cli_args.login_shell.is_some(),
+        );
+    }
+
     // Reload use_color from config in case it's different from the default value
     let use_color = engine_state.get_config().use_ansi_coloring;
     perf(
@@ -223,10 +230,11 @@ pub(crate) fn run_repl(
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
-        &mut engine_state,
+        engine_state,
         &mut stack,
         config_files::NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,
+        parsed_nu_cli_args.no_std_lib,
         entire_start_time,
     );
     perf(

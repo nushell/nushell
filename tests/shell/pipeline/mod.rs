@@ -1,6 +1,7 @@
 mod commands;
 
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn doesnt_break_on_utf8() {

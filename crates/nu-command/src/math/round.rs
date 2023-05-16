@@ -75,11 +75,33 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Apply negative precision to a list of numbers",
+                example: "[123, 123.3, -123.4] | math round -p -1",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(120),
+                        Value::test_int(120),
+                        Value::test_int(-120),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
 
 fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
+    // We treat int values as float values in order to avoid code repetition in the match closure
+    let value = if let Value::Int { val, span } = value {
+        Value::Float {
+            val: val as f64,
+            span,
+        }
+    } else {
+        value
+    };
+
     match value {
         Value::Float { val, span } => match precision {
             Some(precision_number) => Value::Float {
@@ -92,15 +114,14 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
                 span,
             },
         },
-        Value::Int { .. } => value,
         Value::Error { .. } => value,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

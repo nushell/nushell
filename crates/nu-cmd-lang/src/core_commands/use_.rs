@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, find_in_dirs_env, redirect_env};
+use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -14,14 +14,14 @@ impl Command for Use {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module."
+        "Use definitions from a module, making them available in your shell."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("module", SyntaxShape::String, "Module or module file")
-            .optional(
+            .rest(
                 "members",
                 SyntaxShape::Any,
                 "Which members of the module to import",
@@ -30,7 +30,10 @@ impl Command for Use {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
+        r#"See `help std` for the standard library module.
+See `help modules` to list all available modules.
+
+This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
@@ -45,13 +48,10 @@ impl Command for Use {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let import_pattern = if let Some(Expression {
-            expr: Expr::ImportPattern(pat),
+        let Some(Expression {
+            expr: Expr::ImportPattern(import_pattern),
             ..
-        }) = call.parser_info_nth(0)
-        {
-            pat
-        } else {
+        }) = call.get_parser_info("import_pattern") else {
             return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
@@ -72,13 +72,16 @@ impl Command for Use {
                 let module_arg_str = String::from_utf8_lossy(
                     engine_state.get_span_contents(&import_pattern.head.span),
                 );
-                let maybe_parent = if let Some(path) =
-                    find_in_dirs_env(&module_arg_str, engine_state, caller_stack)?
-                {
-                    path.parent().map(|p| p.to_path_buf()).or(None)
-                } else {
-                    None
-                };
+
+                let maybe_file_path = find_in_dirs_env(
+                    &module_arg_str,
+                    engine_state,
+                    caller_stack,
+                    get_dirs_var_from_call(call),
+                )?;
+                let maybe_parent = maybe_file_path
+                    .as_ref()
+                    .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
                 let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
@@ -86,6 +89,11 @@ impl Command for Use {
                 if let Some(parent) = maybe_parent {
                     let file_pwd = Value::string(parent.to_string_lossy(), call.head);
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                }
+
+                if let Some(file_path) = maybe_file_path {
+                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
                 // Run the block (discard the result)
@@ -128,6 +136,26 @@ impl Command for Use {
                 description: "Define a custom command that participates in the environment in a module and call it",
                 example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
+            },
+            Example {
+                description: "Use a plain module name to import its definitions qualified by the module name",
+                example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam; (spam foo) + (spam bar)"#,
+                result: Some(Value::test_string("foobar")),
+            },
+            Example {
+                description: "Specify * to use all definitions in a module",
+                example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam *; (foo) + (bar)"#,
+                result: Some(Value::test_string("foobar")),
+            },
+            Example {
+                description: "To use commands with spaces, like subcommands, surround them with quotes",
+                example: r#"module spam { export def 'foo bar' [] { "baz" } }; use spam 'foo bar'; foo bar"#,
+                result: Some(Value::test_string("baz")),
+            },
+            Example {
+                description: "To use multiple definitions from a module, wrap them in a list",
+                example: r#"module spam { export def foo [] { "foo" }; export def 'foo bar' [] { "baz" } }; use spam ['foo', 'foo bar']; (foo) + (foo bar)"#,
+                result: Some(Value::test_string("foobaz")),
             },
         ]
     }

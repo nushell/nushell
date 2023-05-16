@@ -2,7 +2,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::ast::Call;
-use crate::ast::Expression;
 use crate::engine::Command;
 use crate::engine::EngineState;
 use crate::engine::Stack;
@@ -11,6 +10,7 @@ use crate::PipelineData;
 use crate::ShellError;
 use crate::SyntaxShape;
 use crate::Type;
+use crate::Value;
 use crate::VarId;
 use std::fmt::Write;
 
@@ -24,7 +24,7 @@ pub struct Flag {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<Expression>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ pub struct PositionalArg {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<Expression>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

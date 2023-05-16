@@ -79,7 +79,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
-        Value::Error { error } => return Err(error.clone()),
+        Value::Error { error } => return Err(*error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
@@ -97,6 +97,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => serde_yaml::Value::Null,
+        Value::MatchPattern { .. } => serde_yaml::Value::Null,
     })
 }
 
@@ -111,7 +112,12 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
         }
         .into_pipeline_data()),
         _ => Ok(Value::Error {
-            error: ShellError::CantConvert("YAML".into(), value.get_type().to_string(), head, None),
+            error: Box::new(ShellError::CantConvert {
+                to_type: "YAML".into(),
+                from_type: value.get_type().to_string(),
+                span: head,
+                help: None,
+            }),
         }
         .into_pipeline_data()),
     }

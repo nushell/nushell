@@ -117,7 +117,7 @@ fn action(
 
             let table_columns_creation = columns
                 .iter()
-                .map(|(name, sql_type)| format!("{name} {sql_type}"))
+                .map(|(name, sql_type)| format!("\"{name}\" {sql_type}"))
                 .join(",");
 
             // get the values
@@ -217,7 +217,7 @@ fn action(
             Ok(Value::Nothing { span: *span })
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list".into(),
             wrong_type: other.get_type().to_string(),
@@ -270,6 +270,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 

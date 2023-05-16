@@ -105,7 +105,7 @@ impl Command for Fill {
             Example {
                 description:
                     "Fill a number on the left side to a width of 5 with the character '0'",
-                example: "1 | fill --alignment right --character 0 --width 5",
+                example: "1 | fill --alignment right --character '0' --width 5",
                 result: Some(Value::String {
                     val: "00001".into(),
                     span: Span::test_data(),
@@ -113,7 +113,7 @@ impl Command for Fill {
             },
             Example {
                 description: "Fill a number on both sides to a width of 5 with the character '0'",
-                example: "1.1 | fill --alignment center --character 0 --width 5",
+                example: "1.1 | fill --alignment center --character '0' --width 5",
                 result: Some(Value::String {
                     val: "01.10".into(),
                     span: Span::test_data(),
@@ -122,7 +122,7 @@ impl Command for Fill {
             Example {
                 description:
                     "Fill a filesize on the left side to a width of 5 with the character '0'",
-                example: "1kib | fill --alignment middle --character 0 --width 10",
+                example: "1kib | fill --alignment middle --character '0' --width 10",
                 result: Some(Value::String {
                     val: "0001024000".into(),
                     span: Span::test_data(),
@@ -193,12 +193,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int, filesize, float, string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

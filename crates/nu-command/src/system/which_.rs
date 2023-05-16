@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use log::trace;
 use nu_engine::env;
 use nu_engine::CallExt;
@@ -74,27 +73,6 @@ fn entry(arg: impl Into<String>, path: impl Into<String>, builtin: bool, span: S
     Value::Record { cols, vals, span }
 }
 
-fn get_entry_in_aliases(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
-    if let Some(alias_id) = engine_state.find_alias(name.as_bytes(), &[]) {
-        let alias = engine_state.get_alias(alias_id);
-        let alias_str = alias
-            .iter()
-            .map(|alias_span| String::from_utf8_lossy(engine_state.get_span_contents(alias_span)))
-            .join(" ");
-
-        trace!("Found alias: {}", name);
-
-        Some(entry(
-            name,
-            format!("Nushell alias: {alias_str}"),
-            false,
-            span,
-        ))
-    } else {
-        None
-    }
-}
-
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
         let (msg, is_builtin) = if engine_state.get_decl(decl_id).is_custom_command() {
@@ -118,10 +96,6 @@ fn get_entries_in_nu(
     skip_after_first_found: bool,
 ) -> Vec<Value> {
     let mut all_entries = vec![];
-
-    if let Some(ent) = get_entry_in_aliases(engine_state, name, span) {
-        all_entries.push(ent);
-    }
 
     if !all_entries.is_empty() && skip_after_first_found {
         return all_entries;
@@ -254,10 +228,10 @@ fn which(
     let ctrlc = engine_state.ctrlc.clone();
 
     if which_args.applications.is_empty() {
-        return Err(ShellError::MissingParameter(
-            "application".into(),
-            call.head,
-        ));
+        return Err(ShellError::MissingParameter {
+            param_name: "application".into(),
+            span: call.head,
+        });
     }
 
     let mut output = vec![];

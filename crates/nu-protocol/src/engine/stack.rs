@@ -65,7 +65,7 @@ impl ProfilingConfig {
 #[derive(Debug, Clone)]
 pub struct Stack {
     /// Variables
-    pub vars: HashMap<VarId, Value>,
+    pub vars: Vec<(VarId, Value)>,
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
     pub env_vars: Vec<EnvVars>,
     /// Tells which environment variables from engine state are hidden, per overlay.
@@ -79,7 +79,7 @@ pub struct Stack {
 impl Stack {
     pub fn new() -> Stack {
         Stack {
-            vars: HashMap::new(),
+            vars: vec![],
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
@@ -104,23 +104,43 @@ impl Stack {
     }
 
     pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
-        if let Some(v) = self.vars.get(&var_id) {
-            return Ok(v.clone().with_span(span));
+        for (id, val) in &self.vars {
+            if var_id == *id {
+                return Ok(val.clone().with_span(span));
+            }
         }
 
-        Err(ShellError::VariableNotFoundAtRuntime(span))
+        Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
     pub fn get_var_with_origin(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
-        if let Some(v) = self.vars.get(&var_id) {
-            return Ok(v.clone());
+        for (id, val) in &self.vars {
+            if var_id == *id {
+                return Ok(val.clone());
+            }
         }
 
-        Err(ShellError::VariableNotFoundAtRuntime(span))
+        Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
-        self.vars.insert(var_id, value);
+        //self.vars.insert(var_id, value);
+        for (id, val) in &mut self.vars {
+            if *id == var_id {
+                *val = value;
+                return;
+            }
+        }
+        self.vars.push((var_id, value));
+    }
+
+    pub fn remove_var(&mut self, var_id: VarId) {
+        for (idx, (id, _)) in self.vars.iter().enumerate() {
+            if *id == var_id {
+                self.vars.remove(idx);
+                return;
+            }
+        }
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
@@ -152,7 +172,9 @@ impl Stack {
         self.active_overlays
             .last()
             .cloned()
-            .ok_or_else(|| ShellError::NushellFailed("No active overlay".into()))
+            .ok_or_else(|| ShellError::NushellFailed {
+                msg: "No active overlay".into(),
+            })
     }
 
     pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
@@ -160,8 +182,14 @@ impl Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(HashMap::new());
 
+        // FIXME make this more efficient
+        let mut vars = vec![];
+        for (id, val) in captures {
+            vars.push((*id, val.clone()));
+        }
+
         Stack {
-            vars: captures.clone(),
+            vars,
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
@@ -171,7 +199,7 @@ impl Stack {
     }
 
     pub fn gather_captures(&self, captures: &[VarId]) -> Stack {
-        let mut vars = HashMap::new();
+        let mut vars = vec![];
 
         let fake_span = Span::new(0, 0);
 
@@ -179,7 +207,7 @@ impl Stack {
             // Note: this assumes we have calculated captures correctly and that commands
             // that take in a var decl will manually set this into scope when running the blocks
             if let Ok(value) = self.get_var(*capture, fake_span) {
-                vars.insert(*capture, value);
+                vars.push((*capture, value));
             }
         }
 

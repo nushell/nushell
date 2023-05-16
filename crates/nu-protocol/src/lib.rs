@@ -1,13 +1,15 @@
 mod alias;
 pub mod ast;
-mod cli_error;
+pub mod cli_error;
 pub mod config;
+mod did_you_mean;
 pub mod engine;
 mod example;
 mod exportable;
 mod id;
 mod lev_distance;
 mod module;
+mod parse_error;
 mod pipeline_data;
 #[cfg(feature = "plugin")]
 mod plugin_signature;
@@ -23,11 +25,14 @@ mod variable;
 pub use alias::*;
 pub use cli_error::*;
 pub use config::*;
+pub use did_you_mean::did_you_mean;
 pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
 pub use example::*;
 pub use exportable::*;
 pub use id::*;
+pub use lev_distance::levenshtein_distance;
 pub use module::*;
+pub use parse_error::{DidYouMean, ParseError};
 pub use pipeline_data::*;
 #[cfg(feature = "plugin")]
 pub use plugin_signature::*;

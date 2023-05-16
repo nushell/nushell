@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
@@ -11,7 +12,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
             r#"
                 name,rusty_luck,origin
                 Jason,1,Canada
-                Jonathan,1,New Zealand
+                JT,1,New Zealand
                 Andrés,1,Ecuador
                 AndKitKatz,1,Estados Unidos
             "#,
@@ -22,7 +23,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | each { |it| ^echo $it | nu --testbin chop }
+            | each { |it| nu --testbin cococo $it | nu --testbin chop }
             | get 2
             "#
         ));
@@ -48,7 +49,7 @@ fn treats_dot_dot_as_path_not_range() {
         r#"
             mkdir temp;
             cd temp;
-            echo (open ../nu_times.csv).name.0 | table;
+            print (open ../nu_times.csv).name.0 | table;
             cd ..;
             rmdir temp
             "#
@@ -103,7 +104,7 @@ fn subexpression_handles_dot() {
             r#"
                 name,rusty_luck,origin
                 Jason,1,Canada
-                Jonathan,1,New Zealand
+                JT,1,New Zealand
                 Andrés,1,Ecuador
                 AndKitKatz,1,Estados Unidos
             "#,
@@ -385,9 +386,9 @@ fn let_env_hides_variable() {
         cwd: ".",
         r#"
             let-env TESTENVVAR = "hello world"
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
             hide-env TESTENVVAR
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
         "#
     );
 
@@ -401,12 +402,12 @@ fn let_env_hides_variable_in_parent_scope() {
         cwd: ".",
         r#"
             let-env TESTENVVAR = "hello world"
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
             do {
                 hide-env TESTENVVAR
-                echo $env.TESTENVVAR
+                print $env.TESTENVVAR
             }
-            echo $env.TESTENVVAR
+            print $env.TESTENVVAR
         "#
     );
 
@@ -446,14 +447,14 @@ fn unlet_variable_in_parent_scope() {
         cwd: ".",
         r#"
             let-env DEBUG = "1"
-            echo $env.DEBUG
+            print $env.DEBUG
             do {
                 let-env DEBUG = "2"
-                echo $env.DEBUG
+                print $env.DEBUG
                 hide-env DEBUG
-                echo $env.DEBUG
+                print $env.DEBUG
             }
-            echo $env.DEBUG
+            print $env.DEBUG
         "#
     );
 
@@ -477,7 +478,7 @@ fn proper_shadow_let_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; echo $env.DEBUG | table; do { let-env DEBUG = "false"; echo $env.DEBUG } | table; echo $env.DEBUG
+        let-env DEBUG = "true"; print $env.DEBUG | table; do { let-env DEBUG = "false"; print $env.DEBUG } | table; print $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -526,7 +527,7 @@ fn proper_shadow_load_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; echo $env.DEBUG } | table; echo $env.DEBUG
+        let-env DEBUG = "true"; print $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; print $env.DEBUG } | table; print $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -576,7 +577,7 @@ fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let DEBUG = false; echo $DEBUG | table; do { let DEBUG = true; echo $DEBUG } | table; echo $DEBUG
+        let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; print $DEBUG
         "#
     );
     assert_eq!(actual.out, "falsetruefalse");
@@ -649,11 +650,11 @@ fn octal_number() {
 }
 
 #[test]
-fn run_dynamic_blocks() {
+fn run_dynamic_closures() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let block = { echo "holaaaa" }; do $block
+        let closure = {|| echo "holaaaa" }; do $closure
         "#
     );
     assert_eq!(actual.out, "holaaaa");
@@ -1176,7 +1177,7 @@ fn hide_alias_shadowing() {
         r#"
         def test-shadowing [] {
             alias greet = echo hello;
-            let xyz = { greet };
+            let xyz = {|| greet };
             hide greet;
             do $xyz
         };

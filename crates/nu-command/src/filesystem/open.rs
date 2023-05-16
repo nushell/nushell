@@ -1,10 +1,10 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
+    Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::io::BufReader;
 
@@ -38,6 +38,11 @@ impl Command for Open {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
             .optional("filename", SyntaxShape::Filepath, "the filename to use")
+            .rest(
+                "filenames",
+                SyntaxShape::Filepath,
+                "optional additional files to open",
+            )
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
@@ -52,134 +57,165 @@ impl Command for Open {
         let raw = call.has_flag("raw");
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
-        let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+        let cwd = current_dir(engine_state, stack)?;
+        let req_path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+        let mut path_params = call.rest::<Spanned<String>>(engine_state, stack, 1)?;
 
-        let path = {
-            if let Some(path_val) = path {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path_val.item),
-                    span: path_val.span,
-                })
-            } else {
-                path
-            }
-        };
+        // FIXME: JT: what is this doing here?
 
-        let path = if let Some(path) = path {
-            path
+        if let Some(filename) = req_path {
+            path_params.insert(0, filename);
         } else {
-            // Collect a filename from the input
-            match input {
+            let filename = match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {
-                    return Err(ShellError::MissingParameter(
-                        "needs filename".to_string(),
-                        call.head,
-                    ))
+                    return Err(ShellError::MissingParameter {
+                        param_name: "needs filename".to_string(),
+                        span: call.head,
+                    })
                 }
                 PipelineData::Value(val, ..) => val.as_spanned_string()?,
                 _ => {
-                    return Err(ShellError::MissingParameter(
-                        "needs filename".to_string(),
-                        call.head,
-                    ));
+                    return Err(ShellError::MissingParameter {
+                        param_name: "needs filename".to_string(),
+                        span: call.head,
+                    });
                 }
-            }
-        };
-        let arg_span = path.span;
-        let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-        let path = Path::new(path_no_whitespace);
-
-        if permission_denied(path) {
-            #[cfg(unix)]
-            let error_msg = match path.metadata() {
-                Ok(md) => format!(
-                    "The permissions of {:o} does not allow access for this user",
-                    md.permissions().mode() & 0o0777
-                ),
-                Err(e) => e.to_string(),
             };
 
-            #[cfg(not(unix))]
-            let error_msg = String::from("Permission denied");
-            Err(ShellError::GenericError(
-                "Permission denied".into(),
-                error_msg,
-                Some(arg_span),
-                None,
-                Vec::new(),
-            ))
-        } else {
-            #[cfg(feature = "sqlite")]
-            if !raw {
-                let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
-                    .map(|db| db.into_value(call.head).into_pipeline_data());
+            path_params.insert(0, filename);
+        }
 
-                if res.is_ok() {
-                    return res;
+        let mut output = vec![];
+
+        for path in path_params.into_iter() {
+            //FIXME: `open` should not have to do this
+            let path = {
+                Spanned {
+                    item: nu_utils::strip_ansi_string_unlikely(path.item),
+                    span: path.span,
                 }
-            }
+            };
 
-            let file = match std::fs::File::open(path) {
-                Ok(file) => file,
-                Err(err) => {
+            let arg_span = path.span;
+            // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+
+            for path in nu_engine::glob_from(&path, &cwd, call_span, None)?.1 {
+                let path = path?;
+                let path = Path::new(&path);
+
+                if permission_denied(path) {
+                    #[cfg(unix)]
+                    let error_msg = match path.metadata() {
+                        Ok(md) => format!(
+                            "The permissions of {:o} does not allow access for this user",
+                            md.permissions().mode() & 0o0777
+                        ),
+                        Err(e) => e.to_string(),
+                    };
+
+                    #[cfg(not(unix))]
+                    let error_msg = String::from("Permission denied");
                     return Err(ShellError::GenericError(
                         "Permission denied".into(),
-                        err.to_string(),
+                        error_msg,
                         Some(arg_span),
                         None,
                         Vec::new(),
                     ));
-                }
-            };
+                } else {
+                    #[cfg(feature = "sqlite")]
+                    if !raw {
+                        let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
+                            .map(|db| db.into_value(call.head).into_pipeline_data());
 
-            let buf_reader = BufReader::new(file);
-
-            let output = PipelineData::ExternalStream {
-                stdout: Some(RawStream::new(
-                    Box::new(BufferedReader { input: buf_reader }),
-                    ctrlc,
-                    call_span,
-                    None,
-                )),
-                stderr: None,
-                exit_code: None,
-                span: call_span,
-                metadata: None,
-                trim_end_newline: false,
-            };
-
-            let ext = if raw {
-                None
-            } else {
-                path.extension()
-                    .map(|name| name.to_string_lossy().to_string())
-            };
-
-            if let Some(ext) = ext {
-                match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                    Some(converter_id) => {
-                        let decl = engine_state.get_decl(converter_id);
-                        if let Some(block_id) = decl.get_block_id() {
-                            let block = engine_state.get_block(block_id);
-                            eval_block(engine_state, stack, block, output, false, false)
-                        } else {
-                            decl.run(engine_state, stack, &Call::new(call_span), output)
+                        if res.is_ok() {
+                            return res;
                         }
-                        .map_err(|inner| {
-                            ShellError::GenericError(
-                                format!("Error while parsing as {ext}"),
-                                format!("Could not parse '{}' with `from {}`", path.display(), ext),
-                                Some(arg_span),
-                                Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
-                                vec![inner],
-                            )
-                        })
                     }
-                    None => Ok(output),
+
+                    let file = match std::fs::File::open(path) {
+                        Ok(file) => file,
+                        Err(err) => {
+                            return Err(ShellError::GenericError(
+                                "Permission denied".into(),
+                                err.to_string(),
+                                Some(arg_span),
+                                None,
+                                Vec::new(),
+                            ));
+                        }
+                    };
+
+                    let buf_reader = BufReader::new(file);
+
+                    let file_contents = PipelineData::ExternalStream {
+                        stdout: Some(RawStream::new(
+                            Box::new(BufferedReader { input: buf_reader }),
+                            ctrlc.clone(),
+                            call_span,
+                            None,
+                        )),
+                        stderr: None,
+                        exit_code: None,
+                        span: call_span,
+                        metadata: None,
+                        trim_end_newline: false,
+                    };
+
+                    let ext = if raw {
+                        None
+                    } else {
+                        path.extension()
+                            .map(|name| name.to_string_lossy().to_string())
+                    };
+
+                    if let Some(ext) = ext {
+                        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+                            Some(converter_id) => {
+                                let decl = engine_state.get_decl(converter_id);
+                                let command_output = if let Some(block_id) = decl.get_block_id() {
+                                    let block = engine_state.get_block(block_id);
+                                    eval_block(
+                                        engine_state,
+                                        stack,
+                                        block,
+                                        file_contents,
+                                        false,
+                                        false,
+                                    )
+                                } else {
+                                    decl.run(
+                                        engine_state,
+                                        stack,
+                                        &Call::new(call_span),
+                                        file_contents,
+                                    )
+                                };
+                                output.push(command_output.map_err(|inner| {
+                                    ShellError::GenericError(
+                                        format!("Error while parsing as {ext}"),
+                                        format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                        Some(arg_span),
+                                        Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        vec![inner],
+                                    )
+                                })?);
+                            }
+                            None => output.push(file_contents),
+                        }
+                    } else {
+                        output.push(file_contents)
+                    }
                 }
-            } else {
-                Ok(output)
             }
+        }
+
+        if output.is_empty() {
+            Ok(PipelineData::Empty)
+        } else if output.len() == 1 {
+            Ok(output.remove(0))
+        } else {
+            Ok(output.into_iter().flatten().into_pipeline_data(ctrlc))
         }
     }
 

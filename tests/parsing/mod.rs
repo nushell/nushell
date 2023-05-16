@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn source_file_relative_to_file() {
@@ -225,4 +226,25 @@ fn parse_export_env_missing_block() {
         "#);
 
     assert!(actual.err.contains("missing block"));
+}
+
+#[test]
+fn call_command_with_non_ascii_argument() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            def nu-arg [--umlaut(-ö): int] {}
+            nu-arg -ö 42
+        "#);
+
+    assert_eq!(actual.err.len(), 0);
+}
+
+#[test]
+fn parse_long_duration() {
+    let actual = nu!(cwd: "tests/parsing/samples",
+        r#"
+            "78.797877879789789sec" | into duration
+        "#);
+
+    assert_eq!(actual.out, "1min 18sec 797ms");
 }

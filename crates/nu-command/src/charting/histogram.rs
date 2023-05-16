@@ -98,12 +98,19 @@ impl Command for Histogram {
         let frequency_name_arg = call.opt::<Spanned<String>>(engine_state, stack, 1)?;
         let frequency_column_name = match frequency_name_arg {
             Some(inner) => {
-                if ["value", "count", "quantile", "percentage"].contains(&inner.item.as_str()) {
-                    return Err(ShellError::TypeMismatch(
-                        "frequency-column-name can't be 'value', 'count' or 'percentage'"
-                            .to_string(),
-                        inner.span,
-                    ));
+                let forbidden_column_names = ["value", "count", "quantile", "percentage"];
+                if forbidden_column_names.contains(&inner.item.as_str()) {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: format!(
+                            "frequency-column-name can't be {}",
+                            forbidden_column_names
+                                .iter()
+                                .map(|val| format!("'{}'", val))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ),
+                        span: inner.span,
+                    });
                 }
                 inner.item
             }
@@ -118,10 +125,11 @@ impl Command for Histogram {
                 "normalize" => PercentageCalcMethod::Normalize,
                 "relative" => PercentageCalcMethod::Relative,
                 _ => {
-                    return Err(ShellError::TypeMismatch(
-                        "calc method can only be 'normalize' or 'relative'".to_string(),
-                        inner.span,
-                    ))
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "calc method can only be 'normalize' or 'relative'"
+                            .to_string(),
+                        span: inner.span,
+                    })
                 }
             },
         };
@@ -158,7 +166,7 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => {
                         let t = v.get_type();
                         let span = v.expect_span();
@@ -196,17 +204,17 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(error),
+                    Value::Error { error } => return Err(*error),
                     _ => continue,
                 }
             }
 
             if inputs.is_empty() {
-                return Err(ShellError::CantFindColumn(
-                    col_name.clone(),
-                    head_span,
-                    list_span,
-                ));
+                return Err(ShellError::CantFindColumn {
+                    col_name: col_name.clone(),
+                    span: head_span,
+                    src_span: list_span,
+                });
             }
         }
     }

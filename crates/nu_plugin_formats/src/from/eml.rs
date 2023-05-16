@@ -145,8 +145,11 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     let eml = EmlParser::from_string(value)
         .with_body_preview(body_preview)
         .parse()
-        .map_err(|_| {
-            ShellError::CantConvert("structured eml data".into(), "string".into(), head, None)
+        .map_err(|_| ShellError::CantConvert {
+            to_type: "structured eml data".into(),
+            from_type: "string".into(),
+            span: head,
+            help: None,
         })?;
 
     let mut collected = IndexMap::new();

@@ -52,7 +52,9 @@ fn collect_external_stream(
     let mut data = vec![];
     if let Some(stdout) = stdout {
         let value = stdout.into_string().map_or_else(
-            |error| Value::Error { error },
+            |error| Value::Error {
+                error: Box::new(error),
+            },
             |string| Value::string(string.item, span),
         );
 
@@ -61,7 +63,9 @@ fn collect_external_stream(
     }
     if let Some(stderr) = stderr {
         let value = stderr.into_string().map_or_else(
-            |error| Value::Error { error },
+            |error| Value::Error {
+                error: Box::new(error),
+            },
             |string| Value::string(string.item, span),
         );
 
@@ -117,6 +121,13 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (vec![String::from("")], lines)
         }
+        Value::LazyRecord { val, span } => match val.collect() {
+            Ok(value) => collect_input(value),
+            Err(_) => (
+                vec![String::from("")],
+                vec![vec![Value::LazyRecord { val, span }]],
+            ),
+        },
         Value::Nothing { .. } => (vec![], vec![]),
         value => (vec![String::from("")], vec![vec![value]]),
     }
@@ -168,10 +179,11 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
             let path = PathMember::String {
                 val: header.to_owned(),
                 span: NuSpan::unknown(),
+                optional: false,
             };
 
             item.clone()
-                .follow_cell_path(&[path], false, false)
+                .follow_cell_path(&[path], false)
                 .unwrap_or_else(|_| item.clone())
         }
         item => item.clone(),

@@ -16,7 +16,7 @@ fn from_value_to_delimited_string(
         }
         Value::List { vals, span } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         v => Err(make_unsupported_input_error(v, head, v.expect_span())),
     }
 }
@@ -95,7 +95,12 @@ fn writer_to_string(writer: Writer<Vec<u8>>) -> Result<String, Box<dyn Error>> {
 }
 
 fn make_conversion_error(type_from: &str, span: &Span) -> ShellError {
-    ShellError::CantConvert(type_from.to_string(), "string".to_string(), *span, None)
+    ShellError::CantConvert {
+        to_type: type_from.to_string(),
+        from_type: "string".to_string(),
+        span: *span,
+        help: None,
+    }
 }
 
 fn to_string_tagged_value(
@@ -117,7 +122,7 @@ fn to_string_tagged_value(
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         _ => Err(make_unsupported_input_error(v, head, span)),
     }
 }
@@ -174,12 +179,12 @@ pub fn to_delimited_data(
             }
             Ok(x)
         }
-        Err(_) => Err(ShellError::CantConvert(
-            format_name.into(),
-            value.get_type().to_string(),
-            value.span().unwrap_or(span),
-            None,
-        )),
+        Err(_) => Err(ShellError::CantConvert {
+            to_type: format_name.into(),
+            from_type: value.get_type().to_string(),
+            span: value.span().unwrap_or(span),
+            help: None,
+        }),
     }?;
     Ok(Value::string(output, span).into_pipeline_data())
 }

@@ -14,6 +14,7 @@ mod filters;
 mod formats;
 mod generators;
 mod hash;
+pub mod hook;
 mod input_handler;
 mod math;
 mod misc;
@@ -26,6 +27,7 @@ mod shells;
 mod sort_utils;
 mod strings;
 mod system;
+pub mod util;
 mod viewers;
 
 pub use bits::*;
@@ -45,6 +47,7 @@ pub use filters::*;
 pub use formats::*;
 pub use generators::*;
 pub use hash::*;
+pub use hook::*;
 pub use math::*;
 pub use misc::*;
 pub use network::*;
@@ -55,6 +58,7 @@ pub use shells::*;
 pub use sort_utils::*;
 pub use strings::*;
 pub use system::*;
+pub use util::*;
 pub use viewers::*;
 
 #[cfg(feature = "dataframe")]

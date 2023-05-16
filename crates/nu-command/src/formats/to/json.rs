@@ -70,12 +70,12 @@ impl Command for ToJson {
             }
             .into_pipeline_data()),
             _ => Ok(Value::Error {
-                error: ShellError::CantConvert(
-                    "JSON".into(),
-                    value.get_type().to_string(),
+                error: Box::new(ShellError::CantConvert {
+                    to_type: "JSON".into(),
+                    from_type: value.get_type().to_string(),
                     span,
-                    None,
-                ),
+                    help: None,
+                }),
             }
             .into_pipeline_data()),
         }
@@ -126,8 +126,11 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         ),
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
-        Value::Error { error } => return Err(error.clone()),
-        Value::Closure { .. } | Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
+        Value::Error { error } => return Err(*error.clone()),
+        Value::Closure { .. }
+        | Value::Block { .. }
+        | Value::Range { .. }
+        | Value::MatchPattern { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
@@ -142,7 +145,10 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             let collected = val.collect()?;
             value_to_json_value(&collected)?
         }
-        Value::CustomValue { val, .. } => val.to_json(),
+        Value::CustomValue { val, span } => {
+            let collected = val.to_base_value(*span)?;
+            value_to_json_value(&collected)?
+        }
     })
 }
 

@@ -379,13 +379,13 @@ fn interactive_copy(
     );
     if let Err(e) = interaction {
         Value::Error {
-            error: ShellError::GenericError(
+            error: Box::new(ShellError::GenericError(
                 e.to_string(),
                 e.to_string(),
                 Some(span),
                 None,
                 Vec::new(),
-            ),
+            )),
         }
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
@@ -518,13 +518,13 @@ fn copy_symlink(
         Ok(p) => p,
         Err(err) => {
             return Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     err.to_string(),
                     err.to_string(),
                     Some(span),
                     None,
                     vec![],
-                ),
+                )),
             }
         }
     };
@@ -551,7 +551,13 @@ fn copy_symlink(
             Value::String { val: msg, span }
         }
         Err(e) => Value::Error {
-            error: ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
+            error: Box::new(ShellError::GenericError(
+                e.to_string(),
+                e.to_string(),
+                Some(span),
+                None,
+                vec![],
+            )),
         },
     }
 }
@@ -593,5 +599,7 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         _ => ShellError::IOErrorSpanned(message_src, span),
     };
 
-    Value::Error { error: shell_error }
+    Value::Error {
+        error: Box::new(shell_error),
+    }
 }

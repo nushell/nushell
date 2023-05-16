@@ -4,8 +4,8 @@ use nu_engine::{scope::ScopeData, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, AliasId, Category, DeclId, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    span, Category, DeclId, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -117,13 +117,11 @@ pub fn help_modules(
             name.push_str(&r.item);
         }
 
-        let module_id = if let Some(id) = engine_state.find_module(name.as_bytes(), &[]) {
-            id
-        } else {
-            return Err(ShellError::ModuleNotFoundAtRuntime(
-                name,
-                span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
-            ));
+        let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) else {
+            return Err(ShellError::ModuleNotFoundAtRuntime {
+                mod_name: name,
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+            });
         };
 
         let module = engine_state.get_module(module_id);
@@ -152,9 +150,16 @@ pub fn help_modules(
         long_desc.push_str("\n\n");
 
         if !module.decls.is_empty() || module.main.is_some() {
-            let commands: Vec<(Vec<u8>, DeclId)> = engine_state.get_decls_sorted(false).collect();
+            let commands: Vec<(Vec<u8>, DeclId)> = engine_state
+                .get_decls_sorted(false)
+                .filter(|(_, id)| !engine_state.get_decl(*id).is_alias())
+                .collect();
 
-            let mut module_commands = module.decls();
+            let mut module_commands: Vec<(Vec<u8>, DeclId)> = module
+                .decls()
+                .into_iter()
+                .filter(|(_, id)| !engine_state.get_decl(*id).is_alias())
+                .collect();
             module_commands.sort_by(|a, b| a.0.cmp(&b.0));
 
             let commands_str = module_commands
@@ -181,15 +186,18 @@ pub fn help_modules(
             long_desc.push_str("\n\n");
         }
 
-        if !module.aliases.is_empty() {
-            let aliases: Vec<(Vec<u8>, AliasId)> = engine_state.get_aliases_sorted(false).collect();
-
-            let mut module_aliases: Vec<(&[u8], AliasId)> = module
-                .aliases
-                .iter()
-                .map(|(name, id)| (name.as_ref(), *id))
+        if !module.decls.is_empty() {
+            let aliases: Vec<(Vec<u8>, DeclId)> = engine_state
+                .get_decls_sorted(false)
+                .filter(|(_, id)| engine_state.get_decl(*id).is_alias())
                 .collect();
-            module_aliases.sort_by(|a, b| a.0.cmp(b.0));
+
+            let mut module_aliases: Vec<(Vec<u8>, DeclId)> = module
+                .decls()
+                .into_iter()
+                .filter(|(_, id)| engine_state.get_decl(*id).is_alias())
+                .collect();
+            module_aliases.sort_by(|a, b| a.0.cmp(&b.0));
 
             let aliases_str = module_aliases
                 .iter()
@@ -198,7 +206,7 @@ pub fn help_modules(
                     if let Some((used_name_bytes, _)) =
                         aliases.iter().find(|(_, alias_id)| id == alias_id)
                     {
-                        if engine_state.find_alias(name.as_bytes(), &[]).is_some() {
+                        if engine_state.find_decl(name.as_bytes(), &[]).is_some() {
                             format!("{CB}{name}{RESET}")
                         } else {
                             let alias_name = String::from_utf8_lossy(used_name_bytes);

@@ -191,13 +191,13 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             },
             ActionMode::Local => {
                 Value::Error {
-                    error: ShellError::UnsupportedInput(
+                    error: Box::new(ShellError::UnsupportedInput(
                         "Only string values are supported".into(),
                         format!("input type: {:?}", other.get_type()),
                         head,
                         // This line requires the Value::Error match above.
                         other.expect_span(),
-                    ),
+                    )),
                 }
             }
         },

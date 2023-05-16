@@ -1,4 +1,5 @@
 use nu_test_support::{nu, pipeline};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn const_bool() {

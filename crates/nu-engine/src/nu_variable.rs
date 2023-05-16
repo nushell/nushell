@@ -4,6 +4,8 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     LazyRecord, ShellError, Span, Value,
 };
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use sysinfo::SystemExt;
 
 // NuVariable: a LazyRecord for the special $nu variable
@@ -22,7 +24,13 @@ pub struct NuVariable {
 
 impl<'a> LazyRecord<'a> for NuVariable {
     fn column_names(&self) -> Vec<&'static str> {
-        let mut cols = vec!["config-path", "env-path", "history-path", "loginshell-path"];
+        let mut cols = vec![
+            "default-config-dir",
+            "config-path",
+            "env-path",
+            "history-path",
+            "loginshell-path",
+        ];
 
         #[cfg(feature = "plugin")]
         if self.engine_state.plugin_signatures.is_some() {
@@ -34,6 +42,12 @@ impl<'a> LazyRecord<'a> for NuVariable {
         cols.push("temp-path");
         cols.push("pid");
         cols.push("os-info");
+        cols.push("startup-time");
+
+        cols.push("is-interactive");
+        cols.push("is-login");
+
+        cols.push("current-exe");
 
         cols
     }
@@ -47,11 +61,36 @@ impl<'a> LazyRecord<'a> for NuVariable {
             })
         };
 
+        fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
+            let cwd = engine_state.current_work_dir();
+
+            if path.exists() {
+                match nu_path::canonicalize_with(path, cwd) {
+                    Ok(canon_path) => canon_path,
+                    Err(_) => path.clone(),
+                }
+            } else {
+                path.clone()
+            }
+        }
+
         match column {
-            "config-path" => {
-                if let Some(path) = self.engine_state.get_config_path("config-path") {
+            "default-config-dir" => {
+                if let Some(mut path) = nu_path::config_dir() {
+                    path.push("nushell");
                     Ok(Value::String {
                         val: path.to_string_lossy().to_string(),
+                        span: self.span,
+                    })
+                } else {
+                    err("Could not get config directory")
+                }
+            }
+            "config-path" => {
+                if let Some(path) = self.engine_state.get_config_path("config-path") {
+                    let canon_config_path = canonicalize_path(&self.engine_state, path);
+                    Ok(Value::String {
+                        val: canon_config_path.to_string_lossy().to_string(),
                         span: self.span,
                     })
                 } else if let Some(mut path) = nu_path::config_dir() {
@@ -67,8 +106,9 @@ impl<'a> LazyRecord<'a> for NuVariable {
             }
             "env-path" => {
                 if let Some(path) = self.engine_state.get_config_path("env-path") {
+                    let canon_env_path = canonicalize_path(&self.engine_state, path);
                     Ok(Value::String {
-                        val: path.to_string_lossy().to_string(),
+                        val: canon_env_path.to_string_lossy().to_string(),
                         span: self.span,
                     })
                 } else if let Some(mut path) = nu_path::config_dir() {
@@ -93,8 +133,9 @@ impl<'a> LazyRecord<'a> for NuVariable {
                             path.push("history.txt");
                         }
                     }
+                    let canon_hist_path = canonicalize_path(&self.engine_state, &path);
                     Ok(Value::String {
-                        val: path.to_string_lossy().to_string(),
+                        val: canon_hist_path.to_string_lossy().to_string(),
                         span: self.span,
                     })
                 } else {
@@ -105,8 +146,9 @@ impl<'a> LazyRecord<'a> for NuVariable {
                 if let Some(mut path) = nu_path::config_dir() {
                     path.push("nushell");
                     path.push("login.nu");
+                    let canon_login_path = canonicalize_path(&self.engine_state, &path);
                     Ok(Value::String {
-                        val: path.to_string_lossy().to_string(),
+                        val: canon_login_path.to_string_lossy().to_string(),
                         span: self.span,
                     })
                 } else {
@@ -117,8 +159,9 @@ impl<'a> LazyRecord<'a> for NuVariable {
                 #[cfg(feature = "plugin")]
                 {
                     if let Some(path) = &self.engine_state.plugin_signatures {
+                        let canon_plugin_path = canonicalize_path(&self.engine_state, path);
                         Ok(Value::String {
-                            val: path.to_string_lossy().to_string(),
+                            val: canon_plugin_path.to_string_lossy().to_string(),
                             span: self.span,
                         })
                     } else {
@@ -133,9 +176,10 @@ impl<'a> LazyRecord<'a> for NuVariable {
             }
             "scope" => Ok(create_scope(&self.engine_state, &self.stack, self.span())?),
             "home-path" => {
-                if let Some(home_path) = nu_path::home_dir() {
+                if let Some(path) = nu_path::home_dir() {
+                    let canon_home_path = canonicalize_path(&self.engine_state, &path);
                     Ok(Value::String {
-                        val: home_path.to_string_lossy().into(),
+                        val: canon_home_path.to_string_lossy().into(),
                         span: self.span(),
                     })
                 } else {
@@ -143,9 +187,9 @@ impl<'a> LazyRecord<'a> for NuVariable {
                 }
             }
             "temp-path" => {
-                let temp_path = std::env::temp_dir();
+                let canon_temp_path = canonicalize_path(&self.engine_state, &std::env::temp_dir());
                 Ok(Value::String {
-                    val: temp_path.to_string_lossy().into(),
+                    val: canon_temp_path.to_string_lossy().into(),
                     span: self.span(),
                 })
             }
@@ -174,6 +218,31 @@ impl<'a> LazyRecord<'a> for NuVariable {
                 };
 
                 Ok(os_record)
+            }
+            "is-interactive" => Ok(Value::Bool {
+                val: self.engine_state.is_interactive,
+                span: self.span,
+            }),
+            "is-login" => Ok(Value::Bool {
+                val: self.engine_state.is_login,
+                span: self.span,
+            }),
+            "startup-time" => Ok(Value::Duration {
+                val: self.engine_state.get_startup_time(),
+                span: self.span(),
+            }),
+            "current-exe" => {
+                let exe = std::env::current_exe().map_err(|_| {
+                    err("Could not get current executable path")
+                        .expect_err("did not get err from err function")
+                })?;
+
+                let canon_exe = canonicalize_path(&self.engine_state, &exe);
+
+                Ok(Value::String {
+                    val: canon_exe.to_string_lossy().into(),
+                    span: self.span(),
+                })
             }
             _ => err(&format!("Could not find column '{column}'")),
         }

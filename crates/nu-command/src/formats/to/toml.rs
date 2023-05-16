@@ -77,7 +77,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             toml::Value::String(code)
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
-        Value::Error { error } => return Err(error.clone()),
+        Value::Error { error } => return Err(*error.clone()),
         Value::Binary { val, .. } => toml::Value::Array(
             val.iter()
                 .map(|x| toml::Value::Integer(*x as i64))
@@ -93,6 +93,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
+        Value::MatchPattern { .. } => toml::Value::String("<Match Pattern>".to_string()),
     })
 }
 
@@ -118,7 +119,12 @@ fn toml_into_pipeline_data(
         }
         .into_pipeline_data()),
         _ => Ok(Value::Error {
-            error: ShellError::CantConvert("TOML".into(), value_type.to_string(), span, None),
+            error: Box::new(ShellError::CantConvert {
+                to_type: "TOML".into(),
+                from_type: value_type.to_string(),
+                span,
+                help: None,
+            }),
         }
         .into_pipeline_data()),
     }
@@ -132,7 +138,7 @@ fn value_to_toml_value(
     match v {
         Value::Record { .. } => helper(engine_state, v),
         // Propagate existing errors
-        Value::Error { error } => Err(error.clone()),
+        Value::Error { error } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput(
             format!("{:?} is not valid top-level TOML", v.get_type()),
             "value originates from here".into(),

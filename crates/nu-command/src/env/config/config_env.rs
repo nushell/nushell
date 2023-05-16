@@ -42,23 +42,20 @@ impl Command for ConfigEnv {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let env_vars_str = env_to_strings(engine_state, stack)?;
-        let mut config_path = match nu_path::config_dir() {
-            Some(path) => path,
+        let nu_config = match engine_state.get_config_path("env-path") {
+            Some(path) => path.clone(),
             None => {
                 return Err(ShellError::GenericError(
-                    "Could not find nu env path".to_string(),
-                    "Could not find nu env path".to_string(),
+                    "Could not find $nu.env-path".to_string(),
+                    "Could not find $nu.env-path".to_string(),
                     None,
                     None,
                     Vec::new(),
                 ));
             }
         };
-        config_path.push("nushell");
-        let mut nu_config = config_path.clone();
-        nu_config.push("env.nu");
 
-        let (item, config_args) = get_editor(engine_state, stack)?;
+        let (item, config_args) = get_editor(engine_state, stack, call.head)?;
 
         gen_command(call.head, nu_config, item, config_args, env_vars_str).run_with_input(
             engine_state,

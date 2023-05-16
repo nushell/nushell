@@ -209,19 +209,22 @@ fn action(
                         }
                     }
                     Err(e) => Value::Error {
-                        error: ShellError::IncorrectValue(format!("Regex error: {e}"), find.span),
+                        error: Box::new(ShellError::IncorrectValue {
+                            msg: format!("Regex error: {e}"),
+                            span: find.span,
+                        }),
                     },
                 }
             }
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.expect_span(),
-            },
+            }),
         },
     }
 }

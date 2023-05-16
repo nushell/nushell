@@ -33,6 +33,7 @@ pub struct Hooks {
     pub pre_execution: Option<Value>,
     pub env_change: Option<Value>,
     pub display_output: Option<Value>,
+    pub command_not_found: Option<Value>,
 }
 
 impl Hooks {
@@ -42,6 +43,7 @@ impl Hooks {
             pre_execution: None,
             env_change: None,
             display_output: None,
+            command_not_found: None,
         }
     }
 }
@@ -58,6 +60,9 @@ pub enum NuCursorShape {
     UnderScore,
     Line,
     Block,
+    BlinkUnderScore,
+    BlinkLine,
+    BlinkBlock,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -81,6 +86,7 @@ pub struct Config {
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
     pub history_file_format: HistoryFileFormat,
+    pub history_isolation: bool,
     pub log_level: String,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
@@ -94,6 +100,7 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -124,6 +131,7 @@ impl Default for Config {
             max_history_size: i64::MAX,
             sync_history_on_enter: true,
             history_file_format: HistoryFileFormat::PlainText,
+            history_isolation: false,
             log_level: String::new(),
             keybindings: Vec::new(),
             menus: Vec::new(),
@@ -137,6 +145,7 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            bracketed_paste: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
@@ -414,6 +423,9 @@ impl Value {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
+                                    "history_isolation" => {
+                                        try_bool!(cols, vals, index, span, history_isolation)
+                                    }
                                     "sync_on_enter" => {
                                         try_bool!(cols, vals, index, span, sync_history_on_enter)
                                     }
@@ -652,6 +664,9 @@ impl Value {
                                         NuCursorShape::Line => "line",
                                         NuCursorShape::Block => "block",
                                         NuCursorShape::UnderScore => "underscore",
+                                        NuCursorShape::BlinkLine => "blink_line",
+                                        NuCursorShape::BlinkBlock => "blink_block",
+                                        NuCursorShape::BlinkUnderScore => "blink_underscore",
                                     },
                                     *$span,
                                 )
@@ -678,9 +693,21 @@ impl Value {
                                                     config.cursor_shape_vi_insert =
                                                         NuCursorShape::UnderScore;
                                                 }
+                                                "blink_line" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::BlinkLine;
+                                                }
+                                                "blink_block" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::BlinkBlock;
+                                                }
+                                                "blink_underscore" => {
+                                                    config.cursor_shape_vi_insert =
+                                                        NuCursorShape::BlinkUnderScore;
+                                                }
                                                 _ => {
                                                     invalid!(Some(*span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -714,9 +741,21 @@ impl Value {
                                                     config.cursor_shape_vi_normal =
                                                         NuCursorShape::UnderScore;
                                                 }
+                                                "blink_line" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::BlinkLine;
+                                                }
+                                                "blink_block" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::BlinkBlock;
+                                                }
+                                                "blink_underscore" => {
+                                                    config.cursor_shape_vi_normal =
+                                                        NuCursorShape::BlinkUnderScore;
+                                                }
                                                 _ => {
                                                     invalid!(Some(*span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -749,9 +788,21 @@ impl Value {
                                                     config.cursor_shape_emacs =
                                                         NuCursorShape::UnderScore;
                                                 }
+                                                "blink_line" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::BlinkLine;
+                                                }
+                                                "blink_block" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::BlinkBlock;
+                                                }
+                                                "blink_underscore" => {
+                                                    config.cursor_shape_emacs =
+                                                        NuCursorShape::BlinkUnderScore;
+                                                }
                                                 _ => {
                                                     invalid!(Some(*span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', or 'underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -1163,6 +1214,9 @@ impl Value {
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
                     }
+                    "bracketed_paste" => {
+                        try_bool!(cols, vals, index, span, bracketed_paste);
+                    }
                     // Legacy config options (deprecated as of 2022-11-02)
                     // Legacy options do NOT reconstruct their values on error
                     "use_ls_colors" => {
@@ -1529,9 +1583,10 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
                     "env_change" => hooks.env_change = Some(vals[idx].clone()),
                     "display_output" => hooks.display_output = Some(vals[idx].clone()),
+                    "command_not_found" => hooks.command_not_found = Some(vals[idx].clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output'"
+                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
                                 .to_string(),
                             x.to_string(),
                             *span,

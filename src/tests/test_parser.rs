@@ -180,15 +180,6 @@ fn bad_short_flag() -> TestResult {
 }
 
 #[test]
-fn alias_with_error_doesnt_panic() -> TestResult {
-    fail_test(
-        r#"alias s = shells
-        s ."#,
-        "extra positional",
-    )
-}
-
-#[test]
 fn quotes_with_equals() -> TestResult {
     run_test(
         r#"let query_prefix = "https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#,
@@ -476,4 +467,62 @@ fn or_and_xor() -> TestResult {
 #[test]
 fn unbalanced_delimiter() -> TestResult {
     fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
+}
+
+#[test]
+fn unbalanced_delimiter2() -> TestResult {
+    fail_test(r#"{}#.}"#, "unbalanced { and }")
+}
+
+#[test]
+fn unbalanced_delimiter3() -> TestResult {
+    fail_test(r#"{"#, "Unexpected end of code")
+}
+
+#[test]
+fn unbalanced_delimiter4() -> TestResult {
+    fail_test(r#"}"#, "unbalanced { and }")
+}
+
+#[test]
+fn register_with_string_literal() -> TestResult {
+    fail_test(r#"register 'nu-plugin-math'"#, "File not found")
+}
+
+#[test]
+fn register_with_string_constant() -> TestResult {
+    let input = "\
+const file = 'nu-plugin-math'
+register $file
+";
+    // should not fail with `not a constant`
+    fail_test(input, "File not found")
+}
+
+#[test]
+fn register_with_string_variable() -> TestResult {
+    let input = "\
+let file = 'nu-plugin-math'
+register $file
+";
+    fail_test(input, "Value is not a parse-time constant")
+}
+
+#[test]
+fn register_with_non_string_constant() -> TestResult {
+    let input = "\
+const file = 6
+register $file
+";
+    fail_test(input, "expected string, found int")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
+    fail_test("extern cmd[]", "expected space")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
+    fail_test("extern cmd(--flag)", "expected space")
 }

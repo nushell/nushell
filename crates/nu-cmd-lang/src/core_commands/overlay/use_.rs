@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, find_in_dirs_env, redirect_env, CallExt};
+use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt};
 use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -66,23 +66,24 @@ impl Command for OverlayUse {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let maybe_origin_module_id = if let Some(overlay_expr) = call.parser_info_nth(0) {
-            if let Expr::Overlay(module_id) = overlay_expr.expr {
-                module_id
+        let maybe_origin_module_id =
+            if let Some(overlay_expr) = call.get_parser_info("overlay_expr") {
+                if let Expr::Overlay(module_id) = overlay_expr.expr {
+                    module_id
+                } else {
+                    return Err(ShellError::NushellFailedSpanned {
+                        msg: "Not an overlay".to_string(),
+                        label: "requires an overlay (path or a string)".to_string(),
+                        span: overlay_expr.span,
+                    });
+                }
             } else {
-                return Err(ShellError::NushellFailedSpanned(
-                    "Not an overlay".to_string(),
-                    "requires an overlay (path or a string)".to_string(),
-                    overlay_expr.span,
-                ));
-            }
-        } else {
-            return Err(ShellError::NushellFailedSpanned(
-                "Missing positional".to_string(),
-                "missing required overlay".to_string(),
-                call.head,
-            ));
-        };
+                return Err(ShellError::NushellFailedSpanned {
+                    msg: "Missing positional".to_string(),
+                    label: "missing required overlay".to_string(),
+                    span: call.head,
+                });
+            };
 
         let overlay_name = if let Some(name) = call.opt(engine_state, caller_stack, 1)? {
             name
@@ -98,10 +99,10 @@ impl Command for OverlayUse {
                 return Err(ShellError::NonUtf8(name_arg.span));
             }
         } else {
-            return Err(ShellError::OverlayNotFoundAtRuntime(
-                name_arg.item,
-                name_arg.span,
-            ));
+            return Err(ShellError::OverlayNotFoundAtRuntime {
+                overlay_name: name_arg.item,
+                span: name_arg.span,
+            });
         };
 
         if let Some(module_id) = maybe_origin_module_id {
@@ -113,7 +114,12 @@ impl Command for OverlayUse {
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
-                let maybe_path = find_in_dirs_env(&name_arg.item, engine_state, caller_stack)?;
+                let maybe_path = find_in_dirs_env(
+                    &name_arg.item,
+                    engine_state,
+                    caller_stack,
+                    get_dirs_var_from_call(call),
+                )?;
 
                 let block = engine_state.get_block(block_id);
                 let mut callee_stack = caller_stack.gather_captures(&block.captures);
@@ -126,6 +132,11 @@ impl Command for OverlayUse {
                     let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                }
+
+                if let Some(file_path) = &maybe_path {
+                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
+                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
                 let _ = eval_block(

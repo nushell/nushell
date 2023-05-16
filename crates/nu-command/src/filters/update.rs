@@ -75,6 +75,11 @@ impl Command for Update {
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
                 result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
             },
+            Example {
+                description: "You can also use a simple command to update 'authors' to a single string",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
+                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+            }
         ]
     }
 }
@@ -118,11 +123,16 @@ fn update(
                     }
                 }
 
+                let input_at_path = match input.clone().follow_cell_path(&cell_path.members, false)
+                {
+                    Err(e) => return Value::Error { error: Box::new(e) },
+                    Ok(v) => v,
+                };
                 let output = eval_block(
                     &engine_state,
                     &mut stack,
                     &block,
-                    input.clone().into_pipeline_data(),
+                    input_at_path.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
                 );
@@ -132,18 +142,18 @@ fn update(
                         if let Err(e) =
                             input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error { error: e };
+                            return Value::Error { error: Box::new(e) };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: e },
+                    Err(e) => Value::Error { error: Box::new(e) },
                 }
             },
             ctrlc,
         )
     } else {
-        if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
+        if let Some(PathMember::Int { val, span, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();
             let mut pre_elems = vec![];
 
@@ -151,9 +161,12 @@ fn update(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else if idx == 0 {
-                    return Err(ShellError::AccessEmptyContent(*span));
+                    return Err(ShellError::AccessEmptyContent { span: *span });
                 } else {
-                    return Err(ShellError::AccessBeyondEnd(idx - 1, *span));
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: idx - 1,
+                        span: *span,
+                    });
                 }
             }
 
@@ -171,7 +184,7 @@ fn update(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error { error: e };
+                    return Value::Error { error: Box::new(e) };
                 }
 
                 input

@@ -1,5 +1,6 @@
 mod command;
 mod config_files;
+mod ide;
 mod logger;
 mod run;
 mod signals;
@@ -17,9 +18,11 @@ use crate::{
 use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
-use nu_cli::{gather_parent_env_vars, get_init_cwd, report_error_new};
-use nu_command::create_default_context;
+use nu_cli::gather_parent_env_vars;
+use nu_command::{create_default_context, get_init_cwd};
+use nu_protocol::{report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::{ctrlc_protection, sigquit_protection};
@@ -40,7 +43,7 @@ fn main() -> Result<()> {
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
-    let mut engine_state = create_default_context();
+    let mut engine_state = nu_cli::add_cli_context(create_default_context());
 
     // Custom additions
     let delta = {
@@ -62,6 +65,9 @@ fn main() -> Result<()> {
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
+
+    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some();
+    engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args
@@ -122,10 +128,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // keep this condition in sync with the branches below
-    acquire_terminal(
-        parsed_nu_cli_args.commands.is_none()
-            && (script_name.is_empty() || parsed_nu_cli_args.interactive_shell.is_some()),
-    );
+    acquire_terminal(parsed_nu_cli_args.commands.is_none() && script_name.is_empty());
     perf(
         "acquire_terminal",
         start_time,
@@ -135,23 +138,49 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    start_time = std::time::Instant::now();
-    if let Some(t) = parsed_nu_cli_args.threads.clone() {
-        // 0 means to let rayon decide how many threads to use
-        let threads = t.as_i64().unwrap_or(0);
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads as usize)
-            .build_global()
-            .expect("error setting number of threads");
+    if let Some(include_path) = &parsed_nu_cli_args.include_path {
+        let span = include_path.span;
+        let vals: Vec<_> = include_path
+            .item
+            .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
+            .map(|x| Value::String {
+                val: x.trim().to_string(),
+                span,
+            })
+            .collect();
+
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
     }
-    perf(
-        "set rayon threads",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(&mut engine_state)?;
+    }
+
+    // IDE commands
+    if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
+        ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
+
+        return Ok(());
+    } else if let Some(ide_hover) = parsed_nu_cli_args.ide_hover {
+        ide::hover(&mut engine_state, &script_name, &ide_hover);
+
+        return Ok(());
+    } else if let Some(ide_complete) = parsed_nu_cli_args.ide_complete {
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
+        ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
+
+        return Ok(());
+    } else if let Some(max_errors) = parsed_nu_cli_args.ide_check {
+        ide::check(&mut engine_state, &script_name, &max_errors);
+
+        return Ok(());
+    } else if parsed_nu_cli_args.ide_ast.is_some() {
+        ide::ast(&mut engine_state, &script_name);
+
+        return Ok(());
+    }
 
     start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
@@ -233,8 +262,9 @@ fn main() -> Result<()> {
             use_color,
             &commands,
             input,
+            entire_start_time,
         )
-    } else if !script_name.is_empty() && parsed_nu_cli_args.interactive_shell.is_none() {
+    } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
             parsed_nu_cli_args,
@@ -244,6 +274,7 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        run_repl(engine_state, parsed_nu_cli_args, entire_start_time)
+        engine_state.is_interactive = true;
+        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

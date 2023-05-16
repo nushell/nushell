@@ -134,15 +134,15 @@ macro_rules! expr_command {
 // Expands to a command definition for a list expression
 expr_command!(
     ExprList,
-    "dfr list",
+    "dfr implode",
     "Aggregates a group to a Series",
     vec![Example {
         description: "",
         example: "",
         result: None,
     }],
-    list,
-    test_list
+    implode,
+    test_implode
 );
 
 // ExprAggGroups command

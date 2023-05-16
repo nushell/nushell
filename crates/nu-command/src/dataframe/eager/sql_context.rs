@@ -163,8 +163,8 @@ impl SQLContext {
                         .collect()
                         .unwrap_or_default()
                         .schema()
-                        .get_index(shm_p)
-                        .unwrap_or((&"".to_string(), &DataType::Null))
+                        .get_at_index(shm_p)
+                        .unwrap_or((&"".into(), &DataType::Null))
                         .0)
                 })
                 .collect::<Vec<_>>();

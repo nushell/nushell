@@ -186,6 +186,11 @@ impl Command for Char {
                 result: Some(Value::test_string("\n")),
             },
             Example {
+                description: "List available characters",
+                example: r#"char --list"#,
+                result: None,
+            },
+            Example {
                 description: "Output prompt character, newline and a hamburger menu character",
                 example: r#"(char prompt) + (char newline) + (char hamburger)"#,
                 result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
@@ -246,10 +251,10 @@ impl Command for Char {
         if call.has_flag("integer") {
             let args: Vec<i64> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
-                return Err(ShellError::MissingParameter(
-                    "missing at least one unicode character".into(),
-                    call_span,
-                ));
+                return Err(ShellError::MissingParameter {
+                    param_name: "missing at least one unicode character".into(),
+                    span: call_span,
+                });
             }
             let mut multi_byte = String::new();
             for (i, &arg) in args.iter().enumerate() {
@@ -263,10 +268,10 @@ impl Command for Char {
         } else if call.has_flag("unicode") {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
-                return Err(ShellError::MissingParameter(
-                    "missing at least one unicode character".into(),
-                    call_span,
-                ));
+                return Err(ShellError::MissingParameter {
+                    param_name: "missing at least one unicode character".into(),
+                    span: call_span,
+                });
             }
             let mut multi_byte = String::new();
             for (i, arg) in args.iter().enumerate() {
@@ -280,21 +285,22 @@ impl Command for Char {
         } else {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
-                return Err(ShellError::MissingParameter(
-                    "missing name of the character".into(),
-                    call_span,
-                ));
+                return Err(ShellError::MissingParameter {
+                    param_name: "missing name of the character".into(),
+                    span: call_span,
+                });
             }
             let special_character = str_to_character(&args[0]);
             if let Some(output) = special_character {
                 Ok(Value::string(output, call_span).into_pipeline_data())
             } else {
-                Err(ShellError::TypeMismatch(
-                    "error finding named character".into(),
-                    call.positional_nth(0)
+                Err(ShellError::TypeMismatch {
+                    err_message: "error finding named character".into(),
+                    span: call
+                        .positional_nth(0)
                         .expect("Unexpected missing argument")
                         .span,
-                ))
+                })
             }
         }
     }
@@ -306,10 +312,10 @@ fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
-        Err(ShellError::TypeMismatch(
-            "not a valid Unicode codepoint".into(),
-            *t,
-        ))
+        Err(ShellError::TypeMismatch {
+            err_message: "not a valid Unicode codepoint".into(),
+            span: *t,
+        })
     }
 }
 
@@ -321,10 +327,10 @@ fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
-        Err(ShellError::TypeMismatch(
-            "error decoding Unicode character".into(),
-            *t,
-        ))
+        Err(ShellError::TypeMismatch {
+            err_message: "error decoding Unicode character".into(),
+            span: *t,
+        })
     }
 }
 

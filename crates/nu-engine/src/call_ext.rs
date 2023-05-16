@@ -39,7 +39,7 @@ pub trait CallExt {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        pos: usize,
+        name: &str,
     ) -> Result<T, ShellError>;
 }
 
@@ -98,12 +98,12 @@ impl CallExt for Call {
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
         } else if self.positional_len() == 0 {
-            Err(ShellError::AccessEmptyContent(self.head))
+            Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
-            Err(ShellError::AccessBeyondEnd(
-                self.positional_len() - 1,
-                self.head,
-            ))
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.positional_len() - 1,
+                span: self.head,
+            })
         }
     }
 
@@ -111,18 +111,18 @@ impl CallExt for Call {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        pos: usize,
+        name: &str,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.parser_info_nth(pos) {
+        if let Some(expr) = self.get_parser_info(name) {
             let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(&result)
         } else if self.parser_info.is_empty() {
-            Err(ShellError::AccessEmptyContent(self.head))
+            Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
-            Err(ShellError::AccessBeyondEnd(
-                self.parser_info.len() - 1,
-                self.head,
-            ))
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.parser_info.len() - 1,
+                span: self.head,
+            })
         }
     }
 }

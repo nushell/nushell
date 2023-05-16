@@ -16,10 +16,7 @@ fn sets_the_column() {
 
 #[test]
 fn doesnt_convert_record_to_table() {
-    let actual = nu!(
-        cwd: ".", r#"{a:1} | upsert a 2 | to nuon"#
-    );
-
+    let actual = nu!("{a:1} | upsert a 2 | to nuon");
     assert_eq!(actual.out, "{a: 2}");
 }
 
@@ -44,7 +41,7 @@ fn sets_the_column_from_a_block_full_stream_output() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             {content: null}
-            | upsert content { open --raw cargo_sample.toml | lines | first 5 }
+            | upsert content {|| open --raw cargo_sample.toml | lines | first 5 }
             | get content.1
             | str contains "nu"
         "#
@@ -80,30 +77,21 @@ fn upsert_uses_enumerate_index_inserting() {
 
 #[test]
 fn upsert_uses_enumerate_index_updating() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
-    ));
+    let actual = nu!("[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon");
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
 }
 
 #[test]
 fn index_does_not_exist() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[1,2,3] | upsert 4 4"#
-    ));
+    let actual = nu!("[1,2,3] | upsert 4 4");
 
     assert!(actual.err.contains("index too large (max: 3)"));
 }
 
 #[test]
 fn upsert_empty() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[] | upsert 1 1"#
-    ));
+    let actual = nu!("[] | upsert 1 1");
 
     assert!(actual.err.contains("index too large (max: 0)"));
 }

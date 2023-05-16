@@ -2,12 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn cal_full_year() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        cal -y --full-year 2010 | first | to json -r
-        "#
-    ));
+    let actual = nu!("cal -y --full-year 2010 | first | to json -r");
 
     let first_week_2010_json = r#"{"year": 2010,"sunday": null,"monday": null,"tuesday": null,"wednesday": null,"thursday": null,"friday": 1,"saturday": 2}"#;
 
@@ -16,8 +11,7 @@ fn cal_full_year() {
 
 #[test]
 fn cal_february_2020_leap_year() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
         cal -ym --full-year 2020 --month-names | where month == "february" | to json -r
         "#
@@ -30,10 +24,9 @@ fn cal_february_2020_leap_year() {
 
 #[test]
 fn cal_friday_the_thirteenths_in_2015() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
-        cal --full-year 2015 | default friday 0 | where friday == 13 | length
+        cal --full-year 2015 | default 0 friday | where friday == 13 | length
         "#
     ));
 
@@ -42,8 +35,7 @@ fn cal_friday_the_thirteenths_in_2015() {
 
 #[test]
 fn cal_rows_in_2020() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
         cal --full-year 2020 | length
         "#
@@ -54,8 +46,7 @@ fn cal_rows_in_2020() {
 
 #[test]
 fn cal_week_day_start_monday() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
         cal --full-year 2020 -m --month-names --week-start monday | where month == january | to json -r
         "#
@@ -68,10 +59,9 @@ fn cal_week_day_start_monday() {
 
 #[test]
 fn cal_sees_pipeline_year() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
-        cal --full-year 1020 | get -i monday | first 4 | to json -r
+        cal --full-year 1020 | get monday | first 4 | to json -r
         "#
     ));
 

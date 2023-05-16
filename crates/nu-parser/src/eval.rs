@@ -1,8 +1,7 @@
-use crate::ParseError;
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    Span, Value,
+    ParseError, Span, Value,
 };
 
 /// Evaluate a constant value at parse time
@@ -20,6 +19,10 @@ pub fn eval_constant(
             val: b.clone(),
             span: expr.span,
         }),
+        Expr::Filepath(path) => Ok(Value::String {
+            val: path.clone(),
+            span: expr.span,
+        }),
         Expr::Var(var_id) => match working_set.find_constant(*var_id) {
             Some(val) => Ok(val.clone()),
             None => Err(ParseError::NotAConstant(expr.span)),
@@ -31,7 +34,7 @@ pub fn eval_constant(
         Expr::FullCellPath(cell_path) => {
             let value = eval_constant(working_set, &cell_path.head)?;
 
-            match value.follow_cell_path(&cell_path.tail, false, false) {
+            match value.follow_cell_path(&cell_path.tail, false) {
                 Ok(val) => Ok(val),
                 // TODO: Better error conversion
                 Err(shell_error) => Err(ParseError::LabeledError(

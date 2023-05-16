@@ -128,7 +128,12 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     match lhs.strip_prefix(&rhs) {
         Ok(p) => Value::string(p.to_string_lossy(), span),
         Err(e) => Value::Error {
-            error: ShellError::CantConvert(e.to_string(), "string".into(), span, None),
+            error: Box::new(ShellError::CantConvert {
+                to_type: e.to_string(),
+                from_type: "string".into(),
+                span,
+                help: None,
+            }),
         },
     }
 }

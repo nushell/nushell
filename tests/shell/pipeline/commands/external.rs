@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
 #[test]
@@ -72,6 +73,13 @@ fn correctly_escape_external_arguments() {
 }
 
 #[test]
+fn escape_also_escapes_equals() {
+    let actual = nu!(cwd: ".", r#"^MYFOONAME=MYBARVALUE"#);
+
+    assert!(actual.err.contains("executable was not found"));
+}
+
+#[test]
 fn execute_binary_in_string() {
     let actual = nu!(
     cwd: ".",
@@ -121,6 +129,18 @@ fn command_not_found_error_suggests_typo_fix() {
 }
 
 #[test]
+fn command_not_found_error_shows_not_found() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            export extern "foo" [];
+            foo
+        "#
+    );
+    assert!(actual.err.contains("'foo' was not found"));
+}
+
+#[test]
 fn command_substitution_wont_output_extra_newline() {
     let actual = nu!(
         cwd: ".",
@@ -148,7 +168,7 @@ mod it_evaluation {
     fn takes_rows_of_nu_value_strings() {
         Playground::setup("it_argument_test_1", |dirs, sandbox| {
             sandbox.with_files(vec![
-                EmptyFile("jonathan_likes_cake.txt"),
+                EmptyFile("jt_likes_cake.txt"),
                 EmptyFile("andres_likes_arepas.txt"),
             ]);
 
@@ -163,7 +183,7 @@ mod it_evaluation {
                 "#
             ));
 
-            assert_eq!(actual.out, "jonathan_likes_cake.txt");
+            assert_eq!(actual.out, "jt_likes_cake.txt");
         })
     }
 
@@ -436,7 +456,7 @@ mod external_command_arguments {
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
                 sandbox.with_files(vec![
-                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
                 ]);
@@ -450,7 +470,7 @@ mod external_command_arguments {
 
                 assert_eq!(
                     actual.out,
-                    "andres_likes_arepas.txt ferris_not_here.txt jonathan_likes_cake.txt"
+                    "andres_likes_arepas.txt ferris_not_here.txt jt_likes_cake.txt"
                 );
             },
         )
@@ -462,7 +482,7 @@ mod external_command_arguments {
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
                 sandbox.with_files(vec![
-                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
                 ]);
