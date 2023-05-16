@@ -4,7 +4,6 @@ use std::fmt;
 // Trait definition for a lazy record (where columns are evaluated on-demand)
 // typetag is needed to make this implement Serialize+Deserialize... even though we should never actually serialize a LazyRecord.
 // To serialize a LazyRecord, collect it into a Value::Record with collect() first.
-// #[typetag::serde(tag = "type")]
 pub trait LazyRecord<'a>: fmt::Debug + Send + Sync {
     // All column names
     fn column_names(&'a self) -> Vec<&'a str>;

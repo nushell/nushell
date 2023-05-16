@@ -104,22 +104,6 @@ struct NuLazyRecord {
     span: Span,
 }
 
-// impl<'de> Serialize for NuLazyRecord {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer {
-//         unimplemented!("not meaningfully serializable")
-//     }
-// }
-
-// impl<'de> Deserialize<'de> for NuLazyRecord {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: serde::Deserializer<'de> {
-//         unimplemented!("not meaningfully deserializable")
-//     }
-// }
-
 impl std::fmt::Debug for NuLazyRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NuLazyRecord").finish()

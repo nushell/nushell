@@ -4,7 +4,6 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     LazyRecord, ShellError, Span, Value,
 };
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use sysinfo::SystemExt;
 
@@ -14,7 +13,6 @@ use sysinfo::SystemExt;
 
 // Note: NuVariable is not meaningfully serializable, this #[derive] is a lie to satisfy the type checker.
 // Make sure to collect() the record before serializing it
-// #[derive(Serialize, Deserialize)]
 #[derive(Clone)]
 pub struct NuVariable {
     pub engine_state: EngineState,
