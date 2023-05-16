@@ -225,9 +225,8 @@ fn rm(
 
     if unique_argument_check.is_some() && !(interactive_once || interactive) {
         return Err(ShellError::GenericError(
-            "It seems you want to remove your home dir".into(),
-            "please make a check, if you really want to remove it, use -I or -i to confirm it"
-                .into(),
+            "You are trying to remove your home dir".into(),
+            "If you really want to remove your home dir, please use -I or -i".into(),
             unique_argument_check,
             None,
             Vec::new(),

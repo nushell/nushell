@@ -143,7 +143,7 @@ fn errors_if_attempting_to_delete_home() {
             "let-env HOME = myhome ; rm -rf ~"
         );
 
-        assert!(actual.err.contains("use -I or -i to confirm it"));
+        assert!(actual.err.contains("please use -I or -i"));
     })
 }
 
