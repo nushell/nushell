@@ -38,23 +38,17 @@ export def-env "path add" [
     --append (-a)  # append to $env.PATH instead of prepending to.
     ...paths  # the paths to add to $env.PATH.
 ] {
-    let on_windows = ($nu.os-info.family == windows)
-    if  $on_windows {
-        let-env Path = (
-            $env.Path
+    let path_name = if "PATH" in $env { "PATH" } else { "Path" }
+
+    let-env $path_name = (
+            $env
+            | get $path_name
             | if $append { append $paths }
             else { prepend $paths }
-        )
-    } else {
-        let-env PATH = (
-            $env.PATH
-            | if $append { append $paths }
-            else { prepend $paths }
-        )
-    }
+    )
     
     if $ret {
-        if $on_windows { $env.Path } else { $env.PATH }
+        $env | get $path_name
     }
 }
 
