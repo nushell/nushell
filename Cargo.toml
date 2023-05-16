@@ -65,7 +65,7 @@ nu-std = { path = "./crates/nu-std", version = "0.79.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.79.1" }
 
 nu-ansi-term = "0.47.0"
-reedline = { version = "0.19.0", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.19.1", features = ["bashisms", "sqlite"]}
 
 rayon = "1.7.0"
 is_executable = "1.0.1"
@@ -160,7 +160,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
+# reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup
