@@ -1,6 +1,6 @@
 use std::fs::read_link;
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -184,7 +184,7 @@ impl Command for Cp {
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
 
                         // ignore when source file is not newer than target file
-                        if update_mode && is_older(&src, &dst) {
+                        if update_mode && super::util::is_older(&src, &dst) {
                             continue;
                         }
 
@@ -575,34 +575,6 @@ fn copy_symlink(
                 vec![],
             )),
         },
-    }
-}
-
-fn is_older(src: &Path, dst: &Path) -> bool {
-    if !dst.exists() {
-        return true;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let src_ctime = std::fs::metadata(src)
-            .map(|m| m.ctime())
-            .unwrap_or(i64::MIN);
-        let dst_ctime = std::fs::metadata(dst)
-            .map(|m| m.ctime())
-            .unwrap_or(i64::MAX);
-        src_ctime < dst_ctime
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        let src_ctime = std::fs::metadata(src)
-            .map(|m| m.last_write_time())
-            .unwrap_or(u64::MIN);
-        let dst_ctime = std::fs::metadata(dst)
-            .map(|m| m.last_write_time())
-            .unwrap_or(u64::MAX);
-        src_ctime < dst_ctime
     }
 }
 
