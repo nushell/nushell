@@ -123,7 +123,6 @@ def show-module [module: record] {
 
     if not ($module.commands? | is-empty) {
         print-help-header "Exported commands"
-        let indent = "    "
         print -n "    "
 
         let commands_string = (
