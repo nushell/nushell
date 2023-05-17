@@ -1703,6 +1703,9 @@ pub fn parse_module_block(
                 LiteElement::SeparateRedirection {
                     out: (_, command), ..
                 } => block.pipelines.push(garbage_pipeline(&command.parts)),
+                LiteElement::SameTargetRedirection {
+                    cmd: (_, command), ..
+                } => block.pipelines.push(garbage_pipeline(&command.parts)),
             }
         } else {
             working_set.error(ParseError::Expected("not a pipeline".into(), span));
