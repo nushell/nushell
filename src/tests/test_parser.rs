@@ -543,6 +543,11 @@ fn duration_with_underscores_3() -> TestResult {
 }
 
 #[test]
+fn duration_with_faulty_number() -> TestResult {
+    fail_test("sleep 4-ms", "duration value must be a number")
+}
+
+#[test]
 fn filesize_with_underscores_1() -> TestResult {
     run_test("420_mb", "400.5 MiB")
 }
