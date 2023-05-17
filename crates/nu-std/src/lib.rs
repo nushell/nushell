@@ -160,6 +160,7 @@ pub fn load_standard_library(
         let source = format!(r#"module {}"#, std_dir);
 
         // TODO: Error on redefinition:
+        println!("STD DIR: {:?}", std_dir);
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
         parse(

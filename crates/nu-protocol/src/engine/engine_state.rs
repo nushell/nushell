@@ -56,7 +56,7 @@ impl Default for Usage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VirtualPath {
     File(usize),               // file ID if the file
     Dir(Vec<(String, VirtualPath)>), // file IDs of files in the virtual dir
@@ -1427,6 +1427,7 @@ impl<'a> StateWorkingSet<'a> {
 
     #[must_use]
     pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> Option<VirtualPath> {
+        println!("--- Add virt path: {}, {:?}", name, virtual_path);
         self.delta.virtual_paths.insert(name, virtual_path)
     }
 
