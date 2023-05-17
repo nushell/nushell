@@ -38,14 +38,17 @@ export def-env "path add" [
     --append (-a)  # append to $env.PATH instead of prepending to.
     ...paths  # the paths to add to $env.PATH.
 ] {
-    let-env PATH = (
-        $env.PATH
-        | if $append { append $paths }
-        else { prepend $paths }
-    )
+    let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
+    let-env $path_name = (
+            $env
+            | get $path_name
+            | if $append { append $paths }
+            else { prepend $paths }
+    )
+    
     if $ret {
-        $env.PATH
+        $env | get $path_name
     }
 }
 
