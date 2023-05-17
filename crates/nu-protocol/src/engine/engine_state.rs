@@ -1155,11 +1155,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn unique_overlay_names(&self) -> HashSet<&Vec<u8>> {
-        let mut names: HashSet<&Vec<u8>> = self
-            .permanent_state
-            .active_overlay_names(&[])
-            .into_iter()
-            .collect();
+        let mut names: HashSet<&Vec<u8>> = self.permanent_state.active_overlay_names(&[]).collect();
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame.active_overlays.iter().rev() {
