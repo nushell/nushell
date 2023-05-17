@@ -1,6 +1,6 @@
 use std::fs::read_link;
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -57,6 +57,10 @@ impl Command for Cp {
                 "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
             )
+            .switch("update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
@@ -88,6 +92,7 @@ impl Command for Cp {
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         let progress = call.has_flag("progress");
+        let update_mode = call.has_flag("update");
 
         let current_dir_path = current_dir(engine_state, stack)?;
         let source = current_dir_path.join(src.item.as_str());
@@ -177,6 +182,12 @@ impl Command for Cp {
                     if src.is_file() {
                         let dst =
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
+
+                        // ignore when source file is not newer than target file
+                        if update_mode && is_older(&src, &dst) {
+                            continue;
+                        }
+
                         let res = if src == dst {
                             let message = format!(
                                 "src {source:?} and dst {destination:?} are identical(not copied)"
@@ -359,6 +370,11 @@ impl Command for Cp {
             Example {
                 description: "Move many files into a directory",
                 example: "cp *.txt dir_a",
+                result: None,
+            },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
                 result: None,
             },
         ]
@@ -559,6 +575,34 @@ fn copy_symlink(
                 vec![],
             )),
         },
+    }
+}
+
+fn is_older(src: &Path, dst: &Path) -> bool {
+    if !dst.exists() {
+        return true;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let src_ctime = std::fs::metadata(src)
+            .map(|m| m.ctime())
+            .unwrap_or(i64::MIN);
+        let dst_ctime = std::fs::metadata(dst)
+            .map(|m| m.ctime())
+            .unwrap_or(i64::MAX);
+        src_ctime < dst_ctime
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        let src_ctime = std::fs::metadata(src)
+            .map(|m| m.last_write_time())
+            .unwrap_or(u64::MIN);
+        let dst_ctime = std::fs::metadata(dst)
+            .map(|m| m.last_write_time())
+            .unwrap_or(u64::MAX);
+        src_ctime < dst_ctime
     }
 }
 
