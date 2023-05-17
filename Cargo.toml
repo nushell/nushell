@@ -10,7 +10,7 @@ license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.60"
-version = "0.79.1"
+version = "0.80.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -47,25 +47,25 @@ crossterm = "0.26"
 ctrlc = "3.2.1"
 log = "0.4"
 miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
-nu-cli = { path = "./crates/nu-cli", version = "0.79.1" }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.79.1" }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.79.1" }
-nu-command = { path = "./crates/nu-command", version = "0.79.1" }
-nu-engine = { path = "./crates/nu-engine", version = "0.79.1" }
-nu-json = { path = "./crates/nu-json", version = "0.79.1" }
-nu-parser = { path = "./crates/nu-parser", version = "0.79.1" }
-nu-path = { path = "./crates/nu-path", version = "0.79.1" }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.79.1" }
-nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.79.1" }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.79.1" }
-nu-system = { path = "./crates/nu-system", version = "0.79.1" }
-nu-table = { path = "./crates/nu-table", version = "0.79.1" }
-nu-term-grid = { path = "./crates/nu-term-grid", version = "0.79.1" }
-nu-std = { path = "./crates/nu-std", version = "0.79.1" }
-nu-utils = { path = "./crates/nu-utils", version = "0.79.1" }
+nu-cli = { path = "./crates/nu-cli", version = "0.80.1" }
+nu-color-config = { path = "./crates/nu-color-config", version = "0.80.1" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.80.1" }
+nu-command = { path = "./crates/nu-command", version = "0.80.1" }
+nu-engine = { path = "./crates/nu-engine", version = "0.80.1" }
+nu-json = { path = "./crates/nu-json", version = "0.80.1" }
+nu-parser = { path = "./crates/nu-parser", version = "0.80.1" }
+nu-path = { path = "./crates/nu-path", version = "0.80.1" }
+nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.80.1" }
+nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.80.1" }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.80.1" }
+nu-system = { path = "./crates/nu-system", version = "0.80.1" }
+nu-table = { path = "./crates/nu-table", version = "0.80.1" }
+nu-term-grid = { path = "./crates/nu-term-grid", version = "0.80.1" }
+nu-std = { path = "./crates/nu-std", version = "0.80.1" }
+nu-utils = { path = "./crates/nu-utils", version = "0.80.1" }
 
 nu-ansi-term = "0.47.0"
-reedline = { version = "0.19.0", features = ["bashisms", "sqlite"]}
+reedline = { version = "0.19.1", features = ["bashisms", "sqlite"]}
 
 rayon = "1.7.0"
 is_executable = "1.0.1"
@@ -92,7 +92,7 @@ nix = { version = "0.26", default-features = false, features = [
 atty = "0.2"
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.79.1" }
+nu-test-support = { path = "./crates/nu-test-support", version = "0.80.1" }
 tempfile = "3.5.0"
 assert_cmd = "2.0.2"
 criterion = "0.4"
@@ -160,7 +160,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
+# reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup

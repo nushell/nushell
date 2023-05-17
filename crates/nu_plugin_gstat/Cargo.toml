@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_gsta
 edition = "2021"
 license = "MIT"
 name = "nu_plugin_gstat"
-version = "0.79.1"
+version = "0.80.1"
 
 [lib]
 doctest = false
@@ -16,8 +16,8 @@ name = "nu_plugin_gstat"
 bench = false
 
 [dependencies]
-nu-plugin = { path="../nu-plugin", version = "0.79.1" }
-nu-protocol = { path="../nu-protocol", version = "0.79.1" }
-nu-engine = { path="../nu-engine", version = "0.79.1" }
+nu-plugin = { path="../nu-plugin", version = "0.80.1" }
+nu-protocol = { path="../nu-protocol", version = "0.80.1" }
+nu-engine = { path="../nu-engine", version = "0.80.1" }
 
 git2 = "0.17.0"

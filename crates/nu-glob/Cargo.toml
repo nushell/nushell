@@ -1,6 +1,6 @@
 [package]
 name = "nu-glob"
-version = "0.79.1"
+version = "0.80.1"
 authors = ["The Nushell Project Developers", "The Rust Project Developers"]
 license = "MIT/Apache-2.0"
 description = """

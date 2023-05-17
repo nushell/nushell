@@ -5,16 +5,16 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-engine"
 edition = "2021"
 license = "MIT"
 name = "nu-engine"
-version = "0.79.1"
+version = "0.80.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.79.1"  }
-nu-path = { path = "../nu-path", version = "0.79.1"  }
-nu-glob = { path = "../nu-glob", version = "0.79.1" }
-nu-utils = { path = "../nu-utils", version = "0.79.1"  }
+nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.80.1"  }
+nu-path = { path = "../nu-path", version = "0.80.1"  }
+nu-glob = { path = "../nu-glob", version = "0.80.1" }
+nu-utils = { path = "../nu-utils", version = "0.80.1"  }
 
 chrono = { version="0.4.23", features = ["std"], default-features = false }
 serde = {version = "1.0.143", default-features = false }

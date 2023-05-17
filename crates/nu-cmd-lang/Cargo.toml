@@ -6,17 +6,17 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-lang"
 edition = "2021"
 license = "MIT"
 name = "nu-cmd-lang"
-version = "0.79.1"
+version = "0.80.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.79.1" }
-nu-engine = { path = "../nu-engine", version = "0.79.1" }
-nu-parser = { path = "../nu-parser", version = "0.79.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.79.1"  }
-nu-utils = { path = "../nu-utils", version = "0.79.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.80.1" }
+nu-engine = { path = "../nu-engine", version = "0.80.1" }
+nu-parser = { path = "../nu-parser", version = "0.80.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.80.1"  }
+nu-utils = { path = "../nu-utils", version = "0.80.1" }
 
 nu-ansi-term = "0.47.0"
 
@@ -29,4 +29,4 @@ shadow-rs = { version = "0.21.0", default-features = false }
 shadow-rs = { version = "0.21.0", default-features = false }
 
 [dev-dependencies]
-nu-test-support = { path="../nu-test-support", version = "0.79.1"  }
+nu-test-support = { path="../nu-test-support", version = "0.80.1"  }
