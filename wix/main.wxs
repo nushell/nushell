@@ -302,8 +302,8 @@
                         </Directory>
                     </Directory>
                 </Directory>
-            </Directory>
-        </Directory> -->
+            </Directory>-->
+        </Directory>
 
         <Feature
             Id='Binaries'
