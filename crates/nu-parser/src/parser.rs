@@ -2199,21 +2199,160 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    match parse_duration_bytes(bytes, span) {
-        Some(expression) => expression,
+    match parse_unit_value(bytes, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
+        Some(Ok(expr)) => expr,
+        Some(Err(mk_err_for)) => {
+            working_set.error(mk_err_for("duration"));
+            garbage(span)
+        }
         None => {
             working_set.error(ParseError::Expected(
                 "duration with valid units".into(),
                 span,
             ));
-
             garbage(span)
         }
     }
 }
 
+/// Parse a unit type, eg '10kb'
+pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    trace!("parsing: filesize");
+
+    let bytes = working_set.get_span_contents(span);
+
+    match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
+        x.to_uppercase()
+    }) {
+        Some(Ok(expr)) => expr,
+        Some(Err(mk_err_for)) => {
+            working_set.error(mk_err_for("filesize"));
+            garbage(span)
+        }
+        None => {
+            working_set.error(ParseError::Expected(
+                "filesize with valid units".into(),
+                span,
+            ));
+            garbage(span)
+        }
+    }
+}
+
+type ParseUnitResult<'res> = Result<Expression, Box<dyn Fn(&'res str) -> ParseError>>;
+type UnitGroup<'unit> = (Unit, &'unit str, Option<(Unit, i64)>);
+
+pub fn parse_unit_value<'res>(
+    bytes: &[u8],
+    span: Span,
+    unit_groups: &[UnitGroup],
+    ty: Type,
+    transform: fn(String) -> String,
+) -> Option<ParseUnitResult<'res>> {
+    if bytes.len() < 2
+        || !(bytes[0].is_ascii_digit() || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
+    {
+        return None;
+    }
+
+    let value = transform(String::from_utf8_lossy(bytes).into());
+
+    if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
+        let lhs_len = value.len() - name.len();
+        let lhs = strip_underscores(value[..lhs_len].as_bytes());
+        let lhs_span = Span::new(span.start, span.start + lhs_len);
+        let unit_span = Span::new(span.start + lhs_len, span.end);
+
+        let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
+            Ok(it) => it,
+            Err(_) => {
+                let mk_err = move |name| {
+                    ParseError::LabeledError(
+                        format!("{name} value must be a number"),
+                        "not a number".into(),
+                        lhs_span,
+                    )
+                };
+                return Some(Err(Box::new(mk_err)));
+            }
+        });
+
+        let (num, unit) = match convert {
+            Some(convert_to) => (
+                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)) as i64,
+                convert_to.0,
+            ),
+            None => (number_part as i64, *unit),
+        };
+
+        trace!("-- found {} {:?}", num, unit);
+        let expr = Expression {
+            expr: Expr::ValueWithUnit(
+                Box::new(Expression {
+                    expr: Expr::Int(num),
+                    span: lhs_span,
+                    ty: Type::Number,
+                    custom_completion: None,
+                }),
+                Spanned {
+                    item: unit,
+                    span: unit_span,
+                },
+            ),
+            span,
+            ty,
+            custom_completion: None,
+        };
+
+        Some(Ok(expr))
+    } else {
+        None
+    }
+}
+
+pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
+    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
+    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
+    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
+    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
+    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
+    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
+    (Unit::Zettabyte, "ZB", Some((Unit::Exabyte, 1000))),
+    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
+    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
+    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
+    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
+    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
+    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
+    (Unit::Zebibyte, "ZIB", Some((Unit::Exbibyte, 1024))),
+    (Unit::Byte, "B", None),
+];
+
+pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
+    (Unit::Nanosecond, "ns", None),
+    (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
+    (
+        // µ Micro Sign
+        Unit::Microsecond,
+        "\u{00B5}s",
+        Some((Unit::Nanosecond, 1000)),
+    ),
+    (
+        // μ Greek small letter Mu
+        Unit::Microsecond,
+        "\u{03BC}s",
+        Some((Unit::Nanosecond, 1000)),
+    ),
+    (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
+    (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
+    (Unit::Minute, "min", Some((Unit::Second, 60))),
+    (Unit::Hour, "hr", Some((Unit::Minute, 60))),
+    (Unit::Day, "day", Some((Unit::Minute, 1440))),
+    (Unit::Week, "wk", Some((Unit::Day, 7))),
+];
+
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
-pub fn modf(x: f64) -> (f64, f64) {
+fn modf(x: f64) -> (f64, f64) {
     let rv2: f64;
     let mut u = x.to_bits();
     let e = ((u >> 52 & 0x7ff) as i32) - 0x3ff;
@@ -2245,187 +2384,6 @@ pub fn modf(x: f64) -> (f64, f64) {
     u &= !mask;
     rv2 = f64::from_bits(u);
     (x - rv2, rv2)
-}
-
-pub fn parse_duration_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Expression> {
-    if num_with_unit_bytes.is_empty()
-        || (!num_with_unit_bytes[0].is_ascii_digit() && num_with_unit_bytes[0] != b'-')
-    {
-        return None;
-    }
-
-    let num_with_unit = String::from_utf8_lossy(num_with_unit_bytes).to_string();
-    let unit_groups = [
-        (Unit::Nanosecond, "ns", None),
-        (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
-        (
-            // µ Micro Sign
-            Unit::Microsecond,
-            "\u{00B5}s",
-            Some((Unit::Nanosecond, 1000)),
-        ),
-        (
-            // μ Greek small letter Mu
-            Unit::Microsecond,
-            "\u{03BC}s",
-            Some((Unit::Nanosecond, 1000)),
-        ),
-        (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
-        (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
-        (Unit::Minute, "min", Some((Unit::Second, 60))),
-        (Unit::Hour, "hr", Some((Unit::Minute, 60))),
-        (Unit::Day, "day", Some((Unit::Minute, 1440))),
-        (Unit::Week, "wk", Some((Unit::Day, 7))),
-    ];
-
-    if let Some(unit) = unit_groups.iter().find(|&x| num_with_unit.ends_with(x.1)) {
-        let mut lhs = num_with_unit;
-        for _ in 0..unit.1.chars().count() {
-            lhs.pop();
-        }
-
-        let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
-            Ok(x) => x,
-            Err(_) => return None,
-        });
-
-        let (num, unit_to_use) = match unit.2 {
-            Some(unit_to_convert_to) => (
-                Some(
-                    ((number_part * unit_to_convert_to.1 as f64)
-                        + (decimal_part * unit_to_convert_to.1 as f64)) as i64,
-                ),
-                unit_to_convert_to.0,
-            ),
-            None => (Some(number_part as i64), unit.0),
-        };
-
-        if let Some(x) = num {
-            trace!("-- found {} {:?}", x, unit_to_use);
-
-            let lhs_span = Span::new(span.start, span.start + lhs.len());
-            let unit_span = Span::new(span.start + lhs.len(), span.end);
-            return Some(Expression {
-                expr: Expr::ValueWithUnit(
-                    Box::new(Expression {
-                        expr: Expr::Int(x),
-                        span: lhs_span,
-                        ty: Type::Number,
-                        custom_completion: None,
-                    }),
-                    Spanned {
-                        item: unit_to_use,
-                        span: unit_span,
-                    },
-                ),
-                span,
-                ty: Type::Duration,
-                custom_completion: None,
-            });
-        }
-    }
-
-    None
-}
-
-/// Parse a unit type, eg '10kb'
-pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    trace!("parsing: filesize");
-
-    let bytes = working_set.get_span_contents(span);
-
-    //todo: parse_filesize_bytes should distinguish between not-that-type and syntax error in units
-    match parse_filesize_bytes(bytes, span) {
-        Some(expression) => expression,
-        None => {
-            working_set.error(ParseError::Expected(
-                "filesize with valid units".into(),
-                span,
-            ));
-
-            garbage(span)
-        }
-    }
-}
-
-pub fn parse_filesize_bytes(num_with_unit_bytes: &[u8], span: Span) -> Option<Expression> {
-    if num_with_unit_bytes.is_empty()
-        || (!num_with_unit_bytes[0].is_ascii_digit() && num_with_unit_bytes[0] != b'-')
-    {
-        return None;
-    }
-
-    let num_with_unit = String::from_utf8_lossy(num_with_unit_bytes).to_string();
-    let uppercase_num_with_unit = num_with_unit.to_uppercase();
-    let unit_groups = [
-        (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-        (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-        (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-        (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-        (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-        (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-        (Unit::Zettabyte, "ZB", Some((Unit::Exabyte, 1000))),
-        (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-        (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-        (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-        (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-        (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-        (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-        (Unit::Zebibyte, "ZIB", Some((Unit::Exbibyte, 1024))),
-        (Unit::Byte, "B", None),
-    ];
-
-    if let Some(unit) = unit_groups
-        .iter()
-        .find(|&x| uppercase_num_with_unit.ends_with(x.1))
-    {
-        let mut lhs = num_with_unit;
-        for _ in 0..unit.1.len() {
-            lhs.pop();
-        }
-
-        let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
-            Ok(x) => x,
-            Err(_) => return None,
-        });
-
-        let (num, unit_to_use) = match unit.2 {
-            Some(unit_to_convert_to) => (
-                Some(
-                    ((number_part * unit_to_convert_to.1 as f64)
-                        + (decimal_part * unit_to_convert_to.1 as f64)) as i64,
-                ),
-                unit_to_convert_to.0,
-            ),
-            None => (Some(number_part as i64), unit.0),
-        };
-
-        if let Some(x) = num {
-            trace!("-- found {} {:?}", x, unit_to_use);
-
-            let lhs_span = Span::new(span.start, span.start + lhs.len());
-            let unit_span = Span::new(span.start + lhs.len(), span.end);
-            return Some(Expression {
-                expr: Expr::ValueWithUnit(
-                    Box::new(Expression {
-                        expr: Expr::Int(x),
-                        span: lhs_span,
-                        ty: Type::Number,
-                        custom_completion: None,
-                    }),
-                    Spanned {
-                        item: unit_to_use,
-                        span: unit_span,
-                    },
-                ),
-                span,
-                ty: Type::Filesize,
-                custom_completion: None,
-            });
-        }
-    }
-
-    None
 }
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
