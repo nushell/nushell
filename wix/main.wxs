@@ -76,14 +76,14 @@
                             KeyPath='yes'/>
                     </Component>
 
-                    <Component Id='icon0' Guid='*' Win64='$(var.Win64)'>
+                    <!-- <Component Id='icon0' Guid='*' Win64='$(var.Win64)'>
                         <File
                             Id='icon0'
                             Name='nu.ico'
                             DiskId='1'
                             Source='assets/nu_logo.ico'
                             KeyPath='yes'/>
-                    </Component>
+                    </Component> -->
 
                     <Directory Id='Bin' Name='bin'>
                         <Component Id='Path' Guid='285921EA-6DC0-4632-B12C-D7D737F30686' Win64='$(var.Win64)' KeyPath='yes'>
@@ -284,7 +284,7 @@
                     </Directory>
                 </Directory>
             </Directory>
-
+<!--
             <Directory Id='CommonAppDataFolder'>
                 <Directory Id='AppDataMicrosoftFolder' Name='Microsoft'>
                     <Directory Id='AppDataWindowsTerminalFolder' Name='Windows Terminal'>
@@ -303,7 +303,7 @@
                     </Directory>
                 </Directory>
             </Directory>
-        </Directory>
+        </Directory> -->
 
         <Feature
             Id='Binaries'
@@ -320,7 +320,7 @@
             -->
             <ComponentRef Id='License'/>
 
-            <ComponentRef Id='icon0'/>
+            <!-- <ComponentRef Id='icon0'/> -->
 
             <ComponentRef Id='binary0'/>
             <!-- <ComponentRef Id='binary1'/> -->
@@ -354,7 +354,7 @@
                 Absent='allow'>
                 <ComponentRef Id='Path'/>
             </Feature>
-
+<!--
             <Feature
                 Id='WindowsTerminalProfile'
                 Title='Windows Terminal Profile'
@@ -362,17 +362,17 @@
                 Level='1'
                 Absent='allow'>
                 <ComponentRef Id='WindowsTerminalProfile'/>
-            </Feature>
+            </Feature> -->
         </Feature>
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
-        <Icon Id='ProductICO' SourceFile='assets/nu_logo.ico'/>
+        <!-- <Icon Id='ProductICO' SourceFile='assets/nu_logo.ico'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
-
+ -->
         <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
 
-        <SetProperty
+        <!-- <SetProperty
             Id="ReplacePathsInWindowsTerminalProfile"
             Sequence="execute"
             Value="&quot;[#exe0]&quot; -c &quot;open '[#WindowsTerminalProfileFile]' | update profiles.commandline '[#exe0]' | update profiles.icon '[#icon0]' | save -f '[#WindowsTerminalProfileFile]'&quot;"
@@ -383,13 +383,13 @@
             DllEntry="CAQuietExec"
             Execute="deferred"
             Return="check"
-            Impersonate="no"/>
-        <InstallExecuteSequence>
-            <Custom Action='ReplacePathsInWindowsTerminalProfile' Before='InstallFinalize'>
+            Impersonate="no"/> -->
                 <!-- Run the custom action if the feature is enabled -->
+        <!-- <InstallExecuteSequence>
+            <Custom Action='ReplacePathsInWindowsTerminalProfile' Before='InstallFinalize'>
                 <![CDATA[&WindowsTerminalProfile=3 OR (!WindowsTerminalProfile=3 AND REINSTALL<>"")]]>
             </Custom>
-        </InstallExecuteSequence>
+        </InstallExecuteSequence> -->
 
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>
