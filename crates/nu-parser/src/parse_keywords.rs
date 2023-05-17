@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -129,15 +130,24 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let name = working_set.get_span_contents(spans[0]);
 
     // handle "export def" same as "def"
-    let (name, spans) = if name == b"export" && spans.len() >= 2 {
+    let (decl_name, spans) = if name == b"export" && spans.len() >= 2 {
         (working_set.get_span_contents(spans[1]), &spans[1..])
     } else {
         (name, spans)
     };
 
-    if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
+    if (decl_name == b"def" || decl_name == b"def-env") && spans.len() >= 4 {
         let starting_error_count = working_set.parse_errors.len();
-        let name = working_set.get_span_contents(spans[1]);
+        let name = if let Some(err) = detect_params_in_name(
+            working_set,
+            spans[1],
+            String::from_utf8_lossy(decl_name).as_ref(),
+        ) {
+            working_set.error(err);
+            return;
+        } else {
+            working_set.get_span_contents(spans[1])
+        };
         let name = trim_quotes(name);
         let name = String::from_utf8_lossy(name).to_string();
 
@@ -170,7 +180,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if name == b"extern" && spans.len() >= 3 {
+    } else if decl_name == b"extern" && spans.len() >= 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -347,6 +357,18 @@ pub fn parse_def(
         Some(decl_id) => {
             working_set.enter_scope();
             let (command_spans, rest_spans) = spans.split_at(split_id);
+
+            if let Some(name_span) = rest_spans.get(0) {
+                if let Some(err) = detect_params_in_name(
+                    working_set,
+                    *name_span,
+                    String::from_utf8_lossy(&def_call).as_ref(),
+                ) {
+                    working_set.error(err);
+                    return garbage_pipeline(spans);
+                }
+            }
+
             let starting_error_count = working_set.parse_errors.len();
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
@@ -508,6 +530,17 @@ pub fn parse_extern(
             working_set.enter_scope();
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
+
+            if let Some(name_span) = rest_spans.get(0) {
+                if let Some(err) = detect_params_in_name(
+                    working_set,
+                    *name_span,
+                    String::from_utf8_lossy(&extern_call).as_ref(),
+                ) {
+                    working_set.error(err);
+                    return garbage_pipeline(spans);
+                }
+            }
 
             let ParsedInternalCall { call, .. } =
                 parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
@@ -1796,42 +1829,54 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let mut file_paths = vec![];
+            let mod_nu_path = module_path.join("mod.nu");
 
-        for entry_path in dir_contents {
-            if entry_path.is_file()
-                && entry_path.extension() == Some(OsStr::new("nu"))
-                && entry_path.file_stem() != Some(OsStr::new("mod"))
-            {
-                if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
-                    working_set.error(ParseError::InvalidModuleFileName(
-                        module_path.path().to_string_lossy().to_string(),
-                        module_name,
-                        path_span,
-                    ));
-                    return None;
-                }
-
-                file_paths.push(entry_path);
+            if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
+                working_set.error(ParseError::ModuleMissingModNuFile(path_span));
+                return None;
             }
-        }
 
-        file_paths.sort();
+            let mut paths = vec![];
+
+            for entry in dir_contents.flatten() {
+                let entry_path = entry.path();
+
+                if (entry_path.is_file()
+                    && entry_path.extension() == Some(OsStr::new("nu"))
+                    && entry_path.file_stem() != Some(OsStr::new("mod")))
+                    || (entry_path.is_dir() && entry_path.join("mod.nu").exists())
+                {
+                    if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
+                        working_set.error(ParseError::InvalidModuleFileName(
+                            module_path.to_string_lossy().to_string(),
+                            module_name,
+                            path_span,
+                        ));
+                        return None;
+                    }
+
+                    paths.push(entry_path);
+                }
+            }
+
+            paths.sort();
 
         // working_set.enter_scope();
 
         let mut submodules = vec![];
 
-        for file_path in file_paths {
-            if let Some(submodule_id) = parse_module_file(working_set, file_path, path_span, None) {
-                let submodule_name = working_set.get_module(submodule_id).name();
-                submodules.push((submodule_name, submodule_id));
+            for p in paths {
+                if let Some(submodule_id) = parse_module_file_or_dir(
+                    working_set,
+                    p.to_string_lossy().as_bytes(),
+                    path_span,
+                    None,
+                ) {
+                    let submodule_name = working_set.get_module(submodule_id).name();
+                    submodules.push((submodule_name, submodule_id));
+                }
             }
-        }
 
-        let mod_nu_path = module_path.join("mod.nu");
-
-        if mod_nu_path.exists() && mod_nu_path.is_file() {
             if let Some(module_id) = parse_module_file(
                 working_set,
                 mod_nu_path,
@@ -1860,13 +1905,8 @@ pub fn parse_module_file_or_dir(
                 None
             }
         } else {
-            let mut module = Module::new(module_name.as_bytes().to_vec());
-
-            for (submodule_name, submodule_id) in submodules {
-                module.add_submodule(submodule_name, submodule_id);
-            }
-
-            Some(working_set.add_module(&module_name, module, vec![]))
+            working_set.error(ParseError::ModuleNotFound(path_span));
+            None
         }
     } else if module_path.is_file() {
         parse_module_file(working_set, module_path, path_span, name_override)
@@ -3575,5 +3615,37 @@ pub fn find_in_dirs(
         find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
             .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
             .map(|p| ParserPath::RealPath(p))
+    }
+}
+
+fn detect_params_in_name(
+    working_set: &StateWorkingSet,
+    name_span: Span,
+    decl_name: &str,
+) -> Option<ParseError> {
+    let name = working_set.get_span_contents(name_span);
+
+    let extract_span = |delim: u8| {
+        // it is okay to unwrap because we know the slice contains the byte
+        let (idx, _) = name
+            .iter()
+            .find_position(|c| **c == delim)
+            .unwrap_or((name.len(), &b' '));
+        let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
+        let error = ParseError::LabeledErrorWithHelp{
+            error: "no space between name and parameters".into(),
+            label: "expected space".into(),
+            help: format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            span: param_span,
+            };
+        Some(error)
+    };
+
+    if name.contains(&b'[') {
+        extract_span(b'[')
+    } else if name.contains(&b'(') {
+        extract_span(b'(')
+    } else {
+        None
     }
 }

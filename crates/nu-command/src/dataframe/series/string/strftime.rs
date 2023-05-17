@@ -80,7 +80,18 @@ fn command(
         )
     })?;
 
-    let res = casted.strftime(&fmt).into_series();
+    let res = casted
+        .strftime(&fmt)
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Error formatting datetime".into(),
+                e.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        })?
+        .into_series();
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

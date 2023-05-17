@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = 0.79.1
+# version = 0.80.1
 
 def create_left_prompt [] {
     mut home = ""
@@ -21,7 +21,7 @@ def create_left_prompt [] {
     let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
     let path_segment = $"($path_color)($dir)"
 
-    $path_segment | str replace --all (char path_sep) $"($separator_color)/($path_color)"
+    $path_segment | str replace --all --string (char path_sep) $"($separator_color)/($path_color)"
 }
 
 def create_right_prompt [] {

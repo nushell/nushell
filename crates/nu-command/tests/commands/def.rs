@@ -38,6 +38,20 @@ param:string #My cool attractive param
 }
 
 #[test]
+fn def_errors_with_no_space_between_params_and_name_1() {
+    let actual = nu!("def test-command[] {}");
+
+    assert!(actual.err.contains("expected space"));
+}
+
+#[test]
+fn def_errors_with_no_space_between_params_and_name_2() {
+    let actual = nu!("def-env test-command() {}");
+
+    assert!(actual.err.contains("expected space"));
+}
+
+#[test]
 fn def_errors_with_multiple_short_flags() {
     let actual = nu!("def test-command [ --long(-l)(-o) ] {}");
 

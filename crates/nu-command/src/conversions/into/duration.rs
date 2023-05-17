@@ -179,7 +179,10 @@ fn into_duration(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
+    let span = match input.span() {
+        Some(t) => t,
+        None => call.head,
+    };
     let convert_to_unit: Option<Spanned<String>> = call.get_flag(engine_state, stack, "convert")?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let config = engine_state.get_config();
@@ -188,14 +191,14 @@ fn into_duration(
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                action(&v, &convert_to_unit, float_precision, head)
+                action(&v, &convert_to_unit, float_precision, span)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
                     let d = convert_to_unit.clone();
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| action(old, &d, float_precision, head)),
+                        Box::new(move |old| action(old, &d, float_precision, span)),
                     );
                     if let Err(error) = r {
                         return Value::Error {

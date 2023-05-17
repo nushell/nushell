@@ -63,7 +63,7 @@ fn load_prelude(working_set: &mut StateWorkingSet, prelude: Vec<(&str, &str)>, m
 }
 
 pub fn load_standard_library(
-    engine_state: &mut nu_protocol::engine::EngineState
+    engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let delta = {
         let std_files = vec![
@@ -77,6 +77,22 @@ pub fn load_standard_library(
                 format!("{}/std/test.nu", NU_STD_VIRTUAL_DIR),
                 include_str!("../std/test.nu"),
             ),
+            //         let name = "std".to_string();
+            //         let content = include_str!("../lib/mod.nu");
+
+            //         // these modules are loaded in the order they appear in this list
+            //         #[rustfmt::skip]
+            //         let submodules = vec![
+            //             // helper modules that could be used in other parts of the library
+            //             ("log", include_str!("../lib/log.nu")),
+
+            //             // the rest of the library
+            //             ("dirs", include_str!("../lib/dirs.nu")),
+            //             ("iter", include_str!("../lib/iter.nu")),
+            //             ("help", include_str!("../lib/help.nu")),
+            //             ("testing", include_str!("../lib/testing.nu")),
+            //             ("xml", include_str!("../lib/xml.nu")),
+            //             ("dt", include_str!("../lib/dt.nu")),
         ];
 
         let std_dirs_files = vec![
@@ -88,7 +104,6 @@ pub fn load_standard_library(
                 format!("{}/std/dirs/spam.nu", NU_STD_VIRTUAL_DIR),
                 include_str!("../std/dirs/spam.nu"),
             ),
-
             // helper modules that could be used in other parts of the library
             // (format!("{}/std/log.nu", NU_STD_VIRTUAL_DIR),     include_str!("../lib/log.nu")),
 
@@ -98,6 +113,21 @@ pub fn load_standard_library(
             // (format!("{}/std/help.nu", NU_STD_VIRTUAL_DIR),    include_str!("../lib/help.nu")),
             // (format!("{}/std/testing.nu", NU_STD_VIRTUAL_DIR), include_str!("../lib/testing.nu")),
             // (format!("{}/std/xml.nu", NU_STD_VIRTUAL_DIR),     include_str!("../lib/xml.nu")),
+            // #[rustfmt::skip]
+            // let prelude = vec![
+            //     ("std help", "help"),
+            //     ("std help commands", "help commands"),
+            //     ("std help aliases", "help aliases"),
+            //     ("std help modules", "help modules"),
+            //     ("std help externs", "help externs"),
+            //     ("std help operators", "help operators"),
+
+            //     ("enter", "enter"),
+            //     ("shells", "shells"),
+            //     ("g", "g"),
+            //     ("n", "n"),
+            //     ("p", "p"),
+            //     ("dexit", "dexit"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -121,7 +151,10 @@ pub fn load_standard_library(
         let std_dir = format!("{}/std/", NU_STD_VIRTUAL_DIR);
         let std_dirs_dir = format!("{}/std/dirs/", NU_STD_VIRTUAL_DIR);
 
-        let _ = working_set.add_virtual_path(std_dirs_dir.clone(), VirtualPath::Dir(std_dirs_virt_files.clone()));
+        let _ = working_set.add_virtual_path(
+            std_dirs_dir.clone(),
+            VirtualPath::Dir(std_dirs_virt_files.clone()),
+        );
         std_virt_paths.push((std_dirs_dir, VirtualPath::Dir(std_dirs_virt_files)));
 
         let source = format!(r#"module {}"#, std_dir);

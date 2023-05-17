@@ -118,7 +118,7 @@ impl Command for Commandline {
                     .expect("repl cursor pos mutex");
                 let char_pos = buffer
                     .grapheme_indices(true)
-                    .chain(std::iter::once((*cursor_pos, "")))
+                    .chain(std::iter::once((buffer.len(), "")))
                     .position(|(i, _c)| i == *cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
                 Ok(Value::String {

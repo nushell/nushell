@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-protocol"
 edition = "2021"
 license = "MIT"
 name = "nu-protocol"
-version = "0.79.1"
+version = "0.80.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,7 +13,7 @@ version = "0.79.1"
 bench = false
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.79.1" }
+nu-utils = { path = "../nu-utils", version = "0.80.1" }
 
 byte-unit = "4.0.9"
 chrono = { version = "0.4.23", features = [
@@ -39,4 +39,4 @@ plugin = ["serde_json"]
 
 [dev-dependencies]
 serde_json = "1.0"
-nu-test-support = { path = "../nu-test-support", version = "0.79.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.80.1" }

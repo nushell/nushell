@@ -180,15 +180,6 @@ fn bad_short_flag() -> TestResult {
 }
 
 #[test]
-fn alias_with_error_doesnt_panic() -> TestResult {
-    fail_test(
-        r#"alias s = shells
-        s ."#,
-        "extra positional",
-    )
-}
-
-#[test]
 fn quotes_with_equals() -> TestResult {
     run_test(
         r#"let query_prefix = "https://api.github.com/search/issues?q=repo:nushell/"; $query_prefix"#,
@@ -524,4 +515,14 @@ const file = 6
 register $file
 ";
     fail_test(input, "expected string, found int")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
+    fail_test("extern cmd[]", "expected space")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
+    fail_test("extern cmd(--flag)", "expected space")
 }

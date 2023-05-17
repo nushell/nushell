@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crossterm::event::{poll, read, Event, KeyEvent};
+use crossterm::event::{poll, read, Event, KeyEvent, KeyEventKind};
 
 pub struct UIEvents {
     tick_rate: Duration,
@@ -37,13 +37,19 @@ impl UIEvents {
         match poll(self.tick_rate) {
             Ok(true) => {
                 if let Event::Key(event) = read()? {
-                    Ok(Some(event))
-                } else {
-                    let time_spent = now.elapsed();
-                    let rest = self.tick_rate - time_spent;
-
-                    Self { tick_rate: rest }.next()
+                    // We are only interested in Pressed events;
+                    // It's crucial because there are cases where terminal MIGHT produce false events;
+                    // 2 events 1 for release 1 for press.
+                    // Want to react only on 1 of them so we do.
+                    if event.kind == KeyEventKind::Press {
+                        return Ok(Some(event));
+                    }
                 }
+
+                let time_spent = now.elapsed();
+                let rest = self.tick_rate - time_spent;
+
+                Self { tick_rate: rest }.next()
             }
             Ok(false) => Ok(None),
             Err(err) => Err(err),
@@ -53,7 +59,7 @@ impl UIEvents {
     pub fn try_next(&self) -> Result<Option<KeyEvent>> {
         match poll(Duration::default()) {
             Ok(true) => match read()? {
-                Event::Key(event) => Ok(Some(event)),
+                Event::Key(event) if event.kind == KeyEventKind::Press => Ok(Some(event)),
                 _ => Ok(None),
             },
             Ok(false) => Ok(None),
