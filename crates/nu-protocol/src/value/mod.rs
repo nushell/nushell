@@ -108,9 +108,9 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         span: Span,
     },
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     LazyRecord {
-        val: Box<dyn LazyRecord>,
+        val: Box<dyn for<'a> LazyRecord<'a>>,
         span: Span,
     },
     MatchPattern {
@@ -150,15 +150,7 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
-            Value::LazyRecord { val, .. } => {
-                match val.collect() {
-                    Ok(val) => val,
-                    // this is a bit weird, but because clone() is infallible...
-                    Err(error) => Value::Error {
-                        error: Box::new(error),
-                    },
-                }
-            }
+            Value::LazyRecord { val, span } => val.clone_value(*span),
             Value::List { vals, span } => Value::List {
                 vals: vals.clone(),
                 span: *span,

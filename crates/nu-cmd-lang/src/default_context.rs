@@ -51,6 +51,7 @@ pub fn create_default_context() -> EngineState {
             OverlayList,
             OverlayNew,
             OverlayHide,
+            LazyMake,
             Let,
             Loop,
             Match,
