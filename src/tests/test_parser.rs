@@ -526,3 +526,38 @@ fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
 fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
     fail_test("extern cmd(--flag)", "expected space")
 }
+
+#[test]
+fn duration_with_underscores_1() -> TestResult {
+    run_test("420_min", "7hr")
+}
+
+#[test]
+fn duration_with_underscores_2() -> TestResult {
+    run_test("1_000_000sec", "1wk 4day 13hr 46min 40sec")
+}
+
+#[test]
+fn duration_with_underscores_3() -> TestResult {
+    fail_test("1_000_d_ay", "executable was not found")
+}
+
+#[test]
+fn duration_with_faulty_number() -> TestResult {
+    fail_test("sleep 4-ms", "duration value must be a number")
+}
+
+#[test]
+fn filesize_with_underscores_1() -> TestResult {
+    run_test("420_mb", "400.5 MiB")
+}
+
+#[test]
+fn filesize_with_underscores_2() -> TestResult {
+    run_test("1_000_000B", "976.6 KiB")
+}
+
+#[test]
+fn filesize_with_underscores_3() -> TestResult {
+    fail_test("42m_b", "executable was not found")
+}
