@@ -19,13 +19,13 @@ fn help_commands_length() {
 
 #[test]
 fn help_shows_signature() {
-    let actual = nu!(cwd: ".", pipeline("help str distance"));
+    let actual = nu!("help str distance");
     assert!(actual
         .out
         .contains("<string> | str distance <string> -> <int>"));
 
     // don't show signature for parser keyword
-    let actual = nu!(cwd: ".", pipeline("help alias"));
+    let actual = nu!("help alias");
     assert!(!actual.out.contains("Signatures"));
 }
 
@@ -36,7 +36,7 @@ fn help_aliases() {
         "alias SPAM = print 'spam'",
         "help aliases | where name == SPAM | length",
     ];
-    let actual = nu!(cwd: ".", nu_repl_code(code));
+    let actual = nu!(nu_repl_code(code));
 
     assert_eq!(actual.out, "1");
 }
@@ -289,21 +289,21 @@ fn help_usage_extra_usage_command() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help modules spam"));
+        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
         assert!(actual.out.contains("module_line1"));
         assert!(actual.out.contains("module_line2"));
 
         let actual = nu!(cwd: dirs.test(),
-            pipeline("use spam.nu *; help modules | where name == spam | get 0.usage"));
+            "use spam.nu *; help modules | where name == spam | get 0.usage");
         assert!(actual.out.contains("module_line1"));
         assert!(!actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help commands foo"));
+        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help commands foo");
         assert!(actual.out.contains("def_line1"));
         assert!(actual.out.contains("def_line2"));
 
         let actual = nu!(cwd: dirs.test(),
-            pipeline("use spam.nu *; help commands | where name == foo | get 0.usage"));
+            "use spam.nu *; help commands | where name == foo | get 0.usage");
         assert!(actual.out.contains("def_line1"));
         assert!(!actual.out.contains("def_line2"));
     })
@@ -356,7 +356,7 @@ fn help_modules_main_1() {
         "help spam",
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.out.contains("  spam"));
 }

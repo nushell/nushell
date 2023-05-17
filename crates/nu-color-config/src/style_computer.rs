@@ -270,7 +270,7 @@ fn test_computable_style_closure_errors() {
         };"#,
         "[bell] | table",
     ];
-    let actual_repl = nu!(cwd: ".", nu_repl_code(&inp));
+    let actual_repl = nu!(nu_repl_code(&inp));
     // Check that the error was printed
     assert!(actual_repl.err.contains("type mismatch for operator"));
     // Check that the value was printed
