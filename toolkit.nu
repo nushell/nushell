@@ -66,7 +66,7 @@ export def test [
 
 # run the tests for the standard library
 export def "test stdlib" [] {
-    cargo run -- -c "use std testing run-tests; run-tests --path crates/nu-std"
+    cargo run -- -c "use std; std run-tests --path crates/nu-std"
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
