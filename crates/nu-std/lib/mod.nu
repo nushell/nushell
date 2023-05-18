@@ -115,10 +115,7 @@ export def clip [
         $in
         | if $expand { table --expand } else { table }
         | into string
-    )
-    
-    let input = (
-        if $no_strip { $input } else { $input | ansi strip }
+        | if $no_strip {} else { ansi strip }
     )
 
     match $nu.os-info.name {
