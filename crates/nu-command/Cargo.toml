@@ -30,18 +30,13 @@ nu-utils = { path = "../nu-utils", version = "0.80.1" }
 num-format = { version = "0.4.3" }
 nu-ansi-term = "0.47.0"
 
-# Potential dependencies for extras
-Inflector = "0.11"
 alphanumeric-sort = "1.5.0"
 atty = "0.2.14"
 base64 = "0.21.0"
 byteorder = "1.4.3"
 bytesize = "1.2.0"
 calamine = "0.19.1"
-chrono = { version = "0.4.23", features = [
-	"std",
-	"unstable-locales",
-], default-features = false }
+chrono = { version = "0.4.23", features = [ "std", "unstable-locales", ], default-features = false }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.8.1"
 crossterm = "0.26"
@@ -57,6 +52,7 @@ fs_extra = "1.3.0"
 htmlescape = "0.3.1"
 indexmap = { version = "1.7", features = ["serde-1"] }
 indicatif = "0.17.2"
+Inflector = "0.11"
 is-root = "0.1.2"
 itertools = "0.10.0"
 log = "0.4.14"
@@ -70,20 +66,17 @@ num = { version = "0.4.0", optional = true }
 num-traits = "0.2.14"
 once_cell = "1.17"
 open = "4.0.2"
+os_pipe = "1.1.3"
 pathdiff = "0.2.1"
+percent-encoding = "2.2.0"
 powierza-coefficient = "1.0.2"
+print-positions = "0.6.1"
 quick-xml = "0.28"
 rand = "0.8"
 rayon = "1.7.0"
 regex = "1.7.1"
-ureq = { version = "2.6.2", default-features = false, features = [
-	"json",
-	"charset",
-	"native-tls",
-	"gzip",
-] }
-native-tls = "0.2.11"
 roxmltree = "0.18.0"
+rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 rust-embed = "6.6.0"
 same-file = "1.0.6"
 serde = { version = "1.0.123", features = ["derive"] }
@@ -91,24 +84,19 @@ serde_json = "1.0"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.9.4"
 sha2 = "0.10.0"
-# Disable default features b/c the default features build Git (very slow to compile)
-percent-encoding = "2.2.0"
-rusqlite = { version = "0.28.0", features = ["bundled"], optional = true }
 sqlparser = { version = "0.32.0", features = ["serde"], optional = true }
-sysinfo = "0.28.2"
+sysinfo = "0.29"
 tabled = "0.12.0"
 terminal_size = "0.2.1"
-thiserror = "1.0.31"
 titlecase = "2.0.0"
 toml = "0.7.1"
 unicode-segmentation = "1.10.0"
-unicode-width = "0.1.10"
+ureq = { version = "2.6.2", default-features = false, features = [ "json", "charset", "native-tls", "gzip", ] }
+native-tls = "0.2.11"
 url = "2.2.1"
 uuid = { version = "1.3.0", features = ["v4"] }
 wax = { version = "0.5.0" }
 which = { version = "4.4.0", optional = true }
-print-positions = "0.6.1"
-os_pipe = "1.1.3"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.50.0"
@@ -168,10 +156,8 @@ which-support = ["which"]
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support", version = "0.80.1" }
-mockito = "1.0.0"
-
 dirs-next = "2.0.0"
-hamcrest2 = "0.3.0"
+mockito = "1.0.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 rstest = { version = "0.17.0", default-features = false }

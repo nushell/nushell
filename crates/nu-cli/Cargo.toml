@@ -22,7 +22,6 @@ nu-parser = { path = "../nu-parser", version = "0.80.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.80.1" }
 nu-utils = { path = "../nu-utils", version = "0.80.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.80.1" }
-
 nu-ansi-term = "0.47.0"
 reedline = { version = "0.19.1", features = ["bashisms", "sqlite"]}
 
@@ -32,12 +31,11 @@ crossterm = "0.26"
 fancy-regex = "0.11.0"
 fuzzy-matcher = "0.3.7"
 is_executable = "1.0.1"
-once_cell = "1.17.0"
 log = "0.4"
 miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
+once_cell = "1.17.0"
 percent-encoding = "2"
-sysinfo = "0.28.2"
-thiserror = "1.0.31"
+sysinfo = "0.29"
 unicode-segmentation = "1.10.0"
 
 [features]
