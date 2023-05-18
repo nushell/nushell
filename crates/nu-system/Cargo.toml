@@ -25,7 +25,7 @@ procfs  = "0.15.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = "0.12.0"
-errno = "0.3"
+# errno = "0.3"
 mach2 = "0.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]

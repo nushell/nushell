@@ -16,5 +16,5 @@ nu-protocol = { path = "../nu-protocol", version = "0.80.1"  }
 nu-engine = { path = "../nu-engine", version = "0.80.1"  }
 serde = { version = "1.0.143" }
 serde_json = { version = "1.0"}
-rmp = "0.8.11"
+# rmp = "0.8.11"
 rmp-serde = "1.1.0"

@@ -22,11 +22,11 @@ nu-ansi-term = "0.47.0"
 
 fancy-regex = "0.11.0"
 itertools = "0.10.0"
-log = "0.4.14"
+# log = "0.4.14"
 shadow-rs = { version = "0.21.0", default-features = false }
 
 [build-dependencies]
 shadow-rs = { version = "0.21.0", default-features = false }
 
-[dev-dependencies]
-nu-test-support = { path="../nu-test-support", version = "0.80.1"  }
+# [dev-dependencies]
+# nu-test-support = { path="../nu-test-support", version = "0.80.1"  }

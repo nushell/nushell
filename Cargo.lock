@@ -1107,16 +1107,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_logger"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
-dependencies = [
- "log",
- "regex",
-]
-
-[[package]]
 name = "erased-serde"
 version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2603,13 +2593,9 @@ version = "0.80.1"
 dependencies = [
  "assert_cmd",
  "atty",
- "chrono",
  "criterion",
  "crossterm 0.26.1",
  "ctrlc",
- "hamcrest2",
- "is_executable",
- "itertools",
  "log",
  "miette",
  "nix",
@@ -2633,7 +2619,6 @@ dependencies = [
  "nu-utils",
  "openssl",
  "pretty_assertions",
- "rayon",
  "reedline",
  "rstest",
  "serde_json",
@@ -2680,7 +2665,6 @@ dependencies = [
  "reedline",
  "rstest",
  "sysinfo",
- "thiserror",
  "unicode-segmentation",
 ]
 
@@ -2690,13 +2674,11 @@ version = "0.80.1"
 dependencies = [
  "fancy-regex",
  "itertools",
- "log",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "nu-test-support",
  "nu-utils",
  "shadow-rs",
 ]
@@ -2710,7 +2692,6 @@ dependencies = [
  "nu-json",
  "nu-protocol",
  "nu-test-support",
- "nu-utils",
  "serde",
 ]
 
@@ -2739,7 +2720,6 @@ dependencies = [
  "filesize",
  "filetime",
  "fs_extra",
- "hamcrest2",
  "htmlescape",
  "indexmap",
  "indicatif",
@@ -2783,7 +2763,6 @@ dependencies = [
  "powierza-coefficient",
  "print-positions",
  "quick-xml 0.28.2",
- "quickcheck",
  "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
@@ -2802,13 +2781,11 @@ dependencies = [
  "sysinfo",
  "tabled",
  "terminal_size 0.2.6",
- "thiserror",
  "titlecase",
  "toml",
  "trash",
  "umask",
  "unicode-segmentation",
- "unicode-width",
  "ureq",
  "url",
  "users 0.11.0",
@@ -2823,12 +2800,10 @@ dependencies = [
 name = "nu-engine"
 version = "0.80.1"
 dependencies = [
- "chrono",
  "nu-glob",
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "serde",
  "sysinfo",
 ]
 
@@ -2876,14 +2851,12 @@ dependencies = [
  "chrono",
  "itertools",
  "log",
- "miette",
  "nu-engine",
  "nu-path",
  "nu-plugin",
  "nu-protocol",
  "rstest",
  "serde_json",
- "thiserror",
 ]
 
 [[package]]
@@ -2902,7 +2875,6 @@ dependencies = [
  "bincode",
  "nu-engine",
  "nu-protocol",
- "rmp",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -2935,7 +2907,6 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
- "sys-locale",
  "thiserror",
  "typetag",
 ]
@@ -2955,7 +2926,6 @@ version = "0.80.1"
 dependencies = [
  "atty",
  "chrono",
- "errno 0.3.1",
  "libc",
  "libproc",
  "log",
@@ -3038,7 +3008,6 @@ dependencies = [
  "eml-parser",
  "ical",
  "indexmap",
- "nu-engine",
  "nu-plugin",
  "nu-protocol",
  "rust-ini",
@@ -3049,7 +3018,6 @@ name = "nu_plugin_gstat"
 version = "0.80.1"
 dependencies = [
  "git2",
- "nu-engine",
  "nu-plugin",
  "nu-protocol",
 ]
@@ -4110,17 +4078,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ce5e73202a820a31f8a0ee32ada5e21029c81fd9e3ebf668a40832e4219d9d1"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "quickcheck"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
-dependencies = [
- "env_logger",
- "log",
- "rand 0.8.5",
 ]
 
 [[package]]

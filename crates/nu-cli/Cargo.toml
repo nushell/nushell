@@ -37,7 +37,7 @@ log = "0.4"
 miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
 percent-encoding = "2"
 sysinfo = "0.28.2"
-thiserror = "1.0.31"
+# thiserror = "1.0.31"
 unicode-segmentation = "1.10.0"
 
 [features]

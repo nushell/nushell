@@ -14,8 +14,8 @@ bench = false
 bytesize = "1.2.0"
 chrono = { default-features = false, features = ['std'], version = "0.4.23" }
 itertools = "0.10"
-miette = {version = "5.7.0", features = ["fancy-no-backtrace"]}
-thiserror = "1.0.31"
+# miette = {version = "5.7.0", features = ["fancy-no-backtrace"]}
+# thiserror = "1.0.31"
 serde_json = "1.0"
 nu-path = {path = "../nu-path", version = "0.80.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.80.1" }

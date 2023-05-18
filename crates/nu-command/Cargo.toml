@@ -98,11 +98,11 @@ sqlparser = { version = "0.32.0", features = ["serde"], optional = true }
 sysinfo = "0.28.2"
 tabled = "0.12.0"
 terminal_size = "0.2.1"
-thiserror = "1.0.31"
+# thiserror = "1.0.31"
 titlecase = "2.0.0"
 toml = "0.7.1"
 unicode-segmentation = "1.10.0"
-unicode-width = "0.1.10"
+# unicode-width = "0.1.10"
 url = "2.2.1"
 uuid = { version = "1.3.0", features = ["v4"] }
 wax = { version = "0.5.0" }
@@ -171,7 +171,7 @@ nu-test-support = { path = "../nu-test-support", version = "0.80.1" }
 mockito = "1.0.0"
 
 dirs-next = "2.0.0"
-hamcrest2 = "0.3.0"
-quickcheck = "1.0.3"
+# hamcrest2 = "0.3.0"
+# quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
 rstest = { version = "0.17.0", default-features = false }
