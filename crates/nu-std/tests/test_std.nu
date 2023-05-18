@@ -1,7 +1,7 @@
 use std
 
 export def test_path_add [] {
-    use std testing assert
+    use std "assert equal"
 
     with-env [PATH []] {
         assert equal $env.PATH []
@@ -24,5 +24,5 @@ export def test_path_add [] {
 }
 
 export def test_banner [] {
-    std testing assert ((std banner | lines | length) == 15)
+    std assert ((std banner | lines | length) == 15)
 }

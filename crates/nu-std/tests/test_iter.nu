@@ -1,5 +1,4 @@
-use std testing assert
-use std iter
+use std *
 
 export def test_iter_find [] {
     let hastack1 = [1 2 3 4 5 6 7]
