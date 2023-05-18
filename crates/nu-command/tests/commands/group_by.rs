@@ -72,7 +72,7 @@ fn errors_if_given_unknown_column_name() {
 }
 
 #[test]
-fn errors_if_block_given_evaluates_more_than_one_row() {
+fn errors_if_column_not_found() {
     Playground::setup("group_by_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
@@ -92,21 +92,19 @@ fn errors_if_block_given_evaluates_more_than_one_row() {
             "#
         ));
 
-        assert!(actual.err.contains("value originates here"),);
-        assert!(actual.err.contains("cannot find column"),);
+        assert!(actual.err.contains("did you mean 'type'"),);
     })
 }
 
 #[test]
 fn errors_if_input_empty() {
-    Playground::setup("group_by_empty_test", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-            group-by date
-        "#
-        ));
+    let actual = nu!("group-by date");
+    assert!(actual.err.contains("expected table from pipeline"));
+}
 
-        assert!(actual.err.contains("expected table from pipeline"));
-    });
+#[test]
+fn optional_cell_path_works() {
+    let actual = nu!("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo? | to nuon");
+    let expected = r#"{"123": [[foo]; [123]], "234": [[foo]; [234]]}"#;
+    assert_eq!(actual.out, expected)
 }

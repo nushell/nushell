@@ -99,7 +99,6 @@ impl Command for Items {
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => Ok(cols
                 .into_iter()
                 .zip(vals.into_iter())
-                .into_iter()
                 .map_while(run_for_each_item)
                 .into_pipeline_data(ctrlc)),
             // Errors

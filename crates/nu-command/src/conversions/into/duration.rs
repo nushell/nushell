@@ -1,5 +1,5 @@
 use nu_engine::CallExt;
-use nu_parser::parse_duration_bytes;
+use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
@@ -409,7 +409,13 @@ fn convert_str_from_unit_to_unit(
 }
 
 fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
-    if let Some(expression) = parse_duration_bytes(s.as_bytes(), span) {
+    if let Some(Ok(expression)) = parse_unit_value(
+        s.as_bytes(),
+        span,
+        DURATION_UNIT_GROUPS,
+        Type::Duration,
+        |x| x,
+    ) {
         if let Expr::ValueWithUnit(value, unit) = expression.expr {
             if let Expr::Int(x) = value.expr {
                 match unit.item {
@@ -445,7 +451,13 @@ fn string_to_unit_duration(
     span: Span,
     value_span: Span,
 ) -> Result<(&str, i64), ShellError> {
-    if let Some(expression) = parse_duration_bytes(s.as_bytes(), span) {
+    if let Some(Ok(expression)) = parse_unit_value(
+        s.as_bytes(),
+        span,
+        DURATION_UNIT_GROUPS,
+        Type::Duration,
+        |x| x,
+    ) {
         if let Expr::ValueWithUnit(value, unit) = expression.expr {
             if let Expr::Int(x) = value.expr {
                 match unit.item {

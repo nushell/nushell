@@ -363,17 +363,17 @@ fn split_words_helper(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{nu, pipeline};
+    use nu_test_support::nu;
 
     #[test]
     fn test_incompat_flags() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -bg -l 2"));
+        let out = nu!("'a' | split words -bg -l 2");
         assert!(out.err.contains("incompatible_parameters"));
     }
 
     #[test]
     fn test_incompat_flags_2() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -g"));
+        let out = nu!("'a' | split words -g");
         assert!(out.err.contains("incompatible_parameters"));
     }
 
