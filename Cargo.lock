@@ -2674,7 +2674,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "sysinfo",
+ "sysinfo 0.29.0",
  "unicode-segmentation",
 ]
 
@@ -2790,7 +2790,7 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "sqlparser 0.32.0",
- "sysinfo",
+ "sysinfo 0.29.0",
  "tabled",
  "terminal_size 0.2.6",
  "titlecase",
@@ -2816,7 +2816,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "sysinfo",
+ "sysinfo 0.29.0",
 ]
 
 [[package]]
@@ -3903,7 +3903,7 @@ dependencies = [
  "once_cell",
  "rayon",
  "smartstring",
- "sysinfo",
+ "sysinfo 0.28.4",
 ]
 
 [[package]]
@@ -5056,6 +5056,20 @@ name = "sysinfo"
 version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c2f3ca6693feb29a89724516f016488e9aafc7f37264f898593ee4b942f31b"
+dependencies = [
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02f1dc6930a439cc5d154221b5387d153f8183529b07c19aca24ea31e0a167e1"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
