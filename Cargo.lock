@@ -2702,6 +2702,7 @@ dependencies = [
  "nu-json",
  "nu-protocol",
  "nu-test-support",
+ "nu-utils",
  "serde",
 ]
 
