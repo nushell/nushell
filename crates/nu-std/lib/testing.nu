@@ -68,7 +68,7 @@ export module assert {
         message?: string
     ] {
         let error_raised = (try { do $code; false } catch { true })
-        main ($error_raised) $message --error-label {
+        assert ($error_raised) $message --error-label {
             start: (metadata $code).span.start
             end: (metadata $code).span.end
             text: $"There were no error during code execution: (view source $code)"
@@ -95,7 +95,7 @@ export module assert {
     # > assert equal (0.1 + 0.2) 0.3
     # > assert equal 1 2 # fails
     export def equal [left: any, right: any, message?: string] {
-        main ($left == $right) $message --error-label {
+        assert ($left == $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"They are not equal. Left = ($left). Right = ($right)."
@@ -112,7 +112,7 @@ export module assert {
     # > assert not equal 1 "apple" # passes
     # > assert not equal 7 7 # fails
     export def "not equal" [left: any, right: any, message?: string] {
-        main ($left != $right) $message --error-label {
+        assert ($left != $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"They both are ($left)."
@@ -129,7 +129,7 @@ export module assert {
     # > assert less or equal 1 1 # passes
     # > assert less or equal 1 0 # fails
     export def "less or equal" [left: any, right: any, message?: string] {
-        main ($left <= $right) $message --error-label {
+        assert ($left <= $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"Left: ($left), Right: ($right)"
@@ -145,7 +145,7 @@ export module assert {
     # > assert less 1 2 # passes
     # > assert less 1 1 # fails
     export def less [left: any, right: any, message?: string] {
-        main ($left < $right) $message --error-label {
+        assert ($left < $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"Left: ($left), Right: ($right)"
@@ -161,7 +161,7 @@ export module assert {
     # > assert greater 2 1 # passes
     # > assert greater 2 2 # fails
     export def greater [left: any, right: any, message?: string] {
-        main ($left > $right) $message --error-label {
+        assert ($left > $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"Left: ($left), Right: ($right)"
@@ -178,7 +178,7 @@ export module assert {
     # > assert greater or equal 2 2 # passes
     # > assert greater or equal 1 2 # fails
     export def "greater or equal" [left: any, right: any, message?: string] {
-        main ($left >= $right) $message --error-label {
+        assert ($left >= $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"Left: ($left), Right: ($right)"
@@ -194,7 +194,7 @@ export module assert {
     # > assert len [0, 0] 2 # passes
     # > assert len [0] 3 # fails
     export def len [left: list, right: int, message?: string] {
-        main (($left | length) == $right) $message --error-label {
+        assert (($left | length) == $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"Length of ($left) is ($left | length), not ($right)"
@@ -210,7 +210,7 @@ export module assert {
     # > assert str includes "arst" "rs" # passes
     # > assert str includes "arst" "k" # fails
     export def "str includes" [left: string, right: string, message?: string] {
-        main ($left | str contains $right) $message --error-label {
+        assert ($left | str contains $right) $message --error-label {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
             text: $"'($left)' does not contain '($right)'."
