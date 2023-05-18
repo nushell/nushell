@@ -111,13 +111,14 @@ def check-clipboard [
 export def clip [
     --silent: bool  # do not print the content of the clipboard to the standard output
     --no-notify: bool  # do not throw a notification (only on linux)
+    --no-strip: bool  # do not strip ANSI escape sequences from a string
     --expand (-e): bool  # auto-expand the data given as input
 ] {
     let input = (
         $in
         | if $expand { table --expand } else { table }
         | into string
-        | ansi strip
+        | if $no_strip {} else { ansi strip }
     )
 
     match $nu.os-info.name {
