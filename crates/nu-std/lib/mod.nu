@@ -7,7 +7,7 @@ export-env {
 export use help
 export use iter
 export use log
-export use testing
+export use testing *
 export use xml
 use dt [datetime-diff, pretty-print-duration]
 
