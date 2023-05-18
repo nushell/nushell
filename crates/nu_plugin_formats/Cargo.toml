@@ -11,7 +11,7 @@ version = "0.80.1"
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.80.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.80.1", features = ["plugin"] }
-nu-engine = { path = "../nu-engine", version = "0.80.1" }
+
 indexmap = { version = "1.7", features = ["serde-1"] }
 
 eml-parser = "0.1.0"

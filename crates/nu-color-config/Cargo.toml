@@ -11,13 +11,13 @@ version = "0.80.1"
 bench = false
 
 [dependencies]
-serde = { version="1.0.123", features=["derive"] }
-
 nu-protocol = { path = "../nu-protocol", version = "0.80.1"  }
 nu-ansi-term = "0.47.0"
 nu-utils = { path = "../nu-utils", version = "0.80.1" }
 nu-engine = { path = "../nu-engine", version = "0.80.1" }
 nu-json = { path="../nu-json", version = "0.80.1"  }
+
+serde = { version="1.0.123", features=["derive"] }
 
 [dev-dependencies]
 nu-test-support = { path="../nu-test-support", version = "0.80.1"  }

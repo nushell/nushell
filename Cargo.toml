@@ -42,11 +42,6 @@ members = [
 ]
 
 [dependencies]
-chrono = { version = "0.4.23", features = ["serde"] }
-crossterm = "0.26"
-ctrlc = "3.2.1"
-log = "0.4"
-miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
 nu-cli = { path = "./crates/nu-cli", version = "0.80.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.80.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.80.1" }
@@ -63,21 +58,21 @@ nu-table = { path = "./crates/nu-table", version = "0.80.1" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.80.1" }
 nu-std = { path = "./crates/nu-std", version = "0.80.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.80.1" }
-
 nu-ansi-term = "0.47.0"
 reedline = { version = "0.19.1", features = ["bashisms", "sqlite"]}
 
-rayon = "1.7.0"
-is_executable = "1.0.1"
+crossterm = "0.26"
+ctrlc = "3.2.1"
+log = "0.4"
+miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
+serde_json = "1.0"
 simplelog = "0.12.0"
 time = "0.3.12"
-serde_json = "1.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
 openssl = { version = "0.10.48", features = ["vendored"], optional = true }
 signal-hook = { version = "0.3.14", default-features = false }
-
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
@@ -98,9 +93,7 @@ assert_cmd = "2.0.2"
 criterion = "0.4"
 pretty_assertions = "1.0.0"
 serial_test = "1.0.0"
-hamcrest2 = "0.3.0"
 rstest = { version = "0.17.0", default-features = false }
-itertools = "0.10.3"
 
 [features]
 plugin = [

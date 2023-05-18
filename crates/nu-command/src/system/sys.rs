@@ -157,9 +157,9 @@ pub fn disks(span: Span) -> Value {
             span,
         });
 
-        cols.push("removable".into());
+        cols.push("kind".into());
         vals.push(Value::String {
-            val: format!("{:?}", disk.type_()),
+            val: format!("{:?}", disk.kind()),
             span,
         });
 

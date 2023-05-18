@@ -18,6 +18,5 @@ bench = false
 [dependencies]
 nu-plugin = { path="../nu-plugin", version = "0.80.1" }
 nu-protocol = { path="../nu-protocol", version = "0.80.1" }
-nu-engine = { path="../nu-engine", version = "0.80.1" }
 
 git2 = "0.17.0"
