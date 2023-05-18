@@ -1,10 +1,16 @@
-# Maintain a list of working directories and navigates them
+# Maintain a list of working directories and navigate them in a ring
+
+use log *
 
 # the directory stack
 export-env {
     let-env DIRS_POSITION = 0
     let-env DIRS_LIST = [($env.PWD | path expand)]
 }
+
+
+# invoke built-in "cd", but allow std dirs module to alias "cd" to something else.
+alias core_cd = cd
 
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
@@ -95,10 +101,19 @@ export def-env "dirs goto" [shell?: int] {
     }
     let-env DIRS_POSITION = $shell
 
-    cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+    core_cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
 }
 
 export alias g = dirs goto
+
+# Change to specified directory, update current directory in list
+export def-env "dirs cd" [path = ""] {
+    log info $"cd dirs_list ($env | get -i DIRS_LIST | default 'notFound')"
+    core_cd $path       # if invalid path, takes early exit
+    let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
+}
+
+export alias cd = dirs cd
 
 # fetch item helper
 def-env  _fetch [
@@ -112,5 +127,5 @@ def-env  _fetch [
             ) mod ($env.DIRS_LIST | length)
     let-env DIRS_POSITION = $pos
 
-    cd ($env.DIRS_LIST | get $pos )
+    core_cd ($env.DIRS_LIST | get $pos )
 }

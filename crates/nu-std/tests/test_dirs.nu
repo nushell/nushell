@@ -1,5 +1,13 @@
 use std "assert length"
 use std "assert equal"
+use std "log info"
+use std "dirs next"
+use std "dirs prev"
+use std "dirs add"
+use std "dirs drop"
+use std "dirs show"
+use std "dirs cd"
+use std "dirs goto"
 
 export def setup [] {
     {base_path: ($nu.temp-path | path join $"test_dirs_(random uuid)")}
@@ -21,12 +29,7 @@ export def test_dirs_command [] {
     mkdir $base_path $path_a $path_b
 
     cd $base_path
-    use std "dirs next"
-    use std "dirs prev"
-    use std "dirs add"
-    use std "dirs drop"
-    use std "dirs show"
-
+    
     assert length $env.DIRS_LIST 1 "list is just pwd after initialization"
     assert equal $base_path $env.DIRS_LIST.0 "list is just pwd after initialization"
 
@@ -46,6 +49,10 @@ export def test_dirs_command [] {
 
     dirs prev 1
     assert equal $path_a $env.PWD "prev wraps at start of list"
+
+    dirs cd $path_b
+    assert equal $path_b $env.PWD "cd actually changes directory"
+    assert equal $path_b ($env.DIRS_LIST | get $env.DIRS_POSITION) "cd updates dirs list"
 
     dirs drop
     assert length $env.DIRS_LIST 2 "drop removes from list"
