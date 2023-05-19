@@ -1,15 +1,15 @@
 # std.nu, `used` to load all standard library components
 
-export use dirs *
+export use dirs
 export-env {
     use dirs *
 }
-export use help *
-export use iter *
-export use log *
+export use help
+export use iter
+export use log
 export use testing *
-export use xml *
-export use dt [datetime-diff, pretty-print-duration]
+export use xml
+use dt [datetime-diff, pretty-print-duration]
 
 # Add the given paths to the PATH.
 #
