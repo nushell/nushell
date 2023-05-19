@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 use std::io::{Read, Write};
 
@@ -38,6 +38,12 @@ impl Command for Input {
                 "read bytes (not text) until a stop byte",
                 Some('u'),
             )
+            .named(
+                "numchar",
+                SyntaxShape::Int,
+                "number of characters to read; suppresses output",
+                Some('n'),
+            )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
             .category(Category::Platform)
     }
@@ -52,6 +58,21 @@ impl Command for Input {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until")?;
         let suppress_output = call.has_flag("suppress-output");
+        let numchar: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "numchar")?;
+        let numchar_exists = numchar.is_some();
+        let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
+            item: i64::MAX,
+            span: call.head,
+        });
+
+        if numchar.item < 1 {
+            return Err(ShellError::UnsupportedInput(
+                "Number of characters to read has to be positive".to_string(),
+                "value originated from here".to_string(),
+                call.head,
+                numchar.span,
+            ));
+        }
 
         if let Some(bytes_until) = bytes_until {
             let _ = crossterm::terminal::enable_raw_mode();
@@ -72,6 +93,11 @@ impl Command for Input {
                         return Err(ShellError::IOError(err.to_string()));
                     }
                     buffer.push(buf[0]);
+
+                    if i64::try_from(buffer.len()).unwrap_or(0) >= numchar.item {
+                        let _ = crossterm::terminal::disable_raw_mode();
+                        break;
+                    }
 
                     // 03 symbolizes SIGINT/Ctrl+C
                     if buf.contains(&3) {
@@ -104,9 +130,13 @@ impl Command for Input {
 
             let mut buf = String::new();
 
-            if suppress_output {
+            if suppress_output || numchar_exists {
                 crossterm::terminal::enable_raw_mode()?;
                 loop {
+                    if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
+                        let _ = crossterm::terminal::disable_raw_mode();
+                        break;
+                    }
                     match crossterm::event::read() {
                         Ok(Event::Key(k)) => match k.code {
                             // TODO: maintain keycode parity with existing command
@@ -165,11 +195,18 @@ impl Command for Input {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get input from the user, and assign to a variable",
-            example: "let user_input = (input)",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Get input from the user, and assign to a variable",
+                example: "let user_input = (input)",
+                result: None,
+            },
+            Example {
+                description: "Get two characters from the user, and assign to a variable",
+                example: "let user_input = (input --numchar 2)",
+                result: None,
+            },
+        ]
     }
 }
 
