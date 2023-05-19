@@ -1,10 +1,26 @@
-echo '-------------------------------------------------------------------'
-echo 'Building nushell (nu) with dataframes and all the plugins'
-echo '-------------------------------------------------------------------'
+print '-------------------------------------------------------------------'
+print 'Building nushell (nu) with dataframes and all the plugins'
+print '-------------------------------------------------------------------'
 
-echo $'(char nl)Building nushell'
-echo '----------------------------'
-cargo build --features=dataframe
+let repo_root = ($env.CURRENT_FILE | path dirname -n 2)
+
+def build-nushell [] {
+    print $'(char nl)Building nushell'
+    print '----------------------------'
+
+    cd $repo_root
+    cargo build --features=dataframe
+}
+
+def build-plugin [] {
+    let plugin = $in
+
+    print $'(char nl)Building ($plugin)'
+    print '----------------------------'
+
+    cd $'($repo_root)/crates/($plugin)'
+    cargo build
+}
 
 let plugins = [
     nu_plugin_inc,
@@ -16,10 +32,5 @@ let plugins = [
 ]
 
 for plugin in $plugins {
-    $'(char nl)Building ($plugin)'
-    '----------------------------'
-    cd $'crates/($plugin)'
-    cargo build
-    cd ../../
-    ignore
+    $plugin | build-plugin
 }
