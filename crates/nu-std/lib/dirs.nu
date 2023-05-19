@@ -109,8 +109,10 @@ export alias g = dirs goto
 #       PWD: [{|before, after| std dirs cdhook $before $after}
 #       ]
 #    }
-export def-env "dirs cdhook" [old = '',  new = ''] {
-    let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $new)
+export def-env "dirs cdhook" [old?,  new?] {
+    if not ($new | is-empty) {
+        let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $new)
+    }
 }
 
 export alias cdhook = dirs cdhook
