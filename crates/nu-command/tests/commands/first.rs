@@ -68,13 +68,12 @@ fn gets_first_row_when_no_amount_given() {
 
 #[test]
 fn gets_first_row_as_list_when_amount_given() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
-                [1, 2, 3]
-                | first 1
-                | describe
-            "#
+            [1, 2, 3]
+            | first 1
+            | describe
+        "#
     ));
 
     assert_eq!(actual.out, "list<int> (stream)");
@@ -83,24 +82,18 @@ fn gets_first_row_as_list_when_amount_given() {
 #[test]
 // covers a situation where `first` used to behave strangely on list<binary> input
 fn works_with_binary_list() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        ([0x[01 11]] | first) == 0x[01 11]
-            "#
-    ));
+    let actual = nu!("([0x[01 11]] | first) == 0x[01 11]");
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn errors_on_negative_rows() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
-                [1, 2, 3]
-                | first -10
-            "#
+            [1, 2, 3]
+            | first -10
+        "#
     ));
 
     assert!(actual.err.contains("use a positive value"));

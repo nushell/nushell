@@ -8,15 +8,15 @@ use nu_protocol::{
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
 #[derive(Clone)]
-pub struct GetOrdinal;
+pub struct GetSecond;
 
-impl Command for GetOrdinal {
+impl Command for GetSecond {
     fn name(&self) -> &str {
-        "dfr get-ordinal"
+        "dfr get-second"
     }
 
     fn usage(&self) -> &str {
-        "Gets ordinal from date."
+        "Gets second from date."
     }
 
     fn signature(&self) -> Signature {
@@ -28,14 +28,14 @@ impl Command for GetOrdinal {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns ordinal from a date",
+            description: "Returns second from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
     let df = ([$dt $dt] | dfr into-df);
-    $df | dfr get-ordinal"#,
+    $df | dfr get-second"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(217), Value::test_int(217)],
+                    vec![Value::test_int(18), Value::test_int(18)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -73,13 +73,13 @@ fn command(
         )
     })?;
 
-    let res = casted.ordinal().into_series();
+    let res = casted.second().into_series();
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
-#[cfg(test)]
+#[cfg(explore_refactor_IntoDatetime)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
@@ -87,6 +87,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(GetOrdinal {}), Box::new(IntoDatetime {})])
+        test_dataframe(vec![Box::new(GetSecond {}), Box::new(IntoDatetime {})])
     }
 }

@@ -48,9 +48,58 @@ export def assert [
         msg: ($message | default "Assertion failed."),
         label: ($error_label | default {
             text: "It is not true.",
-            start: (metadata $condition).span.start,
-            end: (metadata $condition).span.end
+            start: $span.start,
+            end: $span.end
         })
+    }
+}
+
+
+# Negative assertion
+#
+# If the condition is not false, it generates an error.
+#
+# # Examples
+#
+# >_ assert (42 == 3)
+# >_ assert (3 == 3)
+# Error:
+#   × Assertion failed: 
+#     ╭─[myscript.nu:11:1]
+#  11 │ assert (42 == 3)
+#  12 │ assert (3 == 3)
+#     ·         ───┬────
+#     ·            ╰── It is not false.
+#  13 │
+#     ╰────
+#
+# 
+# The --error-label flag can be used if you want to create a custom assert command:
+# ```
+# def "assert not even" [number: int] {
+#     assert not ($number mod 2 == 0) --error-label {
+#         start: (metadata $number).span.start,
+#         end: (metadata $number).span.end,
+#         text: $"($number) is an even number",
+#     }
+# }
+# ```
+#
+export def "assert not" [
+    condition: bool, # Condition, which should be false 
+    message?: string, # Optional error message
+    --error-label: record # Label for `error make` if you want to create a custom assert
+] {
+    if $condition {
+        let span = (metadata $condition).span
+        error make {
+            msg: ($message | default "Assertion failed."),
+            label: ($error_label | default {
+                text: "It is not false.",
+                start: $span.start,
+                end: $span.end
+            })
+        }
     }
 }
 

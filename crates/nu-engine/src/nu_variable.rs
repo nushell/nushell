@@ -4,7 +4,6 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     LazyRecord, ShellError, Span, Value,
 };
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use sysinfo::SystemExt;
 
@@ -14,16 +13,14 @@ use sysinfo::SystemExt;
 
 // Note: NuVariable is not meaningfully serializable, this #[derive] is a lie to satisfy the type checker.
 // Make sure to collect() the record before serializing it
-#[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct NuVariable {
-    #[serde(skip)]
     pub engine_state: EngineState,
-    #[serde(skip)]
     pub stack: Stack,
     pub span: Span,
 }
 
-impl LazyRecord for NuVariable {
+impl<'a> LazyRecord<'a> for NuVariable {
     fn column_names(&self) -> Vec<&'static str> {
         let mut cols = vec![
             "default-config-dir",
@@ -253,12 +250,11 @@ impl LazyRecord for NuVariable {
         self.span
     }
 
-    fn typetag_name(&self) -> &'static str {
-        "nu_variable"
-    }
-
-    fn typetag_deserialize(&self) {
-        unimplemented!("typetag_deserialize")
+    fn clone_value(&self, span: Span) -> Value {
+        Value::LazyRecord {
+            val: Box::new((*self).clone()),
+            span,
+        }
     }
 }
 

@@ -81,12 +81,11 @@ fn gets_last_row_as_list_when_amount_given() {
 
 #[test]
 fn last_errors_on_negative_index() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-                [1, 2, 3]
-                | last -2
-            "#
+    let actual = nu!(pipeline(
+        "
+            [1, 2, 3]
+            | last -2
+        "
     ));
 
     assert!(actual.err.contains("use a positive value"));
@@ -94,7 +93,7 @@ fn last_errors_on_negative_index() {
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(cwd: ".", pipeline("1 | last"));
+    let actual = nu!("1 | last");
 
     assert!(actual.err.contains("only_supports_this_input_type"));
 }
