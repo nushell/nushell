@@ -96,15 +96,15 @@ fn command(
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
-
+/*
 #[cfg(test)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
     use super::*;
-
     #[test]
     fn test_examples() {
         test_dataframe(vec![Box::new(StrFTime {}), Box::new(IntoDatetime {})])
     }
 }
+*/

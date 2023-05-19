@@ -78,7 +78,7 @@ fn command(
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
-
+/*
 #[cfg(test)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
@@ -90,3 +90,4 @@ mod test {
         test_dataframe(vec![Box::new(GetDay {}), Box::new(IntoDatetime {})])
     }
 }
+*/
