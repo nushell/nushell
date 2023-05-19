@@ -849,29 +849,6 @@ impl EngineState {
         self.files.iter()
     }
 
-    // pub fn get_filename(&self, file_id: usize) -> String {
-    //     for file in self.files.iter().enumerate() {
-    //         if file.0 == file_id {
-    //             return file.1 .0.clone();
-    //         }
-    //     }
-
-    //     "<unknown>".into()
-    // }
-
-    // pub fn get_file_source(&self, file_id: usize) -> String {
-    //     for file in self.files.iter().enumerate() {
-    //         if file.0 == file_id {
-    //             let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
-    //             let output = String::from_utf8_lossy(contents).to_string();
-
-    //             return output;
-    //         }
-    //     }
-
-    //     "<unknown>".into()
-    // }
-
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
@@ -1353,31 +1330,6 @@ impl<'a> StateWorkingSet<'a> {
     pub fn files(&'a self) -> impl Iterator<Item = &(String, usize, usize)> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
-
-    // pub fn get_filename(&self, file_id: usize) -> String {
-    //     for file in self.files().enumerate() {
-    //         if file.0 == file_id {
-    //             return file.1 .0.clone();
-    //         }
-    //     }
-
-    //     "<unknown>".into()
-    // }
-
-    // pub fn get_file_source(&self, file_id: usize) -> String {
-    //     for file in self.files().enumerate() {
-    //         if file.0 == file_id {
-    //             let output = String::from_utf8_lossy(
-    //                 self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
-    //             )
-    //             .to_string();
-
-    //             return output;
-    //         }
-    //     }
-
-    //     "<unknown>".into()
-    // }
 
     pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
         for (id, (contents, _, _)) in self.delta.file_contents.iter().enumerate() {
