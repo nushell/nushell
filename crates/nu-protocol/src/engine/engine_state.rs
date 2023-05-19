@@ -1423,7 +1423,6 @@ impl<'a> StateWorkingSet<'a> {
 
     #[must_use]
     pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> Option<VirtualPath> {
-        // println!("--- Add virt path: {}, {:?}", name, virtual_path);
         self.delta.virtual_paths.insert(name, virtual_path)
     }
 

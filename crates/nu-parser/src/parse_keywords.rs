@@ -1818,7 +1818,6 @@ pub fn parse_module_file_or_dir(
             working_set.error(ParseError::ModuleNotFound(path_span));
             return None;
         };
-    // println!("MOD PATH: {:?}", module_path);
 
     if module_path.is_dir() {
         let Some(dir_contents) = module_path.read_dir() else {
@@ -1836,9 +1835,6 @@ pub fn parse_module_file_or_dir(
         let mod_nu_path = module_path.clone().join("mod.nu");
 
         if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
-            // println!("MODNU: {:?}", mod_nu_path.exists());
-            // println!("MODNU: {:?}", mod_nu_path.is_file());
-            // println!("MODNU: {:?}", mod_nu_path);
             working_set.error(ParseError::ModuleMissingModNuFile(path_span));
             return None;
         }
@@ -3604,26 +3600,8 @@ pub fn find_in_dirs(
         }
     }
 
-    // println!("--- find {}", filename);
     if let Some(virtual_path) = working_set.find_virtual_path(filename) {
-        // println!("--- FIND {:?}", virtual_path);
-        // println!("--- FOUND: {:?}, ", Some(ParserPath::from_virtual_path(filename, virtual_path)));
         Some(ParserPath::from_virtual_path(filename, virtual_path))
-        // match virtual_path {
-        //     VirtualPath::File(file_id) => {
-        //         Some(ParserPath::VirtualFile(PathBuf::from(filename), *file_id))
-        //     }
-        //     VirtualPath::Dir(file_ids) =>
-
-        //     //     ::VirtualDir(
-        //     //     PathBuf::from(filename),
-        //     //     file_ids
-        //     //         .iter()
-        //     //         .map(|(name, id)| ParserPath::VirtualFile(PathBuf::from(name), *id))
-        //     //         .collect(),
-        //     // )
-        //         ),
-        // }
     } else {
         find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
             .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
