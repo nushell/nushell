@@ -1,7 +1,9 @@
+use std assert
 use std "assert length"
 use std "assert equal"
 use std "assert not equal"
 use std "log info"
+use std "log debug"
 
 # A couple of nuances to understand when testing module that exports environment:
 # Each 'use' for that module in the test script will execute the export def-env block.
@@ -25,6 +27,19 @@ export def teardown [] {
     rm -r $base_path
 }
 
+def cur_dir_check [expect_dir, scenario] {
+    log debug $"check dir ($expect_dir), scenario ($scenario)"
+    assert equal $expect_dir $env.PWD $"expected not PWD after ($scenario)"
+    assert equal $expect_dir ($env.DIRS_LIST | get $env.DIRS_POSITION) $"expected not top of ring after ($scenario)"
+}
+def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
+    log debug $"check ring ($expect_dir), position ($expect_position) scenario ($scenario)"
+    assert ($expect_position < ($env.DIRS_LIST | length)) $"ring big enough after ($scenario)"
+    assert equal $expect_position $env.DIRS_POSITION $"position in ring after ($scenario)"
+    assert equal $expect_dir $env.PWD $"expected not PWD after ($scenario)"
+    assert equal $expect_dir ($env.DIRS_LIST | get $env.DIRS_POSITION) $"expected not top of ring after ($scenario)"
+}
+
 export def test_dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
@@ -41,6 +56,7 @@ export def test_dirs_command [] {
     use std "dirs drop"
     use std "dirs show"
     use std "dirs goto"
+    use std "dirs cd"
     
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
 
@@ -61,6 +77,10 @@ export def test_dirs_command [] {
 
     dirs prev 1
     assert equal $c.path_a $env.PWD "prev wraps at start of list"
+    cur_dir_check $c.path_a "prev wraps to end from start of list"
+
+    dirs cd $c.path_b
+    cur_dir_check $c.path_b "cd changes directory"
 
     dirs drop
     assert length $env.DIRS_LIST 2 "drop removes from list"
@@ -69,13 +89,48 @@ export def test_dirs_command [] {
     assert equal (dirs show) [[active path]; [true $c.base_path] [false $c.path_b]] "show table contains expected information"
 }
 
-export def test_dirs_cdhook [] {
-    let c = $in
+export def test_dirs_next [] {
+    # must capture value of $in before executing `use`s
+    let $c = $in    
+    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
     cd $c.base_path
+    assert equal $env.PWD $c.base_path "test setup"
 
-    use std "dirs cdhook"
-    assert equal $env.PWD ($env.DIRS_LIST.0) "PWD in sync with ring 1"
+    use std "dirs next"
+    use std "dirs add"
+    cur_dir_check $c.base_path "use module test setup"
+
+    dirs add $c.path_a $c.path_b
+    cur_ring_check $c.path_a 1 "add 2, but pwd is first one added"
+
+    dirs next
+    cur_ring_check $c.path_b 2 "next to third"
+
+    dirs next
+    cur_ring_check $c.base_path 0 "next from top wraps to bottom of ring"
+
+}
+
+export def test_dirs_cd [] {
+    # must capture value of $in before executing `use`s
+    let $c = $in    
+    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    cd $c.base_path
     
-    dirs cdhook $c.base_path $c.path_a
-    assert equal $c.path_a $env.DIRS_LIST.0 "PWD changed in ring 2"
+    use std "dirs next"
+    use std "dirs add"
+    use std "dirs cd"
+    cur_dir_check $c.base_path "use module test setup"
+
+    dirs cd $c.path_b
+    cur_ring_check $c.path_b 0 "cd with empty ring"
+
+    dirs add $c.path_a
+    cur_dir_check $c.path_a "can add 2nd directory"
+    dirs cd $c.path_b
+    cur_ring_check $c.path_b 1 "cd at 2nd item on ring"
+    dirs next
+    cur_ring_check $c.path_b 0 "cd updates current position in non-empty ring"
+    assert equal [$c.path_b $c.path_b] $env.DIRS_LIST "cd updated both positions in ring"
+    
 }
