@@ -108,9 +108,18 @@ export alias g = dirs goto
 
 # wrapper for builtin `cd`, to update directory ring when user invokes cd
 export def-env "dirs cd" [path?] {
-    builtin cd $path   # exits on error like 'directory not found'
-    if not ($env | get -i DIRS_LIST | is-empty) {   # when testing, cd sometimes invoked before env setup?
-        let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
+    try {
+        builtin cd $path
+        if not ($env | get -i DIRS_LIST | is-empty) {   # when testing, cd sometimes invoked before env setup?
+            let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
+        }
+    } catch {|err| 
+        let real_span = (metadata $path)
+        error make {msg: $err.msg 
+                    label: {text:"directory not found" 
+                            start:$real_span.start 
+                            end:$real_span.end}
+        }
     }
 }
 

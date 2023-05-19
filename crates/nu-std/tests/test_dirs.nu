@@ -2,6 +2,7 @@ use std assert
 use std "assert length"
 use std "assert equal"
 use std "assert not equal"
+use std "assert error"
 use std "log info"
 use std "log debug"
 
@@ -132,8 +133,20 @@ export def test_dirs_cd [] {
     dirs next
     cur_ring_check $c.path_b 0 "cd updates current position in non-empty ring"
     assert equal [$c.path_b $c.path_b] $env.DIRS_LIST "cd updated both positions in ring"
+}
+
+export def test_dirs_builtin_cd [] {
+    # must capture value of $in before executing `use`s
+    let $c = $in    
+    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    cd $c.base_path
     
+    use std "dirs cd"
+    cur_dir_check $c.base_path "use module test setup"
+
     builtin cd $c.path_a
     assert equal $c.path_a $env.PWD "builtin cd changed PWD"
-    assert (($env.DIRS_LIST | get $env.DIRS_POSITION) == $c.path_b) "builtin cd did not change ring"
+    assert (($env.DIRS_LIST | get $env.DIRS_POSITION) == $c.base_path) "builtin cd did not change ring"
+
+    assert error {builtin cd no_such_directory}
 }
