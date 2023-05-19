@@ -1,6 +1,7 @@
+use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
-use nu_protocol::report_error;
-use nu_protocol::{engine::StateWorkingSet, engine::VirtualPath};
+use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
+use nu_protocol::{report_error, PipelineData};
 
 // Virtual std directory unlikely to appear in user's file system
 const NU_STD_VIRTUAL_DIR: &str = "NU_STD_VIRTUAL_DIR";
@@ -8,7 +9,7 @@ const NU_STD_VIRTUAL_DIR: &str = "NU_STD_VIRTUAL_DIR";
 pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
-    let delta = {
+    let (block, delta) = {
         let std_files = vec![
             (
                 format!("{NU_STD_VIRTUAL_DIR}/std/mod.nu"),
@@ -69,7 +70,7 @@ use std dirs [ enter, shells, g, n, p, dexit ]
         // TODO: Error on redefinition:
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
-        parse(
+        let block = parse(
             &mut working_set,
             Some("loading stdlib"),
             source.as_bytes(),
@@ -80,10 +81,25 @@ use std dirs [ enter, shells, g, n, p, dexit ]
             report_error(&working_set, err);
         }
 
-        working_set.render()
+        (block, working_set.render())
     };
 
     engine_state.merge_delta(delta)?;
+
+    // We need to evaluate the module in order to run the `export-env` blocks.
+    let mut stack = Stack::new();
+    let pipeline_data = PipelineData::Empty;
+    eval_block(
+        engine_state,
+        &mut stack,
+        &block,
+        pipeline_data,
+        false,
+        false,
+    )?;
+
+    let cwd = current_dir(engine_state, &stack)?;
+    engine_state.merge_env(&mut stack, cwd)?;
 
     Ok(())
 }
