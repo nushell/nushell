@@ -5,14 +5,14 @@
 > - an `x` means *it works*
 > - a `?` means *no data available*
 >
-> `.nu` scripts must be run as `nu .../foo.nu`
-> `.sh` scripts must be run as `./.../foo.sh`
+> `.nu` scripts must be run as `nu .../foo.nu`  
+> `.sh` scripts must be run as `./.../foo.sh`  
 > `.ps1` scripts must be run as `powershell .../foo.ps1`
 >
 > let's say a script is called `foo`
-> - `./scripts`: `foo` can be run from `./scripts`
-> - root: `foo` can be run from the root of `nushell`
-> - anywhere: `foo` can be run from anywhere!
+> - an `x` in `./scripts` means *`foo` can be run from `./scripts`*
+> - an `x` in root means *`foo` can be run from the root of `nushell`*
+> - an `x` in anywhere means *`foo` can be run from anywhere!*
 
 | script                  | `./scripts/` | root | anywhere |
 | ----------------------- | ------------ | ---- | -------- |
