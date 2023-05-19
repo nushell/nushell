@@ -14,6 +14,7 @@ bench = false
 
 [dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.80.1" }
+nu-cmd-dataframe = { path = "../nu-cmd-dataframe", version = "0.80.1", optional = true }
 nu-color-config = { path = "../nu-color-config", version = "0.80.1" }
 nu-engine = { path = "../nu-engine", version = "0.80.1" }
 nu-explore = { path = "../nu-explore", version = "0.80.1" }
@@ -146,7 +147,7 @@ features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_System
 version = "0.48.0"
 
 [features]
-dataframe = ["num", "polars", "sqlparser"]
+dataframe = ["dep:nu-cmd-dataframe"]
 plugin = ["nu-parser/plugin"]
 sqlite = [
 	"rusqlite",
