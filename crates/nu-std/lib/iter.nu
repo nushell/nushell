@@ -27,7 +27,7 @@
 # assert equal $found "abc"
 # assert equal $not_found null
 # ```
-export def "iter find" [ # -> any | null  
+export def find [ # -> any | null  
     fn: closure          # the closure used to perform the search 
 ] {
     try {
@@ -57,7 +57,7 @@ export def "iter find" [ # -> any | null
 # let res = ([3 5 13 91] | iter find-index $is_even)
 # assert equal $res -1
 # ```
-export def "iter find-index" [ # -> int
+export def find-index [ # -> int
     fn: closure                # the closure used to perform the search
 ] {
     let matches = (
@@ -86,7 +86,7 @@ export def "iter find-index" [ # -> int
 # let res = ([1 2 3 4] | iter intersperse 0)
 # assert equal $res [1 0 2 0 3 0 4]
 # ```
-export def "iter intersperse" [ # -> list<any>
+export def intersperse [ # -> list<any>
     separator: any              # the separator to be used
 ] {
     reduce -f [] {|it, acc|
@@ -117,7 +117,7 @@ export def "iter intersperse" [ # -> list<any>
 #
 # assert equal $scanned [1, 3, 6]
 # ```
-export def "iter scan" [ # -> list<any>
+export def scan [ # -> list<any>
     init: any            # initial value to seed the initial state
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
@@ -144,7 +144,7 @@ export def "iter scan" [ # -> list<any>
 #
 # assert equal $res [4 25 49]
 # ```
-export def "iter filter-map" [ # -> list<any>
+export def filter-map [ # -> list<any>
     fn: closure                # the closure to apply to the input
 ] {
     each {|$it|
@@ -170,7 +170,7 @@ export def "iter filter-map" [ # -> list<any>
 # )
 # assert equal $res [6 9 18]
 # ```
-export def "iter flat-map" [ # -> list<any>
+export def flat-map [ # -> list<any>
     fn: closure              # the closure to map to the nested structures
 ] {
     each {|it| do $fn $it } | flatten
@@ -188,7 +188,7 @@ export def "iter flat-map" [ # -> list<any>
 #
 # assert equal $res [3 5 7]
 # ```
-export def "iter zip-with" [ # -> list<any>
+export def zip-with [ # -> list<any>
     other: any               # the structure to zip with
     fn: closure              # the closure to apply to the zips
 ] {
