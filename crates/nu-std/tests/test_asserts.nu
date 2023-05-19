@@ -7,6 +7,13 @@ export def test_assert [] {
     assert error { assert (1 + 2 == 4) }
 }
 
+export def test_assert_not [] {
+    assert not false
+    assert not (1 + 2 == 4)
+    assert error { assert not true }
+    assert error { assert not (1 + 2 == 3) }
+}
+
 export def test_assert_equal [] {
     assert equal (1 + 2) 3
     assert equal (0.1 + 0.2 | into string | into decimal) 0.3 # 0.30000000000000004 == 0.3

@@ -114,8 +114,8 @@ def "assert custom message contains" [
     tested_str
 ] {
     let output = (run custom $system_level $format $message_level)
-    assert ($output | str contains  $tested_str)
-    assert ($output | str contains "test message")
+    assert str contains $output $tested_str
+    assert str contains $output "test message"
 }
 
 def "assert custom message not contains" [
@@ -125,8 +125,8 @@ def "assert custom message not contains" [
     tested_str
 ] {
     let output = (run custom $system_level $format $message_level)
-    assert (not ($output | str contains  $tested_str))
-    assert ($output | str contains "test message")
+    assert not ($output | str contains  $tested_str)
+    assert str contains $output "test message"
 }
 
 def "assert no custom message" [
