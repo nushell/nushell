@@ -133,4 +133,7 @@ export def test_dirs_cd [] {
     cur_ring_check $c.path_b 0 "cd updates current position in non-empty ring"
     assert equal [$c.path_b $c.path_b] $env.DIRS_LIST "cd updated both positions in ring"
     
+    builtin cd $c.path_a
+    assert equal $c.path_a $env.PWD "builtin cd changed PWD"
+    assert (($env.DIRS_LIST | get $env.DIRS_POSITION) == $c.path_b) "builtin cd did not change ring"
 }

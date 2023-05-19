@@ -10,7 +10,7 @@ export-env {
 
 # internal alias to access the builtin cd
 # does this work if module 'used' multiple times?
-alias core_cd = cd
+export alias "builtin cd" = cd
 
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
@@ -101,14 +101,14 @@ export def-env "dirs goto" [shell?: int] {
     }
     let-env DIRS_POSITION = $shell
 
-    core_cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+    builtin cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
 }
 
 export alias g = dirs goto
 
 # wrapper for builtin `cd`, to update directory ring when user invokes cd
 export def-env "dirs cd" [path?] {
-    core_cd $path   # exits on error like 'directory not found'
+    builtin cd $path   # exits on error like 'directory not found'
     if not ($env | get -i DIRS_LIST | is-empty) {   # when testing, cd sometimes invoked before env setup?
         let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
     }
@@ -128,5 +128,5 @@ def-env  _fetch [
             ) mod ($env.DIRS_LIST | length)
     let-env DIRS_POSITION = $pos
 
-    core_cd ($env.DIRS_LIST | get $pos )
+    builtin cd ($env.DIRS_LIST | get $pos )
 }

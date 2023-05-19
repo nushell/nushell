@@ -104,6 +104,7 @@ pub fn load_standard_library(
             ("p", "p"),
             ("dexit", "dexit"),
             ("cd", "cd"),
+            ("builtin cd", "builtin cd"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
