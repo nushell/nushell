@@ -1,15 +1,13 @@
 # std.nu, `used` to load all standard library components
 
-export use dirs
 export-env {
-    use dirs *
+    # source-env NU_STD_VIRTUAL_DIR/std/dirs.nu
+    use NU_STD_VIRTUAL_DIR/std/dirs.nu
 }
-export use help
-export use iter
-export use log
-export use testing *
-export use xml
-use dt [datetime-diff, pretty-print-duration]
+
+export use NU_STD_VIRTUAL_DIR/std/testing.nu *
+
+use NU_STD_VIRTUAL_DIR/std/dt.nu [datetime-diff, pretty-print-duration]
 
 # Add the given paths to the PATH.
 #
@@ -46,7 +44,7 @@ export def-env "path add" [
             | if $append { append $paths }
             else { prepend $paths }
     )
-    
+
     if $ret {
         $env | get $path_name
     }
