@@ -2790,7 +2790,6 @@ dependencies = [
  "os_pipe",
  "pathdiff",
  "percent-encoding",
- "polars",
  "powierza-coefficient",
  "print-positions",
  "quick-xml 0.28.2",
