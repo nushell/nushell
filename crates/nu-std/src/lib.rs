@@ -96,15 +96,14 @@ pub fn load_standard_library(
             ("std help modules", "help modules"),
             ("std help externs", "help externs"),
             ("std help operators", "help operators"),
-
-            ("enter", "enter"),
-            ("shells", "shells"),
-            ("g", "g"),
-            ("n", "n"),
-            ("p", "p"),
-            ("dexit", "dexit"),
-            ("cd", "cd"),
-            ("builtin cd", "builtin cd"),
+            ("enter", "dirs enter"),
+            ("shells", "dirs shells"),
+            ("g", "dirs g"),
+            ("n", "dirs n"),
+            ("p", "dirs p"),
+            ("dexit", "dirs dexit"),
+            ("cd", "dirs cd"),
+            ("builtin cd", "dirs builtin cd"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);

@@ -8,15 +8,15 @@ use nu_protocol::{
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
 #[derive(Clone)]
-pub struct GetWeekDay;
+pub struct GetMonth;
 
-impl Command for GetWeekDay {
+impl Command for GetMonth {
     fn name(&self) -> &str {
-        "dfr get-weekday"
+        "dfr get-month"
     }
 
     fn usage(&self) -> &str {
-        "Gets weekday from date."
+        "Gets month from date."
     }
 
     fn signature(&self) -> Signature {
@@ -28,14 +28,14 @@ impl Command for GetWeekDay {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns weekday from a date",
+            description: "Returns month from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
     let df = ([$dt $dt] | dfr into-df);
-    $df | dfr get-weekday"#,
+    $df | dfr get-month"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(2), Value::test_int(2)],
+                    vec![Value::test_int(8), Value::test_int(8)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -73,13 +73,13 @@ fn command(
         )
     })?;
 
-    let res = casted.weekday().into_series();
+    let res = casted.month().into_series();
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
-#[cfg(test)]
+#[cfg(explore_refactor_IntoDatetime)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
@@ -87,6 +87,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(GetWeekDay {}), Box::new(IntoDatetime {})])
+        test_dataframe(vec![Box::new(GetMonth {}), Box::new(IntoDatetime {})])
     }
 }

@@ -61,12 +61,6 @@ pub use system::*;
 pub use util::*;
 pub use viewers::*;
 
-#[cfg(feature = "dataframe")]
-mod dataframe;
-
-#[cfg(feature = "dataframe")]
-pub use dataframe::*;
-
 #[cfg(feature = "sqlite")]
 mod database;
 
