@@ -1727,7 +1727,7 @@ fn parse_module_file(
     if let Some(i) = working_set
         .parsed_module_files
         .iter()
-        .rposition(|p| p == &path.path())
+        .rposition(|p| p == path.path())
     {
         let mut files: Vec<String> = working_set
             .parsed_module_files
@@ -1753,7 +1753,7 @@ fn parse_module_file(
         return None;
     };
 
-    let contents = if let Some(contents) = path.read(&working_set) {
+    let contents = if let Some(contents) = path.read(working_set) {
         contents
     } else {
         working_set.error(ParseError::ModuleNotFound(path_span));
@@ -3045,7 +3045,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
-                    if let Some(contents) = path.read(&working_set) {
+                    if let Some(contents) = path.read(working_set) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
                             let prev = working_set.currently_parsed_cwd.clone();
@@ -3605,7 +3605,7 @@ pub fn find_in_dirs(
     } else {
         find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
             .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
-            .map(|p| ParserPath::RealPath(p))
+            .map(ParserPath::RealPath)
     }
 }
 
