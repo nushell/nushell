@@ -149,3 +149,9 @@ fn alias_multiword_name() {
     let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
     assert_eq!(actual.out, "test");
 }
+
+#[test]
+fn alias_ordering() {
+    let actual = nu!(r#"alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'"#);
+    assert_eq!(actual.out, "foo");
+}

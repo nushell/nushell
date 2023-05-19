@@ -804,12 +804,16 @@ pub fn parse_alias(
             }
 
             let starting_error_count = working_set.parse_errors.len();
+            working_set.search_predecls = false;
+
             let expr = parse_call(
                 working_set,
                 replacement_spans,
                 replacement_spans[0],
                 false, // TODO: Should this be set properly???
             );
+
+            working_set.search_predecls = true;
 
             if starting_error_count != working_set.parse_errors.len() {
                 if let Some(e) = working_set.parse_errors.get(starting_error_count) {
