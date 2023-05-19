@@ -2611,6 +2611,7 @@ dependencies = [
  "nix",
  "nu-ansi-term",
  "nu-cli",
+ "nu-cmd-dataframe",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
@@ -2676,6 +2677,24 @@ dependencies = [
  "rstest",
  "sysinfo 0.29.0",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "nu-cmd-dataframe"
+version = "0.80.1"
+dependencies = [
+ "chrono",
+ "fancy-regex",
+ "indexmap",
+ "nu-cmd-lang",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "nu-test-support",
+ "num 0.4.0",
+ "polars",
+ "serde",
+ "sqlparser 0.32.0",
 ]
 
 [[package]]
@@ -2747,6 +2766,7 @@ dependencies = [
  "native-tls",
  "notify",
  "nu-ansi-term",
+ "nu-cmd-dataframe",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
@@ -2770,7 +2790,6 @@ dependencies = [
  "os_pipe",
  "pathdiff",
  "percent-encoding",
- "polars",
  "powierza-coefficient",
  "print-positions",
  "quick-xml 0.28.2",
