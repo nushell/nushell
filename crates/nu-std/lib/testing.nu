@@ -48,8 +48,8 @@ export def assert [
         msg: ($message | default "Assertion failed."),
         label: ($error_label | default {
             text: "It is not true.",
-            start: (metadata $condition).span.start,
-            end: (metadata $condition).span.end
+            start: $span.start,
+            end: $span.end
         })
     }
 }
@@ -96,8 +96,8 @@ export def "assert not" [
             msg: ($message | default "Assertion failed."),
             label: ($error_label | default {
                 text: "It is not false.",
-                start: (metadata $condition).span.start,
-                end: (metadata $condition).span.end
+                start: $span.start,
+                end: $span.end
             })
         }
     }
