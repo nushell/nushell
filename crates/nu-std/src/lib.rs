@@ -103,6 +103,7 @@ pub fn load_standard_library(
             ("n", "n"),
             ("p", "p"),
             ("dexit", "dexit"),
+            ("cdhook", "cdhook"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);

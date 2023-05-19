@@ -1,4 +1,6 @@
-# Maintain a list of working directories and navigates them
+# Maintain a list of working directories and navigate them in a ring
+
+use log *
 
 # the directory stack
 export-env {
@@ -99,6 +101,19 @@ export def-env "dirs goto" [shell?: int] {
 }
 
 export alias g = dirs goto
+
+# Invoked from env-change hook for PWD, syncs directory list with PWD.
+#
+# In config.nu, initialize `$env.config.hooks.env_change` like so:
+#    env_change: {
+#       PWD: [{|before, after| std dirs cdhook $before $after}
+#       ]
+#    }
+export def-env "dirs cdhook" [old = '',  new = ''] {
+    let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $new)
+}
+
+export alias cdhook = dirs cdhook
 
 # fetch item helper
 def-env  _fetch [
