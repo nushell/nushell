@@ -30,7 +30,7 @@ export def test_dirs_command [] {
     # must capture value of $in before executing `use`s
     let $c = $in    
 
-    # must set PWD *befure* doing `use ` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
     cd $c.base_path
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
