@@ -8,10 +8,6 @@ export-env {
     let-env DIRS_LIST = [($env.PWD | path expand)]
 }
 
-
-# invoke built-in "cd", but allow std dirs module to alias "cd" to something else.
-alias core_cd = cd
-
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
 export def-env "dirs add" [
@@ -101,19 +97,17 @@ export def-env "dirs goto" [shell?: int] {
     }
     let-env DIRS_POSITION = $shell
 
-    core_cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+    cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
 }
 
 export alias g = dirs goto
 
-# Change to specified directory, update current directory in list
-export def-env "dirs cd" [path = ""] {
-    log info $"cd dirs_list ($env | get -i DIRS_LIST | default 'notFound')"
-    core_cd $path       # if invalid path, takes early exit
-    let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
+# Invoked from env-change hook for PWD, syncs directory list with PWD.
+export def-env "dirs cdhook" [old = '',  new = ''] {
+    let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $new)
 }
 
-export alias cd = dirs cd
+export alias cdhook = dirs cdhook
 
 # fetch item helper
 def-env  _fetch [
@@ -127,5 +121,5 @@ def-env  _fetch [
             ) mod ($env.DIRS_LIST | length)
     let-env DIRS_POSITION = $pos
 
-    core_cd ($env.DIRS_LIST | get $pos )
+    cd ($env.DIRS_LIST | get $pos )
 }
