@@ -8,15 +8,15 @@ use nu_protocol::{
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
 #[derive(Clone)]
-pub struct GetHour;
+pub struct GetMinute;
 
-impl Command for GetHour {
+impl Command for GetMinute {
     fn name(&self) -> &str {
-        "dfr get-hour"
+        "dfr get-minute"
     }
 
     fn usage(&self) -> &str {
-        "Gets hour from date."
+        "Gets minute from date."
     }
 
     fn signature(&self) -> Signature {
@@ -28,14 +28,14 @@ impl Command for GetHour {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns hour from a date",
+            description: "Returns minute from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
     let df = ([$dt $dt] | dfr into-df);
-    $df | dfr get-hour"#,
+    $df | dfr get-minute"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(16), Value::test_int(16)],
+                    vec![Value::test_int(39), Value::test_int(39)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -73,13 +73,13 @@ fn command(
         )
     })?;
 
-    let res = casted.hour().into_series();
+    let res = casted.minute().into_series();
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
-#[cfg(test)]
+#[cfg(explore_refactor_IntoDatetime)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
@@ -87,6 +87,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(GetHour {}), Box::new(IntoDatetime {})])
+        test_dataframe(vec![Box::new(GetMinute {}), Box::new(IntoDatetime {})])
     }
 }

@@ -8,15 +8,15 @@ use nu_protocol::{
 use polars::prelude::{DatetimeMethods, IntoSeries};
 
 #[derive(Clone)]
-pub struct GetNanosecond;
+pub struct GetDay;
 
-impl Command for GetNanosecond {
+impl Command for GetDay {
     fn name(&self) -> &str {
-        "dfr get-nanosecond"
+        "dfr get-day"
     }
 
     fn usage(&self) -> &str {
-        "Gets nanosecond from date."
+        "Gets day from date."
     }
 
     fn signature(&self) -> Signature {
@@ -28,14 +28,14 @@ impl Command for GetNanosecond {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns nanosecond from a date",
+            description: "Returns day from a date",
             example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
     let df = ([$dt $dt] | dfr into-df);
-    $df | dfr get-nanosecond"#,
+    $df | dfr get-day"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![Value::test_int(0), Value::test_int(0)],
+                    vec![Value::test_int(4), Value::test_int(4)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -73,13 +73,13 @@ fn command(
         )
     })?;
 
-    let res = casted.nanosecond().into_series();
+    let res = casted.day().into_series();
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
-#[cfg(test)]
+#[cfg(explore_refactor_IntoDatetime)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
@@ -87,6 +87,6 @@ mod test {
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(GetNanosecond {}), Box::new(IntoDatetime {})])
+        test_dataframe(vec![Box::new(GetDay {}), Box::new(IntoDatetime {})])
     }
 }

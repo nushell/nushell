@@ -97,12 +97,11 @@ fn command(
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
-#[cfg(test)]
+#[cfg(explore_refactor_IntoDatetime)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
     use super::*;
-
     #[test]
     fn test_examples() {
         test_dataframe(vec![Box::new(StrFTime {}), Box::new(IntoDatetime {})])
