@@ -78,8 +78,8 @@ fn command(
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
-/*
-#[cfg(test)]
+
+#[cfg(explore_refactor_IntoDatetime)]
 mod test {
     use super::super::super::super::super::IntoDatetime;
     use super::super::super::super::test_dataframe::test_dataframe;
@@ -90,4 +90,3 @@ mod test {
         test_dataframe(vec![Box::new(GetWeekDay {}), Box::new(IntoDatetime {})])
     }
 }
-*/
