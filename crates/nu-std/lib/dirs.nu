@@ -114,11 +114,12 @@ export def-env "dirs cd" [path?] {
             let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
         }
     } catch {|err| 
-        let real_span = (metadata $path)
+        let real_span = (metadata $path).span
         error make {msg: $err.msg 
                     label: {text:"directory not found" 
-                            start:$real_span.start 
-                            end:$real_span.end}
+                            start: $real_span.start 
+                            end: $real_span.end
+                    }
         }
     }
 }
