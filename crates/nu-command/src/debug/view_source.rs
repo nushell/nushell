@@ -65,19 +65,23 @@ impl Command for ViewSource {
                             // name of function
                             let mut final_contents = format!("def {val} [ ");
                             for n in vec_of_required {
-                                let _ = write!(&mut final_contents, "{}:{} ", n.name, n.shape);
+                                let _ = write!(&mut final_contents, "{}: {} ", n.name, n.shape);
                                 // positional argu,emts
                             }
                             for n in vec_of_optional {
-                                let _ = write!(&mut final_contents, "{}?:{} ", n.name, n.shape);
+                                let _ = write!(&mut final_contents, "{}?: {} ", n.name, n.shape);
                             }
                             for n in vec_of_flags {
+                                // skip adding the help flag
+                                if n.long == "help" {
+                                    continue;
+                                }
                                 let _ = write!(&mut final_contents, "--{}", n.long);
                                 if let Some(short) = n.short {
                                     let _ = write!(&mut final_contents, "(-{})", short);
                                 }
                                 if let Some(arg) = &n.arg {
-                                    let _ = write!(&mut final_contents, ":{}", arg);
+                                    let _ = write!(&mut final_contents, ": {}", arg);
                                 }
                                 final_contents.push(' ');
                             }
@@ -155,17 +159,17 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a custom command",
                 example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
-                result: Some(Value::test_string("def hi [ --help(-h) ] { echo 'Hi!' }")),
+                result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
                 example: r#"def-env foo [] { let-env BAR = 'BAZ' }; view source foo"#,
-                result: Some(Value::test_string("def foo [ --help(-h) ] { let-env BAR = 'BAZ' }")),
+                result: Some(Value::test_string("def foo [] { let-env BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a custom command with flags and arguments",
                 example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
-                result: Some(Value::test_string("def test [ a?:any --b:int --help(-h) ...rest:string] { echo 'test' }")),
+                result: Some(Value::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
             },
             Example {
                 description: "View the source of a module",
