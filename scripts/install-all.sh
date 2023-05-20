@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Usage: Just run `./install-all.sh` in nushell root directory
+
 set -euo pipefail
+
+DIR=$(readlink -f $(dirname "${BASH_SOURCE[0]}"))
+REPO_ROOT=$(dirname $DIR)
 
 echo "-----------------------------------------------------------------"
 echo "Installing nushell (nu) with dataframes and all the plugins"
@@ -9,7 +12,7 @@ echo ""
 
 echo "Install nushell from local..."
 echo "----------------------------------------------"
-cargo install --force --path . --features=dataframe
+cargo install --force --path "$REPO_ROOT" --features=dataframe
 
 NU_PLUGINS=(
     'nu_plugin_inc'
@@ -26,5 +29,5 @@ do
     echo "----------------------------------------------"
     echo "Install plugin $plugin from local..."
     echo "----------------------------------------------"
-    cd crates/"$plugin" && cargo install --force --path . && cd ../../
+    cargo install --force --path "$REPO_ROOT/crates/$plugin"
 done

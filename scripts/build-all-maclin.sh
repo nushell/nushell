@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
+
+DIR=$(readlink -f $(dirname "${BASH_SOURCE[0]}"))
+REPO_ROOT=$(dirname $DIR)
 
 echo "---------------------------------------------------------------"
 echo "Building nushell (nu) with dataframes and all the plugins"
@@ -15,11 +19,17 @@ NU_PLUGINS=(
 )
 
 echo "Building nushell"
-cargo build --features=dataframe
+(
+    cd $REPO_ROOT
+    cargo build --features=dataframe
+)
+
 for plugin in "${NU_PLUGINS[@]}"
 do
-    echo '' && cd crates/"$plugin"
     echo "Building $plugin..."
     echo "-----------------------------"
-    cargo build && cd ../..
+    (
+        cd "$REPO_ROOT/crates/$plugin"
+        cargo build
+    )
 done

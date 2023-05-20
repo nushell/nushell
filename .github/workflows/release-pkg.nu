@@ -122,7 +122,9 @@ print $'(char nl)All executable files:'; hr-line
 print (ls -f $executable); sleep 1sec
 
 print $'(char nl)Copying release files...'; hr-line
-cp -v README.release.txt $'($dist)/README.txt'
+"To use Nu plugins, use the register command to tell Nu where to find the plugin. For example:
+
+> register ./nu_plugin_query" | save $'($dist)/README.txt'
 [LICENSE $executable] | each {|it| cp -rv $it $dist } | flatten
 # Sleep a few seconds to make sure the cp process finished successfully
 sleep 3sec

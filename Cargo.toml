@@ -1,5 +1,6 @@
 [package]
 authors = ["The Nushell Project Developers"]
+build = "scripts/build.rs"
 default-run = "nu"
 description = "A new type of shell"
 documentation = "https://www.nushell.sh/book/"
