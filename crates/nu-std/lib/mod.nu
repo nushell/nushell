@@ -46,8 +46,8 @@ export def-env "path add" [
     let paths = ($paths | flatten)
 
     if ($paths | is-empty) or ($paths | length) == 0 {
-        error make {msg: $"Empty input", label: {
-            text: $"Provide at least one string or a record",
+        error make {msg: "Empty input", label: {
+            text: "Provide at least one string or a record",
             start: $span.start,
             end: $span.end
         }}
@@ -58,19 +58,18 @@ export def-env "path add" [
     let paths = ($paths | each {|p|
         if ($p | describe) == "string" {
             $p
-        } else if (($p | describe) | str starts-with "record") {
+        } else if ($p | describe | str starts-with "record") {
             $p | get -i $nu.os-info.name
         }
     })
 
-    
-    if null in $paths or ($paths |  is-empty) {
-        error make {msg: $"Empty input", label: {
+    if null in $paths or ($paths | is-empty) {
+        error make {msg: "Empty input", label: {
             text: $"Received a record, that does not contain a ($nu.os-info.name) key",
             start: $span.start,
             end: $span.end
         }}
-    }   
+    }
 
     let-env $path_name = (
             $env
@@ -78,7 +77,7 @@ export def-env "path add" [
             | if $append { append $paths }
             else { prepend $paths }
     )
-    
+
     if $ret {
         $env | get $path_name
     }
