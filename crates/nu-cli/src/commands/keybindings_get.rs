@@ -1,12 +1,15 @@
 use crossterm::event::{
-    KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    KeyCode, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEvent,
+    MouseEventKind, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
+use crossterm::{execute, terminal};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use std::io::stdout;
 
 #[derive(Clone)]
 pub struct KeybindingsGet;
@@ -39,16 +42,19 @@ impl Command for KeybindingsGet {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"
-There can be 5 different type of events: focus, key, mouse, paste, resize. Each will emit a
+        r#"There can be 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by field type:
 { type: focus event: (gained|lost) }
-{ type: key key: <string> modifiers: [ <modifier> ... ] }
+{ type: key key: { type: <key_type> key: <string> } modifiers: [ <modifier> ... ] }
 { type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
 { type: paste content: <string> }
 { type: resize col: <int> row: <int> }
 There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
-        "#
+There are 4 <key_type> variants:
+    f - f1, f2, f3 ... keys
+    char - alphanumeric and special symbols (a, A, 1, $ ...)
+    media - dedicated media keys (play, pause, tracknext ...)
+    other - keys not falling under previous categories (up, down, backspace, enter ...)"#
     }
 
     fn run(
@@ -65,6 +71,7 @@ There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
             .transpose()?
             .unwrap_or_else(|| EventTypeFilter::all());
 
+        terminal::enable_raw_mode()?;
         loop {
             let event = crossterm::event::read().map_err(|_| {
                 ShellError::GenericError(
@@ -77,6 +84,7 @@ There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
             })?;
             let event = parse_event(head, &event, &event_type_filter);
             if let Some(event) = event {
+                terminal::disable_raw_mode()?;
                 return Ok(event.into_pipeline_data());
             }
         }
@@ -236,7 +244,7 @@ fn create_key_event(
         ];
 
         let typ = Value::string("key".to_string(), head);
-        let key = Value::string(get_keycode_name(code), head);
+        let key = get_keycode_name(head, code);
         let modifiers = parse_modifiers(head, modifiers);
         let vals = vec![typ, key, modifiers];
 
@@ -246,14 +254,23 @@ fn create_key_event(
     }
 }
 
-fn get_keycode_name(code: &KeyCode) -> String {
-    match code {
-        KeyCode::F(n) => format!("f_{n}"),
-        KeyCode::Char(c) => c.to_string(),
-        KeyCode::Media(m) => format!("media_{m:?}").to_lowercase(),
-        KeyCode::Modifier(m) => format!("modifier_{m:?}").to_lowercase(),
-        _ => format!("{code:?}").to_lowercase(),
-    }
+fn get_keycode_name(head: Span, code: &KeyCode) -> Value {
+    let (typ, key) = match code {
+        KeyCode::F(n) => ("f", n.to_string()),
+        KeyCode::Char(c) => ("char", c.to_string()),
+        KeyCode::Media(m) => ("media", format!("{m:?}").to_lowercase()),
+        KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_lowercase()),
+        _ => ("other", format!("{code:?}").to_lowercase()),
+    };
+    make_key_record(head, typ.to_string(), key)
+}
+
+fn make_key_record(head: Span, typ: String, key: String) -> Value {
+    Value::record(
+        vec!["type".to_string(), "key".to_string()],
+        vec![Value::string(typ, head), Value::string(key, head)],
+        head,
+    )
 }
 
 fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
@@ -309,10 +326,7 @@ fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) 
     }
 }
 
-fn create_paste_event(
-    head: Span,
-    filter: &EventTypeFilter,
-    content: &String) -> Option<Value> {
+fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &String) -> Option<Value> {
     if filter.listen_paste {
         let cols = vec!["type".to_string(), "content".to_string()];
         let vals = vec![
