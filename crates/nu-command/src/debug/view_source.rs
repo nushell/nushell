@@ -69,7 +69,7 @@ impl Command for ViewSource {
                                     &mut final_contents,
                                     "{}:{} ",
                                     n.name,
-                                    n.shape.to_string()
+                                    n.shape
                                 );
                                 // positional argu,emts
                             }
@@ -78,7 +78,7 @@ impl Command for ViewSource {
                                     &mut final_contents,
                                     "{}?:{} ",
                                     n.name,
-                                    n.shape.to_string()
+                                    n.shape
                                 );
                             }
                             for n in vec_of_flags {
@@ -87,7 +87,7 @@ impl Command for ViewSource {
                                     let _ = write!(&mut final_contents, "(-{})", short);
                                 }
                                 if let Some(arg) = &n.arg {
-                                    let _ = write!(&mut final_contents, ":{}", arg.to_string());
+                                    let _ = write!(&mut final_contents, ":{}", arg);
                                 }
                                 final_contents.push(' ');
                             }
@@ -96,7 +96,7 @@ impl Command for ViewSource {
                                     &mut final_contents,
                                     "...{}:{}",
                                     rest_arg.name,
-                                    rest_arg.shape.to_string()
+                                    rest_arg.shape
                                 );
                             }
                             final_contents.push_str("] ");
