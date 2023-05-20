@@ -53,6 +53,11 @@ impl Command for Mv {
             )
             .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("update", 
+                "move only when the SOURCE file is newer than the destination file(with -f) or when the destination file is missing",
+                Some('u')
+            )
+            // TODO: add back in additional features
             .category(Category::FileSystem)
     }
 
@@ -75,6 +80,7 @@ impl Command for Mv {
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
+        let update_mode = call.has_flag("update");
 
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -191,6 +197,7 @@ impl Command for Mv {
                         span: spanned_destination.span,
                     },
                     interactive,
+                    update_mode,
                 );
                 if let Err(error) = result {
                     Some(Value::Error {
@@ -244,6 +251,7 @@ fn move_file(
     spanned_from: Spanned<PathBuf>,
     spanned_to: Spanned<PathBuf>,
     interactive: bool,
+    update_mode: bool,
 ) -> Result<bool, ShellError> {
     let Spanned {
         item: from,
@@ -305,9 +313,13 @@ fn move_file(
         }
     }
 
-    match move_item(&from, from_span, &to) {
-        Ok(()) => Ok(true),
-        Err(e) => Err(e),
+    if update_mode && super::util::is_older(&from, &to) {
+        Ok(false)
+    } else {
+        match move_item(&from, from_span, &to) {
+            Ok(()) => Ok(true),
+            Err(e) => Err(e),
+        }
     }
 }
 
