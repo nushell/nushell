@@ -365,14 +365,18 @@ export def aliases [
     }
 }
 
-def show-extern [extern: record] {
-    if not ($extern.usage? | is-empty) {
-        print $extern.usage
-        print ""
-    }
+def build-extern-page [extern: record] {
+    let usage = (if not ($extern.usage? | is-empty) {[
+        $extern.usage
+        ""
+    ]} else [])
 
-    build-help-header -n "Extern"
-    print $" ($extern.name)"
+    let rest = [
+        (build-help-header -n "Extern")
+        $" ($extern.name)"
+    ]
+
+    [$usage $rest] | flatten | str join "\n"
 }
 
 # Show help on nushell externs.
@@ -397,8 +401,7 @@ export def externs [
             extern-not-found-error (metadata $extern | get span)
         }
 
-        show-extern ($found_extern | get 0)
-        " " # signal something was shown
+        build-extern-page ($found_extern | get 0)
     } else {
         $externs
     }
