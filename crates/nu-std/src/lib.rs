@@ -102,7 +102,7 @@ pub fn load_standard_library(
             ("n", "dirs n"),
             ("p", "dirs p"),
             ("dexit", "dirs dexit"),
-            ("cd", "dirs cd"),
+            ("cd", "dirs dirs cd"),
             ("builtin cd", "dirs builtin cd"),
         ];
 

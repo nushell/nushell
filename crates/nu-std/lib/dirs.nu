@@ -1,14 +1,14 @@
-# Maintain a list of working directories and navigate them in a ring
+# Maintain a ring of working directories and navigate them.
 
 use log *
 
-# the directory stack
+# the directory ring, wraps around in either direction.
 export-env {
     let-env DIRS_POSITION = 0
     let-env DIRS_LIST = [($env.PWD | path expand)]
 }
 
-# internal alias to access the builtin cd
+# fallback alias to retain access the builtin cd
 # does this work if module 'used' multiple times?
 export alias "builtin cd" = cd
 
@@ -106,8 +106,12 @@ export def-env goto [shell?: int] {
 
 export alias g = goto
 
-# wrapper for builtin `cd`, to update directory ring when user invokes cd
-export def-env "dirs cd" [path?] {
+# Change directory.
+# also keeps the directory ring in sync with new working directory.
+# for more examples, see `help commands builtin cd`
+export def-env "dirs cd" [
+    path?   # the directory to change to
+] {
     try {
         builtin cd $path
         if not ($env | get -i DIRS_LIST | is-empty) {   # when testing, cd sometimes invoked before env setup?
@@ -124,7 +128,7 @@ export def-env "dirs cd" [path?] {
     }
 }
 
-export alias cd = dirs cd
+##export alias cd = dirs cd
 
 # fetch item helper
 def-env  _fetch [
