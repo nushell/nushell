@@ -259,17 +259,21 @@ export def modules [
     }
 }
 
-def show-alias [alias: record] {
-    if not ($alias.usage? | is-empty) {
-        print $alias.usage
-        print ""
-    }
+def build-alias-page [alias: record] {
+    let usage = (if not ($alias.usage? | is-empty) {[
+        $alias.usage
+        ""
+    ]} else [])
 
-    build-help-header -n "Alias"
-    print $" ($alias.name)"
-    print ""
-    build-help-header "Expansion"
-    print $"  ($alias.expansion)"
+    let rest = [
+        (build-help-header -n "Alias")
+        $"  ($alias.name)"
+        ""
+        (build-help-header -n "Expansion")
+        $"  ($alias.expansion)"
+    ]
+
+    [$usage $rest] | flatten | str join "\n"
 }
 
 # Show help on nushell aliases.
@@ -355,8 +359,7 @@ export def aliases [
             alias-not-found-error (metadata $alias | get span)
         }
 
-        show-alias ($found_alias | get 0)
-        " " # signal something was shown
+        build-alias-page ($found_alias | get 0)
     } else {
         $aliases
     }
