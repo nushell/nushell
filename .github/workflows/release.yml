@@ -23,6 +23,7 @@ jobs:
         - aarch64-apple-darwin
         - x86_64-apple-darwin
         - x86_64-pc-windows-msvc
+        - aarch64-pc-windows-msvc
         - x86_64-unknown-linux-gnu
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
@@ -41,6 +42,14 @@ jobs:
           os: windows-latest
           target_rustflags: ''
         - target: x86_64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: ''
+        - target: aarch64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: ''
+        - target: aarch64-pc-windows-msvc
           extra: msi
           os: windows-latest
           target_rustflags: ''
@@ -75,7 +84,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.78.0
+        version: 0.79.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

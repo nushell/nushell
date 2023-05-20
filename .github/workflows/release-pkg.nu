@@ -99,6 +99,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
+    # let-env CARGO_BUILD_TARGET = $target
     if ($flags | str trim | is-empty) {
         cargo build --release --all --target $target
     } else {
@@ -128,7 +129,7 @@ sleep 3sec
 
 print $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
-    (do -i { ./output/nu.exe -c 'version' }) | str join
+    (do -i { .\output\nu.exe -c 'version' }) | str join
 } else {
     (do -i { ./output/nu -c 'version' }) | str join
 }
