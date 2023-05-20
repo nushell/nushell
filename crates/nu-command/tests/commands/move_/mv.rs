@@ -481,9 +481,7 @@ fn mv_with_update_flag() {
 
         // create a file after assert to make sure that newest_valid.txt is newest
         std::thread::sleep(std::time::Duration::from_secs(1));
-        sandbox.with_files(vec![
-            FileWithContent("newest_valid.txt", "newest_body")
-        ]);
+        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
         let actual = nu!(cwd: sandbox.cwd(), "mv -uf newest_valid.txt valid.txt; open valid.txt");
         assert_eq!(actual.out, "newest_body");
     });
