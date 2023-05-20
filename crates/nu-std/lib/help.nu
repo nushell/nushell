@@ -98,16 +98,16 @@ def "nu-complete list-externs" [] {
     $nu.scope.commands | where is_extern | select name usage | rename value description
 }
 
-def print-help-header [
+def build-help-header [
     text: string
     --no-newline (-n): bool
 ] {
     let header = $"(ansi green)($text)(ansi reset):"
 
     if $no_newline {
-        print -n $header
+        $header
     } else {
-        print $header
+        $header ++ "\n"
     }
 }
 
@@ -117,12 +117,12 @@ def show-module [module: record] {
         print ""
     }
 
-    print-help-header -n "Module"
+    build-help-header -n "Module"
     print $" ($module.name)"
     print ""
 
     if not ($module.commands? | is-empty) {
-        print-help-header "Exported commands"
+        build-help-header "Exported commands"
         print -n "    "
 
         let commands_string = (
@@ -138,7 +138,7 @@ def show-module [module: record] {
     }
 
     if not ($module.aliases? | is-empty) {
-        print-help-header "Exported aliases"
+        build-help-header "Exported aliases"
         print $"    ($module.aliases | str join ', ')"
         print ""
     }
@@ -265,10 +265,10 @@ def show-alias [alias: record] {
         print ""
     }
 
-    print-help-header -n "Alias"
+    build-help-header -n "Alias"
     print $" ($alias.name)"
     print ""
-    print-help-header "Expansion"
+    build-help-header "Expansion"
     print $"  ($alias.expansion)"
 }
 
@@ -368,7 +368,7 @@ def show-extern [extern: record] {
         print ""
     }
 
-    print-help-header -n "Extern"
+    build-help-header -n "Extern"
     print $" ($extern.name)"
 }
 
@@ -402,14 +402,14 @@ export def externs [
 }
 
 def show-operator [operator: record] {
-    print-help-header "Description"
+    build-help-header "Description"
     print $"    ($operator.description)"
     print ""
-    print-help-header -n "Operator"
+    build-help-header -n "Operator"
     print ($" ($operator.name) (char lparen)(ansi cyan_bold)($operator.operator)(ansi reset)(char rparen)")
-    print-help-header -n "Type"
+    build-help-header -n "Type"
     print $" ($operator.type)"
-    print-help-header -n "Precedence"
+    build-help-header -n "Precedence"
     print $" ($operator.precedence)"
 }
 
@@ -477,19 +477,19 @@ def show-command [command: record] {
 
     if not ($command.search_terms? | is-empty) {
         print ""
-        print-help-header -n "Search terms"
+        build-help-header -n "Search terms"
         print $" ($command.search_terms)"
     }
 
     if not ($command.module_name? | is-empty) {
         print ""
-        print-help-header -n "Module"
+        build-help-header -n "Module"
         print $" ($command.module_name)"
     }
 
     if not ($command.category? | is-empty) {
         print ""
-        print-help-header -n "Category"
+        build-help-header -n "Category"
         print $" ($command.category)"
     }
 
@@ -535,7 +535,7 @@ def show-command [command: record] {
         let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
 
         print ""
-        print-help-header "Usage"
+        build-help-header "Usage"
         print -n "  > "
         print -n $"($command.name) "
         if not ($flags | is-empty) {
@@ -550,7 +550,7 @@ def show-command [command: record] {
     let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
     if not ($subcommands | is-empty) {
         print ""
-        print-help-header "Subcommands"
+        build-help-header "Subcommands"
         for subcommand in $subcommands {
             print $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
         }
@@ -564,7 +564,7 @@ def show-command [command: record] {
         let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
 
         print ""
-        print-help-header "Flags"
+        build-help-header "Flags"
         for flag in $flags {
             let flag_parts = [ "  ",
                 (if ($flag.short_flag | is-empty) { "" } else {
@@ -588,7 +588,7 @@ def show-command [command: record] {
         print $"  (ansi teal)-h(ansi reset), --(ansi teal)help(ansi reset) - Display the help message for this command"
 
         print ""
-        print-help-header "Signatures"
+        build-help-header "Signatures"
         for signature in $signatures {
            let input = ($signature | where parameter_type == input | get 0)
            let output = ($signature | where parameter_type == output | get 0)
@@ -602,7 +602,7 @@ def show-command [command: record] {
 
         if (not ($positionals | is-empty)) or $is_rest {
             print ""
-            print-help-header "Parameters"
+            build-help-header "Parameters"
             for positional in $positionals {
                 let arg_parts = [ "  ",
                     $"(ansi teal)($positional.parameter_name)(ansi reset)",
@@ -628,7 +628,7 @@ def show-command [command: record] {
 
     if not ($command.examples | is-empty) {
         print ""
-        print-help-header -n "Examples"
+        build-help-header -n "Examples"
         for example in $command.examples {
             print ""
             print $"  ($example.description)"
