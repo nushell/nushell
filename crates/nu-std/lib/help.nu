@@ -407,16 +407,18 @@ export def externs [
     }
 }
 
-def show-operator [operator: record] {
-    build-help-header "Description"
-    print $"    ($operator.description)"
-    print ""
-    build-help-header -n "Operator"
-    print ($" ($operator.name) (char lparen)(ansi cyan_bold)($operator.operator)(ansi reset)(char rparen)")
-    build-help-header -n "Type"
-    print $" ($operator.type)"
-    build-help-header -n "Precedence"
-    print $" ($operator.precedence)"
+def build-operator-page [operator: record] {
+    [
+        (build-help-header -n "Description")
+        $"    ($operator.description)"
+        ""
+        (build-help-header -n "Operator")
+        $"  ($operator.name) (char lparen)(ansi cyan_bold)($operator.operator)(ansi reset)(char rparen)"
+        (build-help-header -n "Type")
+        $"  ($operator.type)"
+        (build-help-header -n "Precedence")
+        $"  ($operator.precedence)"
+    ] | str join "\n"
 }
 
 # Show help on nushell operators.
@@ -465,8 +467,7 @@ export def operators [
             operator-not-found-error (metadata $operator | get span)
         }
 
-        show-operator ($found_operator | get 0)
-        " " # signal something was shown
+        build-operator-page ($found_operator | get 0)
     } else {
         $operators
     }
