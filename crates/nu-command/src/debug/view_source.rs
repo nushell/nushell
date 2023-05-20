@@ -65,21 +65,11 @@ impl Command for ViewSource {
                             // name of function
                             let mut final_contents = format!("def {val} [ ");
                             for n in vec_of_required {
-                                let _ = write!(
-                                    &mut final_contents,
-                                    "{}:{} ",
-                                    n.name,
-                                    n.shape
-                                );
+                                let _ = write!(&mut final_contents, "{}:{} ", n.name, n.shape);
                                 // positional argu,emts
                             }
                             for n in vec_of_optional {
-                                let _ = write!(
-                                    &mut final_contents,
-                                    "{}?:{} ",
-                                    n.name,
-                                    n.shape
-                                );
+                                let _ = write!(&mut final_contents, "{}?:{} ", n.name, n.shape);
                             }
                             for n in vec_of_flags {
                                 let _ = write!(&mut final_contents, "--{}", n.long);
@@ -95,8 +85,7 @@ impl Command for ViewSource {
                                 let _ = write!(
                                     &mut final_contents,
                                     "...{}:{}",
-                                    rest_arg.name,
-                                    rest_arg.shape
+                                    rest_arg.name, rest_arg.shape
                                 );
                             }
                             final_contents.push_str("] ");
