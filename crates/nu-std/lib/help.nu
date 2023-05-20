@@ -565,6 +565,80 @@ def build-command-page [command: record] {
         } | str join "\n")
     ]} else [])
 
+    let rest = (if not ($signatures | is-empty) {
+        let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
+
+        let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
+        let flags = ($parameters | where parameter_type != positional and parameter_type != rest)
+        let is_rest = (not ($parameters | where parameter_type == rest | is-empty))
+
+        ([
+            ""
+            (build-help-header "Flags")
+            ($flags | each {|flag|
+                [
+                    "  ",
+                    (if ($flag.short_flag | is-empty) { "" } else {
+                        $"-(ansi teal)($flag.short_flag)(ansi reset), "
+                    }),
+                    (if ($flag.parameter_name | is-empty) { "" } else {
+                        $"--(ansi teal)($flag.parameter_name)(ansi reset)"
+                    }),
+                    (if ($flag.syntax_shape | is-empty) { "" } else {
+                        $": <(ansi light_blue)($flag.syntax_shape)(ansi reset)>"
+                    }),
+                    (if ($flag.description | is-empty) { "" } else {
+                        $" - ($flag.description)"
+                    }),
+                    (if ($flag.parameter_default | is-empty) { "" } else {
+                        $" \(default: ($flag.parameter_default)\)"
+                    }),
+                ] | str join ""
+            } | str join "\n")
+            $"  (ansi teal)-h(ansi reset), --(ansi teal)help(ansi reset) - Display the help message for this command"
+
+            ""
+            (build-help-header "Signatures")
+            ($signatures | each {|signature|
+                let input = ($signature | where parameter_type == input | get 0)
+                let output = ($signature | where parameter_type == output | get 0)
+
+                ([
+                    $"  <($input.syntax_shape)> | ($command.name)"
+                    ($positionals | each {|positional|
+                        $" <($positional.syntax_shape)>"
+                    })
+                    $" -> <($output.syntax_shape)>"
+                ] | str join "")
+            } | str join "\n")
+
+            (if (not ($positionals | is-empty)) or $is_rest {[
+                ""
+                (build-help-header "Parameters")
+                ($positionals | each {|positional|
+                    ([
+                        "  ",
+                        $"(ansi teal)($positional.parameter_name)(ansi reset)",
+                        (if ($positional.syntax_shape | is-empty) { "" } else {
+                            $": <(ansi light_blue)($positional.syntax_shape)(ansi reset)>"
+                        }),
+                        (if ($positional.description | is-empty) { "" } else {
+                            $" ($positional.description)"
+                        }),
+                        (if ($positional.parameter_default | is-empty) { "" } else {
+                            $" \(optional, default: ($positional.parameter_default)\)"
+                        })
+                    ] | str join "")
+                } | str join "\n")
+
+                (if $is_rest {
+                    let rest = ($parameters | where parameter_type == rest | get 0)
+                    $"  ...(ansi teal)rest(ansi reset): <(ansi light_blue)($rest.syntax_shape)(ansi reset)> ($rest.description)"
+                })
+            ]} else [])
+        ] | flatten)
+    } else [])
+
     let examples = (if not ($command.examples | is-empty) {[
         ""
         (build-help-header -n "Examples")
@@ -593,6 +667,7 @@ def build-command-page [command: record] {
         $this
         $cli_usage
         $subcommands
+        $rest
         $examples
     ] | flatten | str join "\n"
 }
