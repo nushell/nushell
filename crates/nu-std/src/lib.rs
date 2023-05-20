@@ -102,8 +102,6 @@ pub fn load_standard_library(
             ("n", "dirs n"),
             ("p", "dirs p"),
             ("dexit", "dirs dexit"),
-            ("cd", "dirs dirs cd"),
-            ("builtin cd", "dirs builtin cd"),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);

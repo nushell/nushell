@@ -57,7 +57,6 @@ export def test_dirs_command [] {
     use std "dirs drop"
     use std "dirs show"
     use std "dirs goto"
-    use std "dirs cd"
     
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
 
@@ -79,9 +78,6 @@ export def test_dirs_command [] {
     dirs prev 1
     assert equal $c.path_a $env.PWD "prev wraps at start of list"
     cur_dir_check $c.path_a "prev wraps to end from start of list"
-
-    dirs cd $c.path_b
-    cur_dir_check $c.path_b "cd changes directory"
 
     dirs drop
     assert length $env.DIRS_LIST 2 "drop removes from list"
@@ -117,36 +113,25 @@ export def test_dirs_cd [] {
     let $c = $in    
     # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
     cd $c.base_path
-    
+
+    use std # necessary to define $env.config??
+
+    assert length $env.config.hooks.env_change.PWD 1 "only 1 (empty) PWD hook initially"
     use std "dirs next"
     use std "dirs add"
-    use std "dirs cd"
+    use std "dirs drop"
+    assert length $env.config.hooks.env_change.PWD 2 "loading module multiple times only adds hook to the list once"
+
     cur_dir_check $c.base_path "use module test setup"
 
-    dirs cd $c.path_b
+    cd $c.path_b
     cur_ring_check $c.path_b 0 "cd with empty ring"
 
     dirs add $c.path_a
     cur_dir_check $c.path_a "can add 2nd directory"
-    dirs cd $c.path_b
+    cd $c.path_b
     cur_ring_check $c.path_b 1 "cd at 2nd item on ring"
     dirs next
     cur_ring_check $c.path_b 0 "cd updates current position in non-empty ring"
     assert equal [$c.path_b $c.path_b] $env.DIRS_LIST "cd updated both positions in ring"
-}
-
-export def test_dirs_builtin_cd [] {
-    # must capture value of $in before executing `use`s
-    let $c = $in    
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
-    cd $c.base_path
-    
-    use std "dirs cd"
-    cur_dir_check $c.base_path "use module test setup"
-
-    builtin cd $c.path_a
-    assert equal $c.path_a $env.PWD "builtin cd changed PWD"
-    assert (($env.DIRS_LIST | get $env.DIRS_POSITION) == $c.base_path) "builtin cd did not change ring"
-
-    assert error {builtin cd no_such_directory}
 }

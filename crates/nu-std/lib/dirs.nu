@@ -6,11 +6,27 @@ use log *
 export-env {
     let-env DIRS_POSITION = 0
     let-env DIRS_LIST = [($env.PWD | path expand)]
-}
+    
+    # hotwire user's config to hook PWD changes to notify us
 
-# fallback alias to retain access the builtin cd
-# does this work if module 'used' multiple times?
-export alias "builtin cd" = cd
+    # defining the closure once here seems to guarantee a stable ID no matter how many times the module is use'd
+    let the_hook = {|before, after|
+        print -e $"hook after: ($after), list: ($env.DIRS_LIST)"
+        if not ($after | is-empty) {
+            let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $after)
+        }
+        print -e $"hook updated list: ($env.DIRS_LIST)"
+    }
+
+    $env.config = ($env.config? | default {})
+    $env.config.hooks = ($env.config.hooks? | default {})
+    $env.config.hooks.env_change = ($env.config.hooks.env_change? | default {})
+    $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD? | default [])
+
+    if not ($the_hook in $env.config.hooks.env_change.PWD) { # only add the hook into the list once.
+        $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD | append [ $the_hook])
+    }
+}
 
 # Add one or more directories to the list.
 # PWD becomes first of the newly added directories.
@@ -101,34 +117,10 @@ export def-env goto [shell?: int] {
     }
     let-env DIRS_POSITION = $shell
 
-    builtin cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+    cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
 }
 
 export alias g = goto
-
-# Change directory.
-# also keeps the directory ring in sync with new working directory.
-# for more examples, see `help commands builtin cd`
-export def-env "dirs cd" [
-    path?   # the directory to change to
-] {
-    try {
-        builtin cd $path
-        if not ($env | get -i DIRS_LIST | is-empty) {   # when testing, cd sometimes invoked before env setup?
-            let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $env.PWD)
-        }
-    } catch {|err| 
-        let real_span = (metadata $path).span
-        error make {msg: $err.msg 
-                    label: {text:"directory not found" 
-                            start: $real_span.start 
-                            end: $real_span.end
-                    }
-        }
-    }
-}
-
-##export alias cd = dirs cd
 
 # fetch item helper
 def-env  _fetch [
@@ -142,5 +134,5 @@ def-env  _fetch [
             ) mod ($env.DIRS_LIST | length)
     let-env DIRS_POSITION = $pos
 
-    builtin cd ($env.DIRS_LIST | get $pos )
+    cd ($env.DIRS_LIST | get $pos )
 }
