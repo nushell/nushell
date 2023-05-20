@@ -1,7 +1,7 @@
 use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{
     files_exist_at, AbsoluteFile,
-    Stub::{EmptyFile, FileWithPermission},
+    Stub::{EmptyFile, FileWithContent, FileWithPermission},
 };
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -577,5 +577,35 @@ fn copy_file_with_read_permission_impl(progress: bool) {
             actual.err.contains("invalid_prem.txt")
                 && actual.err.contains("copying to destination")
         );
+    });
+}
+
+#[test]
+fn copy_file_with_update_flag() {
+    copy_file_with_update_flag_impl(false);
+    copy_file_with_update_flag_impl(true);
+}
+
+fn copy_file_with_update_flag_impl(progress: bool) {
+    Playground::setup("cp_test_19", |_dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("valid.txt"),
+            FileWithContent("newer_valid.txt", "body"),
+        ]);
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp {} -u valid.txt newer_valid.txt; open newer_valid.txt",
+            progress_flag,
+        );
+        assert!(actual.out.contains("body"));
+
+        // create a file after assert to make sure that newest_valid.txt is newest
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} -u newest_valid.txt valid.txt; open valid.txt", progress_flag);
+        assert_eq!(actual.out, "newest_body");
     });
 }
