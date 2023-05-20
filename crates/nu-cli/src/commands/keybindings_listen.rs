@@ -6,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::io::{stdout, Write};
+use crate::commands::keybindings_get::{EventTypeFilter, parse_event};
 
 #[derive(Clone)]
 pub struct KeybindingsListen;
@@ -15,15 +16,20 @@ impl Command for KeybindingsListen {
         "keybindings listen"
     }
 
-    fn usage(&self) -> &str {
-        "Get input from the user."
-    }
-
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Platform)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
+    }
+
+    fn usage(&self) -> &str {
+        "Inspect keyboard events from user"
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Prints keyboard events in stderr.
+To get keyboard events as a record use "keybindings get""#
     }
 
     fn run(
@@ -75,82 +81,25 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         // stdout.queue(crossterm::style::Print("\r\n"))?;
 
         // Get a record
-        let v = print_events_helper(event)?;
+        let v = parse_event(Span::unknown(), &event, &EventTypeFilter::all());
         // Print out the record
-        let o = match v {
-            Value::Record { cols, vals, .. } => cols
-                .iter()
-                .zip(vals.iter())
-                .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
-                .collect::<Vec<String>>()
-                .join(", "),
+        if let Some(v) = v {
+            let o = match v {
+                Value::Record { cols, vals, .. } => cols
+                    .iter()
+                    .zip(vals.iter())
+                    .map(|(x, y)| format!("{}: {}", x, y.into_string(" ", config)))
+                    .collect::<Vec<String>>()
+                    .join(", "),
 
-            _ => "".to_string(),
-        };
-        stdout.queue(crossterm::style::Print(o))?;
-        stdout.queue(crossterm::style::Print("\r\n"))?;
-        stdout.flush()?;
+                _ => "".to_string(),
+            };
+            stdout.queue(crossterm::style::Print(o))?;
+            stdout.queue(crossterm::style::Print("\r\n"))?;
+            stdout.flush()?;
+        }
     }
     terminal::disable_raw_mode()?;
 
     Ok(Value::nothing(Span::unknown()))
-}
-
-// this fn is totally ripped off from crossterm's examples
-// it's really a diagnostic routine to see if crossterm is
-// even seeing the events. if you press a key and no events
-// are printed, it's a good chance your terminal is eating
-// those events.
-fn print_events_helper(event: Event) -> Result<Value, ShellError> {
-    if let Event::Key(KeyEvent {
-        code,
-        modifiers,
-        kind,
-        state,
-    }) = event
-    {
-        match code {
-            KeyCode::Char(c) => {
-                let record = Value::Record {
-                    cols: vec![
-                        "char".into(),
-                        "code".into(),
-                        "modifier".into(),
-                        "flags".into(),
-                        "kind".into(),
-                        "state".into(),
-                    ],
-                    vals: vec![
-                        Value::string(format!("{c}"), Span::unknown()),
-                        Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
-                    ],
-                    span: Span::unknown(),
-                };
-                Ok(record)
-            }
-            _ => {
-                let record = Value::Record {
-                    cols: vec!["code".into(), "modifier".into(), "flags".into()],
-                    vals: vec![
-                        Value::string(format!("{code:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                    ],
-                    span: Span::unknown(),
-                };
-                Ok(record)
-            }
-        }
-    } else {
-        let record = Value::Record {
-            cols: vec!["event".into()],
-            vals: vec![Value::string(format!("{event:?}"), Span::unknown())],
-            span: Span::unknown(),
-        };
-        Ok(record)
-    }
 }

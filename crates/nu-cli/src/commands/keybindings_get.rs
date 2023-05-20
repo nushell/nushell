@@ -83,7 +83,7 @@ There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
     }
 }
 
-struct EventTypeFilter {
+pub struct EventTypeFilter {
     listen_focus: bool,
     listen_key: bool,
     listen_mouse: bool,
@@ -102,7 +102,7 @@ impl EventTypeFilter {
         }
     }
 
-    fn all() -> EventTypeFilter {
+    pub fn all() -> EventTypeFilter {
         EventTypeFilter {
             listen_focus: true,
             listen_key: true,
@@ -154,7 +154,7 @@ impl EventTypeFilter {
     }
 }
 
-fn parse_event(
+pub fn parse_event(
     head: Span,
     event: &crossterm::event::Event,
     filter: &EventTypeFilter,
