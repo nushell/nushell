@@ -111,44 +111,42 @@ def build-help-header [
     }
 }
 
-def show-module [module: record] {
-    if not ($module.usage? | is-empty) {
-        print $module.usage
-        print ""
-    }
+def build-module-page [module: record] {
+    let usage = (if not ($module.usage? | is-empty) {[
+        $module.usage
+        ""
+    ]} else [])
 
-    build-help-header -n "Module"
-    print $" ($module.name)"
-    print ""
+    let name = [
+        $"(build-help-header -n "Module") ($module.name)"
+        ""
+    ]
 
-    if not ($module.commands? | is-empty) {
-        build-help-header "Exported commands"
-        print -n "    "
-
-        let commands_string = (
-            $module.commands
-            | each {|command|
-                $"($command) (char lparen)($module.name) ($command)(char rparen)"
+    let commands = (if not ($module.commands? | is-empty) {[
+        (build-help-header -n "Exported commands")
+        $"    (
+            $module.commands | each {|command|
+                $'($command) (char lparen)($module.name) ($command)(char rparen)'
             }
-            | str join ", "
-        )
+            | str join ', '
+        )"
+        ""
+    ]} else [])
 
-        print $commands_string
-        print ""
-    }
+    let aliases = (if not ($module.aliases? | is-empty) {[
+        (build-help-header -n "Exported aliases")
+        $"    ($module.aliases | str join ', ')"
+        ""
+    ]} else [])
 
-    if not ($module.aliases? | is-empty) {
-        build-help-header "Exported aliases"
-        print $"    ($module.aliases | str join ', ')"
-        print ""
-    }
+    let env_block = (if ($module.env_block? | is-empty) {[
+        $"This module (ansi cyan)does not export(ansi reset) environment."
+    ]} else {[
+        $"This module (ansi cyan)exports(ansi reset) environment."
+        (view source $module.env_block)
+    ]})
 
-    if ($module.env_block? | is-empty) {
-        print $"This module (ansi cyan)does not export(ansi reset) environment."
-    } else {
-        print $"This module (ansi cyan)exports(ansi reset) environment."
-        print (view source $module.env_block)
-    }
+    [$usage $name $commands $aliases $env_block] | flatten | str join "\n"
 }
 
 # Show help on nushell modules.
@@ -252,8 +250,7 @@ export def modules [
             module-not-found-error (metadata $module | get span)
         }
 
-        show-module ($found_module | get 0)
-        " " # signal something was shown
+        build-module-page ($found_module | get 0)
     } else {
         $modules
     }
