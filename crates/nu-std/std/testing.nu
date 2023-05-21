@@ -5,7 +5,7 @@
 # Assert commands and test runner.
 #
 ##################################################################################
-export use NU_STD_VIRTUAL_DIR/std/log.nu
+export use log.nu
 
 # Universal assert command
 #

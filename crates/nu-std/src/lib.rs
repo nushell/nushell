@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
 use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
@@ -55,8 +57,9 @@ pub fn load_standard_library(
             std_virt_paths.push((name, VirtualPath::File(file_id)));
         }
 
+        // Using full virtual path to avoid potential conflicts with user having 'std' directory
+        // in their working directory.
         let std_dir = format!("{NU_STD_VIRTUAL_DIR}/std");
-
         let source = format!(
             r#"
 # Define the `std` module
@@ -70,6 +73,10 @@ use std dirs [ enter, shells, g, n, p, dexit ]
         // TODO: Error on redefinition:
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
+        // Change the currently parsed directory
+        let prev_currently_parsed_cwd = working_set.currently_parsed_cwd.clone();
+        working_set.currently_parsed_cwd = Some(PathBuf::from(NU_STD_VIRTUAL_DIR));
+
         let block = parse(
             &mut working_set,
             Some("loading stdlib"),
@@ -80,6 +87,9 @@ use std dirs [ enter, shells, g, n, p, dexit ]
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
         }
+
+        // Restore the currently parsed directory back
+        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
         (block, working_set.render())
     };

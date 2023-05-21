@@ -2,12 +2,12 @@
 
 export-env {
     # source-env NU_STD_VIRTUAL_DIR/std/dirs.nu
-    use NU_STD_VIRTUAL_DIR/std/dirs.nu
+    use dirs.nu
 }
 
-export use NU_STD_VIRTUAL_DIR/std/testing.nu *
+export use testing.nu *
 
-use NU_STD_VIRTUAL_DIR/std/dt.nu [datetime-diff, pretty-print-duration]
+use dt.nu [datetime-diff, pretty-print-duration]
 
 # Add the given paths to the PATH.
 #

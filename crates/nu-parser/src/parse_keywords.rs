@@ -3524,22 +3524,41 @@ pub fn find_in_dirs(
         working_set: &StateWorkingSet,
         cwd: &str,
         dirs_var_name: &str,
-    ) -> Option<PathBuf> {
+    ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
         let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
             currently_parsed_cwd.as_path()
         } else {
             Path::new(cwd)
         };
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
-            return Some(p);
+
+        // Try if we have an existing virtual path
+        if let Some(virtual_path) = working_set.find_virtual_path(filename) {
+            return Some(ParserPath::from_virtual_path(filename, virtual_path));
+        } else {
+            let abs_virtual_filename = actual_cwd.join(filename);
+            let abs_virtual_filename = abs_virtual_filename.to_string_lossy();
+
+            if let Some(virtual_path) = working_set.find_virtual_path(&abs_virtual_filename) {
+                return Some(ParserPath::from_virtual_path(
+                    &abs_virtual_filename,
+                    virtual_path,
+                ));
+            }
         }
 
+        // Try if we have an existing physical path
+        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+            return Some(ParserPath::RealPath(p));
+        }
+
+        // Early-exit if path is non-existent absolute path
         let path = Path::new(filename);
         if !path.is_relative() {
             return None;
         }
 
+        // Look up relative path from NU_LIB_DIRS
         working_set
             .find_constant(find_dirs_var(working_set, dirs_var_name)?)?
             .as_list()
@@ -3552,9 +3571,11 @@ pub fn find_in_dirs(
             })
             .find(Option::is_some)
             .flatten()
+            .map(ParserPath::RealPath)
     }
 
     // TODO: remove (see #8310)
+    // Same as find_in_dirs_with_id but using $env.NU_LIB_DIRS instead of constant
     pub fn find_in_dirs_old(
         filename: &str,
         working_set: &StateWorkingSet,
@@ -3600,13 +3621,9 @@ pub fn find_in_dirs(
         }
     }
 
-    if let Some(virtual_path) = working_set.find_virtual_path(filename) {
-        Some(ParserPath::from_virtual_path(filename, virtual_path))
-    } else {
-        find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
-            .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
-            .map(ParserPath::RealPath)
-    }
+    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name).or_else(|| {
+        find_in_dirs_old(filename, working_set, cwd, dirs_var_name).map(ParserPath::RealPath)
+    })
 }
 
 fn detect_params_in_name(
