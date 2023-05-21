@@ -37,7 +37,7 @@ impl Command for Inspect {
         if input_val.is_nothing() {
             return Err(ShellError::PipelineEmpty {
                 dst_span: input_val.expect_span(),
-            })
+            });
         }
         let original_input = input_val.clone();
         let description = match input_val {
