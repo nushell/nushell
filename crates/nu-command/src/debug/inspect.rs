@@ -36,7 +36,7 @@ impl Command for Inspect {
         let input_val = input.into_value(call.head);
         if input_val.is_nothing() {
             return Err(ShellError::PipelineEmpty {
-                dst_span: input_val.expect_span(),
+                dst_span: call.head,
             });
         }
         let original_input = input_val.clone();
