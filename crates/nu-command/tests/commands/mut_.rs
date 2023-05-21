@@ -171,3 +171,15 @@ fn mut_path_operator_assign() {
 
     assert_eq!(actual.out, "5");
 }
+
+#[test]
+fn mut_records_update_properly() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut a = {}; $a.b.c = 100; $a.b.c
+        "#
+    ));
+
+    assert_eq!(actual.out, "100");
+}
