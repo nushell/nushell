@@ -6,7 +6,7 @@ use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
 use nu_protocol::{report_error, PipelineData};
 
 // Virtual std directory unlikely to appear in user's file system
-const NU_STD_VIRTUAL_DIR: &str = "NU_STD_VIRTUAL_DIR";
+const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
 
 pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
@@ -14,35 +14,35 @@ pub fn load_standard_library(
     let (block, delta) = {
         let std_files = vec![
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/mod.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/mod.nu"),
                 include_str!("../std/mod.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/dirs.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/dirs.nu"),
                 include_str!("../std/dirs.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/dt.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/dt.nu"),
                 include_str!("../std/dt.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/help.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/help.nu"),
                 include_str!("../std/help.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/iter.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/iter.nu"),
                 include_str!("../std/iter.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/log.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/log.nu"),
                 include_str!("../std/log.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/testing.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/testing.nu"),
                 include_str!("../std/testing.nu"),
             ),
             (
-                format!("{NU_STD_VIRTUAL_DIR}/std/xml.nu"),
+                format!("{NU_STDLIB_VIRTUAL_DIR}/std/xml.nu"),
                 include_str!("../std/xml.nu"),
             ),
         ];
@@ -59,7 +59,7 @@ pub fn load_standard_library(
 
         // Using full virtual path to avoid potential conflicts with user having 'std' directory
         // in their working directory.
-        let std_dir = format!("{NU_STD_VIRTUAL_DIR}/std");
+        let std_dir = format!("{NU_STDLIB_VIRTUAL_DIR}/std");
         let source = format!(
             r#"
 # Define the `std` module
@@ -75,7 +75,7 @@ use std dirs [ enter, shells, g, n, p, dexit ]
 
         // Change the currently parsed directory
         let prev_currently_parsed_cwd = working_set.currently_parsed_cwd.clone();
-        working_set.currently_parsed_cwd = Some(PathBuf::from(NU_STD_VIRTUAL_DIR));
+        working_set.currently_parsed_cwd = Some(PathBuf::from(NU_STDLIB_VIRTUAL_DIR));
 
         let block = parse(
             &mut working_set,
