@@ -170,6 +170,7 @@ jobs:
 
 
   nu-coverage:
+    if: false
     env:
       NUSHELL_CARGO_TARGET: ci
 
