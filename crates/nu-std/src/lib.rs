@@ -14,35 +14,67 @@ pub fn load_standard_library(
     let (block, delta) = {
         let std_files = vec![
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/mod.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("mod.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/mod.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/dirs.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("dirs.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/dirs.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/dt.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("dt.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/dt.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/help.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("help.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/help.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/iter.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("iter.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/iter.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/log.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("log.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/log.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/testing.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("testing.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/testing.nu"),
             ),
             (
-                format!("{NU_STDLIB_VIRTUAL_DIR}/std/xml.nu"),
+                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+                    .join("std")
+                    .join("xml.nu")
+                    .to_string_lossy()
+                    .to_string(),
                 include_str!("../std/xml.nu"),
             ),
         ];
@@ -59,7 +91,10 @@ pub fn load_standard_library(
 
         // Using full virtual path to avoid potential conflicts with user having 'std' directory
         // in their working directory.
-        let std_dir = format!("{NU_STDLIB_VIRTUAL_DIR}/std");
+        let std_dir = PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
+            .join("std")
+            .to_string_lossy()
+            .to_string();
         let source = format!(
             r#"
 # Define the `std` module
