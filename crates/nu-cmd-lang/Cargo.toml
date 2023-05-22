@@ -25,3 +25,13 @@ shadow-rs = { version = "0.21.0", default-features = false }
 
 [build-dependencies]
 shadow-rs = { version = "0.21.0", default-features = false }
+
+[features]
+which-support = []
+trash-support = []
+sqlite = []
+dataframe = []
+static-link-openssl = []
+extra = []
+wasi = []
+

@@ -182,6 +182,11 @@ fn features_enabled() -> Vec<String> {
         names.push("extra".to_string());
     }
 
+    #[cfg(feature = "wasi")]
+    {
+        names.push("wasi".to_string());
+    }
+
     names.sort();
 
     names
