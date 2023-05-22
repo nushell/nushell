@@ -726,13 +726,13 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let target_item = ($item | str join " ")
 
-    let commands = (try { help commands $target_item --find $find })
+    let commands = (try { commands $target_item --find $find })
     if not ($commands | is-empty) { return $commands }
 
-    let aliases = (try { help aliases $target_item --find $find })
+    let aliases = (try { aliases $target_item --find $find })
     if not ($aliases | is-empty) { return $aliases }
 
-    let modules = (try { help modules $target_item --find $find })
+    let modules = (try { modules $target_item --find $find })
     if not ($modules | is-empty) { return $modules }
 
     let span = (metadata $item | get span)

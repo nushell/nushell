@@ -340,8 +340,13 @@ fn default_value12() -> TestResult {
 }
 
 #[test]
-fn default_value_constant() -> TestResult {
+fn default_value_constant1() -> TestResult {
     run_test(r#"def foo [x = "foo"] { $x }; foo"#, "foo")
+}
+
+#[test]
+fn default_value_constant2() -> TestResult {
+    run_test(r#"def foo [secs = 1sec] { $secs }; foo"#, "1sec")
 }
 
 #[test]

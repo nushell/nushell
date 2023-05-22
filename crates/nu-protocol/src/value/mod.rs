@@ -1036,8 +1036,8 @@ impl Value {
                             }
                         }
                         if !found {
+                            cols.push(col_name.clone());
                             if cell_path.len() == 1 {
-                                cols.push(col_name.clone());
                                 vals.push(new_val);
                             } else {
                                 let mut new_col = Value::Record {
