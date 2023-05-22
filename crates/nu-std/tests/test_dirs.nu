@@ -116,20 +116,27 @@ export def test_dirs_cd [] {
 
     use std # necessary to define $env.config??
 
-    assert length $env.config.hooks.env_change.PWD 1 "only 1 (empty) PWD hook initially"
+    #later assert length $env.config.hooks.env_change.PWD 1 "only 1 (empty) PWD hook initially"
+    use std "dirs cdhook"
     use std "dirs next"
     use std "dirs add"
     use std "dirs drop"
-    assert length $env.config.hooks.env_change.PWD 2 "loading module multiple times only adds hook to the list once"
+
+    #later assert length $env.config.hooks.env_change.PWD 2 "loading module multiple times only adds hook to the list once"
 
     cur_dir_check $c.base_path "use module test setup"
 
     cd $c.path_b
+    dirs cdhook $c.base_path $c.path_b
+
     cur_ring_check $c.path_b 0 "cd with empty ring"
 
     dirs add $c.path_a
     cur_dir_check $c.path_a "can add 2nd directory"
+
     cd $c.path_b
+    dirs cdhook $c.path_a $c.path_b
+    
     cur_ring_check $c.path_b 1 "cd at 2nd item on ring"
     dirs next
     cur_ring_check $c.path_b 0 "cd updates current position in non-empty ring"

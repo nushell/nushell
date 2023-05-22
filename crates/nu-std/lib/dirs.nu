@@ -7,25 +7,24 @@ export-env {
     let-env DIRS_POSITION = 0
     let-env DIRS_LIST = [($env.PWD | path expand)]
     
-    # hotwire user's config to hook PWD changes to notify us
-
-    # defining the closure once here seems to guarantee a stable ID no matter how many times the module is use'd
-    let the_hook = {|before, after|
-        print -e $"hook after: ($after), list: ($env.DIRS_LIST)"
-        if not ($after | is-empty) {
-            let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $after)
-        }
-        print -e $"hook updated list: ($env.DIRS_LIST)"
-    }
-
-    $env.config = ($env.config? | default {})
-    $env.config.hooks = ($env.config.hooks? | default {})
-    $env.config.hooks.env_change = ($env.config.hooks.env_change? | default {})
-    $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD? | default [])
-
-    if not ($the_hook in $env.config.hooks.env_change.PWD) { # only add the hook into the list once.
-        $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD | append [ $the_hook])
-    }
+    # leaving the following section commented out till some changes in nu startup can allow it to actually work
+    ## hotwire user's config to hook PWD changes to notify us
+    ##
+    ## defining the closure once here seems to guarantee a stable ID no matter how many times the module is use'd
+    #let the_hook = {|before, after|
+    #    if not ($after | is-empty) {
+    #        let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $after)
+    #   }
+    #}
+    #
+    #$env.config = ($env.config? | default {})
+    #$env.config.hooks = ($env.config.hooks? | default {})
+    #$env.config.hooks.env_change = ($env.config.hooks.env_change? | default {})
+    #$env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD? | default [])
+    #
+    #if not ($the_hook in $env.config.hooks.env_change.PWD) { # only add the hook into the list once.
+    #    $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD | append [ $the_hook])
+    #}
 }
 
 # Add one or more directories to the list.
@@ -121,6 +120,25 @@ export def-env goto [shell?: int] {
 }
 
 export alias g = goto
+
+# PWD change handler to allow dirs to track `cd` changes
+# Add this to your config.nu:
+#
+#   let-env config {
+#       . . .
+#       hooks: {
+#           env_changed: {
+#               PWD: [{|before, after| std dirs cdhook $before $after}]
+#           }
+#       }
+#       . . .
+#   }
+export def-env cdhook [before? after?] {
+    if not ($after | is-empty) {
+        let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $after)
+    }
+}
+
 
 # fetch item helper
 def-env  _fetch [
