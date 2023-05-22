@@ -1,30 +1,9 @@
 # Maintain a ring of working directories and navigate them.
 
-use log *
-
 # the directory ring, wraps around in either direction.
 export-env {
     let-env DIRS_POSITION = 0
     let-env DIRS_LIST = [($env.PWD | path expand)]
-    
-    # leaving the following section commented out till some changes in nu startup can allow it to actually work
-    ## hotwire user's config to hook PWD changes to notify us
-    ##
-    ## defining the closure once here seems to guarantee a stable ID no matter how many times the module is use'd
-    #let the_hook = {|before, after|
-    #    if not ($after | is-empty) {
-    #        let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $after)
-    #   }
-    #}
-    #
-    #$env.config = ($env.config? | default {})
-    #$env.config.hooks = ($env.config.hooks? | default {})
-    #$env.config.hooks.env_change = ($env.config.hooks.env_change? | default {})
-    #$env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD? | default [])
-    #
-    #if not ($the_hook in $env.config.hooks.env_change.PWD) { # only add the hook into the list once.
-    #    $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD | append [ $the_hook])
-    #}
 }
 
 # Add one or more directories to the list.
@@ -121,24 +100,20 @@ export def-env goto [shell?: int] {
 
 export alias g = goto
 
-# PWD change handler to allow dirs to track `cd` changes
-# Add this to your config.nu:
+# allow the `std dirs` module to track directory changes made with `cd`
 #
-#   let-env config {
-#       . . .
-#       hooks: {
-#           env_changed: {
-#               PWD: [{|before, after| std dirs cdhook $before $after}]
-#           }
-#       }
-#       . . .
-#   }
+# > **Warning**  
+# > this hook is not active by default.
+#
+# in your `$nu.config-path`, add the following closure to the `$env.config.hooks.env_changed.PWD` list:
+# ```nu
+# {|before, after| std dirs cdhook $before $after}
+# ```
 export def-env cdhook [before? after?] {
     if not ($after | is-empty) {
         let-env DIRS_LIST = ($env.DIRS_LIST | update $env.DIRS_POSITION $after)
     }
 }
-
 
 # fetch item helper
 def-env  _fetch [
