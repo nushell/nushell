@@ -12,7 +12,7 @@ pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let (block, delta) = {
-        let std_files = vec![
+        let mut std_files = vec![
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
@@ -82,11 +82,10 @@ pub fn load_standard_library(
         let mut working_set = StateWorkingSet::new(engine_state);
         let mut std_virt_paths = vec![];
 
-        for (name, content) in std_files {
+        for (name, content) in std_files.drain(..) {
             let file_id = working_set.add_file(name.clone(), content.as_bytes());
-            // TODO: Error on redefinition:
-            let _ = working_set.add_virtual_path(name.clone(), VirtualPath::File(file_id));
-            std_virt_paths.push((name, VirtualPath::File(file_id)));
+            let virtual_file_id = working_set.add_virtual_path(name, VirtualPath::File(file_id));
+            std_virt_paths.push(virtual_file_id);
         }
 
         // Using full virtual path to avoid potential conflicts with user having 'std' directory
@@ -105,7 +104,6 @@ use std dirs [ enter, shells, g, n, p, dexit ]
 "#
         );
 
-        // TODO: Error on redefinition:
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
         // Change the currently parsed directory

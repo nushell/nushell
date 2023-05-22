@@ -3,8 +3,8 @@ use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::{
-    ast::Block, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable,
+    ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
+    Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{ParseError, Value};
 use core::panic;
@@ -58,8 +58,8 @@ impl Default for Usage {
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
-    File(usize),                     // file ID if the file
-    Dir(Vec<(String, VirtualPath)>), // file IDs of files in the virtual dir
+    File(FileId),
+    Dir(Vec<VirtualPathId>),
 }
 
 /// The core global engine state. This includes all global definitions as well as any global state that
@@ -108,7 +108,7 @@ pub enum VirtualPath {
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<(Vec<u8>, usize, usize)>,
-    virtual_paths: HashMap<String, VirtualPath>,
+    virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     decls: Vec<Box<dyn Command + 'static>>,
     blocks: Vec<Block>,
@@ -151,7 +151,7 @@ impl EngineState {
         Self {
             files: vec![],
             file_contents: vec![],
-            virtual_paths: HashMap::new(),
+            virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -564,6 +564,10 @@ impl EngineState {
         self.files.len()
     }
 
+    pub fn num_virtual_paths(&self) -> usize {
+        self.virtual_paths.len()
+    }
+
     pub fn num_vars(&self) -> usize {
         self.vars.len()
     }
@@ -837,6 +841,12 @@ impl EngineState {
             .expect("internal error: missing module")
     }
 
+    pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
+        self.virtual_paths
+            .get(virtual_path_id)
+            .expect("internal error: missing virtual path")
+    }
+
     pub fn next_span_start(&self) -> usize {
         if let Some((_, _, last)) = self.file_contents.last() {
             *last
@@ -997,7 +1007,7 @@ impl TypeScope {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
-    virtual_paths: HashMap<String, VirtualPath>,
+    virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Block>,       // indexed by BlockId
@@ -1020,7 +1030,7 @@ impl StateDelta {
         StateDelta {
             files: vec![],
             file_contents: vec![],
-            virtual_paths: HashMap::new(),
+            virtual_paths: vec![],
             vars: vec![],
             decls: vec![],
             blocks: vec![],
@@ -1034,6 +1044,10 @@ impl StateDelta {
 
     pub fn num_files(&self) -> usize {
         self.files.len()
+    }
+
+    pub fn num_virtual_paths(&self) -> usize {
+        self.virtual_paths.len()
     }
 
     pub fn num_decls(&self) -> usize {
@@ -1131,6 +1145,10 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn num_files(&self) -> usize {
         self.delta.num_files() + self.permanent_state.num_files()
+    }
+
+    pub fn num_virtual_paths(&self) -> usize {
+        self.delta.num_virtual_paths() + self.permanent_state.num_virtual_paths()
     }
 
     pub fn num_decls(&self) -> usize {
@@ -1351,7 +1369,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     #[must_use]
-    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
+    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> FileId {
         // First, look for the file to see if we already have it
         for (idx, (fname, file_start, file_end)) in self.files().enumerate() {
             if fname == &filename {
@@ -1377,12 +1395,10 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     #[must_use]
-    pub fn add_virtual_path(
-        &mut self,
-        name: String,
-        virtual_path: VirtualPath,
-    ) -> Option<VirtualPath> {
-        self.delta.virtual_paths.insert(name, virtual_path)
+    pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> VirtualPathId {
+        self.delta.virtual_paths.push((name, virtual_path));
+
+        self.num_virtual_paths() - 1
     }
 
     pub fn get_span_for_file(&self, file_id: usize) -> Span {
@@ -2001,10 +2017,31 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
-        self.delta
-            .virtual_paths
-            .get(name)
-            .or_else(|| self.permanent_state.virtual_paths.get(name))
+        for (virtual_name, virtual_path) in self.delta.virtual_paths.iter().rev() {
+            if virtual_name == name {
+                return Some(virtual_path);
+            }
+        }
+
+        for (virtual_name, virtual_path) in self.permanent_state.virtual_paths.iter().rev() {
+            if virtual_name == name {
+                return Some(virtual_path);
+            }
+        }
+
+        None
+    }
+
+    pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
+        let num_permanent_virtual_paths = self.permanent_state.num_virtual_paths();
+        if virtual_path_id < num_permanent_virtual_paths {
+            self.permanent_state.get_virtual_path(virtual_path_id)
+        } else {
+            self.delta
+                .virtual_paths
+                .get(virtual_path_id - num_permanent_virtual_paths)
+                .expect("internal error: missing virtual path")
+        }
     }
 }
 

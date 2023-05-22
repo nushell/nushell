@@ -3482,15 +3482,20 @@ impl ParserPath {
         }
     }
 
-    pub fn from_virtual_path(name: &str, virtual_path: &VirtualPath) -> Self {
+    pub fn from_virtual_path(
+        working_set: &StateWorkingSet,
+        name: &str,
+        virtual_path: &VirtualPath,
+    ) -> Self {
         match virtual_path {
             VirtualPath::File(file_id) => ParserPath::VirtualFile(PathBuf::from(name), *file_id),
             VirtualPath::Dir(entries) => ParserPath::VirtualDir(
                 PathBuf::from(name),
                 entries
                     .iter()
-                    .map(|(sub_name, sub_virt_path)| {
-                        ParserPath::from_virtual_path(sub_name, sub_virt_path)
+                    .map(|virtual_path_id| {
+                        let (virt_name, virt_path) = working_set.get_virtual_path(*virtual_path_id);
+                        ParserPath::from_virtual_path(working_set, virt_name, virt_path)
                     })
                     .collect(),
             ),
@@ -3538,13 +3543,18 @@ pub fn find_in_dirs(
 
         // Try if we have an existing virtual path
         if let Some(virtual_path) = working_set.find_virtual_path(filename) {
-            return Some(ParserPath::from_virtual_path(filename, virtual_path));
+            return Some(ParserPath::from_virtual_path(
+                working_set,
+                filename,
+                virtual_path,
+            ));
         } else {
             let abs_virtual_filename = actual_cwd.join(filename);
             let abs_virtual_filename = abs_virtual_filename.to_string_lossy();
 
             if let Some(virtual_path) = working_set.find_virtual_path(&abs_virtual_filename) {
                 return Some(ParserPath::from_virtual_path(
+                    working_set,
                     &abs_virtual_filename,
                     virtual_path,
                 ));
