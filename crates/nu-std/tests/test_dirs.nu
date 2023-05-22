@@ -21,11 +21,7 @@ export def test_dirs_command [] {
     mkdir $base_path $path_a $path_b
 
     cd $base_path
-    use std "dirs next"
-    use std "dirs prev"
-    use std "dirs add"
-    use std "dirs drop"
-    use std "dirs show"
+    use std dirs
 
     assert length $env.DIRS_LIST 1 "list is just pwd after initialization"
     assert equal $base_path $env.DIRS_LIST.0 "list is just pwd after initialization"
