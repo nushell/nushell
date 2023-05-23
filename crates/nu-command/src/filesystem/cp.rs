@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 use std::fs::read_link;
-use std::io::{stdout, BufReader, BufWriter, ErrorKind, Read, Write};
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -18,7 +20,7 @@ use super::util::try_interaction;
 
 use crate::filesystem::util::FileStructure;
 use crate::progress_bar;
-use crossterm::{cursor, ExecutableCommand};
+use indicatif::{MultiProgress, ProgressBar};
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
@@ -152,9 +154,43 @@ impl Command for Cp {
         }
 
         let mut result = Vec::new();
+        // TODO: implement the if progress.
+        // Create the progress bar holder and the styles
+        let multi_pb = MultiProgress::new();
+        let style_overall =
+            progress_bar::nu_progress_style(progress_bar::ProgressType::ProgressItems);
+        let style_overall_unk =
+            progress_bar::nu_progress_style(progress_bar::ProgressType::ProgressUnknown);
+
+        // Progress bar to show the status for all files
+        let pb_overall = multi_pb.add(ProgressBar::new(0));
+        pb_overall.set_style(style_overall_unk);
+
+        // Progress for each file
+        let pb_perfile = multi_pb.insert_after(&pb_overall, ProgressBar::new(0));
+
+        let mut src_n_files = sources.len() as u64;
+
+        if progress {
+            if src_n_files == 1 {
+                src_n_files = 0;
+                // pb_overall.set_style(style_overall.clone());
+                // pb_overall.set_message("Copying files...");
+                // pb_overall.set_length(sources_len);
+            } //else {
+              //    pb_overall.set_message("Preparing file list for copy operation");
+              //}
+              //
+            pb_overall.set_style(style_overall.clone());
+            pb_overall.set_message("Copying files...");
+            pb_overall.set_length(src_n_files);
+        }
 
         for entry in sources.into_iter().flatten() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                if progress {
+                    pb_overall.abandon_with_message("Copy cancelled");
+                }
                 return Ok(PipelineData::empty());
             }
 
@@ -175,6 +211,11 @@ impl Command for Cp {
                 })?;
 
                 for (src, dst) in sources {
+                    // Update the overall progress bar
+                    if progress {
+                        pb_overall.inc(1);
+                    }
+
                     if src.is_file() {
                         let dst =
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
@@ -198,18 +239,27 @@ impl Command for Cp {
                                     dst,
                                     span,
                                     &ctrlc,
+                                    Some(&pb_perfile),
                                     copy_file_with_progressbar,
                                 )
                             } else {
-                                interactive_copy(interactive, src, dst, span, &None, copy_file)
+                                interactive_copy(
+                                    interactive,
+                                    src,
+                                    dst,
+                                    span,
+                                    &None,
+                                    None,
+                                    copy_file,
+                                )
                             }
                         } else if progress {
                             // use std::io::copy to get the progress
                             // slower then std::fs::copy but useful if user needs to see the progress
-                            copy_file_with_progressbar(src, dst, span, &ctrlc)
+                            copy_file_with_progressbar(src, dst, span, &ctrlc, Some(&pb_perfile))
                         } else {
                             // use std::fs::copy
-                            copy_file(src, dst, span, &None)
+                            copy_file(src, dst, span, &None, None)
                         };
                         result.push(res);
                     }
@@ -242,6 +292,11 @@ impl Command for Cp {
                     )
                 })?;
 
+                // TODO: if progress
+                // variables used to cancel copy progress.
+                let is_copy_cancelled = Rc::new(RefCell::new(false));
+                let is_copy_cancelled_clone = is_copy_cancelled.clone();
+
                 let not_follow_symlink = call.has_flag("no-symlink");
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
@@ -268,39 +323,59 @@ impl Command for Cp {
                         .take(1 + depth_level)
                         .collect();
 
+                    if progress {
+                        pb_overall.set_message(format!("Gathering file path list..."));
+                    }
+
+                    let mut is_copy_cancelled_clone = is_copy_cancelled_clone.borrow_mut();
                     for fragment in comps.into_iter().rev() {
+                        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                            *is_copy_cancelled_clone = true;
+
+                            // TBD - we might want to be able to cancel the copy with this method
+                            // but if we do this we are going to have inconsistencies on the UI
+                            // return Err(Box::new(ShellError::IOInterrupted(
+                            //     "copy cancelled".to_string(),
+                            //     span,
+                            // )));
+                        }
+
+                        if progress {
+                            pb_overall.tick();
+                        }
                         dest.push(fragment);
                     }
 
                     Ok((PathBuf::from(&source_file), dest))
                 })?;
 
-                // Only create the progress bar if the `progress` flag is set
-                let overall_pb = if progress {
-                    Some(progress_bar::NuProgressBar::new(
-                        progress_bar::ProgressType::ProgressItems,
-                        Some(sources.len() as u64),
-                        "".to_string(),
-                    ))
-                } else {
-                    None
-                };
+                // If this is true, ctrl+c was pressed while the source list
+                // was being built. Cancel the copy.
+                if *is_copy_cancelled.borrow() {
+                    if progress {
+                        pb_overall.abandon_with_message("Copy cancelled");
+                    }
+                    return Ok(PipelineData::empty());
+                }
 
-                // Current n file. Used for the progress bar
-                let mut n_file = 0;
-
-                // these variables help us update the overall progress bar.
-                let mut stdout = stdout();
-                let mut is_pb = false;
+                if progress {
+                    src_n_files = src_n_files + sources.len() as u64;
+                    pb_overall.set_style(style_overall.clone());
+                    pb_overall.set_length(src_n_files);
+                    pb_overall.set_message("Copying files...");
+                }
 
                 for (s, d) in sources {
-                    if let Some(opb) = &overall_pb {
-                        n_file += 1;
-                        opb.clone().update_bar(n_file);
+                    // Update the overall progress bar
+                    if progress {
+                        pb_overall.inc(1);
                     }
 
                     // Check if the user has pressed ctrl+c before copying a file
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        if progress {
+                            pb_overall.abandon_with_message("Copy interrupted");
+                        }
                         return Ok(PipelineData::empty());
                     }
 
@@ -317,47 +392,40 @@ impl Command for Cp {
                     }
                     if s.is_symlink() && not_follow_symlink {
                         let res = if interactive && d.exists() {
-                            interactive_copy(interactive, s, d, span, &None, copy_symlink)
+                            interactive_copy(interactive, s, d, span, &None, None, copy_symlink)
                         } else {
-                            copy_symlink(s, d, span, &None)
+                            copy_symlink(s, d, span, &None, None)
                         };
                         result.push(res);
                     } else if s.is_file() {
                         let res = if interactive && d.exists() {
                             if progress {
-                                is_pb = true;
                                 interactive_copy(
                                     interactive,
                                     s,
                                     d,
                                     span,
                                     &ctrlc,
+                                    Some(&pb_perfile),
                                     copy_file_with_progressbar,
                                 )
                             } else {
-                                interactive_copy(interactive, s, d, span, &None, copy_file)
+                                interactive_copy(interactive, s, d, span, &None, None, copy_file)
                             }
                         } else if progress {
-                            is_pb = true;
-                            copy_file_with_progressbar(s, d, span, &ctrlc)
+                            copy_file_with_progressbar(s, d, span, &ctrlc, Some(&pb_perfile))
                         } else {
-                            copy_file(s, d, span, &None)
+                            copy_file(s, d, span, &None, None)
                         };
                         result.push(res);
                     };
-
-                    // If the previous copy was executed with progress bar on then
-                    // move the terminal cursor up so we can update the overall progress bar.
-                    if is_pb {
-                        let _tmp_pos = stdout.execute(cursor::MoveToPreviousLine(0));
-                        is_pb = false;
-                    }
-                }
-
-                if let Some(opb) = overall_pb {
-                    opb.finished_msg("".to_string(), false);
                 }
             }
+        }
+
+        if progress {
+            pb_perfile.finish_and_clear();
+            pb_overall.finish_with_message("Files successfully copied!");
         }
 
         if verbose {
@@ -408,7 +476,8 @@ fn interactive_copy(
     dst: PathBuf,
     span: Span,
     _ctrl_status: &Option<Arc<AtomicBool>>,
-    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>) -> Value,
+    pb: Option<&ProgressBar>,
+    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>, Option<&ProgressBar>) -> Value,
 ) -> Value {
     let (interaction, confirmed) = try_interaction(
         interactive,
@@ -428,7 +497,7 @@ fn interactive_copy(
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
         Value::String { val: msg, span }
     } else {
-        copy_impl(src, dst, span, &None)
+        copy_impl(src, dst, span, &None, pb)
     }
 }
 
@@ -441,6 +510,7 @@ fn copy_file(
     dst: PathBuf,
     span: Span,
     _ctrlc_status: &Option<Arc<AtomicBool>>,
+    _pb: Option<&ProgressBar>,
 ) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
@@ -459,7 +529,9 @@ fn copy_file_with_progressbar(
     dst: PathBuf,
     span: Span,
     ctrlc_status: &Option<Arc<AtomicBool>>,
+    pb: Option<&ProgressBar>,
 ) -> Value {
+    let pb = pb.expect("Error: Missing progress bar");
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
     let file_name = &src
@@ -472,16 +544,22 @@ fn copy_file_with_progressbar(
         Err(error) => return convert_io_error(error, src, dst, span),
     };
 
-    let file_size = match file_in.metadata() {
-        Ok(metadata) => Some(metadata.len()),
-        _ => None,
+    match file_in.metadata() {
+        Ok(metadata) => {
+            pb.set_style(progress_bar::nu_progress_style(
+                progress_bar::ProgressType::ProgressBytes,
+            ));
+            pb.set_length(metadata.len());
+            //Some(metadata.len())
+        }
+        _ => {
+            pb.set_style(progress_bar::nu_progress_style(
+                progress_bar::ProgressType::ProgressBytesUnknown,
+            ));
+        }
     };
 
-    let mut bar = progress_bar::NuProgressBar::new(
-        progress_bar::ProgressType::ProgressBytes,
-        file_size,
-        file_name.to_string(),
-    );
+    pb.set_message(file_name.to_string());
 
     let file_out = match std::fs::File::create(&dst) {
         Ok(file) => file,
@@ -508,7 +586,7 @@ fn copy_file_with_progressbar(
                     Ok(bytes_written) => {
                         // Update the total amount of bytes that has been saved and then print the progress bar
                         bytes_processed += bytes_written as u64;
-                        bar.update_bar(bytes_processed);
+                        pb.set_position(bytes_processed);
 
                         // the last block of bytes is going to be lower than the buffer size
                         // let's break the loop once we write the last block
@@ -534,15 +612,16 @@ fn copy_file_with_progressbar(
     // If copying the file failed
     if let Some(error) = process_failed {
         if error.kind() == ErrorKind::Interrupted {
-            bar.abandoned_msg("# !! Interrupted !!".to_owned());
+            pb.abandon_with_message("# !! Interrupted !!".to_owned());
         } else {
-            bar.abandoned_msg("# !! Error !!".to_owned());
+            pb.abandon_with_message("# !! Error !!".to_owned());
         }
         return convert_io_error(error, src, dst, span);
     }
 
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
-    bar.finished_msg(format!(" {} copied!", &file_name), true);
+    pb.finish_with_message(format!(" {} copied!", &file_name));
+    pb.reset_elapsed();
 
     Value::String { val: msg, span }
 }
@@ -552,6 +631,7 @@ fn copy_symlink(
     dst: PathBuf,
     span: Span,
     _ctrlc_status: &Option<Arc<AtomicBool>>,
+    _pb: Option<&ProgressBar>,
 ) -> Value {
     let target_path = read_link(src.as_path());
     let target_path = match target_path {
