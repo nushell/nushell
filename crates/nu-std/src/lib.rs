@@ -16,65 +16,49 @@ pub fn load_standard_library(
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("mod.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("mod.nu"),
                 include_str!("../std/mod.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("dirs.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("dirs.nu"),
                 include_str!("../std/dirs.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("dt.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("dt.nu"),
                 include_str!("../std/dt.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("help.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("help.nu"),
                 include_str!("../std/help.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("iter.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("iter.nu"),
                 include_str!("../std/iter.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("log.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("log.nu"),
                 include_str!("../std/log.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("testing.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("testing.nu"),
                 include_str!("../std/testing.nu"),
             ),
             (
                 PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
                     .join("std")
-                    .join("xml.nu")
-                    .to_string_lossy()
-                    .to_string(),
+                    .join("xml.nu"),
                 include_str!("../std/xml.nu"),
             ),
         ];
@@ -83,8 +67,12 @@ pub fn load_standard_library(
         let mut std_virt_paths = vec![];
 
         for (name, content) in std_files.drain(..) {
-            let file_id = working_set.add_file(name.clone(), content.as_bytes());
-            let virtual_file_id = working_set.add_virtual_path(name, VirtualPath::File(file_id));
+            let file_id =
+                working_set.add_file(name.to_string_lossy().to_string(), content.as_bytes());
+            let virtual_file_id = working_set.add_virtual_path(
+                name.to_string_lossy().to_string(),
+                VirtualPath::File(file_id),
+            );
             std_virt_paths.push(virtual_file_id);
         }
 
