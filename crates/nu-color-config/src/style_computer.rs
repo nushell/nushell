@@ -140,37 +140,29 @@ impl<'a> StyleComputer<'a> {
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
         let config = engine_state.get_config();
 
-        macro_rules! initial {
-            ($a:expr, $b:expr) => {
-                ($a.to_string(), ComputableStyle::Static($b))
-            };
-        }
-
         // Create the hashmap
+        #[rustfmt::skip]
         let mut map: StyleMapping = HashMap::from([
-            initial!("separator", Color::White.normal()),
-            initial!(
-                "leading_trailing_space_bg",
-                Style::default().on(Color::Rgb(128, 128, 128))
-            ),
-            initial!("header", Color::White.normal()),
-            initial!("empty", Color::White.normal()),
-            initial!("bool", Color::White.normal()),
-            initial!("int", Color::White.normal()),
-            initial!("filesize", Color::White.normal()),
-            initial!("duration", Color::White.normal()),
-            initial!("date", Color::White.normal()),
-            initial!("range", Color::White.normal()),
-            initial!("float", Color::White.normal()),
-            initial!("string", Color::White.normal()),
-            initial!("nothing", Color::White.normal()),
-            initial!("binary", Color::White.normal()),
-            initial!("cellpath", Color::White.normal()),
-            initial!("row_index", Color::Green.bold()),
-            initial!("record", Color::White.normal()),
-            initial!("list", Color::White.normal()),
-            initial!("block", Color::White.normal()),
-            initial!("hints", Color::DarkGray.normal()),
+            ("separator".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("leading_trailing_space_bg".to_string(), ComputableStyle::Static(Style::default().on(Color::Rgb(128, 128, 128)))),
+            ("header".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("empty".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("bool".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("int".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("filesize".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("duration".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("date".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("range".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("float".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("string".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("nothing".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("binary".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("cellpath".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("row_index".to_string(), ComputableStyle::Static(Color::Green.bold())),
+            ("record".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("list".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("block".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
         ]);
 
         for (key, value) in &config.color_config {
