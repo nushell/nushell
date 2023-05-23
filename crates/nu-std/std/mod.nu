@@ -1,8 +1,7 @@
 # std.nu, `used` to load all standard library components
 
 export-env {
-    # source-env NU_STD_VIRTUAL_DIR/std/dirs.nu
-    use dirs.nu
+    use dirs.nu []
 }
 
 export use testing.nu *
