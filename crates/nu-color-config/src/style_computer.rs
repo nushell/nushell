@@ -141,7 +141,7 @@ impl<'a> StyleComputer<'a> {
         let config = engine_state.get_config();
 
         // Create the hashmap
-        #[rustfmt_skip]
+        #[rustfmt::skip]
         let mut map: StyleMapping = HashMap::from([
             ("separator".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("leading_trailing_space_bg".to_string(), ComputableStyle::Static(Style::default().on(Color::Rgb(128, 128, 128)))),
