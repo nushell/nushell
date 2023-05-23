@@ -13,7 +13,28 @@ pub struct NuProgressBar {
 #[derive(PartialEq)]
 pub enum ProgressType {
     ProgressBytes,
+    ProgressBytesUnknown,
     ProgressItems,
+    ProgressUnknown,
+}
+
+pub fn nu_progress_style(progress_type: ProgressType) -> ProgressStyle {
+    let template_str = match progress_type {
+        ProgressType::ProgressBytes => "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{bytes}/{total_bytes}] {binary_bytes_per_sec} {wide_msg}",
+        ProgressType::ProgressBytesUnknown => "{spinner:.green} [{elapsed_precise}] {bytes} {binary_bytes_per_sec} {wide_msg}",
+        ProgressType::ProgressItems => "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{pos}/{len}] {wide_msg}",
+        ProgressType::ProgressUnknown => "{spinner:.green} [{elapsed_precise}] {wide_msg}",
+    };
+
+    return ProgressStyle::with_template(template_str)
+        .unwrap_or_else(|_| ProgressStyle::default_bar())
+        .with_key(
+            "eta",
+            |state: &ProgressState, w: &mut dyn std::fmt::Write| {
+                let _ = std::fmt::write(w, format_args!("{:.1}s", state.eta().as_secs_f64()));
+            },
+        )
+        .progress_chars("#>-");
 }
 
 impl NuProgressBar {
@@ -24,7 +45,9 @@ impl NuProgressBar {
     ) -> NuProgressBar {
         let (progress_flag_current, progress_flag_goal) = match progress_type {
             ProgressType::ProgressBytes => ("{bytes}", "{total_bytes}"),
+            ProgressType::ProgressBytesUnknown => ("", ""),
             ProgressType::ProgressItems => ("{pos}", "{len}"),
+            ProgressType::ProgressUnknown => ("", ""),
         };
 
         let progress_flag_eta = if progress_type == ProgressType::ProgressBytes {
@@ -88,13 +111,13 @@ impl NuProgressBar {
         self.pb.set_position(bytes_processed);
     }
 
-    pub fn finished_msg(&self, msg: String, clear: bool) {
-        if clear {
-            self.pb.finish_and_clear();
-        } else {
-            self.pb.finish_with_message(msg);
-        }
-    }
+    // pub fn finished_msg(&self, msg: String, clear: bool) {
+    //     if clear {
+    //         self.pb.finish_and_clear();
+    //     } else {
+    //         self.pb.finish_with_message(msg);
+    //     }
+    // }
 
     pub fn abandoned_msg(&self, msg: String) {
         self.pb.abandon_with_message(msg);
