@@ -1773,11 +1773,7 @@ fn parse_module_file(
 
     // Change the currently parsed directory
     let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-        let prev = working_set.currently_parsed_cwd.clone();
-
-        working_set.currently_parsed_cwd = Some(parent.into());
-
-        prev
+        working_set.currently_parsed_cwd.replace(parent.into())
     } else {
         working_set.currently_parsed_cwd.clone()
     };
@@ -1865,8 +1861,6 @@ pub fn parse_module_file_or_dir(
         }
 
         paths.sort();
-
-        // working_set.enter_scope();
 
         let mut submodules = vec![];
 
@@ -2015,20 +2009,6 @@ pub fn parse_module(
     }]);
 
     if spans.len() == split_id + 1 {
-        // let cwd = working_set.get_cwd();
-
-        // if let Some(module_path) =
-        //     find_in_dirs(&module_name_or_path, working_set, &cwd, LIB_DIRS_VAR)
-        // {
-        //     let path_str = module_path.to_string_lossy().to_string();
-        //     let maybe_module_id = parse_module_file_or_dir(
-        //         working_set,
-        //         path_str.as_bytes(),
-        //         module_name_or_path_span,
-        //         None,
-        //     );
-        //     return (pipeline, maybe_module_id);
-
         if let Some(module_id) = parse_module_file_or_dir(
             working_set,
             module_name_or_path.as_bytes(),
@@ -3052,11 +3032,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                     if let Some(contents) = path.read(working_set) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                            let prev = working_set.currently_parsed_cwd.clone();
-
-                            working_set.currently_parsed_cwd = Some(parent.into());
-
-                            prev
+                            working_set.currently_parsed_cwd.replace(parent.into())
                         } else {
                             working_set.currently_parsed_cwd.clone()
                         };
