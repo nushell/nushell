@@ -3,8 +3,8 @@ use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::{
-    ast::Block, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable,
+    ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
+    Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{ParseError, Value};
 use core::panic;
@@ -56,6 +56,12 @@ impl Default for Usage {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum VirtualPath {
+    File(FileId),
+    Dir(Vec<VirtualPathId>),
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -102,6 +108,7 @@ impl Default for Usage {
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<(Vec<u8>, usize, usize)>,
+    virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     decls: Vec<Box<dyn Command + 'static>>,
     blocks: Vec<Block>,
@@ -144,6 +151,7 @@ impl EngineState {
         Self {
             files: vec![],
             file_contents: vec![],
+            virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -196,6 +204,7 @@ impl EngineState {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
+        self.virtual_paths.extend(delta.virtual_paths);
         self.decls.extend(delta.decls);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
@@ -555,6 +564,10 @@ impl EngineState {
         self.files.len()
     }
 
+    pub fn num_virtual_paths(&self) -> usize {
+        self.virtual_paths.len()
+    }
+
     pub fn num_vars(&self) -> usize {
         self.vars.len()
     }
@@ -828,6 +841,12 @@ impl EngineState {
             .expect("internal error: missing module")
     }
 
+    pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
+        self.virtual_paths
+            .get(virtual_path_id)
+            .expect("internal error: missing virtual path")
+    }
+
     pub fn next_span_start(&self) -> usize {
         if let Some((_, _, last)) = self.file_contents.last() {
             *last
@@ -838,29 +857,6 @@ impl EngineState {
 
     pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
         self.files.iter()
-    }
-
-    pub fn get_filename(&self, file_id: usize) -> String {
-        for file in self.files.iter().enumerate() {
-            if file.0 == file_id {
-                return file.1 .0.clone();
-            }
-        }
-
-        "<unknown>".into()
-    }
-
-    pub fn get_file_source(&self, file_id: usize) -> String {
-        for file in self.files.iter().enumerate() {
-            if file.0 == file_id {
-                let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
-                let output = String::from_utf8_lossy(contents).to_string();
-
-                return output;
-            }
-        }
-
-        "<unknown>".into()
     }
 
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
@@ -1011,6 +1007,7 @@ impl TypeScope {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
+    virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     pub blocks: Vec<Block>,       // indexed by BlockId
@@ -1033,6 +1030,7 @@ impl StateDelta {
         StateDelta {
             files: vec![],
             file_contents: vec![],
+            virtual_paths: vec![],
             vars: vec![],
             decls: vec![],
             blocks: vec![],
@@ -1046,6 +1044,10 @@ impl StateDelta {
 
     pub fn num_files(&self) -> usize {
         self.files.len()
+    }
+
+    pub fn num_virtual_paths(&self) -> usize {
+        self.virtual_paths.len()
     }
 
     pub fn num_decls(&self) -> usize {
@@ -1143,6 +1145,10 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn num_files(&self) -> usize {
         self.delta.num_files() + self.permanent_state.num_files()
+    }
+
+    pub fn num_virtual_paths(&self) -> usize {
+        self.delta.num_virtual_paths() + self.permanent_state.num_virtual_paths()
     }
 
     pub fn num_decls(&self) -> usize {
@@ -1346,33 +1352,24 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
 
-    pub fn get_filename(&self, file_id: usize) -> String {
-        for file in self.files().enumerate() {
-            if file.0 == file_id {
-                return file.1 .0.clone();
+    pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
+        for (id, (contents, _, _)) in self.delta.file_contents.iter().enumerate() {
+            if self.permanent_state.num_files() + id == file_id {
+                return Some(contents);
             }
         }
 
-        "<unknown>".into()
-    }
-
-    pub fn get_file_source(&self, file_id: usize) -> String {
-        for file in self.files().enumerate() {
-            if file.0 == file_id {
-                let output = String::from_utf8_lossy(
-                    self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
-                )
-                .to_string();
-
-                return output;
+        for (id, (contents, _, _)) in self.permanent_state.file_contents.iter().enumerate() {
+            if id == file_id {
+                return Some(contents);
             }
         }
 
-        "<unknown>".into()
+        None
     }
 
     #[must_use]
-    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
+    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> FileId {
         // First, look for the file to see if we already have it
         for (idx, (fname, file_start, file_end)) in self.files().enumerate() {
             if fname == &filename {
@@ -1395,6 +1392,13 @@ impl<'a> StateWorkingSet<'a> {
             .push((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
+    }
+
+    #[must_use]
+    pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> VirtualPathId {
+        self.delta.virtual_paths.push((name, virtual_path));
+
+        self.num_virtual_paths() - 1
     }
 
     pub fn get_span_for_file(&self, file_id: usize) -> Span {
@@ -2010,6 +2014,34 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
+        for (virtual_name, virtual_path) in self.delta.virtual_paths.iter().rev() {
+            if virtual_name == name {
+                return Some(virtual_path);
+            }
+        }
+
+        for (virtual_name, virtual_path) in self.permanent_state.virtual_paths.iter().rev() {
+            if virtual_name == name {
+                return Some(virtual_path);
+            }
+        }
+
+        None
+    }
+
+    pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
+        let num_permanent_virtual_paths = self.permanent_state.num_virtual_paths();
+        if virtual_path_id < num_permanent_virtual_paths {
+            self.permanent_state.get_virtual_path(virtual_path_id)
+        } else {
+            self.delta
+                .virtual_paths
+                .get(virtual_path_id - num_permanent_virtual_paths)
+                .expect("internal error: missing virtual path")
+        }
     }
 }
 

@@ -11,3 +11,4 @@ version = "0.80.1"
 miette = { version = "5.6.0", features = ["fancy-no-backtrace"] }
 nu-parser = { version = "0.80.1", path = "../nu-parser" }
 nu-protocol = { version = "0.80.1", path = "../nu-protocol" }
+nu-engine = { version = "0.80.1", path = "../nu-engine" }

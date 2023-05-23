@@ -2,15 +2,12 @@ use crate::tests::{fail_test, run_test_std, TestResult};
 
 #[test]
 fn library_loaded() -> TestResult {
-    run_test_std(
-        "help std | lines | first 1 | to text",
-        "std.nu, `used` to load all standard library components",
-    )
+    run_test_std("$nu.scope.modules | where name == 'std' | length", "1")
 }
 
 #[test]
 fn prelude_loaded() -> TestResult {
-    run_test_std("std help commands | where name == open | length", "1")
+    run_test_std("shells | length", "1")
 }
 
 #[test]
