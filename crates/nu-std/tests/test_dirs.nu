@@ -3,8 +3,7 @@ use std "assert length"
 use std "assert equal"
 use std "assert not equal"
 use std "assert error"
-use std "log info"
-use std "log debug"
+use std log
 
 # A couple of nuances to understand when testing module that exports environment:
 # Each 'use' for that module in the test script will execute the export def-env block.
@@ -41,20 +40,15 @@ def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
 export def test_dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
-    let $c = $in    
+    let $c = $in
 
     # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
     cd $c.base_path
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
     # the export def-env gets messed up
-    use std "dirs next"
-    use std "dirs prev"
-    use std "dirs add"
-    use std "dirs drop"
-    use std "dirs show"
-    use std "dirs goto"
-    
+    use std dirs
+
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
 
     dirs next
@@ -85,13 +79,12 @@ export def test_dirs_command [] {
 
 export def test_dirs_next [] {
     # must capture value of $in before executing `use`s
-    let $c = $in    
+    let $c = $in
     # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
-    use std "dirs next"
-    use std "dirs add"
+    use std dirs
     cur_dir_check $c.base_path "use module test setup"
 
     dirs add $c.path_a $c.path_b
@@ -107,15 +100,11 @@ export def test_dirs_next [] {
 
 export def test_dirs_cd [] {
     # must capture value of $in before executing `use`s
-    let $c = $in    
+    let $c = $in
     # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
     cd $c.base_path
 
-    use std # necessary to define $env.config??
-
-    use std "dirs next"
-    use std "dirs add"
-    use std "dirs drop"
+    use std dirs
 
     cur_dir_check $c.base_path "use module test setup"
 
