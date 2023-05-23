@@ -364,7 +364,7 @@ fn stream_to_file(
     // creating the bar when is not needed
     let (mut bar_opt, bar_opt_clone) = if progress {
         let tmp_bar = progress_bar::NuProgressBar::new(
-            progress_bar::ProgressType::ProgressBytes,
+            progress_bar::ProgressType::Bytes,
             file_total_size,
             "".to_string(),
         );

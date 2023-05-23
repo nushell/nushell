@@ -157,10 +157,9 @@ impl Command for Cp {
         // TODO: implement the if progress.
         // Create the progress bar holder and the styles
         let multi_pb = MultiProgress::new();
-        let style_overall =
-            progress_bar::nu_progress_style(progress_bar::ProgressType::ProgressItems);
+        let style_overall = progress_bar::nu_progress_style(progress_bar::ProgressType::Items);
         let style_overall_unk =
-            progress_bar::nu_progress_style(progress_bar::ProgressType::ProgressUnknown);
+            progress_bar::nu_progress_style(progress_bar::ProgressType::Unknown);
 
         // Progress bar to show the status for all files
         let pb_overall = multi_pb.add(ProgressBar::new(0));
@@ -324,7 +323,7 @@ impl Command for Cp {
                         .collect();
 
                     if progress {
-                        pb_overall.set_message(format!("Gathering file path list..."));
+                        pb_overall.set_message("Gathering file path list...".to_string());
                     }
 
                     let mut is_copy_cancelled_clone = is_copy_cancelled_clone.borrow_mut();
@@ -359,7 +358,7 @@ impl Command for Cp {
                 }
 
                 if progress {
-                    src_n_files = src_n_files + sources.len() as u64;
+                    src_n_files += sources.len() as u64;
                     pb_overall.set_style(style_overall.clone());
                     pb_overall.set_length(src_n_files);
                     pb_overall.set_message("Copying files...");
@@ -547,14 +546,14 @@ fn copy_file_with_progressbar(
     match file_in.metadata() {
         Ok(metadata) => {
             pb.set_style(progress_bar::nu_progress_style(
-                progress_bar::ProgressType::ProgressBytes,
+                progress_bar::ProgressType::Bytes,
             ));
             pb.set_length(metadata.len());
             //Some(metadata.len())
         }
         _ => {
             pb.set_style(progress_bar::nu_progress_style(
-                progress_bar::ProgressType::ProgressBytesUnknown,
+                progress_bar::ProgressType::BytesUnknown,
             ));
         }
     };

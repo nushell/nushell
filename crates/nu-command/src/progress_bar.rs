@@ -12,21 +12,21 @@ pub struct NuProgressBar {
 
 #[derive(PartialEq)]
 pub enum ProgressType {
-    ProgressBytes,
-    ProgressBytesUnknown,
-    ProgressItems,
-    ProgressUnknown,
+    Bytes,
+    BytesUnknown,
+    Items,
+    Unknown,
 }
 
 pub fn nu_progress_style(progress_type: ProgressType) -> ProgressStyle {
     let template_str = match progress_type {
-        ProgressType::ProgressBytes => "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{bytes}/{total_bytes}] {binary_bytes_per_sec} {wide_msg}",
-        ProgressType::ProgressBytesUnknown => "{spinner:.green} [{elapsed_precise}] {bytes} {binary_bytes_per_sec} {wide_msg}",
-        ProgressType::ProgressItems => "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{pos}/{len}] {wide_msg}",
-        ProgressType::ProgressUnknown => "{spinner:.green} [{elapsed_precise}] {wide_msg}",
+        ProgressType::Bytes => "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{bytes}/{total_bytes}] {binary_bytes_per_sec} {wide_msg}",
+        ProgressType::BytesUnknown => "{spinner:.green} [{elapsed_precise}] {bytes} {binary_bytes_per_sec} {wide_msg}",
+        ProgressType::Items => "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{pos}/{len}] {wide_msg}",
+        ProgressType::Unknown => "{spinner:.green} [{elapsed_precise}] {wide_msg}",
     };
 
-    return ProgressStyle::with_template(template_str)
+    ProgressStyle::with_template(template_str)
         .unwrap_or_else(|_| ProgressStyle::default_bar())
         .with_key(
             "eta",
@@ -34,7 +34,7 @@ pub fn nu_progress_style(progress_type: ProgressType) -> ProgressStyle {
                 let _ = std::fmt::write(w, format_args!("{:.1}s", state.eta().as_secs_f64()));
             },
         )
-        .progress_chars("#>-");
+        .progress_chars("#>-")
 }
 
 impl NuProgressBar {
@@ -44,18 +44,18 @@ impl NuProgressBar {
         msg: String,
     ) -> NuProgressBar {
         let (progress_flag_current, progress_flag_goal) = match progress_type {
-            ProgressType::ProgressBytes => ("{bytes}", "{total_bytes}"),
-            ProgressType::ProgressBytesUnknown => ("", ""),
-            ProgressType::ProgressItems => ("{pos}", "{len}"),
-            ProgressType::ProgressUnknown => ("", ""),
+            ProgressType::Bytes => ("{bytes}", "{total_bytes}"),
+            ProgressType::BytesUnknown => ("", ""),
+            ProgressType::Items => ("{pos}", "{len}"),
+            ProgressType::Unknown => ("", ""),
         };
 
-        let progress_flag_eta = if progress_type == ProgressType::ProgressBytes {
+        let progress_flag_eta = if progress_type == ProgressType::Bytes {
             "({eta})"
         } else {
             ""
         };
-        let progress_flag_bytes_per_sec = if progress_type == ProgressType::ProgressBytes {
+        let progress_flag_bytes_per_sec = if progress_type == ProgressType::Bytes {
             "{binary_bytes_per_sec}"
         } else {
             ""
