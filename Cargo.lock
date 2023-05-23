@@ -2603,18 +2603,15 @@ version = "0.80.1"
 dependencies = [
  "assert_cmd",
  "atty",
- "chrono",
  "criterion",
  "crossterm 0.26.1",
  "ctrlc",
- "hamcrest2",
- "is_executable",
- "itertools",
  "log",
  "miette",
  "nix",
  "nu-ansi-term",
  "nu-cli",
+ "nu-cmd-dataframe",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
@@ -2633,7 +2630,6 @@ dependencies = [
  "nu-utils",
  "openssl",
  "pretty_assertions",
- "rayon",
  "reedline",
  "rstest",
  "serde_json",
@@ -2679,9 +2675,26 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "sysinfo",
- "thiserror",
+ "sysinfo 0.29.0",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "nu-cmd-dataframe"
+version = "0.80.1"
+dependencies = [
+ "chrono",
+ "fancy-regex",
+ "indexmap",
+ "nu-cmd-lang",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "nu-test-support",
+ "num 0.4.0",
+ "polars",
+ "serde",
+ "sqlparser 0.32.0",
 ]
 
 [[package]]
@@ -2690,13 +2703,11 @@ version = "0.80.1"
 dependencies = [
  "fancy-regex",
  "itertools",
- "log",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
- "nu-test-support",
  "nu-utils",
  "shadow-rs",
 ]
@@ -2739,7 +2750,6 @@ dependencies = [
  "filesize",
  "filetime",
  "fs_extra",
- "hamcrest2",
  "htmlescape",
  "indexmap",
  "indicatif",
@@ -2756,6 +2766,7 @@ dependencies = [
  "native-tls",
  "notify",
  "nu-ansi-term",
+ "nu-cmd-dataframe",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
@@ -2779,7 +2790,6 @@ dependencies = [
  "os_pipe",
  "pathdiff",
  "percent-encoding",
- "polars",
  "powierza-coefficient",
  "print-positions",
  "quick-xml 0.28.2",
@@ -2799,16 +2809,14 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "sqlparser 0.32.0",
- "sysinfo",
+ "sysinfo 0.29.0",
  "tabled",
  "terminal_size 0.2.6",
- "thiserror",
  "titlecase",
  "toml",
  "trash",
  "umask",
  "unicode-segmentation",
- "unicode-width",
  "ureq",
  "url",
  "users 0.11.0",
@@ -2823,13 +2831,11 @@ dependencies = [
 name = "nu-engine"
 version = "0.80.1"
 dependencies = [
- "chrono",
  "nu-glob",
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "serde",
- "sysinfo",
+ "sysinfo 0.29.0",
 ]
 
 [[package]]
@@ -2876,14 +2882,12 @@ dependencies = [
  "chrono",
  "itertools",
  "log",
- "miette",
  "nu-engine",
  "nu-path",
  "nu-plugin",
  "nu-protocol",
  "rstest",
  "serde_json",
- "thiserror",
 ]
 
 [[package]]
@@ -2902,7 +2906,6 @@ dependencies = [
  "bincode",
  "nu-engine",
  "nu-protocol",
- "rmp",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -2935,7 +2938,6 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
- "sys-locale",
  "thiserror",
  "typetag",
 ]
@@ -2955,7 +2957,6 @@ version = "0.80.1"
 dependencies = [
  "atty",
  "chrono",
- "errno 0.3.1",
  "libc",
  "libproc",
  "log",
@@ -3038,7 +3039,6 @@ dependencies = [
  "eml-parser",
  "ical",
  "indexmap",
- "nu-engine",
  "nu-plugin",
  "nu-protocol",
  "rust-ini",
@@ -3049,7 +3049,6 @@ name = "nu_plugin_gstat"
 version = "0.80.1"
 dependencies = [
  "git2",
- "nu-engine",
  "nu-plugin",
  "nu-protocol",
 ]
@@ -3923,7 +3922,7 @@ dependencies = [
  "once_cell",
  "rayon",
  "smartstring",
- "sysinfo",
+ "sysinfo 0.28.4",
 ]
 
 [[package]]
@@ -5076,6 +5075,20 @@ name = "sysinfo"
 version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c2f3ca6693feb29a89724516f016488e9aafc7f37264f898593ee4b942f31b"
+dependencies = [
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02f1dc6930a439cc5d154221b5387d153f8183529b07c19aca24ea31e0a167e1"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",

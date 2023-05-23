@@ -1,6 +1,8 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 use crate::*;
+#[cfg(feature = "dataframe")]
+use nu_cmd_dataframe::*;
 
 pub fn create_default_context() -> EngineState {
     let mut engine_state = nu_cmd_lang::create_default_context();

@@ -1,40 +1,40 @@
-export def "log CRITICAL_LEVEL" [] {
+export def CRITICAL_LEVEL [] {
     50
 }
 
-export def "log ERROR_LEVEL" [] {
+export def ERROR_LEVEL [] {
     40
 }
 
-export def "log WARNING_LEVEL" [] {
+export def WARNING_LEVEL [] {
     30
 }
 
-export def "log INFO_LEVEL" [] {
+export def INFO_LEVEL [] {
     20
 }
 
-export def "log DEBUG_LEVEL" [] {
+export def DEBUG_LEVEL [] {
     10
 }
 
 def parse-string-level [
     level: string
 ] {
-    if $level in [(log CRITICAL_LEVEL_PREFIX) (log CRITICAL_LEVEL_PREFIX --short) "CRIT" "CRITICAL"] {
-        log CRITICAL_LEVEL
-    } else if $level in [(log ERROR_LEVEL_PREFIX) (log ERROR_LEVEL_PREFIX --short) "ERROR" ] {
-        log ERROR_LEVEL
-    } else if $level in [(log WARNING_LEVEL_PREFIX) (log WARNING_LEVEL_PREFIX --short) "WARN" "WARNING"] {
-        log WARNING_LEVEL
-    } else if $level in [(log DEBUG_LEVEL_PREFIX) (log DEBUG_LEVEL_PREFIX --short) "DEBUG"] {
-        log DEBUG_LEVEL
+    if $level in [(CRITICAL_LEVEL_PREFIX) (CRITICAL_LEVEL_PREFIX --short) "CRIT" "CRITICAL"] {
+        CRITICAL_LEVEL
+    } else if $level in [(ERROR_LEVEL_PREFIX) (ERROR_LEVEL_PREFIX --short) "ERROR" ] {
+        ERROR_LEVEL
+    } else if $level in [(WARNING_LEVEL_PREFIX) (WARNING_LEVEL_PREFIX --short) "WARN" "WARNING"] {
+        WARNING_LEVEL
+    } else if $level in [(DEBUG_LEVEL_PREFIX) (DEBUG_LEVEL_PREFIX --short) "DEBUG"] {
+        DEBUG_LEVEL
     } else {
-        log INFO_LEVEL
+        INFO_LEVEL
     }
 }
 
-export def "log CRITICAL_LEVEL_PREFIX" [
+export def CRITICAL_LEVEL_PREFIX [
     --short (-s)
 ] {
     if $short {
@@ -44,7 +44,7 @@ export def "log CRITICAL_LEVEL_PREFIX" [
     }
 }
 
-export def "log ERROR_LEVEL_PREFIX" [
+export def ERROR_LEVEL_PREFIX [
     --short (-s)
 ] {
     if $short {
@@ -54,7 +54,7 @@ export def "log ERROR_LEVEL_PREFIX" [
     }
 }
 
-export def "log WARNING_LEVEL_PREFIX" [
+export def WARNING_LEVEL_PREFIX [
     --short (-s)
 ] {
     if $short {
@@ -64,7 +64,7 @@ export def "log WARNING_LEVEL_PREFIX" [
     }
 }
 
-export def "log INFO_LEVEL_PREFIX" [
+export def INFO_LEVEL_PREFIX [
     --short (-s)
 ] {
     if $short {
@@ -74,7 +74,7 @@ export def "log INFO_LEVEL_PREFIX" [
     }
 }
 
-export def "log DEBUG_LEVEL_PREFIX" [
+export def DEBUG_LEVEL_PREFIX [
     --short (-s)
 ] {
     if $short {
@@ -88,41 +88,41 @@ def parse-int-level [
     level: int,
     --short (-s)
 ] {
-    if $level >= (log CRITICAL_LEVEL) {
+    if $level >= (CRITICAL_LEVEL) {
         if $short {
-            log CRITICAL_LEVEL_PREFIX --short
+            CRITICAL_LEVEL_PREFIX --short
         } else {
-            log CRITICAL_LEVEL_PREFIX
+            CRITICAL_LEVEL_PREFIX
         }
-    } else if $level >= (log ERROR_LEVEL) {
+    } else if $level >= (ERROR_LEVEL) {
         if $short {
-            log ERROR_LEVEL_PREFIX --short
+            ERROR_LEVEL_PREFIX --short
         } else {
-            log ERROR_LEVEL_PREFIX
+            ERROR_LEVEL_PREFIX
         }
-    } else if $level >= (log WARNING_LEVEL) {
+    } else if $level >= (WARNING_LEVEL) {
         if $short {
-            log WARNING_LEVEL_PREFIX --short
+            WARNING_LEVEL_PREFIX --short
         } else {
-            log WARNING_LEVEL_PREFIX
+            WARNING_LEVEL_PREFIX
         }
-    } else if $level >= (log INFO_LEVEL) {
+    } else if $level >= (INFO_LEVEL) {
         if $short {
-            log INFO_LEVEL_PREFIX --short
+            INFO_LEVEL_PREFIX --short
         } else {
-            log INFO_LEVEL_PREFIX
+            INFO_LEVEL_PREFIX
         }
     } else {
         if $short {
-            log DEBUG_LEVEL_PREFIX --short
+            DEBUG_LEVEL_PREFIX --short
         } else {
-            log DEBUG_LEVEL_PREFIX
+            DEBUG_LEVEL_PREFIX
         }
     }
 }
 
 def current-log-level [] {
-    let env_level = ($env.NU_LOG_LEVEL? | default (log INFO_LEVEL))
+    let env_level = ($env.NU_LOG_LEVEL? | default (INFO_LEVEL))
 
     try {
         $env_level | into int
@@ -144,86 +144,86 @@ def log-formatted [
 }
 
 # Log a critical message
-export def "log critical" [
+export def critical [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log CRITICAL_LEVEL) {
+    if (current-log-level) > (CRITICAL_LEVEL) {
         return
     }
 
     let prefix = if $short {
-        log CRITICAL_LEVEL_PREFIX --short
+        CRITICAL_LEVEL_PREFIX --short
     } else {
-        log CRITICAL_LEVEL_PREFIX
+        CRITICAL_LEVEL_PREFIX
     }
     log-formatted (ansi red_bold) $prefix $message
 }
 
 # Log an error message
-export def "log error" [
+export def error [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log ERROR_LEVEL) {
+    if (current-log-level) > (ERROR_LEVEL) {
         return
     }
 
     let prefix = if $short {
-        log ERROR_LEVEL_PREFIX --short
+        ERROR_LEVEL_PREFIX --short
     } else {
-        log ERROR_LEVEL_PREFIX
+        ERROR_LEVEL_PREFIX
     }
     log-formatted (ansi red) $prefix $message
 }
 
 # Log a warning message
-export def "log warning" [
+export def warning [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log WARNING_LEVEL) {
+    if (current-log-level) > (WARNING_LEVEL) {
         return
     }
 
     let prefix = if $short {
-        log WARNING_LEVEL_PREFIX --short
+        WARNING_LEVEL_PREFIX --short
     } else {
-        log WARNING_LEVEL_PREFIX
+        WARNING_LEVEL_PREFIX
     }
     log-formatted (ansi yellow) $prefix $message
 }
 
 # Log an info message
-export def "log info" [
+export def info [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log INFO_LEVEL) {
+    if (current-log-level) > (INFO_LEVEL) {
         return
     }
 
     let prefix = if $short {
-        log INFO_LEVEL_PREFIX --short
+        INFO_LEVEL_PREFIX --short
     } else {
-        log INFO_LEVEL_PREFIX
+        INFO_LEVEL_PREFIX
     }
     log-formatted (ansi default) $prefix $message
 }
 
 # Log a debug message
-export def "log debug" [
+export def debug [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
 ] {
-    if (current-log-level) > (log DEBUG_LEVEL) {
+    if (current-log-level) > (DEBUG_LEVEL) {
         return
     }
 
     let prefix = if $short {
-        log DEBUG_LEVEL_PREFIX --short
+        DEBUG_LEVEL_PREFIX --short
     } else {
-        log DEBUG_LEVEL_PREFIX
+        DEBUG_LEVEL_PREFIX
     }
     log-formatted (ansi default_dimmed) $prefix $message
 }
@@ -237,7 +237,7 @@ export def "log debug" [
 #
 # Examples:
 # - std log custom "my message" $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" (std log WARNING_LEVEL)
-export def "log custom" [
+export def custom [
     message: string, # A message
     format: string, # A format
     log_level: int # A log level

@@ -16,10 +16,7 @@ bench = false
 nu-utils = { path = "../nu-utils", version = "0.80.1" }
 
 byte-unit = "4.0.9"
-chrono = { version = "0.4.23", features = [
-    "serde",
-    "std",
-], default-features = false }
+chrono = { version = "0.4.23", features = [ "serde", "std", ], default-features = false }
 chrono-humanize = "0.2.1"
 fancy-regex = "0.11.0"
 indexmap = { version = "1.7" }
@@ -30,7 +27,6 @@ serde = { version = "1.0.143", default-features = false }
 serde_json = { version = "1.0", optional = true }
 strum = "0.24"
 strum_macros = "0.24"
-sys-locale = "0.3.0"
 thiserror = "1.0.31"
 typetag = "0.2.5"
 

@@ -16,9 +16,7 @@ nu-path = { path = "../nu-path", version = "0.80.1"  }
 nu-glob = { path = "../nu-glob", version = "0.80.1" }
 nu-utils = { path = "../nu-utils", version = "0.80.1"  }
 
-chrono = { version="0.4.23", features = ["std"], default-features = false }
-serde = {version = "1.0.143", default-features = false }
-sysinfo ="0.28.2"
+sysinfo ="0.29"
 
 [features]
 plugin = []
