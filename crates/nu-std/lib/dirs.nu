@@ -1,6 +1,8 @@
-# Maintain a list of working directories and navigates them
+# Maintain a list of working directories and navigate them
 
 # the directory stack
+# current slot is DIRS_POSITION, but that entry doesn't hold $PWD (until leaving it for some other)
+# till then, we let CD change PWD freely
 export-env {
     let-env DIRS_POSITION = 0
     let-env DIRS_LIST = [($env.PWD | path expand)]
@@ -22,9 +24,9 @@ export def-env add [
 
         }
         let-env DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
-        let-env DIRS_POSITION = $env.DIRS_POSITION + 1
 
-    _fetch 0
+
+    _fetch 1
 }
 
 export alias enter = add
@@ -51,13 +53,12 @@ export alias p = prev
 # PWD becomes the next working directory
 export def-env drop [] {
     if ($env.DIRS_LIST | length) > 1 {
-        let-env DIRS_LIST = (
-            ($env.DIRS_LIST | take $env.DIRS_POSITION) 
-            | append ($env.DIRS_LIST | skip ($env.DIRS_POSITION + 1))
-        )
+        let-env DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
+        if ($env.DIRS_POSITION >= ($env.DIRS_LIST | length)) {$env.DIRS_POSITION = 0}
     }
 
-    _fetch 0
+    _fetch -1 --forget_current   # step to previous slot
+
 }
 
 export alias dexit = drop
@@ -66,9 +67,12 @@ export alias dexit = drop
 export def-env show [] {
     mut out = []
     for $p in ($env.DIRS_LIST | enumerate) {
+        let is_act_slot = $p.index == $env.DIRS_POSITION
         $out = ($out | append [
             [active, path]; 
-            [($p.index == $env.DIRS_POSITION), $p.item]
+            [($is_act_slot), 
+            (if $is_act_slot {$env.PWD} else {$p.item})   # show current PWD in lieu of active slot
+            ]
         ])
     }
 
@@ -102,15 +106,24 @@ export alias g = goto
 
 # fetch item helper
 def-env  _fetch [
-    offset: int,    # signed change to position
+    offset: int,        # signed change to position
+    --forget_current    # true to skip saving PWD
 ] {
+    if not ($forget_current) {
+        # first record current working dir in current slot of ring, to track what CD may have done.
+        $env.DIRS_LIST = ($env.DIRS_LIST | upsert $env.DIRS_POSITION $env.PWD)
+    }
+
+    # figure out which entry to move to
     # nushell 'mod' operator is really 'remainder', can return negative values.
     # see: https://stackoverflow.com/questions/13683563/whats-the-difference-between-mod-and-remainder    
-    let pos = ($env.DIRS_POSITION 
-                + $offset 
-                + ($env.DIRS_LIST | length)
-            ) mod ($env.DIRS_LIST | length)
-    let-env DIRS_POSITION = $pos
+    let len = ($env.DIRS_LIST | length)
+    mut pos = ($env.DIRS_POSITION + $offset) mod $len
+    if ($pos < 0) { $pos += $len}
 
-    cd ($env.DIRS_LIST | get $pos )
+    # if using a different position in ring, CD there.
+    if ($pos != $env.DIRS_POSITION) {
+        $env.DIRS_POSITION = $pos
+        cd ($env.DIRS_LIST | get $pos )
+    }
 }
