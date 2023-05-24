@@ -2145,11 +2145,12 @@ pub fn parse_datetime(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    if bytes.len() < 5
+    if bytes.len() < 6
         || !bytes[0].is_ascii_digit()
         || !bytes[1].is_ascii_digit()
         || !bytes[2].is_ascii_digit()
         || !bytes[3].is_ascii_digit()
+        || bytes[4] != b'-'
     {
         working_set.error(ParseError::Expected("datetime".into(), span));
         return garbage(span);
