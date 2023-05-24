@@ -1368,7 +1368,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, def-env, alias, use, module, or extern keyword".into(),
+                    "def, def-env, alias, use, module, or extern keyword",
                     spans[1],
                 ));
 
@@ -1713,7 +1713,7 @@ pub fn parse_module_block(
                 } => block.pipelines.push(garbage_pipeline(&command.parts)),
             }
         } else {
-            working_set.error(ParseError::Expected("not a pipeline".into(), span));
+            working_set.error(ParseError::Expected("not a pipeline", span));
             block.pipelines.push(garbage_pipeline(&[span]))
         }
     }
@@ -2042,7 +2042,7 @@ pub fn parse_module(
     if block_bytes.starts_with(b"{") {
         start += 1;
     } else {
-        working_set.error(ParseError::Expected("block".into(), block_span));
+        working_set.error(ParseError::Expected("block", block_span));
         return (garbage_pipeline(spans), None);
     }
 
