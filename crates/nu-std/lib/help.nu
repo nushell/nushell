@@ -115,7 +115,7 @@ def build-module-page [module: record] {
     let usage = (if not ($module.usage? | is-empty) {[
         $module.usage
         ""
-    ]} else [])
+    ]} else { [] })
 
     let name = [
         $"(build-help-header -n "Module") ($module.name)"
@@ -131,13 +131,13 @@ def build-module-page [module: record] {
             | str join ', '
         )"
         ""
-    ]} else [])
+    ]} else { [] })
 
     let aliases = (if not ($module.aliases? | is-empty) {[
         (build-help-header -n "Exported aliases")
         $"    ($module.aliases | str join ', ')"
         ""
-    ]} else [])
+    ]} else { [] })
 
     let env_block = (if ($module.env_block? | is-empty) {[
         $"This module (ansi cyan)does not export(ansi reset) environment."
@@ -260,7 +260,7 @@ def build-alias-page [alias: record] {
     let usage = (if not ($alias.usage? | is-empty) {[
         $alias.usage
         ""
-    ]} else [])
+    ]} else { [] })
 
     let rest = [
         (build-help-header -n "Alias")
@@ -366,7 +366,7 @@ def build-extern-page [extern: record] {
     let usage = (if not ($extern.usage? | is-empty) {[
         $extern.usage
         ""
-    ]} else [])
+    ]} else { [] })
 
     let rest = [
         (build-help-header -n "Extern")
@@ -473,26 +473,26 @@ export def operators [
 def build-command-page [command: record] {
     let usage = (if not ($command.usage? | is-empty) {[
         $command.usage
-    ]} else [])
+    ]} else { [] })
     let extra_usage = (if not ($command.extra_usage? | is-empty) {[
         ""
         $command.extra_usage
-    ]} else [])
+    ]} else { [] })
 
     let search_terms = (if not ($command.search_terms? | is-empty) {[
         ""
         $"(build-help-header -n 'Search terms') ($command.search_terms)"
-    ]} else [])
+    ]} else { [] })
 
     let module = (if not ($command.module_name? | is-empty) {[
         ""
         $"(build-help-header -n 'Module') ($command.module_name)"
-    ]} else [])
+    ]} else { [] })
 
     let category = (if not ($command.category? | is-empty) {[
         ""
         $"(build-help-header -n 'Category') ($command.category)"
-    ]} else [])
+    ]} else { [] })
 
     let this = ([
         ""
@@ -555,7 +555,7 @@ def build-command-page [command: record] {
             ] | flatten | str join "")
             ""
         ]
-    } else [])
+    } else { [] })
 
     let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
     let subcommands = (if not ($subcommands | is-empty) {[
@@ -563,7 +563,7 @@ def build-command-page [command: record] {
         ($subcommands | each {|subcommand |
             $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
         } | str join "\n")
-    ]} else [])
+    ]} else { [] })
 
     let rest = (if not ($signatures | is-empty) {
         let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
@@ -635,9 +635,9 @@ def build-command-page [command: record] {
                     let rest = ($parameters | where parameter_type == rest | get 0)
                     $"  ...(ansi teal)rest(ansi reset): <(ansi light_blue)($rest.syntax_shape)(ansi reset)> ($rest.description)"
                 })
-            ]} else [])
+            ]} else { [] })
         ] | flatten)
-    } else [])
+    } else { [] })
 
     let examples = (if not ($command.examples | is-empty) {[
         ""
@@ -656,7 +656,7 @@ def build-command-page [command: record] {
             })
             ""
         ] | str join "\n"})
-    ] | flatten} else [])
+    ] | flatten} else { [] })
 
     [
         $usage
