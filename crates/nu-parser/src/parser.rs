@@ -1,5 +1,5 @@
 use crate::{
-    eval::{eval_constant, value_as_string},
+    eval_const::{eval_constant, value_as_string},
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parse_mut,

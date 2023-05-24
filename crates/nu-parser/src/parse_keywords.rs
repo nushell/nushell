@@ -20,7 +20,7 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    eval::{eval_constant, value_as_string},
+    eval_const::{eval_constant, value_as_string},
     is_math_expression_like,
     known_external::KnownExternal,
     lex,

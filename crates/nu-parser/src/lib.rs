@@ -1,5 +1,5 @@
 mod deparse;
-mod eval;
+mod eval_const;
 mod flatten;
 mod known_external;
 mod lex;
