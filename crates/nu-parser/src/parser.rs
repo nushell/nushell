@@ -4564,9 +4564,6 @@ pub fn parse_value(
                     SyntaxShape::Duration,
                     SyntaxShape::Range,
                     SyntaxShape::DateTime, //FIXME requires 3 failed conversion attempts before failing
-                    SyntaxShape::Record(vec![]),
-                    SyntaxShape::Closure(None),
-                    SyntaxShape::Block,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::String,
