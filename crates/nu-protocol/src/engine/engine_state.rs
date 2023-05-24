@@ -2243,7 +2243,7 @@ mod engine_state_tests {
         let variables = working_set
             .list_variables()
             .into_iter()
-            .map(|v| from_utf8(v))
+            .map(from_utf8)
             .collect::<Result<Vec<&str>, Utf8Error>>()?;
         assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())

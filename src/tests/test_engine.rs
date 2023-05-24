@@ -77,7 +77,7 @@ fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestRe
             let rslt = ($nu.scope.commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
             $"<($rslt)> ($rslt | describe)""#
         ),
-        &format!("{exp_result}"),
+        exp_result,
     )
 }
 
