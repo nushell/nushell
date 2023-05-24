@@ -1,8 +1,60 @@
 use nu_protocol::{
-    ast::{Expr, Expression},
-    engine::StateWorkingSet,
-    ParseError, Span, Value,
+    ast::{Block, Call, Expr, Expression, PipelineElement},
+    engine::{Stack, StateWorkingSet},
+    ParseError, PipelineData, Span, Value,
 };
+
+fn eval_const_call(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    call: &Call,
+    mut input: PipelineData,
+) -> Result<PipelineData, ParseError> {
+    let decl = working_set.get_decl(call.decl_id);
+
+    let engine_state = working_set.permanent_state;
+
+    let mut caller_stack = Stack::new();
+
+    match decl.run(engine_state, &mut caller_stack, call, input) {
+        Ok(res) => Ok(res),
+        Err(err) => Err(ParseError::NotAConstant(expr.span)),
+    }
+}
+
+fn eval_const_subexpression(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    block: &Block,
+    mut input: PipelineData,
+) -> Result<PipelineData, ParseError> {
+    for pipeline in block.pipelines.iter() {
+        for element in pipeline.elements.iter() {
+            let PipelineElement::Expression(_, expr) = element else {
+                return Err(ParseError::NotAConstant(expr.span));
+            };
+
+            input = eval_constant_with_input(working_set, expr, input)?
+        }
+    }
+
+    Ok(input)
+}
+
+fn eval_constant_with_input(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    mut input: PipelineData,
+) -> Result<PipelineData, ParseError> {
+    match &expr.expr {
+        Expr::Call(call) => eval_const_call(working_set, expr, call, input),
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            eval_const_subexpression(working_set, expr, &block, input)
+        }
+        _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
+    }
+}
 
 /// Evaluate a constant value at parse time
 ///
@@ -120,6 +172,16 @@ pub fn eval_constant(
             } else {
                 Err(ParseError::NotAConstant(expr.span))
             }
+        }
+        Expr::Call(call) => Ok(
+            eval_const_call(working_set, expr, call, PipelineData::empty())?.into_value(expr.span),
+        ),
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            Ok(
+                eval_const_subexpression(working_set, expr, &block, PipelineData::empty())?
+                    .into_value(expr.span),
+            )
         }
         _ => Err(ParseError::NotAConstant(expr.span)),
     }
