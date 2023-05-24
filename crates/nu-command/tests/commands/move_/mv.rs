@@ -1,4 +1,4 @@
-use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
+use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
@@ -463,4 +463,26 @@ fn mv_change_case_of_file() {
         assert!(!files_in_test_directory.contains(&original_file_name));
         assert!(files_in_test_directory.contains(&new_file_name));
     })
+}
+
+#[test]
+fn mv_with_update_flag() {
+    Playground::setup("mv_with_update_flag", |_dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("valid.txt"),
+            FileWithContent("newer_valid.txt", "body"),
+        ]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "mv -uf valid.txt newer_valid.txt; open newer_valid.txt",
+        );
+        assert_eq!(actual.out, "body");
+
+        // create a file after assert to make sure that newest_valid.txt is newest
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
+        let actual = nu!(cwd: sandbox.cwd(), "mv -uf newest_valid.txt valid.txt; open valid.txt");
+        assert_eq!(actual.out, "newest_body");
+    });
 }

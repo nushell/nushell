@@ -1,3 +1,4 @@
+use crate::parser_path::ParserPath;
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -1724,14 +1725,14 @@ pub fn parse_module_block(
 
 fn parse_module_file(
     working_set: &mut StateWorkingSet,
-    path: PathBuf,
+    path: ParserPath,
     path_span: Span,
     name_override: Option<String>,
 ) -> Option<ModuleId> {
     if let Some(i) = working_set
         .parsed_module_files
         .iter()
-        .rposition(|p| p == &path)
+        .rposition(|p| p == path.path())
     {
         let mut files: Vec<String> = working_set
             .parsed_module_files
@@ -1740,7 +1741,7 @@ fn parse_module_file(
             .map(|p| p.to_string_lossy().to_string())
             .collect();
 
-        files.push(path.to_string_lossy().to_string());
+        files.push(path.path().to_string_lossy().to_string());
 
         let msg = files.join("\nuses ");
 
@@ -1757,14 +1758,14 @@ fn parse_module_file(
         return None;
     };
 
-    let contents = if let Ok(contents) = std::fs::read(&path) {
+    let contents = if let Some(contents) = path.read(working_set) {
         contents
     } else {
         working_set.error(ParseError::ModuleNotFound(path_span));
         return None;
     };
 
-    let file_id = working_set.add_file(path.to_string_lossy().to_string(), &contents);
+    let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
@@ -1773,17 +1774,13 @@ fn parse_module_file(
 
     // Change the currently parsed directory
     let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-        let prev = working_set.currently_parsed_cwd.clone();
-
-        working_set.currently_parsed_cwd = Some(parent.into());
-
-        prev
+        working_set.currently_parsed_cwd.replace(parent.into())
     } else {
         working_set.currently_parsed_cwd.clone()
     };
 
     // Add the file to the stack of parsed module files
-    working_set.parsed_module_files.push(path);
+    working_set.parsed_module_files.push(path.path_buf());
 
     // Parse the module
     let (block, module, module_comments) =
@@ -1824,91 +1821,87 @@ pub fn parse_module_file_or_dir(
         };
 
     if module_path.is_dir() {
-        if let Ok(dir_contents) = std::fs::read_dir(&module_path) {
-            let module_name = if let Some(stem) = module_path.file_stem() {
-                stem.to_string_lossy().to_string()
-            } else {
-                working_set.error(ParseError::ModuleNotFound(path_span));
-                return None;
-            };
+        let Some(dir_contents) = module_path.read_dir() else {
+            working_set.error(ParseError::ModuleNotFound(path_span));
+            return None;
+        };
 
-            let mod_nu_path = module_path.join("mod.nu");
-
-            if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
-                working_set.error(ParseError::ModuleMissingModNuFile(path_span));
-                return None;
-            }
-
-            let mut paths = vec![];
-
-            for entry in dir_contents.flatten() {
-                let entry_path = entry.path();
-
-                if (entry_path.is_file()
-                    && entry_path.extension() == Some(OsStr::new("nu"))
-                    && entry_path.file_stem() != Some(OsStr::new("mod")))
-                    || (entry_path.is_dir() && entry_path.join("mod.nu").exists())
-                {
-                    if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
-                        working_set.error(ParseError::InvalidModuleFileName(
-                            module_path.to_string_lossy().to_string(),
-                            module_name,
-                            path_span,
-                        ));
-                        return None;
-                    }
-
-                    paths.push(entry_path);
-                }
-            }
-
-            paths.sort();
-
-            // working_set.enter_scope();
-
-            let mut submodules = vec![];
-
-            for p in paths {
-                if let Some(submodule_id) = parse_module_file_or_dir(
-                    working_set,
-                    p.to_string_lossy().as_bytes(),
-                    path_span,
-                    None,
-                ) {
-                    let submodule_name = working_set.get_module(submodule_id).name();
-                    submodules.push((submodule_name, submodule_id));
-                }
-            }
-
-            if let Some(module_id) = parse_module_file(
-                working_set,
-                mod_nu_path,
-                path_span,
-                name_override.or(Some(module_name)),
-            ) {
-                let mut module = working_set.get_module(module_id).clone();
-
-                for (submodule_name, submodule_id) in submodules {
-                    module.add_submodule(submodule_name, submodule_id);
-                }
-
-                let module_name = String::from_utf8_lossy(&module.name).to_string();
-
-                let module_comments =
-                    if let Some(comments) = working_set.get_module_comments(module_id) {
-                        comments.to_vec()
-                    } else {
-                        vec![]
-                    };
-
-                let new_module_id = working_set.add_module(&module_name, module, module_comments);
-
-                Some(new_module_id)
-            } else {
-                None
-            }
+        let module_name = if let Some(stem) = module_path.file_stem() {
+            stem.to_string_lossy().to_string()
         } else {
             working_set.error(ParseError::ModuleNotFound(path_span));
+            return None;
+        };
+
+        let mod_nu_path = module_path.clone().join("mod.nu");
+
+        if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
+            working_set.error(ParseError::ModuleMissingModNuFile(path_span));
+            return None;
+        }
+
+        let mut paths = vec![];
+
+        for entry_path in dir_contents {
+            if (entry_path.is_file()
+                && entry_path.extension() == Some(OsStr::new("nu"))
+                && entry_path.file_stem() != Some(OsStr::new("mod")))
+                || (entry_path.is_dir() && entry_path.clone().join("mod.nu").exists())
+            {
+                if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
+                    working_set.error(ParseError::InvalidModuleFileName(
+                        module_path.path().to_string_lossy().to_string(),
+                        module_name,
+                        path_span,
+                    ));
+                    return None;
+                }
+
+                paths.push(entry_path);
+            }
+        }
+
+        paths.sort();
+
+        let mut submodules = vec![];
+
+        for p in paths {
+            if let Some(submodule_id) = parse_module_file_or_dir(
+                working_set,
+                p.path().to_string_lossy().as_bytes(),
+                path_span,
+                None,
+            ) {
+                let submodule_name = working_set.get_module(submodule_id).name();
+                submodules.push((submodule_name, submodule_id));
+            }
+        }
+
+        if let Some(module_id) = parse_module_file(
+            working_set,
+            mod_nu_path,
+            path_span,
+            name_override.or(Some(module_name)),
+        ) {
+            let mut module = working_set.get_module(module_id).clone();
+
+            for (submodule_name, submodule_id) in submodules {
+                module.add_submodule(submodule_name, submodule_id);
+            }
+
+            let module_name = String::from_utf8_lossy(&module.name).to_string();
+
+            let module_comments = if let Some(comments) = working_set.get_module_comments(module_id)
+            {
+                comments.to_vec()
+            } else {
+                vec![]
+            };
+
+            let new_module_id = working_set.add_module(&module_name, module, module_comments);
+
+            Some(new_module_id)
+        } else {
             None
         }
     } else if module_path.is_file() {
@@ -2017,19 +2010,13 @@ pub fn parse_module(
     }]);
 
     if spans.len() == split_id + 1 {
-        let cwd = working_set.get_cwd();
-
-        if let Some(module_path) =
-            find_in_dirs(&module_name_or_path, working_set, &cwd, LIB_DIRS_VAR)
-        {
-            let path_str = module_path.to_string_lossy().to_string();
-            let maybe_module_id = parse_module_file_or_dir(
-                working_set,
-                path_str.as_bytes(),
-                module_name_or_path_span,
-                None,
-            );
-            return (pipeline, maybe_module_id);
+        if let Some(module_id) = parse_module_file_or_dir(
+            working_set,
+            module_name_or_path.as_bytes(),
+            module_name_or_path_span,
+            None,
+        ) {
+            return (pipeline, Some(module_id));
         } else {
             working_set.error(ParseError::ModuleNotFound(module_name_or_path_span));
             return (pipeline, None);
@@ -3043,14 +3030,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
-                    if let Ok(contents) = std::fs::read(&path) {
+                    if let Some(contents) = path.read(working_set) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                            let prev = working_set.currently_parsed_cwd.clone();
-
-                            working_set.currently_parsed_cwd = Some(parent.into());
-
-                            prev
+                            working_set.currently_parsed_cwd.replace(parent.into())
                         } else {
                             working_set.currently_parsed_cwd.clone()
                         };
@@ -3059,7 +3042,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            Some(&path.to_string_lossy()),
+                            Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
@@ -3300,6 +3283,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
     let error = match signature {
         Some(signature) => arguments.and_then(|(path, path_span)| {
+            let path = path.path_buf();
             // restrict plugin file name starts with `nu_plugin_`
             let valid_plugin_name = path
                 .file_name()
@@ -3320,13 +3304,14 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             }
         }),
         None => arguments.and_then(|(path, path_span)| {
+            let path = path.path_buf();
             // restrict plugin file name starts with `nu_plugin_`
             let valid_plugin_name = path
                 .file_name()
                 .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
             if let Some(true) = valid_plugin_name {
-                get_signature(path.as_path(), &shell, &current_envs)
+                get_signature(&path, &shell, &current_envs)
                     .map_err(|err| {
                         ParseError::LabeledError(
                             "Error getting signatures".into(),
@@ -3393,28 +3378,52 @@ pub fn find_in_dirs(
     working_set: &StateWorkingSet,
     cwd: &str,
     dirs_var_name: &str,
-) -> Option<PathBuf> {
+) -> Option<ParserPath> {
     pub fn find_in_dirs_with_id(
         filename: &str,
         working_set: &StateWorkingSet,
         cwd: &str,
         dirs_var_name: &str,
-    ) -> Option<PathBuf> {
+    ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
         let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
             currently_parsed_cwd.as_path()
         } else {
             Path::new(cwd)
         };
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
-            return Some(p);
+
+        // Try if we have an existing virtual path
+        if let Some(virtual_path) = working_set.find_virtual_path(filename) {
+            return Some(ParserPath::from_virtual_path(
+                working_set,
+                filename,
+                virtual_path,
+            ));
+        } else {
+            let abs_virtual_filename = actual_cwd.join(filename);
+            let abs_virtual_filename = abs_virtual_filename.to_string_lossy();
+
+            if let Some(virtual_path) = working_set.find_virtual_path(&abs_virtual_filename) {
+                return Some(ParserPath::from_virtual_path(
+                    working_set,
+                    &abs_virtual_filename,
+                    virtual_path,
+                ));
+            }
         }
 
+        // Try if we have an existing physical path
+        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+            return Some(ParserPath::RealPath(p));
+        }
+
+        // Early-exit if path is non-existent absolute path
         let path = Path::new(filename);
         if !path.is_relative() {
             return None;
         }
 
+        // Look up relative path from NU_LIB_DIRS
         working_set
             .find_constant(find_dirs_var(working_set, dirs_var_name)?)?
             .as_list()
@@ -3427,9 +3436,11 @@ pub fn find_in_dirs(
             })
             .find(Option::is_some)
             .flatten()
+            .map(ParserPath::RealPath)
     }
 
     // TODO: remove (see #8310)
+    // Same as find_in_dirs_with_id but using $env.NU_LIB_DIRS instead of constant
     pub fn find_in_dirs_old(
         filename: &str,
         working_set: &StateWorkingSet,
@@ -3475,8 +3486,9 @@ pub fn find_in_dirs(
         }
     }
 
-    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
-        .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
+    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name).or_else(|| {
+        find_in_dirs_old(filename, working_set, cwd, dirs_var_name).map(ParserPath::RealPath)
+    })
 }
 
 fn detect_params_in_name(
