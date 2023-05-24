@@ -176,10 +176,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     if bytes.starts_with(b"{") {
         start += 1;
     } else {
-        working_set.error(ParseError::Expected(
-            "{".into(),
-            Span::new(start, start + 1),
-        ));
+        working_set.error(ParseError::Expected("{", Span::new(start, start + 1)));
         bytes = working_set.get_span_contents(span);
     }
 
