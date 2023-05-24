@@ -394,9 +394,7 @@ fn convert_str_from_unit_to_unit(
         ("yr", "yr") => Ok(val as f64),
         ("yr", "dec") => Ok(val as f64 / 10.0),
 
-        _ => Err(ShellError::CantConvertWithValue {
-            to_type: "string duration".to_string(),
-            from_type: "string duration".to_string(),
+        _ => Err(ShellError::CantConvertToDuration {
             details: to_unit.to_string(),
             dst_span: span,
             src_span: value_span,
@@ -433,9 +431,7 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         }
     }
 
-    Err(ShellError::CantConvertWithValue {
-        to_type: "duration".to_string(),
-        from_type: "string".to_string(),
+    Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,
@@ -476,9 +472,7 @@ fn string_to_unit_duration(
         }
     }
 
-    Err(ShellError::CantConvertWithValue {
-        to_type: "duration".to_string(),
-        from_type: "string".to_string(),
+    Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,

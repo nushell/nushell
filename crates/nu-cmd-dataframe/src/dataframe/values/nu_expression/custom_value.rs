@@ -126,9 +126,9 @@ fn with_operator(
             .into_value(lhs_span)),
         _ => Err(ShellError::OperatorMismatch {
             op_span,
-            lhs_ty: Type::Custom(left.typetag_name().into()),
+            lhs_ty: Type::Custom(left.typetag_name().into()).to_string(),
             lhs_span,
-            rhs_ty: Type::Custom(right.typetag_name().into()),
+            rhs_ty: Type::Custom(right.typetag_name().into()).to_string(),
             rhs_span,
         }),
     }
