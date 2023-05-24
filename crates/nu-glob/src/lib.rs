@@ -1248,7 +1248,7 @@ mod test {
     #[test]
     fn test_lots_of_files() {
         // this is a good test because it touches lots of differently named files
-        glob("/*/*/*/*").unwrap().skip(10000).next();
+        glob("/*/*/*/*").unwrap().nth(10000);
     }
 
     #[test]

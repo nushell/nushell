@@ -42,7 +42,11 @@ pub enum ParseError {
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
-    Expected(String, #[label("expected {0}")] Span),
+    Expected(&'static str, #[label("expected {0}")] Span),
+
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
+    ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -473,6 +477,7 @@ impl ParseError {
             ParseError::Unclosed(_, s) => *s,
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
+            ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
             ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
