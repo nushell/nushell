@@ -12,61 +12,27 @@ pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let (block, delta) = {
+        // Using full virtual path to avoid potential conflicts with user having 'std' directory
+        // in their working directory.
+        let std_dir = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("std");
+
         let mut std_files = vec![
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("mod.nu"),
-                include_str!("../std/mod.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("dirs.nu"),
-                include_str!("../std/dirs.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("dt.nu"),
-                include_str!("../std/dt.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("help.nu"),
-                include_str!("../std/help.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("iter.nu"),
-                include_str!("../std/iter.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("log.nu"),
-                include_str!("../std/log.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("testing.nu"),
-                include_str!("../std/testing.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("xml.nu"),
-                include_str!("../std/xml.nu"),
-            ),
+            ("mod.nu", include_str!("../std/mod.nu")),
+            ("dirs.nu", include_str!("../std/dirs.nu")),
+            ("dt.nu", include_str!("../std/dt.nu")),
+            ("help.nu", include_str!("../std/help.nu")),
+            ("iter.nu", include_str!("../std/iter.nu")),
+            ("log.nu", include_str!("../std/log.nu")),
+            ("testing.nu", include_str!("../std/testing.nu")),
+            ("xml.nu", include_str!("../std/xml.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
         let mut std_virt_paths = vec![];
 
         for (name, content) in std_files.drain(..) {
+            let name = std_dir.join(name);
+
             let file_id =
                 working_set.add_file(name.to_string_lossy().to_string(), content.as_bytes());
             let virtual_file_id = working_set.add_virtual_path(
@@ -76,19 +42,21 @@ pub fn load_standard_library(
             std_virt_paths.push(virtual_file_id);
         }
 
-        // Using full virtual path to avoid potential conflicts with user having 'std' directory
-        // in their working directory.
-        let std_dir = PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-            .join("std")
-            .to_string_lossy()
-            .to_string();
+        let std_dir = std_dir.to_string_lossy().to_string();
         let source = format!(
             r#"
 # Define the `std` module
 module {std_dir}
 
 # Prelude
-use std dirs [ enter, shells, g, n, p, dexit ]
+use std dirs [
+    enter
+    shells
+    g
+    n
+    p
+    dexit
+]
 "#
         );
 

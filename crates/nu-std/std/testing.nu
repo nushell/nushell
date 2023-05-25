@@ -5,7 +5,7 @@
 # Assert commands and test runner.
 #
 ##################################################################################
-export use log.nu
+use log.nu
 
 # Universal assert command
 #
