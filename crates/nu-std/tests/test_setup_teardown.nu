@@ -1,5 +1,4 @@
-use std "log debug"
-use std "log error"
+use std log
 use std "assert"
 use std "assert skip"
 
