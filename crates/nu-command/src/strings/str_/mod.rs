@@ -10,6 +10,7 @@ mod reverse;
 mod starts_with;
 mod substring;
 mod trim;
+mod expand;
 
 pub use case::*;
 pub use contains::SubCommand as StrContains;
