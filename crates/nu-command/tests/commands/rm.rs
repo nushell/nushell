@@ -136,6 +136,18 @@ fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_fla
 }
 
 #[test]
+fn errors_if_attempting_to_delete_home() {
+    Playground::setup("rm_test_8", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.root(),
+            "let-env HOME = myhome ; rm -rf ~"
+        );
+
+        assert!(actual.err.contains("please use -I or -i"));
+    })
+}
+
+#[test]
 fn errors_if_attempting_to_delete_single_dot_as_argument() {
     Playground::setup("rm_test_7", |dirs, _| {
         let actual = nu!(
