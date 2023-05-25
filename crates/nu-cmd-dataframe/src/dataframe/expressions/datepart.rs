@@ -1,6 +1,6 @@
 use super::super::values::NuExpression;
 
-use chrono::{FixedOffset, DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -62,7 +62,21 @@ impl Command for ExprDatePart {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["datepart", "date", "year", "month", "week", "weekday", "quarter", "day", "hour", "minute", "second", "millisecond", "microsecond", "nanosecond"]
+        vec![
+            "date",
+            "year",
+            "month",
+            "week",
+            "weekday",
+            "quarter",
+            "day",
+            "hour",
+            "minute",
+            "second",
+            "millisecond",
+            "microsecond",
+            "nanosecond",
+        ]
     }
 
     fn run(
