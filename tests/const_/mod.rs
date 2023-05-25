@@ -95,10 +95,28 @@ fn const_nothing() {
 }
 
 #[test]
-fn const_unsupported() {
-    let inp = &[r#"const x = ('abc' | str length)"#];
+fn const_subexpression_supported() {
+    let inp = &[r#"const x = ('spam'); $x"#];
 
     let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
 
-    assert!(actual.err.contains("not_a_constant"));
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn const_command_supported() {
+    let inp = &[r#"const x = ('spam' | str length); $x"#];
+
+    let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn const_command_unsupported() {
+    let inp = &[r#"const x = (loop { break })"#];
+
+    let actual = nu!(cwd: "tests/const_", pipeline(&inp.join("; ")));
+
+    assert!(actual.err.contains("not_a_const_command"));
 }

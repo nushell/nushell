@@ -449,6 +449,19 @@ pub enum ParseError {
     )]
     NotAConstant(#[label = "Value is not a parse-time constant"] Span),
 
+    /// Tried running a command that is not const-compatible
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of builtin commands, and custom commands built only from those commands, can
+    /// run at parse time.
+    #[error("Not a const command.")]
+    #[diagnostic(
+        code(nu::parser::not_a_const_command),
+        help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
+    )]
+    NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
+
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -547,6 +560,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+            ParseError::NotAConstCommand(s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
         }
     }

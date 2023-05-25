@@ -57,6 +57,10 @@ impl Command for SubCommand {
         vec!["size", "count"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

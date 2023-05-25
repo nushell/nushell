@@ -11,6 +11,9 @@ fn eval_const_call(
     mut input: PipelineData,
 ) -> Result<PipelineData, ParseError> {
     let decl = working_set.get_decl(call.decl_id);
+    if !decl.is_const() {
+        return Err(ParseError::NotAConstCommand(call.head));
+    }
 
     let engine_state = working_set.permanent_state;
 
@@ -18,6 +21,7 @@ fn eval_const_call(
 
     match decl.run(engine_state, &mut caller_stack, call, input) {
         Ok(res) => Ok(res),
+        // TODO: Translate shell error to parser error
         Err(err) => Err(ParseError::NotAConstant(expr.span)),
     }
 }
@@ -50,7 +54,7 @@ fn eval_constant_with_input(
         Expr::Call(call) => eval_const_call(working_set, expr, call, input),
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            eval_const_subexpression(working_set, expr, &block, input)
+            eval_const_subexpression(working_set, expr, block, input)
         }
         _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
     }
@@ -179,7 +183,7 @@ pub fn eval_constant(
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             Ok(
-                eval_const_subexpression(working_set, expr, &block, PipelineData::empty())?
+                eval_const_subexpression(working_set, expr, block, PipelineData::empty())?
                     .into_value(expr.span),
             )
         }

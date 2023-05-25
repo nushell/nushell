@@ -83,6 +83,11 @@ pub trait Command: Send + Sync + CommandClone {
         None
     }
 
+    // Whether can run in const evaluation in the parser
+    fn is_const(&self) -> bool {
+        false
+    }
+
     // If command is a block i.e. def blah [] { }, get the block id
     fn get_block_id(&self) -> Option<BlockId> {
         None
