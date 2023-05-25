@@ -1,6 +1,7 @@
 use super::super::values::NuExpression;
 
-use chrono::{DateTime, FixedOffset, Utc};
+use crate::dataframe::values::{Column, NuDataFrame};
+use chrono::{DateTime, Datelike, FixedOffset, Utc};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -33,37 +34,27 @@ impl Command for ExprDatePart {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let example_value: DateTime<FixedOffset> = Utc::now().into();
+        let dt = DateTime::<FixedOffset>::parse_from_str(
+            "2021-12-30T01:02:03.123456789 +0000",
+            "%Y-%m-%dT%H:%M:%S.%9f %z",
+        )
+        .expect("date calculation should not fail in test");
         vec![Example {
             description: "Creates an expression to capture date parts",
-            example: "dfr col a | dfr datepart year | dfr into-nu",
-            result: {
-                let cols = vec!["expr".into(), "value".into()];
-                let expr = Value::test_string("column");
-                let value = Value::test_string("a");
-                let expr = Value::Record {
-                    cols,
-                    vals: vec![expr, value],
-                    span: Span::test_data(),
-                };
-
-                let cols = vec!["expr".into(), "datepart".into()];
-                let value = Value::test_date(example_value);
-
-                let record = Value::Record {
-                    cols,
-                    vals: vec![expr, value],
-                    span: Span::test_data(),
-                };
-
-                Some(record)
-            },
+            example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | dfr with-column [(dfr col datetime | dfr datepart year | dfr as datetime_year )]"#,
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
+                    Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "date",
             "year",
             "month",
             "week",
@@ -123,8 +114,11 @@ impl Command for ExprDatePart {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::eager::WithColumn;
+    use crate::dataframe::expressions::ExprAlias;
     use crate::dataframe::expressions::ExprAsNu;
     use crate::dataframe::expressions::ExprCol;
+    use crate::dataframe::series::AsDateTime;
 
     #[test]
     fn test_examples() {
@@ -132,6 +126,9 @@ mod test {
             Box::new(ExprDatePart {}),
             Box::new(ExprCol {}),
             Box::new(ExprAsNu {}),
+            Box::new(AsDateTime {}),
+            Box::new(WithColumn {}),
+            Box::new(ExprAlias {}),
         ])
     }
 }
