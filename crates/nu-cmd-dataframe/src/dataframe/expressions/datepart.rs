@@ -95,7 +95,7 @@ impl Command for ExprDatePart {
                     call.head,
                     call.head, // need to do better here
                 ));
-            }            
+            }
         }.into();
 
         Ok(PipelineData::Value(

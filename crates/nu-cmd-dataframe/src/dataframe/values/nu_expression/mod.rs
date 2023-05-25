@@ -1,6 +1,5 @@
 mod custom_value;
 
-use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use polars::prelude::{col, AggExpr, Expr, Literal};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
