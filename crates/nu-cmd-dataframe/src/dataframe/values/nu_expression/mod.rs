@@ -30,7 +30,6 @@ impl<'de> Deserialize<'de> for NuExpression {
     }
 }
 
-
 // Referenced access to the real LazyFrame
 impl AsRef<Expr> for NuExpression {
     fn as_ref(&self) -> &polars::prelude::Expr {

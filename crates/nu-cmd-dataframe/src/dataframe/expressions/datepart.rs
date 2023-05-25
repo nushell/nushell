@@ -1,7 +1,7 @@
 use super::super::values::NuExpression;
 
 use crate::dataframe::values::{Column, NuDataFrame};
-use chrono::{DateTime, Datelike, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
