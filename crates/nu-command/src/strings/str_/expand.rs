@@ -126,11 +126,10 @@ fn expand(input: &str) -> Option<Vec<String>> {
         return None;
     }
     let mut expansions = Vec::<String>::new();
-    let mut iter = input.chars();
     let mut count = (0, 0); // right, left / open, close
     let mut fixes = (String::new(), String::new()); // prefix, postfix
     let mut inside = String::new();
-    while let Some(c) = iter.next() {
+    for c in input.chars() {
         match c {
             '{' => {
                 if count.0 != 0 {
@@ -185,10 +184,9 @@ fn split(content: impl ToString) -> Option<Vec<String>> {
         return None;
     }
     let mut pieces: Vec<String> = Vec::new();
-    let mut iter = content.chars();
     let mut count = (0, 0); // right, left / open, close
     let mut piece = String::new();
-    while let Some(c) = iter.next() {
+    for c in content.chars() {
         match c {
             '{' | '}' => {
                 piece.push(c);
