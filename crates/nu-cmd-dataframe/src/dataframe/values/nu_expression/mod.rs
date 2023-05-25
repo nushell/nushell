@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // Polars Expression wrapper for Nushell operations
 // Object is behind and Option to allow easy implementation of
 // the Deserialize trait
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct NuExpression(Option<Expr>);
 
 // Mocked serialization of the LazyFrame object
@@ -31,11 +31,6 @@ impl<'de> Deserialize<'de> for NuExpression {
     }
 }
 
-impl fmt::Debug for NuExpression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NuExpression")
-    }
-}
 
 // Referenced access to the real LazyFrame
 impl AsRef<Expr> for NuExpression {
@@ -132,6 +127,7 @@ impl NuExpression {
     }
 }
 
+#[derive(Debug)]
 // Enum to represent the parsing of the expressions from Value
 enum ExtractedExpr {
     Single(Expr),

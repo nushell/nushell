@@ -9,6 +9,7 @@ mod lit;
 mod otherwise;
 mod quantile;
 mod when;
+mod datepart;
 
 use nu_protocol::engine::StateWorkingSet;
 
@@ -23,6 +24,7 @@ pub(super) use crate::dataframe::expressions::lit::ExprLit;
 pub(super) use crate::dataframe::expressions::otherwise::ExprOtherwise;
 pub(super) use crate::dataframe::expressions::quantile::ExprQuantile;
 pub(super) use crate::dataframe::expressions::when::ExprWhen;
+pub(crate) use crate::dataframe::expressions::datepart::ExprDatePart;
 
 pub fn add_expressions(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -64,6 +66,7 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprMean,
         ExprMedian,
         ExprStd,
-        ExprVar
+        ExprVar,
+        ExprDatePart
     );
 }
