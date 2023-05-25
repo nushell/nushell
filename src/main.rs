@@ -152,6 +152,18 @@ fn main() -> Result<()> {
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
     }
 
+    start_time = std::time::Instant::now();
+    // First, set up env vars as strings only
+    gather_parent_env_vars(&mut engine_state, &init_cwd);
+    perf(
+        "gather env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
     }
@@ -236,18 +248,6 @@ fn main() -> Result<()> {
     };
     perf(
         "redirect stdin",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
-    // First, set up env vars as strings only
-    gather_parent_env_vars(&mut engine_state, &init_cwd);
-    perf(
-        "gather env vars",
         start_time,
         file!(),
         line!(),

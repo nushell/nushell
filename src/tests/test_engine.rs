@@ -77,7 +77,7 @@ fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestRe
             let rslt = ($nu.scope.commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
             $"<($rslt)> ($rslt | describe)""#
         ),
-        &format!("{exp_result}"),
+        exp_result,
     )
 }
 
@@ -340,8 +340,13 @@ fn default_value12() -> TestResult {
 }
 
 #[test]
-fn default_value_constant() -> TestResult {
+fn default_value_constant1() -> TestResult {
     run_test(r#"def foo [x = "foo"] { $x }; foo"#, "foo")
+}
+
+#[test]
+fn default_value_constant2() -> TestResult {
+    run_test(r#"def foo [secs = 1sec] { $secs }; foo"#, "1sec")
 }
 
 #[test]

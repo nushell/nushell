@@ -171,9 +171,9 @@ fn use_export_env_combined() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
+                def foo [] { 'foo' }
                 alias bar = foo
                 export-env { let-env FOO = (bar) }
-                def foo [] { 'foo' }
             "#,
         )]);
 
