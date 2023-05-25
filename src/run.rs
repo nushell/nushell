@@ -23,7 +23,7 @@ pub(crate) fn run_commands(
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
-    // and maybe the default config file (depending on parsed_nu_cli_args.config_file)
+    // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
     //
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
@@ -46,7 +46,6 @@ pub(crate) fn run_commands(
         let start_time = std::time::Instant::now();
         // only want to load config and env if relative argument is provided.
         if parsed_nu_cli_args.env_file.is_some() {
-            eprintln!("Loading env file: {:?}", &parsed_nu_cli_args.env_file);
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
@@ -54,7 +53,6 @@ pub(crate) fn run_commands(
                 true,
             );
         } else {
-            eprintln!("Loading default env file");
             config_files::read_default_env_file(engine_state, &mut stack)
         }
         perf(
@@ -68,7 +66,6 @@ pub(crate) fn run_commands(
 
         let start_time = std::time::Instant::now();
         if parsed_nu_cli_args.config_file.is_some() {
-            eprintln!("Loading config file: {:?}", &parsed_nu_cli_args.config_file);
             config_files::read_config_file(
                 engine_state,
                 &mut stack,
