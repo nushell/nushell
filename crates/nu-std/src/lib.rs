@@ -13,60 +13,22 @@ pub fn load_standard_library(
 ) -> Result<(), miette::ErrReport> {
     let (block, delta) = {
         let mut std_files = vec![
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("mod.nu"),
-                include_str!("../std/mod.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("dirs.nu"),
-                include_str!("../std/dirs.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("dt.nu"),
-                include_str!("../std/dt.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("help.nu"),
-                include_str!("../std/help.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("iter.nu"),
-                include_str!("../std/iter.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("log.nu"),
-                include_str!("../std/log.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("testing.nu"),
-                include_str!("../std/testing.nu"),
-            ),
-            (
-                PathBuf::from(NU_STDLIB_VIRTUAL_DIR)
-                    .join("std")
-                    .join("xml.nu"),
-                include_str!("../std/xml.nu"),
-            ),
+            ("mod.nu", include_str!("../std/mod.nu")),
+            ("dirs.nu", include_str!("../std/dirs.nu")),
+            ("dt.nu", include_str!("../std/dt.nu")),
+            ("help.nu", include_str!("../std/help.nu")),
+            ("iter.nu", include_str!("../std/iter.nu")),
+            ("log.nu", include_str!("../std/log.nu")),
+            ("testing.nu", include_str!("../std/testing.nu")),
+            ("xml.nu", include_str!("../std/xml.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
         let mut std_virt_paths = vec![];
 
         for (name, content) in std_files.drain(..) {
+            let name = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("std").join(name);
+
             let file_id =
                 working_set.add_file(name.to_string_lossy().to_string(), content.as_bytes());
             let virtual_file_id = working_set.add_virtual_path(
