@@ -263,4 +263,15 @@ export def setup-git-hooks [] {
     }
 }
 
+def "nu-complete list features" [] {
+    open Cargo.toml | get features | transpose feature dependencies | get feature
+}
+
+# install Nushell and features you want
+export def install [
+    ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+] {
+    cargo install --path . --features ($features | str join ",")
+}
+
 export def main [] { help toolkit }
