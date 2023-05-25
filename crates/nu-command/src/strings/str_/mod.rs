@@ -24,3 +24,4 @@ pub use reverse::SubCommand as StrReverse;
 pub use starts_with::SubCommand as StrStartsWith;
 pub use substring::SubCommand as StrSubstring;
 pub use trim::Trim as StrTrim;
+pub use expand::SubCommand as StrExpand;
