@@ -8,7 +8,7 @@ fn eval_const_call(
     working_set: &StateWorkingSet,
     expr: &Expression,
     call: &Call,
-    mut input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ParseError> {
     let decl = working_set.get_decl(call.decl_id);
     if !decl.is_const() {
@@ -48,7 +48,7 @@ fn eval_const_subexpression(
 fn eval_constant_with_input(
     working_set: &StateWorkingSet,
     expr: &Expression,
-    mut input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ParseError> {
     match &expr.expr {
         Expr::Call(call) => eval_const_call(working_set, expr, call, input),
