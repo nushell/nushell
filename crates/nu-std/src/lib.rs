@@ -50,7 +50,14 @@ pub fn load_standard_library(
 module {std_dir}
 
 # Prelude
-use std dirs [ enter, shells, g, n, p, dexit ]
+use std dirs [
+    enter
+    shells
+    g
+    n
+    p
+    dexit
+]
 "#
         );
 
