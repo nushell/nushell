@@ -188,6 +188,10 @@ pub fn evaluate_repl(
         );
     }
 
+    if engine_state.get_config().show_startup_time && !engine_state.get_config().show_banner {
+        println!("startup time: {}", engine_state.get_startup_time());
+    }
+
     loop {
         let loop_start_time = std::time::Instant::now();
 
