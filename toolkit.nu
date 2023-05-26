@@ -274,4 +274,26 @@ export def install [
     cargo install --path . --features ($features | str join ",")
 }
 
+def windows? [] {
+    $nu.os-info.name == windows
+}
+
+# filter out files that end in .d
+def keep-plugin-executables [] {
+    if (windows?) { where name ends-with '.exe' } else { where name !~ '\.d' }
+}
+
+# register all installed plugins
+export def "plugin register" [] {
+    let plugins = (ls ((which nu).path.0 | path dirname) | where name =~ nu_plugin | keep-plugin-executables)
+    for plugin in $plugins {
+        print -n $"registering ($plugin.name), "
+        nu -c $"register '($plugin.name)'"
+        print "success!"
+    }
+
+    # print helpful message
+    print "\nplugins registered, please restart nushell"
+}
+
 export def main [] { help toolkit }
