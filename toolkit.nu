@@ -263,4 +263,144 @@ export def setup-git-hooks [] {
     }
 }
 
+def build-nushell [features: string] {
+    print $'(char nl)Building nushell'
+    print '----------------------------'
+
+    cargo build --features $features
+}
+
+def build-plugin [] {
+    let plugin = $in
+
+    print $'(char nl)Building ($plugin)'
+    print '----------------------------'
+
+    cd $"crates/($plugin)"
+    cargo build
+}
+
+# build Nushell and plugins with some features
+export def build [
+    ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+    --all: bool  # build all plugins with Nushell
+] {
+    build-nushell ($features | str join ",")
+
+    if not $all {
+        return
+    }
+
+    let plugins = [
+        nu_plugin_inc,
+        nu_plugin_gstat,
+        nu_plugin_query,
+        nu_plugin_example,
+        nu_plugin_custom_values,
+        nu_plugin_formats,
+    ]
+
+    for plugin in $plugins {
+        $plugin | build-plugin
+    }
+}
+
+def "nu-complete list features" [] {
+    open Cargo.toml | get features | transpose feature dependencies | get feature
+}
+
+# install Nushell and features you want
+export def install [
+    ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+] {
+    cargo install --path . --features ($features | str join ",")
+}
+
+def windows? [] {
+    $nu.os-info.name == windows
+}
+
+# filter out files that end in .d
+def keep-plugin-executables [] {
+    if (windows?) { where name ends-with '.exe' } else { where name !~ '\.d' }
+}
+
+# register all installed plugins
+export def "register plugins" [] {
+    let plugin_path = (which nu | get path.0 | path dirname)
+    let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables)
+
+    if ($plugins | is-empty) {
+        print $"no plugins found in ($plugin_path)..."
+        return
+    }
+
+    for plugin in $plugins {
+        print -n $"registering ($plugin.name), "
+        nu -c $"register '($plugin.name)'"
+        print "success!"
+    }
+
+    print "\nplugins registered, please restart nushell"
+}
+
+def compute-coverage [] {
+    print "Setting up environment variables for coverage"
+    # Enable LLVM coverage tracking through environment variables
+    # show env outputs .ini/.toml style description of the variables
+    # In order to use from toml, we need to make sure our string literals are single quoted
+    # This is especially important when running on Windows since "C:\blah" is treated as an escape
+    cargo llvm-cov show-env | str replace (char dq) (char sq) -a | from toml | load-env
+
+    print "Cleaning up coverage data"
+    cargo llvm-cov clean --workspace
+
+    print "Building with workspace and profile=ci"
+    # Apparently we need to explicitly build the necessary parts
+    # using the `--profile=ci` is basically `debug` build with unnecessary symbols stripped
+    # leads to smaller binaries and potential savings when compiling and running
+    cargo build --workspace --profile=ci
+
+    print "Running tests with --workspace and profile=ci"
+    cargo test --workspace --profile=ci
+
+    # You need to provide the used profile to find the raw data
+    print "Generating coverage report as lcov.info"
+    cargo llvm-cov report --lcov --output-path lcov.info --profile=ci
+}
+
+# Script to generate coverage locally
+#
+# Output: `lcov.info` file
+#
+# Relies on `cargo-llvm-cov`. Install via `cargo install cargo-llvm-cov`
+# https://github.com/taiki-e/cargo-llvm-cov
+#
+# You probably have to run `cargo llvm-cov clean` once manually,
+# as you have to confirm to install additional tooling for your rustup toolchain.
+# Else the script might stall waiting for your `y<ENTER>`
+#
+# Some of the internal tests rely on the exact cargo profile
+# (This is somewhat criminal itself)
+# but we have to signal to the tests that we use the `ci` `--profile`
+#
+# Manual gathering of coverage to catch invocation of the `nu` binary.
+# This is relevant for tests using the `nu!` macro from `nu-test-support`
+# see: https://github.com/taiki-e/cargo-llvm-cov#get-coverage-of-external-tests
+#
+# To display the coverage in your editor see:
+#
+# - https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
+# - https://github.com/umaumax/vim-lcov
+# - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
+export def cov [] {
+    let start = (date now)
+    let-env NUSHELL_CARGO_TARGET = "ci"
+
+    compute-coverage
+
+    let end = (date now)
+    print $"Coverage generation took ($end - $start)."
+}
+
 export def main [] { help toolkit }
