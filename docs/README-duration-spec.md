@@ -516,3 +516,33 @@ These rely on the Display trait producing a string representation which is a val
 That will be true of the new `Duration`, so perhaps no changes needed here.
 Add a test case involving duration, if not there already, and see what happens.
 
+# implementation
+"No plan survives first contact with the enemy" -- von Molkte
+After all the careful thought above, I did some research and found crate [calends](https://docs.rs/calends/0.1.12/calends/) which provides an out-of-the-box Duration and also an Interval type which is better thought out than anything I had come up with.  Plus, it's compatible with chronos.
+
+Key advantages:
+* Duration type includes 3 non-combinable places: months, weeks, days, so you can represent any duration precisely, and do considerable arithmetic on it without reference to the calendar.  
+* Interval type combines duration with base datetime, so you have all the information you need for the calendar arithmetic
+* Supports ISO8061 standard for string representation of both Duration and Interval, which we can use as the basis for Nu literals
+
+Disadvantages:
+* Maybe only supports chrono naive date, no date/time or fixed offset datetime? 
+* No inherent support for sub-day durations, which are the bulk of actual calculation.
+
+## Nu duration type 
+will be a calends Interval (with embedded datetime) .  This will make all the operations easy to invoke.  Extra space cost (an extra 64 bits) is small.
+
+* Need Display, Debug and augmented Display formats: ISO 8061.  
+* `string | into duration` assume iso 8061 input.  Handle missing date
+* `record | into duration` assume all fields
+* `duration | into string` 
+* `duration | into record` will include extra fields so it's fully invertable
+
+## arithmetic operators
+* `date1 - date2` produces Interval with date2 as base
+
+
+
+
+
+
