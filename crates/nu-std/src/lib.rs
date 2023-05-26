@@ -27,6 +27,7 @@ pub fn load_standard_library(
             ("xml.nu", include_str!("../std/xml.nu")),
 
             ("help.nu", include_str!("../std/help/mod.nu")),
+            ("error.nu", include_str!("../std/help/error.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
