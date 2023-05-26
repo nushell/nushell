@@ -18,7 +18,7 @@ default = ["preserve_order"]
 
 [dependencies]
 linked-hash-map = { version="0.5", optional=true }
-num-traits = "0.2.14"
+num-traits = "0.2"
 serde = "1.0"
 
 [dev-dependencies]

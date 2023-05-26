@@ -3,9 +3,10 @@ use libproc::libproc::bsd_info::BSDInfo;
 use libproc::libproc::file_info::{pidfdinfo, ListFDs, ProcFDType};
 use libproc::libproc::net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo};
 use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
-use libproc::libproc::proc_pid::{listpidinfo, listpids, pidinfo, ListThreads, ProcType};
+use libproc::libproc::proc_pid::{listpidinfo, pidinfo, ListThreads};
 use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
+use libproc::processes::{pids_by_type, ProcFilter};
 use mach2::mach_time;
 use std::cmp;
 use std::ffi::OsStr;
@@ -33,7 +34,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     let mut ret = Vec::new();
     let arg_max = get_arg_max();
 
-    if let Ok(procs) = listpids(ProcType::ProcAllPIDS) {
+    if let Ok(procs) = pids_by_type(ProcFilter::All) {
         for p in procs {
             if let Ok(task) = pidinfo::<TaskAllInfo>(p as i32, 0) {
                 let res = pidrusage::<RUsageInfoV2>(p as i32).ok();
