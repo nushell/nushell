@@ -285,14 +285,20 @@ def keep-plugin-executables [] {
 
 # register all installed plugins
 export def "plugin register" [] {
-    let plugins = (ls ((which nu).path.0 | path dirname) | where name =~ nu_plugin | keep-plugin-executables)
+    let plugin_path = (which nu | get path.0 | path dirname)
+    let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables)
+
+    if ($plugins | is-empty) {
+        print $"no plugins found in ($plugin_path)..."
+        return
+    }
+
     for plugin in $plugins {
         print -n $"registering ($plugin.name), "
         nu -c $"register '($plugin.name)'"
         print "success!"
     }
 
-    # print helpful message
     print "\nplugins registered, please restart nushell"
 }
 
