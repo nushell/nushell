@@ -189,7 +189,14 @@ pub fn evaluate_repl(
     }
 
     if engine_state.get_config().show_startup_time && !engine_state.get_config().show_banner {
-        println!("startup time: {}", engine_state.get_startup_time());
+        println!(
+            "startup time: {}",
+            Value::Duration {
+                val: engine_state.get_startup_time(),
+                span: Span::unknown()
+            }
+            .into_string("", engine_state.get_config())
+        );
     }
 
     loop {
