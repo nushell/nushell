@@ -9,8 +9,8 @@ use nu_protocol::{
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use polars::prelude::{
-    CsvEncoding, CsvReader, IpcReader, JsonReader, LazyCsvReader, LazyFileListReader, LazyFrame,
-    ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader, JsonFormat,
+    CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
+    LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
 #[derive(Clone)]
@@ -320,7 +320,7 @@ fn from_jsonl(
     let buf_reader = BufReader::new(file);
     let reader = JsonReader::new(buf_reader)
         .with_json_format(JsonFormat::JsonLines)
-        .infer_schema_len(infer_schema); 
+        .infer_schema_len(infer_schema);
 
     let df: NuDataFrame = reader
         .finish()

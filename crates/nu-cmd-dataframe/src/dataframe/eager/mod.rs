@@ -24,9 +24,9 @@ mod take;
 mod to_arrow;
 mod to_csv;
 mod to_df;
+mod to_json_lines;
 mod to_nu;
 mod to_parquet;
-mod to_json_lines;
 mod with_column;
 
 use nu_protocol::engine::StateWorkingSet;
@@ -57,9 +57,9 @@ pub use take::TakeDF;
 pub use to_arrow::ToArrow;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
+pub use to_json_lines::ToJsonLines;
 pub use to_nu::ToNu;
 pub use to_parquet::ToParquet;
-pub use to_json_lines::ToJsonLines;
 pub use with_column::WithColumn;
 
 pub fn add_eager_decls(working_set: &mut StateWorkingSet) {

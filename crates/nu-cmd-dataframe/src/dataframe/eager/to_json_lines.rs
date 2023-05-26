@@ -70,15 +70,17 @@ fn command(
     })?;
     let buf_writer = BufWriter::new(file);
 
-    JsonWriter::new(buf_writer).finish(df.as_mut()).map_err(|e| {
-        ShellError::GenericError(
-            "Error saving file".into(),
-            e.to_string(),
-            Some(file_name.span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    JsonWriter::new(buf_writer)
+        .finish(df.as_mut())
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Error saving file".into(),
+                e.to_string(),
+                Some(file_name.span),
+                None,
+                Vec::new(),
+            )
+        })?;
 
     let file_value = Value::String {
         val: format!("saved {:?}", &file_name.item),
