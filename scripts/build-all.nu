@@ -1,6 +1,10 @@
+use std log warning
+
 print '-------------------------------------------------------------------'
 print 'Building nushell (nu) with dataframes and all the plugins'
 print '-------------------------------------------------------------------'
+
+warning "./scripts/build-all.nu will be deprecated, please use the `toolkit build` command instead"
 
 let repo_root = ($env.CURRENT_FILE | path dirname -n 2)
 
