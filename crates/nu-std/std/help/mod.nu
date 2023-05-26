@@ -6,19 +6,6 @@ export use aliases.nu
 export use externs.nu
 export use commands.nu
 
-def build-help-header [
-    text: string
-    --no-newline (-n): bool
-] {
-    let header = $"(ansi green)($text)(ansi reset):"
-
-    if $no_newline {
-        $header
-    } else {
-        $header ++ "\n"
-    }
-}
-
 def pretty-cmd [] {
     let cmd = $in
     $"(ansi default_dimmed)(ansi default_italic)($cmd)(ansi reset)"

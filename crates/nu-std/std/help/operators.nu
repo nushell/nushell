@@ -1,4 +1,5 @@
 use error.nu operator-not-found-error
+use common.nu build-help-header
 
 def get-all-operators [] { return [
     [type, operator, name, description, precedence];

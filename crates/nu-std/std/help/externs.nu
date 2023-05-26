@@ -1,4 +1,5 @@
 use error.nu extern-not-found-error
+use common.nu build-help-header
 
 def "nu-complete list-externs" [] {
     $nu.scope.commands | where is_extern | select name usage | rename value description

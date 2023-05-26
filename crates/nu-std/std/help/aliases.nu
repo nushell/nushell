@@ -1,4 +1,5 @@
 use error.nu alias-not-found-error
+use common.nu build-help-header
 
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description

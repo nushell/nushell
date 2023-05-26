@@ -1,4 +1,5 @@
 use error.nu module-not-found-error
+use common.nu build-help-header
 
 def "nu-complete list-modules" [] {
     $nu.scope.modules | select name usage | rename value description

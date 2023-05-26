@@ -28,6 +28,7 @@ pub fn load_standard_library(
 
             ("help.nu", include_str!("../std/help/mod.nu")),
             ("error.nu", include_str!("../std/help/error.nu")),
+            ("common.nu", include_str!("../std/help/common.nu")),
             ("operators.nu", include_str!("../std/help/operators.nu")),
             ("aliases.nu", include_str!("../std/help/aliases.nu")),
             ("modules.nu", include_str!("../std/help/modules.nu")),

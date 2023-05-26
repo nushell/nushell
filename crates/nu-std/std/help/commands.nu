@@ -1,4 +1,5 @@
 use error.nu command-not-found-error
+use common.nu build-help-header
 
 def "nu-complete list-commands" [] {
     $nu.scope.commands | select name usage | rename value description
