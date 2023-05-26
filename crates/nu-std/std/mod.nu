@@ -30,12 +30,43 @@ use dt.nu [datetime-diff, pretty-print-duration]
 # │ 4 │ fooo     │
 # ╰───┴──────────╯
 # ```
+# - adding paths based on the operating system
+# ```nushell
+# >_ std path add {linux: "foo", windows: "bar", darwin: "baz"}
+# ```
 export def-env "path add" [
     --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
     --append (-a)  # append to $env.PATH instead of prepending to.
     ...paths  # the paths to add to $env.PATH.
 ] {
+    let span = (metadata $paths).span
+    let paths = ($paths | flatten)
+
+    if ($paths | is-empty) or ($paths | length) == 0 {
+        error make {msg: "Empty input", label: {
+            text: "Provide at least one string or a record",
+            start: $span.start,
+            end: $span.end
+        }}
+    }
+
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
+
+    let paths = ($paths | each {|p|
+        if ($p | describe) == "string" {
+            $p
+        } else if ($p | describe | str starts-with "record") {
+            $p | get -i $nu.os-info.name
+        }
+    })
+
+    if null in $paths or ($paths | is-empty) {
+        error make {msg: "Empty input", label: {
+            text: $"Received a record, that does not contain a ($nu.os-info.name) key",
+            start: $span.start,
+            end: $span.end
+        }}
+    }
 
     let-env $path_name = (
             $env
