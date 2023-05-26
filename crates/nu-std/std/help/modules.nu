@@ -1,3 +1,5 @@
+use error.nu module-not-found-error
+
 def "nu-complete list-modules" [] {
     $nu.scope.modules | select name usage | rename value description
 }
@@ -126,7 +128,7 @@ def build-module-page [module: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── module not found
 #        ╰────
-export def modules [
+export def main [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {

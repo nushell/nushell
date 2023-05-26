@@ -1,3 +1,5 @@
+use error.nu alias-not-found-error
+
 def "nu-complete list-aliases" [] {
     $nu.scope.aliases | select name usage | rename value description
 }
@@ -87,7 +89,7 @@ def build-alias-page [alias: record] {
 #        ·              ────────┬───────
 #        ·                      ╰── alias not found
 #        ╰────
-export def aliases [
+export def main [
     ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {

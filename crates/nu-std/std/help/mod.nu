@@ -1,4 +1,10 @@
-use error.nu *
+use error.nu error-fmt
+
+export use operators.nu
+export use modules.nu
+export use aliases.nu
+export use externs.nu
+export use commands.nu
 
 def build-help-header [
     text: string

@@ -1,3 +1,5 @@
+use error.nu extern-not-found-error
+
 def "nu-complete list-externs" [] {
     $nu.scope.commands | where is_extern | select name usage | rename value description
 }
@@ -17,7 +19,7 @@ def build-extern-page [extern: record] {
 }
 
 # Show help on nushell externs.
-export def externs [
+export def main [
     ...extern: string@"nu-complete list-externs"  # the name of extern to get help on
     --find (-f): string  # string to find in extern names
 ] {

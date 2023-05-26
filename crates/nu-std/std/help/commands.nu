@@ -1,3 +1,5 @@
+use error.nu command-not-found-error
+
 def "nu-complete list-commands" [] {
     $nu.scope.commands | select name usage | rename value description
 }
@@ -205,7 +207,7 @@ def build-command-page [command: record] {
 }
 
 # Show help on commands.
-export def commands [
+export def main [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {

@@ -1,3 +1,5 @@
+use error.nu operator-not-found-error
+
 def get-all-operators [] { return [
     [type, operator, name, description, precedence];
 
@@ -92,7 +94,7 @@ def build-operator-page [operator: record] {
 #        ·               ────────┬───────
 #        ·                       ╰── operator not found
 #        ╰────
-export def operators [
+export def main [
     ...operator: string@"nu-complete list-operators"  # the name of operator to get help on
     --find (-f): string  # string to find in operator names
 ] {
