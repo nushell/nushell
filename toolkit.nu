@@ -326,7 +326,7 @@ def keep-plugin-executables [] {
 }
 
 # register all installed plugins
-export def "plugin register" [] {
+export def "register plugins" [] {
     let plugin_path = (which nu | get path.0 | path dirname)
     let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables)
 
