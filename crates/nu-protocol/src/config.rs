@@ -100,6 +100,7 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub show_startup_time: bool,
     pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
@@ -145,6 +146,7 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            show_startup_time: false,
             bracketed_paste: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
@@ -1210,6 +1212,9 @@ impl Value {
                     }
                     "show_banner" => {
                         try_bool!(cols, vals, index, span, show_banner);
+                    }
+                    "show_startup_time" => {
+                        try_bool!(cols, vals, index, span, show_startup_time);
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
