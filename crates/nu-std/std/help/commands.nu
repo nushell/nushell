@@ -223,8 +223,8 @@ export def main [
 
         if ($found_command | is-empty) {
             try {
-                print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
                 ^($env.NU_HELPER? | default "man") $target_command
+                return
             } catch {
                 command-not-found-error (metadata $command | get span)
             }
