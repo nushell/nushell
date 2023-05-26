@@ -189,8 +189,8 @@ pub fn evaluate_repl(
         );
     }
 
-    let dd = Color::Default.dimmed().prefix().to_string();
     if engine_state.get_config().show_startup_time && !engine_state.get_config().show_banner {
+        let dd = Color::Default.dimmed().prefix().to_string();
         println!(
             "{dd}startup time: {}",
             Value::Duration {
