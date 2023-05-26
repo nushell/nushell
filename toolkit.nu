@@ -303,8 +303,6 @@ export def "plugin register" [] {
 }
 
 def compute-coverage [] {
-    cd ($env.CURRENT_FILE | path dirname -n 2)
-
     print "Setting up environment variables for coverage"
     # Enable LLVM coverage tracking through environment variables
     # show env outputs .ini/.toml style description of the variables
