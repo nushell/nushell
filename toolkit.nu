@@ -263,6 +263,48 @@ export def setup-git-hooks [] {
     }
 }
 
+def build-nushell [features: string] {
+    print $'(char nl)Building nushell'
+    print '----------------------------'
+
+    cargo build --features $features
+}
+
+def build-plugin [] {
+    let plugin = $in
+
+    print $'(char nl)Building ($plugin)'
+    print '----------------------------'
+
+    cd $"crates/($plugin)"
+    cargo build
+}
+
+# build Nushell and plugins with some features
+export def build [
+    ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+    --all: bool  # build all plugins with Nushell
+] {
+    build-nushell ($features | str join ",")
+
+    if not $all {
+        return
+    }
+
+    let plugins = [
+        nu_plugin_inc,
+        nu_plugin_gstat,
+        nu_plugin_query,
+        nu_plugin_example,
+        nu_plugin_custom_values,
+        nu_plugin_formats,
+    ]
+
+    for plugin in $plugins {
+        $plugin | build-plugin
+    }
+}
+
 def "nu-complete list features" [] {
     open Cargo.toml | get features | transpose feature dependencies | get feature
 }
