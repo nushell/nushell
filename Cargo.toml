@@ -66,17 +66,17 @@ nu-ansi-term = "0.47.0"
 reedline = { git = "https://github.com/nushell/reedline.git", features = ["bashisms", "sqlite"], branch = "main"}
 
 crossterm = "0.26"
-ctrlc = "3.2.1"
+ctrlc = "3.2"
 log = "0.4"
-miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
+miette = { version = "5.9", features = ["fancy-no-backtrace"] }
 serde_json = "1.0"
-simplelog = "0.12.0"
-time = "0.3.12"
+simplelog = "0.12"
+time = "0.3"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
-openssl = { version = "0.10.48", features = ["vendored"], optional = true }
-signal-hook = { version = "0.3.14", default-features = false }
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+signal-hook = { version = "0.3", default-features = false }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
@@ -92,12 +92,12 @@ atty = "0.2"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.80.1" }
-tempfile = "3.5.0"
-assert_cmd = "2.0.2"
+tempfile = "3.5"
+assert_cmd = "2.0"
 criterion = "0.4"
-pretty_assertions = "1.0.0"
-serial_test = "1.0.0"
-rstest = { version = "0.17.0", default-features = false }
+pretty_assertions = "1.0"
+serial_test = "1.0"
+rstest = { version = "0.17", default-features = false }
 
 [features]
 plugin = [

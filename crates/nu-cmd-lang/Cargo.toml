@@ -19,12 +19,12 @@ nu-protocol = { path = "../nu-protocol", version = "0.80.1"  }
 nu-utils = { path = "../nu-utils", version = "0.80.1" }
 nu-ansi-term = "0.47.0"
 
-fancy-regex = "0.11.0"
-itertools = "0.10.0"
-shadow-rs = { version = "0.21.0", default-features = false }
+fancy-regex = "0.11"
+itertools = "0.10"
+shadow-rs = { version = "0.22", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.21.0", default-features = false }
+shadow-rs = { version = "0.22", default-features = false }
 
 [features]
 which-support = []
