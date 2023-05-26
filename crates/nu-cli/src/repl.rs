@@ -8,6 +8,7 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
+use nu_ansi_term::Color;
 use nu_color_config::StyleComputer;
 use nu_command::hook::eval_hook;
 use nu_command::util::get_guaranteed_cwd;
@@ -188,9 +189,10 @@ pub fn evaluate_repl(
         );
     }
 
+    let dd = Color::Default.dimmed().prefix().to_string();
     if engine_state.get_config().show_startup_time && !engine_state.get_config().show_banner {
         println!(
-            "startup time: {}",
+            "{dd}startup time: {}",
             Value::Duration {
                 val: engine_state.get_startup_time(),
                 span: Span::unknown()
