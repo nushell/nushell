@@ -184,6 +184,7 @@ let light_theme = {
 let-env config = {
   # true or false to enable or disable the welcome banner at startup
   show_banner: true
+  show_startup_time: false # true or false to show or not the startup time of Nushell before the first prompt
   ls: {
     use_ls_colors: true # use the LS_COLORS environment variable to colorize output
     clickable_links: true # enable or disable clickable links. Your terminal has to support links.
