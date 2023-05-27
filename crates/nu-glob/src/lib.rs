@@ -243,7 +243,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
             todo: Vec::new(),
             scope: None,
             current_match_index: 0,
-            original_pattern: pattern.to_owned()
+            original_pattern: pattern.to_owned(),
         });
     }
 
@@ -276,7 +276,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
         todo,
         scope: Some(scope),
         current_match_index: 0,
-        original_pattern: pattern.to_owned()
+        original_pattern: pattern.to_owned(),
     })
 }
 
@@ -1082,7 +1082,7 @@ impl MatchOptions {
     ///
     /// # Note
     /// The behavior of this method doesn't match `default()`'s. This returns
-    /// `case_sensitive` and `allow_literal_match` as `true` while `default()` 
+    /// `case_sensitive` and `allow_literal_match` as `true` while `default()`
     /// returns them as `false`.
     // FIXME: Consider unity the behavior with `default()` in a next major release.
     pub fn new() -> Self {
@@ -1355,7 +1355,7 @@ mod test {
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
-            allow_literal_match: false
+            allow_literal_match: false,
         };
 
         assert!(pat.matches_with("aBcDeFg", options));
@@ -1374,14 +1374,14 @@ mod test {
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: false,
-            allow_literal_match: false
+            allow_literal_match: false,
         };
         let options_case_sensitive = MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: false,
-            allow_literal_match: false
+            allow_literal_match: false,
         };
 
         assert!(pat_within.matches_with("a", options_case_insensitive));
@@ -1407,7 +1407,7 @@ mod test {
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
-            allow_literal_match: false
+            allow_literal_match: false,
         };
 
         assert!(Pattern::new("abc/def")
