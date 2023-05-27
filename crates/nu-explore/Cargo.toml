@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nushell Project Developers"]
-description = "Nushell table printing"
+description = "Nushell table pager"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-explore"
 edition = "2021"
 license = "MIT"
