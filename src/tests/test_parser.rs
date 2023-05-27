@@ -564,5 +564,5 @@ fn filesize_with_underscores_3() -> TestResult {
 
 #[test]
 fn filesize_is_not_hex() -> TestResult {
-    run_test("0x42b", 1067)
+    run_test("0x42b", "1067")
 }
