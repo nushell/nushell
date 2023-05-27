@@ -2217,7 +2217,7 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    // the hex digit `b` might be mistaked for the unit `b`, so check that first
+    // the hex digit `b` might be mistaken for the unit `b`, so check that first
     if bytes.starts_with(b"0x") {
         working_set.error(ParseError::Expected("filesize with valid units", span));
         return garbage(span);
