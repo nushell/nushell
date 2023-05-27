@@ -4,8 +4,6 @@ export-env {
     use dirs.nu []
 }
 
-export use testing.nu *
-
 use dt.nu [datetime-diff, pretty-print-duration]
 use log.nu
 
