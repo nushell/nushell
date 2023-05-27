@@ -316,6 +316,68 @@ impl EngineState {
         Ok(())
     }
 
+    /// Merge the environment from the runtime Stack into the engine state
+    pub fn merge_env2(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
+        for mut scope in stack.env_vars.drain(..) {
+            for (overlay_name, mut env) in scope.drain() {
+                if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                    // Updating existing overlay
+                    for (k, v) in env.drain() {
+                        if k == "config" {
+                            // Don't insert the record as the "config" env var as-is.
+                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
+                            let mut new_record = v.clone();
+                            let (config, error) = new_record.into_config(&self.config);
+                            self.config = config;
+                            env_vars.insert(k, new_record);
+                            if let Some(e) = error {
+                                return Err(e);
+                            }
+                        } else {
+                            env_vars.insert(k, v);
+                        }
+                    }
+                } else {
+                    // Pushing a new overlay
+                    self.env_vars.insert(overlay_name, env);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Merge the environment from the runtime Stack into the engine state
+    pub fn merge_env3(&mut self, stack: &Stack) -> Result<(), ShellError> {
+        for mut scope in &stack.env_vars {
+            for (overlay_name, mut env) in scope {
+                if let Some(env_vars) = self.env_vars.get_mut(overlay_name.as_str()) {
+                    // Updating existing overlay
+                    for (k, v) in env {
+                        if k == "config" {
+                            // Don't insert the record as the "config" env var as-is.
+                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
+                            let mut new_record = v.clone();
+                            let (config, error) = new_record.into_config(&self.config);
+                            self.config = config;
+                            env_vars.insert(k.clone(), new_record);
+                            if let Some(e) = error {
+                                return Err(e);
+                            }
+                        } else {
+                            env_vars.insert(k.clone(), v.clone());
+                        }
+                    }
+                } else {
+                    // Pushing a new overlay
+                    self.env_vars.insert(overlay_name.clone(), env.clone());
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Mark a starting point if it is a script (e.g., nu spam.nu)
     pub fn start_in_file(&mut self, file_path: Option<&str>) {
         self.currently_parsed_cwd = if let Some(path) = file_path {
