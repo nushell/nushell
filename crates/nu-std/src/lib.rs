@@ -23,7 +23,7 @@ pub fn load_standard_library(
             ("help.nu", include_str!("../std/help.nu")),
             ("iter.nu", include_str!("../std/iter.nu")),
             ("log.nu", include_str!("../std/log.nu")),
-            ("testing.nu", include_str!("../std/testing.nu")),
+            ("assert.nu", include_str!("../std/assert.nu")),
             ("xml.nu", include_str!("../std/xml.nu")),
         ];
 

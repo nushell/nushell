@@ -1,8 +1,5 @@
 use std assert
-use std "assert length"
-use std "assert equal"
-use std "assert not equal"
-use std "assert error"
+use std assert
 use std log
 
 # A couple of nuances to understand when testing module that exports environment:

@@ -1,7 +1,7 @@
 use std
 
 export def test_path_add [] {
-    use std "assert equal"
+    use std assert
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
