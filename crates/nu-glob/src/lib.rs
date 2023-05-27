@@ -50,6 +50,7 @@
 //!     require_literal_separator: false,
 //!     require_literal_leading_dot: false,
 //!     recursive_match_hidden_dir: true,
+//!     allow_literal_match: true,
 //! };
 //! for entry in glob_with("local/*a*", options).unwrap() {
 //!     if let Ok(path) = entry {
@@ -101,6 +102,8 @@ pub struct Paths {
     options: MatchOptions,
     todo: Vec<Result<(PathBuf, usize), GlobError>>,
     scope: Option<PathBuf>,
+    current_match_index: usize,
+    original_pattern: String,
 }
 
 /// Return an iterator that produces all the `Path`s that match the given
@@ -239,6 +242,8 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
             options,
             todo: Vec::new(),
             scope: None,
+            current_match_index: 0,
+            original_pattern: pattern.to_owned()
         });
     }
 
@@ -270,6 +275,8 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
         options,
         todo,
         scope: Some(scope),
+        current_match_index: 0,
+        original_pattern: pattern.to_owned()
     })
 }
 
@@ -353,6 +360,10 @@ impl Iterator for Paths {
 
         loop {
             if self.dir_patterns.is_empty() || self.todo.is_empty() {
+                if self.current_match_index == 0 {
+                    self.current_match_index += 1;
+                    return Some(Ok(PathBuf::from(self.original_pattern.clone())));
+                }
                 return None;
             }
 
@@ -371,6 +382,7 @@ impl Iterator for Paths {
                 if self.require_dir && !is_dir(&path) {
                     continue;
                 }
+                self.current_match_index += 1;
                 return Some(Ok(path));
             }
 
@@ -408,6 +420,7 @@ impl Iterator for Paths {
                     if next == self.dir_patterns.len() - 1 {
                         // pattern ends in recursive pattern, so return this
                         // directory as a result
+                        self.current_match_index += 1;
                         return Some(Ok(path));
                     } else {
                         // advanced to the next pattern for this path
@@ -445,6 +458,7 @@ impl Iterator for Paths {
                     // children
 
                     if !self.require_dir || is_dir(&path) {
+                        self.current_match_index += 1;
                         return Some(Ok(path));
                     }
                 } else {
@@ -1043,6 +1057,10 @@ pub struct MatchOptions {
     /// if given pattern contains `**`, this flag check if `**` matches hidden directory.
     /// For example: if true, `**` will match `.abcdef/ghi`.
     pub recursive_match_hidden_dir: bool,
+
+    /// If the given pattern does not match any files, check if the
+    /// pattern literally matches a filename
+    pub allow_literal_match: bool,
 }
 
 impl MatchOptions {
@@ -1058,12 +1076,14 @@ impl MatchOptions {
     ///     require_literal_separator: false,
     ///     require_literal_leading_dot: false
     ///     recursive_match_hidden_dir: true,
+    ///     allow_literal_match: true,
     /// }
     /// ```
     ///
     /// # Note
     /// The behavior of this method doesn't match `default()`'s. This returns
-    /// `case_sensitive` as `true` while `default()` does it as `false`.
+    /// `case_sensitive` and `allow_literal_match` as `true` while `default()` 
+    /// returns them as `false`.
     // FIXME: Consider unity the behavior with `default()` in a next major release.
     pub fn new() -> Self {
         Self {
@@ -1071,6 +1091,7 @@ impl MatchOptions {
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
+            allow_literal_match: true,
         }
     }
 }
@@ -1334,6 +1355,7 @@ mod test {
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
+            allow_literal_match: false
         };
 
         assert!(pat.matches_with("aBcDeFg", options));
@@ -1352,12 +1374,14 @@ mod test {
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: false,
+            allow_literal_match: false
         };
         let options_case_sensitive = MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: false,
+            allow_literal_match: false
         };
 
         assert!(pat_within.matches_with("a", options_case_insensitive));
@@ -1376,12 +1400,14 @@ mod test {
             require_literal_separator: true,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
+            allow_literal_match: false,
         };
         let options_not_require_literal = MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
+            allow_literal_match: false
         };
 
         assert!(Pattern::new("abc/def")
@@ -1418,12 +1444,14 @@ mod test {
             require_literal_separator: false,
             require_literal_leading_dot: true,
             recursive_match_hidden_dir: true,
+            allow_literal_match: false,
         };
         let options_not_require_literal_leading_dot = MatchOptions {
             case_sensitive: true,
             require_literal_separator: false,
             require_literal_leading_dot: false,
             recursive_match_hidden_dir: true,
+            allow_literal_match: false,
         };
 
         let f = |options| {

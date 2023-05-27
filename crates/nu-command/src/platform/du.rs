@@ -15,6 +15,7 @@ const GLOB_PARAMS: MatchOptions = MatchOptions {
     require_literal_separator: true,
     require_literal_leading_dot: false,
     recursive_match_hidden_dir: true,
+    allow_literal_match: true,
 };
 
 #[derive(Clone)]
