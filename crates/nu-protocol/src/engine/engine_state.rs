@@ -349,8 +349,8 @@ impl EngineState {
 
     /// Merge the environment from the runtime Stack into the engine state
     pub fn merge_env3(&mut self, stack: &Stack) -> Result<(), ShellError> {
-        for mut scope in &stack.env_vars {
-            for (overlay_name, mut env) in scope {
+        for scope in &stack.env_vars {
+            for (overlay_name, env) in scope {
                 if let Some(env_vars) = self.env_vars.get_mut(overlay_name.as_str()) {
                     // Updating existing overlay
                     for (k, v) in env {
