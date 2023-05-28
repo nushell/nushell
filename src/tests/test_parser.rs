@@ -561,3 +561,8 @@ fn filesize_with_underscores_2() -> TestResult {
 fn filesize_with_underscores_3() -> TestResult {
     fail_test("42m_b", "executable was not found")
 }
+
+#[test]
+fn filesize_is_not_hex() -> TestResult {
+    run_test("0x42b", "1067")
+}
