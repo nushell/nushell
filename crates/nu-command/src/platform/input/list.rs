@@ -80,36 +80,72 @@ impl Command for InputList {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. }
-            | PipelineData::Value(Value::Record { .. }, ..) => input
-                .into_iter()
-                .map_while(move |x| {
-                    if let Ok(val) = x.as_string() {
-                        Some(Options {
-                            name: val,
-                            value: x,
-                        })
-                    } else if let Ok(record) = x.as_record() {
-                        let mut options = Vec::new();
-                        for (col, val) in record.0.iter().zip(record.1.iter()) {
+            | PipelineData::Value(Value::Record { .. }, ..) => {
+                let mut lentable = Vec::<usize>::new();
+                let rows = input.into_iter().collect::<Vec<_>>();
+                rows.iter().for_each(|row| {
+                    if let Ok(record) = row.as_record() {
+                        let len = record.1.len();
+                        for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate() {
+                            if i == len - 1 {
+                                break;
+                            }
+
                             if let Ok(val) = val.as_string() {
-                                options.push(format!(
-                                    " {}{}{}: {} |\t",
-                                    Color::Cyan.prefix(),
-                                    col,
-                                    Color::Cyan.suffix(),
-                                    &val
-                                ));
+                                if let Some(len) = lentable.get(i) {
+                                    lentable[i] = (*len).max(val.len() + col.len());
+                                } else {
+                                    lentable.push(val.len() + col.len());
+                                }
                             }
                         }
-                        Some(Options {
-                            name: options.join(""),
-                            value: x,
-                        })
-                    } else {
-                        None
                     }
-                })
-                .collect(),
+                });
+
+                rows.into_iter()
+                    .map_while(move |x| {
+                        if let Ok(val) = x.as_string() {
+                            Some(Options {
+                                name: val,
+                                value: x,
+                            })
+                        } else if let Ok(record) = x.as_record() {
+                            let mut options = Vec::new();
+                            let len = record.1.len();
+                            for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate()
+                            {
+                                if let Ok(val) = val.as_string() {
+                                    options.push(format!(
+                                        " {}{}{}: {}{}",
+                                        Color::Cyan.prefix(),
+                                        col,
+                                        Color::Cyan.suffix(),
+                                        &val,
+                                        if i == len - 1 {
+                                            String::from("")
+                                        } else {
+                                            format!(
+                                                "{} |",
+                                                " ".repeat(
+                                                    lentable.get(i).cloned().unwrap_or_default()
+                                                        - val.len()
+                                                        - col.len()
+                                                )
+                                            )
+                                        }
+                                    ));
+                                }
+                            }
+                            Some(Options {
+                                name: options.join(""),
+                                value: x,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
 
             _ => {
                 return Err(ShellError::TypeMismatch {
