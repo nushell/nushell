@@ -5,7 +5,6 @@ mod append;
 mod assignment;
 mod break_;
 mod bytes;
-mod cal;
 mod cd;
 mod compact;
 mod continue_;
