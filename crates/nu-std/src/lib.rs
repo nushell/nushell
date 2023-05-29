@@ -130,7 +130,8 @@ use std dirs [ enter, shells, g, n, p, dexit ]
     )?;
 
     let cwd = current_dir(engine_state, &stack)?;
-    engine_state.merge_env(&mut stack, cwd)?;
+    engine_state.merge_env(&mut stack)?;
+    engine_state.set_current_workink_dir(cwd)?;
 
     Ok(())
 }

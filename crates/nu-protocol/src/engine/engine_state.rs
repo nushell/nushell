@@ -279,11 +279,7 @@ impl EngineState {
     }
 
     /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env(
-        &mut self,
-        stack: &mut Stack,
-        cwd: impl AsRef<Path>,
-    ) -> Result<(), ShellError> {
+    pub fn merge_env(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
                 if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
@@ -310,72 +306,25 @@ impl EngineState {
             }
         }
 
+        Ok(())
+    }
+
+    /// Set a CWD.
+    pub fn set_current_workink_dir(&mut self, cwd: impl AsRef<Path>) -> Result<(), ShellError> {
         // TODO: better error
         std::env::set_current_dir(cwd)?;
-
         Ok(())
     }
 
     /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env2(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
-        for mut scope in stack.env_vars.drain(..) {
-            for (overlay_name, mut env) in scope.drain() {
-                if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
-                    // Updating existing overlay
-                    for (k, v) in env.drain() {
-                        if k == "config" {
-                            // Don't insert the record as the "config" env var as-is.
-                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
-                            let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
-                            self.config = config;
-                            env_vars.insert(k, new_record);
-                            if let Some(e) = error {
-                                return Err(e);
-                            }
-                        } else {
-                            env_vars.insert(k, v);
-                        }
-                    }
-                } else {
-                    // Pushing a new overlay
-                    self.env_vars.insert(overlay_name, env);
-                }
-            }
-        }
+    ///
+    /// A merge which does not consume the stack env.
+    pub fn clone_with_env(&self, stack: &Stack) -> Result<Self, ShellError> {
+        let mut engine = self.clone();
+        let mut stack = stack.clone();
+        engine.merge_env(&mut stack)?;
 
-        Ok(())
-    }
-
-    /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env3(&mut self, stack: &Stack) -> Result<(), ShellError> {
-        for scope in &stack.env_vars {
-            for (overlay_name, env) in scope {
-                if let Some(env_vars) = self.env_vars.get_mut(overlay_name.as_str()) {
-                    // Updating existing overlay
-                    for (k, v) in env {
-                        if k == "config" {
-                            // Don't insert the record as the "config" env var as-is.
-                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
-                            let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
-                            self.config = config;
-                            env_vars.insert(k.clone(), new_record);
-                            if let Some(e) = error {
-                                return Err(e);
-                            }
-                        } else {
-                            env_vars.insert(k.clone(), v.clone());
-                        }
-                    }
-                } else {
-                    // Pushing a new overlay
-                    self.env_vars.insert(overlay_name.clone(), env.clone());
-                }
-            }
-        }
-
-        Ok(())
+        Ok(engine)
     }
 
     /// Mark a starting point if it is a script (e.g., nu spam.nu)

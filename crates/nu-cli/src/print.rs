@@ -56,8 +56,7 @@ Since this command has no output, there is no point in piping it with other comm
         // We merge stack to make sure we render the changes if any were made in the `block`
         //
         // CONSIDERED TO BE A CODE SMELL AND IT BETTER BE RESOLVED UPWARDS THE CALLING STACK
-        let mut engine = engine_state.clone();
-        engine.merge_env3(stack)?;
+        let engine = engine_state.clone_with_env(stack)?;
         let engine_state = &engine;
 
         // This will allow for easy printing of pipelines as well

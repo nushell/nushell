@@ -105,8 +105,7 @@ impl Command for Table {
         // We merge stack to make sure we render the changes if any were made in the `block`
         //
         // CONSIDERED TO BE A CODE SMELL AND IT BETTER BE RESOLVED UPWARDS THE CALLING STACK
-        let mut engine = engine_state.clone();
-        engine.merge_env3(stack)?;
+        let engine = engine_state.clone_with_env(stack)?;
         let engine_state = &engine;
 
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
