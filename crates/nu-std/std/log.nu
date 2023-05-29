@@ -30,6 +30,8 @@ export-env {
         "INFO": "I",
         "DEBUG": "D"
     }
+
+    let-env LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
 }
 
 def log-types [] {
@@ -149,7 +151,15 @@ def log-formatted [
         $formatting.prefix
     }
 
-    print --stderr $"($formatting.ansi)(now)|($prefix)|(ansi u)($message)(ansi reset)"
+    print --stderr ([
+        ["%MSG%" $message]
+        ["%DATE%" (now)]
+        ["%LEVEL%" $prefix]
+        ["%ANSI_START%" $formatting.ansi]
+        ["%ANSI_STOP%" (ansi reset)]
+    ] | reduce --fold $env.LOG_FORMAT {
+        |it, acc| $acc | str replace --all $it.0 $it.1
+    })
 }
 
 # Log a critical message
@@ -251,6 +261,7 @@ export def custom [
         ["%MSG%" $message]
         ["%DATE%" (now)]
         ["%LEVEL%" $level]
+        ["%ANSI_STOP%" (ansi reset)]
     ] | reduce --fold $format {
         |it, acc| $acc | str replace --all $it.0 $it.1
     })
