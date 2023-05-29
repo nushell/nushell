@@ -55,7 +55,7 @@ This is sometimes attempted in current Nu with an expression like: `(<endTime> -
 ### `<dateTime> plus-or-minus <duration>` - "the {day} a {week, month, year} from now" 
 Nu currently gets the calculation right, but only if user specifies `<duration>` as a literal with units less than a month (to avoid the 30-day-per-month assumption).   And the user asking this question generally wants the result duration in particular time units, not always nanoseconds.  For example, "what is the *day* that is 3 months from now?", the desired answer should be a day date, not a full timestamp.
 
-Also, since the calculation currently includes the time portion, it can produce suprising results when chained and there is no simple mechanism in Nu to round or truncate the `<datetime>` from nanoseconds down to days, though it can be done via substring on the to-string representation.
+Also, since the calculation currently includes the time portion, it can produce surprising results when chained and there is no simple mechanism in Nu to round or truncate the `<datetime>` from nanoseconds down to days, though it can be done via substring on the to-string representation.
 
 Here's a somewhat convoluted example: [[need a more concise example]]
 ```
@@ -85,7 +85,7 @@ Tue, 04 Jan 2022 02:00:00 +0000 (a year ago)
     There is currently no standard way to convert this string back into a Duration value.  You could write a 1-liner.
     Also, this answer is *always* wrong.  There is no sequence of 3 months on the calendar having 30 days each.
     
-  * Rendering a Duration value in applicaiton context  
+  * Rendering a Duration value in application context  
     Developer wants control over the formatting and precision, designed to suit the application
     e.g:
     ```
@@ -98,7 +98,7 @@ Tue, 04 Jan 2022 02:00:00 +0000 (a year ago)
 
 ### Not-in-scope
   These scenarios are listed to *exclude* them from this project
-  * Caclulations involving day of week, like "first tuesday of every month"   
+  * calculations involving day of week, like "first tuesday of every month"   
     Nothing here prevents adding day-of-week calculations later (hopefully).
   * Work week, working days calculations, like "how many working days till the end of the quarter"
   * ??
@@ -126,7 +126,7 @@ Exactly when must the calendar be involved in duration calculations?  I don't ha
   Resolved: open  
   Can do this safely when units are less than month, would have to issue error for bigger units.
   Pro: allows user a concise and convenient shorthand.
-  Con: Being familiar with entering literals this way, user might be suprised to see integer calculations (and truncation)being done on Duration valued expressions.
+  Con: Being familiar with entering literals this way, user might be surprised to see integer calculations (and truncation)being done on Duration valued expressions.
 
 * Which of the new/updated commands should vectorize?  
   Resolved: Yes, but how?  
@@ -528,6 +528,7 @@ Key advantages:
 Disadvantages:
 * Maybe only supports chrono naive date, no date/time or fixed offset datetime? 
 * No inherent support for sub-day durations, which are the bulk of actual calculation.
+* Although it *represents* month units and lets you *add* a duration to a date, it does not *calculate* month unit durations from difference of 2 dates.  Neither does chrono.  Will roll my own.
 
 ## Nu duration type 
 will be a calends Interval (with embedded datetime) .  This will make all the operations easy to invoke.  Extra space cost (an extra 64 bits) is small.

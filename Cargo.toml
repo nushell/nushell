@@ -72,6 +72,7 @@ miette = { version = "5.9", features = ["fancy-no-backtrace"] }
 serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"
+calends = "0.1.12"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
@@ -100,14 +101,7 @@ serial_test = "1.0"
 rstest = { version = "0.17", default-features = false }
 
 [features]
-plugin = [
-	"nu-plugin",
-	"nu-cli/plugin",
-	"nu-parser/plugin",
-	"nu-command/plugin",
-	"nu-protocol/plugin",
-	"nu-engine/plugin",
-]
+plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
 # extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
 extra = ["default", "nu-cmd-lang/extra"]
 default = ["plugin", "which-support", "trash-support", "sqlite"]

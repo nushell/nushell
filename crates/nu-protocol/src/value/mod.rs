@@ -1,4 +1,5 @@
 mod custom_value;
+mod duration;
 mod from;
 mod from_value;
 mod lazy_record;
