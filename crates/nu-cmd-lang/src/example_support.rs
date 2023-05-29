@@ -171,7 +171,7 @@ pub fn check_example_evaluates_to_expected_output(
         .expect("Error merging environment");
 
     engine_state
-        .set_current_workink_dir(cwd)
+        .set_current_working_dir(cwd)
         .expect("Error setting CWD");
 
     let empty_input = PipelineData::empty();

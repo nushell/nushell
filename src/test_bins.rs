@@ -192,7 +192,7 @@ pub fn nu_repl() {
             outcome_err(&engine_state, &err);
         }
 
-        if let Err(err) = engine_state.set_current_workink_dir(&cwd) {
+        if let Err(err) = engine_state.set_current_working_dir(&cwd) {
             outcome_err(&engine_state, &err);
         }
 

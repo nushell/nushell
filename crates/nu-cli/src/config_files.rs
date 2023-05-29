@@ -105,7 +105,7 @@ pub fn eval_config_contents(
                         report_error(&working_set, &e);
                     }
 
-                    if let Err(e) = engine_state.set_current_workink_dir(cwd) {
+                    if let Err(e) = engine_state.set_current_working_dir(cwd) {
                         let working_set = StateWorkingSet::new(engine_state);
                         report_error(&working_set, &e);
                     }

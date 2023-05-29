@@ -173,7 +173,7 @@ pub fn evaluate_repl(
             false,
         );
         engine_state.merge_env(stack)?;
-        engine_state.set_current_workink_dir(get_guaranteed_cwd(engine_state, stack))?;
+        engine_state.set_current_working_dir(get_guaranteed_cwd(engine_state, stack))?;
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -200,7 +200,7 @@ pub fn evaluate_repl(
         }
 
         let cwd = get_guaranteed_cwd(engine_state, stack);
-        if let Err(err) = engine_state.set_current_workink_dir(cwd) {
+        if let Err(err) = engine_state.set_current_working_dir(cwd) {
             report_error_new(engine_state, &err);
         }
 
