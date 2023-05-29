@@ -1,4 +1,7 @@
 #!/usr/bin/env nu
+use std log warning
+
+warning "./scripts/coverage-local.nu will be deprecated, please use the `toolkit cov` command instead"
 
 def compute-coverage [] {
     cd ($env.CURRENT_FILE | path dirname -n 2)
