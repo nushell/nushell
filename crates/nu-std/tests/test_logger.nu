@@ -143,8 +143,8 @@ export def test_custom [] {
     assert custom message $env.LOG_LEVEL.DEBUG "%MSG%" $env.LOG_LEVEL.INFO
     assert custom message $env.LOG_LEVEL.WARNING $"my_msg: %MSG%" $env.LOG_LEVEL.CRITICAL
 
-    assert custom message contains $env.LOG_LEVEL.DEBUG $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" $env.LOG_LEVEL.WARNING) $env.LOG_PREFIX.WARNING
-    assert custom message not contains $env.LOG_LEVEL.DEBUG $"(ansi yellow)MY MESSAGE: %MSG% [%DATE%](ansi reset)" $env.LOG_LEVEL.WARNING) $env.LOG_PREFIX.WARNING
+    assert custom message contains $env.LOG_LEVEL.DEBUG $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" $env.LOG_LEVEL.WARNING $env.LOG_PREFIX.WARNING
+    assert custom message not contains $env.LOG_LEVEL.DEBUG $"(ansi yellow)MY MESSAGE: %MSG% [%DATE%](ansi reset)" $env.LOG_LEVEL.WARNING $env.LOG_PREFIX.WARNING
 }
 
 export def "test_long_prefixes" [] {
