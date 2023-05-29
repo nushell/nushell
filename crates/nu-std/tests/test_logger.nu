@@ -139,26 +139,26 @@ def "assert no custom message" [
 }
 
 export def test_custom [] {
-    assert no custom message (log LEVEL | get ERROR) "%MSG%" (log LEVEL | get DEBUG)
-    assert custom message (log LEVEL | get DEBUG) "%MSG%" (log LEVEL | get INFO)
-    assert custom message (log LEVEL | get WARNING) $"my_msg: %MSG%" (log LEVEL | get CRITICAL)
+    assert no custom message $env.LOG_LEVEL.ERROR "%MSG%" $env.LOG_LEVEL.DEBUG
+    assert custom message $env.LOG_LEVEL.DEBUG "%MSG%" $env.LOG_LEVEL.INFO
+    assert custom message $env.LOG_LEVEL.WARNING $"my_msg: %MSG%" $env.LOG_LEVEL.CRITICAL
 
-    assert custom message contains (log LEVEL | get DEBUG) $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" (log LEVEL | get WARNING) (log PREFIX | get WARNING)
-    assert custom message not contains (log LEVEL | get DEBUG) $"(ansi yellow)MY MESSAGE: %MSG% [%DATE%](ansi reset)" (log LEVEL | get WARNING) (log PREFIX | get WARNING)
+    assert custom message contains $env.LOG_LEVEL.DEBUG $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" $env.LOG_LEVEL.WARNING) $env.LOG_PREFIX.WARNING
+    assert custom message not contains $env.LOG_LEVEL.DEBUG $"(ansi yellow)MY MESSAGE: %MSG% [%DATE%](ansi reset)" $env.LOG_LEVEL.WARNING) $env.LOG_PREFIX.WARNING
 }
 
 export def "test_long_prefixes" [] {
-    assert equal (log PREFIX | get CRITICAL) "CRT"
-    assert equal (log PREFIX | get ERROR) "ERR"
-    assert equal (log PREFIX | get WARNING) "WRN"
-    assert equal (log PREFIX | get INFO) "INF"
-    assert equal (log PREFIX | get DEBUG) "DBG"
+    assert equal $env.LOG_PREFIX.CRITICAL "CRT"
+    assert equal $env.LOG_PREFIX.ERROR "ERR"
+    assert equal $env.LOG_PREFIX.WARNING "WRN"
+    assert equal $env.LOG_PREFIX.INFO "INF"
+    assert equal $env.LOG_PREFIX.DEBUG "DBG"
 }
 
 export def "test_short_prefixes" [] {
-    assert equal (log SHORT_PREFIX | get CRITICAL) "C"
-    assert equal (log SHORT_PREFIX | get ERROR) "E"
-    assert equal (log SHORT_PREFIX | get WARNING) "W"
-    assert equal (log SHORT_PREFIX | get INFO) "I"
-    assert equal (log SHORT_PREFIX | get DEBUG) "D"
+    assert equal $env.LOG_SHORT_PREFIX.CRITICAL "C"
+    assert equal $env.LOG_SHORT_PREFIX.ERROR "E"
+    assert equal $env.LOG_SHORT_PREFIX.WARNING "W"
+    assert equal $env.LOG_SHORT_PREFIX.INFO "I"
+    assert equal $env.LOG_SHORT_PREFIX.DEBUG "D"
 }
