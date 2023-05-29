@@ -4,24 +4,49 @@ use std cal
 export def test_cal [] {
     (
         assert equal
-            (cal -y --full-year 2010 | first | to json -r)
-            '{"year": 2010,"sunday": null,"monday": null,"tuesday": null,"wednesday": null,"thursday": null,"friday": 1,"saturday": 2}'
+            (cal -y --full-year 2010 | first)
+            {
+                year: 2010,
+                sunday: null,
+                monday: null,
+                tuesday: null,
+                wednesday: null,
+                thursday: null,
+                friday: 1,
+                saturday: 2,
+            }
     )
 
     (
         assert equal
-            (cal -ym --full-year 2020 --month-names | where month == "february" | to json -r)
-            '[{"year": 2020,"month": "february","sunday": null,"monday": null,"tuesday": null,"wednesday": null,"thursday": null,"friday": null,"saturday": 1},{"year": 2020,"month": "february","sunday": 2,"monday": 3,"tuesday": 4,"wednesday": 5,"thursday": 6,"friday": 7,"saturday": 8},{"year": 2020,"month": "february","sunday": 9,"monday": 10,"tuesday": 11,"wednesday": 12,"thursday": 13,"friday": 14,"saturday": 15},{"year": 2020,"month": "february","sunday": 16,"monday": 17,"tuesday": 18,"wednesday": 19,"thursday": 20,"friday": 21,"saturday": 22},{"year": 2020,"month": "february","sunday": 23,"monday": 24,"tuesday": 25,"wednesday": 26,"thursday": 27,"friday": 28,"saturday": 29}]'
+            (cal -ym --full-year 2020 --month-names | where month == "february")
+            [
+                [year, month, sunday, monday, tuesday, wednesday, thursday, friday, saturday];
+
+                [2020, "february", null, null, null, null, null, null,  1],
+                [2020, "february",    2,    3,    4,    5,    6,    7,  8],
+                [2020, "february",    9,   10,   11,   12,   13,   14, 15],
+                [2020, "february",   16,   17,   18,   19,   20,   21, 22],
+                [2020, "february",   23,   24,   25,   26,   27,   28, 29],
+            ]
     )
 
-    assert equal (cal --full-year 2015 | default 0 friday | where friday == 13 | length) 3
-    assert equal (cal --full-year 2020 | length) 62
+    assert length (cal --full-year 2015 | default 0 friday | where friday == 13) 3
+    assert length (cal --full-year 2020) 62
 
     (
         assert equal
-            (cal --full-year 2020 -m --month-names --week-start monday | where month == january | to json -r)
-            '[{"month": "january","monday": null,"tuesday": null,"wednesday": 1,"thursday": 2,"friday": 3,"saturday": 4,"sunday": 5},{"month": "january","monday": 6,"tuesday": 7,"wednesday": 8,"thursday": 9,"friday": 10,"saturday": 11,"sunday": 12},{"month": "january","monday": 13,"tuesday": 14,"wednesday": 15,"thursday": 16,"friday": 17,"saturday": 18,"sunday": 19},{"month": "january","monday": 20,"tuesday": 21,"wednesday": 22,"thursday": 23,"friday": 24,"saturday": 25,"sunday": 26},{"month": "january","monday": 27,"tuesday": 28,"wednesday": 29,"thursday": 30,"friday": 31,"saturday": null,"sunday": null}]'
+            (cal --full-year 2020 -m --month-names --week-start monday | where month == january)
+            [
+                [month, monday, tuesday, wednesday, thursday, friday, saturday, sunday];
+
+                ["january", null, null,  1,  2,  3,    4,    5],
+                ["january",    6,    7,  8,  9, 10,   11,   12],
+                ["january",   13,   14, 15, 16, 17,   18,   19],
+                ["january",   20,   21, 22, 23, 24,   25,   26],
+                ["january",   27,   28, 29, 30, 31, null, null],
+            ]
     )
 
-    assert equal (cal --full-year 1020 | get monday | first 4 | to json -r) '[null,3,10,17]'
+    assert equal (cal --full-year 1020 | get monday | first 4)  [null, 3, 10, 17]
 }
