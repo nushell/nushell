@@ -50,34 +50,34 @@ def log-types [] {
     (
         {
             "CRITICAL": {
-                "ansi": (log ANSI | get CRITICAL),
-                "level": (log LEVEL | get CRITICAL),
-                "prefix": (log PREFIX | get CRITICAL),
-                "short_prefix": (log SHORT_PREFIX | get CRITICAL)
+                "ansi": (ANSI | get CRITICAL),
+                "level": (LEVEL | get CRITICAL),
+                "prefix": (PREFIX | get CRITICAL),
+                "short_prefix": (SHORT_PREFIX | get CRITICAL)
             },
             "ERROR": {
-                "ansi": (log ANSI | get ERROR),
-                "level": (log LEVEL | get ERROR),
-                "prefix": (log PREFIX | get ERROR),
-                "short_prefix": (log SHORT_PREFIX | get ERROR)
+                "ansi": (ANSI | get ERROR),
+                "level": (LEVEL | get ERROR),
+                "prefix": (PREFIX | get ERROR),
+                "short_prefix": (SHORT_PREFIX | get ERROR)
             },
             "WARNING": {
-                "ansi": (log ANSI | get WARNING),
-                "level": (log LEVEL | get WARNING),
-                "prefix": (log PREFIX | get WARNING),
-                "short_prefix": (log SHORT_PREFIX | get WARNING)
+                "ansi": (ANSI | get WARNING),
+                "level": (LEVEL | get WARNING),
+                "prefix": (PREFIX | get WARNING),
+                "short_prefix": (SHORT_PREFIX | get WARNING)
             }, 
             "INFO": {
-                "ansi": (log ANSI | get INFO),
-                "level": (log LEVEL | get INFO),
-                "prefix": (log PREFIX | get INFO),
-                "short_prefix": (log SHORT_PREFIX | get INFO)
+                "ansi": (ANSI | get INFO),
+                "level": (LEVEL | get INFO),
+                "prefix": (PREFIX | get INFO),
+                "short_prefix": (SHORT_PREFIX | get INFO)
             }, 
             "DEBUG": {
-                "ansi": (log ANSI | get DEBUG),
-                "level": (log LEVEL | get DEBUG),
-                "prefix": (log PREFIX | get DEBUG),
-                "short_prefix": (log SHORT_PREFIX | get DEBUG)
+                "ansi": (ANSI | get DEBUG),
+                "level": (LEVEL | get DEBUG),
+                "prefix": (PREFIX | get DEBUG),
+                "short_prefix": (SHORT_PREFIX | get DEBUG)
             },            
         }
     )
@@ -87,9 +87,9 @@ def log-types [] {
 def parse-string-level [
     level: string
 ] {
-    let prefixes = (log PREFIX)
-    let short_prefixes = (log SHORT_PREFIX)
-    let levels = (log LEVEL)
+    let prefixes = (PREFIX)
+    let short_prefixes = (SHORT_PREFIX)
+    let levels = (LEVEL)
 
     if $level in [$prefixes.CRITICAL $short_prefixes.CRITICAL "CRIT" "CRITICAL"] {
         $levels.CRITICAL
@@ -109,9 +109,9 @@ def parse-int-level [
     level: int,
     --short (-s)
 ] {
-    let prefixes = (log PREFIX)
-    let short_prefixes = (log SHORT_PREFIX)
-    let levels = (log LEVEL)
+    let prefixes = (PREFIX)
+    let short_prefixes = (SHORT_PREFIX)
+    let levels = (LEVEL)
 
     if $level >= $levels.CRITICAL {
         if $short {
@@ -147,7 +147,7 @@ def parse-int-level [
 }
 
 def current-log-level [] {
-    let env_level = ($env.NU_LOG_LEVEL? | default (log LEVEL | get INFO))
+    let env_level = ($env.NU_LOG_LEVEL? | default (LEVEL | get INFO))
 
     try {
         $env_level | into int
