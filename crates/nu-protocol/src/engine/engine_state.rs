@@ -310,7 +310,7 @@ impl EngineState {
     }
 
     /// Set a CWD.
-    pub fn set_current_workink_dir(&mut self, cwd: impl AsRef<Path>) -> Result<(), ShellError> {
+    pub fn set_current_working_dir(&mut self, cwd: impl AsRef<Path>) -> Result<(), ShellError> {
         // TODO: better error
         std::env::set_current_dir(cwd)?;
         Ok(())
