@@ -1,7 +1,7 @@
-use std "xaccess"
-use std "xupdate"
-use std "xinsert"
-use std "assert equal"
+use std xml xaccess
+use std xml xupdate
+use std xml xinsert
+use std assert
 
 export def setup [] {
     {sample_xml: ('

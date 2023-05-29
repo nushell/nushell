@@ -1,7 +1,5 @@
-use std "log debug"
-use std "log error"
-use std "assert"
-use std "assert skip"
+use std log
+use std assert
 
 export def setup [] {
     log debug "Setup is running"

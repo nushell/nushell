@@ -1,5 +1,6 @@
 [package]
 authors = ["The Nushell Project Developers"]
+build = "scripts/build.rs"
 default-run = "nu"
 description = "A new type of shell"
 documentation = "https://www.nushell.sh/book/"
@@ -28,6 +29,7 @@ members = [
 	"crates/nu-parser",
 	"crates/nu-system",
 	"crates/nu-cmd-lang",
+	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
@@ -45,6 +47,7 @@ members = [
 nu-cli = { path = "./crates/nu-cli", version = "0.80.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.80.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.80.1" }
+nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.80.1", optional = true }
 nu-command = { path = "./crates/nu-command", version = "0.80.1" }
 nu-engine = { path = "./crates/nu-engine", version = "0.80.1" }
 nu-json = { path = "./crates/nu-json", version = "0.80.1" }
@@ -59,20 +62,21 @@ nu-term-grid = { path = "./crates/nu-term-grid", version = "0.80.1" }
 nu-std = { path = "./crates/nu-std", version = "0.80.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.80.1" }
 nu-ansi-term = "0.47.0"
-reedline = { version = "0.19.1", features = ["bashisms", "sqlite"]}
+# reedline = { version = "0.19.2", features = ["bashisms", "sqlite"]}
+reedline = { git = "https://github.com/nushell/reedline.git", features = ["bashisms", "sqlite"], branch = "main"}
 
 crossterm = "0.26"
-ctrlc = "3.2.1"
+ctrlc = "3.2"
 log = "0.4"
-miette = { version = "5.7.0", features = ["fancy-no-backtrace"] }
+miette = { version = "5.9", features = ["fancy-no-backtrace"] }
 serde_json = "1.0"
-simplelog = "0.12.0"
-time = "0.3.12"
+simplelog = "0.12"
+time = "0.3"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
-openssl = { version = "0.10.48", features = ["vendored"], optional = true }
-signal-hook = { version = "0.3.14", default-features = false }
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+signal-hook = { version = "0.3", default-features = false }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
@@ -88,12 +92,12 @@ atty = "0.2"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.80.1" }
-tempfile = "3.5.0"
-assert_cmd = "2.0.2"
+tempfile = "3.5"
+assert_cmd = "2.0"
 criterion = "0.4"
-pretty_assertions = "1.0.0"
-serial_test = "1.0.0"
-rstest = { version = "0.17.0", default-features = false }
+pretty_assertions = "1.0"
+serial_test = "1.0"
+rstest = { version = "0.17", default-features = false }
 
 [features]
 plugin = [
@@ -105,25 +109,25 @@ plugin = [
 	"nu-engine/plugin",
 ]
 # extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
-extra = ["default"]
+extra = ["default", "nu-cmd-lang/extra"]
 default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
-wasi = []
+wasi = ["nu-cmd-lang/wasi"]
 
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
-static-link-openssl = ["dep:openssl"]
+static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 # Stable (Default)
-which-support = ["nu-command/which-support"]
-trash-support = ["nu-command/trash-support"]
+which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
+trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # Extra
 
 # Dataframe feature for nushell
-dataframe = ["nu-command/dataframe"]
+dataframe = ["nu-command/dataframe", "nu-cmd-lang/dataframe"]
 
 # SQLite commands for nushell
-sqlite = ["nu-command/sqlite"]
+sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size
@@ -153,7 +157,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup

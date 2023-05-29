@@ -15,9 +15,9 @@ bench = false
 nu-path = { path="../nu-path", version = "0.80.1"  }
 nu-glob = { path = "../nu-glob", version = "0.80.1" }
 nu-utils = { path="../nu-utils", version = "0.80.1"  }
-num-format = "0.4.3"
-which = "4.3.0"
 
-getset = "0.1.1"
-tempfile = "3.2.0"
-hamcrest2 = "0.3.0"
+num-format = "0.4"
+which = "4.3"
+getset = "0.1"
+tempfile = "3.2"
+hamcrest2 = "0.3"
