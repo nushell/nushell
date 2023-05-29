@@ -1,31 +1,34 @@
 #![allow(unused_imports, dead_code)]
 use calends::RelativeDuration;
 use chrono::{DateTime, Duration, FixedOffset};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-// convenient? shorthand for the one and only datetime we support.
-pub type BaseDT = DateTime<FixedOffset>;
-// convenient? wordsize of time units, everything from nanoseconds to centuries
-pub type UnitSize = i64;
+use thiserror::Error;
+
+// convenient(?) shorthands for standard types used in this module
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub type BaseDT = DateTime<FixedOffset>; // the one and only chrono datetime we support
+pub type UnitSize = i64; // handle duration range errors internally
 
 // In the hopes the compiler gods are paying attention and will optimize this...
 // most PC architectures have integer div instruction
 // that returns quotient and remainder in one instruction
-/*macro_rules! divmod {
-    ($dividend:expr, $divisor:expr => {
-        (($dividend / $divisor), ($dividend % $divisor))
-    };
-
-}
-*/
 #[inline]
 fn divmod(dividend: UnitSize, divisor: UnitSize) -> (UnitSize, UnitSize) {
-    (dividend / divisor, dividend % divisor)
+    if divisor == 0 {
+        (0, 0)
+    } else {
+        (dividend / divisor, dividend % divisor)
+    }
 }
-
 #[inline]
 fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
-    ((dividend / divisor) as i64, (dividend % divisor) as i64)
+    if divisor == 0 {
+        (0, 0)
+    } else {
+        ((dividend / divisor) as i64, (dividend % divisor) as i64)
+    }
 }
 /// High fidelity Duration type for Nushell
 ///
@@ -48,23 +51,23 @@ pub struct NuDuration {
 }
 
 impl NuDuration {
-    pub fn from_string(_interval: &str) -> NuDuration {
+    pub fn from_string(_interval: &str) -> Result<NuDuration> {
         todo!();
     }
 
-    pub fn from_struct(interval: NuDurationStruct) -> NuDuration {
-        NuDuration {
+    pub fn from_struct(interval: NuDurationStruct) -> Result<NuDuration> {
+        Ok(NuDuration {
             base: interval.base,
             lsb: Duration::hours(interval.hours)
                 + Duration::minutes(interval.minutes)
                 + Duration::seconds(interval.seconds)
                 + Duration::nanoseconds(interval.fraction),
             msb: RelativeDuration::from_mwd(
-                interval.months.try_into().unwrap_or(0),
-                interval.weeks.try_into().unwrap_or(0),
-                interval.days.try_into().unwrap_or(0),
+                interval.months.try_into()?,
+                interval.weeks.try_into()?,
+                interval.days.try_into()?,
             ),
-        }
+        })
     }
 
     pub fn from_b_d_ns(
@@ -81,28 +84,27 @@ impl NuDuration {
 
     /// Normalize internal representation, ensuring lsb < 1 day.
     /// This is where dependency on base date/time comes from - to carry over from days to months.
-    pub fn normalize(&mut self) {
+    pub fn normalize(&mut self) -> Result<()> {
         let overflow_days = self.lsb.num_days();
-        if overflow_days == 0 {
-            return;
+        if overflow_days != 0 {
+            // carry days out of lsb to msb
+            self.lsb = self.lsb - Duration::days(overflow_days);
+            self.msb = self.msb + self.msb.with_days(overflow_days.try_into()?);
+
+            // (hopefully) normalize month, week, day in msb
+            let end_date = self.base.date_naive() + self.msb;
+            self.msb = RelativeDuration::from_duration_between(self.base.date_naive(), end_date);
         };
-
-        // carry days out of lsb to msb
-        self.lsb = self.lsb - Duration::days(overflow_days);
-        self.msb = self.msb + self.msb.with_days(overflow_days as i32);
-
-        // (hopefully) normalize month, week, day in msb
-        let end_date = self.base.date_naive() + self.msb;
-        self.msb = RelativeDuration::from_duration_between(self.base.date_naive(), end_date);
+        Ok(())
     }
 
     /// Returns struct with "normalized" fields
-    pub fn as_struct(&mut self) -> NuDurationStruct {
-        self.normalize();
+    pub fn as_struct(&mut self) -> Result<NuDurationStruct> {
+        self.normalize()?;
 
         // reduce sub-day units first
 
-        let (seconds, fraction) = divmod(self.lsb.num_nanoseconds().unwrap_or(0), 1_000_000_000);
+        let (seconds, fraction) = divmod(self.ns_from_lsb()?, 1_000_000_000);
         let (minutes, seconds) = divmod(seconds, 60);
         let (hours, minutes) = divmod(minutes, 60);
         let (days, hours) = divmod(hours, 24);
@@ -114,7 +116,7 @@ impl NuDuration {
 
         let (months, years) = divmod(self.msb.num_months() as UnitSize, 12);
 
-        NuDurationStruct::new(
+        Ok(NuDurationStruct::new(
             self.base,
             years,
             months,
@@ -124,7 +126,7 @@ impl NuDuration {
             minutes,
             seconds,
             fraction,
-        )
+        ))
     }
 
     /// field getters - inverse of [from_b_d_ns].
@@ -138,7 +140,7 @@ impl NuDuration {
     }
     #[inline]
     pub fn get_nanoseconds(&self) -> UnitSize {
-        self.ns_from_lsb()
+        self.ns_from_lsb().unwrap_or(0)
     }
 
     // number of days in msb of duration (from months through days)
@@ -150,10 +152,12 @@ impl NuDuration {
 
     // number of nanoseconds in lsb of duration (from hours on down)
     #[inline]
-    fn ns_from_lsb(&self) -> UnitSize {
-        self.lsb
-            .num_nanoseconds()
-            .expect("Overflow getting duration in nanoseconds")
+    fn ns_from_lsb(&self) -> Result<UnitSize> {
+        if let Some(ns) = self.lsb.num_nanoseconds() {
+            Ok(ns)
+        } else {
+            Err(NuDurationError::NsOverflow())?
+        }
     }
 }
 
@@ -204,6 +208,17 @@ impl NuDurationStruct {
     }
 }
 
+#[derive(Copy, Clone, Debug, Error, Serialize, Deserialize)]
+pub enum NuDurationError {
+    #[error("Invalid RFC 3339 format datetime string")]
+    InvalidDateTime(),
+    #[error("Chrono nanoseconds overflow")]
+    NsOverflow(),
+}
+
+pub fn new_err(e: NuDurationError) -> Box<NuDurationError> {
+    Box::new(e)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,14 +241,15 @@ mod tests {
             UnitSize,
             UnitSize,
         ),
-    ) {
+    ) -> Result<()> {
         let base = DateTime::parse_from_rfc3339(basestr).expect("should work");
         let exp_struct =
             NuDurationStruct::new(base, ev.0, ev.1, ev.2, ev.3, ev.4, ev.5, ev.6, ev.7);
 
         let mut nd = NuDuration::from_b_d_ns(base, days, ns);
-        let nds = nd.as_struct();
+        let nds = nd.as_struct()?;
 
-        assert_eq!(exp_struct, nds)
+        assert_eq!(exp_struct, nds);
+        Ok(())
     }
 }
