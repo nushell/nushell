@@ -112,11 +112,18 @@ def log-formatted [
     formatting: record
     message: string
     short: bool
+    format: string
 ] {
     let prefix = if $short {
         $formatting.short_prefix
     } else {
         $formatting.prefix
+    }
+
+    let log_format = if ($format | is-empty) {
+        $env.LOG_FORMAT
+    } else {
+        $format
     }
 
     print --stderr ([
@@ -125,7 +132,7 @@ def log-formatted [
         ["%LEVEL%" $prefix]
         ["%ANSI_START%" $formatting.ansi]
         ["%ANSI_STOP%" (ansi reset)]
-    ] | reduce --fold $env.LOG_FORMAT {
+    ] | reduce --fold $log_format {
         |it, acc| $acc | str replace --all $it.0 $it.1
     })
 }
@@ -134,6 +141,7 @@ def log-formatted [
 export def critical [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
+    --format (-f): string # A format
 ] {
     let formatting = (log-types | get CRITICAL)
 
@@ -141,13 +149,14 @@ export def critical [
         return
     }
 
-    log-formatted $formatting $message $short
+    log-formatted $formatting $message $short $format    
 }
 
 # Log an error message
 export def error [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
+    --format (-f): string # A format
 ] {
     let formatting = (log-types | get ERROR)
 
@@ -155,13 +164,14 @@ export def error [
         return
     }
 
-    log-formatted $formatting $message $short
+    log-formatted $formatting $message $short $format
 }
 
 # Log a warning message
 export def warning [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
+    --format (-f): string # A format
 ] {
     let formatting = (log-types | get WARNING)
 
@@ -169,13 +179,14 @@ export def warning [
         return
     }
 
-    log-formatted $formatting $message $short
+    log-formatted $formatting $message $short $format
 }
 
 # Log an info message
 export def info [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
+    --format (-f): string # A format
 ] {
     let formatting = (log-types | get INFO)
 
@@ -183,13 +194,14 @@ export def info [
         return
     }
 
-    log-formatted $formatting $message $short
+    log-formatted $formatting $message $short $format
 }
 
 # Log a debug message
 export def debug [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
+    --format (-f): string
 ] {
     let formatting = (log-types | get DEBUG)
 
@@ -197,7 +209,7 @@ export def debug [
         return
     }
 
-    log-formatted $formatting $message $short
+    log-formatted $formatting $message $short $format
 }
 
 # Log a message with a specific format and verbosity level
