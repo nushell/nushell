@@ -4,6 +4,9 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
+/// The Euler-Mascheroni constant (γ)
+pub const EGAMMA: f64 = 0.577215664901532860606512090082402431_f64;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -42,7 +45,8 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::float(std::f64::consts::EGAMMA, call.head).into_pipeline_data())
+        // TODO: replace with std::f64::consts::EGAMMA when available https://github.com/rust-lang/rust/issues/103883
+        Ok(Value::float(EGAMMA, call.head).into_pipeline_data())
     }
 }
 

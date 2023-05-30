@@ -3,6 +3,8 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
+/// The golden ratio (φ)
+pub const PHI: f64 = 1.618033988749894848204586834365638118_f64;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -42,7 +44,8 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::float(std::f64::consts::PHI, call.head).into_pipeline_data())
+        // TODO: replace with std::f64::consts::PHI when available https://github.com/rust-lang/rust/issues/103883
+        Ok(Value::float(PHI, call.head).into_pipeline_data())
     }
 }
 
