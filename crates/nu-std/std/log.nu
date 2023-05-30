@@ -131,12 +131,25 @@ def handle-log [
     custom $message $log_format $formatting.level --level_prefix $prefix --ansi $formatting.ansi
 }
 
+# Logging module
+#
+# Log formatting placeholders:
+# - %MSG%: message to be logged
+# - %DATE%: date of log
+# - %LEVEL%: string prefix for the log level
+# - %ANSI_START%: ansi formatting 
+# - %ANSI_STOP%: literally (ansi reset)
+#
+# Note: All placeholders are optional, so "" is still a valid format
+#
+# Example: $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
+export def main [] {}
 
 # Log a critical message
 export def critical [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
-    --format (-f): string # A format
+    --format (-f): string # A format (for further reference: help std log)
 ] {
     let formatting = (log-types | get CRITICAL)    
 
@@ -151,7 +164,7 @@ export def critical [
 export def error [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
-    --format (-f): string # A format
+    --format (-f): string # A format (for further reference: help std log)
 ] {
     let formatting = (log-types | get ERROR)
 
@@ -166,7 +179,7 @@ export def error [
 export def warning [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
-    --format (-f): string # A format
+    --format (-f): string # A format (for further reference: help std log)
 ] {
     let formatting = (log-types | get WARNING)
 
@@ -181,7 +194,7 @@ export def warning [
 export def info [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
-    --format (-f): string # A format
+    --format (-f): string # A format (for further reference: help std log)
 ] {
     let formatting = (log-types | get INFO)
 
@@ -196,7 +209,7 @@ export def info [
 export def debug [
     message: string, # A message
     --short (-s) # Whether to use a short prefix
-    --format (-f): string
+    --format (-f): string # A format (for further reference: help std log)
 ] {
     let formatting = (log-types | get DEBUG)
 
@@ -207,21 +220,13 @@ export def debug [
     handle-log $message $formatting $format $short
 }
 
-# Log a message with a specific format and verbosity level
-# 
-# Format reference:
-# - %MSG% will be replaced by $message
-# - %DATE% will be replaced by the timestamp of log in standard Nushell's log format: "%Y-%m-%dT%H:%M:%S%.3f"
-# - %LEVEL% will be replaced by the standard Nushell's log verbosity prefixes, e.g. "CRT"
-#
-# Examples:
-# - std log custom "my message" $"(ansi yellow)[%LEVEL%]MY MESSAGE: %MSG% [%DATE%](ansi reset)" (std log WARNING_LEVEL)
+# Log a message with a specific format and verbosity level, with either configurable or auto-deduced %LEVEL% and %ANSI_START% placeholder extenions
 export def custom [
     message: string, # A message
-    format: string, # A format
-    log_level: int # A log level
-    --level_prefix (-p): string
-    --ansi (-a): string
+    format: string, # A format (for further reference: help std log)
+    log_level: int # A log level (has to be one of the $env.LOG_LEVEL values for correct ansi/prefix deduction)
+    --level_prefix (-p): string # %LEVEL% placeholder extension
+    --ansi (-a): string # %ANSI_START% placeholder extension
 ] {
     if (current-log-level) > ($log_level) {
         return
