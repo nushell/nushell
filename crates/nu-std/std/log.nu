@@ -220,7 +220,7 @@ export def debug [
     handle-log $message $formatting $format $short
 }
 
-# Log a message with a specific format and verbosity level, with either configurable or auto-deduced %LEVEL% and %ANSI_START% placeholder extenions
+# Log a message with a specific format and verbosity level, with either configurable or auto-deduced %LEVEL% and %ANSI_START% placeholder extensions
 export def custom [
     message: string, # A message
     format: string, # A format (for further reference: help std log)
