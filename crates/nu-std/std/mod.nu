@@ -2,7 +2,7 @@
 
 export-env {
     use dirs.nu []
-    use env_exporter.nu []
+    use log.nu []
 }
 
 use dt.nu [datetime-diff, pretty-print-duration]
