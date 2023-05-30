@@ -29,8 +29,8 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         SQLDataType::Boolean => DataType::Boolean,
         SQLDataType::Date => DataType::Date,
         SQLDataType::Time(_, _) => DataType::Time,
-        SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Milliseconds, None),
-        SQLDataType::Interval => DataType::Duration(TimeUnit::Milliseconds),
+        SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Microseconds, None),
+        SQLDataType::Interval => DataType::Duration(TimeUnit::Microseconds),
         SQLDataType::Array(inner_type) => match inner_type {
             Some(inner_type) => DataType::List(Box::new(map_sql_polars_datatype(inner_type)?)),
             None => {
