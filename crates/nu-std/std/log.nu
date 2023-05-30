@@ -43,9 +43,11 @@ def log-types [] {
 def parse-string-level [
     level: string
 ] {
+    let level = ($level | str upcase)
+    
     if $level in [$env.LOG_PREFIX.CRITICAL $env.LOG_SHORT_PREFIX.CRITICAL "CRIT" "CRITICAL"] {
         $env.LOG_LEVEL.CRITICAL
-    } else if $level in [$env.LOG_PREFIX.ERROR $env.LOG_SHORT_PREFIX.ERROR "ERROR" ] {
+    } else if $level in [$env.LOG_PREFIX.ERROR $env.LOG_SHORT_PREFIX.ERROR "ERROR"] {
         $env.LOG_LEVEL.ERROR
     } else if $level in [$env.LOG_PREFIX.WARNING $env.LOG_SHORT_PREFIX.WARNING "WARN" "WARNING"] {
         $env.LOG_LEVEL.WARNING
