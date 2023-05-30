@@ -580,10 +580,7 @@ where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
     match series.dtype() {
-        DataType::UInt32
-        | DataType::Int32
-        | DataType::UInt64
-        | DataType::Datetime(_, _) => {
+        DataType::UInt32 | DataType::Int32 | DataType::UInt64 | DataType::Datetime(_, _) => {
             let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {
