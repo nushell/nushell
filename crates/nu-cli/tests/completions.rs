@@ -768,7 +768,8 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     assert!(engine_state.merge_delta(delta).is_ok());
 
     // Merge environment into the permanent state
-    assert!(engine_state.merge_env(&mut stack, &dir).is_ok());
+    assert!(engine_state.merge_env(&mut stack).is_ok());
+    assert!(engine_state.set_current_working_dir(&dir).is_ok());
 
     let latest_block_id = engine_state.num_blocks() - 1;
 

@@ -246,6 +246,10 @@ pub fn eval_source(
 
     match b {
         Ok(pipeline_data) => {
+            // we merge stack here because the block could change the envirenemnt,
+            // and we need to render it while do print.
+            let _ = engine_state.merge_env(stack);
+
             let config = engine_state.get_config();
             let result;
             if let PipelineData::ExternalStream {

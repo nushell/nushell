@@ -98,7 +98,8 @@ use std dirs [
     )?;
 
     let cwd = current_dir(engine_state, &stack)?;
-    engine_state.merge_env(&mut stack, cwd)?;
+    engine_state.merge_env(&mut stack)?;
+    engine_state.set_current_working_dir(cwd)?;
 
     Ok(())
 }

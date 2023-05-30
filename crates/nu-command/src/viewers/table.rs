@@ -102,6 +102,12 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // We merge stack to make sure we render the changes if any were made in the `block`
+        //
+        // CONSIDERED TO BE A CODE SMELL AND IT BETTER BE RESOLVED UPWARDS THE CALLING STACK
+        let engine = engine_state.clone_with_env(stack)?;
+        let engine_state = &engine;
+
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
         let list: bool = call.has_flag("list");
