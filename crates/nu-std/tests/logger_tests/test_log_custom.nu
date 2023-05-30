@@ -50,11 +50,12 @@ export def test_errors_during_deduction [] {
 
 export def test_valid_calls [] {
     assert equal (run-command "DEBUG" "msg" "%MSG%" 25 --level_prefix "abc" --ansi (ansi default) | str trim --right) "msg"
-    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) "INF msg"
+    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"($env.LOG_PREFIX.INFO) msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" --level_prefix "abc" 20 | str trim --right) "abc msg"
+    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG%%ANSI_STOP%" $env.LOG_LEVEL.CRITICAL | str trim --right) $"($env.LOG_ANSI.CRITICAL)CRT msg(ansi reset)"
 }
 
 export def test_log_level_handling [] {
-    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) "INF msg"
+    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"($env.LOG_PREFIX.INFO) msg"
     assert equal (run-command "WARNING" "msg" "%LEVEL% %MSG%" 20 | str trim --right) ""
 }
