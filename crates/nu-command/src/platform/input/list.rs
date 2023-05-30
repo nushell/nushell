@@ -113,17 +113,19 @@ impl Command for InputList {
                             })
                         } else if let Ok(record) = x.as_record() {
                             let mut options = Vec::new();
-                            let len = record.1.len();
+                            let columns = record.1.len();
                             for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate()
                             {
                                 if let Ok(val) = val.as_string() {
+                                    let len = nu_utils::strip_ansi_likely(&val).len()
+                                        + nu_utils::strip_ansi_likely(&col).len();
                                     options.push(format!(
                                         " {}{}{}: {}{}",
                                         Color::Cyan.prefix(),
                                         col,
                                         Color::Cyan.suffix(),
                                         &val,
-                                        if i == len - 1 {
+                                        if i == columns - 1 {
                                             String::from("")
                                         } else {
                                             format!(
@@ -133,8 +135,7 @@ impl Command for InputList {
                                                         .get(i)
                                                         .cloned()
                                                         .unwrap_or_default()
-                                                        .saturating_sub(val.len())
-                                                        .saturating_sub(col.len())
+                                                        .saturating_sub(len)
                                                 )
                                             )
                                         }
