@@ -1,6 +1,8 @@
 #![allow(unused_imports, dead_code)]
 use calends::RelativeDuration;
-use chrono::{DateTime, Duration, FixedOffset};
+use chrono::{
+    DateTime, Duration, FixedOffset, Months, NaiveDate, NaiveDateTime, NaiveTime, SecondsFormat,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -82,29 +84,36 @@ impl NuDuration {
         }
     }
 
-    /// Normalize internal representation, ensuring lsb < 1 day.
+    /// Normalize internal representation, ensuring
+    /// each # hours < 24, # months < 12, etc. for each time unit.
+    ///
     /// This is where dependency on base date/time comes from - to carry over from days to months.
-    pub fn normalize(&mut self) -> Result<()> {
-        let overflow_days = self.lsb.num_days();
-        if overflow_days != 0 {
-            // carry days out of lsb to msb
-            self.lsb = self.lsb - Duration::days(overflow_days);
-            self.msb = self.msb + self.msb.with_days(overflow_days.try_into()?);
-
-            // (hopefully) normalize month, week, day in msb
-            let end_date = self.base.date_naive() + self.msb;
-            self.msb = RelativeDuration::from_duration_between(self.base.date_naive(), end_date);
-        };
-        Ok(())
+    /// But we only use date portion of base for normalization -- we would not want
+    /// a base datetime near midnight + duration of 1 hour to normalize to 1 day, -23 hours.
+    pub fn normalize(&self) -> Result<Self> {
+        let normalize_base = NaiveDateTime::new(
+            self.base.date_naive(),
+            NaiveTime::from_hms_opt(0, 0, 0).expect("constant time failed"),
+        );
+        let end_dt =
+            NaiveDateTime::new(normalize_base.date() + self.msb, normalize_base.time()) + self.lsb; // add Duration last so days can carry over to msb
+                                                                                                    //println!("end_dt: {end_dt:#?}");
+        Ok(NuDuration {
+            base: self.base,
+            msb: RelativeDuration::from_duration_between(normalize_base.date(), end_dt.date()),
+            lsb: end_dt.time() - normalize_base.time(),
+        })
     }
 
-    /// Returns struct with "normalized" fields
-    pub fn as_struct(&mut self) -> Result<NuDurationStruct> {
-        self.normalize()?;
-
+    /// Returns struct with current, unnormalized fields
+    pub fn as_struct(&self) -> Result<NuDurationStruct> {
         // reduce sub-day units first
 
         let (seconds, fraction) = divmod(self.ns_from_lsb()?, 1_000_000_000);
+        println!(
+            "ns_from_lsb: {}, second: {seconds}, fraction {fraction}",
+            self.ns_from_lsb()?
+        );
         let (minutes, seconds) = divmod(seconds, 60);
         let (hours, minutes) = divmod(minutes, 60);
         let (days, hours) = divmod(hours, 24);
@@ -114,7 +123,7 @@ impl NuDuration {
         // assume normalize rationalized msb, so can use days and weeks directly.
         // also assume it maximized months, so we can scale that for months and years.
 
-        let (months, years) = divmod(self.msb.num_months() as UnitSize, 12);
+        let (years, months) = divmod(self.msb.num_months() as UnitSize, 12);
 
         Ok(NuDurationStruct::new(
             self.base,
@@ -127,6 +136,17 @@ impl NuDuration {
             seconds,
             fraction,
         ))
+    }
+
+    /// Returns struct with *normalized* fields
+    /// Each time field is less than 1 unit of the next bigger field.
+
+    pub fn as_struct_pretty(&mut self) -> Result<NuDurationStruct> {
+        println!("before self: {self:#?}");
+        self.normalize()?;
+        println!("after self: {self:#?}");
+
+        self.as_struct()
     }
 
     /// field getters - inverse of [from_b_d_ns].
@@ -145,19 +165,61 @@ impl NuDuration {
 
     // number of days in msb of duration (from months through days)
     #[inline]
-    fn days_from_msb(&self) -> UnitSize {
+    pub fn days_from_msb(&self) -> UnitSize {
         (((self.msb.num_months() * 12) + self.msb.num_weeks() * 4) + self.msb.num_days())
             as UnitSize
     }
 
     // number of nanoseconds in lsb of duration (from hours on down)
     #[inline]
-    fn ns_from_lsb(&self) -> Result<UnitSize> {
+    pub fn ns_from_lsb(&self) -> Result<UnitSize> {
         if let Some(ns) = self.lsb.num_nanoseconds() {
             Ok(ns)
         } else {
-            Err(NuDurationError::NsOverflow())?
+            Err(NuDurationError::NsOverflow)?
         }
+    }
+
+    /// Add date and duration
+    pub fn add_datetime(&self, dt: BaseDT) -> Result<BaseDT> {
+        (NaiveDateTime::new(dt.date_naive() + self.msb, dt.time()) + self.lsb)
+            .and_local_timezone(*dt.offset())
+            .single()
+            .ok_or(NuDurationError::AmbiguousTzConversion.into())
+    }
+
+    /// subtract 2 datetimes yielding duration
+    /// a kind of constructor, not arithmetic op, arg order is start, end.
+    pub fn from_datetime_diff(start: BaseDT, end: BaseDT) -> Result<NuDuration> {
+        let ret_val = NuDuration {
+            base: start,
+            msb: RelativeDuration::from_duration_between(start.date_naive(), end.date_naive()),
+            lsb: (end.time() - start.time()),
+        };
+
+        Ok(ret_val)
+    }
+
+    /// Add duration + duration
+    pub fn add_duration(&self, rhs: NuDuration) -> Result<NuDuration> {
+        let ret_val = NuDuration {
+            base: self.base,
+            msb: self.msb + rhs.msb,
+            lsb: self.lsb + rhs.lsb,
+        };
+
+        Ok(ret_val)
+    }
+
+    /// Subtract 2 durations
+    pub fn sub_duration(&self, rhs: NuDuration) -> Result<NuDuration> {
+        let ret_val = NuDuration {
+            base: self.base,
+            msb: self.msb - rhs.msb,
+            lsb: self.lsb - rhs.lsb,
+        };
+
+        Ok(ret_val)
     }
 }
 
@@ -211,22 +273,57 @@ impl NuDurationStruct {
 #[derive(Copy, Clone, Debug, Error, Serialize, Deserialize)]
 pub enum NuDurationError {
     #[error("Invalid RFC 3339 format datetime string")]
-    InvalidDateTime(),
+    InvalidDateTimeRfcString,
     #[error("Chrono nanoseconds overflow")]
-    NsOverflow(),
+    NsOverflow,
+    #[error("Chrono days/months overflow")]
+    DMOverflow,
+    #[error("Ambiguous timezone conversion")]
+    AmbiguousTzConversion,
 }
 
-pub fn new_err(e: NuDurationError) -> Box<NuDurationError> {
-    Box::new(e)
-}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::format::Fixed;
     use rstest::rstest;
+
+    fn sample_dates(n: usize) -> BaseDT {
+        [
+            BaseDT::parse_from_rfc3339("2021-10-09T23:59:59.999999999+05:00"), // local and nearly midnight
+            BaseDT::parse_from_rfc3339("2021-10-09T00:01:02.012345678Z"),      // utc early in day
+        ][n]
+            .unwrap()
+    }
+
+    #[rstest]
+    #[case(NuDuration::from_b_d_ns(sample_dates(0), 0, 25*3600*1_000_000_000),
+    NuDurationStruct::new(sample_dates(0),0,0,0, 1,1,0,0,0))]
+    #[case(NuDuration::from_b_d_ns(sample_dates(0), 5, 25*3600*1_000_000_000),
+    NuDurationStruct::new(sample_dates(0),0,0,0, 6,1,0,0,0))]
+
+    fn test_normalize(#[case] old: NuDuration, #[case] exp: NuDurationStruct) -> Result<()> {
+        let norm_dur = old.normalize()?;
+        let nd_struct = norm_dur.as_struct()?;
+        assert_eq!(exp, nd_struct);
+        let old_end = old.add_datetime(old.base)?;
+        let norm_dur_end = norm_dur.add_datetime(old.base)?;
+        assert_eq!(
+            old.base, norm_dur.base,
+            "normalized base date same as original"
+        );
+        assert_eq!(
+            old_end.to_rfc3339_opts(SecondsFormat::Nanos, true),
+            norm_dur_end.to_rfc3339_opts(SecondsFormat::Nanos, true),
+            "normalized end date same as original"
+        );
+        Ok(())
+    }
 
     #[rstest]
     #[case("2020-10-01T23:22:21Z", 33,  24 * 3600 * 1_000_000_000 - 1,
 (0,0,0,33,23, 59,59,999_999_999))]
+
     fn initialize_and_query(
         #[case] basestr: &str,
         #[case] days: i32,
@@ -246,10 +343,22 @@ mod tests {
         let exp_struct =
             NuDurationStruct::new(base, ev.0, ev.1, ev.2, ev.3, ev.4, ev.5, ev.6, ev.7);
 
-        let mut nd = NuDuration::from_b_d_ns(base, days, ns);
+        let nd = NuDuration::from_b_d_ns(base, days, ns);
         let nds = nd.as_struct()?;
 
         assert_eq!(exp_struct, nds);
+
+        let mut mnd = nd;
+        let nds_pretty = mnd.as_struct_pretty()?;
+        println!("orig {nds:?}\npret {nds_pretty:?}");
         Ok(())
     }
+    /*
+    #[rstest]
+    fn add_duration_date(
+        #[case] dur: &str,
+        #[case] date: &str,
+        #[case] exp_date: &str,
+    ) -> Result<()> {}
+    */
 }
