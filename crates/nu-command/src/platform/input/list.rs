@@ -85,17 +85,19 @@ impl Command for InputList {
                 let rows = input.into_iter().collect::<Vec<_>>();
                 rows.iter().for_each(|row| {
                     if let Ok(record) = row.as_record() {
-                        let len = record.1.len();
+                        let columns = record.1.len();
                         for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate() {
-                            if i == len - 1 {
+                            if i == columns - 1 {
                                 break;
                             }
 
                             if let Ok(val) = val.as_string() {
-                                if let Some(len) = lentable.get(i) {
-                                    lentable[i] = (*len).max(val.len() + col.len());
+                                let len = nu_utils::strip_ansi_likely(&val).len()
+                                    + nu_utils::strip_ansi_likely(&col).len();
+                                if let Some(max_len) = lentable.get(i) {
+                                    lentable[i] = (*max_len).max(len);
                                 } else {
-                                    lentable.push(val.len() + col.len());
+                                    lentable.push(len);
                                 }
                             }
                         }
@@ -127,9 +129,12 @@ impl Command for InputList {
                                             format!(
                                                 "{} |",
                                                 " ".repeat(
-                                                    lentable.get(i).cloned().unwrap_or_default()
-                                                        - val.len()
-                                                        - col.len()
+                                                    lentable
+                                                        .get(i)
+                                                        .cloned()
+                                                        .unwrap_or_default()
+                                                        .saturating_sub(val.len())
+                                                        .saturating_sub(col.len())
                                                 )
                                             )
                                         }
