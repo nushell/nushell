@@ -749,7 +749,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 InputType::Date => {
                     let it = column.values.iter().map(|v| {
                         if let Value::Date { val, .. } = &v {
-                            Some(val.timestamp_millis())
+                            Some(val.timestamp_nanos())
                         } else {
                             None
                         }
@@ -757,7 +757,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
 
                     let res: DatetimeChunked =
                         ChunkedArray::<Int64Type>::from_iter_options(&name, it)
-                            .into_datetime(TimeUnit::Milliseconds, None);
+                            .into_datetime(TimeUnit::Nanoseconds, None);
 
                     df_series.push(res.into_series())
                 }

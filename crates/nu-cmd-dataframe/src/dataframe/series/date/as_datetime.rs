@@ -110,11 +110,11 @@ fn command(
     })?;
 
     let res = if not_exact {
-        casted.as_datetime_not_exact(Some(format.as_str()), TimeUnit::Milliseconds, None)
+        casted.as_datetime_not_exact(Some(format.as_str()), TimeUnit::Nanoseconds, None)
     } else {
         casted.as_datetime(
             Some(format.as_str()),
-            TimeUnit::Milliseconds,
+            TimeUnit::Nanoseconds,
             false,
             false,
             true,
