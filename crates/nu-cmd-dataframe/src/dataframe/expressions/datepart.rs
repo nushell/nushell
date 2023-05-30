@@ -6,7 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -104,11 +105,11 @@ impl Command for ExprDatePart {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let part: String = call.req(engine_state, stack, 0)?;
+        let part: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         let expr = NuExpression::try_from_pipeline(input, call.head)?;
         let expr_dt = expr.into_polars().dt();
-        let expr = match part.as_str() {
+        let expr = match part.item.as_str() {
             "year" => expr_dt.year(),
             "quarter" => expr_dt.quarter(),
             "month" => expr_dt.month(),
@@ -122,10 +123,10 @@ impl Command for ExprDatePart {
             "nanosecond" => expr_dt.nanosecond(),
             _ => {
                 return Err(ShellError::UnsupportedInput(
-                    format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part),
+                    format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
                     "value originates from here".to_string(),
                     call.head,
-                    call.head, // need to do better here
+                    part.span,
                 ));
             }
         }.into();
