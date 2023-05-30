@@ -93,7 +93,7 @@ impl Command for InputList {
 
                             if let Ok(val) = val.as_string() {
                                 let len = nu_utils::strip_ansi_likely(&val).len()
-                                    + nu_utils::strip_ansi_likely(&col).len();
+                                    + nu_utils::strip_ansi_likely(col).len();
                                 if let Some(max_len) = lentable.get(i) {
                                     lentable[i] = (*max_len).max(len);
                                 } else {
@@ -118,7 +118,7 @@ impl Command for InputList {
                             {
                                 if let Ok(val) = val.as_string() {
                                     let len = nu_utils::strip_ansi_likely(&val).len()
-                                        + nu_utils::strip_ansi_likely(&col).len();
+                                        + nu_utils::strip_ansi_likely(col).len();
                                     options.push(format!(
                                         " {}{}{}: {}{}",
                                         Color::Cyan.prefix(),
