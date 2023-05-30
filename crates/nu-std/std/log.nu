@@ -44,7 +44,7 @@ def parse-string-level [
     level: string
 ] {
     let level = ($level | str upcase)
-    
+
     if $level in [$env.LOG_PREFIX.CRITICAL $env.LOG_SHORT_PREFIX.CRITICAL "CRIT" "CRITICAL"] {
         $env.LOG_LEVEL.CRITICAL
     } else if $level in [$env.LOG_PREFIX.ERROR $env.LOG_SHORT_PREFIX.ERROR "ERROR"] {
@@ -110,34 +110,27 @@ def now [] {
     date now | date format "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
-def log-formatted [
-    formatting: record
-    message: string
+def handle-log [
+    message: string,
+    formatting: record,
+    format_string: string,
     short: bool
-    format: string
 ] {
+    let log_format = if ($format_string | is-empty) {
+        $env.LOG_FORMAT
+    } else {
+        $format_string
+    }
+
     let prefix = if $short {
         $formatting.short_prefix
     } else {
         $formatting.prefix
     }
 
-    let log_format = if ($format | is-empty) {
-        $env.LOG_FORMAT
-    } else {
-        $format
-    }
-
-    print --stderr ([
-        ["%MSG%" $message]
-        ["%DATE%" (now)]
-        ["%LEVEL%" $prefix]
-        ["%ANSI_START%" $formatting.ansi]
-        ["%ANSI_STOP%" (ansi reset)]
-    ] | reduce --fold $log_format {
-        |it, acc| $acc | str replace --all $it.0 $it.1
-    })
+    custom $message $log_format $formatting.level --level_prefix $prefix --ansi $formatting.ansi
 }
+
 
 # Log a critical message
 export def critical [
@@ -145,13 +138,13 @@ export def critical [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format
 ] {
-    let formatting = (log-types | get CRITICAL)
+    let formatting = (log-types | get CRITICAL)    
 
     if (current-log-level) > ($formatting.level) {
         return
     }
 
-    log-formatted $formatting $message $short $format    
+    handle-log $message $formatting $format $short
 }
 
 # Log an error message
@@ -166,7 +159,7 @@ export def error [
         return
     }
 
-    log-formatted $formatting $message $short $format
+    handle-log $message $formatting $format $short
 }
 
 # Log a warning message
@@ -181,7 +174,7 @@ export def warning [
         return
     }
 
-    log-formatted $formatting $message $short $format
+    handle-log $message $formatting $format $short
 }
 
 # Log an info message
@@ -196,7 +189,7 @@ export def info [
         return
     }
 
-    log-formatted $formatting $message $short $format
+    handle-log $message $formatting $format $short
 }
 
 # Log a debug message
@@ -211,7 +204,7 @@ export def debug [
         return
     }
 
-    log-formatted $formatting $message $short $format
+    handle-log $message $formatting $format $short
 }
 
 # Log a message with a specific format and verbosity level
@@ -227,22 +220,71 @@ export def custom [
     message: string, # A message
     format: string, # A format
     log_level: int # A log level
-    --short (-s) # Whether to use a short prefix
+    --level_prefix (-p): string
+    --ansi (-a): string
 ] {
     if (current-log-level) > ($log_level) {
         return
     }
 
-    let level = ((if $short {
-        parse-int-level $log_level --short
-    } else {
+    let valid_levels_for_defaulting = [
+        $env.LOG_LEVEL.CRITICAL
+        $env.LOG_LEVEL.ERROR
+        $env.LOG_LEVEL.WARNING
+        $env.LOG_LEVEL.INFO
+        $env.LOG_LEVEL.DEBUG
+    ]
+
+    let prefix = if ($level_prefix | is-empty) {
+        if ($log_level not-in $valid_levels_for_defaulting) {
+            let span = (metadata $log_level).span
+            error make {
+                "msg": $"Cannot deduce level prefix for given log level: ($log_level)"
+                label: {
+                    text: "Invalid log level for prefix auto-deduction"
+                    start: $span.start
+                    end: $span.end
+                }
+            }
+        }
+        
         parse-int-level $log_level
-    }) | into string)
+
+    } else {
+        $level_prefix
+    }
+
+    let ansi = if ($ansi | is-empty) {
+        if ($log_level not-in $valid_levels_for_defaulting) {
+            let span = (metadata $log_level).span
+            error make {
+                "msg": $"Cannot deduce ansi for given log level: ($log_level)"
+                label: {
+                    text: "Invalid log level for ansi auto-deduction"
+                    start: $span.start
+                    end: $span.end
+                }
+            }
+        }
+
+        (
+            log-types 
+            |values
+            |each {|record|
+                if ($record.level == $log_level) {
+                    $record.ansi
+                }
+            } | first
+        ) 
+    } else {
+        $ansi
+    }
 
     print --stderr ([
         ["%MSG%" $message]
         ["%DATE%" (now)]
-        ["%LEVEL%" $level]
+        ["%LEVEL%" $prefix]
+        ["%ANSI_START%" $ansi]
         ["%ANSI_STOP%" (ansi reset)]
     ] | reduce --fold $format {
         |it, acc| $acc | str replace --all $it.0 $it.1
