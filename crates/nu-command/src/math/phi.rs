@@ -3,6 +3,8 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
+
+#[allow(excessive_precision)]
 /// The golden ratio (φ)
 pub const PHI: f64 = 1.618033988749894848204586834365638118_f64;
 

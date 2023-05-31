@@ -4,6 +4,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
+#[allow(excessive_precision)]
 /// The Euler-Mascheroni constant (γ)
 pub const EGAMMA: f64 = 0.577215664901532860606512090082402431_f64;
 
