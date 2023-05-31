@@ -2708,18 +2708,12 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.80.1"
 dependencies = [
- "chrono",
- "fancy-regex",
- "indexmap",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
- "num 0.4.0",
  "num-traits",
- "serde",
- "sqlparser 0.33.0",
 ]
 
 [[package]]

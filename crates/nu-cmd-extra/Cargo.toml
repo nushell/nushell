@@ -1,10 +1,10 @@
 [package]
 authors = ["The Nushell Project Developers"]
-description = "Nushell's extra commands not part of the 1.0 api standard."
+description = "Nushell's extra commands that are not part of the 1.0 api standard."
 edition = "2021"
 license = "MIT"
 name = "nu-cmd-extra"
-repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-dataframe"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-extra"
 version = "0.80.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -19,15 +19,6 @@ nu-parser = { path = "../nu-parser", version = "0.80.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.80.1" }
 
 # Potential dependencies for extras
-chrono = { version = "0.4", features = [
-	"std",
-	"unstable-locales",
-], default-features = false }
-fancy-regex = "0.11"
-indexmap = { version = "1.7", features = ["serde-1"] }
-num = { version = "0.4", optional = true }
-serde = { version = "1.0", features = ["derive"] }
-sqlparser = { version = "0.33", features = ["serde"], optional = true }
 num-traits = "0.2"
 
 [features]
