@@ -205,19 +205,6 @@ pub fn create_default_context() -> EngineState {
             StrUpcase
         };
 
-        // Bits
-        bind_command! {
-            Bits,
-            BitsAnd,
-            BitsNot,
-            BitsOr,
-            BitsXor,
-            BitsRotateLeft,
-            BitsRotateRight,
-            BitsShiftLeft,
-            BitsShiftRight,
-        }
-
         // Bytes
         bind_command! {
             Bytes,
