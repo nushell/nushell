@@ -105,3 +105,10 @@ fn update_uses_enumerate_index() {
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
 }
+
+#[test]
+fn update_support_lazy_record() {
+    let actual =
+        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | update h 10 | get h"#);
+    assert_eq!(actual.out, "10");
+}
