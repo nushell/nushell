@@ -36,8 +36,8 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
 ///
 /// For use with [chrono::DateTime<FixedOffset>] date/times.
 ///
-/// Supports extended duration range: (Years, Months) (via [calends::RelativeDuration)
-/// and (Weeks, Days, Hours .. NS) (via [chrono::Duration]).
+/// Supports extended duration range: (Years, Months, Weeks, Days) (via [calends::RelativeDuration)
+/// and (Hours .. NS) (via [chrono::Duration]).
 ///
 /// Can do mixed datetime/duration arithmetic,
 /// Provides additional operators to do *truncating* arithmetic on datetimes
@@ -45,6 +45,11 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
 ///
 /// [NuDuration] is actually a sort of Interval, because it retains a base date.
 /// This allows [NuDuration] + [NuDuration] to be well defined, for example.
+/// 
+/// Open design questions: 
+/// 1. Need to retain a base date?  Or could user provide date with [NuDuration::normalize] if needed?
+/// 2. The embedded durations naturally support multiple time unit "places", can represent P3M-1D, for example.
+///    Is that complexity necessary to expose, or should we ensure each duration represents just one time unit?
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct NuDuration {
     base: BaseDT,          // base date
@@ -110,15 +115,9 @@ impl NuDuration {
         // reduce sub-day units first
 
         let (seconds, fraction) = divmod(self.ns_from_lsb()?, 1_000_000_000);
-        println!(
-            "ns_from_lsb: {}, second: {seconds}, fraction {fraction}",
-            self.ns_from_lsb()?
-        );
         let (minutes, seconds) = divmod(seconds, 60);
         let (hours, minutes) = divmod(minutes, 60);
         let (days, hours) = divmod(hours, 24);
-
-        assert_eq!(days, 0, "excess overflow days");
 
         // assume normalize rationalized msb, so can use days and weeks directly.
         // also assume it maximized months, so we can scale that for months and years.
@@ -130,23 +129,12 @@ impl NuDuration {
             years,
             months,
             self.msb.num_weeks() as UnitSize,
-            self.msb.num_days() as UnitSize,
+            self.msb.num_days() as UnitSize  + days,
             hours,
             minutes,
             seconds,
             fraction,
         ))
-    }
-
-    /// Returns struct with *normalized* fields
-    /// Each time field is less than 1 unit of the next bigger field.
-
-    pub fn as_struct_pretty(&mut self) -> Result<NuDurationStruct> {
-        println!("before self: {self:#?}");
-        self.normalize()?;
-        println!("after self: {self:#?}");
-
-        self.as_struct()
     }
 
     /// field getters - inverse of [from_b_d_ns].
@@ -173,11 +161,7 @@ impl NuDuration {
     // number of nanoseconds in lsb of duration (from hours on down)
     #[inline]
     pub fn ns_from_lsb(&self) -> Result<UnitSize> {
-        if let Some(ns) = self.lsb.num_nanoseconds() {
-            Ok(ns)
-        } else {
-            Err(NuDurationError::NsOverflow)?
-        }
+        self.lsb.num_nanoseconds().ok_or(NuDurationError::NsOverflow.into())
     }
 
     /// Add date and duration
@@ -289,11 +273,13 @@ mod tests {
     use rstest::rstest;
 
     fn sample_dates(n: usize) -> BaseDT {
-        [
-            BaseDT::parse_from_rfc3339("2021-10-09T23:59:59.999999999+05:00"), // local and nearly midnight
-            BaseDT::parse_from_rfc3339("2021-10-09T00:01:02.012345678Z"),      // utc early in day
-        ][n]
-            .unwrap()
+        let chosen = [
+            "2021-10-09T23:59:59.999999999+05:00", // local and nearly midnight
+            "2021-10-09T00:01:02.012345678Z",      // utc early in day
+            "1492-10-01T23:22:21Z",                 // long past date
+            "9999-10-01T23:22:21Z",                 // far future date
+        ][n];
+        BaseDT::parse_from_rfc3339( chosen).expect("couldn't parse constant date")
     }
 
     #[rstest]
@@ -305,13 +291,10 @@ mod tests {
     fn test_normalize(#[case] old: NuDuration, #[case] exp: NuDurationStruct) -> Result<()> {
         let norm_dur = old.normalize()?;
         let nd_struct = norm_dur.as_struct()?;
-        assert_eq!(exp, nd_struct);
+        assert_eq!(exp, nd_struct, "normalized struct as predicted");
         let old_end = old.add_datetime(old.base)?;
         let norm_dur_end = norm_dur.add_datetime(old.base)?;
-        assert_eq!(
-            old.base, norm_dur.base,
-            "normalized base date same as original"
-        );
+        
         assert_eq!(
             old_end.to_rfc3339_opts(SecondsFormat::Nanos, true),
             norm_dur_end.to_rfc3339_opts(SecondsFormat::Nanos, true),
@@ -321,36 +304,20 @@ mod tests {
     }
 
     #[rstest]
-    #[case("2020-10-01T23:22:21Z", 33,  24 * 3600 * 1_000_000_000 - 1,
-(0,0,0,33,23, 59,59,999_999_999))]
+    #[case(NuDuration::from_b_d_ns( sample_dates(2), 33,  24 * 3600 * 1_000_000_000 - 1),
+        NuDurationStruct::new(sample_dates(2), 0,0,0,33,23, 59,59,999_999_999))]
+    #[case(NuDuration::from_b_d_ns( sample_dates(2), 33,  144 * 24 * 3600 * 1_000_000_000 - 1),
+        NuDurationStruct::new(sample_dates(2), 0,0,0,177,23, 59,59,999_999_999))]
 
     fn initialize_and_query(
-        #[case] basestr: &str,
-        #[case] days: i32,
-        #[case] ns: i64,
-        #[case] ev: (
-            UnitSize,
-            UnitSize,
-            UnitSize,
-            UnitSize,
-            UnitSize,
-            UnitSize,
-            UnitSize,
-            UnitSize,
-        ),
+        #[case] dur: NuDuration,
+        #[case] exp_struct: NuDurationStruct,
     ) -> Result<()> {
-        let base = DateTime::parse_from_rfc3339(basestr).expect("should work");
-        let exp_struct =
-            NuDurationStruct::new(base, ev.0, ev.1, ev.2, ev.3, ev.4, ev.5, ev.6, ev.7);
-
-        let nd = NuDuration::from_b_d_ns(base, days, ns);
-        let nds = nd.as_struct()?;
+        
+        let nds = dur.as_struct()?;
 
         assert_eq!(exp_struct, nds);
 
-        let mut mnd = nd;
-        let nds_pretty = mnd.as_struct_pretty()?;
-        println!("orig {nds:?}\npret {nds_pretty:?}");
         Ok(())
     }
     /*
