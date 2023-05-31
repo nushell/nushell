@@ -52,7 +52,7 @@ let dark_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: red_reverse
+    search_result: {bg: red fg: white}
 
     shape_and: purple_bold
     shape_binary: purple_bold
@@ -137,7 +137,7 @@ let light_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: red_reverse
+    search_result: {fg: white bg: red}
 
     shape_and: purple_bold
     shape_binary: purple_bold
