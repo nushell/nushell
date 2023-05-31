@@ -163,6 +163,7 @@ impl<'a> StyleComputer<'a> {
             ("list".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("block".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
+            ("search_result".to_string(), ComputableStyle::Static(Color::White.normal().on(Color::Red))),
         ]);
 
         for (key, value) in &config.color_config {
