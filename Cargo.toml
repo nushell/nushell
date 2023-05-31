@@ -109,8 +109,6 @@ plugin = [
 	"nu-protocol/plugin",
 	"nu-engine/plugin",
 ]
-# extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
-extra = ["default", "nu-cmd-lang/extra"]
 default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
