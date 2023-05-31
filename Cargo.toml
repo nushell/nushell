@@ -120,7 +120,8 @@ static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
-# Extra
+# Extra feature for nushell
+extra = ["nu-command/extra"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe", "nu-cmd-lang/dataframe"]

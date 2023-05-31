@@ -2792,6 +2792,7 @@ dependencies = [
  "notify",
  "nu-ansi-term",
  "nu-cmd-dataframe",
+ "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
