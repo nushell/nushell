@@ -28,6 +28,7 @@ members = [
 	"crates/nu-engine",
 	"crates/nu-parser",
 	"crates/nu-system",
+	"crates/nu-cmd-extra",
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
@@ -108,8 +109,6 @@ plugin = [
 	"nu-protocol/plugin",
 	"nu-engine/plugin",
 ]
-# extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
-extra = ["default", "nu-cmd-lang/extra"]
 default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
@@ -121,7 +120,8 @@ static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
-# Extra
+# Extra feature for nushell
+extra = ["nu-command/extra"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe", "nu-cmd-lang/dataframe"]
