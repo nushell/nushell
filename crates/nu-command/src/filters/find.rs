@@ -194,7 +194,7 @@ impl Command for Find {
                         vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],
                         vec![
                             Value::test_string(
-                                "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+                                "\u{1b}[41;37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[41;37m\u{1b}[0m"
                                     .to_string(),
                             ),
                             Value::test_string("larry".to_string()),
