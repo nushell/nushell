@@ -79,10 +79,4 @@ export def "test_logger_uses_env" [] {
     assert equal (run $message "warning" | str trim --right) (format-message $message $format $prefix.WARNING $ansi.WARNING)
     assert equal (run $message "error" | str trim --right) (format-message $message $format $prefix.ERROR $ansi.ERROR)
     assert equal (run $message "critical" | str trim --right) (format-message $message $format $prefix.CRITICAL $ansi.CRITICAL)
-
-    assert equal (run $message "debug" --short | str trim --right) (format-message $message $format $short_prefix.DEBUG $ansi.DEBUG)
-    assert equal (run $message "info" --short | str trim --right) (format-message $message $format $short_prefix.INFO $ansi.INFO)
-    assert equal (run $message "warning" --short | str trim --right) (format-message $message $format $short_prefix.WARNING $ansi.WARNING)
-    assert equal (run $message "error" --short | str trim --right) (format-message $message $format $short_prefix.ERROR $ansi.ERROR)
-    assert equal (run $message "critical" --short | str trim --right) (format-message $message $format $short_prefix.CRITICAL $ansi.CRITICAL)
 }

@@ -160,7 +160,7 @@ def handle-log [
         $formatting.prefix
     }
 
-    custom $message $log_format $formatting.level --level_prefix $prefix --ansi $formatting.ansi
+    custom $message $log_format $formatting.level --level-prefix $prefix --ansi $formatting.ansi
 }
 
 # Logging module
@@ -183,13 +183,7 @@ export def critical [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
-    let formatting = (log-types | get CRITICAL)    
-
-    if (current-log-level) > ($formatting.level) {
-        return
-    }
-
-    handle-log $message $formatting $format $short
+    handle-log $message (log-types | get CRITICAL)  $format $short
 }
 
 # Log an error message
@@ -198,13 +192,7 @@ export def error [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
-    let formatting = (log-types | get ERROR)
-
-    if (current-log-level) > ($formatting.level) {
-        return
-    }
-
-    handle-log $message $formatting $format $short
+    handle-log $message (log-types | get ERROR) $format $short
 }
 
 # Log a warning message
@@ -213,13 +201,7 @@ export def warning [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
-    let formatting = (log-types | get WARNING)
-
-    if (current-log-level) > ($formatting.level) {
-        return
-    }
-
-    handle-log $message $formatting $format $short
+    handle-log $message (log-types | get WARNING) $format $short
 }
 
 # Log an info message
@@ -228,13 +210,7 @@ export def info [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
-    let formatting = (log-types | get INFO)
-
-    if (current-log-level) > ($formatting.level) {
-        return
-    }
-
-    handle-log $message $formatting $format $short
+    handle-log $message (log-types | get INFO) $format $short
 }
 
 # Log a debug message
@@ -243,13 +219,7 @@ export def debug [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
-    let formatting = (log-types | get DEBUG)
-
-    if (current-log-level) > ($formatting.level) {
-        return
-    }
-
-    handle-log $message $formatting $format $short
+    handle-log $message (log-types | get DEBUG) $format $short
 }
 
 # Log a message with a specific format and verbosity level, with either configurable or auto-deduced %LEVEL% and %ANSI_START% placeholder extensions
@@ -257,7 +227,7 @@ export def custom [
     message: string, # A message
     format: string, # A format (for further reference: help std log)
     log_level: int # A log level (has to be one of the $env.LOG_LEVEL values for correct ansi/prefix deduction)
-    --level_prefix (-p): string # %LEVEL% placeholder extension
+    --level-prefix (-p): string # %LEVEL% placeholder extension
     --ansi (-a): string # %ANSI_START% placeholder extension
 ] {
     if (current-log-level) > ($log_level) {
