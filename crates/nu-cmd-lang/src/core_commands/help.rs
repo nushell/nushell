@@ -2,10 +2,7 @@ use crate::help_aliases::help_aliases;
 use crate::help_commands::help_commands;
 use crate::help_modules::help_modules;
 use fancy_regex::Regex;
-use nu_ansi_term::{
-    Color::{Red, White},
-    Style,
-};
+use nu_ansi_term::Style;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -141,6 +138,7 @@ pub fn highlight_search_in_table(
     search_string: &str,
     searched_cols: &[&str],
     string_style: &Style,
+    highlight_style: &Style,
 ) -> Result<Vec<Value>, ShellError> {
     let orig_search_string = search_string;
     let search_string = search_string.to_lowercase();
@@ -164,7 +162,12 @@ pub fn highlight_search_in_table(
                     if let Value::String { val: s, span } = val {
                         if s.to_lowercase().contains(&search_string) {
                             *val = Value::String {
-                                val: highlight_search_string(s, orig_search_string, string_style)?,
+                                val: highlight_search_string(
+                                    s,
+                                    orig_search_string,
+                                    string_style,
+                                    highlight_style,
+                                )?,
                                 span: *span,
                             };
                             Ok(true)
@@ -200,6 +203,7 @@ pub fn highlight_search_string(
     haystack: &str,
     needle: &str,
     string_style: &Style,
+    highlight_style: &Style,
 ) -> Result<String, ShellError> {
     let regex_string = format!("(?i){needle}");
     let regex = match Regex::new(&regex_string) {
@@ -217,7 +221,6 @@ pub fn highlight_search_string(
     // strip haystack to remove existing ansi style
     let stripped_haystack = nu_utils::strip_ansi_likely(haystack);
     let mut last_match_end = 0;
-    let style = Style::new().fg(White).on(Red);
     let mut highlighted = String::new();
 
     for cap in regex.captures_iter(stripped_haystack.as_ref()) {
@@ -236,7 +239,11 @@ pub fn highlight_search_string(
                         .paint(&stripped_haystack[last_match_end..start])
                         .to_string(),
                 );
-                highlighted.push_str(&style.paint(&stripped_haystack[start..end]).to_string());
+                highlighted.push_str(
+                    &highlight_style
+                        .paint(&stripped_haystack[start..end])
+                        .to_string(),
+                );
                 last_match_end = end;
             }
             Err(e) => {

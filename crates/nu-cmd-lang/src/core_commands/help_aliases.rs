@@ -84,11 +84,18 @@ pub fn help_aliases(
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
     let string_style = style_computer.compute("string", &Value::string("search result", head));
+    let highlight_style =
+        style_computer.compute("search_result", &Value::string("search result", head));
 
     if let Some(f) = find {
         let all_cmds_vec = build_help_aliases(engine_state, stack, head);
-        let found_cmds_vec =
-            highlight_search_in_table(all_cmds_vec, &f.item, &["name", "usage"], &string_style)?;
+        let found_cmds_vec = highlight_search_in_table(
+            all_cmds_vec,
+            &f.item,
+            &["name", "usage"],
+            &string_style,
+            &highlight_style,
+        )?;
 
         return Ok(found_cmds_vec
             .into_iter()
