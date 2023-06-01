@@ -162,7 +162,12 @@ pub fn highlight_search_in_table(
                     if let Value::String { val: s, span } = val {
                         if s.to_lowercase().contains(&search_string) {
                             *val = Value::String {
-                                val: highlight_search_string(s, orig_search_string, string_style, highlight_style)?,
+                                val: highlight_search_string(
+                                    s,
+                                    orig_search_string,
+                                    string_style,
+                                    highlight_style,
+                                )?,
                                 span: *span,
                             };
                             Ok(true)

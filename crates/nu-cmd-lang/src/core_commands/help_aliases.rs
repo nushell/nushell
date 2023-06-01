@@ -89,8 +89,13 @@ pub fn help_aliases(
 
     if let Some(f) = find {
         let all_cmds_vec = build_help_aliases(engine_state, stack, head);
-        let found_cmds_vec =
-            highlight_search_in_table(all_cmds_vec, &f.item, &["name", "usage"], &string_style, &highlight_style)?;
+        let found_cmds_vec = highlight_search_in_table(
+            all_cmds_vec,
+            &f.item,
+            &["name", "usage"],
+            &string_style,
+            &highlight_style,
+        )?;
 
         return Ok(found_cmds_vec
             .into_iter()
