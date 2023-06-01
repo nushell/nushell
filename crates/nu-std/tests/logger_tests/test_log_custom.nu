@@ -1,4 +1,5 @@
 use std *
+use commons.nu *
 
 def run-command [
     system_level: string,
@@ -19,27 +20,6 @@ def run-command [
             ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
         }
     }  | complete | get --ignore-errors stderr
-}
-
-def now [] {
-    date now | date format "%Y-%m-%dT%H:%M:%S%.3f"
-}
-
-def format-message [
-    message: string,
-    format: string
-    prefix: string,
-    ansi
-] {
-    [   
-        ["%MSG%" $message]
-        ["%DATE%" (now)]
-        ["%LEVEL%" $prefix]
-        ["%ANSI_START%" $ansi]
-        ["%ANSI_STOP%" (ansi reset)]
-    ] | reduce --fold $format {
-        |it, acc| $acc | str replace --all $it.0 $it.1
-    }
 }
 
 export def test_errors_during_deduction [] {

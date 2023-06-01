@@ -246,7 +246,7 @@ export def custom [
         if ($log_level not-in $valid_levels_for_defaulting) {
             let span = (metadata $log_level).span
             error make {
-                "msg": $"Cannot deduce level prefix for given log level: ($log_level)"
+                "msg": $"Cannot deduce level prefix for given log level: ($log_level). Available log levels: ($env.LOG_LEVEL | values). You can configure them by the LOG_LEVEL env variable."
                 label: {
                     text: "Invalid log level for prefix auto-deduction"
                     start: $span.start

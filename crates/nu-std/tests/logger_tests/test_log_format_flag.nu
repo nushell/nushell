@@ -1,4 +1,5 @@
 use std *
+use commons.nu *
 
 def run-command [
     system_level,
@@ -16,26 +17,6 @@ def run-command [
     } | complete | get --ignore-errors stderr
 }
 
-def now [] {
-    date now | date format "%Y-%m-%dT%H:%M:%S%.3f"
-}
-
-def format-message [
-    message: string,
-    format: string
-    prefix: string,
-    ansi
-] {
-    [   
-        ["%MSG%" $message]
-        ["%DATE%" (now)]
-        ["%LEVEL%" $prefix]
-        ["%ANSI_START%" $ansi]
-        ["%ANSI_STOP%" (ansi reset)]
-    ] | reduce --fold $format {
-        |it, acc| $acc | str replace --all $it.0 $it.1
-    }
-}
 
 def "assert formatted" [
     message: string,

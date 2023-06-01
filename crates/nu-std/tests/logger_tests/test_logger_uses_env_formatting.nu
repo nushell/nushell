@@ -1,4 +1,5 @@
 use std *
+use commons.nu *
 
 def run [ 
     message: string,
@@ -14,27 +15,6 @@ def run [
             ^$nu.current-exe --commands $'use std; use ($config_filename); NU_LOG_LEVEL=($level) std log ($level) ($message)'
         }
     } | complete | get --ignore-errors stderr
-}
-
-def now [] {
-    date now | date format "%Y-%m-%dT%H:%M:%S%.3f"
-}
-
-def format-message [
-    message: string,
-    format: string
-    prefix: string,
-    ansi
-] {
-    [   
-        ["%MSG%" $message]
-        ["%DATE%" (now)]
-        ["%LEVEL%" $prefix]
-        ["%ANSI_START%" $ansi]
-        ["%ANSI_STOP%" (ansi reset)]
-    ] | reduce --fold $format {
-        |it, acc| $acc | str replace --all $it.0 $it.1
-    }
 }
 
 export def "test_logger_uses_env" [] {   
