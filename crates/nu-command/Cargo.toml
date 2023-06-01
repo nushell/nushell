@@ -15,6 +15,7 @@ bench = false
 [dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.80.1" }
 nu-cmd-dataframe = { path = "../nu-cmd-dataframe", version = "0.80.1", optional = true }
+nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.80.1", optional = true }
 nu-color-config = { path = "../nu-color-config", version = "0.80.1" }
 nu-engine = { path = "../nu-engine", version = "0.80.1" }
 nu-explore = { path = "../nu-explore", version = "0.80.1" }
@@ -117,6 +118,7 @@ version = "0.48"
 
 [features]
 dataframe = ["dep:nu-cmd-dataframe"]
+extra = ["dep:nu-cmd-extra"]
 plugin = ["nu-parser/plugin"]
 sqlite = [
 	"rusqlite",

@@ -2705,6 +2705,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-cmd-extra"
+version = "0.80.1"
+dependencies = [
+ "nu-cmd-lang",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "nu-test-support",
+ "num-traits",
+]
+
+[[package]]
 name = "nu-cmd-lang"
 version = "0.80.1"
 dependencies = [
@@ -2774,6 +2786,7 @@ dependencies = [
  "notify",
  "nu-ansi-term",
  "nu-cmd-dataframe",
+ "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",

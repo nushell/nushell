@@ -4,6 +4,9 @@ use crate::*;
 #[cfg(feature = "dataframe")]
 use nu_cmd_dataframe::*;
 
+#[cfg(feature = "extra")]
+use nu_cmd_extra::*;
+
 pub fn create_default_context() -> EngineState {
     let mut engine_state = nu_cmd_lang::create_default_context();
 
@@ -20,6 +23,10 @@ pub fn create_default_context() -> EngineState {
         // they have to be registered before the main declarations. This helps to make
         // them only accessible if the correct input value category is used with the
         // declaration
+
+        #[cfg(feature = "extra")]
+        add_extra_decls(&mut working_set);
+
         #[cfg(feature = "dataframe")]
         add_dataframe_decls(&mut working_set);
 
@@ -204,19 +211,6 @@ pub fn create_default_context() -> EngineState {
             StrTitleCase,
             StrUpcase
         };
-
-        // Bits
-        bind_command! {
-            Bits,
-            BitsAnd,
-            BitsNot,
-            BitsOr,
-            BitsXor,
-            BitsRotateLeft,
-            BitsRotateRight,
-            BitsShiftLeft,
-            BitsShiftRight,
-        }
 
         // Bytes
         bind_command! {
