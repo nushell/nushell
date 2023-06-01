@@ -121,7 +121,7 @@ which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # Extra feature for nushell
-extra = ["nu-command/extra"]
+extra = ["nu-command/extra", "nu-cmd-lang/extra"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe", "nu-cmd-lang/dataframe"]
