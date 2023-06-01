@@ -3,7 +3,7 @@ use nu_cmd_lang::help::highlight_search_string;
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
-use nu_engine:: CallExt;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -313,14 +313,11 @@ fn highlight_terms_in_record_with_search_columns(
             let term_str = term.into_string("", config);
             let output_value =
                 if contains_ignore_case(&val_str, &term_str) && cols_to_search.contains(cur_col) {
-                    let highlighted_str = match highlight_search_string(
-                        &val_str,
-                        &term_str,
-                        &string_style,
-                    ) {
-                        Ok(highlighted_str) => highlighted_str,
-                        Err(_) => string_style.paint(term_str).to_string(),
-                    };
+                    let highlighted_str =
+                        match highlight_search_string(&val_str, &term_str, &string_style) {
+                            Ok(highlighted_str) => highlighted_str,
+                            Err(_) => string_style.paint(term_str).to_string(),
+                        };
                     Value::String {
                         val: highlighted_str,
                         span: *span,
@@ -371,7 +368,8 @@ fn find_with_rest_and_highlight(
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
-    let string_style = style_computer.compute("search_result", &Value::string("search result", span));
+    let string_style =
+        style_computer.compute("search_result", &Value::string("search result", span));
 
     let cols_to_search_in_map = match call.get_flag(&engine_state, stack, "columns")? {
         Some(cols) => cols,
