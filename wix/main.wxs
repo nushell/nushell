@@ -285,18 +285,25 @@
                 </Directory>
             </Directory>
 
-            <Directory Id='CommonAppDataFolder'>
+            <Directory Id='LocalAppDataFolder'>
                 <Directory Id='AppDataMicrosoftFolder' Name='Microsoft'>
                     <Directory Id='AppDataWindowsTerminalFolder' Name='Windows Terminal'>
                         <Directory Id='WindowsTerminalProfileFolder' Name='Fragments'>
                             <Directory Id='WindowsTerminalProfileAppFolder' Name='nu'>
-                                <Component Id='WindowsTerminalProfile' Guid='*' Win64='$(var.Win64)'>
+                                <Component Id='WindowsTerminalProfile' Guid='957239F4-7B87-4399-9F91-7DF2ABE5ED8B' Win64='$(var.Win64)'>
                                     <File
                                         Id='WindowsTerminalProfileFile'
                                         Name='nu.json'
                                         DiskId='1'
                                         Source='wix\windows-terminal-profile.json'
-                                        KeyPath='yes'/>
+                                        System='no'/>
+                                    <RegistryKey Root='HKCU' Key='Software\nu'>
+                                        <RegistryValue Name='WindowsTerminalProfile' Value='1' Type='integer' KeyPath='yes'/>
+                                    </RegistryKey>
+                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder1' Directory='WindowsTerminalProfileAppFolder' On='uninstall'/>
+                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder2' Directory='WindowsTerminalProfileFolder' On='uninstall'/>
+                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder3' Directory='AppDataWindowsTerminalFolder' On='uninstall'/>
+                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder4' Directory='AppDataMicrosoftFolder' On='uninstall'/>
                                 </Component>
                             </Directory>
                         </Directory>
@@ -375,7 +382,7 @@
         <SetProperty
             Id="ReplacePathsInWindowsTerminalProfile"
             Sequence="execute"
-            Value="&quot;[#exe0]&quot; -c &quot;open '[#WindowsTerminalProfileFile]' | update profiles.commandline '[#exe0]' | update profiles.icon '[#icon0]' | save -f '[#WindowsTerminalProfileFile]'&quot;"
+            Value="&quot;[#exe0]&quot; -c &quot;open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#exe0]` | update profiles.icon `[#icon0]` | save -f `[#WindowsTerminalProfileFile]`&quot;"
             After='CostFinalize'/>
         <CustomAction
             Id="ReplacePathsInWindowsTerminalProfile"
@@ -383,7 +390,7 @@
             DllEntry="CAQuietExec"
             Execute="deferred"
             Return="check"
-            Impersonate="no"/>
+            Impersonate="yes"/>
         <InstallExecuteSequence>
             <Custom Action='ReplacePathsInWindowsTerminalProfile' Before='InstallFinalize'>
                 <!-- Run the custom action if the feature is enabled -->
