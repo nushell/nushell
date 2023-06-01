@@ -106,6 +106,7 @@ def check-clipboard [
 #   - xclip on linux x11
 #   - wl-copy on linux wayland
 #   - clip.exe on windows
+#   - termux-api on termux
 #
 # Examples:
 #     put a simple string to the clipboard, will be stripped to remove ANSI sequences
@@ -166,6 +167,10 @@ export def clip [
         "macos" => {
             check-clipboard pbcopy --system macOS
             $input | pbcopy
+        },
+        "android" => {
+            check-clipboard termux-clipboard-set --system Termux
+            $input | termux-clipboard-set
         },
         _ => {
             error make --unspanned {
