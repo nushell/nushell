@@ -6,7 +6,7 @@ use nu_protocol::{
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series, TimeUnit, Utf8NameSpaceImpl,
+    NumOpsDispatchChecked, PolarsError, Series, Utf8NameSpaceImpl,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -580,10 +580,7 @@ where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
     match series.dtype() {
-        DataType::UInt32
-        | DataType::Int32
-        | DataType::UInt64
-        | DataType::Datetime(TimeUnit::Milliseconds, _) => {
+        DataType::UInt32 | DataType::Int32 | DataType::UInt64 | DataType::Datetime(_, _) => {
             let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {

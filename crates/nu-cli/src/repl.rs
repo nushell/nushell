@@ -12,7 +12,7 @@ use nu_color_config::StyleComputer;
 use nu_command::hook::eval_hook;
 use nu_command::util::get_guaranteed_cwd;
 use nu_engine::convert_env_values;
-use nu_parser::{lex, trim_quotes_str};
+use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -172,7 +172,8 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
+        engine_state.merge_env(stack)?;
+        engine_state.set_current_working_dir(get_guaranteed_cwd(engine_state, stack))?;
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -191,14 +192,18 @@ pub fn evaluate_repl(
     loop {
         let loop_start_time = std::time::Instant::now();
 
-        let cwd = get_guaranteed_cwd(engine_state, stack);
-
         start_time = std::time::Instant::now();
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
-        if let Err(err) = engine_state.merge_env(stack, cwd) {
+        if let Err(err) = engine_state.merge_env(stack) {
             report_error_new(engine_state, &err);
         }
+
+        let cwd = get_guaranteed_cwd(engine_state, stack);
+        if let Err(err) = engine_state.set_current_working_dir(cwd) {
+            report_error_new(engine_state, &err);
+        }
+
         perf(
             "merge env",
             start_time,
@@ -585,6 +590,27 @@ pub fn evaluate_repl(
                     );
                 } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
+
+                    let mut cmds = s.split_whitespace();
+                    if let Some("exit") = cmds.next() {
+                        let mut working_set = StateWorkingSet::new(engine_state);
+                        let _ = parse(&mut working_set, None, s.as_bytes(), false);
+
+                        if working_set.parse_errors.is_empty() {
+                            match cmds.next() {
+                                Some(s) => {
+                                    if let Ok(n) = s.parse::<i32>() {
+                                        drop(line_editor);
+                                        std::process::exit(n);
+                                    }
+                                }
+                                None => {
+                                    drop(line_editor);
+                                    std::process::exit(0);
+                                }
+                            }
+                        }
+                    }
 
                     eval_source(
                         engine_state,

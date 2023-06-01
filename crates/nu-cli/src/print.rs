@@ -53,6 +53,12 @@ Since this command has no output, there is no point in piping it with other comm
         let no_newline = call.has_flag("no-newline");
         let to_stderr = call.has_flag("stderr");
 
+        // We merge stack to make sure we render the changes if any were made in the `block`
+        //
+        // CONSIDERED TO BE A CODE SMELL AND IT BETTER BE RESOLVED UPWARDS THE CALLING STACK
+        let engine = engine_state.clone_with_env(stack)?;
+        let engine_state = &engine;
+
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {
             for arg in args {
