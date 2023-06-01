@@ -3,18 +3,15 @@ use std *
 def run [ 
     message: string,
     level: string,
-    format_env: string,
-    ansi_env: record,
-    level_env: record,
-    prefix_env: record,
-    short_prefix_env: record
     --short
 ] {
+    let config_filename = "crates/nu-std/tests/logger_tests/logger_env_test_config.nu"
+
     do {
         if $short {
-            ^$nu.current-exe --commands $'use std; let-env LOG_FORMAT='($format_env)'; let-env LOG_ANSI=($ansi_env); let-env LOG_LEVEL=($level_env); let-env LOG_PREFIX=$($prefix_env); let-env LOG_SHORT_PREFIX=($short_prefix_env); NU_LOG_LEVEL=($level) std log --short ($level) ($message)'
+            ^$nu.current-exe --commands $'use std; use ($config_filename); NU_LOG_LEVEL=($level) std log ($level) --short ($message)'
         } else {
-            ^$nu.current-exe --commands $'use std; let-env LOG_FORMAT='($format_env)'; let-env LOG_ANSI=($ansi_env); let-env LOG_LEVEL=($level_env); let-env LOG_PREFIX=$($prefix_env); let-env LOG_SHORT_PREFIX=($short_prefix_env); NU_LOG_LEVEL=($level) std log ($level) ($message)'
+            ^$nu.current-exe --commands $'use std; use ($config_filename); NU_LOG_LEVEL=($level) std log ($level) ($message)'
         }
     } | complete | get --ignore-errors stderr
 }
@@ -77,15 +74,15 @@ export def "test_logger_uses_env" [] {
 
     let message = "abc"
 
-    assert equal (run $message "debug" $format $ansi $level $prefix $short_prefix | str trim --right) (format-message $message $format $prefix.DEBUG $ansi.DEBUG)
-    assert equal (run $message "info" $format $ansi $level $prefix $short_prefix | str trim --right) (format-message $message $format $prefix.INFO $ansi.INFO)
-    assert equal (run $message "warning" $format $ansi $level $prefix $short_prefix | str trim --right) (format-message $message $format $prefix.WARNING $ansi.WARNING)
-    assert equal (run $message "error" $format $ansi $level $prefix $short_prefix | str trim --right) (format-message $message $format $prefix.ERROR $ansi.ERROR)
-    assert equal (run $message "critical" $format $ansi $level $prefix $short_prefix | str trim --right) (format-message $message $format $prefix.CRITICAL $ansi.CRITICAL)
+    assert equal (run $message "debug" | str trim --right) (format-message $message $format $prefix.DEBUG $ansi.DEBUG)
+    assert equal (run $message "info" | str trim --right) (format-message $message $format $prefix.INFO $ansi.INFO)
+    assert equal (run $message "warning" | str trim --right) (format-message $message $format $prefix.WARNING $ansi.WARNING)
+    assert equal (run $message "error" | str trim --right) (format-message $message $format $prefix.ERROR $ansi.ERROR)
+    assert equal (run $message "critical" | str trim --right) (format-message $message $format $prefix.CRITICAL $ansi.CRITICAL)
 
-    assert equal (run $message "debug" $format $ansi $level $prefix $short_prefix --short | str trim --right) (format-message $message $format $short_prefix.DEBUG $ansi.DEBUG)
-    assert equal (run $message "info" $format $ansi $level $prefix $short_prefix --short | str trim --right) (format-message $message $format $short_prefix.INFO $ansi.INFO)
-    assert equal (run $message "warning" $format $ansi $level $prefix $short_prefix --short | str trim --right) (format-message $message $format $short_prefix.WARNING $ansi.WARNING)
-    assert equal (run $message "error" $format $ansi $level $prefix $short_prefix --short | str trim --right) (format-message $message $format $short_prefix.ERROR $ansi.ERROR)
-    assert equal (run $message "critical" $format $ansi $level $prefix $short_prefix --short | str trim --right) (format-message $message $format $short_prefix.CRITICAL $ansi.CRITICAL)
+    assert equal (run $message "debug" --short | str trim --right) (format-message $message $format $short_prefix.DEBUG $ansi.DEBUG)
+    assert equal (run $message "info" --short | str trim --right) (format-message $message $format $short_prefix.INFO $ansi.INFO)
+    assert equal (run $message "warning" --short | str trim --right) (format-message $message $format $short_prefix.WARNING $ansi.WARNING)
+    assert equal (run $message "error" --short | str trim --right) (format-message $message $format $short_prefix.ERROR $ansi.ERROR)
+    assert equal (run $message "critical" --short | str trim --right) (format-message $message $format $short_prefix.CRITICAL $ansi.CRITICAL)
 }
