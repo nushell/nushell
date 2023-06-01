@@ -194,8 +194,7 @@ impl Command for Find {
                         vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],
                         vec![
                             Value::test_string(
-                                "\u{1b}[41;37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[41;37m\u{1b}[0m"
-                                    .to_string(),
+                                "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_string(),
                             ),
                             Value::test_string("larry".to_string()),
                             Value::test_string("curly".to_string()),
@@ -298,6 +297,7 @@ fn highlight_terms_in_record_with_search_columns(
     config: &Config,
     terms: &[Value],
     string_style: Style,
+    highlight_style: Style,
 ) -> Value {
     let cols_to_search = if search_cols.is_empty() {
         cols.to_vec()
@@ -314,7 +314,7 @@ fn highlight_terms_in_record_with_search_columns(
             let output_value =
                 if contains_ignore_case(&val_str, &term_str) && cols_to_search.contains(cur_col) {
                     let highlighted_str =
-                        match highlight_search_string(&val_str, &term_str, &string_style) {
+                        match highlight_search_string(&val_str, &term_str, &string_style, &highlight_style) {
                             Ok(highlighted_str) => highlighted_str,
                             Err(_) => string_style.paint(term_str).to_string(),
                         };
@@ -369,6 +369,8 @@ fn find_with_rest_and_highlight(
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
     let string_style =
+        style_computer.compute("string", &Value::string("search result", span));
+    let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));
 
     let cols_to_search_in_map = match call.get_flag(&engine_state, stack, "columns")? {
@@ -392,6 +394,7 @@ fn find_with_rest_and_highlight(
                             &config,
                             &terms,
                             string_style,
+                            highlight_style,
                         )
                     }
                     _ => x,
@@ -423,6 +426,7 @@ fn find_with_rest_and_highlight(
                             &config,
                             &terms,
                             string_style,
+                            highlight_style,
                         )
                     }
                     _ => x,
@@ -465,6 +469,7 @@ fn find_with_rest_and_highlight(
                                                 line,
                                                 &term_str,
                                                 &string_style,
+                                                &highlight_style,
                                             )?,
                                             span,
                                         })
