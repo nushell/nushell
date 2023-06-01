@@ -4,34 +4,38 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
+#[allow(clippy::excessive_precision)]
+/// The golden ratio (φ)
+pub const PHI: f64 = 1.618033988749894848204586834365638118_f64;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "math e"
+        "math phi"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math e")
+        Signature::build("math phi")
             .input_output_types(vec![(Type::Any, Type::Float)])
             .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Returns the mathematical constant e (exp(1)/'1 | math exp')."
+        "Returns the golden ratio φ. ( (1 + sqrt(5) ) / 2 )"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["euler", "number", "constant"]
+        vec!["golden", "ratio", "constant"]
     }
 
     #[allow(clippy::approx_constant)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "math e | math round --precision 3",
-            description: "Get the first three decimal digits of e",
-            result: Some(Value::test_float(2.718)),
+            example: "math phi | math round --precision 3",
+            description: "Get the first two decimal digits of φ",
+            result: Some(Value::test_float(1.618)),
         }]
     }
 
@@ -42,7 +46,8 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::float(std::f64::consts::E, call.head).into_pipeline_data())
+        // TODO: replace with std::f64::consts::PHI when available https://github.com/rust-lang/rust/issues/103883
+        Ok(Value::float(PHI, call.head).into_pipeline_data())
     }
 }
 
