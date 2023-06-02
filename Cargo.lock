@@ -96,6 +96,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi-str"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cf4578926a981ab0ca955dc023541d19de37112bc24c1a197bd806d3d86ad1d"
+dependencies = [
+ "ansitok",
+]
+
+[[package]]
 name = "ansitok"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2862,7 +2871,7 @@ dependencies = [
 name = "nu-explore"
 version = "0.80.1"
 dependencies = [
- "ansi-str",
+ "ansi-str 0.7.2",
  "crossterm 0.26.1",
  "lscolors",
  "nu-ansi-term",
@@ -3393,7 +3402,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fdfe703c51ddc52887ad78fc69cd2ea78d895ffcd6e955c9d03566db8ab5bb1"
 dependencies = [
- "ansi-str",
+ "ansi-str 0.7.2",
  "ansitok",
  "bytecount",
  "fnv",
@@ -5122,11 +5131,11 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da1a2e56bbf7bfdd08aaa7592157a742205459eff774b73bc01809ae2d99dc2a"
+checksum = "994ca3cfbe91dd1756a82a605a150fd7c9d9196cddc7af0612c1999cef224588"
 dependencies = [
- "ansi-str",
+ "ansi-str 0.8.0",
  "ansitok",
  "papergrid",
  "tabled_derive",
