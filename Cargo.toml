@@ -73,6 +73,8 @@ serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"
 calends = "0.1.12"
+strum = "0.24.1"
+strum_macros = "0.24.3"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows

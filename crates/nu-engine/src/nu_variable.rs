@@ -3,6 +3,7 @@ use core::fmt;
 use nu_protocol::{
     engine::{EngineState, Stack},
     LazyRecord, ShellError, Span, Value,
+    NuDuration,
 };
 use std::path::PathBuf;
 use sysinfo::SystemExt;
@@ -226,7 +227,7 @@ impl<'a> LazyRecord<'a> for NuVariable {
                 span: self.span,
             }),
             "startup-time" => Ok(Value::Duration {
-                val: self.engine_state.get_startup_time(),
+                val: NuDuration::ns(self.engine_state.get_startup_time()),
                 span: self.span(),
             }),
             "current-exe" => {

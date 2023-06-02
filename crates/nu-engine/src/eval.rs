@@ -8,6 +8,7 @@ use nu_protocol::{
     engine::{EngineState, ProfilingConfig, Stack},
     DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
     Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    NuDuration,
 };
 use std::collections::HashMap;
 use std::time::Instant;
@@ -1306,7 +1307,7 @@ fn collect_profiling_metadata(
 
     cols.push("time".to_string());
     vals.push(Value::Duration {
-        val: time_ns,
+        val: NuDuration::ns(time_ns),
         span: element_span,
     });
 

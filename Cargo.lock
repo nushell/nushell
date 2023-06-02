@@ -2683,6 +2683,8 @@ dependencies = [
  "serial_test",
  "signal-hook",
  "simplelog",
+ "strum",
+ "strum_macros",
  "tempfile",
  "time 0.3.21",
  "winresource",

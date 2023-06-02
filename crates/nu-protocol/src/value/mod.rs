@@ -1,5 +1,5 @@
 mod custom_value;
-mod duration0;
+mod duration;
 mod from;
 mod from_value;
 mod lazy_record;
@@ -13,9 +13,10 @@ use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
-use chrono::{DateTime, Duration, FixedOffset};
+use chrono::{DateTime, FixedOffset};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
+pub use duration::{NuDuration};
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
@@ -57,7 +58,7 @@ pub enum Value {
         span: Span,
     },
     Duration {
-        val: i64,
+        val: NuDuration,
         span: Span,
     },
     Date {
@@ -230,6 +231,8 @@ impl Value {
                 }
             }),
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+            Value::Duration { val, .. } => Ok(val.to_string()),
+
             x => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: x.get_type().to_string(),
@@ -534,7 +537,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
+            Value::Duration { val, .. } => val.to_string(),
             Value::Date { val, .. } => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
             Value::Range { val, .. } => {
                 format!(
@@ -586,7 +589,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
+            Value::Duration { val, .. } => val.to_string(),
             Value::Date { val, .. } => HumanTime::from(*val).to_string(),
             Value::Range { val, .. } => {
                 format!(
@@ -637,8 +640,6 @@ impl Value {
     }
 
     /// Convert Value into a parsable string (quote strings)
-    /// bugbug other, rarer types not handled
-
     pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
@@ -673,7 +674,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
-            Value::Duration { val, .. } => format_duration(*val),
+            Value::Duration { val, .. } => val.to_string(),
             Value::Date { val, .. } => format!("{val:?}"),
             Value::Range { val, .. } => {
                 format!(
@@ -1652,6 +1653,15 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
+    pub fn test_duration(val: NuDuration) -> Value {
+        Value::Duration {
+            val,
+            span: Span::test_data(),
+        }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_nothing() -> Value {
         Value::Nothing {
             span: Span::test_data(),
@@ -2136,24 +2146,24 @@ impl Value {
                 span,
             }),
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
-                    Ok(Value::Date { val, span })
+                if let Some(val) = rhs.add_self_to_date(lhs) {
+                    Ok(Value::Date { val, span, })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "addition operation overflowed".into(),
-                        span,
-                        help: "".into(),
-                    })
+                    Err(ShellError::OperatorOverflow { msg: "duration add operation overflowed".into(), 
+                    span, 
+                    help: "Consider using larger duration time units.".into() })
                 }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_add(*rhs) {
+            },
+            (Value::Duration { val: lhs, span: lhs_span }, Value::Duration { val: rhs, span: rhs_span }) => {
+                if let Some(val) = lhs.add(rhs) {
                     Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "add operation overflowed".into(),
+                    Err(ShellError::InvalidUnitRange {
+                        lhs_unit_range: lhs.unit.unit_scale().1.to_string(),
+                        lhs_span: *lhs_span,
+                        rhs_unit_range: rhs.unit.unit_scale().1.to_string(),
+                        rhs_span: *rhs_span,
                         span,
-                        help: "".into(),
                     })
                 }
             }
@@ -2242,36 +2252,37 @@ impl Value {
                 span,
             }),
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
-                let result = lhs.signed_duration_since(*rhs);
-
-                if let Some(v) = result.num_nanoseconds() {
-                    Ok(Value::Duration { val: v, span })
+                if let Some(val) = NuDuration::duration_diff(
+                    // use command `date diff` for more control of duration units
+                    lhs,
+                    rhs,
+                    &NuDuration::new(0, Unit::Nanosecond)) {
+                        Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "subtraction operation overflowed".into(),
-                        span,
-                        help: "".into(),
-                    })
+                    Err(ShellError::OperatorOverflow { msg: "date subtract operation overflowed".into(), 
+                    span, 
+                    help: "Consider using 'date diff --units' to perform the calculation with larger duration time units.".into() })
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
-                    Some(val) => Ok(Value::Date { val, span }),
-                    _ => Err(ShellError::OperatorOverflow {
-                        msg: "subtraction operation overflowed".into(),
-                        span,
-                        help: "".into(),
-                    }),
+                if let Some(val) = (-*rhs).add_self_to_date(lhs) {
+                    Ok(Value::Date { val, span, })
+                } else {
+                    Err(ShellError::OperatorOverflow { msg: "duration add operation overflowed".into(), 
+                    span, 
+                    help: "Consider using larger duration time units.".into() })
                 }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_sub(*rhs) {
+            },
+            (Value::Duration { val: lhs, span: lhs_span }, Value::Duration { val: rhs, span: rhs_span }) => {
+                if let Some(val) = lhs.add(& (- (*rhs))) {
                     Ok(Value::Duration { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "subtraction operation overflowed".into(),
+                    Err(ShellError::InvalidUnitRange {
+                        lhs_unit_range: lhs.unit.unit_scale().1.to_string(),
+                        lhs_span: *lhs_span,
+                        rhs_unit_range: rhs.unit.unit_scale().1.to_string(),
+                        rhs_span: *rhs_span,
                         span,
-                        help: "".into(),
                     })
                 }
             }
@@ -2346,27 +2357,41 @@ impl Value {
                     span,
                 })
             }
+            // int * duration and duration * int are both durations!
             (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 Ok(Value::Duration {
-                    val: *lhs * *rhs,
+                    val: NuDuration {
+                        quantity: (*lhs * rhs.quantity),
+                        unit: rhs.unit,
+                    },
                     span,
                 })
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 Ok(Value::Duration {
-                    val: *lhs * *rhs,
+                    val: NuDuration {
+                        quantity: (lhs.quantity * *rhs),
+                        unit: lhs.unit,
+                    },
+                    span,
+                })
+            }
+            // similarly, float * duration and duration * float are durations (with int quantities)
+            (Value::Float { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: NuDuration {
+                        quantity: (*lhs as i64 * rhs.quantity),
+                        unit: rhs.unit,
+                    },
                     span,
                 })
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 Ok(Value::Duration {
-                    val: (*lhs as f64 * *rhs) as i64,
-                    span,
-                })
-            }
-            (Value::Float { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: (*lhs * *rhs as f64) as i64,
+                    val: NuDuration {
+                        quantity: (lhs.quantity * (*rhs as i64)),
+                        unit: lhs.unit,
+                    },
                     span,
                 })
             }
@@ -2497,43 +2522,27 @@ impl Value {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::Int {
-                            val: lhs / rhs,
-                            span,
-                        })
-                    } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
-                            span,
-                        })
-                    }
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
+            // duration / int and duration / float return (smaller) duration.
+            // duration / duration not meaningful
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::Duration {
-                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
-                        span,
-                    })
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
+                Ok(Value::Duration {
+                    val: NuDuration {
+                        quantity: lhs.quantity / *rhs,
+                        unit: lhs.unit,
+                    },
+                    span,
+                })
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::Duration {
-                        val: ((*lhs as f64) / rhs) as i64,
-                        span,
-                    })
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
+                Ok(Value::Duration {
+                    val: NuDuration {
+                        quantity: lhs.quantity / (*rhs as i64),
+                        unit: lhs.unit,
+                    },
+                    span,
+                })
             }
+
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
             }
@@ -2625,42 +2634,6 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
                     Ok(Value::Filesize {
-                        val: (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    })
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    })
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::Duration {
-                        val: (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    })
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::Duration {
                         val: (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
@@ -3470,170 +3443,6 @@ impl Display for TimePeriod {
     }
 }
 
-pub fn format_duration(duration: i64) -> String {
-    let (sign, periods) = format_duration_as_timeperiod(duration);
-
-    let text = periods
-        .into_iter()
-        .map(|p| p.to_text().to_string().replace(' ', ""))
-        .collect::<Vec<String>>();
-
-    format!(
-        "{}{}",
-        if sign == -1 { "-" } else { "" },
-        text.join(" ").trim()
-    )
-}
-
-pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
-    // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
-    // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
-    const DAYS_IN_YEAR: i64 = 365;
-    const DAYS_IN_MONTH: i64 = 30;
-
-    let (sign, duration) = if duration >= 0 {
-        (1, duration)
-    } else {
-        (-1, -duration)
-    };
-
-    let dur = Duration::nanoseconds(duration);
-
-    /// Split this a duration into number of whole years and the remainder
-    fn split_years(duration: Duration) -> (Option<i64>, Duration) {
-        let years = duration.num_days() / DAYS_IN_YEAR;
-        let remainder = duration - Duration::days(years * DAYS_IN_YEAR);
-        normalize_split(years, remainder)
-    }
-
-    /// Split this a duration into number of whole months and the remainder
-    fn split_months(duration: Duration) -> (Option<i64>, Duration) {
-        let months = duration.num_days() / DAYS_IN_MONTH;
-        let remainder = duration - Duration::days(months * DAYS_IN_MONTH);
-        normalize_split(months, remainder)
-    }
-
-    /// Split this a duration into number of whole weeks and the remainder
-    fn split_weeks(duration: Duration) -> (Option<i64>, Duration) {
-        let weeks = duration.num_weeks();
-        let remainder = duration - Duration::weeks(weeks);
-        normalize_split(weeks, remainder)
-    }
-
-    /// Split this a duration into number of whole days and the remainder
-    fn split_days(duration: Duration) -> (Option<i64>, Duration) {
-        let days = duration.num_days();
-        let remainder = duration - Duration::days(days);
-        normalize_split(days, remainder)
-    }
-
-    /// Split this a duration into number of whole hours and the remainder
-    fn split_hours(duration: Duration) -> (Option<i64>, Duration) {
-        let hours = duration.num_hours();
-        let remainder = duration - Duration::hours(hours);
-        normalize_split(hours, remainder)
-    }
-
-    /// Split this a duration into number of whole minutes and the remainder
-    fn split_minutes(duration: Duration) -> (Option<i64>, Duration) {
-        let minutes = duration.num_minutes();
-        let remainder = duration - Duration::minutes(minutes);
-        normalize_split(minutes, remainder)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_seconds(duration: Duration) -> (Option<i64>, Duration) {
-        let seconds = duration.num_seconds();
-        let remainder = duration - Duration::seconds(seconds);
-        normalize_split(seconds, remainder)
-    }
-
-    /// Split this a duration into number of whole milliseconds and the remainder
-    fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let millis = duration.num_milliseconds();
-        let remainder = duration - Duration::milliseconds(millis);
-        normalize_split(millis, remainder)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_microseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let micros = duration.num_microseconds().unwrap_or_default();
-        let remainder = duration - Duration::microseconds(micros);
-        normalize_split(micros, remainder)
-    }
-
-    /// Split this a duration into number of whole seconds and the remainder
-    fn split_nanoseconds(duration: Duration) -> (Option<i64>, Duration) {
-        let nanos = duration.num_nanoseconds().unwrap_or_default();
-        let remainder = duration - Duration::nanoseconds(nanos);
-        normalize_split(nanos, remainder)
-    }
-
-    fn normalize_split(
-        wholes: impl Into<Option<i64>>,
-        remainder: Duration,
-    ) -> (Option<i64>, Duration) {
-        let wholes = wholes.into().map(i64::abs).filter(|x| *x > 0);
-        (wholes, remainder)
-    }
-
-    let mut periods = vec![];
-    let (years, remainder) = split_years(dur);
-    if let Some(years) = years {
-        periods.push(TimePeriod::Years(years));
-    }
-
-    let (months, remainder) = split_months(remainder);
-    if let Some(months) = months {
-        periods.push(TimePeriod::Months(months));
-    }
-
-    let (weeks, remainder) = split_weeks(remainder);
-    if let Some(weeks) = weeks {
-        periods.push(TimePeriod::Weeks(weeks));
-    }
-
-    let (days, remainder) = split_days(remainder);
-    if let Some(days) = days {
-        periods.push(TimePeriod::Days(days));
-    }
-
-    let (hours, remainder) = split_hours(remainder);
-    if let Some(hours) = hours {
-        periods.push(TimePeriod::Hours(hours));
-    }
-
-    let (minutes, remainder) = split_minutes(remainder);
-    if let Some(minutes) = minutes {
-        periods.push(TimePeriod::Minutes(minutes));
-    }
-
-    let (seconds, remainder) = split_seconds(remainder);
-    if let Some(seconds) = seconds {
-        periods.push(TimePeriod::Seconds(seconds));
-    }
-
-    let (millis, remainder) = split_milliseconds(remainder);
-    if let Some(millis) = millis {
-        periods.push(TimePeriod::Millis(millis));
-    }
-
-    let (micros, remainder) = split_microseconds(remainder);
-    if let Some(micros) = micros {
-        periods.push(TimePeriod::Micros(micros));
-    }
-
-    let (nanos, _remainder) = split_nanoseconds(remainder);
-    if let Some(nanos) = nanos {
-        periods.push(TimePeriod::Nanos(nanos));
-    }
-
-    if periods.is_empty() {
-        periods.push(TimePeriod::Seconds(0));
-    }
-
-    (sign, periods)
-}
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     // We need to take into account config.filesize_metric so, if someone asks for KB

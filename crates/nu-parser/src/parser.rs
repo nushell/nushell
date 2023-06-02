@@ -2255,12 +2255,18 @@ pub fn parse_unit_value<'res>(
     }
 
     let value = transform(String::from_utf8_lossy(bytes).into());
+    let unit_boundary =
+        value
+            .char_indices()
+            .find_map(|(i, c)| if c.is_alphabetic() { Some(i) } else { None })?;
 
-    if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
-        let lhs_len = value.len() - name.len();
-        let lhs = strip_underscores(value[..lhs_len].as_bytes());
-        let lhs_span = Span::new(span.start, span.start + lhs_len);
-        let unit_span = Span::new(span.start + lhs_len, span.end);
+    let numeric = &value[..unit_boundary];
+    let unit = &value[unit_boundary..];
+
+    if let Some((unit, _name, convert)) = unit_groups.iter().find(|x| unit == x.1) {
+        let lhs = strip_underscores(numeric.as_bytes());
+        let lhs_span = Span::new(span.start, span.start + numeric.len());
+        let unit_span = Span::new(span.start + numeric.len(), span.end);
 
         let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
             Ok(it) => it,
@@ -2328,26 +2334,57 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
 ];
 
 pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
+    (Unit::Minute, "m", None),
+    (Unit::Day, "d", None),
+    (Unit::Hour, "h", None),
+    (Unit::Year, "y", None),
+    (Unit::Second, "s", None),
     (Unit::Nanosecond, "ns", None),
-    (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
-    (
-        // µ Micro Sign
-        Unit::Microsecond,
-        "\u{00B5}s",
-        Some((Unit::Nanosecond, 1000)),
-    ),
-    (
-        // μ Greek small letter Mu
-        Unit::Microsecond,
-        "\u{03BC}s",
-        Some((Unit::Nanosecond, 1000)),
-    ),
-    (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
-    (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
-    (Unit::Minute, "min", Some((Unit::Second, 60))),
-    (Unit::Hour, "hr", Some((Unit::Minute, 60))),
-    (Unit::Day, "day", Some((Unit::Minute, 1440))),
-    (Unit::Week, "wk", Some((Unit::Day, 7))),
+    (Unit::Microsecond, "us", None),
+    (Unit::Millisecond, "ms", None),
+    (Unit::Hour, "hr", None),
+    (Unit::Day, "da", None),
+    (Unit::Week, "wk", None),
+    (Unit::Month, "mo", None),
+    (Unit::Year, "yr", None),
+    (Unit::Second, "sec", None),
+    (Unit::Minute, "min", None),
+    (Unit::Hour, "hrs", None),
+    (Unit::Day, "day", None),
+    (Unit::Week, "wks", None),
+    (Unit::Month, "mos", None),
+    (Unit::Quarter, "qtr", None),
+    (Unit::Year, "yrs", None),
+    (Unit::Second, "secs", None),
+    (Unit::Minute, "mins", None),
+    (Unit::Hour, "hour", None),
+    (Unit::Day, "days", None),
+    (Unit::Week, "week", None),
+    (Unit::Quarter, "qtrs", None),
+    (Unit::Year, "year", None),
+    (Unit::Hour, "hours", None),
+    (Unit::Week, "weeks", None),
+    (Unit::Month, "month", None),
+    (Unit::Year, "years", None),
+    (Unit::Second, "second", None),
+    (Unit::Minute, "minute", None),
+    (Unit::Month, "months", None),
+    (Unit::Second, "seconds", None),
+    (Unit::Minute, "minutes", None),
+    (Unit::Quarter, "quarter", None),
+    (Unit::Century, "century", None),
+    (Unit::Quarter, "quarters", None),
+    (Unit::Millenium, "millenia", None),
+    (Unit::Microsecond, "\u{00B5}s", None),
+    (Unit::Microsecond, "\u{03BC}s", None),
+    (Unit::Century, "centuries", None),
+    (Unit::Millenium, "millenium", None),
+    (Unit::Nanosecond, "nanosecond", None),
+    (Unit::Nanosecond, "nanoseconds", None),
+    (Unit::Microsecond, "microsecond", None),
+    (Unit::Millisecond, "millisecond", None),
+    (Unit::Microsecond, "microseconds", None),
+    (Unit::Millisecond, "milliseconds", None),
 ];
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs

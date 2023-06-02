@@ -1978,3 +1978,67 @@ mod input_types {
         ));
     }
 }
+
+#[cfg(test)]
+mod unit_types {
+    use super::*;
+    use nu_protocol::{NuDuration, Spanned, Unit};
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("10day", Some(NuDuration::new(10, Unit::Day)), "simple, no underscore")]
+    #[case("-10hours", Some(NuDuration::new(-10, Unit::Hour)), "negative")]
+    #[case(
+        "10_millenia",
+        Some(NuDuration::new(10, Unit::Millenium)),
+        "simple, with underscore"
+    )]
+    #[case("-1__0__mos", Some(NuDuration::new(-10, Unit::Month)), "simple, negative, many underscores")]
+    #[case(
+        "1_000_000_000_ns",
+        Some(NuDuration::new(1000000000, Unit::Nanosecond)),
+        "big"
+    )]
+
+    fn test_parse_duration(
+        #[case] in_str: &str,
+        #[case] exp_val: Option<NuDuration>,
+        #[case] _tag: &str,
+    ) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let block = parse(&mut working_set, None, in_str.as_bytes(), true);
+
+        assert!(working_set.parse_errors.is_empty());
+        assert_eq!(block.len(), 1);
+        let expressions = &block[0];
+        assert_eq!(expressions.len(), 1);
+        println!("parsed expr {:#?}", expressions[0]);
+
+        if let PipelineElement::Expression(
+            _,
+            Expression {
+                expr: Expr::ValueWithUnit(a, Spanned { item: unit, .. }, ..),
+                ..
+            },
+        ) = expressions[0].clone()
+        {
+            if let Expression {
+                expr: Expr::Int(quantity),
+                ..
+            } = *a
+            {
+                assert_eq!(
+                    exp_val,
+                    Some(NuDuration { quantity, unit }),
+                    "Duration matches quantity and unit"
+                );
+            } else {
+                panic!("couldn't get Int from {:?}", *a);
+            }
+        } else {
+            panic!("couldn't get PipelineElement from {:?}", expressions[0])
+        };
+    }
+}

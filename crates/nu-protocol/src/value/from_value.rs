@@ -30,7 +30,7 @@ impl FromValue for Spanned<i64> {
                 span: *span,
             }),
             Value::Duration { val, span } => Ok(Spanned {
-                item: *val,
+                item: val.quantity,
                 span: *span,
             }),
 
@@ -49,7 +49,7 @@ impl FromValue for i64 {
         match v {
             Value::Int { val, .. } => Ok(*val),
             Value::Filesize { val, .. } => Ok(*val),
-            Value::Duration { val, .. } => Ok(*val),
+            Value::Duration { val, .. } => Ok(val.quantity),
 
             v => Err(ShellError::CantConvert {
                 to_type: "integer".into(),
@@ -122,11 +122,11 @@ impl FromValue for Spanned<usize> {
                 }
             }
             Value::Duration { val, span } => {
-                if val.is_negative() {
+                if val.quantity.is_negative() {
                     Err(ShellError::NeedsPositiveValue(*span))
                 } else {
                     Ok(Spanned {
-                        item: *val as usize,
+                        item: val.quantity as usize,
                         span: *span,
                     })
                 }
@@ -160,10 +160,10 @@ impl FromValue for usize {
                 }
             }
             Value::Duration { val, span } => {
-                if val.is_negative() {
+                if val.quantity.is_negative() {
                     Err(ShellError::NeedsPositiveValue(*span))
                 } else {
-                    Ok(*val as usize)
+                    Ok(val.quantity as usize)
                 }
             }
 

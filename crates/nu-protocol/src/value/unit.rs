@@ -1,7 +1,11 @@
-use crate::{ShellError, Span, Value};
+use crate::NuDuration;
+use crate::{Span, Value};
 use serde::{Deserialize, Serialize};
+use strum_macros::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Display, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub enum Unit {
     // Filesize units: metric
     Byte,
@@ -22,7 +26,7 @@ pub enum Unit {
     Exbibyte,
     Zebibyte,
 
-    // Duration units
+    // Duration units (these retain separate unit of measure)
     Nanosecond,
     Microsecond,
     Millisecond,
@@ -31,6 +35,11 @@ pub enum Unit {
     Hour,
     Day,
     Week,
+    Month,
+    Quarter,
+    Year,
+    Century,
+    Millenium,
 }
 
 impl Unit {
@@ -94,68 +103,118 @@ impl Unit {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
             },
-
-            Unit::Nanosecond => Value::Duration { val: size, span },
+            Unit::Nanosecond => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Nanosecond,
+                },
+                span,
+            },
             Unit::Microsecond => Value::Duration {
-                val: size * 1000,
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Microsecond,
+                },
                 span,
             },
             Unit::Millisecond => Value::Duration {
-                val: size * 1000 * 1000,
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Millisecond,
+                },
                 span,
             },
             Unit::Second => Value::Duration {
-                val: size * 1000 * 1000 * 1000,
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Second,
+                },
                 span,
             },
-            Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
+            Unit::Minute => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Minute,
                 },
+                span,
             },
-            Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
+            Unit::Hour => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Hour,
                 },
+                span,
             },
-            Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
+            Unit::Day => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Day,
                 },
+                span,
             },
-            Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
+            Unit::Week => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Week,
                 },
+                span,
             },
+            Unit::Month => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Month,
+                },
+                span,
+            },
+            Unit::Quarter => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Quarter,
+                },
+                span,
+            },
+            Unit::Year => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Year,
+                },
+                span,
+            },
+            Unit::Century => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Century,
+                },
+                span,
+            },
+            Unit::Millenium => Value::Duration {
+                val: NuDuration {
+                    quantity: size,
+                    unit: Unit::Millenium,
+                },
+                span,
+            },
+        }
+    }
+
+    pub fn unit_scale(&self) -> (i64, Unit) {
+        match self {
+            Unit::Nanosecond => (1, Unit::Nanosecond),
+            Unit::Microsecond => (1_000, Unit::Nanosecond),
+            Unit::Millisecond => (1_000_000, Unit::Nanosecond),
+            Unit::Second => (1_000_000_000, Unit::Nanosecond),
+            Unit::Minute => (60 * 1_000_000_000, Unit::Nanosecond),
+            Unit::Hour => (60 * 60 * 1_000_000_000, Unit::Nanosecond),
+            Unit::Day => (24 * 60 * 60 * 1_000_000_000, Unit::Nanosecond),
+            Unit::Week => (7 * 24 * 60 * 60 * 1_000_000_000, Unit::Nanosecond),
+            Unit::Month => (1, Unit::Month),
+            Unit::Quarter => (4, Unit::Month),
+            Unit::Year => (12, Unit::Month),
+            Unit::Century => (100 * 12, Unit::Month),
+            Unit::Millenium => (1000 * 100 * 12, Unit::Month),
+            _ => {
+                unimplemented!("no unit_scale for this unit");
+            }
         }
     }
 }

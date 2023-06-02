@@ -1070,6 +1070,24 @@ pub enum ShellError {
         #[label("This operation was interrupted")]
         span: Option<Span>,
     },
+
+    /// Incompatible unit ranges in duration arithmetic
+    ///
+    /// ## Resolution
+    ///
+    /// Add both durations to a datetime, then subtract that datetime to get total duration.
+    #[error("Incompatible duration unit ranges")]
+    #[diagnostic(code(nu::shell::invalid_unit_range))]
+    InvalidUnitRange {
+        lhs_unit_range: String,
+        #[label("{lhs_unit_range}")]
+        lhs_span: Span,
+        rhs_unit_range: String,
+        #[label("{rhs_unit_range}")]
+        rhs_span: Span,
+        #[label = "expected both durations to have same duration unit range"]
+        span: Span,
+    },
 }
 
 impl From<std::io::Error> for ShellError {

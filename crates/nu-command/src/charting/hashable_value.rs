@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, NuDuration};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [Value](crate::Value), which is hashable.
@@ -32,7 +32,7 @@ pub enum HashableValue {
         span: Span,
     },
     Duration {
-        val: i64,
+        val: NuDuration,
         span: Span,
     },
     Date {

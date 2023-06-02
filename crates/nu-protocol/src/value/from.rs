@@ -17,7 +17,7 @@ impl Value {
         match self {
             Value::Int { val, .. } => Ok(*val),
             Value::Filesize { val, .. } => Ok(*val),
-            Value::Duration { val, .. } => Ok(*val),
+            Value::Duration { val, .. } => Ok(val.quantity),
             x => Err(ShellError::CantConvert {
                 to_type: "i64".into(),
                 from_type: x.get_type().to_string(),
