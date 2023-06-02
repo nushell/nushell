@@ -39,7 +39,7 @@ pub enum Unit {
     Quarter,
     Year,
     Century,
-    Millenium,
+    Millennium,
 }
 
 impl Unit {
@@ -187,10 +187,10 @@ impl Unit {
                 },
                 span,
             },
-            Unit::Millenium => Value::Duration {
+            Unit::Millennium => Value::Duration {
                 val: NuDuration {
                     quantity: size,
-                    unit: Unit::Millenium,
+                    unit: Unit::Millennium,
                 },
                 span,
             },
@@ -211,7 +211,7 @@ impl Unit {
             Unit::Quarter => (4, Unit::Month),
             Unit::Year => (12, Unit::Month),
             Unit::Century => (100 * 12, Unit::Month),
-            Unit::Millenium => (1000 * 100 * 12, Unit::Month),
+            Unit::Millennium => (1000 * 100 * 12, Unit::Month),
             _ => {
                 unimplemented!("no unit_scale for this unit");
             }

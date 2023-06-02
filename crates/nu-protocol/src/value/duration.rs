@@ -4,7 +4,7 @@
 use crate::Unit;
 use chrono::{DateTime, Datelike, FixedOffset};
 use serde::{Deserialize, Serialize};
-use std::{cmp::min,fmt};
+use std::{cmp::min, fmt};
 
 use thiserror::Error;
 
@@ -46,8 +46,8 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
 /// with desired precision and resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct NuDuration {
-    pub quantity: UnitSize,     // number of time units
-    pub unit: Unit,             // but only the duration units
+    pub quantity: UnitSize, // number of time units
+    pub unit: Unit,         // but only the duration units
 }
 
 impl NuDuration {
@@ -56,7 +56,10 @@ impl NuDuration {
     }
     /// shortcut for the many places that create nanosecond durations
     pub fn ns(ns: UnitSize) -> Self {
-        NuDuration {quantity: ns, unit: Unit::Nanosecond}
+        NuDuration {
+            quantity: ns,
+            unit: Unit::Nanosecond,
+        }
     }
 
     /// Parse ISO8601 duration string in the form: "PnYnMnDTnHnMn.nnnnnnnnS", returns a **list** of durations.
@@ -88,8 +91,8 @@ impl NuDuration {
             Unit::Quarter => ["quarter", "quarters"],
             Unit::Year => ["year", "years"],
             Unit::Century => ["century", "centuries"],
-            Unit::Millenium => ["millenium", "millenia"],
-            _ => ["", ""],      //todo: add singular and plural for other Units (if they become non-scaled types)
+            Unit::Millennium => ["millennium", "millennia"],
+            _ => ["", ""], //todo: add singular and plural for other Units (if they become non-scaled types)
         })[if self.quantity == 1 { 0 } else { 1 }]
         .into()
     }
@@ -99,11 +102,8 @@ impl NuDuration {
     /// Only works when both durations are in same "range" (days or months)
     pub fn add(&self, rhs: &NuDuration) -> Option<NuDuration> {
         if self.unit.unit_scale().1 == rhs.unit.unit_scale().1 {
-            let quantity = (
-                self.quantity.checked_mul(self.unit.unit_scale().0)?
-            ).checked_add(
-                rhs.quantity.checked_mul(rhs.unit.unit_scale().0)?
-            )?;
+            let quantity = (self.quantity.checked_mul(self.unit.unit_scale().0)?)
+                .checked_add(rhs.quantity.checked_mul(rhs.unit.unit_scale().0)?)?;
             let unit = min(self.unit, rhs.unit);
             Some(NuDuration {
                 unit,
@@ -123,17 +123,17 @@ impl NuDuration {
     ) -> Option<NuDuration> {
         match duration_unit.unit.unit_scale().1 {
             Unit::Nanosecond => {
-                let ela_ns  = end.signed_duration_since(*start)
-                                    .num_nanoseconds()?;
-                Some( NuDuration{quantity:ela_ns / duration_unit.unit.unit_scale().0,
-                    unit: duration_unit.unit})
-            },
-            Unit::Month => {
-                Some(NuDuration{
-                    quantity: (signed_month_difference(start, end) / duration_unit.unit.unit_scale().0),
-                    unit: duration_unit.unit})
-            },
-            _ => panic!("misconfigured unit_scale")
+                let ela_ns = end.signed_duration_since(*start).num_nanoseconds()?;
+                Some(NuDuration {
+                    quantity: ela_ns / duration_unit.unit.unit_scale().0,
+                    unit: duration_unit.unit,
+                })
+            }
+            Unit::Month => Some(NuDuration {
+                quantity: (signed_month_difference(start, end) / duration_unit.unit.unit_scale().0),
+                unit: duration_unit.unit,
+            }),
+            _ => panic!("misconfigured unit_scale"),
         }
     }
 
@@ -199,13 +199,16 @@ impl std::ops::Neg for NuDuration {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        NuDuration {quantity: -self.quantity, unit: self.unit}
+        NuDuration {
+            quantity: -self.quantity,
+            unit: self.unit,
+        }
     }
 }
 
 /// difference between 2 date/times, in integer months
 /// Doesn't check for overflow, so truly unreasonable start/end values can panic.
-/// 
+///
 /// [chrono] doesn't implement a date-difference-in-months, why?  It seems (gulp) straightforward.
 /// This, despite the fact that [chrono::Months] and [chrono::NaiveDate] and friends all implement
 /// `date_add` and `date_sub`.
@@ -221,7 +224,7 @@ pub fn signed_month_difference(start: &BaseDT, end: &BaseDT) -> UnitSize {
         (years_diff - 1) * 12 + (month_diff + 12)
     }
 }
-    
+
 /// Potential errors
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Error, Serialize, Deserialize)]
 pub enum NuDurationError {
@@ -238,16 +241,15 @@ pub enum NuDurationError {
     #[error("Incompatible units")]
     IncompatibleUnits,
     #[error("Test failed")]
-    TestFailed, // because 
+    TestFailed, // because
 }
-
 
 /* moved to units.rs
 /// Duration units of measure
 ///
 /// Duration units of measure are grouped into "ranges" and can be freely scaled but only within their range:
 /// * "day" range -- units from nanoseconds through day and week
-/// * "month" range -- units from months through millenia
+/// * "month" range -- units from months through millennia
 ///
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NuDurationUnit {
@@ -263,7 +265,7 @@ pub enum NuDurationUnit {
     Quarter,
     Year,
     Century,
-    Millenium,
+    Millennium,
 }
 impl Unit {
     /// map unit suffix to Unit
@@ -275,7 +277,7 @@ impl Unit {
     pub fn from_alias(alias: &str) -> Result<Self> {
         match alias.to_lowercase().as_str() {
             "nanosecond" | "nanoseconds" | "ns" => Ok(Unit::Nanosecond),
-            "microsecond" | "microseconds" | "us" | 
+            "microsecond" | "microseconds" | "us" |
                 "\u{00B5}s" |                           // micro sign
                 "\u{03BC}s"                             // greek small mu
                                                 => Ok(Unit::Microsecond),
@@ -289,12 +291,12 @@ impl Unit {
             "quarter" | "quarters" | "qtr" | "qtrs" | "q" => Ok(Unit::Quarter),
             "year" | "years" | "yr" | "yrs" | "y" => Ok(Unit::Year),
             "century" | "centuries" | "cent" /* and not "c"? */ => Ok(Unit::Century),
-            "millenium" | "millenia" => Ok(Unit::Millenium),
+            "millennium" | "millennia" => Ok(Unit::Millennium),
             _ => Err(NuDurationError::UnrecognizedUnits.into())
         }
     }
 
-    
+
 }
 */
 #[cfg(test)]
@@ -332,39 +334,37 @@ mod test {
         Some(NuDuration::new(2001, Unit::Nanosecond))
     )] // similar units, positive
     #[case(
-        NuDuration::new(-100, Unit::Nanosecond), 
+        NuDuration::new(-100, Unit::Nanosecond),
         NuDuration::new(2, Unit::Microsecond),
         Some(NuDuration::new(1900, Unit::Nanosecond))
     )] // similar units, negative
     #[case(
-        NuDuration::new(-2, Unit::Millisecond), 
+        NuDuration::new(-2, Unit::Millisecond),
         NuDuration::new(2, Unit::Microsecond),
         Some(NuDuration::new(-1998, Unit::Microsecond))
     )] // Negative result, and smaller unit chosen
-
     #[case(
-        NuDuration::new(UnitSize::MAX-2, Unit::Nanosecond), 
+        NuDuration::new(UnitSize::MAX-2, Unit::Nanosecond),
         NuDuration::new(4, Unit::Nanosecond), // but arg can't require any multipication, or panic
         None,
     )] // Result should fail in expected way
     #[case(
-        NuDuration::new(UnitSize::MAX-2, Unit::Nanosecond), 
+        NuDuration::new(UnitSize::MAX-2, Unit::Nanosecond),
         NuDuration::new(2, Unit::Nanosecond), // but arg can't require any multipication, or panic
         Some(NuDuration::new(UnitSize::MAX, Unit::Nanosecond))
     )] // Negative result, and smaller unit chosen
     #[case(
-        NuDuration::new(UnitSize::MIN + 2, Unit::Second), 
+        NuDuration::new(UnitSize::MIN + 2, Unit::Second),
         NuDuration::new(-4 , Unit::Nanosecond),
         None,
     )] // Negative result, and smaller unit chosen
 
     fn test_duration_add_duration(
-        #[case] lhs: NuDuration, 
-        #[case] rhs: NuDuration, 
+        #[case] lhs: NuDuration,
+        #[case] rhs: NuDuration,
         #[case] exp: Option<NuDuration>,
-    ){
+    ) {
         let obs = lhs.add(&rhs);
         assert_eq!(exp, obs);
     }
-    
 }

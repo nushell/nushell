@@ -2,7 +2,7 @@ use super::{DataFrameValue, NuDataFrame};
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use indexmap::map::{Entry, IndexMap};
-use nu_protocol::{ShellError, Span, Value, NuDuration};
+use nu_protocol::{NuDuration, ShellError, Span, Value};
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::prelude::{

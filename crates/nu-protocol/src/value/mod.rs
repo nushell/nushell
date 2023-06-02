@@ -16,7 +16,7 @@ use byte_unit::ByteUnit;
 use chrono::{DateTime, FixedOffset};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
-pub use duration::{NuDuration};
+pub use duration::NuDuration;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
@@ -2179,14 +2179,25 @@ impl Value {
             }),
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = rhs.add_self_to_date(lhs) {
-                    Ok(Value::Date { val, span, })
+                    Ok(Value::Date { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "duration add operation overflowed".into(), 
-                    span, 
-                    help: "Consider using larger duration time units.".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "duration add operation overflowed".into(),
+                        span,
+                        help: "Consider using larger duration time units.".into(),
+                    })
                 }
-            },
-            (Value::Duration { val: lhs, span: lhs_span }, Value::Duration { val: rhs, span: rhs_span }) => {
+            }
+            (
+                Value::Duration {
+                    val: lhs,
+                    span: lhs_span,
+                },
+                Value::Duration {
+                    val: rhs,
+                    span: rhs_span,
+                },
+            ) => {
                 if let Some(val) = lhs.add(rhs) {
                     Ok(Value::Duration { val, span })
                 } else {
@@ -2288,25 +2299,37 @@ impl Value {
                     // use command `date diff` for more control of duration units
                     lhs,
                     rhs,
-                    &NuDuration::new(0, Unit::Nanosecond)) {
-                        Ok(Value::Duration { val, span })
+                    &NuDuration::new(0, Unit::Nanosecond),
+                ) {
+                    Ok(Value::Duration { val, span })
                 } else {
                     Err(ShellError::OperatorOverflow { msg: "date subtract operation overflowed".into(), 
-                    span, 
+                    span,
                     help: "Consider using 'date diff --units' to perform the calculation with larger duration time units.".into() })
                 }
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = (-*rhs).add_self_to_date(lhs) {
-                    Ok(Value::Date { val, span, })
+                    Ok(Value::Date { val, span })
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "duration add operation overflowed".into(), 
-                    span, 
-                    help: "Consider using larger duration time units.".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "duration add operation overflowed".into(),
+                        span,
+                        help: "Consider using larger duration time units.".into(),
+                    })
                 }
-            },
-            (Value::Duration { val: lhs, span: lhs_span }, Value::Duration { val: rhs, span: rhs_span }) => {
-                if let Some(val) = lhs.add(& (- (*rhs))) {
+            }
+            (
+                Value::Duration {
+                    val: lhs,
+                    span: lhs_span,
+                },
+                Value::Duration {
+                    val: rhs,
+                    span: rhs_span,
+                },
+            ) => {
+                if let Some(val) = lhs.add(&(-(*rhs))) {
                     Ok(Value::Duration { val, span })
                 } else {
                     Err(ShellError::InvalidUnitRange {
@@ -3474,7 +3497,6 @@ impl Display for TimePeriod {
         write!(f, "{}", self.to_text())
     }
 }
-
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     // We need to take into account config.filesize_metric so, if someone asks for KB

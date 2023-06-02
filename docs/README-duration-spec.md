@@ -48,7 +48,7 @@ These build on [calendar arithmetic](#calendar-arithmetic).  I think the individ
 
 The key point is there are 2 groups of durations that have to be supported:
 * "daily" range -- (ns, us ... days, weeks)
-* "monthly" range -- (months, quarters, years, .. centuries, millenia)
+* "monthly" range -- (months, quarters, years, .. centuries, millennia)
 
 Within each range, there are simple multiplicative (though not linear) scaling factors.  But between the ranges, between days or weeks and months, all the vagaries of legislated calendars come into play, and the conversion is essentially table-driven.
 
@@ -88,7 +88,7 @@ The value and type shall be `Duration`, superceding the existing (more limited) 
 ### NuDurationUnit enum
 Just the unit of measure (pure variant), 
 Variants for:
-* all the concrete units: ns, us, ms ... day, week, month, quarter, year, century, millenium  
+* all the concrete units: ns, us, ms ... day, week, month, quarter, year, century, millennium  
   variant contains a single signed integer quantity
 * remainder unit: `fraction`  
    stands for whatever's left over after humanizing a duration down to the smallest specified unit.  

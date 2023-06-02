@@ -2,8 +2,7 @@ use crate::scope::create_scope;
 use core::fmt;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    LazyRecord, ShellError, Span, Value,
-    NuDuration,
+    LazyRecord, NuDuration, ShellError, Span, Value,
 };
 use std::path::PathBuf;
 use sysinfo::SystemExt;

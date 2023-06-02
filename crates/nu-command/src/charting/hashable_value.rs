@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, Value, NuDuration};
+use nu_protocol::{NuDuration, ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [Value](crate::Value), which is hashable.

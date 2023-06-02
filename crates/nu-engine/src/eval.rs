@@ -6,9 +6,8 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, ProfilingConfig, Stack},
-    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
-    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
-    NuDuration,
+    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, NuDuration, PipelineData,
+    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::time::Instant;

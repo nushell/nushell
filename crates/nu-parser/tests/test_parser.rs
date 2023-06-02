@@ -1989,8 +1989,8 @@ mod unit_types {
     #[case("10day", Some(NuDuration::new(10, Unit::Day)), "simple, no underscore")]
     #[case("-10hours", Some(NuDuration::new(-10, Unit::Hour)), "negative")]
     #[case(
-        "10_millenia",
-        Some(NuDuration::new(10, Unit::Millenium)),
+        "10_millennia",
+        Some(NuDuration::new(10, Unit::Millennium)),
         "simple, with underscore"
     )]
     #[case("-1__0__mos", Some(NuDuration::new(-10, Unit::Month)), "simple, negative, many underscores")]
