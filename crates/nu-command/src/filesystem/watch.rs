@@ -284,7 +284,7 @@ impl Command for Watch {
             },
             Example {
                 description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep",
-                example: r#"loop { command; sleep time }"#,
+                example: r#"loop { command; sleep duration }"#,
                 result: None,
             },
         ]
