@@ -32,6 +32,5 @@ trash-support = []
 sqlite = []
 dataframe = []
 static-link-openssl = []
-extra = []
 wasi = []
-
+extra = []

@@ -95,3 +95,14 @@ fn upsert_empty() {
 
     assert!(actual.err.contains("index too large (max: 0)"));
 }
+
+#[test]
+fn upsert_support_lazy_record() {
+    let actual =
+        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | upsert h 10 | get h"#);
+    assert_eq!(actual.out, "10");
+
+    let actual =
+        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | upsert aa 10 | get aa"#);
+    assert_eq!(actual.out, "10");
+}

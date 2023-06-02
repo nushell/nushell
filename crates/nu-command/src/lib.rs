@@ -1,4 +1,3 @@
-mod bits;
 mod bytes;
 mod charting;
 mod conversions;
@@ -30,7 +29,6 @@ mod system;
 pub mod util;
 mod viewers;
 
-pub use bits::*;
 pub use bytes::*;
 pub use charting::*;
 pub use conversions::*;

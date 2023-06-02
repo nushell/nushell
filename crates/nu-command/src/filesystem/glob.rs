@@ -1,6 +1,3 @@
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -9,6 +6,8 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -46,8 +45,8 @@ impl Command for Glob {
             )
             .named(
                 "not",
-                SyntaxShape::String,
-                "Pattern to exclude from the results",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "Patterns to exclude from the results",
                 Some('n'),
             )
             .category(Category::FileSystem)
@@ -112,10 +111,14 @@ impl Command for Glob {
             },
             Example {
                 description: "Search for files named tsconfig.json that are not in node_modules directories",
-                example: r#"glob **/tsconfig.json --not **/node_modules/**"#,
+                example: r#"glob **/tsconfig.json --not [**/node_modules/**]"#,
                 result: None,
             },
-
+            Example {
+                description: "Search for all files that are not in the target nor .git directories",
+                example: r#"glob **/* --not [**/target/** **/.git/** */]"#,
+                result: None,
+            },
         ]
     }
 
@@ -138,7 +141,18 @@ impl Command for Glob {
         let no_dirs = call.has_flag("no-dir");
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
-        let not_pattern: Option<Spanned<String>> = call.get_flag(engine_state, stack, "not")?;
+
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) = if let Some(Value::List {
+            vals: pats,
+            span: pat_span,
+        }) =
+            call.get_flag(engine_state, stack, "not")?
+        {
+            let p = convert_patterns(pats.as_slice(), span)?;
+            (p, pat_span)
+        } else {
+            (vec![], span)
+        };
 
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
@@ -169,13 +183,8 @@ impl Command for Glob {
             }
         };
 
-        let (not_pat, not_span) = if let Some(not_pat) = not_pattern.clone() {
-            (not_pat.item, not_pat.span)
-        } else {
-            (String::new(), Span::test_data())
-        };
-
-        Ok(if not_pattern.is_some() {
+        Ok(if !not_patterns.is_empty() {
+            let np: Vec<&str> = not_patterns.iter().map(|s| s as &str).collect();
             let glob_results = glob
                 .walk_with_behavior(
                     path,
@@ -184,12 +193,12 @@ impl Command for Glob {
                         ..Default::default()
                     },
                 )
-                .not([not_pat.as_str()])
+                .not(np)
                 .map_err(|err| {
                     ShellError::GenericError(
                         "error with glob's not pattern".to_string(),
                         format!("{err}"),
-                        Some(not_span),
+                        Some(not_pattern_span),
                         None,
                         Vec::new(),
                     )
@@ -215,6 +224,21 @@ impl Command for Glob {
                 .into_pipeline_data(engine_state.ctrlc.clone())
         })
     }
+}
+
+fn convert_patterns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+    let res = columns
+        .iter()
+        .map(|value| match &value {
+            Value::String { val: s, .. } => Ok(s.clone()),
+            _ => Err(ShellError::IncompatibleParametersSingle {
+                msg: "Incorrect column format, Only string as column name".to_string(),
+                span: value.span().unwrap_or(span),
+            }),
+        })
+        .collect::<Result<Vec<String>, _>>()?;
+
+    Ok(res)
 }
 
 fn glob_to_value<'a>(

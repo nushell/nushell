@@ -1,17 +1,15 @@
 use nu_cmd_lang::help::highlight_search_string;
 
 use fancy_regex::Regex;
-use lscolors::{Color as LsColors_Color, LsColors, Style as LsColors_Style};
-use nu_ansi_term::{Color, Style};
+use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
-use nu_engine::{env_to_string, CallExt};
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use nu_utils::get_ls_colors;
 
 #[derive(Clone)]
 pub struct Find;
@@ -300,7 +298,7 @@ fn highlight_terms_in_record_with_search_columns(
     config: &Config,
     terms: &[Value],
     string_style: Style,
-    ls_colors: &LsColors,
+    highlight_style: Style,
 ) -> Value {
     let cols_to_search = if search_cols.is_empty() {
         cols.to_vec()
@@ -316,18 +314,11 @@ fn highlight_terms_in_record_with_search_columns(
             let term_str = term.into_string("", config);
             let output_value =
                 if contains_ignore_case(&val_str, &term_str) && cols_to_search.contains(cur_col) {
-                    let (value_to_highlight, highlight_string_style) = if config.use_ls_colors {
-                        // Get the original LS_COLORS color
-                        get_colored_value_and_string_style(ls_colors, &val_str, &string_style)
-                    } else {
-                        // No LS_COLORS support, so just use the original value
-                        (val_str.clone(), string_style)
-                    };
-
                     let highlighted_str = match highlight_search_string(
-                        &value_to_highlight,
+                        &val_str,
                         &term_str,
-                        &highlight_string_style,
+                        &string_style,
+                        &highlight_style,
                     ) {
                         Ok(highlighted_str) => highlighted_str,
                         Err(_) => string_style.paint(term_str).to_string(),
@@ -348,24 +339,6 @@ fn highlight_terms_in_record_with_search_columns(
         vals: output,
         span: *span,
     }
-}
-
-fn get_colored_value_and_string_style(
-    ls_colors: &LsColors,
-    val_str: &str,
-    string_style: &Style,
-) -> (String, Style) {
-    let style = ls_colors.style_for_path(val_str);
-    let ansi_style = style
-        .map(LsColors_Style::to_nu_ansi_term_style)
-        .unwrap_or_default();
-
-    let ls_colored_val = ansi_style.paint(val_str).to_string();
-
-    let ansi_term_style = style
-        .map(to_nu_ansi_term_style)
-        .unwrap_or_else(|| *string_style);
-    (ls_colored_val, ansi_term_style)
 }
 
 fn contains_ignore_case(string: &str, substring: &str) -> bool {
@@ -401,12 +374,8 @@ fn find_with_rest_and_highlight(
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
     let string_style = style_computer.compute("string", &Value::string("search result", span));
-
-    let ls_colors_env_str = match stack.get_env_var(&engine_state, "LS_COLORS") {
-        Some(v) => Some(env_to_string("LS_COLORS", &v, &engine_state, stack)?),
-        None => None,
-    };
-    let ls_colors = get_ls_colors(ls_colors_env_str);
+    let highlight_style =
+        style_computer.compute("search_result", &Value::string("search result", span));
 
     let cols_to_search_in_map = match call.get_flag(&engine_state, stack, "columns")? {
         Some(cols) => cols,
@@ -429,7 +398,7 @@ fn find_with_rest_and_highlight(
                             &config,
                             &terms,
                             string_style,
-                            &ls_colors,
+                            highlight_style,
                         )
                     }
                     _ => x,
@@ -461,7 +430,7 @@ fn find_with_rest_and_highlight(
                             &config,
                             &terms,
                             string_style,
-                            &ls_colors,
+                            highlight_style,
                         )
                     }
                     _ => x,
@@ -504,6 +473,7 @@ fn find_with_rest_and_highlight(
                                                 line,
                                                 &term_str,
                                                 &string_style,
+                                                &highlight_style,
                                             )?,
                                             span,
                                         })
@@ -620,47 +590,6 @@ fn record_matches_term(
         };
         term_contains_value(term, &lower_val, span)
     })
-}
-
-fn to_nu_ansi_term_style(style: &LsColors_Style) -> Style {
-    fn to_nu_ansi_term_color(color: &LsColors_Color) -> Color {
-        match *color {
-            LsColors_Color::Fixed(n) => Color::Fixed(n),
-            LsColors_Color::RGB(r, g, b) => Color::Rgb(r, g, b),
-            LsColors_Color::Black => Color::Black,
-            LsColors_Color::Red => Color::Red,
-            LsColors_Color::Green => Color::Green,
-            LsColors_Color::Yellow => Color::Yellow,
-            LsColors_Color::Blue => Color::Blue,
-            LsColors_Color::Magenta => Color::Magenta,
-            LsColors_Color::Cyan => Color::Cyan,
-            LsColors_Color::White => Color::White,
-
-            // Below items are a rough translations to 256 colors as
-            // nu-ansi-term do not have bright variants
-            LsColors_Color::BrightBlack => Color::Fixed(8),
-            LsColors_Color::BrightRed => Color::Fixed(9),
-            LsColors_Color::BrightGreen => Color::Fixed(10),
-            LsColors_Color::BrightYellow => Color::Fixed(11),
-            LsColors_Color::BrightBlue => Color::Fixed(12),
-            LsColors_Color::BrightMagenta => Color::Fixed(13),
-            LsColors_Color::BrightCyan => Color::Fixed(14),
-            LsColors_Color::BrightWhite => Color::Fixed(15),
-        }
-    }
-
-    Style {
-        foreground: style.foreground.as_ref().map(to_nu_ansi_term_color),
-        background: style.background.as_ref().map(to_nu_ansi_term_color),
-        is_bold: style.font_style.bold,
-        is_dimmed: style.font_style.dimmed,
-        is_italic: style.font_style.italic,
-        is_underline: style.font_style.underline,
-        is_blink: style.font_style.slow_blink || style.font_style.rapid_blink,
-        is_reverse: style.font_style.reverse,
-        is_hidden: style.font_style.hidden,
-        is_strikethrough: style.font_style.strikethrough,
-    }
 }
 
 #[cfg(test)]

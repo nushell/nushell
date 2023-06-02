@@ -1052,6 +1052,12 @@ impl Value {
                             }
                         }
                     }
+                    Value::LazyRecord { val, .. } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.upsert_data_at_cell_path(cell_path, new_val)?;
+                        *self = record
+                    }
                     Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
@@ -1183,6 +1189,12 @@ impl Value {
                             });
                         }
                     }
+                    Value::LazyRecord { val, .. } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.update_data_at_cell_path(cell_path, new_val)?;
+                        *self = record
+                    }
                     Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
@@ -1295,6 +1307,13 @@ impl Value {
                             }
                             Ok(())
                         }
+                        Value::LazyRecord { val, .. } => {
+                            // convert to Record first.
+                            let mut record = val.collect()?;
+                            record.remove_data_at_cell_path(cell_path)?;
+                            *self = record;
+                            Ok(())
+                        }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
@@ -1391,6 +1410,13 @@ impl Value {
                                     src_span: *v_span,
                                 });
                             }
+                            Ok(())
+                        }
+                        Value::LazyRecord { val, .. } => {
+                            // convert to Record first.
+                            let mut record = val.collect()?;
+                            record.remove_data_at_cell_path(cell_path)?;
+                            *self = record;
                             Ok(())
                         }
                         v => Err(ShellError::CantFindColumn {
@@ -1508,6 +1534,12 @@ impl Value {
 
                         cols.push(col_name.clone());
                         vals.push(new_val);
+                    }
+                    Value::LazyRecord { val, span } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.insert_data_at_cell_path(cell_path, new_val, *span)?;
+                        *self = record
                     }
                     other => {
                         return Err(ShellError::UnsupportedInput(

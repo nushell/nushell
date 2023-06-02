@@ -28,6 +28,7 @@ members = [
 	"crates/nu-engine",
 	"crates/nu-parser",
 	"crates/nu-system",
+	"crates/nu-cmd-extra",
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
@@ -72,7 +73,6 @@ miette = { version = "5.9", features = ["fancy-no-backtrace"] }
 serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"
-calends = "0.1.12"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 
@@ -104,8 +104,6 @@ rstest = { version = "0.17", default-features = false }
 
 [features]
 plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-# extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
-extra = ["default", "nu-cmd-lang/extra"]
 default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
@@ -117,7 +115,8 @@ static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
-# Extra
+# Extra feature for nushell
+extra = ["nu-command/extra", "nu-cmd-lang/extra"]
 
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe", "nu-cmd-lang/dataframe"]
