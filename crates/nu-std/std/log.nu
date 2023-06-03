@@ -263,7 +263,7 @@ export def custom [
 
     let prefix = if ($level_prefix | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
-            log-level-deduction-error "level prefix" (metadata $log_level).span $log_level
+            log-level-deduction-error "log level prefix" (metadata $log_level).span $log_level
         }
 
         parse-int-level $log_level
