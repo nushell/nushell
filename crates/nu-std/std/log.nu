@@ -222,6 +222,20 @@ export def debug [
     handle-log $message (log-types | get DEBUG) $format $short
 }
 
+def log-level-deduction-error [
+    span: record<start: int, end: int>
+    log_level: int
+] {
+    error make {
+        msg: $"Cannot deduce level prefix for given log level: ($log_level). Available log levels: ($env.LOG_LEVEL | values). You can configure them by the LOG_LEVEL env variable."
+        label: {
+            text: "Invalid log level for ansi auto-deduction"
+            start: $span.start
+            end: $span.end
+        }
+    }
+}
+
 # Log a message with a specific format and verbosity level, with either configurable or auto-deduced %LEVEL% and %ANSI_START% placeholder extensions
 export def custom [
     message: string, # A message
@@ -244,15 +258,7 @@ export def custom [
 
     let prefix = if ($level_prefix | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
-            let span = (metadata $log_level).span
-            error make {
-                "msg": $"Cannot deduce level prefix for given log level: ($log_level). Available log levels: ($env.LOG_LEVEL | values). You can configure them by the LOG_LEVEL env variable."
-                label: {
-                    text: "Invalid log level for prefix auto-deduction"
-                    start: $span.start
-                    end: $span.end
-                }
-            }
+            log-level-deduction-error (metadata $log_level).span $log_level
         }
         
         parse-int-level $log_level
@@ -263,15 +269,7 @@ export def custom [
 
     let ansi = if ($ansi | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
-            let span = (metadata $log_level).span
-            error make {
-                "msg": $"Cannot deduce ansi for given log level: ($log_level)"
-                label: {
-                    text: "Invalid log level for ansi auto-deduction"
-                    start: $span.start
-                    end: $span.end
-                }
-            }
+            log-level-deduction-error (metadata $log_level).span $log_level
         }
 
         (
