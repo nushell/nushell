@@ -223,11 +223,12 @@ export def debug [
 }
 
 def log-level-deduction-error [
+    type: string
     span: record<start: int, end: int>
     log_level: int
 ] {
     error make {
-        msg: $"(ansi red_bold)Cannot deduce level prefix for given log level: ($log_level).(ansi reset)"
+        msg: $"(ansi red_bold)Cannot deduce ($type) for given log level: ($log_level).(ansi reset)"
         label: {
             text: ([
                  "Invalid log level."
@@ -262,7 +263,7 @@ export def custom [
 
     let prefix = if ($level_prefix | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
-            log-level-deduction-error (metadata $log_level).span $log_level
+            log-level-deduction-error "level prefix" (metadata $log_level).span $log_level
         }
 
         parse-int-level $log_level
@@ -273,7 +274,7 @@ export def custom [
 
     let ansi = if ($ansi | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
-            log-level-deduction-error (metadata $log_level).span $log_level
+            log-level-deduction-error "ansi" (metadata $log_level).span $log_level
         }
 
         (
