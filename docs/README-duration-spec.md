@@ -1,5 +1,5 @@
 # Spec for nu duration
-:note: supercedes README-duration-spec0.md
+:note: supersedes README-duration-spec0.md
 
 Backing crate and Nu integration for an ergonomic and accurate duration and calendar module
 ## Scenarios
@@ -81,7 +81,7 @@ NuDuration API should mostly use `Result<>`.  Errors should be boxed so they don
 Not sure about how to choose word sizes.
 
 ## Nu integration
-The value and type shall be `Duration`, superceding the existing (more limited) duration type.
+The value and type shall be `Duration`, superseding the existing (more limited) duration type.
 
 ## Rust NuDuration module
 
@@ -318,7 +318,7 @@ Fri, 30 Jun 2023 00:00:00 -0400 (in a month)
 ```
 Durations of a month can have unexpected results, because of the differing lengths of months (per calendar and per leap year)
 Chrono interprets "end of the month" to mean "the last day of that month" and interprets month durations accordingly.
-So when you ask for "a month from now", if it's 30-May, you'll get 30-June, which is not too suprising.  But if it's 31-May, the answer will also be 30-June, not 1-July (to keep the result within "the next month").  
+So when you ask for "a month from now", if it's 30-May, you'll get 30-June, which is not too surprising.  But if it's 31-May, the answer will also be 30-June, not 1-July (to keep the result within "the next month").  
 
 If you ask for "a month from now" and it's 28-Feb in a non leap year, you'll get 31-March.  You were at the end of the current month, so you got the end of the next month.  If you ask for "28 days from now", you'll get 28-Mar.
 
