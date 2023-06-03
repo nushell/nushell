@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, NuDuration};
 use std::cmp::Ordering;
 
 pub enum Reduce {

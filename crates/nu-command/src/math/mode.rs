@@ -1,9 +1,11 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, NuDuration, PipelineData, ShellError, Signature, Span, Type, Unit, Value,
+};
 use std::cmp::Ordering;
-
+use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -93,6 +95,14 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Compute the mode(s) of a list of durations",
+                example: "[14_days 12_years 0_ns 12_years, 10_mos] | math mode",
+                result: Some(Value::List {
+                    vals: vec![Value::test_duration(NuDuration::new(12, Unit::Year))],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -124,7 +134,12 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
         .map(|val| match val {
             Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
             Value::Duration { val, .. } => {
-                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Duration))
+                let mut short_lived_hasher = std::collections::hash_map::DefaultHasher::new();
+                val.hash(&mut short_lived_hasher);
+                Ok(HashableType::new(
+                    short_lived_hasher.finish().to_ne_bytes(),
+                    NumberTypes::Duration,
+                ))
             }
             Value::Float { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
@@ -176,13 +191,15 @@ fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
     match &hashable_value.original_type {
         NumberTypes::Int => Value::int(i64::from_ne_bytes(bytes), head),
         NumberTypes::Float => Value::float(f64::from_ne_bytes(bytes), head),
-        NumberTypes::Duration => Value::Duration {
-            val: i64::from_ne_bytes(bytes),
-            span: head,
-        },
         NumberTypes::Filesize => Value::Filesize {
             val: i64::from_ne_bytes(bytes),
             span: head,
+        },
+        _ => Value::Error {
+            error: Box::new(ShellError::Unimplemented {
+                desired_function: format!("reversable hash for {:?}", hashable_value.original_type),
+                span: head,
+            }),
         },
     }
 }

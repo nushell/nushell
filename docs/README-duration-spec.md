@@ -241,7 +241,23 @@ In addition to literal and `to_string` described above, there are a couple of sp
 > (134_days + 22_min + 135_432_998_ns) | into duration --base-date 2022-10-31 --units 0_microseconds
 [4_months 2_weeks 22_minutes 135_milliseconds 432_microseconds]
 
-# for arbitrary roll-your-own flexibility in 
+# for arbitrary roll-your-own flexibility in formatting a human-readable (list of) duration:
+TBD
+
+```
+### Contexts assuming duration is int number of nanoseconds (legacy)
+
+Prior versions of Nu stored durations as an `i64` number of nanoseconds.  As described above, this suffices for duration calculations up to units of weeks, but not months or more. However, the convention is pervasive, supported by `into int` and also `into binary`.
+
+For backward compatibility, then, when referencing a new duration in a context expecting an int, a duration with units in the day range will be converted to nanoseconds but will issue a shell error if the duration is month range.
+
+In addition, `into int` gets additional flags to do an explicit conversion:
+
+```
+> 3_months | into int --base-date 2022-10-31  # nanoseconds is the default unit
+5_529_600_000_000_000
+> 3_months | into int --base-date 2022-10-31 --units 0_days
+64
 
 ```
 

@@ -2,7 +2,7 @@ use chrono_humanize::HumanTime;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    format_duration, format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
+    format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
     ListStream, PipelineData, RawStream, ShellError, Signature, Type, Value,
 };
 
@@ -119,7 +119,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => val.to_string(),
         Value::Filesize { val, .. } => format_filesize_from_conf(val, config),
-        Value::Duration { val, .. } => format_duration(val),
+        Value::Duration { val, .. } => val.to_string(),
         Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))
         }

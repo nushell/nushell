@@ -3,7 +3,7 @@ use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
+    Category, Example, IntoPipelineData, LazyRecord, NuDuration, PipelineData, ShellError, Signature, Span,
     Type, Value,
 };
 use std::time::{Duration, UNIX_EPOCH};
@@ -373,7 +373,7 @@ pub fn host(span: Span) -> Value {
 
     cols.push("uptime".into());
     vals.push(Value::Duration {
-        val: 1000000000 * sys.uptime() as i64,
+        val: NuDuration::ns(1000000000 * sys.uptime() as i64),
         span,
     });
 

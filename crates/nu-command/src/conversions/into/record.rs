@@ -1,9 +1,8 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
-use nu_protocol::format_duration_as_timeperiod;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, NuDuration, PipelineData, ShellError, Signature, Span, Type, Unit, Value,
 };
 #[derive(Clone)]
 pub struct SubCommand;
@@ -87,21 +86,12 @@ impl Command for SubCommand {
                 example: "-500day | into record",
                 result: Some(Value::Record {
                     cols: vec![
-                        "year".into(),
-                        "month".into(),
-                        "week".into(),
-                        "day".into(),
-                        "sign".into(),
+                        "quantity".into(),
+                        "unit".into(),
                     ],
                     vals: vec![
-                        Value::Int { val: 1, span },
-                        Value::Int { val: 4, span },
-                        Value::Int { val: 2, span },
-                        Value::Int { val: 1, span },
-                        Value::String {
-                            val: "-".into(),
-                            span,
-                        },
+                        Value::Int { val: -500, span },
+                        Value::String {val: "days".into(), span},
                     ],
                     span,
                 }),
@@ -156,7 +146,13 @@ fn into_record(
     let input_type = input.get_type();
     let res = match input {
         Value::Date { val, span } => parse_date_into_record(Ok(val), span),
-        Value::Duration { val, span } => parse_duration_into_record(val, span),
+        Value::Duration { val, span } => {
+            Value::Record {
+                cols: vec!("quantity".into(), "unit".into()),
+                vals: vec!(Value::Int{val:val.quantity, span}, Value::String{val: val.unit_name(), span}),
+                span,
+            }
+        },
         Value::List { mut vals, span } => match input_type {
             Type::Table(..) if vals.len() == 1 => vals.pop().expect("already checked 1 item"),
             _ => {
@@ -244,42 +240,6 @@ fn parse_date_into_record(date: Result<DateTime<FixedOffset>, Value>, span: Span
     }
 }
 
-fn parse_duration_into_record(duration: i64, span: Span) -> Value {
-    let (sign, periods) = format_duration_as_timeperiod(duration);
-
-    let mut cols = vec![];
-    let mut vals = vec![];
-    for p in periods {
-        let num_with_unit = p.to_text().to_string();
-        let split = num_with_unit.split(' ').collect::<Vec<&str>>();
-        cols.push(match split[1] {
-            "ns" => "nanosecond".into(),
-            "µs" => "microsecond".into(),
-            "ms" => "millisecond".into(),
-            "sec" => "second".into(),
-            "min" => "minute".into(),
-            "hr" => "hour".into(),
-            "day" => "day".into(),
-            "wk" => "week".into(),
-            "month" => "month".into(),
-            "yr" => "year".into(),
-            _ => "unknown".into(),
-        });
-
-        vals.push(Value::Int {
-            val: split[0].parse::<i64>().unwrap_or(0),
-            span,
-        });
-    }
-
-    cols.push("sign".into());
-    vals.push(Value::String {
-        val: if sign == -1 { "-".into() } else { "+".into() },
-        span,
-    });
-
-    Value::Record { cols, vals, span }
-}
 
 #[cfg(test)]
 mod test {

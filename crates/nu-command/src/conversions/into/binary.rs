@@ -83,6 +83,14 @@ impl Command for SubCommand {
                 }),
             },
             Example {
+                description: "convert a duration to a nushell binary primitive (in nanoseconds)",
+                example: "14_seconds | into binary",
+                result: Some(Value::Binary {
+                    val: i64::from(14_000_000_000).to_le_bytes().to_vec(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "convert a filesize to a nushell binary primitive",
                 example: "ls | where name == LICENSE | get size | into binary",
                 result: None,
@@ -177,9 +185,17 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             val: int_to_endian(i64::from(*val)),
             span,
         },
-        Value::Duration { val, .. } => Value::Binary {
-            val: int_to_endian(*val),
-            span,
+        Value::Duration {
+            val,
+            span: dur_span,
+        } => match val.to_ns_or_err(*dur_span) {
+            Ok(ns) => Value::Binary {
+                val: int_to_endian(ns),
+                span,
+            },
+            Err(shell_error) => Value::Error {
+                error: Box::new(shell_error),
+            },
         },
         Value::Date { val, .. } => Value::Binary {
             val: val.format("%c").to_string().as_bytes().to_vec(),

@@ -1088,6 +1088,33 @@ pub enum ShellError {
         #[label = "expected both durations to have same duration unit range"]
         span: Span,
     },
+
+    /// Can't convert duration to nanoseconds
+    /// 
+    /// ## Resolution
+    /// 
+    /// Either duration has units of months or more, so use `duration | into int --base-date`
+    /// or there was an arithmetic overflow calculating number of nanoseconds.
+    #[error("Could not convert duration to nanoseconds: {reason}")]
+    #[diagnostic(code(nu::shell::could_not_convert_duration_ns))]
+    CouldNotConvertDurationNs {
+        reason: String,
+        #[label("{reason} in this duration")]
+        span: Span,
+    },
+
+    /// The requested function has not been implemented (yet).
+    ///
+    /// ## Resolution
+    ///
+    /// Submit an issue report to Nushell project if you can't find a satisfactory workaround.
+    #[error("Function not implemented {desired_function}")]
+    #[diagnostic(code(nu::shell::unimplemented))]
+    Unimplemented {
+        desired_function: String,
+        #[label = "{desired_function}"]
+        span: Span,
+    },
 }
 
 impl From<std::io::Error> for ShellError {

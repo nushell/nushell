@@ -1,11 +1,10 @@
 //!todos
 //! implement nested units: start_day_in_... and monday, tuesday (as next or prev day of week)
 //! implement is_negative, From, other traits to avoid special case code in ../from_value and ../from
-use crate::Unit;
+use crate::{ShellError, Span, Unit};
 use chrono::{DateTime, Datelike, FixedOffset};
 use serde::{Deserialize, Serialize};
 use std::{cmp::min, fmt};
-
 use thiserror::Error;
 
 // convenient(?) shorthands for standard types used in this module
@@ -62,6 +61,30 @@ impl NuDuration {
         }
     }
 
+    /// Return duration in nanoseconds, if possible.  
+    ///
+    /// Returns ShellError on failure, either due to:
+    /// duration is in the month range; or scaling to nanoseconds caused an overflow.
+    /// To convert from month to any day range duration, see `duration | into int --base_date `.
+
+    pub fn to_ns_or_err(&self, span: Span) -> std::result::Result<i64, ShellError> {
+        if self.unit.unit_scale().1 == Unit::Nanosecond {
+            if let Some(ret_val) = i64::checked_mul(self.quantity, self.unit.unit_scale().0) {
+                Ok(ret_val)
+            } else {
+                Err(ShellError::CouldNotConvertDurationNs {
+                    reason: format!("Overflow"),
+                    span: span,
+                })
+            }
+        } else {
+            Err(ShellError::CouldNotConvertDurationNs {
+                reason: format!("Incompatible time unit {}", self.unit_name()),
+                span: span,
+            })
+        }
+    }
+
     /// Parse ISO8601 duration string in the form: "PnYnMnDTnHnMn.nnnnnnnnS", returns a **list** of durations.
     ///
     /// Standard doesn't have placeholders for milli- micro- or nano-seconds, uses fractional part instead.
@@ -70,11 +93,6 @@ impl NuDuration {
     #[allow(unused_variables)]
     pub fn from_iso8601(p_string: &str) -> Result<Box<[NuDuration]>> {
         todo!("from_iso8601")
-    }
-
-    /// Canonic string representation of duration: <units>_<unit>, pluralized as needed
-    pub fn to_string(&self) -> String {
-        format!("{}_{}", self.quantity, self.unit_name())
     }
 
     pub fn unit_name(&self) -> String {
@@ -102,12 +120,17 @@ impl NuDuration {
     /// Only works when both durations are in same "range" (days or months)
     pub fn add(&self, rhs: &NuDuration) -> Option<NuDuration> {
         if self.unit.unit_scale().1 == rhs.unit.unit_scale().1 {
-            let quantity = (self.quantity.checked_mul(self.unit.unit_scale().0)?)
-                .checked_add(rhs.quantity.checked_mul(rhs.unit.unit_scale().0)?)?;
-            let unit = min(self.unit, rhs.unit);
+            let unit = min(self.unit, rhs.unit); // smaller duration unit
+            let min_unit_scale = unit.unit_scale().0; // scaling for smaller unit
+            let quantity = (self
+                .quantity // mul by smaller scales to avoid overflow
+                .checked_mul(self.unit.unit_scale().0 / min_unit_scale)?)
+            .checked_add(
+                rhs.quantity
+                    .checked_mul(rhs.unit.unit_scale().0 / min_unit_scale)?,
+            )?;
             Some(NuDuration {
-                unit,
-                quantity: quantity / unit.unit_scale().0,
+                unit,quantity,
             })
         } else {
             None
@@ -143,7 +166,7 @@ impl NuDuration {
         match self.unit {
             Unit::Month => {
                 if self.quantity < 0 {
-                    rhs.checked_sub_months(chrono::Months::new(self.quantity.abs() as u32))
+                    rhs.checked_sub_months(chrono::Months::new(self.quantity.unsigned_abs() as u32))
                 } else {
                     rhs.checked_add_months(chrono::Months::new(self.quantity as u32))
                 }
@@ -156,7 +179,9 @@ impl NuDuration {
                 match self.unit.unit_scale().1 {
                     Unit::Month => {
                         if self.quantity < 0 {
-                            rhs.checked_sub_months(chrono::Months::new(quantity.abs() as u32))
+                            rhs.checked_sub_months(chrono::Months::new(
+                                quantity.unsigned_abs() as u32
+                            ))
                         } else {
                             rhs.checked_add_months(chrono::Months::new(quantity as u32))
                         }
@@ -178,22 +203,6 @@ impl fmt::Display for NuDuration {
         write!(f, "{}_{})", self.quantity, self.unit_name())
     }
 }
-
-/*
-impl std::convert::From<NuDuration> for i64 {
-    /// NuDuration can be coerced to a number of nanoseconds, but only for "day" range durations.
-    /// If duration not in right range, convert to MAX or MIN, since [from()] can't fail.
-    fn from(value: NuDuration) -> Self {
-        if value.unit == Unit::Nanosecond {
-            value.quantity
-        } else if value.unit.unit_scale().1 == Unit::Nanosecond {
-            value.quantity * value.unit.unit_scale().0
-        } else {
-            value.saturated_result().quantity
-        }
-    }
-}
-*/
 
 impl std::ops::Neg for NuDuration {
     type Output = Self;
@@ -244,65 +253,19 @@ pub enum NuDurationError {
     TestFailed, // because
 }
 
-/* moved to units.rs
-/// Duration units of measure
-///
-/// Duration units of measure are grouped into "ranges" and can be freely scaled but only within their range:
-/// * "day" range -- units from nanoseconds through day and week
-/// * "month" range -- units from months through millennia
-///
-#[derive(Debug, Clone, Copy, PartialOrd, Ord, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NuDurationUnit {
-    Nanosecond,
-    Microsecond,
-    Millisecond,
-    Second,
-    Minute,
-    Hour,
-    Day,
-    Week,
-    Month,
-    Quarter,
-    Year,
-    Century,
-    Millennium,
-}
-impl Unit {
-    /// map unit suffix to Unit
-    /// todo: move to NuDuration
-    ///
-    // maint note: be sure to include the canonical singular and plural suffix here.  Sorry for the andi-DRY
-    // if you add short aliases here, consider impact on abbreviations for non-duration units of measure, too.
-    // parser doesn't always know what type to expect when it sees a literal.
-    pub fn from_alias(alias: &str) -> Result<Self> {
-        match alias.to_lowercase().as_str() {
-            "nanosecond" | "nanoseconds" | "ns" => Ok(Unit::Nanosecond),
-            "microsecond" | "microseconds" | "us" |
-                "\u{00B5}s" |                           // micro sign
-                "\u{03BC}s"                             // greek small mu
-                                                => Ok(Unit::Microsecond),
-            "millisecond" | "milliseconds" | "ms" => Ok(Unit::Millisecond),
-            "second" | "seconds" | "sec" | "secs" | "s" => Ok(Unit::Second),
-            "minute" | "minutes" | "min" | "mins" | "m" => Ok(Unit::Minute),
-            "hour" | "hours" | "hr" | "hrs" | "h" => Ok(Unit::Hour),
-            "day" | "days" | "da" | "d" => Ok(Unit::Day),
-            "week" | "weeks" | "wk" | "wks" => Ok(Unit::Week),
-            "month" | "months" | "mo" | "mos" /* and not "m" */ => Ok(Unit::Month),
-            "quarter" | "quarters" | "qtr" | "qtrs" | "q" => Ok(Unit::Quarter),
-            "year" | "years" | "yr" | "yrs" | "y" => Ok(Unit::Year),
-            "century" | "centuries" | "cent" /* and not "c"? */ => Ok(Unit::Century),
-            "millennium" | "millennia" => Ok(Unit::Millennium),
-            _ => Err(NuDurationError::UnrecognizedUnits.into())
-        }
-    }
-
-
-}
-*/
 #[cfg(test)]
 mod test {
     use super::*;
     use rstest::rstest;
+
+    #[rstest]
+    #[case(Unit::Microsecond, Unit::Nanosecond)]
+    #[case(Unit::Millennium, Unit::Day)]
+    fn test_unit_compare(#[case] bigger: Unit, #[case] smaller: Unit) {
+        assert!(
+            (bigger > smaller), "expected {:?} to compare bigger than {:?}", bigger, smaller
+        );
+    }
 
     #[rstest]
     #[case("2021-10-01T01:02:03Z", "2021-11-30T23:59:59Z", 1)] // start month < end month, same year
@@ -366,5 +329,49 @@ mod test {
     ) {
         let obs = lhs.add(&rhs);
         assert_eq!(exp, obs);
+    }
+
+    fn se_cnc(reason_pat: &str) -> ShellError {
+        ShellError::CouldNotConvertDurationNs {
+            reason: reason_pat.into(),
+            span: Span { start: 0, end: 0 },
+        }
+    }
+
+    #[rstest]
+    #[case(NuDuration::new(1, Unit::Nanosecond), Ok(1))]
+    #[case(NuDuration::new(0, Unit::Nanosecond), Ok(0))]
+    #[case(NuDuration::new(23, Unit::Day), Ok(23 * 24 * 3600 * 1000000000))]
+    #[case(
+        NuDuration::new(23, Unit::Millennium),
+        Err(se_cnc("time unit millennia"))
+    )]
+    #[case(NuDuration::new(0, Unit::Month), Err(se_cnc("time unit months")))]
+    #[case(NuDuration::new(i64::MAX, Unit::Second), Err(se_cnc("Overflow")))]
+
+    fn test_to_int(
+        #[case] duration: NuDuration,
+        #[case] expected: core::result::Result<i64, ShellError>,
+    ) {
+        let result = duration.to_ns_or_err(Span { start: 0, end: 0 });
+        match (&expected, &result) {
+            (Ok(exp_val), Ok(val)) => assert_eq!(exp_val, val),
+            (
+                Err(ShellError::CouldNotConvertDurationNs {
+                    reason: exp_reason, ..
+                }),
+                Err(ShellError::CouldNotConvertDurationNs {
+                    reason: val_reason, ..
+                }),
+            ) => {
+                assert!(
+                    val_reason.contains(exp_reason),
+                    "error reason: exp {:?}, act: {:?}",
+                    exp_reason,
+                    val_reason
+                );
+            }
+            _ => panic!("unexpected error {:?}", result),
+        }
     }
 }

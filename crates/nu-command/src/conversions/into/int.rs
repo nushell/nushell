@@ -118,6 +118,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(4000)),
             },
             Example {
+                description: "Convert duration to integer (number of nanoseconds)",
+                example: "14_seconds | into int",
+                result: Some(Value::test_int(14_000_000_000)),
+            },
+            Example {
                 description: "Convert bool to integer",
                 example: "[false, true] | into int",
                 result: Some(Value::List {
@@ -246,7 +251,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 }
             }
         }
-        Value::Duration { val, .. } => Value::Int { val: *val, span },
+        Value::Duration { val, .. } => {
+            match val.to_ns_or_err( span) {
+                Ok(ns) => Value::Int { val: ns, span },
+                Err(cnc) => Value::Error {error: Box::new(cnc)},
+            }
+        },
         Value::Binary { val, span } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 

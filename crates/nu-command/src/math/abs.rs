@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{Category, Example, NuDuration, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -63,7 +63,10 @@ fn abs_helper(val: Value, head: Span) -> Value {
             span,
         },
         Value::Duration { val, span } => Value::Duration {
-            val: val.abs(),
+            val: NuDuration {
+                quantity: val.quantity.abs(),
+                unit: val.unit,
+            },
             span,
         },
         Value::Error { .. } => val,

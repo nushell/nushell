@@ -490,7 +490,7 @@ fn convert_to_value(
                     val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
-
+                //todo: decide how to serde durations: as ns (read old files, but lose unit), or new format and break backward compat?
                 Unit::Nanosecond => Ok(Value::Duration { val: size, span }),
                 Unit::Microsecond => Ok(Value::Duration {
                     val: size * 1000,
