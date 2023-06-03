@@ -54,19 +54,19 @@ def log-types [] {
                 "level": $env.LOG_LEVEL.WARNING,
                 "prefix": $env.LOG_PREFIX.WARNING,
                 "short_prefix": $env.LOG_SHORT_PREFIX.WARNING
-            }, 
+            },
             "INFO": {
                 "ansi": $env.LOG_ANSI.INFO,
                 "level": $env.LOG_LEVEL.INFO,
                 "prefix": $env.LOG_PREFIX.INFO,
                 "short_prefix": $env.LOG_SHORT_PREFIX.INFO
-            }, 
+            },
             "DEBUG": {
                 "ansi": $env.LOG_ANSI.DEBUG,
                 "level": $env.LOG_LEVEL.DEBUG,
                 "prefix": $env.LOG_PREFIX.DEBUG,
                 "short_prefix": $env.LOG_SHORT_PREFIX.DEBUG
-            }            
+            }
         }
     )
 }
@@ -169,7 +169,7 @@ def handle-log [
 # - %MSG%: message to be logged
 # - %DATE%: date of log
 # - %LEVEL%: string prefix for the log level
-# - %ANSI_START%: ansi formatting 
+# - %ANSI_START%: ansi formatting
 # - %ANSI_STOP%: literally (ansi reset)
 #
 # Note: All placeholders are optional, so "" is still a valid format
@@ -260,7 +260,7 @@ export def custom [
         if ($log_level not-in $valid_levels_for_defaulting) {
             log-level-deduction-error (metadata $log_level).span $log_level
         }
-        
+
         parse-int-level $log_level
 
     } else {
@@ -273,14 +273,14 @@ export def custom [
         }
 
         (
-            log-types 
-            |values
-            |each {|record|
+            log-types
+            | values
+            | each {|record|
                 if ($record.level == $log_level) {
                     $record.ansi
                 }
             } | first
-        ) 
+        )
     } else {
         $ansi
     }
