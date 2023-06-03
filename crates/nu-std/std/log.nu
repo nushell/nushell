@@ -227,9 +227,13 @@ def log-level-deduction-error [
     log_level: int
 ] {
     error make {
-        msg: $"Cannot deduce level prefix for given log level: ($log_level). Available log levels: ($env.LOG_LEVEL | values). You can configure them by the LOG_LEVEL env variable."
+        msg: $"(ansi red_bold)Cannot deduce level prefix for given log level: ($log_level).(ansi reset)"
         label: {
-            text: "Invalid log level for ansi auto-deduction"
+            text: ([
+                 "Invalid log level."
+                $"        Available log levels in $env.LOG_LEVEL:"
+                 ($env.LOG_LEVEL | to text | lines | each {|it| $"            ($it)" } | to text)
+            ] | str join "\n")
             start: $span.start
             end: $span.end
         }
