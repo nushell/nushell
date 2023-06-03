@@ -23,8 +23,8 @@ def run-command [
 }
 
 export def test_errors_during_deduction [] {
-    assert str contains (run-command "DEBUG" "msg" "%MSG%" 25) "Cannot deduce level prefix for given log level"
-    assert str contains (run-command "DEBUG" "msg" "%MSG%" 25 --ansi (ansi red)) "Cannot deduce level prefix for given log level"
+    assert str contains (run-command "DEBUG" "msg" "%MSG%" 25) "Cannot deduce log level prefix for given log level"
+    assert str contains (run-command "DEBUG" "msg" "%MSG%" 25 --ansi (ansi red)) "Cannot deduce log level prefix for given log level"
     assert str contains (run-command "DEBUG" "msg" "%MSG%" 25 --level-prefix "abc") "Cannot deduce ansi for given log level"
 }
 
