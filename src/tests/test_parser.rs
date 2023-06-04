@@ -529,12 +529,12 @@ fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
 
 #[test]
 fn duration_with_underscores_1() -> TestResult {
-    run_test("420_min", "7hr")
+    run_test("420_min", "420_minutes")
 }
 
 #[test]
 fn duration_with_underscores_2() -> TestResult {
-    run_test("1_000_000sec", "1wk 4day 13hr 46min 40sec")
+    run_test("1_000_000sec", "1000000_seconds")
 }
 
 #[test]
