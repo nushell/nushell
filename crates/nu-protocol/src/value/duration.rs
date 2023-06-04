@@ -171,7 +171,7 @@ impl NuDuration {
                 }
             }
             Unit::Nanosecond => {
-                rhs.checked_sub_signed(chrono::Duration::nanoseconds(self.quantity))
+                rhs.checked_add_signed(chrono::Duration::nanoseconds(self.quantity))
             }
             _ => {
                 let quantity = self.quantity * self.unit.unit_scale().0;
@@ -186,7 +186,7 @@ impl NuDuration {
                         }
                     }
                     Unit::Nanosecond => {
-                        rhs.checked_sub_signed(chrono::Duration::nanoseconds(quantity))
+                        rhs.checked_add_signed(chrono::Duration::nanoseconds(quantity))
                     }
                     _ => {
                         panic!("unsupported duration range")
