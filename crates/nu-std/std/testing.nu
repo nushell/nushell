@@ -1,4 +1,9 @@
-use std *
+export-env {
+    use log.nu []
+}
+
+use log.nu
+
 
 def throw-error [error: record] {
     error make {
@@ -159,7 +164,7 @@ def run-tests-for-module [
     return $tests
 }
 
-export def 'run-tests' [
+export def run-tests [
     --path: path, # Path to look for tests. Default: current directory.
     --module: string, # Test module to run. Default: all test modules found.
     --test: string, # Individual test to run. Default: all test command found in the files.
