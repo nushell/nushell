@@ -231,7 +231,6 @@ fn handle_table_command(
     term_width: Option<i64>,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
-    // let config = engine_state.get_config();
     let config = get_config(engine_state, stack);
 
     match input {
@@ -449,7 +448,6 @@ fn handle_row_stream(
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
         }) => {
-            // let config = engine_state.config.clone();
             let config = get_config(engine_state, stack);
             let ctrlc = ctrlc.clone();
             let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
@@ -648,7 +646,6 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        // let config = self.engine_state.get_config();
         let config = get_config(&self.engine_state, &self.stack);
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
@@ -670,7 +667,6 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        // let config = self.engine_state.get_config();
         let config = get_config(&self.engine_state, &self.stack);
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
@@ -683,7 +679,6 @@ impl PagingTableCreator {
 
     fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
         let term_width = get_width_param(self.width_param);
-        // let config = &self.engine_state.get_config();
         let config = get_config(&self.engine_state, &self.stack);
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let ctrlc = self.ctrlc.clone();
@@ -762,7 +757,6 @@ impl Iterator for PagingTableCreator {
         match table {
             Ok(Some(table)) => {
                 let table = maybe_strip_color(table, &get_config(&self.engine_state, &self.stack));
-                // self.engine_state.get_config());
 
                 let mut bytes = table.as_bytes().to_vec();
                 bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
@@ -898,7 +892,6 @@ fn create_empty_placeholder(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> String {
-    // let config = engine_state.get_config();
     let config = get_config(engine_state, stack);
     if !config.table_show_empty {
         return String::new();

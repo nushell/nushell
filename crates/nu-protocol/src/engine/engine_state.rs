@@ -1654,6 +1654,10 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.get_env_var(name)
     }
 
+    /// Returns a reference to the config stored at permanent state
+    ///
+    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
+    /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
     }

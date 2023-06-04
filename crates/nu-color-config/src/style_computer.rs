@@ -138,7 +138,6 @@ impl<'a> StyleComputer<'a> {
 
     // The main constructor.
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
-        // let config = engine_state.get_config();
         let config = get_config(engine_state, stack);
 
         // Create the hashmap
