@@ -17,7 +17,7 @@ repos:
   repo: https://github.com/Lucas-C/pre-commit-hooks
   hooks:
   - id: remove-tabs
-- rev: 0.7.16 
+- rev: 0.7.16
   repo: https://github.com/executablebooks/mdformat
   hooks:
   - id: mdformat
@@ -25,3 +25,7 @@ repos:
   repo: https://github.com/crate-ci/typos
   hooks:
   - id: typos
+- rev: v1.0.0
+  repo: https://github.com/skelly37/pre-commit-hooks
+  hooks:
+  - id: nushell-fmt
