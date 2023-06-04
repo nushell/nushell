@@ -282,6 +282,11 @@ impl Command for Watch {
                 example: r#"watch /foo/bar { |op, path| $"($op) - ($path)(char nl)" | save --append changes_in_bar.log }"#,
                 result: None,
             },
+            Example {
+                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep",
+                example: r#"loop { command; sleep duration }"#,
+                result: None,
+            },
         ]
     }
 }
