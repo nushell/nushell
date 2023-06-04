@@ -5,9 +5,11 @@ repos:
   - id: trailing-whitespace
   - id: check-symlinks
   - id: check-shebang-scripts-are-executable
+    exclude: ".*.rs"
   - id: check-yaml
   - id: check-toml
   - id: check-json
+    exclude: ".*/nu_json/fail*"
   - id: check-xml
   - id: check-merge-conflict
   - id: check-executables-have-shebangs
