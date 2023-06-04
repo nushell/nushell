@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, 
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
 };
 
@@ -105,8 +105,6 @@ fn into_duration(
         engine_state.ctrlc.clone(),
     )
 }
-
-
 
 #[allow(unused_variables)]
 fn action(
