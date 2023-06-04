@@ -148,7 +148,7 @@ fn proper_variable_captures_with_nesting() -> TestResult {
 #[test]
 #[ignore]
 fn divide_duration() -> TestResult {
-    run_test(r#"4ms / 4ms"#, "1")   // should this really work?
+    run_test(r#"4ms / 4ms"#, "1") // should this really work?
 }
 
 #[test]

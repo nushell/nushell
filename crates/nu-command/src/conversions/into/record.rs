@@ -2,8 +2,7 @@ use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 #[derive(Clone)]
 pub struct SubCommand;
