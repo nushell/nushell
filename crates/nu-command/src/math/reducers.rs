@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, Span, Value, NuDuration};
+use nu_protocol::{NuDuration, ShellError, Span, Unit, Value};
 use std::cmp::Ordering;
 
 pub enum Reduce {
@@ -91,7 +91,10 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             span: *span,
         }),
         Some(Value::Duration { span, .. }) => Ok(Value::Duration {
-            val: 0,
+            val: NuDuration {
+                quantity: 0,
+                unit: Unit::Week,
+            }, // max unit in days range
             span: *span,
         }),
         Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(0, *span)),

@@ -36,6 +36,7 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Int),
                 // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
+                (Type::Duration, Type::Int),
                 // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
             ])
@@ -251,11 +252,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 }
             }
         }
-        Value::Duration { val, .. } => {
-            match val.to_ns_or_err( span) {
-                Ok(ns) => Value::Int { val: ns, span },
-                Err(cnc) => Value::Error {error: Box::new(cnc)},
-            }
+        Value::Duration {
+            val,
+            span: val_span,
+        } => match val.to_ns_or_err(*val_span) {
+            Ok(ns) => Value::Int { val: ns, span },
+            Err(cnc) => Value::Error {
+                error: Box::new(cnc),
+            },
         },
         Value::Binary { val, span } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};

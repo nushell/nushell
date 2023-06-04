@@ -2,7 +2,8 @@ use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, NuDuration, PipelineData, ShellError, Signature, Span, Type, Unit, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 #[derive(Clone)]
 pub struct SubCommand;
@@ -85,13 +86,13 @@ impl Command for SubCommand {
                 description: "convert duration to record",
                 example: "-500day | into record",
                 result: Some(Value::Record {
-                    cols: vec![
-                        "quantity".into(),
-                        "unit".into(),
-                    ],
+                    cols: vec!["quantity".into(), "unit".into()],
                     vals: vec![
                         Value::Int { val: -500, span },
-                        Value::String {val: "days".into(), span},
+                        Value::String {
+                            val: "days".into(),
+                            span,
+                        },
                     ],
                     span,
                 }),
@@ -146,12 +147,19 @@ fn into_record(
     let input_type = input.get_type();
     let res = match input {
         Value::Date { val, span } => parse_date_into_record(Ok(val), span),
-        Value::Duration { val, span } => {
-            Value::Record {
-                cols: vec!("quantity".into(), "unit".into()),
-                vals: vec!(Value::Int{val:val.quantity, span}, Value::String{val: val.unit_name(), span}),
-                span,
-            }
+        Value::Duration { val, span } => Value::Record {
+            cols: vec!["quantity".into(), "unit".into()],
+            vals: vec![
+                Value::Int {
+                    val: val.quantity,
+                    span,
+                },
+                Value::String {
+                    val: val.unit_name(),
+                    span,
+                },
+            ],
+            span,
         },
         Value::List { mut vals, span } => match input_type {
             Type::Table(..) if vals.len() == 1 => vals.pop().expect("already checked 1 item"),
@@ -239,7 +247,6 @@ fn parse_date_into_record(date: Result<DateTime<FixedOffset>, Value>, span: Span
         Err(e) => e,
     }
 }
-
 
 #[cfg(test)]
 mod test {

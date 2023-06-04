@@ -17,7 +17,8 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, UnitGroup, VarId, DURATION_UNIT_GROUPS, ENV_VARIABLE_ID,
+    FILESIZE_UNIT_GROUPS, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -2239,7 +2240,6 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 }
 
 type ParseUnitResult<'res> = Result<Expression, Box<dyn Fn(&'res str) -> ParseError>>;
-type UnitGroup<'unit> = (Unit, &'unit str, Option<(Unit, i64)>);
 
 pub fn parse_unit_value<'res>(
     bytes: &[u8],
@@ -2314,78 +2314,6 @@ pub fn parse_unit_value<'res>(
         None
     }
 }
-
-pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Zettabyte, "ZB", Some((Unit::Exabyte, 1000))),
-    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Zebibyte, "ZIB", Some((Unit::Exbibyte, 1024))),
-    (Unit::Byte, "B", None),
-];
-
-pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Minute, "m", None),
-    (Unit::Day, "d", None),
-    (Unit::Hour, "h", None),
-    (Unit::Year, "y", None),
-    (Unit::Second, "s", None),
-    (Unit::Nanosecond, "ns", None),
-    (Unit::Microsecond, "us", None),
-    (Unit::Millisecond, "ms", None),
-    (Unit::Hour, "hr", None),
-    (Unit::Day, "da", None),
-    (Unit::Week, "wk", None),
-    (Unit::Month, "mo", None),
-    (Unit::Year, "yr", None),
-    (Unit::Second, "sec", None),
-    (Unit::Minute, "min", None),
-    (Unit::Hour, "hrs", None),
-    (Unit::Day, "day", None),
-    (Unit::Week, "wks", None),
-    (Unit::Month, "mos", None),
-    (Unit::Quarter, "qtr", None),
-    (Unit::Year, "yrs", None),
-    (Unit::Second, "secs", None),
-    (Unit::Minute, "mins", None),
-    (Unit::Hour, "hour", None),
-    (Unit::Day, "days", None),
-    (Unit::Week, "week", None),
-    (Unit::Quarter, "qtrs", None),
-    (Unit::Year, "year", None),
-    (Unit::Hour, "hours", None),
-    (Unit::Week, "weeks", None),
-    (Unit::Month, "month", None),
-    (Unit::Year, "years", None),
-    (Unit::Second, "second", None),
-    (Unit::Minute, "minute", None),
-    (Unit::Month, "months", None),
-    (Unit::Second, "seconds", None),
-    (Unit::Minute, "minutes", None),
-    (Unit::Quarter, "quarter", None),
-    (Unit::Century, "century", None),
-    (Unit::Quarter, "quarters", None),
-    (Unit::Millennium, "millennia", None),
-    (Unit::Microsecond, "\u{00B5}s", None),
-    (Unit::Microsecond, "\u{03BC}s", None),
-    (Unit::Century, "centuries", None),
-    (Unit::Millennium, "millennium", None),
-    (Unit::Nanosecond, "nanosecond", None),
-    (Unit::Nanosecond, "nanoseconds", None),
-    (Unit::Microsecond, "microsecond", None),
-    (Unit::Millisecond, "millisecond", None),
-    (Unit::Microsecond, "microseconds", None),
-    (Unit::Millisecond, "milliseconds", None),
-];
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
 fn modf(x: f64) -> (f64, f64) {

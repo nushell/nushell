@@ -2202,11 +2202,10 @@ impl Value {
                     Ok(Value::Duration { val, span })
                 } else {
                     Err(ShellError::InvalidUnitRange {
-                        lhs_unit_range: lhs.unit.unit_scale().1.to_string(),
+                        lhs_unit: lhs.unit_name(),
                         lhs_span: *lhs_span,
-                        rhs_unit_range: rhs.unit.unit_scale().1.to_string(),
+                        rhs_unit: rhs.unit_name(),
                         rhs_span: *rhs_span,
-                        span,
                     })
                 }
             }
@@ -2333,11 +2332,10 @@ impl Value {
                     Ok(Value::Duration { val, span })
                 } else {
                     Err(ShellError::InvalidUnitRange {
-                        lhs_unit_range: lhs.unit.unit_scale().1.to_string(),
+                        lhs_unit: lhs.unit_name(),
                         lhs_span: *lhs_span,
-                        rhs_unit_range: rhs.unit.unit_scale().1.to_string(),
+                        rhs_unit: rhs.unit_name(),
                         rhs_span: *rhs_span,
-                        span,
                     })
                 }
             }

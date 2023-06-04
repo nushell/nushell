@@ -179,8 +179,14 @@ mod test {
                 HashableValue::Filesize { val: 1, span },
             ),
             (
-                Value::Duration { val: NuDuration::ns(22), span },
-                HashableValue::Duration { val: NuDuration::ns(22), span },
+                Value::Duration {
+                    val: NuDuration::ns(22),
+                    span,
+                },
+                HashableValue::Duration {
+                    val: NuDuration::ns(22),
+                    span,
+                },
             ),
             (
                 Value::Date {
@@ -261,7 +267,10 @@ mod test {
             Value::Bool { val: true, span },
             Value::Int { val: 1, span },
             Value::Filesize { val: 1, span },
-            Value::Duration { val: NuDuration::ns(1), span },
+            Value::Duration {
+                val: NuDuration::ns(1),
+                span,
+            },
             Value::String {
                 val: "1".to_string(),
                 span,

@@ -175,7 +175,7 @@ pub fn value_to_string(
         )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
-        Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
+        Value::Duration { val, .. } => Ok(val.to_string()),
         // Propagate existing errors
         Value::Error { error } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.

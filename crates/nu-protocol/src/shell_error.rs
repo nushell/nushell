@@ -1076,30 +1076,28 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Add both durations to a datetime, then subtract that datetime to get total duration.
-    #[error("Incompatible duration unit ranges")]
+    #[error("Incompatible duration units")]
     #[diagnostic(code(nu::shell::invalid_unit_range))]
     InvalidUnitRange {
-        lhs_unit_range: String,
-        #[label("{lhs_unit_range}")]
+        lhs_unit: String,
+        #[label("{lhs_unit}")]
         lhs_span: Span,
-        rhs_unit_range: String,
-        #[label("{rhs_unit_range}")]
+        rhs_unit: String,
+        #[label("{rhs_unit}")]
         rhs_span: Span,
-        #[label = "expected both durations to have same duration unit range"]
-        span: Span,
     },
 
     /// Can't convert duration to nanoseconds
-    /// 
+    ///
     /// ## Resolution
-    /// 
+    ///
     /// Either duration has units of months or more, so use `duration | into int --base-date`
     /// or there was an arithmetic overflow calculating number of nanoseconds.
     #[error("Could not convert duration to nanoseconds: {reason}")]
     #[diagnostic(code(nu::shell::could_not_convert_duration_ns))]
     CouldNotConvertDurationNs {
         reason: String,
-        #[label("{reason} in this duration")]
+        #[label("{reason}")]
         span: Span,
     },
 

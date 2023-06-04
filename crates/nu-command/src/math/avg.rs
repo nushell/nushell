@@ -2,7 +2,9 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, NuDuration, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, NuDuration, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -53,8 +55,9 @@ pub fn average(values: &[Value], span: Span, head: &Span) -> Result<Value, Shell
             val: val / values.len() as i64,
             span: *span,
         }),
-        Value::Duration { val, span } => Ok(Value::Duration {   
-            val: NuDuration { // avg number of min units in sum, not necessarily ns.
+        Value::Duration { val, span } => Ok(Value::Duration {
+            val: NuDuration {
+                // avg number of min units in sum, not necessarily ns.
                 quantity: (val.quantity / values.len() as i64),
                 unit: val.unit,
             },

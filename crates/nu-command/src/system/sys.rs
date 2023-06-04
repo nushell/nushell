@@ -3,8 +3,8 @@ use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, LazyRecord, NuDuration, PipelineData, ShellError, Signature, Span,
-    Type, Value,
+    Category, Example, IntoPipelineData, LazyRecord, NuDuration, PipelineData, ShellError,
+    Signature, Span, Type, Value,
 };
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{

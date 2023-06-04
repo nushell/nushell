@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, NuDuration, PipelineData,
+    ShellError, Signature, Span, Type, Value,
 };
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
@@ -208,10 +208,10 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
         span: head,
     };
     let duration_value = Value::Duration {
-        val: match entry.duration {
+        val: NuDuration::ns(match entry.duration {
             Some(d) => d.as_nanos().try_into().unwrap_or(0),
             None => 0,
-        },
+        }),
         span: head,
     };
     let exit_status_value = Value::int(entry.exit_status.unwrap_or(0), head);

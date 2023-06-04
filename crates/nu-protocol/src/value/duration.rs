@@ -1,6 +1,7 @@
 //!todos
 //! implement nested units: start_day_in_... and monday, tuesday (as next or prev day of week)
 //! implement is_negative, From, other traits to avoid special case code in ../from_value and ../from
+use crate::DURATION_UNIT_GROUPS;
 use crate::{ShellError, Span, Unit};
 use chrono::{DateTime, Datelike, FixedOffset};
 use serde::{Deserialize, Serialize};
@@ -73,14 +74,14 @@ impl NuDuration {
                 Ok(ret_val)
             } else {
                 Err(ShellError::CouldNotConvertDurationNs {
-                    reason: format!("Overflow"),
-                    span: span,
+                    reason: "Overflow".into(),
+                    span,
                 })
             }
         } else {
             Err(ShellError::CouldNotConvertDurationNs {
-                reason: format!("Incompatible time unit {}", self.unit_name()),
-                span: span,
+                reason: "Incompatible time unit".into(),
+                span,
             })
         }
     }
@@ -129,9 +130,7 @@ impl NuDuration {
                 rhs.quantity
                     .checked_mul(rhs.unit.unit_scale().0 / min_unit_scale)?,
             )?;
-            Some(NuDuration {
-                unit,quantity,
-            })
+            Some(NuDuration { unit, quantity })
         } else {
             None
         }
@@ -200,7 +199,7 @@ impl NuDuration {
 
 impl fmt::Display for NuDuration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}_{})", self.quantity, self.unit_name())
+        write!(f, "{}_{}", self.quantity, self.unit_name())
     }
 }
 
@@ -211,6 +210,33 @@ impl std::ops::Neg for NuDuration {
         NuDuration {
             quantity: -self.quantity,
             unit: self.unit,
+        }
+    }
+}
+
+impl TryFrom<&str> for NuDuration {
+    type Error = NuDurationError;
+
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        let unit_boundary = s
+            .char_indices()
+            .find_map(|(i, c)| if c.is_alphabetic() { Some(i) } else { None })
+            .ok_or(NuDurationError::UnrecognizedUnit)?;
+
+        let numeric = &s[..unit_boundary];
+        let units = &s[unit_boundary..];
+
+        if let Some((unit, _name, _convert)) = DURATION_UNIT_GROUPS.iter().find(|x| units == x.1) {
+            let num_part = numeric.replace('_', "");
+            match num_part.parse::<i64>() {
+                Ok(quantity) => Ok(NuDuration {
+                    quantity,
+                    unit: *unit,
+                }),
+                Err(_) => Err(NuDurationError::UnrecognizedIntQuantity),
+            }
+        } else {
+            Err(NuDurationError::UnrecognizedUnit)
         }
     }
 }
@@ -239,8 +265,10 @@ pub fn signed_month_difference(start: &BaseDT, end: &BaseDT) -> UnitSize {
 pub enum NuDurationError {
     #[error("Invalid RFC 3339 format datetime string")]
     InvalidDateTimeRfcString,
-    #[error("Unrecognized units")]
-    UnrecognizedUnits,
+    #[error("Unrecognized time unit")]
+    UnrecognizedUnit,
+    #[error("Unrecognized int quantity")]
+    UnrecognizedIntQuantity,
     #[error("Chrono nanoseconds overflow")]
     NsOverflow,
     #[error("Chrono days/months overflow")]
@@ -263,8 +291,39 @@ mod test {
     #[case(Unit::Millennium, Unit::Day)]
     fn test_unit_compare(#[case] bigger: Unit, #[case] smaller: Unit) {
         assert!(
-            (bigger > smaller), "expected {:?} to compare bigger than {:?}", bigger, smaller
+            (bigger > smaller),
+            "expected {:?} to compare bigger than {:?}",
+            bigger,
+            smaller
         );
+    }
+
+    #[rstest]
+    #[case("1ns", Ok(NuDuration{quantity: 1, unit: Unit::Nanosecond}))]
+    #[case("____ns", Err(NuDurationError::UnrecognizedIntQuantity))]
+    #[case("ns", Err(NuDurationError::UnrecognizedIntQuantity))]
+    #[case("10234", Err(NuDurationError::UnrecognizedUnit))]
+    #[case("__1__ns", Ok(NuDuration{quantity: 1, unit: Unit::Nanosecond}))]
+    #[case("1_foons", Err(NuDurationError::UnrecognizedUnit))]
+    #[case("6_d", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("6_da", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("6_day", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("6_days", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("6_d", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("6_d", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("9_223_372_036_854_775_807_millennia", Ok(NuDuration{quantity: 9223372036854775807, unit:Unit::Millennium}))]
+    #[case("__0__ns", Ok(NuDuration{quantity: 0, unit: Unit::Nanosecond}))]
+    #[case("6_d", Ok(NuDuration{quantity: 6, unit:Unit::Day}))]
+    #[case("6.02e23_weeks", Err(NuDurationError::UnrecognizedUnit))]
+    #[case("6.02e23_foo", Err(NuDurationError::UnrecognizedUnit))]
+    fn test_try_from(
+        #[case] instr: &str,
+        #[case] expected: std::result::Result<NuDuration, NuDurationError>,
+    ) -> Result<()> {
+        let observed = NuDuration::try_from(instr);
+        assert_eq!(expected, observed);
+
+        Ok(())
     }
 
     #[rstest]

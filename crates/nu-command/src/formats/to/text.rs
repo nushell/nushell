@@ -2,8 +2,8 @@ use chrono_humanize::HumanTime;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
-    ListStream, PipelineData, RawStream, ShellError, Signature, Type, Value,
+    format_filesize_from_conf, Category, Config, Example, IntoPipelineData, ListStream,
+    PipelineData, RawStream, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]

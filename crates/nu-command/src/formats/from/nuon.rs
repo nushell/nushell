@@ -491,46 +491,10 @@ fn convert_to_value(
                     span,
                 }),
                 //todo: decide how to serde durations: as ns (read old files, but lose unit), or new format and break backward compat?
-                Unit::Nanosecond => Ok(Value::Duration { val: size, span }),
-                Unit::Microsecond => Ok(Value::Duration {
-                    val: size * 1000,
+                _ => Err(ShellError::Unimplemented {
+                    desired_function: "NUON serialization for duration".into(),
                     span,
                 }),
-                Unit::Millisecond => Ok(Value::Duration {
-                    val: size * 1000 * 1000,
-                    span,
-                }),
-                Unit::Second => Ok(Value::Duration {
-                    val: size * 1000 * 1000 * 1000,
-                    span,
-                }),
-                Unit::Minute => Ok(Value::Duration {
-                    val: size * 1000 * 1000 * 1000 * 60,
-                    span,
-                }),
-                Unit::Hour => Ok(Value::Duration {
-                    val: size * 1000 * 1000 * 1000 * 60 * 60,
-                    span,
-                }),
-                Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                    Some(val) => Ok(Value::Duration { val, span }),
-                    None => Err(ShellError::OutsideSpannedLabeledError(
-                        original_text.to_string(),
-                        "day duration too large".into(),
-                        "day duration too large".into(),
-                        expr.span,
-                    )),
-                },
-
-                Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                    Some(val) => Ok(Value::Duration { val, span }),
-                    None => Err(ShellError::OutsideSpannedLabeledError(
-                        original_text.to_string(),
-                        "week duration too large".into(),
-                        "week duration too large".into(),
-                        expr.span,
-                    )),
-                },
             }
         }
         Expr::Var(..) => Err(ShellError::OutsideSpannedLabeledError(

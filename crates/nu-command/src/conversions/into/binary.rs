@@ -86,7 +86,7 @@ impl Command for SubCommand {
                 description: "convert a duration to a nushell binary primitive (in nanoseconds)",
                 example: "14_seconds | into binary",
                 result: Some(Value::Binary {
-                    val: i64::from(14_000_000_000).to_le_bytes().to_vec(),
+                    val: 14_000_000_000i64.to_le_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
             },

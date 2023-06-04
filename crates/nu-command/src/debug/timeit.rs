@@ -2,8 +2,8 @@ use nu_engine::{eval_block, eval_expression_with_input};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, NuDuration, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, NuDuration, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 use std::time::Instant;
 

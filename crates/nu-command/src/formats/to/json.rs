@@ -109,7 +109,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
     Ok(match v {
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
         Value::Filesize { val, .. } => nu_json::Value::I64(*val),
-        Value::Duration { val, .. } => nu_json::Value::I64(*val), //todo: decide serde story
+        Value::Duration { val, .. } => nu_json::Value::String(val.to_string()),
         Value::Date { val, .. } => nu_json::Value::String(val.to_string()),
         Value::Float { val, .. } => nu_json::Value::F64(*val),
         Value::Int { val, .. } => nu_json::Value::I64(*val),
