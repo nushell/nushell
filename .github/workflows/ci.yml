@@ -210,6 +210,8 @@ jobs:
   pre-commit-inspection:
     runs-on: ubuntu-20.04
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
         id: pre-commit
