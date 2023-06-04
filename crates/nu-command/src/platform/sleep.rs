@@ -41,23 +41,47 @@ impl Command for Sleep {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        fn duration_from_i64(val: i64) -> Duration {
-            Duration::from_nanos(if val < 0 { 0 } else { val as u64 })
+        fn ns_from_arg(arg: Value) -> Result<i64, ShellError> {
+            if let Value::Duration { val, span } = arg {
+                val.to_ns_or_err(span)
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: "Expected duration value".into(),
+                    span: arg.span()?,
+                })
+            }
         }
 
-        let duration: i64 = call.req(engine_state, stack, 0)?;
-        let rest: Vec<i64> = call.rest(engine_state, stack, 1)?;
+        let duration: Value = call.req(engine_state, stack, 0)?;
+        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
-        let total_dur =
-            duration_from_i64(duration) + rest.into_iter().map(duration_from_i64).sum::<Duration>();
+        let mut total_dur = ns_from_arg(duration)?;
+        for d in rest {
+            match ns_from_arg(d) {
+                Ok(ns) => {
+                    total_dur += ns;
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
 
         let ctrlc_ref = &engine_state.ctrlc.clone();
+        if total_dur < 0 {
+            return Err(ShellError::IncorrectValue {
+                msg: "Total duration must be positive".into(),
+                span: input.span().unwrap_or(call.head),
+            });
+        }
+
+        let total_dur_u128 = total_dur as u128;
         let start = Instant::now();
         loop {
             thread::sleep(CTRL_C_CHECK_INTERVAL);
-            if start.elapsed() >= total_dur {
+            if start.elapsed().as_nanos() > total_dur_u128 {
                 break;
             }
 
@@ -78,16 +102,16 @@ impl Command for Sleep {
                     span: Span::test_data(),
                 }),
             },
-            // Example {
-            //     description: "Sleep for 3sec",
-            //     example: "sleep 1sec 1sec 1sec",
-            //     result: None,
-            // },
-            // Example {
-            //     description: "Send output after 1sec",
-            //     example: "sleep 1sec; echo done",
-            //     result: None,
-            // },
+            Example {
+                description: "Sleep for 3sec",
+                example: "sleep 1sec 1sec 1sec",
+                result: None,
+            },
+            Example {
+                description: "Send output after 1sec",
+                example: "sleep 1sec; echo done",
+                result: None,
+            },
         ]
     }
 }
