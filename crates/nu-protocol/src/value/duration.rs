@@ -34,6 +34,7 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
     }
 }
 */
+
 /// High fidelity Duration type for Nushell
 ///
 /// For use with [chrono::DateTime<FixedOffset>) date/times.
@@ -145,7 +146,7 @@ impl NuDuration {
     ) -> Option<NuDuration> {
         match duration_unit.unit.unit_scale().1 {
             Unit::Nanosecond => {
-                let ela_ns = end.signed_duration_since(*start).num_nanoseconds()?;
+                let ela_ns = start.signed_duration_since(*end).num_nanoseconds()?;
                 Some(NuDuration {
                     quantity: ela_ns / duration_unit.unit.unit_scale().0,
                     unit: duration_unit.unit,
@@ -174,7 +175,7 @@ impl NuDuration {
                 rhs.checked_add_signed(chrono::Duration::nanoseconds(self.quantity))
             }
             _ => {
-                let quantity = self.quantity * self.unit.unit_scale().0;
+                let quantity = self.quantity.checked_mul(self.unit.unit_scale().0)?;
                 match self.unit.unit_scale().1 {
                     Unit::Month => {
                         if self.quantity < 0 {

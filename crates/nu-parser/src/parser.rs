@@ -2282,34 +2282,50 @@ pub fn parse_unit_value<'res>(
             }
         });
 
-        let (num, unit) = match convert {
+        let (num_f64, unit) = match convert {
             Some(convert_to) => (
-                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)) as i64,
+                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)),
                 convert_to.0,
             ),
-            None => (number_part as i64, *unit),
+            None => (number_part, *unit),
         };
 
-        trace!("-- found {} {:?}", num, unit);
-        let expr = Expression {
-            expr: Expr::ValueWithUnit(
-                Box::new(Expression {
-                    expr: Expr::Int(num),
-                    span: lhs_span,
-                    ty: Type::Number,
-                    custom_completion: None,
-                }),
-                Spanned {
-                    item: unit,
-                    span: unit_span,
-                },
-            ),
-            span,
-            ty,
-            custom_completion: None,
-        };
-
-        Some(Ok(expr))
+        // don't just silently lose precision casting from f64 to i64 -- check the quantity will fit into i64.
+        if (num_f64 < i64::MIN as f64) || (num_f64 > i64::MAX as f64) {
+            let mk_err = move |name| {
+                ParseError::LabeledError(
+                    format!(
+                        "{name} unit quantity must be in range {} to {}",
+                        i64::MIN,
+                        i64::MAX
+                    ),
+                    "overflowed".into(),
+                    lhs_span,
+                )
+            };
+            Some(Err(Box::new(mk_err)))
+        } else {
+            let num = num_f64 as i64;
+            trace!("-- found {} {:?}", num, unit);
+            let expr = Expression {
+                expr: Expr::ValueWithUnit(
+                    Box::new(Expression {
+                        expr: Expr::Int(num),
+                        span: lhs_span,
+                        ty: Type::Number,
+                        custom_completion: None,
+                    }),
+                    Spanned {
+                        item: unit,
+                        span: unit_span,
+                    },
+                ),
+                span,
+                ty,
+                custom_completion: None,
+            };
+            Some(Ok(expr))
+        }
     } else {
         None
     }

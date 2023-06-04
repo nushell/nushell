@@ -180,6 +180,10 @@ NuDuration::duration_diff(<start datetime>, <end datetime>, <unit of measure>) -
 
 Otherwise, these are associated functions of `NuDuration`.
 
+In prior versions of Nushell, a group of durations was represented as a `record` with a field/value for each component duration.  In Nushell, this works because order of fields in a record is stable, but it's not a given in other languages.  Also, our use of singlular/plural units based on quantity makes the field names less manageable.
+
+So in the new duration type, we will use a `list<duration>` to denote a sequence of durations, emphasizing that, for duration arithmetic, **order of operations matters**.
+
 ```
 <duration>.normalize( base: DateTime<FixedOffset>, min_unit: NuDuration) -> [NuDuration]
     Returns list of NuDuration, in descending order by unit of measure, each successor is less than

@@ -1059,11 +1059,12 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { |it| $it + 10000000000000000day }
+        10_day + 10000000000000000000day
         "#)
     );
-
-    assert!(actual.err.contains("duration too large"));
+    assert!(actual
+        .err
+        .contains("duration unit quantity must be in range"));
 }
 
 #[test]
@@ -1076,7 +1077,7 @@ fn date_and_duration_overflow() {
     );
 
     // assert_eq!(actual.err, "overflow");
-    assert!(actual.err.contains("duration too large"));
+    assert!(actual.err.contains("duration add operation overflowed"));
 }
 
 #[test]
