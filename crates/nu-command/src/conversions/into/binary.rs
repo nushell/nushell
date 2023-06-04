@@ -25,6 +25,7 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Binary),
                 (Type::Filesize, Type::Binary),
                 (Type::Date, Type::Binary),
+                (Type::Duration, Type::Binary),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(

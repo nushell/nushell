@@ -45,7 +45,7 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
 /// Can do mixed datetime/duration arithmetic,
 /// Provides additional operators to do *truncating* arithmetic on datetimes
 /// with desired precision and resolution.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize)]
 pub struct NuDuration {
     pub quantity: UnitSize, // number of time units
     pub unit: Unit,         // but only the duration units
@@ -115,6 +115,23 @@ impl NuDuration {
             _ => ["", ""], //todo: add singular and plural for other Units (if they become non-scaled types)
         })[if self.quantity == 1 { 0 } else { 1 }]
         .into()
+    }
+
+    // helper for cmp and eq traits, return scaled quantities for comparison
+    fn compare_to(&self, other: &Self) -> Option<(i64, i64)> {
+        let self_us = self.unit.unit_scale();
+        let other_us = other.unit.unit_scale();
+        if self_us.1 == other_us.1 {
+            let rel_scale = if self_us.0 <= other_us.0 {
+                other_us.0 / self_us.0 // relative scaling shouldn't overflow
+            } else {
+                self_us.0 / other_us.0
+            };
+            Some((self.quantity.checked_mul(rel_scale)?, other.quantity.checked_mul(rel_scale)?,
+            ))
+        } else {
+            None // can't compare days range with months range durations
+        }
     }
 
     /// add duration to duration
@@ -203,6 +220,29 @@ impl fmt::Display for NuDuration {
         write!(f, "{}_{}", self.quantity, self.unit_name())
     }
 }
+
+impl std::cmp::PartialOrd for NuDuration {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if let Some(q) = self.compare_to(other) {
+            Some(i64::cmp(&q.0, &q.1))
+        } else {
+            None
+        }
+    }
+}
+
+// can't implement Ord because incomparable units don't form a total ordering over all durations.
+
+impl std::cmp::PartialEq for NuDuration {
+    fn eq(&self, other: &Self) -> bool {
+        if let Some(q) = self.compare_to(other) {
+            q.0 == q.1
+        } else {
+            false   // incomparable units can't be equal
+        }        
+    }
+}
+impl Eq for NuDuration {}
 
 impl std::ops::Neg for NuDuration {
     type Output = Self;
