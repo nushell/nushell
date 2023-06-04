@@ -172,8 +172,7 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        engine_state.merge_env(stack)?;
-        engine_state.set_current_working_dir(get_guaranteed_cwd(engine_state, stack))?;
+        engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -192,18 +191,14 @@ pub fn evaluate_repl(
     loop {
         let loop_start_time = std::time::Instant::now();
 
+        let cwd = get_guaranteed_cwd(engine_state, stack);
+
         start_time = std::time::Instant::now();
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
-        if let Err(err) = engine_state.merge_env(stack) {
+        if let Err(err) = engine_state.merge_env(stack, cwd) {
             report_error_new(engine_state, &err);
         }
-
-        let cwd = get_guaranteed_cwd(engine_state, stack);
-        if let Err(err) = engine_state.set_current_working_dir(cwd) {
-            report_error_new(engine_state, &err);
-        }
-
         perf(
             "merge env",
             start_time,
