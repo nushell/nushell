@@ -121,7 +121,7 @@ dataframe = ["dep:nu-cmd-dataframe"]
 extra = ["dep:nu-cmd-extra"]
 plugin = ["nu-parser/plugin"]
 sqlite = [
-	"rusqlite",
+    "rusqlite",
 ] # TODO: given that rusqlite is included in reedline, should we just always include it?
 trash-support = ["trash"]
 which-support = ["which"]

@@ -36,8 +36,8 @@ Pipeline:
 
 The real magic begins to happen when the parse moves on to the parsing stage. At this point, it traverses the lite parse tree and for each command makes a decision:
 
-* If the command looks like an internal/external command literal: e.g. `foo` or `/usr/bin/ls`, it parses it as an internal or external command
-* Otherwise, it parses the command as part of a mathematical expression
+- If the command looks like an internal/external command literal: e.g. `foo` or `/usr/bin/ls`, it parses it as an internal or external command
+- Otherwise, it parses the command as part of a mathematical expression
 
 ### Types/shapes
 

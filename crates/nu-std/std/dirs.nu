@@ -35,7 +35,7 @@ export alias enter = add
 export def-env next [
     N:int = 1   # number of positions to move.
 ] {
-    _fetch $N    
+    _fetch $N
 }
 
 export alias n = next
@@ -44,7 +44,7 @@ export alias n = next
 export def-env prev [
     N:int = 1   # number of positions to move.
 ] {
-    _fetch (-1 * $N)    
+    _fetch (-1 * $N)
 }
 
 export alias p = prev
@@ -69,8 +69,8 @@ export def-env show [] {
     for $p in ($env.DIRS_LIST | enumerate) {
         let is_act_slot = $p.index == $env.DIRS_POSITION
         $out = ($out | append [
-            [active, path]; 
-            [($is_act_slot), 
+            [active, path];
+            [($is_act_slot),
             (if $is_act_slot {$env.PWD} else {$p.item})   # show current PWD in lieu of active slot
             ]
         ])
@@ -116,7 +116,7 @@ def-env  _fetch [
 
     # figure out which entry to move to
     # nushell 'mod' operator is really 'remainder', can return negative values.
-    # see: https://stackoverflow.com/questions/13683563/whats-the-difference-between-mod-and-remainder    
+    # see: https://stackoverflow.com/questions/13683563/whats-the-difference-between-mod-and-remainder
     let len = ($env.DIRS_LIST | length)
     mut pos = ($env.DIRS_POSITION + $offset) mod $len
     if ($pos < 0) { $pos += $len}

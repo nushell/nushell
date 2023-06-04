@@ -161,10 +161,10 @@ fn from_csv_text_with_tab_separator_to_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
-                first_name	last_name	rusty_luck
-                Andrés	Robalino	1
-                JT	Turner	1
-                Yehuda	Katz	1
+                first_name  last_name   rusty_luck
+                Andrés Robalino    1
+                JT  Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -375,7 +375,7 @@ fn table_with_record_error() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            [[a b]; [1 2] [3 {a: 1 b: 2}]] 
+            [[a b]; [1 2] [3 {a: 1 b: 2}]]
             | to csv
         "#
     ));

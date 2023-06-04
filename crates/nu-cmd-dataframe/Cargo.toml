@@ -20,8 +20,8 @@ nu-protocol = { path = "../nu-protocol", version = "0.80.1" }
 
 # Potential dependencies for extras
 chrono = { version = "0.4", features = [
-	"std",
-	"unstable-locales",
+    "std",
+    "unstable-locales",
 ], default-features = false }
 fancy-regex = "0.11"
 indexmap = { version = "1.7", features = ["serde-1"] }
@@ -31,31 +31,31 @@ sqlparser = { version = "0.33", features = ["serde"], optional = true }
 
 [dependencies.polars]
 features = [
-	"arg_where",
-	"checked_arithmetic",
-	"concat_str",
-	"cross_join",
-	"csv",
-	"cum_agg",
-	"default",
-	"dtype-categorical",
-	"dtype-datetime",
-	"dtype-struct",
-	"dynamic_groupby",
-	"ipc",
-	"is_in",
-	"json",
-	"lazy",
-	"object",
-	"parquet",
-	"random",
-	"rolling_window",
-	"rows",
-	"serde",
-	"serde-lazy",
-	"strings",
-	"strings",
-	"to_dummies",
+    "arg_where",
+    "checked_arithmetic",
+    "concat_str",
+    "cross_join",
+    "csv",
+    "cum_agg",
+    "default",
+    "dtype-categorical",
+    "dtype-datetime",
+    "dtype-struct",
+    "dynamic_groupby",
+    "ipc",
+    "is_in",
+    "json",
+    "lazy",
+    "object",
+    "parquet",
+    "random",
+    "rolling_window",
+    "rows",
+    "serde",
+    "serde-lazy",
+    "strings",
+    "strings",
+    "to_dummies",
 ]
 optional = true
 version = "0.29.0"

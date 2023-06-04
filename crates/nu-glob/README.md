@@ -1,5 +1,4 @@
-nu-glob
-====
+# nu-glob
 
 Support for matching file paths against Unix shell style patterns.
 

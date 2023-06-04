@@ -1,4 +1,5 @@
 # Nushell <!-- omit in toc -->
+
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/nushell/nushell/ci.yml?branch=main)](https://github.com/nushell/nushell/actions)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
@@ -55,7 +56,6 @@ Detailed installation instructions can be found in the [installation chapter of 
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
 
-
 ## Configuration
 
 The default configurations can be found at [sample_config](crates/nu-utils/src/sample_config)
@@ -72,7 +72,6 @@ $nu.config-path
 
 Please see our [book](https://www.nushell.sh) for all of the Nushell documentation.
 
-
 ## Philosophy
 
 Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools.
@@ -88,9 +87,9 @@ As in the Unix philosophy, Nu allows commands to output to stdout and read from 
 Additionally, commands can output structured data (you can think of this as a third kind of stream).
 Commands that work in the pipeline fit into one of three categories:
 
--   Commands that produce a stream (e.g., `ls`)
--   Commands that filter a stream (e.g., `where type == "dir"`)
--   Commands that consume the output of the pipeline (e.g., `table`)
+- Commands that produce a stream (e.g., `ls`)
+- Commands that filter a stream (e.g., `where type == "dir"`)
+- Commands that consume the output of the pipeline (e.g., `table`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
@@ -199,15 +198,15 @@ topics that have been presented.
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
--   First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has first-class support for Windows, macOS, and Linux.
+- First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has first-class support for Windows, macOS, and Linux.
 
--   Nu ensures compatibility with existing platform-specific executables.
+- Nu ensures compatibility with existing platform-specific executables.
 
--   Nu's workflow and tools should have the usability expected of modern software in 2022 (and beyond).
+- Nu's workflow and tools should have the usability expected of modern software in 2022 (and beyond).
 
--   Nu views data as either structured or unstructured. It is a structured shell like PowerShell.
+- Nu views data as either structured or unstructured. It is a structured shell like PowerShell.
 
--   Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
+- Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
 ## Progress
 
@@ -234,12 +233,12 @@ Nu is under heavy development and will naturally change as it matures. The chart
 
 Please submit an issue or PR to be added to this list.
 
--   [zoxide](https://github.com/ajeetdsouza/zoxide)
--   [starship](https://github.com/starship/starship)
--   [oh-my-posh](https://ohmyposh.dev)
--   [Couchbase Shell](https://couchbase.sh)
--   [virtualenv](https://github.com/pypa/virtualenv)
--   [atuin](https://github.com/ellie/atuin)
+- [zoxide](https://github.com/ajeetdsouza/zoxide)
+- [starship](https://github.com/starship/starship)
+- [oh-my-posh](https://ohmyposh.dev)
+- [Couchbase Shell](https://couchbase.sh)
+- [virtualenv](https://github.com/pypa/virtualenv)
+- [atuin](https://github.com/ellie/atuin)
 
 ## Contributing
 

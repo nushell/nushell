@@ -11,7 +11,7 @@ fn string_fill_plain() {
 fn string_fill_fancy() {
     let actual = nu!(pipeline(
         r#"
-            $"(ansi red)a(ansi green)\u{65}\u{308}(ansi cyan)c(ansi reset)" 
+            $"(ansi red)a(ansi green)\u{65}\u{308}(ansi cyan)c(ansi reset)"
             | fill --alignment center --character "+" --width 5
             "#
     ));

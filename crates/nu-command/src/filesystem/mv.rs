@@ -53,7 +53,7 @@ impl Command for Mv {
             )
             .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch("update", 
+            .switch("update",
                 "move only when the SOURCE file is newer than the destination file(with -f) or when the destination file is missing",
                 Some('u')
             )

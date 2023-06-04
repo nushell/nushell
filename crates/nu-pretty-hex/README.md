@@ -76,6 +76,6 @@ Output:
 0018:   db b1 bc 35 bf ee         ...5..
 ```
 
----
+______________________________________________________________________
 
 Inspired by [haskell's pretty-hex](https://hackage.haskell.org/package/pretty-hex-1.0).

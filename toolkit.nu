@@ -218,10 +218,10 @@ export def "check pr" [
     }
 
     try {
-        if $dataframe { 
-            clippy --dataframe --verbose 
-        } else { 
-            clippy --verbose 
+        if $dataframe {
+            clippy --dataframe --verbose
+        } else {
+            clippy --verbose
         }
     } catch {
         return (report --fail-clippy)
@@ -229,12 +229,12 @@ export def "check pr" [
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
-        if $fast and $dataframe { 
-            test --fast --dataframe 
-        } else if $fast { 
-            test --fast 
-        } else { 
-            test 
+        if $fast and $dataframe {
+            test --fast --dataframe
+        } else if $fast {
+            test --fast
+        } else {
+            test
         }
     } catch {
         return (report --fail-test)

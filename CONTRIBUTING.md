@@ -10,14 +10,15 @@ So, please, reach out and tell us what you want to do.
 This will significantly increase the chance of your PR being accepted.
 
 The review process can be summarized as follows:
+
 1. You want to make some change to Nushell that is more involved than simple bug-fixing.
-2. Go to [Discord](https://discordapp.com/invite/NtAbbGn) or a [GitHub issue](https://github.com/nushell/nushell/issues/new/choose) and chat with some core team members and/or other contributors about it.
-3. After getting a green light from the core team, implement the feature, open a pull request (PR) and write a concise but comprehensive description of the change.
-4. If your PR includes any use-facing features (such as adding a flag to a command), clearly list them in the PR description.
-5. Then, core team members and other regular contributors will review the PR and suggest changes.
-6. When we all agree, the PR will be merged.
-7. If your PR includes any user-facing features, make sure the changes are also reflected in [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged.
-8. Congratulate yourself, you just improved Nushell! :-)
+1. Go to [Discord](https://discordapp.com/invite/NtAbbGn) or a [GitHub issue](https://github.com/nushell/nushell/issues/new/choose) and chat with some core team members and/or other contributors about it.
+1. After getting a green light from the core team, implement the feature, open a pull request (PR) and write a concise but comprehensive description of the change.
+1. If your PR includes any use-facing features (such as adding a flag to a command), clearly list them in the PR description.
+1. Then, core team members and other regular contributors will review the PR and suggest changes.
+1. When we all agree, the PR will be merged.
+1. If your PR includes any user-facing features, make sure the changes are also reflected in [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged.
+1. Congratulate yourself, you just improved Nushell! :-)
 
 ## Developing
 
@@ -36,10 +37,11 @@ cargo build
 It is a good practice to cover your changes with a test. Also, try to think about corner cases and various ways how your changes could break. Cover those in the tests as well.
 
 Tests can be found in different places:
-* `/tests`
-* `src/tests`
-* command examples
-* crate-specific tests
+
+- `/tests`
+- `src/tests`
+- command examples
+- crate-specific tests
 
 The most comprehensive test suite we have is the `nu-test-support` crate. For testing specific features, such as running Nushell in a REPL mode, we have so called "testbins". For simple tests, you can find `run_test()` and `fail_test()` functions.
 
@@ -52,6 +54,7 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```
 
 - Build and run with dataframe support.
+
   ```shell
   cargo run --features=dataframe
   ```
@@ -61,7 +64,9 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
   ```
+
   or via the `toolkit.nu` command:
+
   ```shell
   use toolkit.nu clippy
   clippy
@@ -78,7 +83,9 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo test --workspace --features=dataframe
   ```
+
   or via the `toolkit.nu` command:
+
   ```shell
   use toolkit.nu test
   test
@@ -95,7 +102,9 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo fmt --all -- --check
   ```
+
   or via the `toolkit.nu` command:
+
   ```shell
   use toolkit.nu fmt
   fmt --check
@@ -106,7 +115,9 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo fmt --all
   ```
+
   or via the `toolkit.nu` command:
+
   ```shell
   use toolkit.nu fmt
   fmt
@@ -118,6 +129,7 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   use toolkit.nu setup-git-hooks
   setup-git-hooks
   ```
+
   _Unfortunately, this hook isn't available on Windows._
 
 ### Debugging Tips
@@ -129,6 +141,7 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```
 
 - To redirect trace logs to a file, enable the `--log-target file` switch.
+
   ```shell
   cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
@@ -139,9 +152,9 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
 As nushell thrives on its broad base of volunteer contributors and maintainers with different backgrounds we have a few guidelines for how we best utilize git and GitHub for our contributions. We strive to balance three goals with those recommendations:
 
 1. The **volunteer maintainers and contributors** can easily follow the changes you propose, gauge the impact, and come to help you or make a decision.
-2. **You as a contributor** can focus most of your time on improving the quality of the nushell project and contributing your expertise to the code or documentation.
-3. Making sure we can trace back *why* decisions were made in the past.
-This includes discarded approaches. Also we want to quickly identify regressions and fix when something broke.
+1. **You as a contributor** can focus most of your time on improving the quality of the nushell project and contributing your expertise to the code or documentation.
+1. Making sure we can trace back *why* decisions were made in the past.
+   This includes discarded approaches. Also we want to quickly identify regressions and fix when something broke.
 
 ### How we merge PRs
 
@@ -176,24 +189,26 @@ Stylistic fixes and housekeeping can be bundled up into singular PRs.
 The PR title should be concise but contain everything for a contributor to know if they should help out in the review of this particular change.
 
 **DON'T**
+
 - `Update file/in/some/deeply/nested/path.rs`
   - Why are you making this change?
 - `Fix 2134`
   - What has to be fixed?
   - Hard to follow when not online on GitHub.
-- ``Ignore `~` expansion``
+- `` Ignore `~` expansion ``
   - In what context should this change take effect?
 - `[feature] refactor the whole parser and also make nushell indentation-sensitive, upgrade to using Cpython. Let me know what you think!`
   - Be concise
   - Maybe break up into smaller commits or PRs if the title already appears too long?
 
 **DO**
+
 - Mention the nushell feature or command that is affected.
-  - ``Fix URL parsing in `http get` (issue #1234)``
+  - `` Fix URL parsing in `http get` (issue #1234) ``
 - You can mention the issue number if other context is there.
   - In general, mention all related issues in the description to crosslink (e.g. `Fixes #1234`, `Closes #6789`)
 - For internal changes mention the area or symbols affected if it helps to clarify
-  - ``Factor out `quote_string()` from parser to reuse in `explore` ``
+  - `` Factor out `quote_string()` from parser to reuse in `explore`  ``
 
 ### Review process / Merge conflicts
 
@@ -201,6 +216,7 @@ The PR title should be concise but contain everything for a contributor to know 
 > Keep in mind that the maintainers are volunteers that need to allocate their attention to several different areas and active PRs. We will try to get back to you as soon as possible.
 
 You can help us to make the review process a smooth experience:
+
 - Testing:
   - We generally review in detail after all the tests pass. Let us know if there is a problem you want to discuss to fix a test failure or forces us to accept a breaking change.
   - If you fix a bug, it is highly recommended that you add a test that reproduces the original issue/panic in a minimal form.

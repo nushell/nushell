@@ -5,7 +5,7 @@ fn record_map_to_toml() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"
-            {a: 1 b: 2 c: 'qwe'} 
+            {a: 1 b: 2 c: 'qwe'}
             | to toml
             | from toml
             | $in == {a: 1 b: 2 c: 'qwe'}
@@ -20,7 +20,7 @@ fn nested_records_to_toml() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"
-            {a: {a: a b: b} c: 1} 
+            {a: {a: a b: b} c: 1}
             | to toml
             | from toml
             | $in == {a: {a: a b: b} c: 1}

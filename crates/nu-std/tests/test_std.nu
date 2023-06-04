@@ -7,7 +7,7 @@ export def test_path_add [] {
 
     with-env [$path_name []] {
         def get_path [] { $env | get $path_name }
-    
+
         assert equal (get_path) []
 
         std path add "/foo/"
@@ -27,11 +27,11 @@ export def test_path_add [] {
 
         let-env $path_name = []
         let target_paths = {linux: "foo", windows: "bar", macos: "baz"}
-        
+
         std path add $target_paths
         assert equal (get_path) [($target_paths | get $nu.os-info.name)]
 
-        
+
     }
 }
 

@@ -9,5 +9,7 @@ To install:
 ```
 
 To register (from inside Nushell):
+
 ```
 > register <path to installed plugin>
+```

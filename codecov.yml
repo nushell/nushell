@@ -14,4 +14,4 @@ comment:
   require_base: yes
   require_head: yes
   after_n_builds: 1 # Disabled windows else: 2
-  
+

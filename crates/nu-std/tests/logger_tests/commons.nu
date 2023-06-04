@@ -8,7 +8,7 @@ export def format-message [
     prefix: string,
     ansi
 ] {
-    [   
+    [
         ["%MSG%" $message]
         ["%DATE%" (now)]
         ["%LEVEL%" $prefix]

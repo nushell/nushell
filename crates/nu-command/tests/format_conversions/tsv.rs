@@ -28,9 +28,9 @@ fn table_to_tsv_text() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "tsv_text_sample.txt",
             r#"
-                importer	shipper	tariff_item	name	origin
-                Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
-                Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
+                importer    shipper tariff_item name    origin
+                Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
+                Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
             "#,
         )]);
 
@@ -84,10 +84,10 @@ fn from_tsv_text_to_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                first Name	Last Name	rusty_luck
-                Andrés	Robalino	1
-                JT	Turner	1
-                Yehuda	Katz	1
+                first Name  Last Name   rusty_luck
+                Andrés Robalino    1
+                JT  Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -112,11 +112,11 @@ fn from_tsv_text_with_comments_to_table() {
             "los_tres_caballeros.txt",
             r#"
                 # This is a comment
-                first_name	last_name	rusty_luck
+                first_name  last_name   rusty_luck
                 # This one too
-                Andrés	Robalino	1
-                Jonathan	Turner	1
-                Yehuda	Katz	1
+                Andrés Robalino    1
+                Jonathan    Turner  1
+                Yehuda  Katz    1
                 # This one also
             "#,
         )]);
@@ -141,10 +141,10 @@ fn from_tsv_text_with_custom_quotes_to_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
-                first_name	last_name	rusty_luck
-                'And''rés'	Robalino	1
-                Jonathan	Turner	1
-                Yehuda	Katz	1
+                first_name  last_name   rusty_luck
+                'And''rés' Robalino    1
+                Jonathan    Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -168,10 +168,10 @@ fn from_tsv_text_with_custom_escapes_to_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
-                first_name	last_name	rusty_luck
-                "And\"rés"	Robalino	1
-                Jonathan	Turner	1
-                Yehuda	Katz	1
+                first_name  last_name   rusty_luck
+                "And\"rés" Robalino    1
+                Jonathan    Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -195,9 +195,9 @@ fn from_tsv_text_skipping_headers_to_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                Andrés	Robalino	1
-                JT	Turner	1
-                Yehuda	Katz	1
+                Andrés Robalino    1
+                JT  Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -221,10 +221,10 @@ fn from_tsv_text_with_missing_columns_to_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
-                first_name	last_name	rusty_luck
-                Andrés	Robalino
-                Jonathan	Turner	1
-                Yehuda	Katz	1
+                first_name  last_name   rusty_luck
+                Andrés Robalino
+                Jonathan    Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -249,10 +249,10 @@ fn from_tsv_text_with_multiple_char_comment() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
-                first_name	last_name	rusty_luck
-                Andrés	Robalino	1
-                Jonathan	Turner	1
-                Yehuda	Katz	1
+                first_name  last_name   rusty_luck
+                Andrés Robalino    1
+                Jonathan    Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 
@@ -274,10 +274,10 @@ fn from_tsv_text_with_wrong_type_comment() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
-                first_name	last_name	rusty_luck
-                Andrés	Robalino	1
-                Jonathan	Turner	1
-                Yehuda	Katz	1
+                first_name  last_name   rusty_luck
+                Andrés Robalino    1
+                Jonathan    Turner  1
+                Yehuda  Katz    1
             "#,
         )]);
 

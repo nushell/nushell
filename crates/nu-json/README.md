@@ -2,12 +2,11 @@
 
 [![crate](https://img.shields.io/crates/v/nu-json.svg?style=flat-square)](https://crates.io/crates/nu-json)
 
-> a fork of [serde_hjson](https://crates.io/crates/serde-hjson). 
+> a fork of [serde_hjson](https://crates.io/crates/serde-hjson).
 
 > The changes made to this crate are kept in [CHANGELOG](/crates/nu-json/CHANGELOG.md).
 
-
-The Rust implementation of Hjson is based on the [Serde JSON Serialization Library](https://github.com/serde-rs/json). 
+The Rust implementation of Hjson is based on the [Serde JSON Serialization Library](https://github.com/serde-rs/json).
 
 This crate is a Rust library for parsing and generating Human JSON [Hjson](https://hjson.github.io). It is built upon [Serde](https://github.com/serde-rs/serde), a high performance generic serialization framework.
 
@@ -24,6 +23,7 @@ nu-json = "0.76"
 ## From the Commandline
 
 Add with:
+
 ```
  cargo add serde
  cargo add nu-json
@@ -74,6 +74,7 @@ fn main() {
     println!("Hjson:\n{}", sample2);
 }
 ```
+
 # DOCS
 
 At the moment, the documentation on [serde_hjson](https://docs.rs/serde-hjson/0.9.1/serde_hjson/) / [serde_json](https://docs.rs/serde_json/1.0.93/serde_json/) is also relevant for nu-json.

@@ -52,7 +52,7 @@ export def test_critical_short [] {
 }
 
 export def test_error [] {
-    assert no message CRITICAL error 
+    assert no message CRITICAL error
     assert message ERROR error ERR
 }
 
@@ -61,7 +61,7 @@ export def test_error_short [] {
 }
 
 export def test_warning [] {
-    assert no message ERROR warning 
+    assert no message ERROR warning
     assert message WARNING warning WRN
 }
 
@@ -70,7 +70,7 @@ export def test_warning_short [] {
 }
 
 export def test_info [] {
-    assert no message WARNING info 
+    assert no message WARNING info
     assert message INFO info "INF" # INF has to be quoted, otherwise it is the `inf` float
 }
 
@@ -79,7 +79,7 @@ export def test_info_short [] {
 }
 
 export def test_debug [] {
-    assert no message INFO debug 
+    assert no message INFO debug
     assert message DEBUG debug DBG
 }
 

@@ -54,7 +54,7 @@ export def test_iter_filter_map [] {
     assert equal $res [4 25 49]
 
     let res = (
-        ["3" "42" "69" "n" "x" ""] 
+        ["3" "42" "69" "n" "x" ""]
         | iter filter-map {|it| $it | into int}
         )
     assert equal $res [3 42 69]
@@ -98,7 +98,7 @@ export def test_iter_zip_with [] {
         [name    repo    position];
         [rust    github  1]
         [haskell gitlab  2]
-    ] 
+    ]
 }
 
 export def test_iter_flat_map [] {

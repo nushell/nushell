@@ -30,7 +30,7 @@ fn url_join_with_only_user() {
                     "password": "",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
         )
     );
@@ -49,7 +49,7 @@ fn url_join_with_only_pwd() {
                     "password": "pwd",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
         )
     );
@@ -68,7 +68,7 @@ fn url_join_with_user_and_pwd() {
                     "password": "pwd",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
         )
     );
@@ -88,7 +88,7 @@ fn url_join_with_query() {
                     "host": "localhost",
                     "query": "par_1=aaa&par_2=bbb"
                     "port": "",
-                } | url join 
+                } | url join
             "#
         )
     );

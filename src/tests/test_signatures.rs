@@ -194,7 +194,7 @@ fn record_annotations_nested() -> TestResult {
                end: int,
             >>
     ] {
-        $err 
+        $err
     }; run {
         msg: 'error message'
         label: {
