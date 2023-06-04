@@ -46,6 +46,3 @@ tarpaulin-report.html
 # direnv
 .direnv/
 .envrc
-
-# pre-commit-hooks
-.pre-commit-config.yaml

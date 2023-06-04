@@ -1,0 +1,27 @@
+repos:
+- rev: v4.4.0
+  repo: https://github.com/pre-commit/pre-commit-hooks
+  hooks:
+  - id: trailing-whitespace
+  - id: check-symlinks
+  - id: check-shebang-scripts-are-executable
+  - id: check-yaml
+  - id: check-toml
+  - id: check-json
+  - id: check-xml
+  - id: check-merge-conflict
+  - id: check-executables-have-shebangs
+  - id: check-case-conflict
+  - id: check-added-large-files
+- rev: v1.5.0
+  repo: https://github.com/Lucas-C/pre-commit-hooks
+  hooks:
+  - id: remove-tabs
+- rev: 0.7.16 
+  repo: https://github.com/executablebooks/mdformat
+  hooks:
+  - id: mdformat
+- rev: v1.14.12
+  repo: https://github.com/crate-ci/typos
+  hooks:
+  - id: typos
