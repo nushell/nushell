@@ -61,8 +61,8 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     );
 
     // Merge environment into the permanent state
-    assert!(engine_state.merge_env(&mut stack).is_ok());
-    assert!(engine_state.set_current_working_dir(&dir).is_ok());
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
+    assert!(merge_result.is_ok());
 
     (dir, dir_str, engine_state, stack)
 }
@@ -100,8 +100,8 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     );
 
     // Merge environment into the permanent state
-    assert!(engine_state.merge_env(&mut stack).is_ok());
-    assert!(engine_state.set_current_working_dir(&dir).is_ok());
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
+    assert!(merge_result.is_ok());
 
     (dir, dir_str, engine_state, stack)
 }
@@ -171,8 +171,5 @@ pub fn merge_input(
     .is_ok());
 
     // Merge environment into the permanent state
-    engine_state.merge_env(stack)?;
-    engine_state.set_current_working_dir(&dir)?;
-
-    Ok(())
+    engine_state.merge_env(stack, &dir)
 }

@@ -281,10 +281,8 @@ pub fn eval_hook(
         }
     }
 
-    engine_state.merge_env(stack)?;
-
     let cwd = get_guaranteed_cwd(engine_state, stack);
-    engine_state.set_current_working_dir(cwd)?;
+    engine_state.merge_env(stack, cwd)?;
 
     Ok(output)
 }

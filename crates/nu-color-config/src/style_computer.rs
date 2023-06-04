@@ -1,7 +1,7 @@
 use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_engine::eval_block;
+use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
@@ -138,7 +138,7 @@ impl<'a> StyleComputer<'a> {
 
     // The main constructor.
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
-        let config = engine_state.get_config();
+        let config = get_config(engine_state, stack);
 
         // Create the hashmap
         #[rustfmt::skip]

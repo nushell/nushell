@@ -136,7 +136,18 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     // Merge the environment in case env vars changed in the config
-    merge_env(engine_state, stack)
+    match nu_engine::env::current_dir(engine_state, stack) {
+        Ok(cwd) => {
+            if let Err(e) = engine_state.merge_env(stack, cwd) {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+            }
+        }
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+        }
+    }
 }
 
 fn eval_default_config(
@@ -161,18 +172,9 @@ fn eval_default_config(
     );
 
     // Merge the environment in case env vars changed in the config
-    merge_env(engine_state, stack)
-}
-
-fn merge_env(engine_state: &mut EngineState, stack: &mut Stack) {
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
-            if let Err(e) = engine_state.merge_env(stack) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
-            }
-
-            if let Err(e) = engine_state.set_current_working_dir(cwd) {
+            if let Err(e) = engine_state.merge_env(stack, cwd) {
                 let working_set = StateWorkingSet::new(engine_state);
                 report_error(&working_set, &e);
             }

@@ -279,7 +279,11 @@ impl EngineState {
     }
 
     /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
+    pub fn merge_env(
+        &mut self,
+        stack: &mut Stack,
+        cwd: impl AsRef<Path>,
+    ) -> Result<(), ShellError> {
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
                 if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
@@ -306,25 +310,10 @@ impl EngineState {
             }
         }
 
-        Ok(())
-    }
-
-    /// Set a CWD.
-    pub fn set_current_working_dir(&mut self, cwd: impl AsRef<Path>) -> Result<(), ShellError> {
         // TODO: better error
         std::env::set_current_dir(cwd)?;
+
         Ok(())
-    }
-
-    /// Merge the environment from the runtime Stack into the engine state
-    ///
-    /// A merge which does not consume the stack env.
-    pub fn clone_with_env(&self, stack: &Stack) -> Result<Self, ShellError> {
-        let mut engine = self.clone();
-        let mut stack = stack.clone();
-        engine.merge_env(&mut stack)?;
-
-        Ok(engine)
     }
 
     /// Mark a starting point if it is a script (e.g., nu spam.nu)
@@ -1665,6 +1654,10 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.get_env_var(name)
     }
 
+    /// Returns a reference to the config stored at permanent state
+    ///
+    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
+    /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
     }
