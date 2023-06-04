@@ -154,40 +154,46 @@ impl Command for Cp {
         }
 
         let mut result = Vec::new();
-        // TODO: implement the if progress.
         // Create the progress bar holder and the styles
-        let multi_pb = MultiProgress::new();
-        let style_overall = progress_bar::nu_progress_style(progress_bar::ProgressType::Items);
-        let style_overall_unk =
-            progress_bar::nu_progress_style(progress_bar::ProgressType::Unknown);
+        let (_multi_pb, pb_overall, pb_perfile, style_overall) = if progress {
+            let tmp_multi_pb = MultiProgress::new();
 
-        // Progress bar to show the status for all files
-        let pb_overall = multi_pb.add(ProgressBar::new(0));
-        pb_overall.set_style(style_overall_unk);
+            // Progress bar to show the status for all files
+            let tmp_pb_overall = tmp_multi_pb.add(ProgressBar::new(0));
+            tmp_pb_overall.set_style(progress_bar::nu_progress_style(
+                progress_bar::ProgressType::Unknown,
+            ));
 
-        // Progress for each file
-        let pb_perfile = multi_pb.insert_after(&pb_overall, ProgressBar::new(0));
+            // Progress for each file
+            let tmp_pb_perfile = tmp_multi_pb.insert_after(&tmp_pb_overall, ProgressBar::new(0));
+
+            (
+                Some(tmp_multi_pb),
+                Some(tmp_pb_overall),
+                Some(tmp_pb_perfile),
+                Some(progress_bar::nu_progress_style(
+                    progress_bar::ProgressType::Items,
+                )),
+            )
+        } else {
+            (None, None, None, None)
+        };
 
         let mut src_n_files = sources.len() as u64;
 
-        if progress {
+        if let (Some(pb_overall), Some(style_overall)) = (&pb_overall, style_overall.clone()) {
             if src_n_files == 1 {
                 src_n_files = 0;
-                // pb_overall.set_style(style_overall.clone());
-                // pb_overall.set_message("Copying files...");
-                // pb_overall.set_length(sources_len);
-            } //else {
-              //    pb_overall.set_message("Preparing file list for copy operation");
-              //}
-              //
-            pb_overall.set_style(style_overall.clone());
+            }
+
+            pb_overall.set_style(style_overall);
             pb_overall.set_message("Copying files...");
             pb_overall.set_length(src_n_files);
         }
 
         for entry in sources.into_iter().flatten() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                if progress {
+                if let Some(pb_overall) = &pb_overall {
                     pb_overall.abandon_with_message("Copy cancelled");
                 }
                 return Ok(PipelineData::empty());
@@ -211,7 +217,7 @@ impl Command for Cp {
 
                 for (src, dst) in sources {
                     // Update the overall progress bar
-                    if progress {
+                    if let Some(pb_overall) = &pb_overall {
                         pb_overall.inc(1);
                     }
 
@@ -231,14 +237,15 @@ impl Command for Cp {
                                 Vec::new(),
                             ));
                         } else if interactive && dst.exists() {
-                            if progress {
+                            // If progress bar is set
+                            if let Some(pb_perfile) = &pb_perfile {
                                 interactive_copy(
                                     interactive,
                                     src,
                                     dst,
                                     span,
                                     &ctrlc,
-                                    Some(&pb_perfile),
+                                    Some(pb_perfile),
                                     copy_file_with_progressbar,
                                 )
                             } else {
@@ -252,10 +259,10 @@ impl Command for Cp {
                                     copy_file,
                                 )
                             }
-                        } else if progress {
+                        } else if let Some(pb_perfile) = &pb_perfile {
                             // use std::io::copy to get the progress
                             // slower then std::fs::copy but useful if user needs to see the progress
-                            copy_file_with_progressbar(src, dst, span, &ctrlc, Some(&pb_perfile))
+                            copy_file_with_progressbar(src, dst, span, &ctrlc, Some(pb_perfile))
                         } else {
                             // use std::fs::copy
                             copy_file(src, dst, span, &None, None)
@@ -322,7 +329,7 @@ impl Command for Cp {
                         .take(1 + depth_level)
                         .collect();
 
-                    if progress {
+                    if let Some(pb_overall) = &pb_overall {
                         pb_overall.set_message("Gathering file path list...".to_string());
                     }
 
@@ -339,7 +346,7 @@ impl Command for Cp {
                             // )));
                         }
 
-                        if progress {
+                        if let Some(pb_overall) = &pb_overall {
                             pb_overall.tick();
                         }
                         dest.push(fragment);
@@ -351,28 +358,30 @@ impl Command for Cp {
                 // If this is true, ctrl+c was pressed while the source list
                 // was being built. Cancel the copy.
                 if *is_copy_cancelled.borrow() {
-                    if progress {
+                    if let Some(pb_overall) = &pb_overall {
                         pb_overall.abandon_with_message("Copy cancelled");
                     }
                     return Ok(PipelineData::empty());
                 }
 
-                if progress {
+                if let (Some(pb_overall), Some(style_overall)) =
+                    (&pb_overall, style_overall.clone())
+                {
                     src_n_files += sources.len() as u64;
-                    pb_overall.set_style(style_overall.clone());
+                    pb_overall.set_style(style_overall);
                     pb_overall.set_length(src_n_files);
                     pb_overall.set_message("Copying files...");
                 }
 
                 for (s, d) in sources {
                     // Update the overall progress bar
-                    if progress {
+                    if let Some(pb_overall) = &pb_overall {
                         pb_overall.inc(1);
                     }
 
                     // Check if the user has pressed ctrl+c before copying a file
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                        if progress {
+                        if let Some(pb_overall) = pb_overall {
                             pb_overall.abandon_with_message("Copy interrupted");
                         }
                         return Ok(PipelineData::empty());
@@ -398,21 +407,21 @@ impl Command for Cp {
                         result.push(res);
                     } else if s.is_file() {
                         let res = if interactive && d.exists() {
-                            if progress {
+                            if let Some(pb_perfile) = &pb_perfile {
                                 interactive_copy(
                                     interactive,
                                     s,
                                     d,
                                     span,
                                     &ctrlc,
-                                    Some(&pb_perfile),
+                                    Some(pb_perfile),
                                     copy_file_with_progressbar,
                                 )
                             } else {
                                 interactive_copy(interactive, s, d, span, &None, None, copy_file)
                             }
-                        } else if progress {
-                            copy_file_with_progressbar(s, d, span, &ctrlc, Some(&pb_perfile))
+                        } else if let Some(pb_perfile) = &pb_perfile {
+                            copy_file_with_progressbar(s, d, span, &ctrlc, Some(pb_perfile))
                         } else {
                             copy_file(s, d, span, &None, None)
                         };
@@ -422,7 +431,7 @@ impl Command for Cp {
             }
         }
 
-        if progress {
+        if let (Some(pb_overall), Some(pb_perfile)) = (pb_overall, pb_perfile) {
             pb_perfile.finish_and_clear();
             pb_overall.finish_with_message("Files successfully copied!");
         }
