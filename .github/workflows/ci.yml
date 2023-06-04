@@ -208,13 +208,15 @@ jobs:
           files: lcov.info
 
   pre-commit-inspection:
-    - name: Setup Python 3
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-        cache: 'pip'
-    - name: Run pre-commit
-      uses: pre-commit/action@v3.0.0
-      id: pre-commit
-      with:
-        extra_args: --all-files --show-diff-on-failure --color=always
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Setup Python 3
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.0
+        id: pre-commit
+        with:
+          extra_args: --all-files --show-diff-on-failure --color=always
