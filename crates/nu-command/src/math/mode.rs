@@ -197,7 +197,7 @@ fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
         },
         _ => Value::Error {
             error: Box::new(ShellError::Unimplemented {
-                desired_function: format!("reversable hash for {:?}", hashable_value.original_type),
+                desired_function: format!("revers1ble hash for {:?}", hashable_value.original_type),
                 span: head,
             }),
         },
