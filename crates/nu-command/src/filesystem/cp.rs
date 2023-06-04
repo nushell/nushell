@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::fs::read_link;
-use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
+use std::io::{stdout, BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
@@ -20,8 +20,8 @@ use super::util::try_interaction;
 
 use crate::filesystem::util::FileStructure;
 use crate::progress_bar;
+use crossterm::{cursor, ExecutableCommand};
 use indicatif::{MultiProgress, ProgressBar};
-
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
@@ -239,7 +239,7 @@ impl Command for Cp {
                         } else if interactive && dst.exists() {
                             // If progress bar is set
                             if let Some(pb_perfile) = &pb_perfile {
-                                interactive_copy(
+                                let r = interactive_copy(
                                     interactive,
                                     src,
                                     dst,
@@ -247,7 +247,12 @@ impl Command for Cp {
                                     &ctrlc,
                                     Some(pb_perfile),
                                     copy_file_with_progressbar,
-                                )
+                                );
+
+                                let mut stdout = stdout();
+                                _ = stdout.execute(cursor::MoveToPreviousLine(1));
+
+                                r
                             } else {
                                 interactive_copy(
                                     interactive,
@@ -298,7 +303,6 @@ impl Command for Cp {
                     )
                 })?;
 
-                // TODO: if progress
                 // variables used to cancel copy progress.
                 let is_copy_cancelled = Rc::new(RefCell::new(false));
                 let is_copy_cancelled_clone = is_copy_cancelled.clone();
@@ -408,7 +412,7 @@ impl Command for Cp {
                     } else if s.is_file() {
                         let res = if interactive && d.exists() {
                             if let Some(pb_perfile) = &pb_perfile {
-                                interactive_copy(
+                                let r = interactive_copy(
                                     interactive,
                                     s,
                                     d,
@@ -416,7 +420,12 @@ impl Command for Cp {
                                     &ctrlc,
                                     Some(pb_perfile),
                                     copy_file_with_progressbar,
-                                )
+                                );
+
+                                let mut stdout = stdout();
+                                _ = stdout.execute(cursor::MoveToPreviousLine(1));
+
+                                r
                             } else {
                                 interactive_copy(interactive, s, d, span, &None, None, copy_file)
                             }
@@ -487,10 +496,13 @@ fn interactive_copy(
     pb: Option<&ProgressBar>,
     copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>, Option<&ProgressBar>) -> Value,
 ) -> Value {
+    // println!("inside interactive \n interzctive \n interactrive");
     let (interaction, confirmed) = try_interaction(
         interactive,
         format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
     );
+
+    let stdout = pb.is_some().then(stdout);
     if let Err(e) = interaction {
         Value::Error {
             error: ShellError::GenericError(
@@ -503,8 +515,16 @@ fn interactive_copy(
         }
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
+        if let Some(mut stdout) = stdout {
+            _ = stdout.execute(cursor::MoveToPreviousLine(1));
+        }
+
         Value::String { val: msg, span }
     } else {
+        if let Some(mut stdout) = stdout {
+            _ = stdout.execute(cursor::MoveToPreviousLine(1));
+        }
+
         copy_impl(src, dst, span, &None, pb)
     }
 }
