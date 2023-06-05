@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "URL",
                 SyntaxShape::String,
-                "the URL to fetch the contents from",
+                "the URL to fetch the options from",
             )
             .named(
                 "user",
@@ -72,12 +72,12 @@ impl Command for SubCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        "Performs HTTP GET operation."
+        "Performs HTTP OPTIONS operation."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "network", "fetch", "pull", "request", "download", "curl", "wget",
+            "network", "fetch", "pull", "request", "curl", "wget",
         ]
     }
 
