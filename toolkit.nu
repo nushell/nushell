@@ -312,8 +312,24 @@ def "nu-complete list features" [] {
 # install Nushell and features you want
 export def install [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+    --all: bool  # install all plugins with Nushell
 ] {
     cargo install --path . --features ($features | str join ",")
+    if not $all {
+        return
+    }
+
+    let plugins = [
+        nu_plugin_inc,
+        nu_plugin_gstat,
+        nu_plugin_query,
+        nu_plugin_example,
+        nu_plugin_custom_values,
+        nu_plugin_formats,
+    ]
+    for plugin in $plugins {
+        $plugin | install-plugin
+    }
 }
 
 def windows? [] {
