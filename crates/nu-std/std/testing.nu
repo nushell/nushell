@@ -61,7 +61,7 @@ def run-test [
 ] {
     let test_file_name = (random chars -l 10)
     let test_function_name = (random chars -l 10)
-    let rendered_module_path = ({parent: $nu.temp-path, stem: $test_file_name, extension: nu}| path join)
+    let rendered_module_path = ({parent: ($test.file|path dirname), stem: $test_file_name, extension: nu}| path join)
 
     let test_function = $"
 export def ($test_function_name) [] {
