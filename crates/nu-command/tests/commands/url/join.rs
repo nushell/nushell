@@ -376,6 +376,7 @@ fn url_join_with_empty_params() {
                 "scheme": "https",
                 "host": "localhost",
                 "path": "/foo",
+                "params": {}
             } | url join
             "#
         )
