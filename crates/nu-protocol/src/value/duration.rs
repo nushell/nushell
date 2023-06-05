@@ -63,7 +63,7 @@ impl NuDuration {
         }
     }
 
-    /// Return duration in nanoseconds, if possible.  
+    /// Return value of duration in nanoseconds, if possible.  
     ///
     /// Returns ShellError on failure, either due to:
     /// duration is in the month range; or scaling to nanoseconds caused an overflow.
@@ -127,7 +127,9 @@ impl NuDuration {
             } else {
                 self_us.0 / other_us.0
             };
-            Some((self.quantity.checked_mul(rel_scale)?, other.quantity.checked_mul(rel_scale)?,
+            Some((
+                self.quantity.checked_mul(rel_scale)?,
+                other.quantity.checked_mul(rel_scale)?,
             ))
         } else {
             None // can't compare days range with months range durations
@@ -222,24 +224,41 @@ impl fmt::Display for NuDuration {
 }
 
 impl std::cmp::PartialOrd for NuDuration {
+    /// Compare 2 [NuDuration].  When both durations are in same time unit range,
+    /// result is based on comparison of quantity (scaled to common units).
+    /// When durations have incomparable units (e.g one is `days` and the other `months`,
+    /// the result is based on the comparison of *units*, i.e `days` is less than `months`.
+    /// This function never actually fails to return a comparison, despite the trait signature.)
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         if let Some(q) = self.compare_to(other) {
             Some(i64::cmp(&q.0, &q.1))
         } else {
-            None
+            Some(self.unit.cmp(&other.unit))
         }
     }
 }
 
-// can't implement Ord because incomparable units don't form a total ordering over all durations.
+impl std::cmp::Ord for NuDuration {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if let Some(q) = self.compare_to(other) {
+            i64::cmp(&q.0, &q.1)
+        } else {
+            self.unit.cmp(&other.unit)
+        }
+    }
+}
 
 impl std::cmp::PartialEq for NuDuration {
+    /// Determine whether 2 durations are 'equal'.
+    /// If they are in the same time unit range, equality is based on
+    /// comparison of scaled quantities (in common units).
+    /// If durations have incomparable units, return false.
     fn eq(&self, other: &Self) -> bool {
         if let Some(q) = self.compare_to(other) {
             q.0 == q.1
         } else {
-            false   // incomparable units can't be equal
-        }        
+            false // incomparable units can't be equal
+        }
     }
 }
 impl Eq for NuDuration {}

@@ -1,11 +1,17 @@
+// todo -- implement support for NuDuration style durations.
+// Current algo here depends on "hashable types" which must be reversible.  NuDuration implements standard hash, but that is not reversible.
+// And serializing NuDuration takes 12 bytes, all the other supported inputs take 8.  I can't figure out how to handle variable size binary array.
+// So, for now, Value::Duration is commented out and not supported at all.
+// But a simpler algo could be implement that depends only on Value::PartialOrd: a vector of unique values and a parallel vector of counts.
+// Long run, that's the way to go, then we can dispense with current psuedo-hash-based algo.
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, NuDuration, PipelineData, ShellError, Signature, Span, Type, Unit, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -13,7 +19,7 @@ pub struct SubCommand;
 enum NumberTypes {
     Float,
     Int,
-    Duration,
+    //Duration,
     Filesize,
 }
 
@@ -95,14 +101,14 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
-            Example {
-                description: "Compute the mode(s) of a list of durations",
-                example: "[14_days 12_years 0_ns 12_years, 10_mos] | math mode",
-                result: Some(Value::List {
-                    vals: vec![Value::test_duration(NuDuration::new(12, Unit::Year))],
-                    span: Span::test_data(),
-                }),
-            },
+            //Example {
+            //    description: "Compute the mode(s) of a list of durations",
+            //    example: "[14_days 12_years 0_ns 12_years, 10_mos] | math mode",
+            //    result: Some(Value::List {
+            //        vals: vec![Value::test_duration(NuDuration::new(12, Unit::Year))],
+            //        span: Span::test_data(),
+            //    }),
+            //},
         ]
     }
 }
@@ -133,14 +139,8 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
         .iter()
         .map(|val| match val {
             Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
-            Value::Duration { val, .. } => {
-                let mut short_lived_hasher = std::collections::hash_map::DefaultHasher::new();
-                val.hash(&mut short_lived_hasher);
-                Ok(HashableType::new(
-                    short_lived_hasher.finish().to_ne_bytes(),
-                    NumberTypes::Duration,
-                ))
-            }
+            //Value::Duration { val, .. } => {
+            //}
             Value::Float { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
             }
@@ -194,12 +194,6 @@ fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
         NumberTypes::Filesize => Value::Filesize {
             val: i64::from_ne_bytes(bytes),
             span: head,
-        },
-        _ => Value::Error {
-            error: Box::new(ShellError::Unimplemented {
-                desired_function: format!("revers1ble hash for {:?}", hashable_value.original_type),
-                span: head,
-            }),
         },
     }
 }
