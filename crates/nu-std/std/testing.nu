@@ -238,7 +238,7 @@ export def run-tests [
     )
     if not ($results | where result == "fail" | is-empty) {
         let text = ([
-            $"(ansi purple)some tests did not pass (char lparen)see complete errors above(char rparen):(ansi reset)"
+            $"(ansi purple)some tests did not pass (char lparen)see complete errors below(char rparen):(ansi reset)"
             ""
             ($results | each {|test| ($test | show-pretty-test 4)} | str join "\n")
             ""
