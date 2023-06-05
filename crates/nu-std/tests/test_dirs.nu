@@ -4,7 +4,7 @@ use std log
 
 # A couple of nuances to understand when testing module that exports environment:
 # Each 'use' for that module in the test script will execute the def-env block.
-# PWD at the time of the `use` will be what the def-env block will see.
+# PWD at the time of the `use` will be what the export def-env block will see.
 
 def before-each [] {
     # need some directories to play with
