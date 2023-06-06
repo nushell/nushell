@@ -327,7 +327,7 @@ fn get_files(
                     Some(stderr_path_span),
                     Some("you should use `o+e> file` instead".to_string()),
                     vec![],
-                ));
+                ))
             } else {
                 open_file(stderr_path, stderr_path_span, append)
             }
