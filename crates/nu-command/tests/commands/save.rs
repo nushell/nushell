@@ -84,6 +84,27 @@ fn save_append_will_not_overwrite_content() {
 }
 
 #[test]
+fn save_stderr_and_stdout_to_afame_file() {
+    Playground::setup("save_test_5", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("new-file.txt");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+            let-env FOO = "bar";
+            let-env BAZ = "ZZZ";
+            do -c {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
+            "#,
+        );
+        assert!(actual
+            .err
+            .contains("can't save both input and stderr input to the same file"));
+    })
+}
+
+#[test]
 fn save_stderr_and_stdout_to_diff_file() {
     Playground::setup("save_test_6", |dirs, sandbox| {
         sandbox.with_files(vec![]);
