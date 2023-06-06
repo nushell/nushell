@@ -88,8 +88,6 @@ fn save_stderr_and_stdout_to_afame_file() {
     Playground::setup("save_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![]);
 
-        let expected_file = dirs.test().join("new-file.txt");
-
         let actual = nu!(
             cwd: dirs.root(),
             r#"
