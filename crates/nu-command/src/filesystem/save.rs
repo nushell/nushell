@@ -321,7 +321,7 @@ fn get_files(
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
             if path == stderr_path {
-                return Err(ShellError::GenericError(
+                Err(ShellError::GenericError(
                     "input and stderr input to same file".to_string(),
                     "can't save both input and stderr input to the same file".to_string(),
                     Some(stderr_path_span),
