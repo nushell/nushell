@@ -383,5 +383,4 @@ fn url_join_with_empty_params() {
     );
 
     assert_eq!(actual.out, "https://localhost/foo");
-    assert_ne!(actual.out, "https://localhost/foo?")
 }
