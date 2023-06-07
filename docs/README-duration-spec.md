@@ -60,6 +60,10 @@ We assume users will not expect **leap second**s to be included.  Even if we did
 
 Regarding calendars, the world has legislated (mostly) **solar** or **lunisolar** calendars (with a few pure-ish **lunar** calendars). We're only going to support the propelectic Gregorian calendar.  Somebody else can tackle the major **lunisolar** calendars.
 
+Regarding overflows, they are likely because we're dealing with nanoseconds and the number of nanoseconds in a year is only a few orders of magnitude less than i64::MAX.  Overflow causes an unhandled panic and kill the shell, which is not friendly.
+
+I considered using "saturating" operations, which would clamp at the upper or lower limit of the value instead of overflowing.  That works fine if the last operation in an expression is the one that saturates: the user will see 164::MAX or ::MIN, and can learn that's an error.  But if the saturation happens in some intermediate result, it will be consumed without error, producing an erroneous, but not manifestly nonsense result.   E.g `i64::MAX - i64::MAX == 0`, which might be close the result the user was expecting.
+
 ### Conclusions
 
 * Resolved: there shall be a single Nu type which represents all durations.  The range of representable durations shall meet or exceed the duration from datetime::MIN to datetime::MAX.  
@@ -67,9 +71,7 @@ Regarding calendars, the world has legislated (mostly) **solar** or **lunisolar*
 * Resolved: there shall be duration constants that represent **whole** time units (1 day, 33 years...).
 * Maybe: there shall be duration constants that represent **position within** a time unit (beginning of day, week, month)
 * For integration into Nushell, date/times shall be [chrono](https://crates.io/crates/chrono)`::DateTime<FixedOffset>`, but the new duration type  `::Duration`
-
-
-
+* Overflows and underflows will be avoided by using "checked" operations and will cause runtime errors rather than panics.
 # API
 
 There's 2 aspects here: an underlying Rust module/crate with types and methods for doing the operations; and the integration of the types into Nu parser and protocol.
@@ -127,8 +129,6 @@ persisted in the struct.
 NuDuration::MIN `<=` DateTime::MIN - DateTime::MAX (a very negative quantity)   
 NuDuration::ZERO `==` 0_ns.   
 NuDuration::MAX `>=` DateTime::MAX - DateTime::MIN   
-
-If we do saturating adds and subtracts, the saturation value reported will be the MAX or MIN, e.g (in Nushell) `max_ns`, `min_ns`.
 
 #### Constructors
 
@@ -226,18 +226,95 @@ Explicit initialization (for computed values)
 
 > let uom = 10_da   # quantity doesn't matter when duration used with --units, just the unit of measure
 > let quan = 42
-> let the_duration = ( $quan | into duration --units $quan)
+> let the_duration = ( $quan | into duration --units $uom)
 > $the_duration
 42_days
 ```
-### Serialize / Deserialize
-In addition to literal and `to_string` described above, there are a couple of specialized functions
-```
-# to parse a duration into units and quantity
-> 80_days | into record
-{unit: days, quan: 80}
+### Serialize
 
-# to convert a duration into "human readable", normalized form
+Stringify
+
+``` 
+> 4_mos
+4_months
+
+> 4_mos | into string     # into string doesn't yet handle duration
+4_months
+```
+duration units will use the canonic name (not an alias) and will be pluralized when quantity is not +/- 1.
+
+Differs from current nushell in a couple of ways:
+* Current nushell doesn't use the underscore.  perhaps we need a configurable preference item to theme this?
+* current nushell "normalizes" duration into bigger units, e.g:
+  ```
+  > 〉1033000000000ns
+  17min 13sec
+  ```
+  new Nushell leaves quantity and unit of measure unaltered.
+
+Binary
+```
+〉4_mos | into binary
+Error: nu::shell::could_not_convert_duration_ns
+
+  × Could not convert duration to nanoseconds: Incompatible time unit
+   ╭─[entry #11:1:1]
+ 1 │ 4_mos | into binary
+   ·   ─┬─
+   ·    ╰── Incompatible time unit
+   ╰────
+
+〉5_ns | into binary
+Length: 8 (0x8) bytes | printable whitespace ascii_other non_ascii
+00000000:   05 00 00 00  00 00 00 00         
+```
+Binary number will be number of nanoseconds (as currently) and will *fail* if duration cannot be converted to nanoseconds.
+
+The various `to` commands will use the stringified representation of duration where needed, no special handling required.
+
+The changes to stringify will require breaking change notification (or extra code to gracefully handle reading in, e.g, a file with old format?)
+
+### Deserialize
+`into duration` will handle deserialization from string and binary.
+```
+〉"4_mos" | into duration
+4_months
+
+〉5_ns | into binary | into duration
+5_nanoseconds
+```
+
+Currently, there's no way to deserialize "month" range durations from binary.  That's a bug!
+
+### Parsing durations
+To parse a duration into units and quantity:
+```
+> 80_days | into record
+{unit: days, quantity: 80}
+```
+
+### to convert a duration into "human readable", normalized form
+In current Nushell, this is a standard "stringification" operation (though not reversible).
+However, to make it accurate when duration is a mix of >= months and <= weeks and also to provide flexibility in the string form, in the new Nushell, user will have to do a series of operations:
+* compute the desired duration (often as a **list** of duration values)
+* "normalize" the values (see `into duration --normalized` below)
+* parse and format the result for presentation
+
+e.g:
+```
+〉let epoch = ((date now) - 1970-01-01T00:00:00z)
+〉$epoch
+1686077974017025614_nanoseconds
+〉let norm = $epoch | into duration --normalize
+〉$norm
+[53_years 5_months 5_days 20_hours 30_minutes 14_seconds 102_milliseconds 94_microseconds 230_nanoseconds]
+〉$norm | each {into record | $"($in.unit): ($in.quantity)"} | str join ", "  # format 1
+years: 53, months: 5, days: 5, hours: 20, minutes: 30, seconds: 14, milliseconds: 102, microseconds: 94, nanoseconds: 230
+〉$norm | each {into record | $"($in.quantity) ($in.unit)"} | str join ", "   # format 2
+53 years, 5 months, 5 days, 20 hours, 30 minutes, 14 seconds, 102 milliseconds, 94 microseconds, 230 nanoseconds
+
+
+
 # note base_date is necessary to calculate months and years correctly
 
 > (134_days + 22_min + 135_432_998_ns) | into duration --base-date 2022-10-31 --units 0_days
@@ -253,18 +330,23 @@ TBD
 
 Prior versions of Nu stored durations as an `i64` number of nanoseconds.  As described above, this suffices for duration calculations up to units of weeks, but not months or more. However, the convention is pervasive, supported by `into int` and also `into binary`.
 
-For backward compatibility, then, when referencing a new duration in a context expecting an int, a duration with units in the day range will be converted to nanoseconds but will issue a shell error if the duration is month range.
+[[no! this is just weird when `9_ns / 3 -> 3_ns` and `4_days * 6 -> 24_days`.
 
-In addition, `into int` gets additional flags to do an explicit conversion:
+For backward compatibility, then, in arithmetic operations involving duration and int or float, the duration will be converted to an equivalent number of nanoseconds, or throw an error if the duration is in months range.
+... maybe not!]]
 
+[[should `duration | into int --raw_duration` return the int quantity for any time unit?]]
+
+[[also not sure we need this
 ```
 > 3_months | into int --base-date 2022-10-31  # nanoseconds is the default unit
 5_529_600_000_000_000
 > 3_months | into int --base-date 2022-10-31 --units 0_days
 64
-
+> 2_hours | into int --units 0_sec
+7200
 ```
-
+]]
 ### Operations -- elapsed time scenario
 Duration via subtraction, as heretofore.
 ```
@@ -278,55 +360,95 @@ Duration via subtraction, as heretofore.
 > date diff $start_time $end_time  # nanoseconds is default for date diff, too.
 3_000_000_523_nanoseconds
 
+> date diff $start_time $end_time -- units sec
+3_seconds
 ```
-
+### Operations -- date difference for multi day durations
 Duration via specialized command, with control of precision
 ```
-> let start_time = ('1492-10-12T13:03:58.012_345_678' | into datetime)
-> let end_time = (date now) # today is 30-may-2023
-
-> date diff $start_time $end_time --units 0_days
+> date diff 1492-10-12T13:03:58 (date now) --units 0_days
 193808_days
 
-> $end_time - $start_time
-max_ns  # saturating add -- operation overflowed, but result is clamped to max or min instead of error
+# whereas nanoseconds would overflow
+
+〉(date now) - 1492-10-12T13:03:58
+Error: nu::shell::operator_overflow
+
+  × Operator overflow.
+   ╭─[entry #80:1:1]
+ 1 │ (date now) - 1492-10-12T13:03:58
+   · ────────────────┬───────────────
+   ·                 ╰── date subtract operation overflowed
+   ╰────
+  help: Consider using 'date diff --units' to perform the calculation with larger duration time units.
+```
+Result is truncated to an integer number of the units you request.
+```
+> date diff 1492-10-12T13:03:58 (date now) --units 0_months
+6367_months
+
+> date diff 1492-10-12T13:03:58 (date now) --units 0_years
+530_years
 ```
 
-Normally, when you do a date diff operation, you want the result truncated to a particular precision
-### Operations -- chained operations
-You can apply a sequence of operations by simple arithmetic operations or specialized command.
+This kind of result is useful for scheduling queries, for financial and business transactions (how much per day/week/month?).
+Also useful for statistical grouping (count number of events per hour / day ...)
 
-Note that **order of operations matters**.  Although it's the `+` sign and `date add` subcommand, duration arithmetic is not commutative, though it is associative (I think).
 ```
-> let base_time = ('2022-10-03T12:31:40' | into datetime)
-
-> let end_time = $base_time + 1_sec + 1_month - 3_ns
-> $end_time
-(I have no idea)
-
-> let end_time = ($base_time | date add [1_sec 1_month -3_ns])
-> $end_time
-(still no idea, but same as above)
-
-> let end_time = $base_time + 1_start_day_of_month - 1_day   
-> $end_time
-Mon, 31 Oct 2022 00:00:00 -0400     # last day of month
-
-> let end_time = ($base_time | date add [1_start_day_of_month -1_day])
-> $end_time
-Mon, 31 Oct 2022 00:00:00 -0400     # last day of month
+let events = [ <list of date/times of individual events of interest>]
+let start = ($events | math min)
+$events | each {|t| date diff $start $t --units 0_hours} | histogram
 ```
-The point of being able to apply a list of durations is that the lists work a bit like a closure, representing a deferred calculation that can be used on different inputs.
 
+If you want to present a "humanized" result, you must perform an additional "normalize" operation:
+```
+> date diff 1492-10-12T13:03:58 (date now) --units 0_days | into duration --normalize --units 0_days
+[530_years 7_months 25_days]
+```
 ### Operations -- date plus duration
-Many different scenarios here:  
+This and date difference are the key operations for duration data type.
 
-"a month from now" (by which you mean, the day that is one month from now.)  
-Or you might mean the exact nanosecond one month from now (or, more likely, one **hour** from now).
+In addition to fixed durations such as number of hours, minutes, days, there are calendar-aware durations such as months and years, but also "end of month" and "next tuesday".  In order to evaluate these durations user must provide a starting date to refer to.
 
-Typically, you'd simply add the duration to the date and get a full date and time.  
-But if you're doing a sequence of these calculations and are concerned that rounding error might accumulate 
-due to the time portion of these dates, you can truncate that off.
+Evaluating some calendar aware durations implies human-oriented interpretation of intent.
+
+"a month from now" depends on the number of days in the current month, and is interpreted to require the result to be constrained to some day in the *following* month, regardless of its length.  
+
+For days 1-28 of any month, this is easy (on gregorian calendar).
+```
+> 2023-01-01 + 1_month
+2023-02-01
+```
+
+For days near the end of the current month, more "interpretation" is necessary:
+```
+> 2023-01-31 + 1_month
+2023-02-28
+
+> 2023-02-28 + 1_month
+2023-03-31
+```
+One month from last day of this month should be last day of *next* month, regardless of how long or how short they are.
+
+[[examples for "first of the (next) month", "end of the (current) month" and "next Monday"]]
+
+These operations can be performed by arithmetic expressions, as shown above, but also by a specialized `date add` command which offers more flexibility (or complexity):
+
+```
+> 2023-01-31 + 1_month
+2023-02-28
+
+> 2023-01-31 | date add [1_month]
+2023-02-28
+```
+
+The arithmetic forms preserve the time bits, though the calandar aware durations generally refer to a whole number of days.
+But `date add` allows selective truncation or unit conversion if desired.
+
+[[how? examples!]]
+
+Similar considerations apply to "a year from now": the result should be the same day of the month, unless starting from the end of February in or to a leap year.
+
 ```
 > let base_date = (date now)
 
@@ -336,13 +458,32 @@ Fri, 30 Jun 2023 17:03:36 -0400 (in a month)
 > $base_date | date add 1_month --units 0_day
 Fri, 30 Jun 2023 00:00:00 -0400 (in a month)
 ```
-Durations of a month can have unexpected results, because of the differing lengths of months (per calendar and per leap year)
-Chrono interprets "end of the month" to mean "the last day of that month" and interprets month durations accordingly.
-So when you ask for "a month from now", if it's 30-May, you'll get 30-June, which is not too surprising.  But if it's 31-May, the answer will also be 30-June, not 1-July (to keep the result within "the next month").  
+### Operations -- chained operations
+When doing arithmetic with day range durations (all of which can be converted to nanoseconds), the usual arithmetic operators work fine, and the following specialized operators don't improve accuracy (though they may avoid overflows).
 
-If you ask for "a month from now" and it's 28-Feb in a non leap year, you'll get 31-March.  You were at the end of the current month, so you got the end of the next month.  If you ask for "28 days from now", you'll get 28-Mar.
+But for scheduling or finance or other business calculations, the core scenario is adding a sequence of durations to a **given** date in order to calculate an **end** date. (or "subtracting a sequence of durations" to calculate a "starting" date). So you're essentially chaining the addition or subtraction operations to a date to produce another date
 
-Durations of a year are similarly affected by leap years. The details are left as an exercise for the reader, try asking for "a year from now" using start dates that will or won't include a leap year day.
+In these kinds of calculations,  **order of operations matters**.  
+
+  2000-03-30 + 1mo + 1d -> 2000-05-01  
+  2000-03-30 + 1d + 1mo -> 2000-04-30  
+Duration addition is not commutative!  
+
+(example courtesy of [dateutil package](https://github.com/hroptatyr/dateutils))
+
+Although you can achieve the same results with standard arithmetic expressions and careful attention to detail, Nushell provides helpful specialized operations.
+
+```
+> let base_time = 2000-03-30
+> $base_time + 1_day + 1_month
+Sun, 30 Apr 2000 00:00:00 +0000 (23 years ago)
+
+> $base_time | date add [1_day 1_month]
+Sun, 30 Apr 2000 00:00:00 +0000 (23 years ago)
+```
+
+The list of durations preserves the order of operations and is an input or output of these functions.
+
 
 ### Operations -- date plus nested unit duration
 A calendar arithmetic scenario: "a month from next Tuesday", "the first monday of next quarter"
