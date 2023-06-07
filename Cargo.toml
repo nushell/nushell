@@ -96,7 +96,7 @@ tempfile = "3.5"
 assert_cmd = "2.0"
 criterion = "0.5"
 pretty_assertions = "1.0"
-serial_test = "1.0"
+serial_test = "2.0"
 rstest = { version = "0.17", default-features = false }
 
 [features]
