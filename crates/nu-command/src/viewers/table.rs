@@ -1,7 +1,7 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
-use nu_engine::{env_to_string, CallExt};
+use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -102,12 +102,6 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // We merge stack to make sure we render the changes if any were made in the `block`
-        //
-        // CONSIDERED TO BE A CODE SMELL AND IT BETTER BE RESOLVED UPWARDS THE CALLING STACK
-        let engine = engine_state.clone_with_env(stack)?;
-        let engine_state = &engine;
-
         let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
         let list: bool = call.has_flag("list");
@@ -237,7 +231,7 @@ fn handle_table_command(
     term_width: Option<i64>,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
-    let config = engine_state.get_config();
+    let config = get_config(engine_state, stack);
 
     match input {
         PipelineData::ExternalStream { .. } => Ok(input),
@@ -293,7 +287,7 @@ fn handle_table_command(
                 table_view,
                 term_width,
                 ctrlc,
-                config,
+                &config,
             )
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
@@ -454,7 +448,7 @@ fn handle_row_stream(
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
         }) => {
-            let config = engine_state.config.clone();
+            let config = get_config(engine_state, stack);
             let ctrlc = ctrlc.clone();
             let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
                 Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
@@ -652,13 +646,13 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let config = self.engine_state.get_config();
+        let config = get_config(&self.engine_state, &self.stack);
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
 
         let ctrlc = self.ctrlc.clone();
         let span = self.head;
-        let opts = BuildConfig::new(ctrlc, config, &style_computer, span, term_width);
+        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
         let view = TableView::Expanded {
             limit,
             flatten,
@@ -673,24 +667,24 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let config = self.engine_state.get_config();
+        let config = get_config(&self.engine_state, &self.stack);
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let term_width = get_width_param(self.width_param);
         let ctrlc = self.ctrlc.clone();
         let span = self.head;
-        let opts = BuildConfig::new(ctrlc, config, &style_computer, span, term_width);
+        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
 
         build_table_batch(batch, TableView::Collapsed, 0, opts)
     }
 
     fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
         let term_width = get_width_param(self.width_param);
-        let config = &self.engine_state.get_config();
+        let config = get_config(&self.engine_state, &self.stack);
         let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
         let ctrlc = self.ctrlc.clone();
         let span = self.head;
         let row_offset = self.row_offset;
-        let opts = BuildConfig::new(ctrlc, config, &style_computer, span, term_width);
+        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
 
         build_table_batch(batch, TableView::General, row_offset, opts)
     }
@@ -762,7 +756,7 @@ impl Iterator for PagingTableCreator {
 
         match table {
             Ok(Some(table)) => {
-                let table = maybe_strip_color(table, self.engine_state.get_config());
+                let table = maybe_strip_color(table, &get_config(&self.engine_state, &self.stack));
 
                 let mut bytes = table.as_bytes().to_vec();
                 bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
@@ -898,7 +892,7 @@ fn create_empty_placeholder(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> String {
-    let config = engine_state.get_config();
+    let config = get_config(engine_state, stack);
     if !config.table_show_empty {
         return String::new();
     }
@@ -910,7 +904,7 @@ fn create_empty_placeholder(
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_table_config(config, style_computer, &out);
+    let config = create_table_config(&config, style_computer, &out);
 
     out.table
         .draw(config, termwidth)
