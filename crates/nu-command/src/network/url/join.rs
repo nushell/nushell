@@ -191,7 +191,11 @@ impl UrlComponents {
                         .collect::<Result<Vec<String>, ShellError>>()?
                         .join("&");
 
-                    qs = format!("?{qs}");
+                    qs = if !qs.trim().is_empty() {
+                        format!("?{qs}")
+                    } else {
+                        qs
+                    };
 
                     if let Some(q) = self.query {
                         if q != qs {
