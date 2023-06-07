@@ -94,7 +94,7 @@ atty = "0.2"
 nu-test-support = { path = "./crates/nu-test-support", version = "0.81.1" }
 tempfile = "3.5"
 assert_cmd = "2.0"
-criterion = "0.4"
+criterion = "0.5"
 pretty_assertions = "1.0"
 serial_test = "1.0"
 rstest = { version = "0.17", default-features = false }
