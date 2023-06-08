@@ -1,4 +1,5 @@
-use chrono::{DateTime, FixedOffset, TimeZone};
+#![allow(unused_variables, unused_imports, dead_code, unused_mut)]
+use chrono::{DateTime, FixedOffset};
 
 use crate::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
