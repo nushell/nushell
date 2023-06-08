@@ -460,11 +460,8 @@ mod test {
     #[case(NuDuration::new(1, Unit::Nanosecond), Ok(1))]
     #[case(NuDuration::new(0, Unit::Nanosecond), Ok(0))]
     #[case(NuDuration::new(23, Unit::Day), Ok(23 * 24 * 3600 * 1000000000))]
-    #[case(
-        NuDuration::new(23, Unit::Millennium),
-        Err(se_cnc("time unit millennia"))
-    )]
-    #[case(NuDuration::new(0, Unit::Month), Err(se_cnc("time unit months")))]
+    #[case(NuDuration::new(23, Unit::Millennium), Err(se_cnc("time unit")))]
+    #[case(NuDuration::new(0, Unit::Month), Err(se_cnc("time unit")))]
     #[case(NuDuration::new(i64::MAX, Unit::Second), Err(se_cnc("Overflow")))]
 
     fn test_to_int(

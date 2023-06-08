@@ -240,7 +240,7 @@ fn to_nuon_duration() {
         "#
     ));
 
-    assert_eq!(actual.out, "60000000000ns");
+    assert_eq!(actual.out, "1_minute");
 }
 
 #[test]

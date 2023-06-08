@@ -1,8 +1,8 @@
 use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Range, ShellError, Signature, Span, Type,
-    Unit, Value,
+    Category, Example, IntoPipelineData, NuDuration, PipelineData, Range, ShellError, Signature,
+    Span, Type, Unit, Value,
 };
 #[derive(Clone)]
 pub struct FromNuon;
@@ -490,9 +490,23 @@ fn convert_to_value(
                     val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
-                //todo: decide how to serde durations: as ns (read old files, but lose unit), or new format and break backward compat?
-                _ => Err(ShellError::Unimplemented {
-                    desired_function: "NUON serialization for duration".into(),
+                Unit::Nanosecond
+                | Unit::Microsecond
+                | Unit::Millisecond
+                | Unit::Second
+                | Unit::Minute
+                | Unit::Hour
+                | Unit::Day
+                | Unit::Week
+                | Unit::Month
+                | Unit::Quarter
+                | Unit::Year
+                | Unit::Century
+                | Unit::Millennium => Ok(Value::Duration {
+                    val: NuDuration {
+                        quantity: size,
+                        unit: unit.item,
+                    },
                     span,
                 }),
             }
