@@ -13,4 +13,4 @@ Hi there:
 
 If you see me here that means there is a release failure for the nightly build
 
-Please **click the status badge** to see more details: [![Nightly Build](https://github.com/hustcer/nu-release/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/hustcer/nu-release/actions/workflows/nightly-build.yml)
+Please **click the status badge** to see more details: [![Nightly Build](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml)
