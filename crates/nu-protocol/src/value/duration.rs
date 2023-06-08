@@ -45,7 +45,7 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
 /// Can do mixed datetime/duration arithmetic,
 /// Provides additional operators to do *truncating* arithmetic on datetimes
 /// with desired precision and resolution.
-#[derive(Debug, Clone, Copy, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct NuDuration {
     pub quantity: UnitSize, // number of time units
     pub unit: Unit,         // but only the duration units
@@ -117,20 +117,22 @@ impl NuDuration {
         .into()
     }
 
-    // helper for cmp and eq traits, return scaled quantities for comparison
+    // helper for cmp and eq traits: if units are comparable, returns scaled quantities for comparison
     fn compare_to(&self, other: &Self) -> Option<(i64, i64)> {
         let self_us = self.unit.unit_scale();
         let other_us = other.unit.unit_scale();
         if self_us.1 == other_us.1 {
-            let rel_scale = if self_us.0 <= other_us.0 {
-                other_us.0 / self_us.0 // relative scaling shouldn't overflow
+            if self_us.0 <= other_us.0 {
+                Some((
+                    self.quantity,
+                    other.quantity.checked_mul(other_us.0 / self_us.0)?,
+                ))
             } else {
-                self_us.0 / other_us.0
-            };
-            Some((
-                self.quantity.checked_mul(rel_scale)?,
-                other.quantity.checked_mul(rel_scale)?,
-            ))
+                Some((
+                    self.quantity.checked_mul(self_us.0 / other_us.0)?,
+                    other.quantity,
+                ))
+            }
         } else {
             None // can't compare days range with months range durations
         }
@@ -227,23 +229,20 @@ impl std::cmp::PartialOrd for NuDuration {
     /// Compare 2 [NuDuration].  When both durations are in same time unit range,
     /// result is based on comparison of quantity (scaled to common units).
     /// When durations have incomparable units (e.g one is `days` and the other `months`,
-    /// the result is based on the comparison of *units*, i.e `days` is less than `months`.
-    /// This function never actually fails to return a comparison, despite the trait signature.)
+    /// the operation is not allowed, though there are cases where an answer could be provided (1ns < 1month, for sure).
+    ///
+    /// Note that trait [Ord] is *not* implemented.  
+    /// This would require that all instances can be compared, which is not true of [NuDuration]
+    #[allow(clippy::manual_map)] // might add more code in the else later...
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         if let Some(q) = self.compare_to(other) {
             Some(i64::cmp(&q.0, &q.1))
         } else {
-            Some(self.unit.cmp(&other.unit))
-        }
-    }
-}
-
-impl std::cmp::Ord for NuDuration {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if let Some(q) = self.compare_to(other) {
-            i64::cmp(&q.0, &q.1)
-        } else {
-            self.unit.cmp(&other.unit)
+            None // can't compare incompatible units (at all)
+                 // future: think about hueristics we could use in *some* remaining cases.
+                 // clearly 1 ns < 1 month.  Why not give an explicit answer?
+                 // problem is there will remain some error cases (is 29 days < 1 month?).
+                 // these few failures at runtime would be very confusing for an operation that user might come to think is infallible.
         }
     }
 }
@@ -492,5 +491,33 @@ mod test {
             }
             _ => panic!("unexpected error {:?}", result),
         }
+    }
+
+    #[rstest]
+    #[case(NuDuration{quantity:2, unit: Unit::Day}, NuDuration{quantity:24, unit:Unit::Hour}, true)] // bigger unit on lhs
+    #[case(NuDuration{quantity:48, unit: Unit::Hour},   NuDuration{quantity:1, unit:Unit::Day}, true)] // bigger unit on rhs
+    #[case(NuDuration{quantity:999_000_000_000, unit: Unit::Nanosecond},NuDuration{quantity:1, unit:Unit::Week}, false)] // units from extreme ends of range
+    #[case(NuDuration{quantity:999_000_000_000, unit: Unit::Millennium},NuDuration{quantity:1, unit:Unit::Month}, true)] // units from extreme ends of range
+    #[case(NuDuration{quantity:2, unit: Unit::Week}, NuDuration{quantity:1, unit:Unit::Hour}, true)] // sm quan * bigger unti > small quan * smaller unit
+    #[case(NuDuration{quantity:999_000_000_000_000, unit: Unit::Nanosecond},NuDuration{quantity:1, unit:Unit::Week}, true)] // small quan * smaller unit > small quan bigger unit FALSE
+
+    fn test_cmp_greater(
+        #[case] lhs: NuDuration,
+        #[case] rhs: NuDuration,
+        #[case] exp_result: bool,
+    ) {
+        assert_eq!(lhs > rhs, exp_result);
+    }
+
+    #[rstest]
+    #[case(NuDuration{quantity:2, unit: Unit::Day}, NuDuration{quantity:24, unit:Unit::Month} )] // incompatible 1
+    #[case(NuDuration{quantity:2, unit: Unit::Year}, NuDuration{quantity:24, unit:Unit::Second} )] // incompatible 1
+                                                                                                   // this test shows that incompatible units have no fixed ordering: they will never compare greater than *or* less than.
+                                                                                                   // I was actually expecting the comparison to simply fail (due to returning None from partial_cmp!  But Rust had other ideas.
+    fn test_cmp_error(#[case] lhs: NuDuration, #[case] rhs: NuDuration) {
+        assert!(
+            (!(lhs < rhs)) && !(lhs > rhs) && !(lhs == rhs),
+            "Expected no possible comparison between incompatible types"
+        );
     }
 }
