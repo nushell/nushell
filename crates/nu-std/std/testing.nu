@@ -175,14 +175,17 @@ export def run-tests [
         extension: nu
     } | path join))
 
-    let path = ($path | default $env.PWD)
-
-    if not ($path | path exists) {
-        throw-error {
-            msg: "directory_not_found"
-            label: "no such directory"
-            span: (metadata $path | get span)
+    let path = if $path == null {
+        $env.PWD
+    } else {
+        if not ($path | path exists) {
+            throw-error {
+                msg: "directory_not_found"
+                label: "no such directory"
+                span: (metadata $path | get span)
+            }
         }
+        $path
     }
 
     if not ($module | is-empty) {
