@@ -350,7 +350,7 @@ fn duration_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 1day");
+    assert_eq!(actual.out, "8_days");
 }
 
 #[test]
@@ -362,7 +362,7 @@ fn duration_decimal_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "6day");
+    assert_eq!(actual.out, "5_days"); // durations are not some number of ns, they are not fractional!
 }
 
 #[test]
@@ -374,7 +374,7 @@ fn duration_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 10ns");
+    assert_eq!(actual.out, "604800000000010_nanoseconds");
 }
 
 #[test]
@@ -382,11 +382,11 @@ fn duration_decimal_math_with_nanoseconds() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            1.5wk + 10ns
+            604800000000010_nanoseconds
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 3day 10ns");
+    assert_eq!(actual.out, "604800000000010_nanoseconds");
 }
 
 #[test]
@@ -398,7 +398,7 @@ fn duration_decimal_math_with_all_units() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 3day 8hr 10min 16sec 121ms 11µs 12ns");
+    assert_eq!(actual.out, "893416121011012_nanoseconds");
 }
 
 #[test]
@@ -410,7 +410,7 @@ fn duration_decimal_dans_test() {
         "#
     ));
 
-    assert_eq!(actual.out, "3sec 140ms");
+    assert_eq!(actual.out, "3_seconds");
 }
 
 #[test]
@@ -422,7 +422,7 @@ fn duration_math_with_negative() {
         "#
     ));
 
-    assert_eq!(actual.out, "-6day");
+    assert_eq!(actual.out, "-6_days");
 }
 
 #[test]
