@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{NuDuration, ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [Value](crate::Value), which is hashable.
@@ -29,10 +29,6 @@ pub enum HashableValue {
     },
     Filesize {
         val: i64,
-        span: Span,
-    },
-    Duration {
-        val: NuDuration,
         span: Span,
     },
     Date {
@@ -69,7 +65,6 @@ impl HashableValue {
             Value::Bool { val, span } => Ok(HashableValue::Bool { val, span }),
             Value::Int { val, span } => Ok(HashableValue::Int { val, span }),
             Value::Filesize { val, span } => Ok(HashableValue::Filesize { val, span }),
-            Value::Duration { val, span } => Ok(HashableValue::Duration { val, span }),
             Value::Date { val, span } => Ok(HashableValue::Date { val, span }),
             Value::Float { val, span } => Ok(HashableValue::Float {
                 val: val.to_ne_bytes(),
@@ -95,7 +90,6 @@ impl HashableValue {
             HashableValue::Bool { val, span } => Value::Bool { val, span },
             HashableValue::Int { val, span } => Value::Int { val, span },
             HashableValue::Filesize { val, span } => Value::Filesize { val, span },
-            HashableValue::Duration { val, span } => Value::Duration { val, span },
             HashableValue::Date { val, span } => Value::Date { val, span },
             HashableValue::Float { val, span } => Value::Float {
                 val: f64::from_ne_bytes(val),
@@ -113,7 +107,6 @@ impl Hash for HashableValue {
             HashableValue::Bool { val, .. } => val.hash(state),
             HashableValue::Int { val, .. } => val.hash(state),
             HashableValue::Filesize { val, .. } => val.hash(state),
-            HashableValue::Duration { val, .. } => val.hash(state),
             HashableValue::Date { val, .. } => val.hash(state),
             HashableValue::Float { val, .. } => val.hash(state),
             HashableValue::String { val, .. } => val.hash(state),
@@ -134,10 +127,6 @@ impl PartialEq for HashableValue {
             (
                 HashableValue::Filesize { val: lhs, .. },
                 HashableValue::Filesize { val: rhs, .. },
-            ) => lhs == rhs,
-            (
-                HashableValue::Duration { val: lhs, .. },
-                HashableValue::Duration { val: rhs, .. },
             ) => lhs == rhs,
             (HashableValue::Date { val: lhs, .. }, HashableValue::Date { val: rhs, .. }) => {
                 lhs == rhs
@@ -177,16 +166,6 @@ mod test {
             (
                 Value::Filesize { val: 1, span },
                 HashableValue::Filesize { val: 1, span },
-            ),
-            (
-                Value::Duration {
-                    val: NuDuration::ns(22),
-                    span,
-                },
-                HashableValue::Duration {
-                    val: NuDuration::ns(22),
-                    span,
-                },
             ),
             (
                 Value::Date {
@@ -267,10 +246,6 @@ mod test {
             Value::Bool { val: true, span },
             Value::Int { val: 1, span },
             Value::Filesize { val: 1, span },
-            Value::Duration {
-                val: NuDuration::ns(1),
-                span,
-            },
             Value::String {
                 val: "1".to_string(),
                 span,

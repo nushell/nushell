@@ -1,15 +1,15 @@
 // todo -- implement support for NuDuration style durations.
-// Current algo here depends on "hashable types" which must be reversible.  NuDuration implements standard hash, but that is not reversible.
-// And serializing NuDuration takes 12 bytes, all the other supported inputs take 8.  I can't figure out how to handle variable size binary array.
+// Current algo here depends on "hashable types" which must be reversible.
+// NuDuration can't even implement Hash, some values are not comparable
+// And even if it did, serializing NuDuration takes 12 bytes, all the other supported inputs take 8.
+// I can't figure out how to handle variable size binary array.
 // So, for now, Value::Duration is commented out and not supported at all.
-// But a simpler algo could be implement that depends only on Value::PartialOrd: a vector of unique values and a parallel vector of counts.
-// Long run, that's the way to go, then we can dispense with current psuedo-hash-based algo.
+// But a simpler algo could be implemented that depends only on Value::PartialOrd: a vector of unique values and a parallel vector of counts.
+// Long run, that's the way to go, then we can dispense with current pseudo-hash-based algo.
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 use std::cmp::Ordering;
 use std::hash::Hash;
 #[derive(Clone)]
