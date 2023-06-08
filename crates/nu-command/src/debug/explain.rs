@@ -176,7 +176,6 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         span: name.span,
                     };
                     arg_value.push(rec);
-                } else {
                 };
 
                 if let Some(expression) = opt_expr {
@@ -207,7 +206,6 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         span: expression.span,
                     };
                     arg_value.push(rec);
-                } else {
                 };
             }
             Argument::Positional(inner_expr) => {

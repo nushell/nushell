@@ -111,7 +111,7 @@ pub fn create_commands(registry: &mut CommandRegistry) {
     registry.register_command_view(ConfigCmd::default(), true);
     registry.register_command_view(HelpCmd::default(), true);
 
-    registry.register_command_reactive(QuitCmd::default());
+    registry.register_command_reactive(QuitCmd);
     registry.register_command_reactive(TweakCmd::default());
 }
 

@@ -258,7 +258,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_bold(), true);
+        assert!(text_style.is_bold());
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod tests {
             }),
         };
         let dimmed_style = text_style.dimmed();
-        assert_eq!(dimmed_style.is_dimmed(), true);
+        assert!(dimmed_style.is_dimmed());
     }
 
     #[test]
@@ -282,7 +282,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_dimmed(), true);
+        assert!(text_style.is_dimmed());
     }
 
     #[test]
@@ -294,7 +294,7 @@ mod tests {
             }),
         };
         let italic_style = text_style.italic();
-        assert_eq!(italic_style.is_italic(), true);
+        assert!(italic_style.is_italic());
     }
 
     #[test]
@@ -306,7 +306,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_italic(), true);
+        assert!(text_style.is_italic());
     }
 
     #[test]
@@ -318,7 +318,7 @@ mod tests {
             }),
         };
         let underline_style = text_style.underline();
-        assert_eq!(underline_style.is_underline(), true);
+        assert!(underline_style.is_underline());
     }
 
     #[test]
@@ -330,7 +330,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_underline(), true);
+        assert!(text_style.is_underline());
     }
 
     #[test]
@@ -342,7 +342,7 @@ mod tests {
             }),
         };
         let blink_style = text_style.blink();
-        assert_eq!(blink_style.is_blink(), true);
+        assert!(blink_style.is_blink());
     }
 
     #[test]
@@ -354,7 +354,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_blink(), true);
+        assert!(text_style.is_blink());
     }
 
     #[test]
@@ -366,7 +366,7 @@ mod tests {
             }),
         };
         let reverse_style = text_style.reverse();
-        assert_eq!(reverse_style.is_reverse(), true);
+        assert!(reverse_style.is_reverse());
     }
 
     #[test]
@@ -378,7 +378,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_reverse(), true);
+        assert!(text_style.is_reverse());
     }
 
     #[test]
@@ -390,7 +390,7 @@ mod tests {
             }),
         };
         let hidden_style = text_style.hidden();
-        assert_eq!(hidden_style.is_hidden(), true);
+        assert!(hidden_style.is_hidden());
     }
 
     #[test]
@@ -402,7 +402,7 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_hidden(), true);
+        assert!(text_style.is_hidden());
     }
 
     #[test]
@@ -414,7 +414,7 @@ mod tests {
             }),
         };
         let strikethrough_style = text_style.strikethrough();
-        assert_eq!(strikethrough_style.is_strikethrough(), true);
+        assert!(strikethrough_style.is_strikethrough());
     }
 
     #[test]
@@ -426,6 +426,6 @@ mod tests {
                 ..Default::default()
             }),
         };
-        assert_eq!(text_style.is_strikethrough(), true);
+        assert!(text_style.is_strikethrough());
     }
 }

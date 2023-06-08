@@ -464,7 +464,7 @@ pub fn parse_def(
 
             *declaration = signature.clone().into_block_command(block_id);
 
-            let mut block = working_set.get_block_mut(block_id);
+            let block = working_set.get_block_mut(block_id);
             let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;

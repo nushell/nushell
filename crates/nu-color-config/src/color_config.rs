@@ -107,7 +107,7 @@ mod tests {
         let style = color_string_to_nustyle(color_string);
         assert_eq!(style.foreground, Some(Color::Black));
         assert_eq!(style.background, Some(Color::White));
-        assert_eq!(style.is_bold, true);
+        assert!(style.is_bold);
     }
 
     #[test]
