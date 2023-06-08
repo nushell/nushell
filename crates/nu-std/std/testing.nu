@@ -1,7 +1,3 @@
-export-env {
-    use log.nu []
-}
-
 use log.nu
 
 
