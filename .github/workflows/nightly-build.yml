@@ -1,6 +1,7 @@
 #
 # REF:
 #   1. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
+#   2. https://github.com/JasonEtco/create-an-issue
 #
 name: Nightly Build
 
@@ -108,5 +109,5 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         update_existing: true
-        search_existing: all
+        search_existing: open
         filename: .github/ISSUE_TEMPLATE/nightly-build-fail.md
