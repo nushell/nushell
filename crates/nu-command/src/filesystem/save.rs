@@ -53,7 +53,7 @@ impl Command for Save {
             .switch("progress", "enable progress bar", Some('p'))
             .switch(
                 "no-buf",
-                "(only use internally) don't buffered input data",
+                "(only use internally) don't bufferred input data",
                 None,
             )
             .category(Category::FileSystem)
@@ -70,7 +70,7 @@ impl Command for Save {
         let append = call.has_flag("append");
         let force = call.has_flag("force");
         let progress = call.has_flag("progress");
-        let no_buffered = call.has_flag("no-buf");
+        let no_bufferred = call.has_flag("no-buf");
 
         let span = call.head;
 
@@ -95,7 +95,7 @@ impl Command for Save {
                     Some(stderr_file) => thread::Builder::new()
                         .name("stderr redirector".to_string())
                         .spawn(move || {
-                            stream_to_file(stderr_stream, stderr_file, span, progress, no_buffered)
+                            stream_to_file(stderr_stream, stderr_file, span, progress, no_bufferred)
                         })
                         .expect("Failed to create thread"),
                     None => thread::Builder::new()
@@ -107,7 +107,7 @@ impl Command for Save {
                         .expect("Failed to create thread"),
                 });
 
-                let res = stream_to_file(stream, file, span, progress, no_buffered);
+                let res = stream_to_file(stream, file, span, progress, no_bufferred);
                 if let Some(h) = handler {
                     h.join().map_err(|err| ShellError::ExternalCommand {
                         label: "Fail to receive external commands stderr message".to_string(),
@@ -356,7 +356,7 @@ fn stream_to_file(
     file: File,
     span: Span,
     progress: bool,
-    no_buffered: bool,
+    no_bufferred: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut writer = BufWriter::new(file);
 
@@ -414,7 +414,7 @@ fn stream_to_file(
                 *process_failed_p = true;
                 return Err(ShellError::IOError(err.to_string()));
             }
-            if no_buffered {
+            if no_bufferred {
                 if let Err(err) = writer.flush() {
                     *process_failed_p = true;
                     return Err(ShellError::IOError(err.to_string()));
