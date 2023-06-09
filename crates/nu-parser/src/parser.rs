@@ -27,13 +27,10 @@ use crate::parse_keywords::{
     parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
 };
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use itertools::Itertools;
 use log::trace;
-use std::{
-    collections::{HashMap, HashSet},
-    num::ParseIntError,
-    str,
-};
+use std::{num::ParseIntError, str};
 
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;

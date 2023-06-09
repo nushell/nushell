@@ -1,3 +1,4 @@
+use ahash::HashMap;
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::CallExt;
@@ -11,7 +12,6 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::collections::HashMap;
 
 /// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]

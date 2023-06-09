@@ -1,3 +1,4 @@
+use ahash::{HashSet, HashSetExt};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -5,7 +6,6 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Select;
