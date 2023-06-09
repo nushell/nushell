@@ -6,7 +6,7 @@ use nu_protocol::{
     Type, Value,
 };
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 use std::thread;
 
