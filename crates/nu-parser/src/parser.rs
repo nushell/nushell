@@ -1587,7 +1587,7 @@ pub fn parse_brace_expr(
         .get(1)
         .map(|token| working_set.get_span_contents(token.span));
 
-    if matches!(second_token, None) {
+    if second_token.is_none() {
         // If we're empty, that means an empty record or closure
         if matches!(shape, SyntaxShape::Closure(_)) {
             parse_closure_expression(working_set, shape, span)

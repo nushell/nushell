@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::{Call, Expr, PathMember};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value, VarId};
+use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
 
@@ -301,6 +301,18 @@ pub fn find_in_dirs_env(
     let lib_dirs_fallback = stack.get_env_var(engine_state, "NU_LIB_DIRS");
 
     Ok(check_dir(lib_dirs).or_else(|| check_dir(lib_dirs_fallback)))
+}
+
+/// Get config
+///
+/// This combines config stored in permanent state and any runtime updates to the environment. This
+/// is the canonical way to fetch config at runtime when you have Stack available.
+pub fn get_config(engine_state: &EngineState, stack: &Stack) -> Config {
+    if let Some(mut config_record) = stack.get_env_var(engine_state, "config") {
+        config_record.into_config(engine_state.get_config()).0
+    } else {
+        engine_state.get_config().clone()
+    }
 }
 
 fn get_converted_value(

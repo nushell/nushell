@@ -18,7 +18,7 @@ impl SQLContext {
     pub fn new() -> Self {
         Self {
             table_map: HashMap::new(),
-            dialect: GenericDialect::default(),
+            dialect: GenericDialect,
         }
     }
 
