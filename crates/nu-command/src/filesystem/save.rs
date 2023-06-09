@@ -349,7 +349,11 @@ fn stream_to_file(
     span: Span,
     progress: bool,
 ) -> Result<PipelineData, ShellError> {
-    let mut writer = BufWriter::new(file);
+    // Note: when saved from external stream to file, no need to use BufWriter
+    // so we can see the output of external stream in a file immediately.
+    //
+    // It's good for users to see running status of external program.
+    let mut writer = file;
 
     let mut bytes_processed: u64 = 0;
     let bytes_processed_p = &mut bytes_processed;
