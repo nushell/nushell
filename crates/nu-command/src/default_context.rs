@@ -389,6 +389,7 @@ pub fn create_default_context() -> EngineState {
             HttpPatch,
             HttpPost,
             HttpPut,
+            HttpOptions,
             Url,
             UrlBuildQuery,
             UrlEncode,
