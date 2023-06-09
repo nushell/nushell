@@ -53,7 +53,7 @@ impl Command for Save {
             .switch("progress", "enable progress bar", Some('p'))
             .switch(
                 "no-buf",
-                "(only use internally) don't buffer input data",
+                "(only use internally) don't buffered input data",
                 None,
             )
             .category(Category::FileSystem)
