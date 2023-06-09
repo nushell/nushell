@@ -834,14 +834,6 @@ pub fn eval_element_with_input(
                                     None,
                                     None,
                                 )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "no-buf".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
                             ],
                             redirect_stdout: false,
                             redirect_stderr: false,
@@ -908,14 +900,6 @@ pub fn eval_element_with_input(
                                 Argument::Named((
                                     Spanned {
                                         item: "force".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "no-buf".into(),
                                         span: *out_span,
                                     },
                                     None,
