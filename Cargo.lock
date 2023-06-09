@@ -2992,6 +2992,7 @@ dependencies = [
 name = "nu-system"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "atty",
  "chrono",
  "libc",
