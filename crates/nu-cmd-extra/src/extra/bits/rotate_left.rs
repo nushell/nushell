@@ -9,9 +9,9 @@ use num_traits::int::PrimInt;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct BitsRol;
 
-impl Command for SubCommand {
+impl Command for BitsRol {
     fn name(&self) -> &str {
         "bits rol"
     }
@@ -155,6 +155,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(BitsRol {})
     }
 }
