@@ -213,10 +213,11 @@ pub fn nu_repl() {
         // Check for pre_execution hook
         let config = engine_state.get_config();
 
-        *engine_state
-            .repl_buffer_state
+        engine_state
+            .repl_state
             .lock()
-            .expect("repl buffer state mutex") = line.to_string();
+            .expect("repl state mutex")
+            .buffer = line.to_string();
 
         if let Some(hook) = config.hooks.pre_execution.clone() {
             if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
