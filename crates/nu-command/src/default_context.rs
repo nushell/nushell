@@ -317,7 +317,6 @@ pub fn create_default_context() -> EngineState {
         // Conversions
         bind_command! {
             Fill,
-            Fmt,
             Into,
             IntoBool,
             IntoBinary,
