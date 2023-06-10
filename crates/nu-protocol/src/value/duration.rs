@@ -39,8 +39,8 @@ fn divmod_i32(dividend: i32, divisor: i32) -> (i64, i64) {
 ///
 /// For use with [chrono::DateTime<FixedOffset>) date/times.
 ///
-/// Supports extended duration range: (Years, Months, Weeks, Days) (via [calends::RelativeDuration)
-/// and (Hours .. NS) (via [chrono::Duration)).
+/// Supports extended duration range: (Years, Months, Weeks, Days) as well as
+/// (Hours .. NS) (via [chrono::Duration)).
 ///
 /// Can do mixed datetime/duration arithmetic,
 /// Provides additional operators to do *truncating* arithmetic on datetimes

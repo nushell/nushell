@@ -7,7 +7,7 @@ Deliverables described in more detail below.
 - [x] NuDuration datatype consists of unit + quantity
 - [x] Parser recognizes NuDuration literals
 - [ ] Operators
-  - [ ] `<duration> cmp-op <duration>` works for all `> < >= <= ==`; gives "incompatible types" if both durations not in same range and not comparable by hueristic.
+  - [ ] `<duration> cmp-op <duration>` works for all `> < >= <= ==`; gives "incompatible types" if both durations not in same range and not comparable by heuristic.
   - [ ] `<duration> cmp-op <number>` works for `<duration>` in days range, converting duration to ns; gives "incompatible types" error otherwise.
   - [ ] `<duration> plus-minus-op <duration> -> duration` works for both durations in *same* range, result is duration in lesser of the 2 units; gives "incompatibible units" error otherwise.  To add durations in different ranges, see
   - [ ] `<duration> div-mul-op <number> -> duration` works for any duration, result is duration in same units

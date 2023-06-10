@@ -3,10 +3,10 @@ use std assert
 use std log
 
 # A couple of nuances to understand when testing module that exports environment:
-# Each 'use' for that module in the test script will execute the export def-env block.
+# Each 'use' for that module in the test script will execute the def-env block.
 # PWD at the time of the `use` will be what the export def-env block will see.
 
-export def setup [] {
+def before-each [] {
     # need some directories to play with
     let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
     let path_a = ($base_path | path join "a")
@@ -17,7 +17,7 @@ export def setup [] {
     {base_path: $base_path, path_a:$path_a, path_b: $path_b}
 }
 
-export def teardown [] {
+def after-each [] {
     let base_path = $in.base_path
     cd $base_path
     cd ..
@@ -34,16 +34,16 @@ def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
     assert equal $expect_position $env.DIRS_POSITION $"position in ring after ($scenario)"
 }
 
-export def test_dirs_command [] {
+def test_dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
     let $c = $in
 
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
-    # the export def-env gets messed up
+    # the def-env gets messed up
     use std dirs
 
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
@@ -74,10 +74,10 @@ export def test_dirs_command [] {
     assert equal (dirs show) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
 }
 
-export def test_dirs_next [] {
+def test_dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
@@ -95,10 +95,10 @@ export def test_dirs_next [] {
 
 }
 
-export def test_dirs_cd [] {
+def test_dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
 
     use std dirs
