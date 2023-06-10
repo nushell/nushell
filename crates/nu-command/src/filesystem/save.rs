@@ -6,7 +6,7 @@ use nu_protocol::{
     Type, Value,
 };
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 use std::thread;
 
@@ -349,7 +349,9 @@ fn stream_to_file(
     span: Span,
     progress: bool,
 ) -> Result<PipelineData, ShellError> {
-    let mut writer = BufWriter::new(file);
+    // https://github.com/nushell/nushell/pull/9377 contains the reason
+    // for not using BufWriter<File>
+    let mut writer = file;
 
     let mut bytes_processed: u64 = 0;
     let bytes_processed_p = &mut bytes_processed;
