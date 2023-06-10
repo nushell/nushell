@@ -20,6 +20,7 @@ nu-ansi-term = "0.47.0"
 tabled = { git = "https://github.com/zhiburt/tabled", branch = "patch-wrapping-keeping-words", features = [
     "color",
 ], default-features = false }
+ahash = "0.8.3"
 
 [dev-dependencies]
 # nu-test-support = { path="../nu-test-support", version = "0.81.1"  }

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use ahash::HashMap;
 
 /// Return map of <deprecated_command_name, new_command_name>
 /// This covers simple deprecated commands nicely, but it's not great for deprecating
 /// subcommands like `foo bar` where `foo` is still a valid command.
 /// For those, it's currently easiest to have a "stub" command that just returns an error.
 pub fn deprecated_commands() -> HashMap<String, String> {
-    HashMap::from([
+    [
         ("keep".to_string(), "take".to_string()),
         ("match".to_string(), "find".to_string()),
         ("nth".to_string(), "select".to_string()),
@@ -25,5 +25,7 @@ pub fn deprecated_commands() -> HashMap<String, String> {
         ("benchmark".to_string(), "timeit".to_string()),
         ("str collect".to_string(), "str join".to_string()),
         ("old-alias".to_string(), "alias".to_string()),
-    ])
+    ]
+    .into_iter()
+    .collect()
 }

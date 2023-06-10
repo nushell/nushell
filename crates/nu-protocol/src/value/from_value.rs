@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use ahash::{HashMap, HashMapExt};
 use std::path::PathBuf;
 use std::str::FromStr;
 

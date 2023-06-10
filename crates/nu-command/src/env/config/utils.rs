@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use ahash::HashMap;
+use std::path::PathBuf;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
