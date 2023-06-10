@@ -143,7 +143,7 @@ export def equal [left: any, right: any, message?: string] {
     main ($left == $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"They are not equal. Left = ($left). Right = ($right)."
+        text: $"They are not equal. Left = '($left)'. Right = '($right)'."
     }
 }
 
@@ -160,7 +160,7 @@ export def "not equal" [left: any, right: any, message?: string] {
     main ($left != $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"They both are ($left)."
+        text: $"They both are '($left)'."
     }
 }
 
@@ -177,7 +177,7 @@ export def "less or equal" [left: any, right: any, message?: string] {
     main ($left <= $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: ($left), Right: ($right)"
+        text: $"Left: '($left)', Right: '($right)'"
     }
 }
 
@@ -193,7 +193,7 @@ export def less [left: any, right: any, message?: string] {
     main ($left < $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: ($left), Right: ($right)"
+        text: $"Left: '($left)', Right: '($right)'"
     }
 }
 
@@ -209,7 +209,7 @@ export def greater [left: any, right: any, message?: string] {
     main ($left > $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: ($left), Right: ($right)"
+        text: $"Left: '($left)', Right: '($right)'"
     }
 }
 
@@ -226,7 +226,7 @@ export def "greater or equal" [left: any, right: any, message?: string] {
     main ($left >= $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: ($left), Right: ($right)"
+        text: $"Left: '($left)', Right: '($right)'"
     }
 }
 

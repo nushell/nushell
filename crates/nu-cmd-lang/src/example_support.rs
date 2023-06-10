@@ -167,12 +167,8 @@ pub fn check_example_evaluates_to_expected_output(
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     engine_state
-        .merge_env(&mut stack)
+        .merge_env(&mut stack, cwd)
         .expect("Error merging environment");
-
-    engine_state
-        .set_current_working_dir(cwd)
-        .expect("Error setting CWD");
 
     let empty_input = PipelineData::empty();
     let result = eval(example.example, empty_input, cwd, engine_state);
