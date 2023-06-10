@@ -60,6 +60,12 @@ pub enum VirtualPath {
     Dir(Vec<VirtualPathId>),
 }
 
+pub struct ReplState {
+    pub buffer: String,
+    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
+    pub cursor_pos: usize,
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -118,10 +124,8 @@ pub struct EngineState {
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
-    pub repl_buffer_state: Arc<Mutex<String>>,
+    pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
-    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
-    pub repl_cursor_pos: Arc<Mutex<usize>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
@@ -174,8 +178,10 @@ impl EngineState {
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
-            repl_buffer_state: Arc::new(Mutex::new("".to_string())),
-            repl_cursor_pos: Arc::new(Mutex::new(0)),
+            repl_state: Arc::new(Mutex::new(ReplState {
+                buffer: "".to_string(),
+                cursor_pos: 0,
+            })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
