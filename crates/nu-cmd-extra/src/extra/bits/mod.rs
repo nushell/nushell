@@ -1,12 +1,12 @@
-mod and;
-mod bits_;
-mod not;
-mod or;
-mod rotate_left;
-mod rotate_right;
-mod shift_left;
-mod shift_right;
-mod xor;
+pub(crate) mod and;
+pub(crate) mod bits_;
+pub(crate) mod not;
+pub(crate) mod or;
+pub(crate) mod rotate_left;
+pub(crate) mod rotate_right;
+pub(crate) mod shift_left;
+pub(crate) mod shift_right;
+pub(crate) mod xor;
 
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::Spanned;
