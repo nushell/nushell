@@ -110,3 +110,17 @@ export def test_iter_flat_map [] {
     let res = ([1 2 3] | iter flat-map {|it| $it + ($it * 10)})
     assert equal $res [11 22 33]
 }
+
+export def test_iter_zip_into_record [] {
+    let headers = [name repo position]
+    let values = [rust github 1]
+
+    let res = (
+        $headers | iter zip-into-record $values
+    )
+
+    assert equal $res [
+        [name    repo    position];
+        [rust    github  1]
+    ]
+}
