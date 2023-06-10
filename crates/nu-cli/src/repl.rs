@@ -141,6 +141,7 @@ pub fn evaluate_repl(
         };
         line_editor = line_editor
             .with_history_session_id(history_session_id)
+            .with_history_exclusion_prefix(Some(" ".into()))
             .with_history(history);
     };
     perf(
