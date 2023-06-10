@@ -66,7 +66,7 @@ export def test [
 
 # run the tests for the standard library
 export def "test stdlib" [] {
-    cargo run -- -c "use std; std run-tests --path crates/nu-std"
+    cargo run -- -c "use std testing; testing run-tests --path crates/nu-std"
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
@@ -218,10 +218,10 @@ export def "check pr" [
     }
 
     try {
-        if $dataframe { 
-            clippy --dataframe --verbose 
-        } else { 
-            clippy --verbose 
+        if $dataframe {
+            clippy --dataframe --verbose
+        } else {
+            clippy --verbose
         }
     } catch {
         return (report --fail-clippy)
@@ -229,12 +229,12 @@ export def "check pr" [
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
-        if $fast and $dataframe { 
-            test --fast --dataframe 
-        } else if $fast { 
-            test --fast 
-        } else { 
-            test 
+        if $fast and $dataframe {
+            test --fast --dataframe
+        } else if $fast {
+            test --fast
+        } else {
+            test
         }
     } catch {
         return (report --fail-test)
