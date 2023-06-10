@@ -27,13 +27,10 @@ use crate::parse_keywords::{
     parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
 };
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use itertools::Itertools;
 use log::trace;
-use std::{
-    collections::{HashMap, HashSet},
-    num::ParseIntError,
-    str,
-};
+use std::{num::ParseIntError, str};
 
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;
@@ -1587,7 +1584,7 @@ pub fn parse_brace_expr(
         .get(1)
         .map(|token| working_set.get_span_contents(token.span));
 
-    if matches!(second_token, None) {
+    if second_token.is_none() {
         // If we're empty, that means an empty record or closure
         if matches!(shape, SyntaxShape::Closure(_)) {
             parse_closure_expression(working_set, shape, span)

@@ -11,6 +11,7 @@ use crate::ast::{Math, Operator};
 use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use ahash::HashMap;
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
@@ -25,7 +26,6 @@ pub use range::*;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult},
     iter,
     path::PathBuf,

@@ -159,8 +159,8 @@ impl PartialEq for HashableValue {
 #[cfg(test)]
 mod test {
     use super::*;
+    use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
     use nu_protocol::ast::{CellPath, PathMember};
-    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn from_value() {

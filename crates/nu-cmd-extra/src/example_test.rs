@@ -15,11 +15,11 @@ mod test_examples {
         check_example_input_and_output_types_match_command_signature,
     };
 
+    use ahash::{HashSet, HashSetExt};
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type,
     };
-    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();
