@@ -301,18 +301,6 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
     })
 }
 
-fn clone_file(file: &File, span: Span) -> Result<File, ShellError> {
-    file.try_clone().map_err(|err| {
-        ShellError::GenericError(
-            "Permission denied".into(),
-            err.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
-    })
-}
-
 /// Get output file and optional stderr file
 fn get_files(
     path: &Spanned<String>,
@@ -333,7 +321,13 @@ fn get_files(
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
             if path == stderr_path {
-                clone_file(&file, stderr_path_span)
+                Err(ShellError::GenericError(
+                    "input and stderr input to same file".to_string(),
+                    "can't save both input and stderr input to the same file".to_string(),
+                    Some(stderr_path_span),
+                    Some("you should use `o+e> file` instead".to_string()),
+                    vec![],
+                ))
             } else {
                 open_file(stderr_path, stderr_path_span, append)
             }
