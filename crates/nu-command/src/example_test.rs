@@ -14,6 +14,7 @@ mod test_examples {
         SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
+    use ahash::{HashSet, HashSetExt};
     use nu_cmd_lang::example_support::{
         check_all_signature_input_output_types_entries_have_examples,
         check_example_evaluates_to_expected_output,
@@ -24,7 +25,6 @@ mod test_examples {
         engine::{Command, EngineState, StateWorkingSet},
         Type,
     };
-    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();

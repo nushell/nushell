@@ -22,6 +22,7 @@ nu-ansi-term = "0.47.0"
 fancy-regex = "0.11"
 itertools = "0.10"
 shadow-rs = { version = "0.22", default-features = false }
+ahash = "0.8.3"
 
 [build-dependencies]
 shadow-rs = { version = "0.22", default-features = false }

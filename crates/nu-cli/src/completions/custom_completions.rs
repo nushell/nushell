@@ -1,4 +1,5 @@
 use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
+use ahash::{HashMap, HashMapExt};
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
@@ -6,7 +7,7 @@ use nu_protocol::{
     PipelineData, Span, Type, Value,
 };
 use reedline::Suggestion;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use super::completer::map_value_completions;
 

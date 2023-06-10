@@ -1,4 +1,5 @@
 use crate::{current_dir_str, get_full_help, nu_variable::NuVariable};
+use ahash::{HashMap, HashMapExt};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -9,7 +10,6 @@ use nu_protocol::{
     DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
     Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::collections::HashMap;
 use std::time::Instant;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {

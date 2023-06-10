@@ -25,4 +25,5 @@ strip-ansi-escapes = "0.1"
 crossterm = "0.26"
 ratatui = "0.20"
 ansi-str = "0.7"
+ahash = "0.8.3"
 lscolors = { version = "0.14", default-features = false, features = ["nu-ansi-term"] }

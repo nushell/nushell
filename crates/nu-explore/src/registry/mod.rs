@@ -1,11 +1,11 @@
 mod command;
 
-use std::{borrow::Cow, collections::HashMap};
-
 use crate::{
     commands::{SimpleCommand, ViewCommand},
     views::View,
 };
+use ahash::HashMap;
+use std::borrow::Cow;
 
 pub use command::Command;
 

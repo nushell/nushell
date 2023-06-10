@@ -7,17 +7,15 @@ use crate::{
     Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{ParseError, Value};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use core::panic;
 use std::borrow::Borrow;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc, Mutex,
-    },
+use std::sync::{
+    atomic::{AtomicBool, AtomicU32},
+    Arc, Mutex,
 };
 
 static PWD_ENV: &str = "PWD";
@@ -170,7 +168,9 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
+            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+                .into_iter()
+                .collect(),
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
@@ -436,7 +436,7 @@ impl EngineState {
             env_vars.insert(name, val);
         } else {
             self.env_vars
-                .insert(overlay_name, HashMap::from([(name, val)]));
+                .insert(overlay_name, [(name, val)].into_iter().collect());
         }
     }
 

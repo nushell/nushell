@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use ahash::HashMap;
 
 use crate::{BlockId, Value, VarId};
 

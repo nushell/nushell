@@ -1,4 +1,5 @@
 use crate::hook::eval_hook;
+use ahash::HashMap;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -11,7 +12,6 @@ use nu_protocol::{
 use nu_system::ForegroundProcess;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};

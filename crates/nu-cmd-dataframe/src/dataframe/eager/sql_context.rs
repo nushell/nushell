@@ -1,4 +1,5 @@
 use crate::dataframe::eager::sql_expr::parse_sql_expr;
+use ahash::{HashMap, HashMapExt};
 use polars::error::{ErrString, PolarsError};
 use polars::prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame};
 use sqlparser::ast::{
@@ -6,7 +7,6 @@ use sqlparser::ast::{
 };
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
-use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct SQLContext {

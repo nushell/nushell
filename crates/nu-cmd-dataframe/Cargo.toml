@@ -28,6 +28,7 @@ indexmap = { version = "1.7", features = ["serde-1"] }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.33", features = ["serde"], optional = true }
+ahash = "0.8.3"
 
 [dependencies.polars]
 features = [

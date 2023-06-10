@@ -1,3 +1,4 @@
+use ahash::HashSet;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Block, Call};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -5,7 +6,6 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::collections::HashSet;
 use std::iter::FromIterator;
 
 #[derive(Clone)]

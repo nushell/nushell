@@ -21,6 +21,7 @@ chrono = { default-features = false, features = ['std'], version = "0.4" }
 itertools = "0.10"
 log = "0.4"
 serde_json = "1.0"
+ahash = "0.8.3"
 
 [dev-dependencies]
 rstest = { version = "0.17", default-features = false }

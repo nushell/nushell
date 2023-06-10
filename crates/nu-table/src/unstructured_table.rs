@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Span, Value};
 use tabled::{
@@ -46,7 +44,7 @@ fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableThe
     let mut table = PoolTable::from(val);
 
     let mut theme = theme.get_theme_full();
-    theme.set_horizontals(HashMap::default());
+    theme.set_horizontals(std::collections::HashMap::default());
 
     table.with(SetRawStyle(theme));
     table.with(SetAlignment(AlignmentHorizontal::Left));
