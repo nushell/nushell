@@ -6,9 +6,9 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct BitsXor;
 
-impl Command for SubCommand {
+impl Command for BitsXor {
     fn name(&self) -> &str {
         "bits xor"
     }
@@ -98,6 +98,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(BitsXor {})
     }
 }

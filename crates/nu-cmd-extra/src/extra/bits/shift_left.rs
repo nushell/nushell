@@ -9,9 +9,9 @@ use num_traits::CheckedShl;
 use std::fmt::Display;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct BitsShl;
 
-impl Command for SubCommand {
+impl Command for BitsShl {
     fn name(&self) -> &str {
         "bits shl"
     }
@@ -178,6 +178,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(BitsShl {})
     }
 }
