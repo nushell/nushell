@@ -18,6 +18,7 @@ nu-engine = { path = "../nu-engine", version = "0.81.1" }
 nu-json = { path="../nu-json", version = "0.81.1"  }
 
 serde = { version="1.0", features=["derive"] }
+ahash = "0.8.3"
 
 [dev-dependencies]
 nu-test-support = { path="../nu-test-support", version = "0.81.1"  }
