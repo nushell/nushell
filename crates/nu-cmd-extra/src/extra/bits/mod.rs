@@ -8,42 +8,7 @@ pub(crate) mod shift_left;
 pub(crate) mod shift_right;
 pub(crate) mod xor;
 
-use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::Spanned;
-
-pub use and::SubCommand as BitsAnd;
-pub use bits_::Bits;
-pub use not::SubCommand as BitsNot;
-pub use or::SubCommand as BitsOr;
-pub use rotate_left::SubCommand as BitsRotateLeft;
-pub use rotate_right::SubCommand as BitsRotateRight;
-pub use shift_left::SubCommand as BitsShiftLeft;
-pub use shift_right::SubCommand as BitsShiftRight;
-pub use xor::SubCommand as BitsXor;
-
-pub fn add_bits_decls(working_set: &mut StateWorkingSet) {
-    macro_rules! bind_command {
-            ( $command:expr ) => {
-                working_set.add_decl(Box::new($command));
-            };
-            ( $( $command:expr ),* ) => {
-                $( working_set.add_decl(Box::new($command)); )*
-            };
-        }
-
-    // Dataframe commands
-    bind_command!(
-        Bits,
-        BitsAnd,
-        BitsNot,
-        BitsOr,
-        BitsXor,
-        BitsRotateLeft,
-        BitsRotateRight,
-        BitsShiftLeft,
-        BitsShiftRight
-    );
-}
 
 #[derive(Clone, Copy)]
 enum NumberBytes {
