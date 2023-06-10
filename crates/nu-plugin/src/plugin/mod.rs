@@ -1,7 +1,7 @@
 mod declaration;
+use ahash::HashMap;
 pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
-use std::collections::HashMap;
 
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::EncodingType;

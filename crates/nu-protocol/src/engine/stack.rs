@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
@@ -154,13 +154,14 @@ impl Stack {
                 if let Some(env_vars) = scope.get_mut(last_overlay) {
                     env_vars.insert(var, value);
                 } else {
-                    scope.insert(last_overlay.into(), HashMap::from([(var, value)]));
+                    scope.insert(last_overlay.into(), [(var, value)].into_iter().collect());
                 }
             } else {
-                self.env_vars.push(HashMap::from([(
-                    last_overlay.into(),
-                    HashMap::from([(var, value)]),
-                )]));
+                self.env_vars.push(
+                    [(last_overlay.into(), [(var, value)].into_iter().collect())]
+                        .into_iter()
+                        .collect(),
+                );
             }
         } else {
             // TODO: Remove panic
@@ -394,7 +395,7 @@ impl Stack {
                         env_hidden.insert(name.into());
                     } else {
                         self.env_hidden
-                            .insert(active_overlay.into(), HashSet::from([name.into()]));
+                            .insert(active_overlay.into(), [name.into()].into_iter().collect());
                     }
 
                     return true;

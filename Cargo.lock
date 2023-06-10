@@ -2666,6 +2666,7 @@ dependencies = [
 name = "nu-cli"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "atty",
  "chrono",
  "crossterm 0.26.1",
@@ -2695,6 +2696,7 @@ dependencies = [
 name = "nu-cmd-dataframe"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "chrono",
  "fancy-regex",
  "indexmap",
@@ -2713,6 +2715,7 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
@@ -2725,6 +2728,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "fancy-regex",
  "itertools",
  "nu-ansi-term",
@@ -2740,6 +2744,7 @@ dependencies = [
 name = "nu-color-config"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "nu-ansi-term",
  "nu-engine",
  "nu-json",
@@ -2754,6 +2759,7 @@ name = "nu-command"
 version = "0.81.1"
 dependencies = [
  "Inflector",
+ "ahash 0.8.3",
  "alphanumeric-sort",
  "atty",
  "base64 0.21.2",
@@ -2856,6 +2862,7 @@ dependencies = [
 name = "nu-engine"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "nu-glob",
  "nu-path",
  "nu-protocol",
@@ -2867,6 +2874,7 @@ dependencies = [
 name = "nu-explore"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "ansi-str",
  "crossterm 0.26.1",
  "lscolors",
@@ -2903,6 +2911,7 @@ dependencies = [
 name = "nu-parser"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "bytesize",
  "chrono",
  "itertools",
@@ -2928,6 +2937,7 @@ dependencies = [
 name = "nu-plugin"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "bincode",
  "nu-engine",
  "nu-protocol",
@@ -2949,6 +2959,7 @@ dependencies = [
 name = "nu-protocol"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "byte-unit",
  "chrono",
  "chrono-humanize",
@@ -2981,6 +2992,7 @@ dependencies = [
 name = "nu-system"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "atty",
  "chrono",
  "libc",
@@ -2998,6 +3010,7 @@ dependencies = [
 name = "nu-table"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
@@ -3092,6 +3105,7 @@ dependencies = [
 name = "nu_plugin_query"
 version = "0.81.1"
 dependencies = [
+ "ahash 0.8.3",
  "gjson",
  "nu-engine",
  "nu-plugin",
