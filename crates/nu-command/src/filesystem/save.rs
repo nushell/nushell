@@ -349,10 +349,8 @@ fn stream_to_file(
     span: Span,
     progress: bool,
 ) -> Result<PipelineData, ShellError> {
-    // Note: when saved from external stream to file, no need to use BufWriter
-    // so we can see the output of external stream in a file immediately.
-    //
-    // It's good for users to see running status of external program.
+    // https://github.com/nushell/nushell/pull/9377 contains the reason
+    // for not using BufWriter<File>
     let mut writer = file;
 
     let mut bytes_processed: u64 = 0;
