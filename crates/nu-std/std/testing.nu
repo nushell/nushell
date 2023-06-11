@@ -22,7 +22,7 @@ def valid-annotations [] {
 #
 # The way this works is we first generate an ast for a file and then extract all tokens containing keyword def with internalcall shape
 # Then for each token we extract the next token (the actual function name) and the previous token (usually closing bracket of previous function)
-# We then open the file as raw text and extract the last line of substring starting from the span end of previos token up to span start of the def token which contains the annotation and surrounding whitespaces
+# We then open the file as raw text and extract the last line of substring starting from the span end of previous token up to span start of the def token which contains the annotation and surrounding whitespaces
 # We take the last line only in order to not pick up unrelated comments from the source code
 def get-annotated [
     file: path
