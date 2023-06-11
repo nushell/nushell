@@ -1,6 +1,7 @@
 // Attribution: a lot of this came from procs https://github.com/dalance/procs
 // and sysinfo https://github.com/GuillaumeGomez/sysinfo
 
+use ahash::{HashMap, HashMapExt};
 use chrono::offset::TimeZone;
 use chrono::{Local, NaiveDate};
 use libc::c_void;
@@ -13,7 +14,6 @@ use ntapi::ntrtl::{RtlGetVersion, PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS
 use ntapi::ntwow64::{PEB32, PRTL_USER_PROCESS_PARAMETERS32, RTL_USER_PROCESS_PARAMETERS32};
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::ffi::OsString;
 use std::mem::{size_of, zeroed, MaybeUninit};
 use std::os::windows::ffi::OsStringExt;

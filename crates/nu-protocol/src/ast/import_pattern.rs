@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{span, ModuleId, Span};
-use std::collections::HashSet;
+use ahash::{HashSet, HashSetExt};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImportPatternMember {

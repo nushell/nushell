@@ -2,9 +2,9 @@ use crate::{
     nu_style::{color_from_hex, lookup_style},
     parse_nustyle, NuStyle,
 };
+use ahash::{HashMap, HashMapExt};
 use nu_ansi_term::Style;
 use nu_protocol::Value;
-use std::collections::HashMap;
 
 pub fn lookup_ansi_color_style(s: &str) -> Style {
     if s.starts_with('#') {
@@ -107,7 +107,7 @@ mod tests {
         let style = color_string_to_nustyle(color_string);
         assert_eq!(style.foreground, Some(Color::Black));
         assert_eq!(style.background, Some(Color::White));
-        assert_eq!(style.is_bold, true);
+        assert!(style.is_bold);
     }
 
     #[test]

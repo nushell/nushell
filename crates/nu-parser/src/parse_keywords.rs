@@ -1,4 +1,5 @@
 use crate::parser_path::ParserPath;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -11,7 +12,6 @@ use nu_protocol::{
     span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
-use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -464,7 +464,7 @@ pub fn parse_def(
 
             *declaration = signature.clone().into_block_command(block_id);
 
-            let mut block = working_set.get_block_mut(block_id);
+            let block = working_set.get_block_mut(block_id);
             let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
