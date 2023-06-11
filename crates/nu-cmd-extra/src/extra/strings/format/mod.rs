@@ -1,5 +1,5 @@
 mod command;
 mod filesize;
 
-pub use self::filesize::FileSize;
-pub use command::Format;
+pub(crate) use command::Format;
+pub(crate) use filesize::FileSize;
