@@ -1,6 +1,7 @@
 use std
 
-def test_path_add [] {
+# test
+def path_add [] {
     use std assert
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
@@ -35,6 +36,7 @@ def test_path_add [] {
     }
 }
 
-def test_banner [] {
+# test
+def banner [] {
     std assert ((std banner | lines | length) == 15)
 }
