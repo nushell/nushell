@@ -784,22 +784,21 @@ fn test_expand_big_0() {
             "│                  │ │               │ │          │ │           │ field} │ │ │ │",
             "│                  │ │               │ │          │ │ pkg-fmt   │ tgz    │ │ │ │",
             "│                  │ │               │ │          │ │ pkg-url   │ { repo │ │ │ │",
-            "│                  │ │               │ │          │ │           │        │ │ │ │",
-            "│                  │ │               │ │          │ │           │ }/rele │ │ │ │",
-            "│                  │ │               │ │          │ │           │ ases/d │ │ │ │",
-            "│                  │ │               │ │          │ │           │ ownloa │ │ │ │",
-            "│                  │ │               │ │          │ │           │ d/{    │ │ │ │",
-            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
-            "│                  │ │               │ │          │ │           │ n }/{  │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }/rel │ │ │ │",
+            "│                  │ │               │ │          │ │           │ eases/ │ │ │ │",
+            "│                  │ │               │ │          │ │           │ downlo │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ad/{ v │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ersion │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }/{   │ │ │ │",
             "│                  │ │               │ │          │ │           │ name   │ │ │ │",
+            "│                  │ │               │ │          │ │           │ }-{ ve │ │ │ │",
+            "│                  │ │               │ │          │ │           │ rsion  │ │ │ │",
             "│                  │ │               │ │          │ │           │ }-{    │ │ │ │",
-            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
-            "│                  │ │               │ │          │ │           │ n }-{  │ │ │ │",
             "│                  │ │               │ │          │ │           │ target │ │ │ │",
-            "│                  │ │               │ │          │ │           │  }.{   │ │ │ │",
-            "│                  │ │               │ │          │ │           │ archiv │ │ │ │",
-            "│                  │ │               │ │          │ │           │ e-form │ │ │ │",
-            "│                  │ │               │ │          │ │           │ at }   │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }.{ a │ │ │ │",
+            "│                  │ │               │ │          │ │           │ rchive │ │ │ │",
+            "│                  │ │               │ │          │ │           │ -forma │ │ │ │",
+            "│                  │ │               │ │          │ │           │ t }    │ │ │ │",
             "│                  │ │               │ │          │ ╰───────────┴────────╯ │ │ │",
             "│                  │ │               │ ╰──────────┴────────────────────────╯ │ │",
             "│                  │ │ name          │ nu                                    │ │",
@@ -1046,6 +1045,8 @@ fn test_expand_big_0() {
             "open sample.toml | table --expand --width=60"
         ));
 
+        _print_lines(&actual.out, 60);
+
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────╮",
             "│                  │ ╭───┬─────────┬────────────╮          │",
@@ -1230,9 +1231,8 @@ fn test_expand_big_0() {
             "│ package          │ │               │ ╭───┬───────────╮ │ │",
             "│                  │ │ authors       │ │ 0 │ The       │ │ │",
             "│                  │ │               │ │   │ Nushell   │ │ │",
-            "│                  │ │               │ │   │ Project   │ │ │",
-            "│                  │ │               │ │   │ Developer │ │ │",
-            "│                  │ │               │ │   │ s         │ │ │",
+            "│                  │ │               │ │   │ Project D │ │ │",
+            "│                  │ │               │ │   │ evelopers │ │ │",
             "│                  │ │               │ ╰───┴───────────╯ │ │",
             "│                  │ │ default-run   │ nu                │ │",
             "│                  │ │ description   │ A new type of     │ │",
@@ -1266,9 +1266,8 @@ fn test_expand_big_0() {
             "│                  │ ╭───────────┬───────────────────────╮ │",
             "│ patch            │ │           │ ╭──────────┬────────╮ │ │",
             "│                  │ │ crates-io │ │ reedline │ {recor │ │ │",
-            "│                  │ │           │ │          │ d 2    │ │ │",
-            "│                  │ │           │ │          │ fields │ │ │",
-            "│                  │ │           │ │          │ }      │ │ │",
+            "│                  │ │           │ │          │ d 2 fi │ │ │",
+            "│                  │ │           │ │          │ elds}  │ │ │",
             "│                  │ │           │ ╰──────────┴────────╯ │ │",
             "│                  │ ╰───────────┴───────────────────────╯ │",
             "│ target           │ {record 3 fields}                     │",
@@ -1311,6 +1310,8 @@ fn test_expand_big_0() {
             cwd: dirs.test(), pipeline(
             "open sample.toml | table --expand --width=40"
         ));
+
+        _print_lines(&actual.out, 40);
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────╮",
@@ -1607,7 +1608,6 @@ fn table_expande_with_no_header_internally_1() {
 
     let actual = nu!(format!("{} | table --expand --width 136", nu_value.trim()));
 
-    println!("{}", actual.out);
     assert_eq!(
         actual.out,
         join_lines([
