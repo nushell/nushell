@@ -330,8 +330,12 @@ export def run-tests [
     let modules = (
         ls ($path | path join $module_search_pattern)
         | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
-        | upsert commands {|module|
+        | insert commands {|module|
             get-annotated $module.file
+        }
+        | filter {|x| ($x.commands|length) > 0 and ($x.commands.annotation|any {|y| $y in (valid-annotations)})} # if file has no private functions at all or no functions annotated with a valid annotation we drop it
+        | upsert commands {|module|
+            $module.commands
             | create-test-record
         }
         | flatten
