@@ -20,12 +20,11 @@ def assert_pass [] {
 # test-skip
 def assert_skip [] {
     log debug $"Assert is running. Context: ($in)"
-    assert skip
 }
 
 # test-skip
 def assert_fail_skipped_by_default [] {
-    assert skip # Comment this line if you want to see what happens if a test fails
+    # Change test-skip to test if you want to see what happens if a test fails
     log debug $"Assert is running. Context: ($in)"
     assert false
 }
