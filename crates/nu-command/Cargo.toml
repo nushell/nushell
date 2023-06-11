@@ -89,7 +89,7 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 sqlparser = { version = "0.33", features = ["serde"], optional = true }
 sysinfo = "0.29"
-tabled = "0.12"
+tabled = { version = "0.12.2", features = ["color"], default-features = false }
 terminal_size = "0.2"
 titlecase = "2.0"
 toml = "0.7"
