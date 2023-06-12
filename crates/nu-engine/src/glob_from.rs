@@ -34,12 +34,14 @@ pub fn glob_from(
         Err(_) => false,
     };
 
-    let (prefix, pattern) = if path.to_string_lossy().contains('*') {
+    // Check for brakets first
+    let (prefix, pattern) = if path.to_string_lossy().contains('[') {
         // Path is a glob pattern => do not check for existence
         // Select the longest prefix until the first '*'
         let mut p = PathBuf::new();
         let components = path.components();
         let mut counter = 0;
+
         // Get the path up to the pattern which we'll call the prefix
         for c in components {
             if let Component::Normal(os) = c {
@@ -60,6 +62,20 @@ pub fn glob_from(
         }
 
         (Some(p), just_pattern)
+    } else if path.to_string_lossy().contains('*') {
+        // Path is a glob pattern => do not check for existence
+        // Select the longest prefix until the first '*'
+        let mut p = PathBuf::new();
+        for c in path.components() {
+            if let Component::Normal(os) = c {
+                if os.to_string_lossy().contains('*') {
+                    break;
+                }
+            }
+            p.push(c);
+        }
+
+        (Some(p), path)
     } else if is_symlink {
         (path.parent().map(|parent| parent.to_path_buf()), path)
     } else {
