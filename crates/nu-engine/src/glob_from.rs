@@ -34,7 +34,7 @@ pub fn glob_from(
         Err(_) => false,
     };
 
-    // Check for brakets first
+    // Check for brackets first
     let (prefix, pattern) = if path.to_string_lossy().contains('[') {
         // Path is a glob pattern => do not check for existence
         // Select the longest prefix until the first '*'
