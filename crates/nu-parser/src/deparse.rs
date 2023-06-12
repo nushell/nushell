@@ -26,6 +26,9 @@ pub fn escape_for_script_arg(input: &str) -> String {
                 format!("`{arg_val}`")
             } else if arg_val.contains('"') || arg_val.contains('\\') {
                 escape_quote_string(arg_val)
+            } else if arg_val.is_empty() {
+                // return an empty string
+                "''".to_string()
             } else {
                 arg_val.into()
             };
@@ -37,6 +40,9 @@ pub fn escape_for_script_arg(input: &str) -> String {
         format!("`{input}`")
     } else if input.contains('"') || input.contains('\\') {
         escape_quote_string(input)
+    } else if input.is_empty() {
+        // return an empty string
+        "''".to_string()
     } else {
         input.to_string()
     }
