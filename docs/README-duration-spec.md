@@ -6,13 +6,14 @@ Deliverables described in more detail below.
 
 - [x] NuDuration datatype consists of unit + quantity
 - [x] Parser recognizes NuDuration literals
-- [ ] Operators
-  - [ ] `<duration> cmp-op <duration>` works for all `> < >= <= ==`; gives "incompatible types" if both durations not in same range and not comparable by heuristic.
-  - [ ] `<duration> cmp-op <number>` works for `<duration>` in days range, converting duration to ns; gives "incompatible types" error otherwise.
-  - [ ] `<duration> plus-minus-op <duration> -> duration` works for both durations in *same* range, result is duration in lesser of the 2 units; gives "incompatibible units" error otherwise.  To add durations in different ranges, see
-  - [ ] `<duration> div-mul-op <number> -> duration` works for any duration, result is duration in same units
-  - [ ] `<datetime> plus-minus-op <duration> -> <datetime>` works for any duration.
-  - [ ] `<datetime> minus-op <datetime> -> duration` works, result is nanoseconds; "overflow" error if not enough nanoseconds to express duration.  
+- [x] Operators
+  - [x] `<duration> cmp-op <duration>` works for all `> < >= <= ==`; gives "incompatible types" if both durations not in same range and not comparable by heuristic.
+  - [x] `<duration> cmp-op <number>` works for `<duration>` in days range, converting duration to ns; comparison fails otherwise. (partial_cmp returns None, but lhs cmp-op rhs just fails)
+  - [x] `<duration> plus-minus-op <duration> -> duration` works for both durations in *same* range, result is duration in lesser of the 2 units; gives "incompatibible units" error otherwise.  To add durations in different ranges, see
+  - [x] `<duration> plus-minus-op <number> -> number` works for duration in days range, converting duration to ns and adding to number.  Gives "incompatible time unit" error otherwise.
+  - [x] `<duration> div-mul-op <number> -> duration` works for any duration, result is duration in same units
+  - [x] `<datetime> plus-minus-op <duration> -> <datetime>` works for any duration.
+  - [x] `<datetime> minus-op <datetime> -> duration` works, result is nanoseconds; "overflow" error if not enough nanoseconds to express duration.  
 - [ ] Command conventions -- apply to all the commands below
   - [ ] `--unit <duration_unit>` parameter accepts all the aliases supported by duration literals, or an actual duration value (quantity ignored)
   - [ ] `--base-date <datetime>` for specifying a base date in many of the commands below
