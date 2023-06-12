@@ -2,7 +2,7 @@
 //! implement nested units: start_day_in_... and monday, tuesday (as next or prev day of week)
 //! implement is_negative, From, other traits to avoid special case code in ../from_value and ../from
 use crate::DURATION_UNIT_GROUPS;
-use crate::{ShellError, Span, Unit};
+use crate::{ShellError, Span, Unit, Value};
 use chrono::{DateTime, Datelike, FixedOffset};
 use serde::{Deserialize, Serialize};
 use std::{cmp::min, cmp::Ordering, fmt};
@@ -60,6 +60,15 @@ impl NuDuration {
         NuDuration {
             quantity: ns,
             unit: Unit::Nanosecond,
+        }
+    }
+
+    /// Return value of duration in nanoseconds, if possible
+    pub fn to_ns(&self) -> Option<i64> {
+        if self.unit.unit_scale().1 == Unit::Nanosecond {
+            UnitSize::checked_mul(self.quantity, self.unit.unit_scale().0)
+        } else {
+            None
         }
     }
 
@@ -189,6 +198,29 @@ impl NuDuration {
             Some(NuDuration { unit, quantity })
         } else {
             None
+        }
+    }
+
+    /// add duration to duration, with standard error if needed
+    pub fn add_or_err(
+        &self,
+        rhs: &Self,
+        whole_span: &Span,
+        self_span: &Span,
+        rhs_span: &Span,
+    ) -> std::result::Result<Value, ShellError> {
+        if let Some(val) = self.add(rhs) {
+            Ok(Value::Duration {
+                val,
+                span: *whole_span,
+            })
+        } else {
+            Err(ShellError::InvalidUnitRange {
+                lhs_unit: self.unit_name(),
+                lhs_span: *self_span,
+                rhs_unit: rhs.unit_name(),
+                rhs_span: *rhs_span,
+            })
         }
     }
 
@@ -651,6 +683,27 @@ mod test {
             reversed_exp_cmp,
             rhs.partial_cmp(&lhs),
             "reversed partial cmp: reversed expected matches observed"
+        );
+    }
+
+    #[rstest]
+    #[case(22, Unit::Nanosecond, Some(22))]
+    #[case(1, Unit::Month, None)]
+    #[case(i64::MAX - 1, Unit::Week, None)]
+
+    fn test_to_ns(
+        #[case] quan: UnitSize,
+        #[case] unit: Unit,
+        #[case] exp_result: Option<UnitSize>,
+    ) {
+        assert_eq!(
+            exp_result,
+            NuDuration {
+                quantity: quan,
+                unit
+            }
+            .to_ns(),
+            "to_ns: expected matches observed"
         );
     }
 }

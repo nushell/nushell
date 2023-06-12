@@ -1770,7 +1770,7 @@ impl PartialOrd for Value {
                 Value::Int { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Float { val: rhs, .. } => compare_floats(*lhs as f64, *rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
-                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Duration { val: rhs, .. } => lhs.partial_cmp(&rhs.to_ns()?),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
@@ -1791,7 +1791,7 @@ impl PartialOrd for Value {
                 Value::Int { val: rhs, .. } => compare_floats(*lhs, *rhs as f64),
                 Value::Float { val: rhs, .. } => compare_floats(*lhs, *rhs),
                 Value::Filesize { .. } => Some(Ordering::Less),
-                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Duration { val: rhs, .. } => lhs.partial_cmp(&(rhs.to_ns()? as f64)),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
@@ -1830,8 +1830,8 @@ impl PartialOrd for Value {
             },
             (Value::Duration { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Int { val: rhs, .. } => (lhs.to_ns()?).partial_cmp(rhs),
+                Value::Float { val: rhs, .. } => (lhs.to_ns()? as f64).partial_cmp(rhs),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Date { .. } => Some(Ordering::Less),
@@ -2165,6 +2165,16 @@ impl Value {
                 val: *lhs as f64 + *rhs,
                 span,
             }),
+            (
+                Value::Int { val: lhs, .. },
+                Value::Duration {
+                    val: rhs,
+                    span: rhs_span,
+                },
+            ) => Ok(Value::Int {
+                val: *lhs + rhs.to_ns_or_err(*rhs_span)?,
+                span,
+            }),
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs + *rhs as f64,
                 span,
@@ -2173,6 +2183,17 @@ impl Value {
                 val: lhs + rhs,
                 span,
             }),
+            (
+                Value::Float { val: lhs, .. },
+                Value::Duration {
+                    val: rhs,
+                    span: rhs_span,
+                },
+            ) => Ok(Value::Float {
+                val: *lhs + (rhs.to_ns_or_err(*rhs_span)? as f64),
+                span,
+            }),
+
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
                 val: lhs.to_string() + rhs,
                 span,
@@ -2190,25 +2211,46 @@ impl Value {
             }
             (
                 Value::Duration {
-                    val: lhs,
+                    val: lhs_val,
                     span: lhs_span,
                 },
                 Value::Duration {
-                    val: rhs,
+                    val: rhs_val,
                     span: rhs_span,
                 },
-            ) => {
-                if let Some(val) = lhs.add(rhs) {
-                    Ok(Value::Duration { val, span })
+            ) => lhs_val.add_or_err(rhs_val, &span, lhs_span, rhs_span),
+            (
+                Value::Duration {
+                    val: lhs,
+                    span: lhs_span,
+                },
+                Value::Float { val: rhs, .. },
+            ) => Ok(Value::Float {
+                val: (lhs.to_ns_or_err(*lhs_span)? as f64) + *rhs,
+                span,
+            }),
+            (
+                Value::Duration {
+                    val: lhs,
+                    span: lhs_span,
+                },
+                Value::Int { val: rhs, .. },
+            ) => Ok(Value::Int {
+                val: lhs.to_ns_or_err(*lhs_span)? + *rhs,
+                span,
+            }),
+            (Value::Duration { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                if let Some(val) = lhs.add_self_to_date(rhs) {
+                    Ok(Value::Date { val, span })
                 } else {
-                    Err(ShellError::InvalidUnitRange {
-                        lhs_unit: lhs.unit_name(),
-                        lhs_span: *lhs_span,
-                        rhs_unit: rhs.unit_name(),
-                        rhs_span: *rhs_span,
+                    Err(ShellError::OperatorOverflow {
+                        msg: "duration add operation overflowed".into(),
+                        span,
+                        help: "Consider using larger duration time units.".into(),
                     })
                 }
             }
+
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::Filesize { val, span })
@@ -2285,6 +2327,17 @@ impl Value {
                 val: *lhs as f64 - *rhs,
                 span,
             }),
+            (
+                Value::Int { val: lhs_val, .. },
+                Value::Duration {
+                    val: rhs_val,
+                    span: rhs_span,
+                },
+            ) => Ok(Value::Int {
+                val: *lhs_val + rhs_val.to_ns_or_err(*rhs_span)?,
+                span,
+            }),
+
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs - *rhs as f64,
                 span,
@@ -2293,6 +2346,17 @@ impl Value {
                 val: lhs - rhs,
                 span,
             }),
+            (
+                Value::Float { val: lhs_val, .. },
+                Value::Duration {
+                    val: rhs_val,
+                    span: rhs_span,
+                },
+            ) => Ok(Value::Float {
+                val: *lhs_val + (rhs_val.to_ns_or_err(*rhs_span)? as f64),
+                span,
+            }),
+
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
                 if let Some(val) = NuDuration::duration_diff(
                     // use command `date diff` for more control of duration units
@@ -2320,25 +2384,46 @@ impl Value {
             }
             (
                 Value::Duration {
-                    val: lhs,
+                    val: lhs_val,
                     span: lhs_span,
                 },
                 Value::Duration {
-                    val: rhs,
+                    val: rhs_val,
                     span: rhs_span,
                 },
-            ) => {
-                if let Some(val) = lhs.add(&(-(*rhs))) {
-                    Ok(Value::Duration { val, span })
+            ) => lhs_val.add_or_err(&-*rhs_val, &span, lhs_span, rhs_span),
+            (
+                Value::Duration {
+                    val: lhs_val,
+                    span: lhs_span,
+                },
+                Value::Int { val: rhs_val, .. },
+            ) => Ok(Value::Int {
+                val: lhs_val.to_ns_or_err(*lhs_span)? + rhs_val,
+                span,
+            }),
+            (
+                Value::Duration {
+                    val: lhs_val,
+                    span: lhs_span,
+                },
+                Value::Float { val: rhs_val, .. },
+            ) => Ok(Value::Float {
+                val: (lhs_val.to_ns_or_err(*lhs_span)? as f64) + rhs_val,
+                span,
+            }),
+            (Value::Duration { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                if let Some(val) = (-*lhs).add_self_to_date(rhs) {
+                    Ok(Value::Date { val, span })
                 } else {
-                    Err(ShellError::InvalidUnitRange {
-                        lhs_unit: lhs.unit_name(),
-                        lhs_span: *lhs_span,
-                        rhs_unit: rhs.unit_name(),
-                        rhs_span: *rhs_span,
+                    Err(ShellError::OperatorOverflow {
+                        msg: "duration add operation overflowed".into(),
+                        span,
+                        help: "Consider using larger duration time units.".into(),
                     })
                 }
             }
+
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::Filesize { val, span })
@@ -3688,6 +3773,23 @@ mod tests {
                 list_of_ints_and_floats.get_type(),
                 Type::List(Box::new(Type::Number))
             );
+        }
+    }
+
+    mod duration_ops {
+        use super::*;
+        use crate::{NuDuration, Unit};
+        use chrono::{DateTime, FixedOffset};
+
+        #[test]
+        fn test_dur_plus_date() {
+            let a_date = Value::test_date(
+                DateTime::<FixedOffset>::parse_from_rfc3339("1970-01-01T00:00:00+00:00").unwrap(),
+            );
+            let b_duration = Value::test_duration(NuDuration::new(5, Unit::Day));
+
+            let observed = b_duration.add(Span::test_data(), &a_date, Span::test_data());
+            assert!(observed.expect("foo") > a_date);
         }
     }
 }
