@@ -65,6 +65,7 @@ nu-utils = { path = "./crates/nu-utils", version = "0.81.1" }
 nu-ansi-term = "0.47.0"
 reedline = { version = "0.20.0", features = ["bashisms", "sqlite"]}
 
+mimalloc = { version = "0.1.37", default-features = false }
 crossterm = "0.26"
 ctrlc = "3.2"
 log = "0.4"
