@@ -309,26 +309,24 @@ impl std::cmp::PartialOrd for NuDuration {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if let Some(q) = self.compare_to(other) {
             Some(UnitSize::cmp(&q.0, &q.1))
-        } else {
-            if let Some(cdm) = self.compare_days_months(other) {
-                if cdm.days < cdm.months * 28 {
-                    if cdm.lhs_is_days {
-                        Some(Ordering::Less)
-                    } else {
-                        Some(Ordering::Greater)
-                    }
-                } else if cdm.days >= cdm.months * 31 {
-                    if cdm.lhs_is_days {
-                        Some(Ordering::Greater)
-                    } else {
-                        Some(Ordering::Less)
-                    }
+        } else if let Some(cdm) = self.compare_days_months(other) {
+            if cdm.days < cdm.months * 28 {
+                if cdm.lhs_is_days {
+                    Some(Ordering::Less)
                 } else {
-                    None
+                    Some(Ordering::Greater)
+                }
+            } else if cdm.days >= cdm.months * 31 {
+                if cdm.lhs_is_days {
+                    Some(Ordering::Greater)
+                } else {
+                    Some(Ordering::Less)
                 }
             } else {
-                None // can't compare incompatible units (at all)
+                None
             }
+        } else {
+            None // can't compare incompatible units (at all)
         }
     }
 }

@@ -49,7 +49,7 @@ The new duration `Value::` is called, naturally, `NuDuration` both here and in t
 ### "day" range vs "month" range durations
 Duration can now represent nanoseconds through weeks (the "day" range) and also months through millennia ("months" range).  
 
-It is not possible to add or subtract durations from different ranges exactly, becuause of the variable number of days in a month, or, to a lesser extent, the variable number of days in a (leap) year.  It is likewise not always possible to *compare* durations from different ranges, although hueristics can be applied to do cross-range comparisons for much of the duration axis.
+It is not possible to add or subtract durations from different ranges exactly, becuause of the variable number of days in a month, or, to a lesser extent, the variable number of days in a (leap) year.  It is likewise not always possible to *compare* durations from different ranges, although heuristics can be applied to do cross-range comparisons for much of the duration axis.
 
 The user *can* recover full comparison and arithmetic operation capability by providing a specific base date: then the calculation can be done by first adding each duration to the base date and either comparing the resulting dates or subtracting them to produce a duration.
 ### duration quantity as an int, with truncation
