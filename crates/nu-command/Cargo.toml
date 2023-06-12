@@ -45,7 +45,7 @@ crossterm = "0.26"
 csv = "1.2"
 dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10" }
 digest = { default-features = false, version = "0.10" }
-dtparse = "1.4"
+dtparse = "1.5"
 encoding_rs = "0.8"
 fancy-regex = "0.11"
 filesize = "0.2"
