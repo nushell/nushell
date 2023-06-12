@@ -29,7 +29,7 @@ nu-system = { path = "../nu-system", version = "0.81.1" }
 nu-table = { path = "../nu-table", version = "0.81.1" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.81.1" }
 nu-utils = { path = "../nu-utils", version = "0.81.1" }
-nu-ansi-term = "0.47.0"
+nu-ansi-term = "0.48.0"
 
 alphanumeric-sort = "1.5"
 ahash = "0.8.3"

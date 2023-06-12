@@ -62,7 +62,7 @@ nu-table = { path = "./crates/nu-table", version = "0.81.1" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.81.1" }
 nu-std = { path = "./crates/nu-std", version = "0.81.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.81.1" }
-nu-ansi-term = "0.47.0"
+nu-ansi-term = "0.48.0"
 reedline = { version = "0.20.0", features = ["bashisms", "sqlite"]}
 
 crossterm = "0.26"

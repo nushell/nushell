@@ -2248,7 +2248,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18a9df1d1fb6d9e92fa043e9eb9a3ecf6892c7b542bae5137cd1e419e40aa8bf"
 dependencies = [
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
 ]
 
 [[package]]
@@ -2630,7 +2630,7 @@ dependencies = [
  "log",
  "miette",
  "nix",
- "nu-ansi-term",
+ "nu-ansi-term 0.48.0",
  "nu-cli",
  "nu-cmd-dataframe",
  "nu-cmd-lang",
@@ -2672,6 +2672,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-ansi-term"
+version = "0.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db8e83967c32f9210ce85ac7e9c4b731048c1f51c4262e08bad01af30097a424"
+dependencies = [
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "nu-cli"
 version = "0.81.1"
 dependencies = [
@@ -2684,7 +2693,7 @@ dependencies = [
  "is_executable",
  "log",
  "miette",
- "nu-ansi-term",
+ "nu-ansi-term 0.48.0",
  "nu-color-config",
  "nu-command",
  "nu-engine",
@@ -2740,7 +2749,7 @@ dependencies = [
  "ahash 0.8.3",
  "fancy-regex",
  "itertools",
- "nu-ansi-term",
+ "nu-ansi-term 0.48.0",
  "nu-color-config",
  "nu-engine",
  "nu-parser",
@@ -2754,7 +2763,7 @@ name = "nu-color-config"
 version = "0.81.1"
 dependencies = [
  "ahash 0.8.3",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-engine",
  "nu-json",
  "nu-protocol",
@@ -2804,7 +2813,7 @@ dependencies = [
  "mockito",
  "native-tls",
  "notify",
- "nu-ansi-term",
+ "nu-ansi-term 0.48.0",
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
@@ -2887,7 +2896,7 @@ dependencies = [
  "ansi-str 0.7.2",
  "crossterm 0.26.1",
  "lscolors",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-color-config",
  "nu-engine",
  "nu-json",
@@ -2960,7 +2969,7 @@ name = "nu-pretty-hex"
 version = "0.81.1"
 dependencies = [
  "heapless",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "rand 0.8.5",
 ]
 
@@ -3020,7 +3029,7 @@ name = "nu-table"
 version = "0.81.1"
 dependencies = [
  "ahash 0.8.3",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-color-config",
  "nu-engine",
  "nu-protocol",
@@ -4349,7 +4358,7 @@ dependencies = [
  "crossterm 0.26.1",
  "fd-lock",
  "itertools",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "rusqlite",
  "serde",
  "serde_json",
