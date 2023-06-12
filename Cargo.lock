@@ -1063,9 +1063,9 @@ dependencies = [
 
 [[package]]
 name = "dtparse"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbd3b6a23c50eb90a80bdb748042620328617e76276b99dc5c97906e47f807c3"
+checksum = "68235de3c014ade82e550337b2c88a2a884361793ed3be2d74ee703bd810e401"
 dependencies = [
  "chrono",
  "lazy_static",
