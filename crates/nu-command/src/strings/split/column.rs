@@ -45,7 +45,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["separate", "divide"]
+        vec!["separate", "divide", "regex"]
     }
 
     fn run(

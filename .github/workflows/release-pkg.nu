@@ -76,6 +76,16 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
             let-env CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
             cargo-build-nu $flags
         }
+        'riscv64gc-unknown-linux-gnu' => {
+            sudo apt-get install gcc-riscv64-linux-gnu -y
+            let-env CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
+            cargo-build-nu $flags
+        }
+        'armv7-unknown-linux-gnueabihf' => {
+            sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
+            let-env CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
+            cargo-build-nu $flags
+        }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
