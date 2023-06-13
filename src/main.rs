@@ -43,7 +43,8 @@ fn main() -> Result<()> {
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
-    let mut engine_state = nu_cli::add_cli_context(create_default_context());
+    let mut engine_state =
+        nu_explore::add_explore_context(nu_cli::add_cli_context(create_default_context()));
 
     // Custom additions
     let delta = {

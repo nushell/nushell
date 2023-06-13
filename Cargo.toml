@@ -51,6 +51,7 @@ nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.81.1" }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.81.1", optional = true }
 nu-command = { path = "./crates/nu-command", version = "0.81.1" }
 nu-engine = { path = "./crates/nu-engine", version = "0.81.1" }
+nu-explore = { path = "./crates/nu-explore", version = "0.81.1" }
 nu-json = { path = "./crates/nu-json", version = "0.81.1" }
 nu-parser = { path = "./crates/nu-parser", version = "0.81.1" }
 nu-path = { path = "./crates/nu-path", version = "0.81.1" }
