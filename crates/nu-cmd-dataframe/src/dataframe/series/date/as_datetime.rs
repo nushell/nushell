@@ -148,7 +148,6 @@ fn command(
             TimeUnit::Nanoseconds,
             false,
             false,
-            true,
             None,
         )
     };
