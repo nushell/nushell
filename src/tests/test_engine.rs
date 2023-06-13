@@ -387,7 +387,7 @@ fn in_iteration() -> TestResult {
 }
 
 #[test]
-fn reuseable_in() -> TestResult {
+fn reusable_in() -> TestResult {
     run_test(
         r#"[1, 2, 3, 4] | take (($in | length) - 1) | math sum"#,
         "6",

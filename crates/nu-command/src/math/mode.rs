@@ -1,4 +1,5 @@
 use crate::math::utils::run_with_function;
+use ahash::{HashMap, HashMapExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -142,7 +143,7 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
 
-    let mut frequency_map = std::collections::HashMap::new();
+    let mut frequency_map = HashMap::new();
     for v in hashable_values {
         let counter = frequency_map.entry(v).or_insert(0);
         *counter += 1;

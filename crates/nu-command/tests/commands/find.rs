@@ -94,3 +94,28 @@ fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
 
     assert_eq!(actual.out, r#"["Maurice"]"#);
 }
+
+#[test]
+fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
+    let actual = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find Maurice");
+
+    println!("{:?}", actual.out);
+    assert!(actual.out.contains("moe"));
+    assert!(actual.out.contains("Maurice"));
+    assert!(actual.out.contains("23"));
+}
+
+#[test]
+fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
+    let actual = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find moe William");
+
+    println!("{:?}", actual.out);
+    assert!(actual.out.contains("moe"));
+    assert!(actual.out.contains("Maurice"));
+    assert!(actual.out.contains("23"));
+    assert!(actual.out.contains("William"));
+    assert!(actual.out.contains("will"));
+    assert!(actual.out.contains("18"));
+    assert!(actual.out.contains("bill"));
+    assert!(actual.out.contains("60"));
+}

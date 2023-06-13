@@ -66,7 +66,7 @@ export def test [
 
 # run the tests for the standard library
 export def "test stdlib" [] {
-    cargo run -- -c "use std; std run-tests --path crates/nu-std"
+    cargo run -- -c "use std testing; testing run-tests --path crates/nu-std"
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
@@ -234,7 +234,7 @@ export def "check pr" [
         } else if $fast {
             test --fast
         } else {
-            test 
+            test
         }
     } catch {
         return (report --fail-test)
