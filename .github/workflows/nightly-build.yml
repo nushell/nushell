@@ -2,13 +2,15 @@
 # REF:
 #   1. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
 #   2. https://github.com/JasonEtco/create-an-issue
+#   3. https://docs.github.com/en/actions/learn-github-actions/variables
+#   4. https://github.com/actions/github-script
 #
 name: Nightly Build
 
 on:
   # push:
   #   branches:
-  #     - feature/release
+  #     - main
   schedule:
     - cron: '0 3 * * *' # run at 3 AM UTC
 
@@ -111,3 +113,60 @@ jobs:
         update_existing: true
         search_existing: open
         filename: .github/ISSUE_TEMPLATE/nightly-build-fail.md
+
+    - name: Set Outputs of Short SHA
+      id: vars
+      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Prepare for Nightly Release
+      if: ${{ startsWith(github.repository, 'nushell/nightly') }}
+      shell: nu {0}
+      run: |
+        cd $env.GITHUB_WORKSPACE
+        git checkout main
+        git config --global user.name 'hustcer'
+        git config --global user.email 'hustcer@outlook.com'
+        let tag_name = 'nightly-${{ steps.vars.outputs.sha_short }}'
+        git fetch origin -p
+        if (git ls-remote --tags origin $tag_name | is-empty) {
+          git tag -a $tag_name -m $'Nightly build from ($env.GITHUB_SHA)'
+          git push origin --tags
+        }
+
+    # REF: https://github.com/marketplace/actions/gh-release
+    # Create a release only in nushell/nightly repo
+    - name: Publish Archive
+      uses: softprops/action-gh-release@v0.1.13
+      if: ${{ startsWith(github.repository, 'nushell/nightly') }}
+      with:
+        draft: false
+        prerelease: true
+        tag_name: nightly-${{ steps.vars.outputs.sha_short }}
+        body: |
+          This is a nightly build of Nushell.
+          It is not recommended for production use.
+          release from ${{ github.sha }}
+        files: ${{ steps.nu.outputs.archive }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Keep the last a few releases
+    # Dangerous: Should only run in nushell/nightly repo
+    # - name: Delete Old Releases
+    #   uses: actions/github-script@v6
+    #   if: ${{ startsWith(github.repository, 'nushell/nightly') }}
+    #   with:
+    #     github-token: ${{ secrets.GITHUB_TOKEN }}
+    #     script: |
+    #       const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
+
+    #       const owner = process.env.GITHUB_REPOSITORY.split('/')[0];
+    #       const repo = process.env.GITHUB_REPOSITORY.split('/')[1];
+
+    #       const { data: releases } = await octokit.rest.repos.listReleases({ owner, repo });
+    #       if (releases.length > 2) {
+    #         const releasesToDelete = releases.slice(7).map((release) => release.id);
+    #         for (const releaseId of releasesToDelete) {
+    #           await octokit.rest.repos.deleteRelease({ owner, repo, release_id: releaseId });
+    #         }
+    #       }
