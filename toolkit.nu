@@ -39,7 +39,7 @@ export def clippy [
 
     try {
         if $dataframe {
-            cargo clippy --workspace --features=dataframe -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+            cargo clippy --workspace --features=dataframe,extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
         } else {
             cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
         }
@@ -54,11 +54,11 @@ export def test [
     --dataframe: bool # use the dataframe feature
 ] {
     if ($fast and $dataframe) {
-        cargo nextest run --all --features=dataframe
+        cargo nextest run --all --features=dataframe,extra
     } else if ($fast) {
         cargo nextest run --all
     } else if ($dataframe) {
-        cargo test --workspace --features=dataframe
+        cargo test --workspace --features=dataframe,extra
     } else {
         cargo test --workspace
     }
@@ -218,10 +218,10 @@ export def "check pr" [
     }
 
     try {
-        if $dataframe { 
-            clippy --dataframe --verbose 
-        } else { 
-            clippy --verbose 
+        if $dataframe {
+            clippy --dataframe --verbose
+        } else {
+            clippy --verbose
         }
     } catch {
         return (report --fail-clippy)
@@ -229,11 +229,11 @@ export def "check pr" [
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
-        if $fast and $dataframe { 
-            test --fast --dataframe 
-        } else if $fast { 
-            test --fast 
-        } else { 
+        if $fast and $dataframe {
+            test --fast --dataframe
+        } else if $fast {
+            test --fast
+        } else {
             test 
         }
     } catch {
@@ -315,8 +315,7 @@ def install-plugin [] {
     print $'(char nl)Installing ($plugin)'
     print '----------------------------'
 
-    cd $"crates/($plugin)"
-    cargo install
+    cargo install --path $"crates/($plugin)"
 }
 
 # install Nushell and features you want
