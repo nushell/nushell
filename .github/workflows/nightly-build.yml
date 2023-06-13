@@ -167,8 +167,10 @@ jobs:
         filename: .github/ISSUE_TEMPLATE/nightly-build-fail.md
 
     - name: Set Outputs of Short SHA
-      id: sha
-      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      id: vars
+      run: |
+        echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
@@ -178,7 +180,8 @@ jobs:
       with:
         draft: false
         prerelease: true
-        tag_name: nightly-${{ steps.sha.outputs.sha_short }}
+        name: Nu-nightly-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.sha_short }}
+        tag_name: nightly-${{ steps.vars.outputs.sha_short }}
         body: |
           This is a nightly build of Nushell.
           It is not recommended for production use.
