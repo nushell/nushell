@@ -31,18 +31,14 @@ export def fmt [
 # > it is important to make `clippy` happy :relieved:
 export def clippy [
     --verbose: bool # print extra information about the command's progress
-    --dataframe: bool # use the dataframe feature
+    --features: list<string> # the list of features to run *Clippy* on
 ] {
     if $verbose {
         print $"running ('toolkit clippy' | pretty-print-command)"
     }
 
     try {
-        if $dataframe {
-            cargo clippy --workspace --features=dataframe,extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
-        } else {
-            cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
-        }
+        cargo clippy --workspace --features ($features | str join ",") -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
     } catch {
         error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
     }
@@ -51,16 +47,12 @@ export def clippy [
 # check that all the tests pass
 export def test [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --dataframe: bool # use the dataframe feature
+    --features: list<string> # the list of features to run *Clippy* on
 ] {
-    if ($fast and $dataframe) {
-        cargo nextest run --all --features=dataframe,extra
-    } else if ($fast) {
-        cargo nextest run --all
-    } else if ($dataframe) {
-        cargo test --workspace --features=dataframe,extra
+    if $fast {
+        cargo nextest run --all --features ($features | str join ",")
     } else {
-        cargo test --workspace
+        cargo test --workspace --features ($features | str join ",")
     }
 }
 
@@ -208,7 +200,7 @@ def report [
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --dataframe: bool # use the dataframe feature
+    --features: list<string> # the list of features to run *Clippy* on
 ] {
     let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
@@ -218,23 +210,17 @@ export def "check pr" [
     }
 
     try {
-        if $dataframe {
-            clippy --dataframe --verbose
-        } else {
-            clippy --verbose
-        }
+        clippy --features $features --verbose
     } catch {
         return (report --fail-clippy)
     }
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
-        if $fast and $dataframe {
-            test --fast --dataframe
-        } else if $fast {
-            test --fast
+        if $fast {
+            test --features $features --fast
         } else {
-            test
+            test --features $features
         }
     } catch {
         return (report --fail-test)
