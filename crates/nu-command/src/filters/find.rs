@@ -1,5 +1,5 @@
+use crate::help::highlight_search_string;
 use itertools::Itertools;
-use nu_cmd_lang::help::highlight_search_string;
 
 use fancy_regex::Regex;
 use nu_ansi_term::Style;

@@ -11,6 +11,7 @@ version = "0.81.1"
 bench = false
 
 [dev-dependencies]
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.81.1" }
 rstest = { version = "0.17.0", default-features = false }
 

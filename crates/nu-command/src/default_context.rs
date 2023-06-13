@@ -1,15 +1,10 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-use crate::*;
-#[cfg(feature = "dataframe")]
-use nu_cmd_dataframe::*;
-
-#[cfg(feature = "extra")]
-use nu_cmd_extra::*;
-
-pub fn create_default_context() -> EngineState {
-    let mut engine_state = nu_cmd_lang::create_default_context();
-
+use crate::{
+    help::{HelpAliases, HelpCommands, HelpExterns, HelpModules, HelpOperators},
+    *,
+};
+pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
@@ -23,12 +18,6 @@ pub fn create_default_context() -> EngineState {
         // they have to be registered before the main declarations. This helps to make
         // them only accessible if the correct input value category is used with the
         // declaration
-
-        #[cfg(feature = "extra")]
-        add_extra_decls(&mut working_set);
-
-        #[cfg(feature = "dataframe")]
-        add_dataframe_decls(&mut working_set);
 
         // Database-related
         // Adds all related commands to query databases
@@ -136,6 +125,16 @@ pub fn create_default_context() -> EngineState {
             External,
             NuCheck,
             Sys,
+        };
+
+        // Help
+        bind_command! {
+            Help,
+            HelpAliases,
+            HelpExterns,
+            HelpCommands,
+            HelpModules,
+            HelpOperators,
         };
 
         // Debug
