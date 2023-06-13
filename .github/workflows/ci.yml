@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
 
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
 
       - name: Install Nushell
         # prior to [*standard library: bring the tests into the main CI*](#8525)
@@ -160,7 +160,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
 
       - name: Clippy
         run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
@@ -189,7 +189,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+        uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
