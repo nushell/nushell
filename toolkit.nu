@@ -19,7 +19,9 @@ export def fmt [
         try {
             cargo fmt --all -- --check
         } catch {
-            error make -u { msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!" }
+            error make --unspanned {
+                msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!"
+            }
         }
     } else {
         cargo fmt --all
@@ -37,10 +39,19 @@ export def clippy [
         print $"running ('toolkit clippy' | pretty-print-command)"
     }
 
-    try {
-        cargo clippy --workspace --features ($features | str join ",") -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
-    } catch {
-        error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
+    try {(
+        cargo clippy
+            --workspace
+            --features ($features | str join ",")
+        --
+            -D warnings
+            -D clippy::unwrap_used
+            -A clippy::needless_collect
+            -A clippy::result_large_err
+    )} catch {
+        error make --unspanned {
+            msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!"
+        }
     }
 }
 
