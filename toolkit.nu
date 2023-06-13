@@ -58,7 +58,7 @@ export def clippy [
 # check that all the tests pass
 export def test [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --features: list<string> # the list of features to run *Clippy* on
+    --features: list<string> # the list of features to run the tests on
 ] {
     if $fast {
         cargo nextest run --all --features ($features | str join ",")
@@ -211,7 +211,7 @@ def report [
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --features: list<string> # the list of features to run *Clippy* on
+    --features: list<string> # the list of features to check the current PR on
 ] {
     let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
