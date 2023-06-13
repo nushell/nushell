@@ -64,11 +64,11 @@ jobs:
             git push origin --delete $release.tag_name
             print $'Deleting release ($release.tag_name)'
             let delete_url = $'https://api.github.com/repos/nushell/nightly/releases/($release.id)'
-            # let version = [X-GitHub-Api-Version 2022-11-28]
-            # let auth = [Authorization 'Bearer ${{ secrets.GITHUB_TOKEN }}']
-            # let accept = [Accept 'application/vnd.github+json']
+            let version = "X-GitHub-Api-Version: 2022-11-28"
+            let accept = "Accept: application/vnd.github+json"
+            let auth = "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
             # http delete $delete_url -H $version -H $auth -H $accept
-            curl -L -X DELETE -H "Accept: application/vnd.github+json" -H "Authorization: Bearer <YOUR-TOKEN>" -H "X-GitHub-Api-Version: 2022-11-28" $delete_url
+            curl -L -X DELETE -H $accept -H $auth -H $version $delete_url
           }
 
   all:
