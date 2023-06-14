@@ -26,7 +26,7 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        eprintln!("Error creating default context: {err:?}");
+        eprintln!("Error creating CLI command context: {err:?}");
     }
 
     engine_state
