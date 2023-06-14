@@ -39,7 +39,7 @@ export def clippy [
 
     try {
         if $dataframe {
-            cargo clippy --workspace --features=dataframe -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+            cargo clippy --workspace --features=dataframe,extra -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
         } else {
             cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
         }
@@ -54,11 +54,11 @@ export def test [
     --dataframe: bool # use the dataframe feature
 ] {
     if ($fast and $dataframe) {
-        cargo nextest run --all --features=dataframe
+        cargo nextest run --all --features=dataframe,extra
     } else if ($fast) {
         cargo nextest run --all
     } else if ($dataframe) {
-        cargo test --workspace --features=dataframe
+        cargo test --workspace --features=dataframe,extra
     } else {
         cargo test --workspace
     }
@@ -309,11 +309,36 @@ def "nu-complete list features" [] {
     open Cargo.toml | get features | transpose feature dependencies | get feature
 }
 
+def install-plugin [] {
+    let plugin = $in
+
+    print $'(char nl)Installing ($plugin)'
+    print '----------------------------'
+
+    cargo install --path $"crates/($plugin)"
+}
+
 # install Nushell and features you want
 export def install [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+    --all: bool  # install all plugins with Nushell
 ] {
     cargo install --path . --features ($features | str join ",")
+    if not $all {
+        return
+    }
+
+    let plugins = [
+        nu_plugin_inc,
+        nu_plugin_gstat,
+        nu_plugin_query,
+        nu_plugin_example,
+        nu_plugin_custom_values,
+        nu_plugin_formats,
+    ]
+    for plugin in $plugins {
+        $plugin | install-plugin
+    }
 }
 
 def windows? [] {
