@@ -19,8 +19,8 @@ use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_command::{create_default_context, get_init_cwd};
-use nu_protocol::{report_error_new, Value};
+use nu_command::get_init_cwd;
+use nu_protocol::{engine::EngineState, report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -31,6 +31,17 @@ use std::{
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
+
+fn get_engine_state() -> EngineState {
+    let engine_state = nu_cmd_lang::create_default_context();
+    let engine_state = nu_command::add_shell_command_context(engine_state);
+    #[cfg(feature = "extra")]
+    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+    #[cfg(feature = "dataframe")]
+    let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);
+    let engine_state = nu_cli::add_cli_context(engine_state);
+    nu_explore::add_explore_context(engine_state)
+}
 
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
@@ -43,8 +54,7 @@ fn main() -> Result<()> {
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
-    let mut engine_state =
-        nu_explore::add_explore_context(nu_cli::add_cli_context(create_default_context()));
+    let mut engine_state = get_engine_state();
 
     // Custom additions
     let delta = {

@@ -13,9 +13,6 @@ version = "0.81.1"
 bench = false
 
 [dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
-nu-cmd-dataframe = { path = "../nu-cmd-dataframe", version = "0.81.1", optional = true }
-nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.81.1", optional = true }
 nu-color-config = { path = "../nu-color-config", version = "0.81.1" }
 nu-engine = { path = "../nu-engine", version = "0.81.1" }
 nu-glob = { path = "../nu-glob", version = "0.81.1" }
@@ -117,17 +114,15 @@ features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_System
 version = "0.48"
 
 [features]
-dataframe = ["dep:nu-cmd-dataframe"]
-extra = ["dep:nu-cmd-extra"]
 plugin = ["nu-parser/plugin"]
-sqlite = [
-	"rusqlite",
-] # TODO: given that rusqlite is included in reedline, should we just always include it?
+sqlite = ["rusqlite"]
 trash-support = ["trash"]
 which-support = ["which"]
 
 [dev-dependencies]
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.81.1" }
+
 dirs-next = "2.0"
 mockito = "1.0"
 quickcheck = "1.0"

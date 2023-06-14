@@ -10,13 +10,24 @@ pub use expressions::add_expressions;
 pub use lazy::add_lazy_decls;
 pub use series::add_series_decls;
 
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-pub fn add_dataframe_decls(working_set: &mut StateWorkingSet) {
-    add_series_decls(working_set);
-    add_eager_decls(working_set);
-    add_expressions(working_set);
-    add_lazy_decls(working_set);
+pub fn add_dataframe_context(mut engine_state: EngineState) -> EngineState {
+    let delta = {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        add_series_decls(&mut working_set);
+        add_eager_decls(&mut working_set);
+        add_expressions(&mut working_set);
+        add_lazy_decls(&mut working_set);
+
+        working_set.render()
+    };
+
+    if let Err(err) = engine_state.merge_delta(delta) {
+        eprintln!("Error creating dataframe command context: {err:?}");
+    }
+
+    engine_state
 }
 
 #[cfg(test)]
