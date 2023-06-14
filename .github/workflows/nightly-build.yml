@@ -25,11 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Set Outputs of Short SHA
-        id: vars
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          fetch-depth: 0
+          # Configure PAT here: https://github.com/settings/tokens for the push operation in the following steps
+          token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
@@ -43,10 +44,16 @@ jobs:
         run: |
           cd $env.GITHUB_WORKSPACE
           git checkout main
-          git config --global user.name 'hustcer'
-          git config --global user.email 'hustcer@outlook.com'
-          let tag_name = 'nightly-${{ steps.vars.outputs.sha_short }}'
-          git fetch origin -p
+          git config user.name 'hustcer'
+          git config user.email 'hustcer@outlook.com'
+          git fetch origin main
+          git remote add src https://github.com/nushell/nushell.git
+          git fetch src main
+          # git pull --rebase src main
+          git reset --hard src/main
+          git push origin main -f
+          let sha_short = (git rev-parse --short src/main | str trim)
+          let tag_name = $'nightly-($sha_short)'
           if (git ls-remote --tags origin $tag_name | is-empty) {
             git tag -a $tag_name -m $'Nightly build from ($env.GITHUB_SHA)'
             git push origin --tags
@@ -73,7 +80,7 @@ jobs:
 
   all:
     name: All
-
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -131,6 +138,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        ref: main
 
     - name: Update Rust Toolchain Target
       run: |
