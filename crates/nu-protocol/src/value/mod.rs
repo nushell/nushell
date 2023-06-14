@@ -3754,7 +3754,6 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
         "tb" | "tib" => either!(format_value, TB, TiB),
         "pb" | "pib" => either!(format_value, TB, TiB),
         "eb" | "eib" => either!(format_value, EB, EiB),
-        "zb" | "zib" => either!(format_value, ZB, ZiB),
         _ => (byte_unit::ByteUnit::B, "auto"),
     }
 }
