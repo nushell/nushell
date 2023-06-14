@@ -28,6 +28,7 @@ ahash = "0.8.3"
 shadow-rs = { version = "0.22", default-features = false }
 
 [features]
+mimalloc = []
 which-support = []
 trash-support = []
 sqlite = []
