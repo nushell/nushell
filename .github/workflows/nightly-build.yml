@@ -35,7 +35,7 @@ jobs:
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
         with:
-          version: 0.79.0
+          version: 0.81.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -55,7 +55,7 @@ jobs:
           let sha_short = (git rev-parse --short src/main | str trim)
           let tag_name = $'nightly-($sha_short)'
           if (git ls-remote --tags origin $tag_name | is-empty) {
-            git tag -a $tag_name -m $'Nightly build from ($env.GITHUB_SHA)'
+            git tag -a $tag_name -m $'Nightly build from ($sha_short)'
             git push origin --tags
           }
 
@@ -151,7 +151,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.79.0
+        version: 0.81.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -194,7 +194,6 @@ jobs:
         body: |
           This is a nightly build of Nushell.
           It is not recommended for production use.
-          release from ${{ github.sha }}
         files: ${{ steps.nu.outputs.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
