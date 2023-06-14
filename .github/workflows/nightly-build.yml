@@ -12,7 +12,7 @@ on:
   #   branches:
   #     - main
   schedule:
-    - cron: '0 3 * * *' # run at 3 AM UTC
+    - cron: '15 3 * * *' # run at 3:15 AM UTC
 
 defaults:
   run:
@@ -182,12 +182,14 @@ jobs:
 
   cleanup:
     name: Cleanup
-    needs: release
     if: github.repository == 'nushell/nightly'
     runs-on: ubuntu-latest
     steps:
+      # Sleep for 30 minutes, waiting for the release to be published
+      - name: Waiting for Release
+        run: sleep 1800
+
       - name: Setup Nushell
-        if: ${{ always() }}  # Always evaluates to true
         uses: hustcer/setup-nu@v3
         with:
           version: 0.81.0
@@ -198,7 +200,6 @@ jobs:
       # Should only run in nushell/nightly repo
       - name: Delete Older Releases
         shell: nu {0}
-        if: ${{ always() }}  # Always evaluates to true
         run: |
           let KEEP_COUNT = 10
           let deprecated = (http get https://api.github.com/repos/nushell/nightly/releases | sort-by -r created_at | select tag_name id | range $KEEP_COUNT..)
