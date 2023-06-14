@@ -70,11 +70,17 @@ jobs:
             flags: "--features=extra"
 
         exclude:
-          # only test dataframes on Ubuntu (the fastest platform)
+          # only test dataframes and extra on Ubuntu (the fastest platform)
           - platform: windows-latest
             style: dataframe
           - platform: macos-latest
             style: dataframe
+          - platform: windows-latest
+            style: extra
+          - platform: macos-latest
+            style: extra
+
+
 
     runs-on: ${{ matrix.platform }}
 
