@@ -26,4 +26,5 @@ extra = ["default"]
 default = []
 
 [dev-dependencies]
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.81.1" }

@@ -2747,6 +2747,7 @@ name = "nu-cmd-extra"
 version = "0.81.1"
 dependencies = [
  "ahash 0.8.3",
+ "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
