@@ -52,34 +52,15 @@ jobs:
           # git pull --rebase src main
           git reset --hard src/main
           git push origin main -f
-          let sha_short = (git rev-parse --short src/main | str trim)
+          let sha_short = (git rev-parse --short src/main | str trim | str substring 0..7)
           let tag_name = $'nightly-($sha_short)'
           if (git ls-remote --tags origin $tag_name | is-empty) {
             git tag -a $tag_name -m $'Nightly build from ($sha_short)'
             git push origin --tags
           }
 
-      # Keep the last a few releases
-      # Should only run in nushell/nightly repo
-      - name: Delete Older Releases
-        shell: nu {0}
-        run: |
-          let KEEP_COUNT = 7
-          let deprecated = (http get https://api.github.com/repos/nushell/nightly/releases | sort-by -r created_at | select tag_name id | range $KEEP_COUNT..)
-          for release in $deprecated {
-            print $'Deleting tag ($release.tag_name)'
-            git push origin --delete $release.tag_name
-            print $'Deleting release ($release.tag_name)'
-            let delete_url = $'https://api.github.com/repos/nushell/nightly/releases/($release.id)'
-            let version = "X-GitHub-Api-Version: 2022-11-28"
-            let accept = "Accept: application/vnd.github+json"
-            let auth = "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
-            # http delete $delete_url -H $version -H $auth -H $accept
-            curl -L -X DELETE -H $accept -H $auth -H $version $delete_url
-          }
-
-  all:
-    name: All
+  release:
+    name: Release
     needs: prepare
     strategy:
       fail-fast: false
@@ -179,7 +160,8 @@ jobs:
       id: vars
       run: |
         echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        sha_short=$(git rev-parse --short HEAD)
+        echo "sha_short=${sha_short:0:7}" >> $GITHUB_OUTPUT
 
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
@@ -197,3 +179,37 @@ jobs:
         files: ${{ steps.nu.outputs.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    name: Cleanup
+    needs: release
+    if: github.repository == 'nushell/nightly'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Nushell
+        if: ${{ always() }}  # Always evaluates to true
+        uses: hustcer/setup-nu@v3
+        with:
+          version: 0.81.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Keep the last a few releases
+      # Should only run in nushell/nightly repo
+      - name: Delete Older Releases
+        shell: nu {0}
+        if: ${{ always() }}  # Always evaluates to true
+        run: |
+          let KEEP_COUNT = 10
+          let deprecated = (http get https://api.github.com/repos/nushell/nightly/releases | sort-by -r created_at | select tag_name id | range $KEEP_COUNT..)
+          for release in $deprecated {
+            print $'Deleting tag ($release.tag_name)'
+            git push origin --delete $release.tag_name
+            print $'Deleting release ($release.tag_name)'
+            let delete_url = $'https://api.github.com/repos/nushell/nightly/releases/($release.id)'
+            let version = "X-GitHub-Api-Version: 2022-11-28"
+            let accept = "Accept: application/vnd.github+json"
+            let auth = "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+            # http delete $delete_url -H $version -H $auth -H $accept
+            curl -L -X DELETE -H $accept -H $auth -H $version $delete_url
+          }
