@@ -117,6 +117,12 @@ pub fn version(
         vals.push(Value::string(build_rust_channel, call.head));
     }
 
+    cols.push("allocator".to_string());
+    vals.push(Value::String {
+        val: global_allocator().to_string(),
+        span: call.head,
+    });
+
     cols.push("features".to_string());
     vals.push(Value::String {
         val: features_enabled().join(", "),
@@ -142,6 +148,14 @@ pub fn version(
         span: call.head,
     }
     .into_pipeline_data())
+}
+
+fn global_allocator() -> &'static str {
+    if cfg!(feature = "mimalloc") {
+        "mimalloc"
+    } else {
+        "standard"
+    }
 }
 
 fn features_enabled() -> Vec<String> {

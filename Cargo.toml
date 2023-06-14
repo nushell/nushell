@@ -67,6 +67,8 @@ nu-utils = { path = "./crates/nu-utils", version = "0.81.1" }
 nu-ansi-term = "0.47.0"
 reedline = { version = "0.20.0", features = ["bashisms", "sqlite"]}
 
+mimalloc = { version = "0.1.37", default-features = false, optional = true}
+
 crossterm = "0.26"
 ctrlc = "3.4"
 log = "0.4"
@@ -117,6 +119,8 @@ wasi = ["nu-cmd-lang/wasi"]
 
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
+
+mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
 
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
