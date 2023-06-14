@@ -438,6 +438,19 @@ fn lex_internal(
             // comment. The comment continues until the next newline.
             let mut start = curr_offset;
 
+            // if previous token is eol, we just delete that token
+            // so at high level, it makes the following transform:
+            //
+            // ls             ls  # | le
+            // # | le    ==>  | length
+            // | length
+            //
+            // And it makes lite_parsing easiler to generate a correct LiteBlock
+            if let Some(prev) = output.last_mut() {
+                if let TokenContents::Eol = prev.contents {
+                    output.pop();
+                }
+            }
             while let Some(input) = input.get(curr_offset) {
                 if *input == b'\n' {
                     if !skip_comment {
