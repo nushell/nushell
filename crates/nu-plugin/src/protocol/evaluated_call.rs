@@ -6,14 +6,25 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 
-// The evaluated call is used with the Plugins because the plugin doesn't have
-// access to the Stack and the EngineState. For that reason, before encoding the
-// message to the plugin all the arguments to the original call (which are expressions)
-// are evaluated and passed to Values
+
+/// A representation of the plugin's invocation command including command line args
+/// 
+/// The `EvaluatedCall` contains information about the way a [Plugin](crate::Plugin) was invoked
+/// representing the [`Span`] corresponding to the invocation as well as the arguments
+/// it was invoked with. It is one of three items passed to [`run`](crate::Plugin::run()) along with
+/// `name` which command that was invoked and a [`Value`] that represents the input.
+/// 
+/// The evaluated call is used with the Plugins because the plugin doesn't have
+/// access to the Stack and the EngineState the way a built in command might. For that 
+/// reason, before encoding the message to the plugin all the arguments to the original 
+/// call (which are expressions) are evaluated and passed to Values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluatedCall {
+    /// Span of the command invocation
     pub head: Span,
+    /// Values of positional arguments
     pub positional: Vec<Value>,
+    /// Values of named arguments
     pub named: Vec<(Spanned<String>, Option<Value>)>,
 }
 
@@ -45,6 +56,7 @@ impl EvaluatedCall {
         })
     }
 
+    /// Indicates whether named flag parameter is present in the arguments
     pub fn has_flag(&self, flag_name: &str) -> bool {
         for name in &self.named {
             if flag_name == name.0.item {
@@ -55,6 +67,7 @@ impl EvaluatedCall {
         false
     }
 
+    /// Returns the `Value` of an optional named argument
     pub fn get_flag_value(&self, flag_name: &str) -> Option<Value> {
         for name in &self.named {
             if flag_name == name.0.item {
@@ -65,6 +78,7 @@ impl EvaluatedCall {
         None
     }
 
+    /// Returns the value of a given positional argument if present
     pub fn nth(&self, pos: usize) -> Option<Value> {
         self.positional.get(pos).cloned()
     }
