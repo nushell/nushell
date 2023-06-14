@@ -9,10 +9,9 @@ mod test_bins;
 #[cfg(test)]
 mod tests;
 
-use mimalloc::MiMalloc;
-
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use crate::{
     command::parse_commandline_args,
