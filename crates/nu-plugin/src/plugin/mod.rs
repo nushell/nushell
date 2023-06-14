@@ -192,11 +192,11 @@ pub fn get_signature(
 /// This is the trait that Nushell plugins must implement. The methods defined on
 /// `Plugin` are invoked by [serve_plugin] during plugin registration and execution.
 ///
-/// ## Example
-///
+/// # Examples
+/// Basic usage:
 /// ```
-/// 
-/// 
+/// # use nu_plugin::*;
+/// # use nu_protocol::{PluginSignature, Type, Value};
 /// struct HelloPlugin;
 ///
 /// impl Plugin for HelloPlugin {
@@ -219,7 +219,6 @@ pub fn get_signature(
 ///         })
 ///     }
 /// }
-///
 ///
 /// fn main() {
 ///     serve_plugin(&mut HelloPlugin{}, MsgPackSerializer)
@@ -259,7 +258,7 @@ pub trait Plugin {
 /// When creating a new plugin this function is typically used as the main entry 
 /// point for the plugin, e.g.
 ///
-/// ```no_run
+/// ```ignore
 /// fn main() {
 ///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
 /// }
