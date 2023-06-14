@@ -52,7 +52,7 @@ jobs:
           # git pull --rebase src main
           git reset --hard src/main
           git push origin main -f
-          let sha_short = (git rev-parse --short src/main | str trim)
+          let sha_short = (git rev-parse --short origin/main | str trim | str substring 0..7)
           let tag_name = $'nightly-($sha_short)'
           if (git ls-remote --tags origin $tag_name | is-empty) {
             git tag -a $tag_name -m $'Nightly build from ($sha_short)'
@@ -160,7 +160,8 @@ jobs:
       id: vars
       run: |
         echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        sha_short=$(git rev-parse --short HEAD)
+        echo "sha_short=${sha_short:0:7}" >> $GITHUB_OUTPUT
 
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
