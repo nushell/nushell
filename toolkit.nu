@@ -34,21 +34,31 @@ export def fmt [
 export def clippy [
     --verbose: bool # print extra information about the command's progress
     --features: list<string> # the list of features to run *Clippy* on
+    --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
         print $"running ('toolkit clippy' | pretty-print-command)"
     }
 
-    try {(
-        cargo clippy
-            --workspace
-            --features ($features | str join ",")
-        --
-            -D warnings
-            -D clippy::unwrap_used
-            -A clippy::needless_collect
-            -A clippy::result_large_err
-    )} catch {
+    try {
+        if $workspace {(
+            cargo clippy
+                --workspace
+            --
+                -D warnings
+                -D clippy::unwrap_used
+                -A clippy::needless_collect
+                -A clippy::result_large_err
+        )} else {(
+            cargo clippy
+                --features ($features | str join ",")
+            --
+                -D warnings
+                -D clippy::unwrap_used
+                -A clippy::needless_collect
+                -A clippy::result_large_err
+        )}
+    } catch {
         error make --unspanned {
             msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!"
         }
@@ -59,11 +69,20 @@ export def clippy [
 export def test [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to run the tests on
+    --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $fast {
-        cargo nextest run --all --features ($features | str join ",")
+        if $workspace {
+            cargo nextest run --all
+        } else {
+            cargo nextest run --features ($features | str join ",")
+        }
     } else {
-        cargo test --workspace --features ($features | str join ",")
+        if $workspace {
+            cargo test --workspace
+        } else {
+            cargo test --features ($features | str join ",")
+        }
     }
 }
 
