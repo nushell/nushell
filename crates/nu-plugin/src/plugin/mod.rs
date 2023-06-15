@@ -220,12 +220,7 @@ pub fn get_signature(
 ///         })
 ///     }
 /// }
-///
-/// fn main() {
-///     serve_plugin(&mut HelloPlugin{}, MsgPackSerializer)
-/// }
 /// ```
-///
 pub trait Plugin {
     /// The signature of the plugin
     /// 
@@ -259,7 +254,16 @@ pub trait Plugin {
 /// When creating a new plugin this function is typically used as the main entry 
 /// point for the plugin, e.g.
 ///
-/// ```ignore
+/// ```
+/// # use nu_plugin::*;
+/// # use nu_protocol::{PluginSignature, Value};
+/// # struct MyPlugin;
+/// # impl MyPlugin { fn new() -> Self { Self }}
+/// # impl Plugin for MyPlugin {
+/// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
+/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value, )
+/// #         -> Result<Value, LabeledError> {todo!();}
+/// # }
 /// fn main() {
 ///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
 /// }
