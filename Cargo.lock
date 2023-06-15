@@ -2783,7 +2783,6 @@ dependencies = [
  "fancy-regex",
  "itertools",
  "nu-ansi-term",
- "nu-color-config",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
