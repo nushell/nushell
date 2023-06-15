@@ -14,6 +14,31 @@
 //! function, which will handle all of the input and output serialization when
 //! invoked by Nushell.
 //!
+//! ```
+//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
+//! use nu_protocol::{PluginSignature, Value};
+//!
+//! struct MyPlugin;
+//! 
+//! impl Plugin for MyPlugin {
+//!     fn signature(&self) -> Vec<PluginSignature> {
+//!         todo!();
+//!     }
+//!     fn run(
+//!         &mut self,
+//!         name: &str,
+//!         call: &EvaluatedCall,
+//!         input: &Value
+//!     ) -> Result<Value, LabeledError> {
+//!         todo!();
+//!     }
+//! }
+//! 
+//! fn main() {
+//!    serve_plugin(&mut MyPlugin{}, MsgPackSerializer)
+//! }
+//! ```
+//! 
 //! Nushell's source tree contains a
 //! [Plugin Example](https://github.com/nushell/nushell/tree/main/crates/nu_plugin_example)
 //! that demonstrates the full range of plugin capabilities.

@@ -261,7 +261,7 @@ pub trait Plugin {
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
 /// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
-/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value, )
+/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
 /// #         -> Result<Value, LabeledError> {todo!();}
 /// # }
 /// fn main() {
