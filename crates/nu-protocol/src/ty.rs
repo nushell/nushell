@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use strum_macros::EnumIter;
 
 use std::fmt::Display;
 
 use crate::SyntaxShape;
 
-#[derive(Clone, Debug, Default, EnumIter, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
     Any,
     Binary,
