@@ -251,7 +251,7 @@ fn rm(
 
     for target in targets {
         if currentdir_path.to_string_lossy() == target.item
-            || currentdir_path.starts_with(&format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
+            || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError(
                 "Cannot remove any parent directory".into(),
