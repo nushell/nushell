@@ -7,6 +7,7 @@ use nu_protocol::ShellError;
 pub mod json;
 pub mod msgpack;
 
+#[doc(hidden)]
 #[derive(Clone, Debug)]
 pub enum EncodingType {
     Json(json::JsonSerializer),

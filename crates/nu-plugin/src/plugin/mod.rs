@@ -121,6 +121,7 @@ pub(crate) fn call_plugin(
     }
 }
 
+#[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 pub fn get_signature(
     path: &Path,
     shell: &Option<PathBuf>,
@@ -264,7 +265,7 @@ pub trait Plugin {
 /// }
 /// ```
 ///
-/// The object that is expected to be received by nushell is the [PluginResponse] struct.
+/// The object that is expected to be received by nushell is the `PluginResponse` struct.
 /// The `serve_plugin` function should ensure that it is encoded correctly and sent 
 /// to StdOut for nushell to decode and and present its result.
 pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
