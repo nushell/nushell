@@ -198,6 +198,10 @@ jobs:
       - name: Waiting for Release
         run: sleep 1800
 
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
         with:
