@@ -14,7 +14,7 @@ def before-each [] {
 
     mkdir $base_path $path_a $path_b
 
-    {base_path: $base_path, path_a:$path_a, path_b: $path_b}
+    {base_path: $base_path, path_a: $path_a, path_b: $path_b}
 }
 
 def after-each [] {
@@ -46,6 +46,7 @@ def test_dirs_command [] {
     # the def-env gets messed up
     use std dirs
 
+    # Stack: [BASE]
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
 
     dirs next
@@ -54,24 +55,33 @@ def test_dirs_command [] {
     dirs prev
     assert equal $c.base_path $env.DIRS_LIST.0 "prev wraps at top of list"
 
+    # Stack becomes: [base PATH_B path_a]
     dirs add $c.path_b $c.path_a
     assert equal $c.path_b $env.PWD "add changes PWD to first added dir"
     assert length $env.DIRS_LIST 3 "add in fact adds to list"
     assert equal $c.path_a $env.DIRS_LIST.2 "add in fact adds to list"
 
+    # Stack becomes: [BASE path_b path_a]
     dirs next 2
     # assert (not) equal requires span.start of first arg < span.end of 2nd
     assert equal $env.PWD $c.base_path "next wraps at end of list"
 
+    # Stack becomes: [base path_b PATH_A]
     dirs prev 1
     assert equal $c.path_a $env.PWD "prev wraps at start of list"
     cur_dir_check $c.path_a "prev wraps to end from start of list"
 
+    # Stack becomes: [base PATH_B]
     dirs drop
     assert length $env.DIRS_LIST 2 "drop removes from list"
     assert equal $env.PWD $c.path_b "drop changes PWD to previous in list (before dropped element)"
 
     assert equal (dirs show) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
+
+    # Stack becomes: [BASE]
+    dirs drop
+    assert length $env.DIRS_LIST 1 "drop removes from list"
+    assert equal $env.PWD $c.base_path "drop changes PWD (regression test for #9449)"
 }
 
 def test_dirs_next [] {
