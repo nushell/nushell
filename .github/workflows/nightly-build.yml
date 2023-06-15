@@ -8,11 +8,12 @@
 name: Nightly Build
 
 on:
-  # push:
-  #   branches:
-  #     - main
+  push:
+    branches:
+      - nightly   # Just for test purpose only with the nightly repo
+  # This schedule will run only from the default branch
   schedule:
-    - cron: '15 3 * * *' # run at 3:15 AM UTC
+    - cron: '15 1 * * *' # run at 01:15 AM UTC
 
 defaults:
   run:
@@ -22,6 +23,8 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
+    # This job is required by the release job, so we should make it run both from Nushell repo and nightly repo
+    # if: github.repository == 'nushell/nightly'
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -40,18 +43,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Synchronize the main branch of nightly repo with the main branch of Nushell official repo
       - name: Prepare for Nightly Release
         shell: nu {0}
         if: github.repository == 'nushell/nightly'
         run: |
           cd $env.GITHUB_WORKSPACE
           git checkout main
+          # We can't push if no user name and email are configured
           git config user.name 'hustcer'
           git config user.email 'hustcer@outlook.com'
           git fetch origin main
           git remote add src https://github.com/nushell/nushell.git
           git fetch src main
           # git pull --rebase src main
+          # All the changes will be overwritten by the upstream main branch
           git reset --hard src/main
           git push origin main -f
           let sha_short = (git rev-parse --short src/main | str trim | str substring 0..7)
@@ -176,20 +182,25 @@ jobs:
         name: Nu-nightly-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.sha_short }}
         tag_name: nightly-${{ steps.vars.outputs.sha_short }}
         body: |
-          This is a nightly build of Nushell.
-          It is not recommended for production use.
+          This is a NIGHTLY build of Nushell.
+          It is NOT recommended for production use.
         files: ${{ steps.nu.outputs.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   cleanup:
     name: Cleanup
+    # Should only run in nushell/nightly repo
     if: github.repository == 'nushell/nightly'
     runs-on: ubuntu-latest
     steps:
       # Sleep for 30 minutes, waiting for the release to be published
       - name: Waiting for Release
         run: sleep 1800
+
+      - uses: actions/checkout@v3
+        with:
+          ref: main
 
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
@@ -199,7 +210,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Keep the last a few releases
-      # Should only run in nushell/nightly repo
       - name: Delete Older Releases
         shell: nu {0}
         run: |
