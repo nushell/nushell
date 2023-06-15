@@ -1,3 +1,4 @@
+use crate::commands::keybindings_get::{parse_event, EventTypeFilter};
 use crossterm::QueueableCommand;
 use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
 use nu_protocol::ast::Call;
@@ -6,7 +7,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::io::{stdout, Write};
-use crate::commands::keybindings_get::{EventTypeFilter, parse_event};
 
 #[derive(Clone)]
 pub struct KeybindingsListen;
