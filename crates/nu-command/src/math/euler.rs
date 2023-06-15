@@ -23,7 +23,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["euler", "constant"]
+        vec!["euler", "number", "constant"]
     }
 
     #[allow(clippy::approx_constant)]

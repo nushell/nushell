@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
@@ -10,6 +9,10 @@ use nu_protocol::{
 use nu_test_support::fs;
 use reedline::Suggestion;
 const SEP: char = std::path::MAIN_SEPARATOR;
+
+fn create_default_context() -> EngineState {
+    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+}
 
 // creates a new engine with the current path into the completions fixtures folder
 pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {

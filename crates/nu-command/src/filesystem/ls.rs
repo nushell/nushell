@@ -143,7 +143,7 @@ impl Command for Ls {
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("./*"), call_span, false)
+                    (PathBuf::from("*"), call_span, false)
                 }
             }
         };
@@ -506,7 +506,7 @@ pub(crate) fn dir_entry_dict(
                     span,
                 });
 
-                cols.push("uid".into());
+                cols.push("user".into());
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
                     vals.push(Value::String {
                         val: user.name().to_string_lossy().into(),
@@ -835,16 +835,14 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => {
-                    return Err(ShellError::ReadingFile(
-                        format!(
-                            "Could not read metadata for '{}':\n  '{}'",
-                            filename.to_string_lossy(),
-                            e
-                        ),
-                        span,
-                    ));
-                }
+                Err(e) => Err(ShellError::ReadingFile(
+                    format!(
+                        "Could not read metadata for '{}':\n  '{}'",
+                        filename.to_string_lossy(),
+                        e
+                    ),
+                    span,
+                )),
             }
         }
     }

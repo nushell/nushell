@@ -1,9 +1,15 @@
-use nu_command::create_default_context;
-use nu_protocol::{engine::StateWorkingSet, Category, Span};
+use nu_protocol::{
+    engine::{EngineState, StateWorkingSet},
+    Category, Span,
+};
 use quickcheck_macros::quickcheck;
 
 mod commands;
 mod format_conversions;
+
+fn create_default_context() -> EngineState {
+    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+}
 
 #[quickcheck]
 fn quickcheck_parse(data: String) -> bool {
@@ -24,7 +30,7 @@ fn quickcheck_parse(data: String) -> bool {
 
 #[test]
 fn signature_name_matches_command_name() {
-    let ctx = crate::create_default_context();
+    let ctx = create_default_context();
     let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
 
@@ -50,7 +56,7 @@ fn signature_name_matches_command_name() {
 
 #[test]
 fn commands_declare_input_output_types() {
-    let ctx = crate::create_default_context();
+    let ctx = create_default_context();
     let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
 

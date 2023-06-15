@@ -1,7 +1,7 @@
 mod declaration;
+use ahash::HashMap;
 pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
-use std::collections::HashMap;
 
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::EncodingType;
@@ -320,7 +320,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(&signature.sig);
+                let flags = get_flags_section(&signature.sig, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))

@@ -11,6 +11,7 @@ use crate::ast::{Math, Operator};
 use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use ahash::HashMap;
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset};
 use chrono_humanize::HumanTime;
@@ -25,7 +26,6 @@ pub use range::*;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult},
     iter,
     path::PathBuf,
@@ -108,9 +108,9 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         span: Span,
     },
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     LazyRecord {
-        val: Box<dyn LazyRecord>,
+        val: Box<dyn for<'a> LazyRecord<'a>>,
         span: Span,
     },
     MatchPattern {
@@ -150,15 +150,7 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
-            Value::LazyRecord { val, .. } => {
-                match val.collect() {
-                    Ok(val) => val,
-                    // this is a bit weird, but because clone() is infallible...
-                    Err(error) => Value::Error {
-                        error: Box::new(error),
-                    },
-                }
-            }
+            Value::LazyRecord { val, span } => val.clone_value(*span),
             Value::List { vals, span } => Value::List {
                 vals: vals.clone(),
                 span: *span,
@@ -643,6 +635,36 @@ impl Value {
         format!("{self:#?}")
     }
 
+    /// Convert Value into a parsable string (quote strings)
+    /// bugbug other, rarer types not handled
+
+    pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
+        match self {
+            // give special treatment to the simple types to make them parsable
+            Value::String { val, .. } => format!("'{}'", val),
+
+            // recurse back into this function for recursive formatting
+            Value::List { vals: val, .. } => format!(
+                "[{}]",
+                val.iter()
+                    .map(|x| x.into_string_parsable(", ", config))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+            Value::Record { cols, vals, .. } => format!(
+                "{{{}}}",
+                cols.iter()
+                    .zip(vals.iter())
+                    .map(|(x, y)| format!("{}: {}", x, y.into_string_parsable(", ", config)))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+
+            // defer to standard handling for types where standard representation is parsable
+            _ => self.into_string(separator, config),
+        }
+    }
+
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn debug_string(&self, separator: &str, config: &Config) -> String {
         match self {
@@ -1014,8 +1036,8 @@ impl Value {
                             }
                         }
                         if !found {
+                            cols.push(col_name.clone());
                             if cell_path.len() == 1 {
-                                cols.push(col_name.clone());
                                 vals.push(new_val);
                             } else {
                                 let mut new_col = Value::Record {
@@ -1027,6 +1049,12 @@ impl Value {
                                 vals.push(new_col);
                             }
                         }
+                    }
+                    Value::LazyRecord { val, .. } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.upsert_data_at_cell_path(cell_path, new_val)?;
+                        *self = record
                     }
                     Value::Error { error } => return Err(*error.to_owned()),
                     v => {
@@ -1159,6 +1187,12 @@ impl Value {
                             });
                         }
                     }
+                    Value::LazyRecord { val, .. } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.update_data_at_cell_path(cell_path, new_val)?;
+                        *self = record
+                    }
                     Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
@@ -1271,6 +1305,13 @@ impl Value {
                             }
                             Ok(())
                         }
+                        Value::LazyRecord { val, .. } => {
+                            // convert to Record first.
+                            let mut record = val.collect()?;
+                            record.remove_data_at_cell_path(cell_path)?;
+                            *self = record;
+                            Ok(())
+                        }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
@@ -1367,6 +1408,13 @@ impl Value {
                                     src_span: *v_span,
                                 });
                             }
+                            Ok(())
+                        }
+                        Value::LazyRecord { val, .. } => {
+                            // convert to Record first.
+                            let mut record = val.collect()?;
+                            record.remove_data_at_cell_path(cell_path)?;
+                            *self = record;
                             Ok(())
                         }
                         v => Err(ShellError::CantFindColumn {
@@ -1484,6 +1532,12 @@ impl Value {
 
                         cols.push(col_name.clone());
                         vals.push(new_val);
+                    }
+                    Value::LazyRecord { val, span } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.insert_data_at_cell_path(cell_path, new_val, *span)?;
+                        *self = record
                     }
                     other => {
                         return Err(ShellError::UnsupportedInput(
@@ -2152,9 +2206,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2189,9 +2243,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2270,9 +2324,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2380,9 +2434,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2517,9 +2571,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2653,9 +2707,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2676,9 +2730,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2691,9 +2745,9 @@ impl Value {
         } else {
             Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             })
         }
@@ -2719,9 +2773,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2733,9 +2787,9 @@ impl Value {
             })
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             })
     }
@@ -2760,9 +2814,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2774,9 +2828,9 @@ impl Value {
             })
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             })
     }
@@ -2801,9 +2855,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2815,9 +2869,9 @@ impl Value {
             }),
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2840,9 +2894,9 @@ impl Value {
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
-                    lhs_ty: self.get_type(),
+                    lhs_ty: self.get_type().to_string(),
                     lhs_span: self.span()?,
-                    rhs_ty: rhs.get_type(),
+                    rhs_ty: rhs.get_type().to_string(),
                     rhs_span: rhs.span()?,
                 }),
             }
@@ -2866,9 +2920,9 @@ impl Value {
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
-                    lhs_ty: self.get_type(),
+                    lhs_ty: self.get_type().to_string(),
                     lhs_span: self.span()?,
-                    rhs_ty: rhs.get_type(),
+                    rhs_ty: rhs.get_type().to_string(),
                     rhs_span: rhs.span()?,
                 }),
             }
@@ -2924,9 +2978,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2981,9 +3035,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3057,9 +3111,9 @@ impl Value {
             ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3076,9 +3130,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3095,9 +3149,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3114,9 +3168,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3133,9 +3187,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3152,9 +3206,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3171,9 +3225,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3190,9 +3244,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3246,9 +3300,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3265,9 +3319,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3284,9 +3338,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3303,9 +3357,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3338,9 +3392,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3700,7 +3754,6 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
         "tb" | "tib" => either!(format_value, TB, TiB),
         "pb" | "pib" => either!(format_value, TB, TiB),
         "eb" | "eib" => either!(format_value, EB, EiB),
-        "zb" | "zib" => either!(format_value, ZB, ZiB),
         _ => (byte_unit::ByteUnit::B, "auto"),
     }
 }

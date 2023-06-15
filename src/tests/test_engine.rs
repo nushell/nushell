@@ -1,4 +1,5 @@
 use crate::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn concrete_variable_assignment() -> TestResult {
@@ -61,6 +62,22 @@ fn scope_variable() -> TestResult {
     run_test(
         r#"let x = 3; $nu.scope.vars | where name == "$x" | get type.0"#,
         "int",
+    )
+}
+#[rstest]
+#[case("a", "<> nothing")]
+#[case("b", "<1.23> float")]
+#[case("flag1", "<> nothing")]
+#[case("flag2", "<4.56> float")]
+
+fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
+    run_test(
+        &format!(
+            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }}; 
+            let rslt = ($nu.scope.commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
+            $"<($rslt)> ($rslt | describe)""#
+        ),
+        exp_result,
     )
 }
 
@@ -323,8 +340,13 @@ fn default_value12() -> TestResult {
 }
 
 #[test]
-fn default_value_constant() -> TestResult {
+fn default_value_constant1() -> TestResult {
     run_test(r#"def foo [x = "foo"] { $x }; foo"#, "foo")
+}
+
+#[test]
+fn default_value_constant2() -> TestResult {
+    run_test(r#"def foo [secs = 1sec] { $secs }; foo"#, "1sec")
 }
 
 #[test]
@@ -365,7 +387,7 @@ fn in_iteration() -> TestResult {
 }
 
 #[test]
-fn reuseable_in() -> TestResult {
+fn reusable_in() -> TestResult {
     run_test(
         r#"[1, 2, 3, 4] | take (($in | length) - 1) | math sum"#,
         "6",

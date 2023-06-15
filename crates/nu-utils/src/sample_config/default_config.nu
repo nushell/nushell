@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = 0.79.1
+# version = 0.81.1
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -52,6 +52,7 @@ let dark_theme = {
     list: white
     block: white
     hints: dark_gray
+    search_result: {bg: red fg: white}
 
     shape_and: purple_bold
     shape_binary: purple_bold
@@ -136,6 +137,7 @@ let light_theme = {
     list: white
     block: white
     hints: dark_gray
+    search_result: {fg: white bg: red}
 
     shape_and: purple_bold
     shape_binary: purple_bold
@@ -274,14 +276,14 @@ let-env config = {
     partial: true  # set this to false to prevent partial filling of the prompt
     algorithm: "prefix"  # prefix or fuzzy
     external: {
-      enable: true # set to false to prevent nushell looking into $env.PATH to find more suggestions, `false` recommended for WSL users as this look up my be very slow
+      enable: true # set to false to prevent nushell looking into $env.PATH to find more suggestions, `false` recommended for WSL users as this look up may be very slow
       max_results: 100 # setting it lower can improve completion performance at the cost of omitting some options
       completer: null # check 'carapace_completer' above as an example
     }
   }
   filesize: {
     metric: true # true => KB, MB, GB (ISO standard), false => KiB, MiB, GiB (Windows standard)
-    format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
+    format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, auto
   }
   cursor_shape: {
     emacs: line # block, underscore, line, blink_block, blink_underscore, blink_line (line is the default)

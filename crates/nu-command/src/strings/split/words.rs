@@ -117,7 +117,7 @@ fn split_words(
     // let ignore_punctuation = call.has_flag("ignore-punctuation");
     let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
-    if matches!(word_length, None) {
+    if word_length.is_none() {
         if call.has_flag("grapheme-clusters") {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
@@ -363,17 +363,17 @@ fn split_words_helper(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{nu, pipeline};
+    use nu_test_support::nu;
 
     #[test]
     fn test_incompat_flags() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -bg -l 2"));
+        let out = nu!("'a' | split words -bg -l 2");
         assert!(out.err.contains("incompatible_parameters"));
     }
 
     #[test]
     fn test_incompat_flags_2() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -g"));
+        let out = nu!("'a' | split words -g");
         assert!(out.err.contains("incompatible_parameters"));
     }
 

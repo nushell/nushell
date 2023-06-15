@@ -10,10 +10,11 @@ pub fn test_examples(cmd: impl Command + 'static) {
 mod test_examples {
     use super::super::{
         Ansi, Date, Enumerate, Flatten, From, Get, Into, IntoString, LetEnv, Math, MathEuler,
-        MathPi, MathRound, ParEach, Path, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str,
-        StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
+        MathPi, MathRound, ParEach, Path, PathParse, Random, Sort, SortBy, Split, SplitColumn,
+        SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
+    use ahash::{HashSet, HashSetExt};
     use nu_cmd_lang::example_support::{
         check_all_signature_input_output_types_entries_have_examples,
         check_example_evaluates_to_expected_output,
@@ -24,7 +25,6 @@ mod test_examples {
         engine::{Command, EngineState, StateWorkingSet},
         Type,
     };
-    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();
@@ -85,6 +85,7 @@ mod test_examples {
             working_set.add_decl(Box::new(MathRound));
             working_set.add_decl(Box::new(Mut));
             working_set.add_decl(Box::new(Path));
+            working_set.add_decl(Box::new(PathParse));
             working_set.add_decl(Box::new(ParEach));
             working_set.add_decl(Box::new(Random));
             working_set.add_decl(Box::new(Sort));

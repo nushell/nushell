@@ -80,36 +80,78 @@ impl Command for InputList {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. }
-            | PipelineData::Value(Value::Record { .. }, ..) => input
-                .into_iter()
-                .map_while(move |x| {
-                    if let Ok(val) = x.as_string() {
-                        Some(Options {
-                            name: val,
-                            value: x,
-                        })
-                    } else if let Ok(record) = x.as_record() {
-                        let mut options = Vec::new();
-                        for (col, val) in record.0.iter().zip(record.1.iter()) {
+            | PipelineData::Value(Value::Record { .. }, ..) => {
+                let mut lentable = Vec::<usize>::new();
+                let rows = input.into_iter().collect::<Vec<_>>();
+                rows.iter().for_each(|row| {
+                    if let Ok(record) = row.as_record() {
+                        let columns = record.1.len();
+                        for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate() {
+                            if i == columns - 1 {
+                                break;
+                            }
+
                             if let Ok(val) = val.as_string() {
-                                options.push(format!(
-                                    " {}{}{}: {} |\t",
-                                    Color::Cyan.prefix(),
-                                    col,
-                                    Color::Cyan.suffix(),
-                                    &val
-                                ));
+                                let len = nu_utils::strip_ansi_likely(&val).len()
+                                    + nu_utils::strip_ansi_likely(col).len();
+                                if let Some(max_len) = lentable.get(i) {
+                                    lentable[i] = (*max_len).max(len);
+                                } else {
+                                    lentable.push(len);
+                                }
                             }
                         }
-                        Some(Options {
-                            name: options.join(""),
-                            value: x,
-                        })
-                    } else {
-                        None
                     }
-                })
-                .collect(),
+                });
+
+                rows.into_iter()
+                    .map_while(move |x| {
+                        if let Ok(val) = x.as_string() {
+                            Some(Options {
+                                name: val,
+                                value: x,
+                            })
+                        } else if let Ok(record) = x.as_record() {
+                            let mut options = Vec::new();
+                            let columns = record.1.len();
+                            for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate()
+                            {
+                                if let Ok(val) = val.as_string() {
+                                    let len = nu_utils::strip_ansi_likely(&val).len()
+                                        + nu_utils::strip_ansi_likely(col).len();
+                                    options.push(format!(
+                                        " {}{}{}: {}{}",
+                                        Color::Cyan.prefix(),
+                                        col,
+                                        Color::Cyan.suffix(),
+                                        &val,
+                                        if i == columns - 1 {
+                                            String::from("")
+                                        } else {
+                                            format!(
+                                                "{} |",
+                                                " ".repeat(
+                                                    lentable
+                                                        .get(i)
+                                                        .cloned()
+                                                        .unwrap_or_default()
+                                                        .saturating_sub(len)
+                                                )
+                                            )
+                                        }
+                                    ));
+                                }
+                            }
+                            Some(Options {
+                                name: options.join(""),
+                                value: x,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
 
             _ => {
                 return Err(ShellError::TypeMismatch {
@@ -127,6 +169,13 @@ impl Command for InputList {
             });
         }
 
+        if call.has_flag("multi") && call.has_flag("fuzzy") {
+            return Err(ShellError::TypeMismatch {
+                err_message: "Fuzzy search is not supported for multi select".to_string(),
+                span: head,
+            });
+        }
+
         // could potentially be used to map the use theme colors at some point
         // let theme = dialoguer::theme::ColorfulTheme {
         //     active_item_style: Style::new().fg(Color::Cyan).bold(),
@@ -134,26 +183,19 @@ impl Command for InputList {
         // };
 
         let ans: InteractMode = if call.has_flag("multi") {
-            if call.has_flag("fuzzy") {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "Fuzzy search is not supported for multi select".to_string(),
-                    span: head,
-                });
-            } else {
-                let mut multi_select = MultiSelect::new(); //::with_theme(&theme);
+            let mut multi_select = MultiSelect::new(); //::with_theme(&theme);
 
-                InteractMode::Multi(
-                    if !prompt.is_empty() {
-                        multi_select.with_prompt(&prompt)
-                    } else {
-                        &mut multi_select
-                    }
-                    .items(&options)
-                    .report(false)
-                    .interact_on_opt(&Term::stderr())
-                    .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
-                )
-            }
+            InteractMode::Multi(
+                if !prompt.is_empty() {
+                    multi_select.with_prompt(&prompt)
+                } else {
+                    &mut multi_select
+                }
+                .items(&options)
+                .report(false)
+                .interact_on_opt(&Term::stderr())
+                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+            )
         } else if call.has_flag("fuzzy") {
             let mut fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
 
@@ -185,32 +227,26 @@ impl Command for InputList {
             )
         };
 
-        match ans {
-            InteractMode::Multi(res) => Ok({
-                match res {
-                    Some(opts) => Value::List {
-                        vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
-                        span: head,
-                    },
-                    None => Value::List {
-                        vals: vec![],
-                        span: head,
-                    },
-                }
-            }
-            .into_pipeline_data()),
-            InteractMode::Single(res) => Ok({
-                match res {
-                    Some(opt) => options[opt].value.clone(),
-
-                    None => Value::String {
-                        val: "".to_string(),
-                        span: head,
-                    },
-                }
-            }
-            .into_pipeline_data()),
+        Ok(match ans {
+            InteractMode::Multi(res) => match res {
+                Some(opts) => Value::List {
+                    vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
+                    span: head,
+                },
+                None => Value::List {
+                    vals: vec![],
+                    span: head,
+                },
+            },
+            InteractMode::Single(res) => match res {
+                Some(opt) => options[opt].value.clone(),
+                None => Value::String {
+                    val: "".to_string(),
+                    span: head,
+                },
+            },
         }
+        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

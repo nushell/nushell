@@ -1,11 +1,11 @@
 use std::io::{self, BufRead, Read, Write};
 
-use nu_command::create_default_context;
 use nu_command::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{CliError, PipelineData, Value};
+use nu_std::load_standard_library;
 // use nu_test_support::fs::in_directory;
 
 /// Echo's value of env keys from args
@@ -167,17 +167,26 @@ fn outcome_ok(msg: String) -> ! {
     std::process::exit(0);
 }
 
+/// Generate a minimal engine state with just `nu-cmd-lang`, `nu-command`, and `nu-cli` commands.
+fn get_engine_state() -> EngineState {
+    let engine_state = nu_cmd_lang::create_default_context();
+    let engine_state = nu_command::add_shell_command_context(engine_state);
+    nu_cli::add_cli_context(engine_state)
+}
+
 pub fn nu_repl() {
     //cwd: &str, source_lines: &[&str]) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     let source_lines = args();
 
-    let mut engine_state = nu_cli::add_cli_context(create_default_context());
+    let mut engine_state = get_engine_state();
     let mut stack = Stack::new();
 
-    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
+
+    load_standard_library(&mut engine_state).expect("Could not load the standard library.");
 
     for (i, line) in source_lines.iter().enumerate() {
         let cwd = nu_engine::env::current_dir(&engine_state, &stack)
@@ -210,10 +219,11 @@ pub fn nu_repl() {
         // Check for pre_execution hook
         let config = engine_state.get_config();
 
-        *engine_state
-            .repl_buffer_state
+        engine_state
+            .repl_state
             .lock()
-            .expect("repl buffer state mutex") = line.to_string();
+            .expect("repl state mutex")
+            .buffer = line.to_string();
 
         if let Some(hook) = config.hooks.pre_execution.clone() {
             if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {

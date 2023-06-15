@@ -1,5 +1,5 @@
 use nu_engine::CallExt;
-use nu_parser::parse_duration_bytes;
+use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
@@ -179,7 +179,10 @@ fn into_duration(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
+    let span = match input.span() {
+        Some(t) => t,
+        None => call.head,
+    };
     let convert_to_unit: Option<Spanned<String>> = call.get_flag(engine_state, stack, "convert")?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let config = engine_state.get_config();
@@ -188,14 +191,14 @@ fn into_duration(
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                action(&v, &convert_to_unit, float_precision, head)
+                action(&v, &convert_to_unit, float_precision, span)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
                     let d = convert_to_unit.clone();
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| action(old, &d, float_precision, head)),
+                        Box::new(move |old| action(old, &d, float_precision, span)),
                     );
                     if let Err(error) = r {
                         return Value::Error {
@@ -391,9 +394,7 @@ fn convert_str_from_unit_to_unit(
         ("yr", "yr") => Ok(val as f64),
         ("yr", "dec") => Ok(val as f64 / 10.0),
 
-        _ => Err(ShellError::CantConvertWithValue {
-            to_type: "string duration".to_string(),
-            from_type: "string duration".to_string(),
+        _ => Err(ShellError::CantConvertToDuration {
             details: to_unit.to_string(),
             dst_span: span,
             src_span: value_span,
@@ -406,7 +407,13 @@ fn convert_str_from_unit_to_unit(
 }
 
 fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
-    if let Some(expression) = parse_duration_bytes(s.as_bytes(), span) {
+    if let Some(Ok(expression)) = parse_unit_value(
+        s.as_bytes(),
+        span,
+        DURATION_UNIT_GROUPS,
+        Type::Duration,
+        |x| x,
+    ) {
         if let Expr::ValueWithUnit(value, unit) = expression.expr {
             if let Expr::Int(x) = value.expr {
                 match unit.item {
@@ -424,9 +431,7 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         }
     }
 
-    Err(ShellError::CantConvertWithValue {
-        to_type: "duration".to_string(),
-        from_type: "string".to_string(),
+    Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,
@@ -442,7 +447,13 @@ fn string_to_unit_duration(
     span: Span,
     value_span: Span,
 ) -> Result<(&str, i64), ShellError> {
-    if let Some(expression) = parse_duration_bytes(s.as_bytes(), span) {
+    if let Some(Ok(expression)) = parse_unit_value(
+        s.as_bytes(),
+        span,
+        DURATION_UNIT_GROUPS,
+        Type::Duration,
+        |x| x,
+    ) {
         if let Expr::ValueWithUnit(value, unit) = expression.expr {
             if let Expr::Int(x) = value.expr {
                 match unit.item {
@@ -461,9 +472,7 @@ fn string_to_unit_duration(
         }
     }
 
-    Err(ShellError::CantConvertWithValue {
-        to_type: "duration".to_string(),
-        from_type: "string".to_string(),
+    Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,

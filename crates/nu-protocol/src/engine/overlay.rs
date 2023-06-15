@@ -1,6 +1,6 @@
 use crate::{DeclId, ModuleId, OverlayId, Type, Value, VarId};
+use ahash::{HashMap, HashMapExt};
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
@@ -204,6 +204,10 @@ impl OverlayFrame {
 
     pub fn insert_decl(&mut self, name: Vec<u8>, input: Type, decl_id: DeclId) -> Option<DeclId> {
         self.decls.insert((name, input), decl_id)
+    }
+
+    pub fn insert_module(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
+        self.modules.insert(name, module_id)
     }
 
     pub fn get_decl(&self, name: &[u8], input: &Type) -> Option<DeclId> {
