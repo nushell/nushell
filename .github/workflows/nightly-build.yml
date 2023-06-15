@@ -21,11 +21,11 @@ defaults:
 jobs:
   prepare:
     name: Prepare
-    if: github.repository == 'nushell/nightly'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        if: github.repository == 'nushell/nightly'
         with:
           ref: main
           fetch-depth: 0
@@ -34,6 +34,7 @@ jobs:
 
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
+        if: github.repository == 'nushell/nightly'
         with:
           version: 0.81.0
         env:
@@ -41,6 +42,7 @@ jobs:
 
       - name: Prepare for Nightly Release
         shell: nu {0}
+        if: github.repository == 'nushell/nightly'
         run: |
           cd $env.GITHUB_WORKSPACE
           git checkout main
