@@ -2637,7 +2637,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 (
                     new_name
                         .map(|spanned| spanned.item)
-                        .unwrap_or(String::from_utf8_lossy(&new_module.name).to_string()),
+                        .unwrap_or_else(|| String::from_utf8_lossy(&new_module.name).to_string()),
                     new_module,
                     module_id,
                     true,
