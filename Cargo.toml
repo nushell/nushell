@@ -28,6 +28,7 @@ members = [
 	"crates/nu-engine",
 	"crates/nu-parser",
 	"crates/nu-system",
+	"crates/nu-cmd-base",
 	"crates/nu-cmd-extra",
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
