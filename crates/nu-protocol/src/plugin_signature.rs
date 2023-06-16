@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::engine::Command;
 use crate::{BlockId, Category, Flag, PositionalArg, SyntaxShape, Type};
 
-/// A simple wrapper for Signature, includes examples.
+/// A simple wrapper for Signature that includes examples.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PluginSignature {
     pub sig: Signature,
@@ -23,13 +23,13 @@ impl PluginSignature {
         Self { sig, examples }
     }
 
-    // Add a default help option to a signature
+    /// Add a default help option to a signature
     pub fn add_help(mut self) -> PluginSignature {
         self.sig = self.sig.add_help();
         self
     }
 
-    // Build an internal signature with default help option
+    /// Build an internal signature with default help option
     pub fn build(name: impl Into<String>) -> PluginSignature {
         let sig = Signature::new(name.into()).add_help();
         Self::new(sig, vec![])
@@ -94,7 +94,6 @@ impl PluginSignature {
         desc: impl Into<String>,
     ) -> PluginSignature {
         self.sig = self.sig.rest(name, shape, desc);
-
         self
     }
 
@@ -112,7 +111,6 @@ impl PluginSignature {
         short: Option<char>,
     ) -> PluginSignature {
         self.sig = self.sig.named(name, shape, desc, short);
-
         self
     }
 
@@ -165,7 +163,6 @@ impl PluginSignature {
     /// Changes the signature category
     pub fn category(mut self, category: Category) -> PluginSignature {
         self.sig = self.sig.category(category);
-
         self
     }
 

@@ -17,23 +17,31 @@ use super::EvaluatedCall;
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
+/// Encoding scheme that defines a plugin's communication protocol with Nu
 pub trait PluginEncoder: Clone {
+    /// The name of the encoder (e.g., `json`)
     fn name(&self) -> &str;
 
+    /// Serialize a `PluginCall` in the `PluginEncoder`s format
     fn encode_call(
         &self,
         plugin_call: &PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
 
+    /// Deserialize a `PluginCall` from the `PluginEncoder`s format
     fn decode_call(&self, reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError>;
 
+    /// Serialize a `PluginResponse` from the plugin in this `PluginEncoder`'s preferred
+    /// format
     fn encode_response(
         &self,
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
 
+    /// Deserialize a `PluginResponse` from the plugin from this `PluginEncoder`'s
+    /// preferred format
     fn decode_response(
         &self,
         reader: &mut impl std::io::BufRead,
@@ -113,6 +121,7 @@ pub(crate) fn call_plugin(
     }
 }
 
+#[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 pub fn get_signature(
     path: &Path,
     shell: &Option<PathBuf>,
@@ -179,10 +188,58 @@ pub fn get_signature(
     }
 }
 
-// The next trait and functions are part of the plugin that is being created
-// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
+/// The basic API for a Nushell plugin
+///
+/// This is the trait that Nushell plugins must implement. The methods defined on
+/// `Plugin` are invoked by [serve_plugin] during plugin registration and execution.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// # use nu_plugin::*;
+/// # use nu_protocol::{PluginSignature, Type, Value};
+/// struct HelloPlugin;
+///
+/// impl Plugin for HelloPlugin {
+///     fn signature(&self) -> Vec<PluginSignature> {
+///         let sig = PluginSignature::build("hello")
+///             .output_type(Type::String);
+///
+///         vec![sig]
+///     }
+///
+///     fn run(
+///         &mut self,
+///         name: &str,
+///         call: &EvaluatedCall,
+///         input: &Value,
+///     ) -> Result<Value, LabeledError> {
+///         Ok(Value::String {
+///             val: "Hello, World!".to_owned(),
+///             span: call.head,
+///         })
+///     }
+/// }
+/// ```
 pub trait Plugin {
+    /// The signature of the plugin
+    ///
+    /// This method returns the [PluginSignature]s that describe the capabilities
+    /// of this plugin. Since a single plugin executable can support multiple invocation
+    /// patterns we return a `Vec` of signatures.
     fn signature(&self) -> Vec<PluginSignature>;
+
+    /// Perform the actual behavior of the plugin
+    ///
+    /// The behavior of the plugin is defined by the implementation of this method.
+    /// When Nushell invoked the plugin [serve_plugin] will call this method and
+    /// print the serialized returned value or error to stdout, which Nushell will
+    /// interpret.
+    ///
+    /// The `name` is only relevant for plugins that implement multiple commands as the
+    /// invoked command will be passed in via this argument. The `call` contains
+    /// metadata describing how the plugin was invoked and `input` contains the structured
+    /// data passed to the command implemented by this [Plugin].
     fn run(
         &mut self,
         name: &str,
@@ -191,23 +248,30 @@ pub trait Plugin {
     ) -> Result<Value, LabeledError>;
 }
 
-// Function used in the plugin definition for the communication protocol between
-// nushell and the external plugin.
-// When creating a new plugin you have to use this function as the main
-// entry point for the plugin, e.g.
-//
-// fn main() {
-//    serve_plugin(plugin)
-// }
-//
-// where plugin is your struct that implements the Plugin trait
-//
-// Note. When defining a plugin in other language but Rust, you will have to compile
-// the plugin.capnp schema to create the object definitions that will be returned from
-// the plugin.
-// The object that is expected to be received by nushell is the PluginResponse struct.
-// That should be encoded correctly and sent to StdOut for nushell to decode and
-// and present its result
+/// Function used to implement the communication protocol between
+/// nushell and an external plugin.
+///
+/// When creating a new plugin this function is typically used as the main entry
+/// point for the plugin, e.g.
+///
+/// ```
+/// # use nu_plugin::*;
+/// # use nu_protocol::{PluginSignature, Value};
+/// # struct MyPlugin;
+/// # impl MyPlugin { fn new() -> Self { Self }}
+/// # impl Plugin for MyPlugin {
+/// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
+/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
+/// #         -> Result<Value, LabeledError> {todo!();}
+/// # }
+/// fn main() {
+///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
+/// }
+/// ```
+///
+/// The object that is expected to be received by nushell is the `PluginResponse` struct.
+/// The `serve_plugin` function should ensure that it is encoded correctly and sent
+/// to StdOut for nushell to decode and and present its result.
 pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {
         print_help(plugin, encoder);
