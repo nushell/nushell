@@ -214,7 +214,7 @@ pub fn get_signature(
 ///         call: &EvaluatedCall,
 ///         input: &Value,
 ///     ) -> Result<Value, LabeledError> {
-///         Ok(Value::String { 
+///         Ok(Value::String {
 ///             val: "Hello, World!".to_owned(),
 ///             span: call.head,
 ///         })
@@ -223,7 +223,7 @@ pub fn get_signature(
 /// ```
 pub trait Plugin {
     /// The signature of the plugin
-    /// 
+    ///
     /// This method returns the [PluginSignature]s that describe the capabilities
     /// of this plugin. Since a single plugin executable can support multiple invocation
     /// patterns we return a `Vec` of signatures.
@@ -250,8 +250,8 @@ pub trait Plugin {
 
 /// Function used to implement the communication protocol between
 /// nushell and an external plugin.
-/// 
-/// When creating a new plugin this function is typically used as the main entry 
+///
+/// When creating a new plugin this function is typically used as the main entry
 /// point for the plugin, e.g.
 ///
 /// ```
@@ -270,7 +270,7 @@ pub trait Plugin {
 /// ```
 ///
 /// The object that is expected to be received by nushell is the `PluginResponse` struct.
-/// The `serve_plugin` function should ensure that it is encoded correctly and sent 
+/// The `serve_plugin` function should ensure that it is encoded correctly and sent
 /// to StdOut for nushell to decode and and present its result.
 pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {

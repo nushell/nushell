@@ -6,17 +6,16 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 
-
 /// A representation of the plugin's invocation command including command line args
-/// 
+///
 /// The `EvaluatedCall` contains information about the way a [Plugin](crate::Plugin) was invoked
 /// representing the [`Span`] corresponding to the invocation as well as the arguments
 /// it was invoked with. It is one of three items passed to [`run`](crate::Plugin::run()) along with
 /// `name` which command that was invoked and a [`Value`] that represents the input.
-/// 
+///
 /// The evaluated call is used with the Plugins because the plugin doesn't have
-/// access to the Stack and the EngineState the way a built in command might. For that 
-/// reason, before encoding the message to the plugin all the arguments to the original 
+/// access to the Stack and the EngineState the way a built in command might. For that
+/// reason, before encoding the message to the plugin all the arguments to the original
 /// call (which are expressions) are evaluated and passed to Values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluatedCall {
@@ -84,7 +83,7 @@ impl EvaluatedCall {
     }
 
     /// Returns the value of a named argument interpreted as type `T`
-    /// 
+    ///
     /// # Examples
     /// Invoked as `my_command --foo 123`:
     /// ```
@@ -102,7 +101,7 @@ impl EvaluatedCall {
     /// let foo = call.get_flag::<i64>("foo");
     /// assert_eq!(foo.unwrap(), Some(123));
     /// ```
-    /// 
+    ///
     /// Invoked as `my_command --bar 123`:
     /// ```
     /// # use nu_protocol::{Spanned, Span, Value};
@@ -119,7 +118,7 @@ impl EvaluatedCall {
     /// let foo = call.get_flag::<i64>("foo");
     /// assert_eq!(foo.unwrap(), None);
     /// ```
-    /// 
+    ///
     /// Invoked as `my_command --foo abc`:
     /// ```
     /// # use nu_protocol::{Spanned, Span, Value};
@@ -145,7 +144,7 @@ impl EvaluatedCall {
     }
 
     /// Retrieve the Nth and all following positional arguments as type `T`
-    /// 
+    ///
     /// # Example
     /// Invoked as `my_command zero one two three`:
     /// ```
@@ -164,7 +163,7 @@ impl EvaluatedCall {
     /// # };
     /// let args = call.rest::<String>(0);
     /// assert_eq!(args.unwrap(), vec!["zero", "one", "two", "three"]);
-    /// 
+    ///
     /// let args = call.rest::<String>(2);
     /// assert_eq!(args.unwrap(), vec!["two", "three"]);
     /// ```
@@ -190,9 +189,9 @@ impl EvaluatedCall {
     }
 
     /// Retrieve the value of a mandatory positional argument as type `T`
-    /// 
-    /// Expect a positional argument of type `T` and return its value or, if the 
-    /// argument does not exist or is of the wrong type, return an error that can 
+    ///
+    /// Expect a positional argument of type `T` and return its value or, if the
+    /// argument does not exist or is of the wrong type, return an error that can
     /// be passed back to the shell.
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {

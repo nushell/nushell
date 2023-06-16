@@ -1,3 +1,4 @@
+#![allow(clippy::needless_doctest_main)]
 //! # Nu Plugin: Plugin library for Nushell
 //!
 //! This crate contains the interface necessary to build Nushell plugins in Rust.
@@ -15,11 +16,11 @@
 //! invoked by Nushell.
 //!
 //! ```
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
+//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, serve_plugin};
 //! use nu_protocol::{PluginSignature, Value};
 //!
 //! struct MyPlugin;
-//! 
+//!
 //! impl Plugin for MyPlugin {
 //!     fn signature(&self) -> Vec<PluginSignature> {
 //!         todo!();
@@ -33,12 +34,12 @@
 //!         todo!();
 //!     }
 //! }
-//! 
+//!
 //! fn main() {
 //!    serve_plugin(&mut MyPlugin{}, MsgPackSerializer)
 //! }
 //! ```
-//! 
+//!
 //! Nushell's source tree contains a
 //! [Plugin Example](https://github.com/nushell/nushell/tree/main/crates/nu_plugin_example)
 //! that demonstrates the full range of plugin capabilities.
