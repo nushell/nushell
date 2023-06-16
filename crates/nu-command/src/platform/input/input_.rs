@@ -175,9 +175,7 @@ impl Command for Input {
                             }
                             _ => continue,
                         },
-                        Ok(_) => {
-                            continue;
-                        }
+                        Ok(_) => continue,
                         Err(event_error) => {
                             crossterm::terminal::disable_raw_mode()?;
                             return Err(event_error.into());
