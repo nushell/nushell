@@ -11,7 +11,7 @@ use nu_utils::{get_default_config, get_default_env};
 // a way to split things up again.
 
 fn parser_benchmarks(c: &mut Criterion) {
-    let mut engine_state = nu_command::create_default_context();
+    let mut engine_state = nu_cmd_lang::create_default_context();
     // parsing config.nu breaks without PWD set
     engine_state.add_env_var(
         "PWD".into(),
@@ -38,7 +38,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut engine_state = nu_command::create_default_context();
+            let mut engine_state = nu_cmd_lang::create_default_context();
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -53,7 +53,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut engine_state = nu_command::create_default_context();
+            let mut engine_state = nu_cmd_lang::create_default_context();
             // parsing config.nu breaks without PWD set
             engine_state.add_env_var(
                 "PWD".into(),
@@ -75,7 +75,7 @@ fn parser_benchmarks(c: &mut Criterion) {
 fn eval_benchmarks(c: &mut Criterion) {
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut engine_state = nu_command::create_default_context();
+            let mut engine_state = nu_cmd_lang::create_default_context();
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -90,7 +90,7 @@ fn eval_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut engine_state = nu_command::create_default_context();
+            let mut engine_state = nu_cmd_lang::create_default_context();
             // parsing config.nu breaks without PWD set
             engine_state.add_env_var(
                 "PWD".into(),
