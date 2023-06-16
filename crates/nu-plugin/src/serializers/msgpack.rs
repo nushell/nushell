@@ -1,6 +1,8 @@
 use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 use nu_protocol::ShellError;
 
+/// A `PluginEncoder` that enables the plugin to communicate with Nushel with MsgPack
+/// serialized data.
 #[derive(Clone, Debug)]
 pub struct MsgPackSerializer;
 
