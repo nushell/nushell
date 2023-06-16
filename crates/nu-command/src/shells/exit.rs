@@ -23,7 +23,7 @@ impl Command for Exit {
     }
 
     fn usage(&self) -> &str {
-        "Exit a Nu shell or exit Nu entirely."
+        "Exit Nu."
     }
 
     fn search_terms(&self) -> Vec<&str> {
