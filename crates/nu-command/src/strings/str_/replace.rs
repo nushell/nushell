@@ -134,6 +134,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
+                description: "Use captures to manipulate the input text",
+                example: r#""abc-def" | str replace "(.+)-(.+)" "${2}_${1}""#,
+                result: Some(Value::test_string("def_abc")),
+            },
+            Example {
                 description: "Find and replace with fancy-regex",
                 example: r#"'a successful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
                 result: Some(Value::test_string("a successful b")),
