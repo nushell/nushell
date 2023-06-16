@@ -23,7 +23,7 @@ pub struct EvaluatedCall {
     pub head: Span,
     /// Values of positional arguments
     pub positional: Vec<Value>,
-    /// Values of named arguments
+    /// Names and values of named arguments
     pub named: Vec<(Spanned<String>, Option<Value>)>,
 }
 
@@ -55,7 +55,43 @@ impl EvaluatedCall {
         })
     }
 
-    /// Indicates whether named flag parameter is present in the arguments
+    /// Indicates whether named parameter is present in the arguments
+    ///
+    /// Typically this method would be used on a flag parameter, a named parameter
+    /// that does not take a value.
+    ///
+    /// # Examples
+    /// Invoked as `my_command --foo`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         None
+    /// #     )],
+    /// # };
+    /// assert!(call.has_flag("foo"));
+    /// ```
+    ///
+    /// Invoked as `my_command --bar`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "bar".to_owned(), span: null_span},
+    /// #         None
+    /// #     )],
+    /// # };
+    /// assert!(!call.has_flag("foo"));
+    /// ```
     pub fn has_flag(&self, flag_name: &str) -> bool {
         for name in &self.named {
             if flag_name == name.0.item {
@@ -67,6 +103,46 @@ impl EvaluatedCall {
     }
 
     /// Returns the [`Value`] of an optional named argument
+    ///
+    /// # Examples
+    /// Invoked as `my_command --foo 123`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #     )],
+    /// # };
+    /// let opt_foo = match call.get_flag_value("foo") {
+    ///     Some(Value::Int { val, .. }) => Some(val),
+    ///     None => None,
+    ///     _ => panic!(),
+    /// };
+    /// assert_eq!(opt_foo, Some(123));
+    /// ```
+    ///
+    /// Invoked as `my_command`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![],
+    /// # };
+    /// let opt_foo = match call.get_flag_value("foo") {
+    ///     Some(Value::Int { val, .. }) => Some(val),
+    ///     None => None,
+    ///     _ => panic!(),
+    /// };
+    /// assert_eq!(opt_foo, None);
+    /// ```
     pub fn get_flag_value(&self, flag_name: &str) -> Option<Value> {
         for name in &self.named {
             if flag_name == name.0.item {
@@ -78,6 +154,31 @@ impl EvaluatedCall {
     }
 
     /// Returns the [`Value`] of a given (zero indexed) positional argument, if present
+    ///
+    /// Examples:
+    /// Invoked as `my_command a b c`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: vec![
+    /// #         Value::String { val: "a".to_owned(), span: null_span },
+    /// #         Value::String { val: "b".to_owned(), span: null_span },
+    /// #         Value::String { val: "c".to_owned(), span: null_span },
+    /// #     ],
+    /// #     named: vec![],
+    /// # };
+    /// let arg = match call.nth(1) {
+    ///     Some(Value::String { val, .. }) => val,
+    ///     _ => panic!(),
+    /// };
+    /// assert_eq!(arg, "b".to_owned());
+    ///
+    /// let arg = call.nth(7);
+    /// assert!(arg.is_none());
+    /// ```
     pub fn nth(&self, pos: usize) -> Option<Value> {
         self.positional.get(pos).cloned()
     }
