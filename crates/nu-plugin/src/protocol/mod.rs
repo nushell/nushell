@@ -32,7 +32,7 @@ pub enum PluginCall {
 /// An error message with debugging information that can be passed to Nushell from the plugin
 ///
 /// The `LabeledError` struct is a structured error message that can be returned from
-/// a [Plugin's](crate::Plugin) [`run`](crate::Plugin::run()) method. It contains
+/// a [Plugin](crate::Plugin)'s [`run`](crate::Plugin::run()) method. It contains
 /// the error message along with optional [Span] data to support highlighting in the
 /// shell.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
