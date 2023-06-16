@@ -1,15 +1,11 @@
-use crossterm::event::{
-    KeyCode, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEvent,
-    MouseEventKind, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-};
-use crossterm::{execute, terminal};
+use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::terminal;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::io::stdout;
 
 #[derive(Clone)]
 pub struct KeybindingsGet;
@@ -69,7 +65,7 @@ There are 4 <key_type> variants:
         let event_type_filter = event_type_filter
             .map(|list| EventTypeFilter::from_value(list, head))
             .transpose()?
-            .unwrap_or_else(|| EventTypeFilter::all());
+            .unwrap_or_else(EventTypeFilter::all);
 
         terminal::enable_raw_mode()?;
         loop {
@@ -157,7 +153,7 @@ impl EventTypeFilter {
             "--types expects a list of strings".to_string(),
             "value originates from here".into(),
             head,
-            value.span().unwrap_or_else(|_| head),
+            value.span().unwrap_or(head),
         )
     }
 }
@@ -308,9 +304,9 @@ fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) 
         let row = Value::int(event.row as i64, head);
 
         let kind = match event.kind {
-            MouseEventKind::Down(btn) => format!("{btn:?}_down").to_string(),
-            MouseEventKind::Up(btn) => format!("{btn:?}_up").to_string(),
-            MouseEventKind::Drag(btn) => format!("{btn:?}_drag").to_string(),
+            MouseEventKind::Down(btn) => format!("{btn:?}_down"),
+            MouseEventKind::Up(btn) => format!("{btn:?}_up"),
+            MouseEventKind::Drag(btn) => format!("{btn:?}_drag"),
             MouseEventKind::Moved => "moved".to_string(),
             MouseEventKind::ScrollDown => "scroll_down".to_string(),
             MouseEventKind::ScrollUp => "scroll_up".to_string(),
@@ -326,13 +322,10 @@ fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) 
     }
 }
 
-fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &String) -> Option<Value> {
+fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Option<Value> {
     if filter.listen_paste {
         let cols = vec!["type".to_string(), "content".to_string()];
-        let vals = vec![
-            Value::string("paste", head),
-            Value::string(content.clone(), head),
-        ];
+        let vals = vec![Value::string("paste", head), Value::string(content, head)];
 
         Some(Value::record(cols, vals, head))
     } else {

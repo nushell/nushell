@@ -1,6 +1,6 @@
 use crate::commands::keybindings_get::{parse_event, EventTypeFilter};
 use crossterm::QueueableCommand;
-use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
+use crossterm::{event::Event, event::KeyCode, terminal};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
