@@ -24,7 +24,7 @@ mod test_examples {
         engine::{Command, EngineState, StateWorkingSet},
         Type,
     };
-    use std::collections::HashMap;
+    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();
