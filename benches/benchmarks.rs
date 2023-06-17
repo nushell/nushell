@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use nu_cli::eval_source;
 use nu_parser::parse;
 use nu_plugin::{EncodingType, PluginResponse};
-use nu_protocol::{PipelineData, Span, Value, engine::EngineState};
+use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
 use nu_utils::{get_default_config, get_default_env};
 
 fn load_bench_commands() -> EngineState {
