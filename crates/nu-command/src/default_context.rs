@@ -231,6 +231,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Cd,
             Cp,
+            Ucp,
             Ls,
             Mkdir,
             Mv,
