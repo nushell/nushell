@@ -1,4 +1,5 @@
-use crate::EvaluatedCall;
+use crate::{EvaluatedCall, EncodingType};
+use crate::serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 use super::{call_plugin, create_command, get_plugin_encoding};
 use crate::protocol::{
@@ -129,7 +130,15 @@ impl Command for PluginDeclaration {
             };
             get_plugin_encoding(stdout_reader)?
         };
-        let response = call_plugin(&mut child, plugin_call, &encoding, call.head).map_err(|err| {
+
+        let response = match encoding {
+            EncodingType::Json =>
+                call_plugin::<JsonSerializer>(&mut child, plugin_call, call.head),
+            EncodingType::MsgPack =>
+                call_plugin::<MsgPackSerializer>(&mut child, plugin_call, call.head),
+        };
+        
+        let response = response.map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
             ShellError::GenericError(
                 format!("Unable to decode call for {}", decl.name()),

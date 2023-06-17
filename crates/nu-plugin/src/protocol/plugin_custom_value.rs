@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use nu_protocol::{CustomValue, ShellError, Value};
 use serde::Serialize;
 
-use crate::plugin::{call_plugin, create_command, get_plugin_encoding};
-
+use crate::{plugin::{call_plugin, create_command, get_plugin_encoding}, serializers::EncodingType};
+use crate::serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 use super::{PluginCall, PluginData, PluginResponse};
 
 /// An opaque container for a custom value that is handled fully by a plugin
@@ -79,7 +79,14 @@ impl CustomValue for PluginCustomValue {
             get_plugin_encoding(stdout_reader)?
         };
 
-        let response = call_plugin(&mut child, plugin_call, &encoding, span).map_err(|err| {
+        let response = match encoding {
+            EncodingType::Json =>
+                call_plugin::<JsonSerializer>(&mut child, plugin_call, span),
+            EncodingType::MsgPack =>
+                call_plugin::<MsgPackSerializer>(&mut child, plugin_call, span),
+        };
+
+        let response = response.map_err(|err| {
             ShellError::GenericError(
                 format!(
                     "Unable to decode call for {} to get base value",

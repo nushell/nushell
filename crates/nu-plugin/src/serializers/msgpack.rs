@@ -3,16 +3,15 @@ use nu_protocol::ShellError;
 
 /// A `PluginEncoder` that enables the plugin to communicate with Nushel with MsgPack
 /// serialized data.
-#[derive(Clone, Debug)]
+// #[derive(Clone, Debug)]
 pub struct MsgPackSerializer;
 
 impl PluginEncoder for MsgPackSerializer {
-    fn name(&self) -> &str {
+    fn name() -> &'static str {
         "msgpack"
     }
 
     fn encode_call(
-        &self,
         plugin_call: &crate::protocol::PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), nu_protocol::ShellError> {
@@ -21,7 +20,6 @@ impl PluginEncoder for MsgPackSerializer {
     }
 
     fn decode_call(
-        &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<crate::protocol::PluginCall, nu_protocol::ShellError> {
         rmp_serde::from_read(reader)
@@ -29,7 +27,6 @@ impl PluginEncoder for MsgPackSerializer {
     }
 
     fn encode_response(
-        &self,
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError> {
@@ -38,7 +35,6 @@ impl PluginEncoder for MsgPackSerializer {
     }
 
     fn decode_response(
-        &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError> {
         rmp_serde::from_read(reader)
@@ -57,14 +53,13 @@ mod tests {
     #[test]
     fn callinfo_round_trip_signature() {
         let plugin_call = PluginCall::Signature;
-        let encoder = MsgPackSerializer {};
 
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_call(&plugin_call, &mut buffer)
+        MsgPackSerializer
+            ::encode_call(&plugin_call, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_call(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_call(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -113,13 +108,12 @@ mod tests {
             input: CallInput::Value(input.clone()),
         });
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_call(&plugin_call, &mut buffer)
+        MsgPackSerializer
+            ::encode_call(&plugin_call, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_call(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_call(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -163,13 +157,12 @@ mod tests {
             span,
         });
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_call(&collapse_custom_value, &mut buffer)
+        MsgPackSerializer
+            ::encode_call(&collapse_custom_value, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_call(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_call(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -198,13 +191,12 @@ mod tests {
 
         let response = PluginResponse::Signature(vec![signature.clone()]);
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_response(&response, &mut buffer)
+        MsgPackSerializer
+            ::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_response(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -259,13 +251,12 @@ mod tests {
 
         let response = PluginResponse::Value(Box::new(value.clone()));
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_response(&response, &mut buffer)
+        MsgPackSerializer
+            ::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_response(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -293,13 +284,12 @@ mod tests {
             },
         );
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_response(&response, &mut buffer)
+        MsgPackSerializer
+            ::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_response(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -323,13 +313,12 @@ mod tests {
         };
         let response = PluginResponse::Error(error.clone());
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_response(&response, &mut buffer)
+        MsgPackSerializer
+            ::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_response(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -349,13 +338,12 @@ mod tests {
         };
         let response = PluginResponse::Error(error.clone());
 
-        let encoder = MsgPackSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        encoder
-            .encode_response(&response, &mut buffer)
+        MsgPackSerializer
+            ::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = encoder
-            .decode_response(&mut buffer.as_slice())
+        let returned = MsgPackSerializer
+            ::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {

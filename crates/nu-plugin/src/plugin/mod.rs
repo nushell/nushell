@@ -4,7 +4,11 @@ use nu_engine::documentation::get_flags_section;
 use std::collections::HashMap;
 
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
-use crate::EncodingType;
+use crate::serializers::{
+    EncodingType,
+    json::JsonSerializer,
+    msgpack::MsgPackSerializer,
+};
 use std::env;
 use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
@@ -18,24 +22,22 @@ use super::EvaluatedCall;
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
 /// Encoding scheme that defines a plugin's communication protocol with Nu
-pub trait PluginEncoder: Clone {
+pub trait PluginEncoder {
     /// The name of the encoder (e.g., `json`)
-    fn name(&self) -> &str;
+    fn name() -> &'static str;
 
     /// Serialize a `PluginCall` in the `PluginEncoder`s format
     fn encode_call(
-        &self,
         plugin_call: &PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
 
     /// Deserialize a `PluginCall` from the `PluginEncoder`s format
-    fn decode_call(&self, reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError>;
+    fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError>;
 
     /// Serialize a `PluginResponse` from the plugin in this `PluginEncoder`'s preferred
     /// format
     fn encode_response(
-        &self,
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
@@ -43,7 +45,6 @@ pub trait PluginEncoder: Clone {
     /// Deserialize a `PluginResponse` from the plugin from this `PluginEncoder`'s
     /// preferred format
     fn decode_response(
-        &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError>;
 }
@@ -90,18 +91,16 @@ pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys
     process
 }
 
-pub(crate) fn call_plugin(
+pub(crate) fn call_plugin<Encoder: PluginEncoder>(
     child: &mut Child,
     plugin_call: PluginCall,
-    encoding: &EncodingType,
     span: Span,
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
-        let encoding_clone = encoding.clone();
         // If the child process fills its stdout buffer, it may end up waiting until the parent
         // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
         // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
-        std::thread::spawn(move || encoding_clone.encode_call(&plugin_call, &mut stdin_writer));
+        std::thread::spawn(move || Encoder::encode_call(&plugin_call, &mut stdin_writer));
     }
 
     // Deserialize response from plugin to extract the resulting value
@@ -109,7 +108,7 @@ pub(crate) fn call_plugin(
         let reader = stdout_reader;
         let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
 
-        encoding.decode_response(&mut buf_read)
+        Encoder::decode_response(&mut buf_read)
     } else {
         Err(ShellError::GenericError(
             "Error with stdout reader".into(),
@@ -157,22 +156,32 @@ pub fn get_signature(
         .stdout
         .take()
         .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
+
     let encoding = get_plugin_encoding(&mut stdout_reader)?;
+
+    // this is not the prettiest
+    let encode_call = match encoding {
+        EncodingType::Json => JsonSerializer::encode_call,
+        EncodingType::MsgPack => MsgPackSerializer::encode_call,
+    };
+    let decode_response = match encoding {
+        EncodingType::Json => JsonSerializer::decode_response,
+        EncodingType::MsgPack => MsgPackSerializer::decode_response,
+    };
 
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
-    let encoding_clone = encoding.clone();
     // If the child process fills its stdout buffer, it may end up waiting until the parent
     // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
     // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
     std::thread::spawn(move || {
-        encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
+        encode_call(&PluginCall::Signature, &mut stdin_writer)
     });
 
     // deserialize response from plugin to extract the signature
     let reader = stdout_reader;
     let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-    let response = encoding.decode_response(&mut buf_read)?;
+    let response = decode_response(&mut buf_read)?;
 
     let signatures = match response {
         PluginResponse::Signature(sign) => Ok(sign),
@@ -265,16 +274,23 @@ pub trait Plugin {
 /// #         -> Result<Value, LabeledError> {todo!();}
 /// # }
 /// fn main() {
-///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
+///    serve_plugin(&mut MyPlugin::new(), EncodingType::MsgPack)
 /// }
 /// ```
 ///
 /// The object that is expected to be received by nushell is the `PluginResponse` struct.
 /// The `serve_plugin` function should ensure that it is encoded correctly and sent
 /// to StdOut for nushell to decode and and present its result.
-pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
+pub fn serve_plugin(plugin: &mut impl Plugin, encoder_format: EncodingType) {
+    match encoder_format {
+        EncodingType::Json => serve_plugin_with_format::<JsonSerializer>(plugin),
+        EncodingType::MsgPack => serve_plugin_with_format::<MsgPackSerializer>(plugin),
+    }
+}
+
+fn serve_plugin_with_format<Encoder: PluginEncoder>(plugin: &mut impl Plugin) {
     if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {
-        print_help(plugin, encoder);
+        print_help::<Encoder>(plugin);
         std::process::exit(0)
     }
 
@@ -284,7 +300,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     // encoding format: |  content-length  | content    |
     {
         let mut stdout = std::io::stdout();
-        let encoding = encoder.name();
+        let encoding = Encoder::name();
         let length = encoding.len() as u8;
         let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
         encoding_content.insert(0, length);
@@ -297,13 +313,13 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     }
 
     let mut stdin_buf = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, std::io::stdin());
-    let plugin_call = encoder.decode_call(&mut stdin_buf);
+    let plugin_call = Encoder::decode_call(&mut stdin_buf);
 
     match plugin_call {
         Err(err) => {
             let response = PluginResponse::Error(err.into());
-            encoder
-                .encode_response(&response, &mut std::io::stdout())
+            Encoder
+                ::encode_response(&response, &mut std::io::stdout())
                 .expect("Error encoding response");
         }
         Ok(plugin_call) => {
@@ -311,8 +327,8 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 // Sending the signature back to nushell to create the declaration definition
                 PluginCall::Signature => {
                     let response = PluginResponse::Signature(plugin.signature());
-                    encoder
-                        .encode_response(&response, &mut std::io::stdout())
+                    Encoder
+                        ::encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");
                 }
                 PluginCall::CallInfo(call_info) => {
@@ -346,8 +362,8 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         Ok(value) => PluginResponse::Value(Box::new(value)),
                         Err(err) => PluginResponse::Error(err),
                     };
-                    encoder
-                        .encode_response(&response, &mut std::io::stdout())
+                    Encoder
+                        ::encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");
                 }
                 PluginCall::CollapseCustomValue(plugin_data) => {
@@ -358,8 +374,8 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         .map_err(LabeledError::from)
                         .map_or_else(PluginResponse::Error, PluginResponse::Value);
 
-                    encoder
-                        .encode_response(&response, &mut std::io::stdout())
+                    Encoder
+                        ::encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");
                 }
             }
@@ -367,9 +383,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     }
 }
 
-fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
+fn print_help<Encoder: PluginEncoder>(plugin: &mut impl Plugin) {
     println!("Nushell Plugin");
-    println!("Encoder: {}", encoder.name());
+    println!("Encoder: {}", Encoder::name());
 
     let mut help = String::new();
 

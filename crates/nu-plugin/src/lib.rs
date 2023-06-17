@@ -16,7 +16,7 @@
 //! invoked by Nushell.
 //!
 //! ```
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, serve_plugin};
+//! use nu_plugin::{EvaluatedCall, EncodingType, LabeledError, Plugin, serve_plugin};
 //! use nu_protocol::{PluginSignature, Value};
 //!
 //! struct MyPlugin;
@@ -36,7 +36,7 @@
 //! }
 //!
 //! fn main() {
-//!    serve_plugin(&mut MyPlugin{}, MsgPackSerializer)
+//!    serve_plugin(&mut MyPlugin{}, EncodingType::MsgPack)
 //! }
 //! ```
 //!
@@ -49,4 +49,5 @@ mod serializers;
 
 pub use plugin::{get_signature, serve_plugin, Plugin, PluginDeclaration};
 pub use protocol::{EvaluatedCall, LabeledError, PluginResponse};
-pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer, EncodingType};
+pub use serializers::EncodingType;
+// pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
