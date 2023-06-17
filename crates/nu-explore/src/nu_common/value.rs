@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 
 use nu_engine::get_columns;
 use nu_protocol::{ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, Value};

@@ -9,7 +9,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},

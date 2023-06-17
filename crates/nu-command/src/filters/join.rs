@@ -1,4 +1,3 @@
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -6,6 +5,7 @@ use nu_protocol::{
     Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::max;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct Join;

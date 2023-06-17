@@ -1,10 +1,10 @@
-use ahash::{HashMap, HashMapExt};
 use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
     ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 pub fn create_scope(
     engine_state: &EngineState,

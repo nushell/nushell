@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::{

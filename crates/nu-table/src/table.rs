@@ -1,9 +1,9 @@
 use crate::table_theme::TableTheme;
-use ahash::HashMap;
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
 use std::cmp::min;
+use std::collections::HashMap;
 use tabled::{
     builder::Builder,
     grid::{
