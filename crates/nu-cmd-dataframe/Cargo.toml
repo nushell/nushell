@@ -54,7 +54,6 @@ features = [
 	"serde",
 	"serde-lazy",
 	"strings",
-	"strings",
 	"to_dummies",
 ]
 optional = true
