@@ -11,7 +11,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
 
-#[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
 pub struct PluginDeclaration {
     name: String,

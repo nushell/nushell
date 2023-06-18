@@ -3,7 +3,7 @@ use {
     nu_protocol::ShellError,
     crate::{
         plugin::PluginEncoder,
-        PluginResponse
+        protocol::PluginResponse,
     },
 };
 

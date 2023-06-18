@@ -110,7 +110,6 @@ impl From<ShellError> for LabeledError {
 // Information received from the plugin
 // Needs to be public to communicate with nu-parser but not typically
 // used by Plugin authors
-#[doc(hidden)]
 #[derive(Serialize, Deserialize)]
 pub enum PluginResponse {
     Error(LabeledError),

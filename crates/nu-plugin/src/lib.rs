@@ -48,7 +48,11 @@ mod protocol;
 mod serializers;
 
 pub use plugin::{serve_plugin, Plugin};
-#[cfg(feature = "nu-internal")]
-pub use plugin::{get_signature, PluginDeclaration};
-pub use protocol::{EvaluatedCall, LabeledError, PluginResponse};
+pub use protocol::{EvaluatedCall, LabeledError};
 pub use serializers::EncodingType;
+
+#[cfg(feature = "nu-internal")]
+pub mod nu_internal {
+    pub use crate::plugin::{get_signature, PluginDeclaration};
+    pub use crate::protocol::PluginResponse;
+}

@@ -129,7 +129,6 @@ pub(crate) fn call_plugin<Encoder: PluginEncoder>(
     }
 }
 
-#[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[cfg(feature = "nu-internal")]
 pub fn get_signature(
     path: &Path,
