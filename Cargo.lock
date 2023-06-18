@@ -347,6 +347,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "bracoxide"
+version = "0.1.0"
+source = "git+https://github.com/atahabaki/bracoxide?branch=dev#38aaef188f8594e267e1d3acc9c463cf8fdedd73"
+
+[[package]]
 name = "brotli"
 version = "3.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2733,6 +2738,7 @@ dependencies = [
  "alphanumeric-sort",
  "atty",
  "base64 0.21.0",
+ "bracoxide",
  "byteorder",
  "bytesize",
  "calamine",
