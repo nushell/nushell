@@ -30,7 +30,7 @@ def get-annotated [
     let raw_file = (open $file)
 
     let ast = (
-        nu --ide-ast $file
+        ^$nu.current-exe --ide-ast $file
         | from json
         | enumerate
         | flatten
