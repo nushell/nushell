@@ -4,8 +4,8 @@ use crate::{
     commands::{SimpleCommand, ViewCommand},
     views::View,
 };
-use ahash::HashMap;
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 pub use command::Command;
 

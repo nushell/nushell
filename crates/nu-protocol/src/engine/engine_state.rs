@@ -7,9 +7,9 @@ use crate::{
     Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{ParseError, Value};
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use core::panic;
 use std::borrow::Borrow;
+use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;

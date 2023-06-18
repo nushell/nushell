@@ -1,6 +1,6 @@
 use crate::{ShellError, Span, Value};
-use ahash::{HashMap, HashMapExt};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 const TRIM_STRATEGY_DEFAULT: TrimStrategy = TrimStrategy::Wrap {
     try_to_keep_words: true,

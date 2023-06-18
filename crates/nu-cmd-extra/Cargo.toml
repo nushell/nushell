@@ -19,7 +19,6 @@ nu-protocol = { path = "../nu-protocol", version = "0.81.1" }
 
 # Potential dependencies for extras
 num-traits = "0.2"
-ahash = "0.8.3"
 
 [features]
 extra = ["default"]

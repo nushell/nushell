@@ -1,7 +1,7 @@
-use ahash::{HashMap, HashMapExt};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{ast::PathMember, Config, Span, TableIndexMode, Value};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::{cmp::max, sync::atomic::AtomicBool};
 

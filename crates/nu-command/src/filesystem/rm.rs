@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 #[cfg(all(
     feature = "trash-support",
     not(target_os = "android"),

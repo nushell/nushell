@@ -1,4 +1,4 @@
-use ahash::HashMap;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
