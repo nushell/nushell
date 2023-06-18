@@ -10,6 +10,8 @@ use crate::network::http::client::{
     request_handle_response, request_set_timeout, send_request,
 };
 
+use super::client::RequestFlags;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -61,6 +63,16 @@ impl Command for SubCommand {
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
+            .switch(
+                "full",
+                "returns the full response instead of only the body",
+                Some('f'),
+            )
+            .switch(
+                "allow-errors",
+                "do not fail if the server returns an error code",
+                Some('e'),
+            )
             .filter()
             .category(Category::Network)
     }
@@ -106,6 +118,11 @@ impl Command for SubCommand {
                 example: "http get -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get content from example.com, with custom headers",
+                example: "http get -H [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                result: None,
+            },
         ]
     }
 }
@@ -118,6 +135,8 @@ struct Arguments {
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
+    full: bool,
+    allow_errors: bool,
 }
 
 fn run_get(
@@ -134,6 +153,8 @@ fn run_get(
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
+        full: call.has_flag("full"),
+        allow_errors: call.has_flag("allow-errors"),
     };
     helper(engine_state, stack, call, args)
 }
@@ -147,6 +168,7 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span()?;
+    let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure);
@@ -156,13 +178,20 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, span, None, None);
+    let response = send_request(request, None, None, ctrl_c);
+
+    let request_flags = RequestFlags {
+        raw: args.raw,
+        full: args.full,
+        allow_errors: args.allow_errors,
+    };
+
     request_handle_response(
         engine_state,
         stack,
         span,
         &requested_url,
-        args.raw,
+        request_flags,
         response,
     )
 }

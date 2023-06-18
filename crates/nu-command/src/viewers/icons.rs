@@ -86,7 +86,7 @@ impl Icons {
 // }
 
 static MAP_BY_NAME: Lazy<HashMap<&'static str, char>> = Lazy::new(|| {
-    HashMap::from([
+    [
         (".Trash", '\u{f1f8}'),             // 
         (".atom", '\u{e764}'),              // 
         (".bashprofile", '\u{e615}'),       // 
@@ -124,7 +124,9 @@ static MAP_BY_NAME: Lazy<HashMap<&'static str, char>> = Lazy::new(|| {
         ("npmignore", '\u{e71e}'),          // 
         ("rubydoc", '\u{e73b}'),            // 
         ("yarn.lock", '\u{e718}'),          // 
-    ])
+    ]
+    .into_iter()
+    .collect()
 });
 
 pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {

@@ -51,7 +51,7 @@ impl Command for Explain {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Explain a command within a closure",
-            example: "explain { ls | sort-by name type -i | get name } | table -e",
+            example: "explain {|| ls | sort-by name type -i | get name } | table -e",
             result: None,
         }]
     }
@@ -176,7 +176,6 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         span: name.span,
                     };
                     arg_value.push(rec);
-                } else {
                 };
 
                 if let Some(expression) = opt_expr {
@@ -207,7 +206,6 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         span: expression.span,
                     };
                     arg_value.push(rec);
-                } else {
                 };
             }
             Argument::Positional(inner_expr) => {
@@ -279,7 +277,9 @@ fn get_expression_as_value(
 ) -> Value {
     match eval_expression(engine_state, stack, inner_expr) {
         Ok(v) => v,
-        Err(error) => Value::Error { error },
+        Err(error) => Value::Error {
+            error: Box::new(error),
+        },
     }
 }
 
@@ -326,5 +326,6 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }

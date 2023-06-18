@@ -12,7 +12,7 @@ mod simple {
                 "key_value_separated_arepa_ingredients.txt",
                 r#"
                     VAR1=Cheese
-                    VAR2=JonathanParsed
+                    VAR2=JTParsed
                     VAR3=NushellSecretIngredient
                 "#,
             )]);
@@ -29,7 +29,7 @@ mod simple {
                 "#
             ));
 
-            assert_eq!(actual.out, "JonathanParsed");
+            assert_eq!(actual.out, "JTParsed");
         })
     }
 

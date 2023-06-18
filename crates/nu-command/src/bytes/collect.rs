@@ -55,7 +55,7 @@ impl Command for BytesCollect {
                     }
                 }
                 // Explicitly propagate errors instead of dropping them.
-                Value::Error { error } => return Err(error),
+                Value::Error { error } => return Err(*error),
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "binary".into(),

@@ -2,21 +2,22 @@ use crate::{
     completions::NuCompleter,
     prompt_update,
     reedline_config::{add_menus, create_keybindings, KeybindingsMode},
-    util::{eval_source, get_guaranteed_cwd, report_error, report_error_new},
+    util::eval_source,
     NuHighlighter, NuValidator, NushellPrompt,
 };
-use crossterm::cursor::CursorShape;
+use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_color_config::StyleComputer;
-use nu_engine::{convert_env_values, eval_block, eval_block_with_early_return};
+use nu_command::hook::eval_hook;
+use nu_command::util::get_guaranteed_cwd;
+use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
-    ast::PathMember,
     config::NuCursorShape,
-    engine::{EngineState, ReplOperation, Stack, StateWorkingSet},
-    format_duration, BlockId, HistoryFileFormat, PipelineData, PositionalArg, ShellError, Span,
-    Spanned, Type, Value, VarId,
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_utils::utils::perf;
 use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
@@ -42,8 +43,10 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
+    load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
+    use nu_command::hook;
     use reedline::{FileBackedHistory, Reedline, Signal};
     let use_color = engine_state.get_config().use_ansi_coloring;
 
@@ -103,6 +106,20 @@ pub fn evaluate_repl(
     );
 
     let config = engine_state.get_config();
+    if config.bracketed_paste {
+        // try to enable bracketed paste
+        // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+        #[cfg(not(target_os = "windows"))]
+        let _ = line_editor.enable_bracketed_paste();
+    }
+
+    // Setup history_isolation aka "history per session"
+    let history_isolation = config.history_isolation;
+    let history_session_id = if history_isolation {
+        Reedline::create_history_session_id()
+    } else {
+        None
+    };
 
     start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
@@ -122,7 +139,10 @@ pub fn evaluate_repl(
                 SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?,
             ),
         };
-        line_editor = line_editor.with_history(history);
+        line_editor = line_editor
+            .with_history_session_id(history_session_id)
+            .with_history_exclusion_prefix(Some(" ".into()))
+            .with_history(history);
     };
     perf(
         "setup history",
@@ -135,19 +155,8 @@ pub fn evaluate_repl(
 
     start_time = std::time::Instant::now();
     let sys = sysinfo::System::new();
-
-    let show_banner = config.show_banner;
-    let use_ansi = config.use_ansi_coloring;
-    if show_banner {
-        let banner = get_banner(engine_state, stack);
-        if use_ansi {
-            println!("{banner}");
-        } else {
-            println!("{}", nu_utils::strip_ansi_string_likely(banner));
-        }
-    }
     perf(
-        "get sysinfo/show banner",
+        "get sysinfo",
         start_time,
         file!(),
         line!(),
@@ -165,6 +174,19 @@ pub fn evaluate_repl(
             false,
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
+    }
+
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
+    if load_std_lib.is_none() && engine_state.get_config().show_banner {
+        eval_source(
+            engine_state,
+            stack,
+            r#"use std banner; banner"#.as_bytes(),
+            "show_banner",
+            PipelineData::empty(),
+            false,
+        );
     }
 
     loop {
@@ -400,7 +422,7 @@ pub fn evaluate_repl(
         // fire the "env_change" hook
         let config = engine_state.get_config();
         if let Err(error) =
-            eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
+            hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
         {
             report_error_new(engine_state, &error)
         }
@@ -427,16 +449,6 @@ pub fn evaluate_repl(
 
         entry_num += 1;
 
-        if entry_num == 1 {
-            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-            if show_banner {
-                println!(
-                    "Startup Time: {}",
-                    format_duration(engine_state.get_startup_time())
-                );
-            }
-        }
-
         start_time = std::time::Instant::now();
         let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;
@@ -459,19 +471,23 @@ pub fn evaluate_repl(
                         .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
-                engine_state
-                    .repl_buffer_state
-                    .lock()
-                    .expect("repl buffer state mutex")
-                    .replace(line_editor.current_buffer_contents().to_string());
-
-                // Right before we start running the code the user gave us,
-                // fire the "pre_execution" hook
+                // Right before we start running the code the user gave us, fire the `pre_execution`
+                // hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
+                    // Set the REPL buffer to the current command for the "pre_execution" hook
+                    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                    repl.buffer = s.to_string();
+                    drop(repl);
+
                     if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
                         report_error_new(engine_state, &err);
                     }
                 }
+
+                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                repl.cursor_pos = line_editor.current_insertion_point();
+                repl.buffer = line_editor.current_buffer_contents().to_string();
+                drop(repl);
 
                 if shell_integration {
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
@@ -560,6 +576,32 @@ pub fn evaluate_repl(
                 } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
 
+                    let mut cmds = s.split_whitespace();
+                    if let Some("exit") = cmds.next() {
+                        let mut working_set = StateWorkingSet::new(engine_state);
+                        let _ = parse(&mut working_set, None, s.as_bytes(), false);
+
+                        if working_set.parse_errors.is_empty() {
+                            match cmds.next() {
+                                Some(s) => {
+                                    if let Ok(n) = s.parse::<i32>() {
+                                        drop(line_editor);
+                                        std::process::exit(n);
+                                    }
+                                }
+                                None => {
+                                    drop(line_editor);
+                                    std::process::exit(0);
+                                }
+                            }
+                        }
+                    }
+
+                    // should disable bracketed_paste to avoid strange pasting behavior
+                    // while running commands.
+                    #[cfg(not(target_os = "windows"))]
+                    let _ = line_editor.disable_bracketed_paste();
+
                     eval_source(
                         engine_state,
                         stack,
@@ -568,6 +610,10 @@ pub fn evaluate_repl(
                         PipelineData::empty(),
                         false,
                     );
+                    if engine_state.get_config().bracketed_paste {
+                        #[cfg(not(target_os = "windows"))]
+                        let _ = line_editor.enable_bracketed_paste();
+                    }
                 }
                 let cmd_duration = start_time.elapsed();
 
@@ -628,23 +674,15 @@ pub fn evaluate_repl(
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
 
-                let mut ops = engine_state
-                    .repl_operation_queue
-                    .lock()
-                    .expect("repl op queue mutex");
-                while let Some(op) = ops.pop_front() {
-                    match op {
-                        ReplOperation::Append(s) => line_editor.run_edit_commands(&[
-                            EditCommand::MoveToEnd,
-                            EditCommand::InsertString(s),
-                        ]),
-                        ReplOperation::Insert(s) => {
-                            line_editor.run_edit_commands(&[EditCommand::InsertString(s)])
-                        }
-                        ReplOperation::Replace(s) => line_editor
-                            .run_edit_commands(&[EditCommand::Clear, EditCommand::InsertString(s)]),
-                    }
-                }
+                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                line_editor.run_edit_commands(&[
+                    EditCommand::Clear,
+                    EditCommand::InsertString(repl.buffer.to_string()),
+                    EditCommand::MoveToPosition(repl.cursor_pos),
+                ]);
+                repl.buffer = "".to_string();
+                repl.cursor_pos = 0;
+                drop(repl);
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
@@ -696,110 +734,15 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> CursorShape {
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
     match shape {
-        NuCursorShape::Block => CursorShape::Block,
-        NuCursorShape::UnderScore => CursorShape::UnderScore,
-        NuCursorShape::Line => CursorShape::Line,
+        NuCursorShape::Block => SetCursorStyle::SteadyBlock,
+        NuCursorShape::UnderScore => SetCursorStyle::SteadyUnderScore,
+        NuCursorShape::Line => SetCursorStyle::SteadyBar,
+        NuCursorShape::BlinkBlock => SetCursorStyle::BlinkingBlock,
+        NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
+        NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
     }
-}
-
-fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
-    let age = match eval_string_with_input(
-        engine_state,
-        stack,
-        None,
-        "(date now) - ('2019-05-10 09:59:12-0700' | into datetime)",
-    ) {
-        Ok(Value::Duration { val, .. }) => format_duration(val),
-        _ => "".to_string(),
-    };
-
-    let banner = format!(
-        r#"{}     __  ,
-{} .--()°'.' {}Welcome to {}Nushell{},
-{}'|, . ,'   {}based on the {}nu{} language,
-{} !_-(_\    {}where all data is structured!
-
-Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
-Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
-Our {}Documentation{} is located at {}https://nushell.sh{}
-{}Tweet{} us at {}@nu_shell{}
-Learn how to remove this at: {}https://nushell.sh/book/configuration.html#remove-welcome-message{}
-
-It's been this long since {}Nushell{}'s first commit:
-{}{}
-"#,
-        "\x1b[32m",   //start line 1 green
-        "\x1b[32m",   //start line 2
-        "\x1b[0m",    //before welcome
-        "\x1b[32m",   //before nushell
-        "\x1b[0m",    //after nushell
-        "\x1b[32m",   //start line 3
-        "\x1b[0m",    //before based
-        "\x1b[32m",   //before nu
-        "\x1b[0m",    //after nu
-        "\x1b[32m",   //start line 4
-        "\x1b[0m",    //before where
-        "\x1b[35m",   //before Discord purple
-        "\x1b[0m",    //after Discord
-        "\x1b[35m",   //before Discord URL
-        "\x1b[0m",    //after Discord URL
-        "\x1b[1;32m", //before GitHub green_bold
-        "\x1b[0m",    //after GitHub
-        "\x1b[1;32m", //before GitHub URL
-        "\x1b[0m",    //after GitHub URL
-        "\x1b[32m",   //before Documentation
-        "\x1b[0m",    //after Documentation
-        "\x1b[32m",   //before Documentation URL
-        "\x1b[0m",    //after Documentation URL
-        "\x1b[36m",   //before Tweet blue
-        "\x1b[0m",    //after Tweet
-        "\x1b[1;36m", //before @nu_shell cyan_bold
-        "\x1b[0m",    //after @nu_shell
-        "\x1b[32m",   //before Welcome Message
-        "\x1b[0m",    //after Welcome Message
-        "\x1b[32m",   //before Nushell
-        "\x1b[0m",    //after Nushell
-        age,
-        "\x1b[0m", //after banner disable
-    );
-
-    banner
-}
-
-// Taken from Nana's simple_eval
-/// Evaluate a block of Nu code, optionally with input.
-/// For example, source="$in * 2" will multiply the value in input by 2.
-pub fn eval_string_with_input(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    input: Option<Value>,
-    source: &str,
-) -> Result<Value, ShellError> {
-    let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let (output, _) = parse(&mut working_set, None, source.as_bytes(), false, &[]);
-
-        (output, working_set.render())
-    };
-
-    engine_state.merge_delta(delta)?;
-
-    let input_as_pipeline_data = match input {
-        Some(input) => PipelineData::Value(input, None),
-        None => PipelineData::empty(),
-    };
-
-    eval_block(
-        engine_state,
-        stack,
-        &block,
-        input_as_pipeline_data,
-        false,
-        true,
-    )
-    .map(|x| x.into_value(Span::unknown()))
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
@@ -808,341 +751,6 @@ pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) ->
         .and_then(|e| e.as_i64().ok());
 
     format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
-}
-
-pub fn eval_env_change_hook(
-    env_change_hook: Option<Value>,
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-) -> Result<(), ShellError> {
-    if let Some(hook) = env_change_hook {
-        match hook {
-            Value::Record {
-                cols: env_names,
-                vals: hook_values,
-                ..
-            } => {
-                for (env_name, hook_value) in env_names.iter().zip(hook_values.iter()) {
-                    let before = engine_state
-                        .previous_env_vars
-                        .get(env_name)
-                        .cloned()
-                        .unwrap_or_default();
-
-                    let after = stack
-                        .get_env_var(engine_state, env_name)
-                        .unwrap_or_default();
-
-                    if before != after {
-                        eval_hook(
-                            engine_state,
-                            stack,
-                            None,
-                            vec![("$before".into(), before), ("$after".into(), after.clone())],
-                            hook_value,
-                        )?;
-
-                        engine_state
-                            .previous_env_vars
-                            .insert(env_name.to_string(), after);
-                    }
-                }
-            }
-            x => {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "record for the 'env_change' hook".to_string(),
-                    span: x.span()?,
-                });
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub fn eval_hook(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    input: Option<PipelineData>,
-    arguments: Vec<(String, Value)>,
-    value: &Value,
-) -> Result<PipelineData, ShellError> {
-    let value_span = value.span()?;
-
-    // Hooks can optionally be a record in this form:
-    // {
-    //     condition: {|before, after| ... }  # block that evaluates to true/false
-    //     code: # block or a string
-    // }
-    // The condition block will be run to check whether the main hook (in `code`) should be run.
-    // If it returns true (the default if a condition block is not specified), the hook should be run.
-    let condition_path = PathMember::String {
-        val: "condition".to_string(),
-        span: value_span,
-    };
-    let mut output = PipelineData::empty();
-
-    let code_path = PathMember::String {
-        val: "code".to_string(),
-        span: value_span,
-    };
-
-    match value {
-        Value::List { vals, .. } => {
-            for val in vals {
-                eval_hook(engine_state, stack, None, arguments.clone(), val)?;
-            }
-        }
-        Value::Record { .. } => {
-            let do_run_hook = if let Ok(condition) =
-                value
-                    .clone()
-                    .follow_cell_path(&[condition_path], false, false)
-            {
-                match condition {
-                    Value::Block {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    }
-                    | Value::Closure {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    } => {
-                        match run_hook_block(
-                            engine_state,
-                            stack,
-                            block_id,
-                            None,
-                            arguments.clone(),
-                            block_span,
-                        ) {
-                            Ok(pipeline_data) => {
-                                if let PipelineData::Value(Value::Bool { val, .. }, ..) =
-                                    pipeline_data
-                                {
-                                    val
-                                } else {
-                                    return Err(ShellError::UnsupportedConfigValue(
-                                        "boolean output".to_string(),
-                                        "other PipelineData variant".to_string(),
-                                        block_span,
-                                    ));
-                                }
-                            }
-                            Err(err) => {
-                                return Err(err);
-                            }
-                        }
-                    }
-                    other => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "block".to_string(),
-                            format!("{}", other.get_type()),
-                            other.span()?,
-                        ));
-                    }
-                }
-            } else {
-                // always run the hook
-                true
-            };
-
-            if do_run_hook {
-                match value.clone().follow_cell_path(&[code_path], false, false)? {
-                    Value::String {
-                        val,
-                        span: source_span,
-                    } => {
-                        let (block, delta, vars) = {
-                            let mut working_set = StateWorkingSet::new(engine_state);
-
-                            let mut vars: Vec<(VarId, Value)> = vec![];
-
-                            for (name, val) in arguments {
-                                let var_id = working_set.add_variable(
-                                    name.as_bytes().to_vec(),
-                                    val.span()?,
-                                    Type::Any,
-                                    false,
-                                );
-
-                                vars.push((var_id, val));
-                            }
-
-                            let (output, err) =
-                                parse(&mut working_set, Some("hook"), val.as_bytes(), false, &[]);
-                            if let Some(err) = err {
-                                report_error(&working_set, &err);
-
-                                return Err(ShellError::UnsupportedConfigValue(
-                                    "valid source code".into(),
-                                    "source code with syntax errors".into(),
-                                    source_span,
-                                ));
-                            }
-
-                            (output, working_set.render(), vars)
-                        };
-
-                        engine_state.merge_delta(delta)?;
-                        let input = PipelineData::empty();
-
-                        let var_ids: Vec<VarId> = vars
-                            .into_iter()
-                            .map(|(var_id, val)| {
-                                stack.add_var(var_id, val);
-                                var_id
-                            })
-                            .collect();
-
-                        match eval_block(engine_state, stack, &block, input, false, false) {
-                            Ok(pipeline_data) => {
-                                output = pipeline_data;
-                            }
-                            Err(err) => {
-                                report_error_new(engine_state, &err);
-                            }
-                        }
-
-                        for var_id in var_ids.iter() {
-                            stack.vars.remove(var_id);
-                        }
-                    }
-                    Value::Block {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    } => {
-                        run_hook_block(
-                            engine_state,
-                            stack,
-                            block_id,
-                            input,
-                            arguments,
-                            block_span,
-                        )?;
-                    }
-                    Value::Closure {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    } => {
-                        run_hook_block(
-                            engine_state,
-                            stack,
-                            block_id,
-                            input,
-                            arguments,
-                            block_span,
-                        )?;
-                    }
-                    other => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "block or string".to_string(),
-                            format!("{}", other.get_type()),
-                            other.span()?,
-                        ));
-                    }
-                }
-            }
-        }
-        Value::Block {
-            val: block_id,
-            span: block_span,
-            ..
-        } => {
-            output = run_hook_block(
-                engine_state,
-                stack,
-                *block_id,
-                input,
-                arguments,
-                *block_span,
-            )?;
-        }
-        Value::Closure {
-            val: block_id,
-            span: block_span,
-            ..
-        } => {
-            output = run_hook_block(
-                engine_state,
-                stack,
-                *block_id,
-                input,
-                arguments,
-                *block_span,
-            )?;
-        }
-        other => {
-            return Err(ShellError::UnsupportedConfigValue(
-                "block, record, or list of records".into(),
-                format!("{}", other.get_type()),
-                other.span()?,
-            ));
-        }
-    }
-
-    let cwd = get_guaranteed_cwd(engine_state, stack);
-    engine_state.merge_env(stack, cwd)?;
-
-    Ok(output)
-}
-
-fn run_hook_block(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block_id: BlockId,
-    optional_input: Option<PipelineData>,
-    arguments: Vec<(String, Value)>,
-    span: Span,
-) -> Result<PipelineData, ShellError> {
-    let block = engine_state.get_block(block_id);
-
-    let input = optional_input.unwrap_or_else(PipelineData::empty);
-
-    let mut callee_stack = stack.gather_captures(&block.captures);
-
-    for (idx, PositionalArg { var_id, .. }) in
-        block.signature.required_positional.iter().enumerate()
-    {
-        if let Some(var_id) = var_id {
-            if let Some(arg) = arguments.get(idx) {
-                callee_stack.add_var(*var_id, arg.1.clone())
-            } else {
-                return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "This hook block has too many parameters".into(),
-                    span,
-                });
-            }
-        }
-    }
-
-    let pipeline_data =
-        eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
-
-    if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
-        return Err(error);
-    }
-
-    // If all went fine, preserve the environment of the called block
-    let caller_env_vars = stack.get_env_var_names(engine_state);
-
-    // remove env vars that are present in the caller but not in the callee
-    // (the callee hid them)
-    for var in caller_env_vars.iter() {
-        if !callee_stack.has_env_var(engine_state, var) {
-            stack.remove_env_var(engine_state, var);
-        }
-    }
-
-    // add new env vars from callee to caller
-    for (var, value) in callee_stack.get_stack_env_vars() {
-        stack.add_env_var(var, value);
-    }
-    Ok(pipeline_data)
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {

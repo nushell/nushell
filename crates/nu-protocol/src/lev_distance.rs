@@ -25,11 +25,7 @@ pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
         return None;
     }
     if n == 0 || m == 0 {
-        return if min_dist <= limit {
-            Some(min_dist)
-        } else {
-            None
-        };
+        return Some(min_dist);
     }
 
     let mut dcol: Vec<_> = (0..=m).collect();
@@ -57,6 +53,10 @@ pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
     }
 }
 
+/// Finds the Levenshtein distance between two strings.
+pub fn levenshtein_distance(a: &str, b: &str) -> usize {
+    lev_distance(a, b, usize::max_value()).unwrap_or(usize::max_value())
+}
 /// Provides a word similarity score between two words that accounts for substrings being more
 /// meaningful than a typical Levenshtein distance. The lower the score, the closer the match.
 /// 0 is an identical match.

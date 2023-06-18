@@ -1,14 +1,14 @@
 use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{
     files_exist_at, AbsoluteFile,
-    Stub::{EmptyFile, FileWithPermission},
+    Stub::{EmptyFile, FileWithContent, FileWithPermission},
 };
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::path::Path;
 
 fn get_file_hash<T: std::fmt::Display>(file: T) -> String {
-    nu!("open {} | to text | hash md5", file).out
+    nu!("open -r {} | to text | hash md5", file).out
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
             .within("originals")
             .with_files(vec![
                 EmptyFile("yehuda.txt"),
-                EmptyFile("jonathan.txt"),
+                EmptyFile("jttxt"),
                 EmptyFile("andres.txt"),
             ])
             .mkdir("expected");
@@ -126,7 +126,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
         assert!(files_exist_at(
             vec![
                 Path::new("yehuda.txt"),
-                Path::new("jonathan.txt"),
+                Path::new("jttxt"),
                 Path::new("andres.txt")
             ],
             &expected_dir
@@ -148,10 +148,10 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
             .within("originals/contributors")
             .with_files(vec![
                 EmptyFile("yehuda.txt"),
-                EmptyFile("jonathan.txt"),
+                EmptyFile("jttxt"),
                 EmptyFile("andres.txt"),
             ])
-            .within("originals/contributors/jonathan")
+            .within("originals/contributors/JT")
             .with_files(vec![EmptyFile("errors.txt"), EmptyFile("multishells.txt")])
             .within("originals/contributors/andres")
             .with_files(vec![EmptyFile("coverage.txt"), EmptyFile("commands.txt")])
@@ -162,7 +162,7 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
         let expected_dir = dirs.test().join("expected").join("originals");
         let progress_flag = if progress { "-p" } else { "" };
 
-        let jonathans_expected_copied_dir = expected_dir.join("contributors").join("jonathan");
+        let jts_expected_copied_dir = expected_dir.join("contributors").join("JT");
         let andres_expected_copied_dir = expected_dir.join("contributors").join("andres");
         let yehudas_expected_copied_dir = expected_dir.join("contributors").join("yehuda");
 
@@ -175,7 +175,7 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
         assert!(expected_dir.exists());
         assert!(files_exist_at(
             vec![Path::new("errors.txt"), Path::new("multishells.txt")],
-            jonathans_expected_copied_dir
+            jts_expected_copied_dir
         ));
         assert!(files_exist_at(
             vec![Path::new("coverage.txt"), Path::new("commands.txt")],
@@ -216,7 +216,7 @@ fn copies_using_path_with_wildcard_impl(progress: bool) {
             vec![
                 Path::new("caco3_plastics.csv"),
                 Path::new("cargo_sample.toml"),
-                Path::new("jonathan.xml"),
+                Path::new("jt.xml"),
                 Path::new("sample.ini"),
                 Path::new("sgml_description.json"),
                 Path::new("utf16.ini"),
@@ -261,7 +261,7 @@ fn copies_using_a_glob_impl(progress: bool) {
             vec![
                 Path::new("caco3_plastics.csv"),
                 Path::new("cargo_sample.toml"),
-                Path::new("jonathan.xml"),
+                Path::new("jt.xml"),
                 Path::new("sample.ini"),
                 Path::new("sgml_description.json"),
                 Path::new("utf16.ini"),
@@ -317,7 +317,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
 fn copy_files_using_glob_two_parents_up_using_multiple_dots_imp(progress: bool) {
     Playground::setup("cp_test_9", |dirs, sandbox| {
         sandbox.within("foo").within("bar").with_files(vec![
-            EmptyFile("jonathan.json"),
+            EmptyFile("jtjson"),
             EmptyFile("andres.xml"),
             EmptyFile("yehuda.yaml"),
             EmptyFile("kevin.txt"),
@@ -335,7 +335,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots_imp(progress: bool) 
         assert!(files_exist_at(
             vec![
                 "yehuda.yaml",
-                "jonathan.json",
+                "jtjson",
                 "andres.xml",
                 "kevin.txt",
                 "many_more.ppl",
@@ -577,5 +577,35 @@ fn copy_file_with_read_permission_impl(progress: bool) {
             actual.err.contains("invalid_prem.txt")
                 && actual.err.contains("copying to destination")
         );
+    });
+}
+
+#[test]
+fn copy_file_with_update_flag() {
+    copy_file_with_update_flag_impl(false);
+    copy_file_with_update_flag_impl(true);
+}
+
+fn copy_file_with_update_flag_impl(progress: bool) {
+    Playground::setup("cp_test_19", |_dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("valid.txt"),
+            FileWithContent("newer_valid.txt", "body"),
+        ]);
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            "cp {} -u valid.txt newer_valid.txt; open newer_valid.txt",
+            progress_flag,
+        );
+        assert!(actual.out.contains("body"));
+
+        // create a file after assert to make sure that newest_valid.txt is newest
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} -u newest_valid.txt valid.txt; open valid.txt", progress_flag);
+        assert_eq!(actual.out, "newest_body");
     });
 }

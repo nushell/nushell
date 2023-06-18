@@ -68,12 +68,12 @@ fn abs_helper(val: Value, head: Span) -> Value {
         },
         Value::Error { .. } => val,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

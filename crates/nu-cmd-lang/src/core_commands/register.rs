@@ -63,7 +63,7 @@ impl Command for Register {
                 result: None,
             },
             Example {
-                description: "Register `nu_plugin_query` plugin from `nu -c`(plugin will be available in that nu session only)",
+                description: "Register `nu_plugin_query` plugin from `nu -c` (writes/updates $nu.plugin-path)",
                 example: r#"let plugin = ((which nu).path.0 | path dirname | path join 'nu_plugin_query'); nu -c $'register ($plugin); version'"#,
                 result: None,
             },

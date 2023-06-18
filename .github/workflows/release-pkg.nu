@@ -50,17 +50,17 @@ let flags = $env.TARGET_RUSTFLAGS
 let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
-$'Debugging info:'
+print $'Debugging info:'
 print { version: $version, bin: $bin, os: $os, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
 
 # $env
 
 let USE_UBUNTU = 'ubuntu-20.04'
 
-$'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
+print $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
 if not ('Cargo.lock' | path exists) { cargo generate-lockfile }
 
-$'Start building ($bin)...'; hr-line
+print $'Start building ($bin)...'; hr-line
 
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
@@ -70,23 +70,28 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
-    if $target == 'aarch64-unknown-linux-gnu' {
-        sudo apt-get install gcc-aarch64-linux-gnu -y
-        let-env CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
-        cargo-build-nu $flags
-    } else if $target == 'armv7-unknown-linux-gnueabihf' {
-        sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
-        let-env CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
-        cargo-build-nu $flags
-    } else if $target == 'riscv64gc-unknown-linux-gnu' {
-        sudo apt-get install gcc-riscv64-linux-gnu -y
-        let-env CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
-        cargo-build-nu $flags
-    } else {
-        # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
-        # Actually just for x86_64-unknown-linux-musl target
-        if $os == $USE_UBUNTU { sudo apt install musl-tools -y }
-        cargo-build-nu $flags
+    match $target {
+        'aarch64-unknown-linux-gnu' => {
+            sudo apt-get install gcc-aarch64-linux-gnu -y
+            let-env CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
+            cargo-build-nu $flags
+        }
+        'riscv64gc-unknown-linux-gnu' => {
+            sudo apt-get install gcc-riscv64-linux-gnu -y
+            let-env CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
+            cargo-build-nu $flags
+        }
+        'armv7-unknown-linux-gnueabihf' => {
+            sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
+            let-env CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
+            cargo-build-nu $flags
+        }
+        _ => {
+            # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
+            # Actually just for x86_64-unknown-linux-musl target
+            if $os == $USE_UBUNTU { sudo apt install musl-tools -y }
+            cargo-build-nu $flags
+        }
     }
 }
 
@@ -94,6 +99,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
+    # let-env CARGO_BUILD_TARGET = $target
     if ($flags | str trim | is-empty) {
         cargo build --release --all --target $target
     } else {
@@ -107,31 +113,36 @@ if $os in ['windows-latest'] {
 let suffix = if $os == 'windows-latest' { '.exe' }
 # nu, nu_plugin_* were all included
 let executable = $'target/($target)/release/($bin)*($suffix)'
-$'Current executable file: ($executable)'
+print $'Current executable file: ($executable)'
 
 cd $src; mkdir $dist;
 rm -rf $'target/($target)/release/*.d' $'target/($target)/release/nu_pretty_hex*'
-$'(char nl)All executable files:'; hr-line
-ls -f $executable
+print $'(char nl)All executable files:'; hr-line
+# We have to use `print` here to make sure the command output is displayed
+print (ls -f $executable); sleep 1sec
 
-$'(char nl)Copying release files...'; hr-line
-cp -v README.release.txt $'($dist)/README.txt'
+print $'(char nl)Copying release files...'; hr-line
+"To use Nu plugins, use the register command to tell Nu where to find the plugin. For example:
+
+> register ./nu_plugin_query" | save $'($dist)/README.txt'
 [LICENSE $executable] | each {|it| cp -rv $it $dist } | flatten
+# Sleep a few seconds to make sure the cp process finished successfully
+sleep 3sec
 
-$'(char nl)Check binary release version detail:'; hr-line
+print $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
-    (do -i { ./output/nu.exe -c 'version' }) | str join
+    (do -i { .\output\nu.exe -c 'version' }) | str join
 } else {
     (do -i { ./output/nu -c 'version' }) | str join
 }
 if ($ver | str trim | is-empty) {
-    $'(ansi r)Incompatible nu binary...(ansi reset)'
-} else { $ver }
+    print $'(ansi r)Incompatible nu binary...(ansi reset)'
+} else { print $ver }
 
 # ----------------------------------------------------------------------------
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
-cd $dist; $'(char nl)Creating release archive...'; hr-line
+cd $dist; print $'(char nl)Creating release archive...'; hr-line
 if $os in [$USE_UBUNTU, 'macos-latest'] {
 
     let files = (ls | get name)
@@ -141,7 +152,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
     mkdir $dest
     $files | each {|it| mv $it $dest } | ignore
 
-    $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest
+    print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest
 
     tar -czf $archive $dest
     print $'archive: ---> ($archive)'; ls $archive
@@ -152,7 +163,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 
     let releaseStem = $'($bin)-($version)-($target)'
 
-    $'(char nl)Download less related stuffs...'; hr-line
+    print $'(char nl)Download less related stuffs...'; hr-line
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
     aria2c https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE -o LICENSE-for-less.txt
 
@@ -160,7 +171,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
     if (get-env _EXTRA_) == 'msi' {
 
         let wixRelease = $'($src)/target/wix/($releaseStem).msi'
-        $'(char nl)Start creating Windows msi package...'
+        print $'(char nl)Start creating Windows msi package...'
         cd $src; hr-line
         # Wix need the binaries be stored in target/release/
         cp -r $'($dist)/*' target/release/
@@ -171,7 +182,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 
     } else {
 
-        $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
+        print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
         let archive = $'($dist)/($releaseStem).zip'
         7z a $archive *
         print $'archive: ---> ($archive)';

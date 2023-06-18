@@ -61,7 +61,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["search", "shift", "switch"]
+        vec!["search", "shift", "switch", "regex"]
     }
 
     fn run(
@@ -132,6 +132,11 @@ impl Command for SubCommand {
                 description: "Find and replace all occurrences using string replacement *not* regular expressions",
                 example: r#"'abc abc abc' | str replace -a 'b' 'z' -s"#,
                 result: Some(Value::test_string("azc azc azc")),
+            },
+            Example {
+                description: "Use captures to manipulate the input text",
+                example: r#""abc-def" | str replace "(.+)-(.+)" "${2}_${1}""#,
+                result: Some(Value::test_string("def_abc")),
             },
             Example {
                 description: "Find and replace with fancy-regex",
@@ -209,22 +214,22 @@ fn action(
                         }
                     }
                     Err(e) => Value::Error {
-                        error: ShellError::IncorrectValue {
+                        error: Box::new(ShellError::IncorrectValue {
                             msg: format!("Regex error: {e}"),
                             span: find.span,
-                        },
+                        }),
                     },
                 }
             }
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.expect_span(),
-            },
+            }),
         },
     }
 }

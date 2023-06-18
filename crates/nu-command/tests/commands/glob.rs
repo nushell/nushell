@@ -7,7 +7,7 @@ fn empty_glob_pattern_triggers_error() {
     Playground::setup("glob_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
@@ -25,7 +25,7 @@ fn nonempty_glob_lists_matching_paths() {
     Playground::setup("glob_sanity_star", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
@@ -43,7 +43,7 @@ fn glob_subdirs() {
     Playground::setup("glob_subdirs", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
         sandbox.mkdir("children");
@@ -70,7 +70,7 @@ fn glob_subdirs_ignore_dirs() {
     Playground::setup("glob_subdirs_ignore_directories", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
         sandbox.mkdir("children");
@@ -97,7 +97,7 @@ fn glob_ignore_files() {
     Playground::setup("glob_ignore_files", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
         sandbox.mkdir("children");

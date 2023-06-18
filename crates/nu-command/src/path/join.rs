@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -197,11 +195,11 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                     Value::List { vals, span }
                 }
                 Err(_) => Value::Error {
-                    error: ShellError::PipelineMismatch {
+                    error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string or record".into(),
                         dst_span: head,
                         src_span: span,
-                    },
+                    }),
                 },
             }
         }
@@ -223,7 +221,9 @@ fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &A
     } else {
         match merge_record(cols, vals, head, span) {
             Ok(p) => join_single(p.as_path(), head, args),
-            Err(error) => Value::Error { error },
+            Err(error) => Value::Error {
+                error: Box::new(error),
+            },
         }
     }
 }

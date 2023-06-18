@@ -20,7 +20,7 @@ impl Command for Parse {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match"]
+        vec!["pattern", "match", "regex"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -346,11 +346,11 @@ impl Iterator for ParseStreamer {
                     &mut self.excess,
                 ),
                 Err(_) => Some(Value::Error {
-                    error: ShellError::PipelineMismatch {
+                    error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
                         src_span: v.span().unwrap_or(self.span),
-                    },
+                    }),
                 }),
             }
         } else {
@@ -386,15 +386,17 @@ impl Iterator for ParseStreamerExternal {
                     &mut self.excess,
                 ),
                 Err(_) => Some(Value::Error {
-                    error: ShellError::PipelineMismatch {
+                    error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
                         src_span: self.span,
-                    },
+                    }),
                 }),
             }
         } else if let Some(Err(err)) = v {
-            Some(Value::Error { error: err })
+            Some(Value::Error {
+                error: Box::new(err),
+            })
         } else {
             None
         }
@@ -416,13 +418,13 @@ fn stream_helper(
             Ok(c) => c,
             Err(e) => {
                 return Some(Value::Error {
-                    error: ShellError::GenericError(
+                    error: Box::new(ShellError::GenericError(
                         "Error with regular expression captures".into(),
                         e.to_string(),
                         None,
                         None,
                         Vec::new(),
-                    ),
+                    )),
                 })
             }
         };

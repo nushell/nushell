@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -35,10 +36,7 @@ pub(crate) fn get_editor(
     if let Some((a, b)) = editor.split_once(' ') {
         Ok((
             a.to_string(),
-            b.split(' ')
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
+            b.split(' ').map(|s| s.to_string()).collect::<Vec<String>>(),
         ))
     } else {
         Ok((editor, Vec::new()))
@@ -74,6 +72,7 @@ pub(crate) fn gen_command(
         arg_keep_raw: vec![false; number_of_args],
         redirect_stdout: false,
         redirect_stderr: false,
+        redirect_combine: false,
         env_vars: env_vars_str,
         trim_end_newline: false,
     }

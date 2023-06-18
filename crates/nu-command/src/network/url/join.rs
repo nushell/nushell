@@ -106,7 +106,7 @@ impl Command for SubCommand {
 
                     url_components?.to_url(span)
                 }
-                Value::Error { error } => Err(error),
+                Value::Error { error } => Err(*error),
                 other => Err(ShellError::UnsupportedInput(
                     "Expected a record from pipeline".to_string(),
                     "value originates from here".into(),
@@ -164,7 +164,7 @@ impl UrlComponents {
                     port: Some(val),
                     ..self
                 }),
-                Value::Error { error } => Err(error),
+                Value::Error { error } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from(
                         "Port parameter should be an unsigned integer or a string representing it",
@@ -191,7 +191,11 @@ impl UrlComponents {
                         .collect::<Result<Vec<String>, ShellError>>()?
                         .join("&");
 
-                    qs = format!("?{qs}");
+                    qs = if !qs.trim().is_empty() {
+                        format!("?{qs}")
+                    } else {
+                        qs
+                    };
 
                     if let Some(q) = self.query {
                         if q != qs {
@@ -211,7 +215,7 @@ impl UrlComponents {
                         ..self
                     })
                 }
-                Value::Error { error } => Err(error),
+                Value::Error { error } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from("Key params has to be a record"),
                     span: other.expect_span(),

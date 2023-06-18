@@ -2,6 +2,8 @@ use nu_protocol::ShellError;
 
 use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 
+/// A `PluginEncoder` that enables the plugin to communicate with Nushel with JSON
+/// serialized data.
 #[derive(Clone, Debug)]
 pub struct JsonSerializer;
 

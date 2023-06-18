@@ -97,12 +97,11 @@ pub(crate) fn add_menus(
         {
             let (block, _) = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
-                let (output, _) = parse(
+                let output = parse(
                     &mut working_set,
                     Some(name), // format!("entry #{}", entry_num)
                     definition.as_bytes(),
                     true,
-                    &[],
                 );
 
                 (output, working_set.render())
@@ -626,9 +625,12 @@ fn add_parsed_keybinding(
         "shift" => KeyModifiers::SHIFT,
         "alt" => KeyModifiers::ALT,
         "none" => KeyModifiers::NONE,
-        "control | shift" => KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-        "control | alt" => KeyModifiers::CONTROL | KeyModifiers::ALT,
-        "control | alt | shift" => KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT,
+        "shift_alt" | "alt_shift" => KeyModifiers::SHIFT | KeyModifiers::ALT,
+        "control_shift" | "shift_control" => KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        "control_alt" | "alt_control" => KeyModifiers::CONTROL | KeyModifiers::ALT,
+        "control_alt_shift" | "control_shift_alt" => {
+            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT
+        }
         _ => {
             return Err(ShellError::UnsupportedConfigValue(
                 "CONTROL, SHIFT, ALT or NONE".to_string(),

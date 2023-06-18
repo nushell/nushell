@@ -72,25 +72,25 @@ impl Command for SubCommand {
             Example {
             description: "draw text in a gradient with foreground start and end colors",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart 0x40c9ff --fgend 0xe81cff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff' --fgend '0xe81cff'",
             result: None,
         },
         Example {
             description: "draw text in a gradient with foreground start and end colors and background start and end colors",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart 0x40c9ff --fgend 0xe81cff --bgstart 0xe81cff --bgend 0x40c9ff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff' --fgend '0xe81cff' --bgstart '0xe81cff' --bgend '0x40c9ff'",
             result: None,
         },
         Example {
             description: "draw text in a gradient by specifying foreground start color - end color is assumed to be black",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart 0x40c9ff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff'",
             result: None,
         },
         Example {
             description: "draw text in a gradient by specifying foreground end color - start color is assumed to be black",
             example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgend 0xe81cff",
+                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgend '0xe81cff'",
             result: None,
         },
         ]
@@ -134,7 +134,9 @@ fn operate(
                         Box::new(move |old| action(old, fgs_hex, fge_hex, bgs_hex, bge_hex, &head)),
                     );
                     if let Err(error) = r {
-                        return Value::Error { error };
+                        return Value::Error {
+                            error: Box::new(error),
+                        };
                     }
                 }
                 ret
@@ -158,11 +160,11 @@ fn action(
                 (None, None, None, None) => {
                     // Error - no colors
                     Value::Error {
-                        error: ShellError::MissingParameter {
+                        error: Box::new(ShellError::MissingParameter {
                             param_name:
                                 "please supply foreground and/or background color parameters".into(),
                             span: *command_span,
-                        },
+                        }),
                     }
                 }
                 (None, None, None, Some(bg_end)) => {
@@ -286,10 +288,10 @@ fn action(
             let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
-                error: ShellError::TypeMismatch {
+                error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
                     span: other.span().unwrap_or(*command_span),
-                },
+                }),
             }
         }
     }

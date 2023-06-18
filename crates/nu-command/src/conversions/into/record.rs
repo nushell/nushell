@@ -185,12 +185,12 @@ fn into_record(
         Value::Record { cols, vals, span } => Value::Record { cols, vals, span },
         Value::Error { .. } => input,
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: call.head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     };
     Ok(res.into_pipeline_data())

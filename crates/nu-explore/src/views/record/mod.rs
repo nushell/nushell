@@ -1,6 +1,8 @@
 mod tablew;
 
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
+
+use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::{get_color_map, StyleComputer};
@@ -8,7 +10,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use tui::{layout::Rect, widgets::Block};
+use ratatui::{layout::Rect, widgets::Block};
 
 use crate::{
     nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},

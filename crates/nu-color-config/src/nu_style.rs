@@ -20,22 +20,32 @@ impl From<Style> for NuStyle {
 }
 
 fn style_get_attr(s: Style) -> Option<String> {
-    macro_rules! check {
-        ($attrs:expr, $b:expr, $c:expr) => {
-            if $b {
-                $attrs.push($c);
-            }
-        };
-    }
-
     let mut attrs = String::new();
 
-    check!(attrs, s.is_blink, 'l');
-    check!(attrs, s.is_bold, 'b');
-    check!(attrs, s.is_dimmed, 'd');
-    check!(attrs, s.is_reverse, 'r');
-    check!(attrs, s.is_strikethrough, 's');
-    check!(attrs, s.is_underline, 'u');
+    if s.is_blink {
+        attrs.push('l');
+    };
+    if s.is_bold {
+        attrs.push('b');
+    };
+    if s.is_dimmed {
+        attrs.push('d');
+    };
+    if s.is_hidden {
+        attrs.push('h');
+    };
+    if s.is_italic {
+        attrs.push('i');
+    };
+    if s.is_reverse {
+        attrs.push('r');
+    };
+    if s.is_strikethrough {
+        attrs.push('s');
+    };
+    if s.is_underline {
+        attrs.push('u');
+    };
 
     if attrs.is_empty() {
         None
@@ -542,28 +552,7 @@ pub fn lookup_style(s: &str) -> Style {
 }
 
 pub fn lookup_color(s: &str) -> Option<Color> {
-    let color = match s {
-        "g" | "green" => Color::Green,
-        "lg" | "light_green" => Color::LightGreen,
-        "r" | "red" => Color::Red,
-        "lr" | "light_red" => Color::LightRed,
-        "u" | "blue" => Color::Blue,
-        "lu" | "light_blue" => Color::LightBlue,
-        "b" | "black" => Color::Black,
-        "ligr" | "light_gray" => Color::LightGray,
-        "y" | "yellow" => Color::Yellow,
-        "ly" | "light_yellow" => Color::LightYellow,
-        "p" | "purple" => Color::Purple,
-        "lp" | "light_purple" => Color::LightPurple,
-        "c" | "cyan" => Color::Cyan,
-        "lc" | "light_cyan" => Color::LightCyan,
-        "w" | "white" => Color::White,
-        "dgr" | "dark_gray" => Color::DarkGray,
-        "def" | "default" => Color::Default,
-        _ => return None,
-    };
-
-    Some(color)
+    lookup_style(s).foreground
 }
 
 fn fill_modifiers(attrs: &str, style: &mut Style) {

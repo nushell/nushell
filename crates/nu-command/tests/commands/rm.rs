@@ -1,6 +1,8 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use std::fs;
+use std::path::PathBuf;
 
 #[test]
 fn removes_a_file() {
@@ -108,7 +110,7 @@ fn removes_directory_contents_with_recursive_flag() {
     Playground::setup("rm_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
@@ -132,6 +134,18 @@ fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_fla
 
         assert!(dirs.test().exists());
         assert!(actual.err.contains("cannot remove non-empty directory"));
+    })
+}
+
+#[test]
+fn errors_if_attempting_to_delete_home() {
+    Playground::setup("rm_test_8", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.root(),
+            "let-env HOME = myhome ; rm -rf ~"
+        );
+
+        assert!(actual.err.contains("please use -I or -i"));
     })
 }
 
@@ -187,13 +201,13 @@ fn removes_multiple_files() {
     Playground::setup("rm_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
 
         nu!(
             cwd: dirs.test(),
-            "rm yehuda.txt jonathan.txt andres.txt"
+            "rm yehuda.txt jttxt andres.txt"
         );
 
         assert_eq!(
@@ -208,7 +222,7 @@ fn removes_multiple_files_with_asterisks() {
     Playground::setup("rm_test_11", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jt.txt"),
             EmptyFile("andres.toml"),
         ]);
 
@@ -227,7 +241,7 @@ fn removes_multiple_files_with_asterisks() {
 #[test]
 fn allows_doubly_specified_file() {
     Playground::setup("rm_test_12", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jonathan.toml")]);
+        sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jt.toml")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -247,7 +261,7 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
     Playground::setup("rm_test_13", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.txt"),
-            EmptyFile("jonathan.txt"),
+            EmptyFile("jt.txt"),
             EmptyFile("kevin.txt"),
         ]);
 
@@ -259,7 +273,7 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
         );
 
         assert!(!files_exist_at(
-            vec!["yehuda.txt", "jonathan.txt", "kevin.txt"],
+            vec!["yehuda.txt", "jttxt", "kevin.txt"],
             dirs.test()
         ));
     })
@@ -332,8 +346,65 @@ fn remove_ignores_ansi() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ls | find test | get name | rm $in.0; ls",
+            "ls | find test | get name | rm $in.0; ls | is-empty",
         );
-        assert!(actual.out.is_empty());
+        assert_eq!(actual.out, "true");
+    });
+}
+
+struct Cleanup<'a> {
+    dir_to_clean: &'a PathBuf,
+}
+
+fn set_dir_read_only(directory: &PathBuf, read_only: bool) {
+    let mut permissions = fs::metadata(directory).unwrap().permissions();
+    permissions.set_readonly(read_only);
+    fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
+}
+
+impl<'a> Drop for Cleanup<'a> {
+    /// Restores write permissions to the given directory so that the Playground can be successfully
+    /// cleaned up.
+    fn drop(&mut self) {
+        set_dir_read_only(self.dir_to_clean, false);
+    }
+}
+
+#[test]
+// This test is only about verifying file names are included in rm error messages. It is easier
+// to only have this work on non-windows systems (i.e., unix-like) than to try to get the
+// permissions to work on all platforms.
+#[cfg(not(windows))]
+fn rm_prints_filenames_on_error() {
+    Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
+        let file_names = vec!["test1.txt", "test2.txt"];
+
+        let with_files = file_names
+            .iter()
+            .map(|file_name| EmptyFile(file_name))
+            .collect();
+        sandbox.with_files(with_files);
+
+        let test_dir = dirs.test();
+
+        set_dir_read_only(test_dir, true);
+        let _cleanup = Cleanup {
+            dir_to_clean: &test_dir,
+        };
+
+        // This rm is expected to fail, and stderr output indicating so is also expected.
+        let actual = nu!(cwd: test_dir, "rm test*.txt");
+
+        assert!(files_exist_at(file_names.clone(), test_dir));
+        for file_name in file_names {
+            let path = test_dir.join(file_name);
+            let substr = format!("Could not delete {}", path.to_string_lossy());
+            assert!(
+                actual.err.contains(&substr),
+                "Matching: {}\n=== Command stderr:\n{}\n=== End stderr",
+                substr,
+                actual.err
+            );
+        }
     });
 }

@@ -2,61 +2,40 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
-use crate::Value;
 use crate::{
-    ast::Block, AliasId, BlockId, Config, DeclId, Example, Module, ModuleId, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable,
+    ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
+    Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
+use crate::{ParseError, Value};
 use core::panic;
 use std::borrow::Borrow;
+use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc, Mutex,
-    },
+use std::sync::{
+    atomic::{AtomicBool, AtomicU32},
+    Arc, Mutex,
 };
 
 static PWD_ENV: &str = "PWD";
-
-// TODO: move to different file? where?
-/// An operation to be performed with the current buffer of the interactive shell.
-#[derive(Debug, Clone)]
-pub enum ReplOperation {
-    Append(String),
-    Insert(String),
-    Replace(String),
-}
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
 pub struct Usage {
     // TODO: Move decl usages here
-    alias_comments: HashMap<AliasId, Vec<Span>>,
     module_comments: HashMap<ModuleId, Vec<Span>>,
 }
 
 impl Usage {
     pub fn new() -> Self {
         Usage {
-            alias_comments: HashMap::new(),
             module_comments: HashMap::new(),
         }
     }
 
-    pub fn add_alias_comments(&mut self, alias_id: AliasId, comments: Vec<Span>) {
-        self.alias_comments.insert(alias_id, comments);
-    }
-
     pub fn add_module_comments(&mut self, module_id: ModuleId, comments: Vec<Span>) {
         self.module_comments.insert(module_id, comments);
-    }
-
-    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
-        self.alias_comments.get(&alias_id).map(|v| v.as_ref())
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
@@ -65,7 +44,6 @@ impl Usage {
 
     /// Overwrite own values with the other
     pub fn merge_with(&mut self, other: Usage) {
-        self.alias_comments.extend(other.alias_comments);
         self.module_comments.extend(other.module_comments);
     }
 }
@@ -74,6 +52,18 @@ impl Default for Usage {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum VirtualPath {
+    File(FileId),
+    Dir(Vec<VirtualPathId>),
+}
+
+pub struct ReplState {
+    pub buffer: String,
+    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
+    pub cursor_pos: usize,
 }
 
 /// The core global engine state. This includes all global definitions as well as any global state that
@@ -122,9 +112,9 @@ impl Default for Usage {
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<(Vec<u8>, usize, usize)>,
+    virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     decls: Vec<Box<dyn Command + 'static>>,
-    aliases: Vec<Vec<Span>>,
     blocks: Vec<Block>,
     modules: Vec<Module>,
     usage: Usage,
@@ -134,8 +124,8 @@ pub struct EngineState {
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
-    pub repl_buffer_state: Arc<Mutex<Option<String>>>,
-    pub repl_operation_queue: Arc<Mutex<VecDeque<ReplOperation>>>,
+    pub repl_state: Arc<Mutex<ReplState>>,
+    pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
@@ -163,6 +153,7 @@ impl EngineState {
         Self {
             files: vec![],
             file_contents: vec![],
+            virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -171,7 +162,6 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
             decls: vec![],
-            aliases: vec![],
             blocks: vec![],
             modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
             usage: Usage::new(),
@@ -182,12 +172,17 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
+            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+                .into_iter()
+                .collect(),
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
-            repl_buffer_state: Arc::new(Mutex::new(None)),
-            repl_operation_queue: Arc::new(Mutex::new(VecDeque::new())),
+            repl_state: Arc::new(Mutex::new(ReplState {
+                buffer: "".to_string(),
+                cursor_pos: 0,
+            })),
+            table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
             #[cfg(not(windows))]
@@ -215,8 +210,8 @@ impl EngineState {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
+        self.virtual_paths.extend(delta.virtual_paths);
         self.decls.extend(delta.decls);
-        self.aliases.extend(delta.aliases);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.modules.extend(delta.modules);
@@ -240,9 +235,6 @@ impl EngineState {
                 }
                 for item in delta_overlay.constants.into_iter() {
                     existing_overlay.constants.insert(item.0, item.1);
-                }
-                for item in delta_overlay.aliases.into_iter() {
-                    existing_overlay.aliases.insert(item.0, item.1);
                 }
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
@@ -346,27 +338,39 @@ impl EngineState {
             .any(|(overlay_name, _)| name == overlay_name)
     }
 
-    pub fn active_overlay_ids(&self, removed_overlays: &[Vec<u8>]) -> Vec<OverlayId> {
+    pub fn active_overlay_ids<'a, 'b>(
+        &'b self,
+        removed_overlays: &'a [Vec<u8>],
+    ) -> impl DoubleEndedIterator<Item = &OverlayId> + 'a
+    where
+        'b: 'a,
+    {
         self.scope
             .active_overlays
             .iter()
             .filter(|id| !removed_overlays.contains(self.get_overlay_name(**id)))
-            .copied()
-            .collect()
     }
 
-    pub fn active_overlays(&self, removed_overlays: &[Vec<u8>]) -> Vec<&OverlayFrame> {
+    pub fn active_overlays<'a, 'b>(
+        &'b self,
+        removed_overlays: &'a [Vec<u8>],
+    ) -> impl DoubleEndedIterator<Item = &OverlayFrame> + 'a
+    where
+        'b: 'a,
+    {
         self.active_overlay_ids(removed_overlays)
-            .iter()
             .map(|id| self.get_overlay(*id))
-            .collect()
     }
 
-    pub fn active_overlay_names(&self, removed_overlays: &[Vec<u8>]) -> Vec<&Vec<u8>> {
+    pub fn active_overlay_names<'a, 'b>(
+        &'b self,
+        removed_overlays: &'a [Vec<u8>],
+    ) -> impl DoubleEndedIterator<Item = &Vec<u8>> + 'a
+    where
+        'b: 'a,
+    {
         self.active_overlay_ids(removed_overlays)
-            .iter()
             .map(|id| self.get_overlay_name(*id))
-            .collect()
     }
 
     /// Translate overlay IDs from other to IDs in self
@@ -438,7 +442,7 @@ impl EngineState {
             env_vars.insert(name, val);
         } else {
             self.env_vars
-                .insert(overlay_name, HashMap::from([(name, val)]));
+                .insert(overlay_name, [(name, val)].into_iter().collect());
         }
     }
 
@@ -566,16 +570,16 @@ impl EngineState {
         self.files.len()
     }
 
+    pub fn num_virtual_paths(&self) -> usize {
+        self.virtual_paths.len()
+    }
+
     pub fn num_vars(&self) -> usize {
         self.vars.len()
     }
 
     pub fn num_decls(&self) -> usize {
         self.decls.len()
-    }
-
-    pub fn num_aliases(&self) -> usize {
-        self.aliases.len()
     }
 
     pub fn num_blocks(&self) -> usize {
@@ -614,7 +618,7 @@ impl EngineState {
     pub fn find_decl(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
             visibility.append(&overlay_frame.visibility);
 
             if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
@@ -630,7 +634,7 @@ impl EngineState {
     pub fn find_decl_name(&self, decl_id: DeclId, removed_overlays: &[Vec<u8>]) -> Option<&[u8]> {
         let mut visibility: Visibility = Visibility::new();
 
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
             visibility.append(&overlay_frame.visibility);
 
             if visibility.is_decl_id_visible(&decl_id) {
@@ -643,26 +647,6 @@ impl EngineState {
         }
 
         None
-    }
-
-    pub fn find_alias(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<AliasId> {
-        let mut visibility: Visibility = Visibility::new();
-
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
-            visibility.append(&overlay_frame.visibility);
-
-            if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                if visibility.is_alias_id_visible(alias_id) {
-                    return Some(*alias_id);
-                }
-            }
-        }
-
-        None
-    }
-
-    pub fn get_alias_comments(&self, alias_id: AliasId) -> Option<&[Span]> {
-        self.usage.get_alias_comments(alias_id)
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
@@ -687,7 +671,7 @@ impl EngineState {
     }
 
     pub fn find_module(&self, name: &[u8], removed_overlays: &[Vec<u8>]) -> Option<ModuleId> {
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
             if let Some(module_id) = overlay_frame.modules.get(name) {
                 return Some(*module_id);
             }
@@ -701,7 +685,7 @@ impl EngineState {
         decl_name: &[u8],
         removed_overlays: &[Vec<u8>],
     ) -> Option<&[u8]> {
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
             for (module_name, module_id) in overlay_frame.modules.iter() {
                 let module = self.get_module(*module_id);
                 if module.has_decl(decl_name) {
@@ -727,7 +711,7 @@ impl EngineState {
     ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
-        for overlay_frame in self.active_overlays(&[]).iter().rev() {
+        for overlay_frame in self.active_overlays(&[]).rev() {
             for decl in &overlay_frame.decls {
                 if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0) {
                     let command = self.get_decl(*decl.1);
@@ -739,22 +723,8 @@ impl EngineState {
         output
     }
 
-    pub fn find_aliases_by_predicate(&self, predicate: impl Fn(&[u8]) -> bool) -> Vec<Vec<u8>> {
-        let mut output = vec![];
-
-        for overlay_frame in self.active_overlays(&[]).iter().rev() {
-            for alias in &overlay_frame.aliases {
-                if overlay_frame.visibility.is_alias_id_visible(alias.1) && predicate(alias.0) {
-                    output.push(alias.0.clone());
-                }
-            }
-        }
-
-        output
-    }
-
     pub fn find_constant(&self, var_id: VarId, removed_overlays: &[Vec<u8>]) -> Option<&Value> {
-        for overlay_frame in self.active_overlays(removed_overlays).iter().rev() {
+        for overlay_frame in self.active_overlays(removed_overlays).rev() {
             if let Some(val) = overlay_frame.constants.get(&var_id) {
                 return Some(val);
             }
@@ -791,41 +761,6 @@ impl EngineState {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
-    }
-
-    pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
-        self.aliases
-            .get(alias_id)
-            .expect("internal error: missing alias")
-            .as_ref()
-    }
-
-    /// Get all aliases within scope, sorted by the alias names
-    pub fn get_aliases_sorted(
-        &self,
-        include_hidden: bool,
-    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
-        let mut aliases_map = HashMap::new();
-
-        for overlay_frame in self.active_overlays(&[]) {
-            let new_aliases = if include_hidden {
-                overlay_frame.aliases.clone()
-            } else {
-                overlay_frame
-                    .aliases
-                    .clone()
-                    .into_iter()
-                    .filter(|(_, id)| overlay_frame.visibility.is_alias_id_visible(id))
-                    .collect()
-            };
-
-            aliases_map.extend(new_aliases);
-        }
-
-        let mut aliases: Vec<(Vec<u8>, DeclId)> = aliases_map.into_iter().collect();
-
-        aliases.sort_by(|a, b| a.0.cmp(&b.0));
-        aliases.into_iter()
     }
 
     /// Get all commands within scope, sorted by the commands' names
@@ -912,6 +847,12 @@ impl EngineState {
             .expect("internal error: missing module")
     }
 
+    pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
+        self.virtual_paths
+            .get(virtual_path_id)
+            .expect("internal error: missing virtual path")
+    }
+
     pub fn next_span_start(&self) -> usize {
         if let Some((_, _, last)) = self.file_contents.last() {
             *last
@@ -922,29 +863,6 @@ impl EngineState {
 
     pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
         self.files.iter()
-    }
-
-    pub fn get_filename(&self, file_id: usize) -> String {
-        for file in self.files.iter().enumerate() {
-            if file.0 == file_id {
-                return file.1 .0.clone();
-            }
-        }
-
-        "<unknown>".into()
-    }
-
-    pub fn get_file_source(&self, file_id: usize) -> String {
-        for file in self.files.iter().enumerate() {
-            if file.0 == file_id {
-                let contents = self.get_span_contents(&Span::new(file.1 .1, file.1 .2));
-                let output = String::from_utf8_lossy(contents).to_string();
-
-                return output;
-            }
-        }
-
-        "<unknown>".into()
     }
 
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
@@ -998,11 +916,6 @@ impl EngineState {
         build_usage(&comment_lines)
     }
 
-    pub fn build_alias_usage(&self, alias_id: AliasId) -> Option<(String, String)> {
-        self.get_alias_comments(alias_id)
-            .map(|comment_spans| self.build_usage(comment_spans))
-    }
-
     pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
             .map(|comment_spans| self.build_usage(comment_spans))
@@ -1041,6 +954,9 @@ pub struct StateWorkingSet<'a> {
     pub currently_parsed_cwd: Option<PathBuf>,
     /// All previously parsed module files. Used to protect against circular imports.
     pub parsed_module_files: Vec<PathBuf>,
+    /// Whether or not predeclarations are searched when looking up a command (used with aliases)
+    pub search_predecls: bool,
+    pub parse_errors: Vec<ParseError>,
 }
 
 /// A temporary placeholder for expression types. It is used to keep track of the input types
@@ -1097,9 +1013,9 @@ impl TypeScope {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
+    virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
-    aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
     modules: Vec<Module>,         // indexed by ModuleId
     usage: Usage,
@@ -1120,9 +1036,9 @@ impl StateDelta {
         StateDelta {
             files: vec![],
             file_contents: vec![],
+            virtual_paths: vec![],
             vars: vec![],
             decls: vec![],
-            aliases: vec![],
             blocks: vec![],
             modules: vec![],
             scope: vec![scope_frame],
@@ -1136,12 +1052,12 @@ impl StateDelta {
         self.files.len()
     }
 
-    pub fn num_decls(&self) -> usize {
-        self.decls.len()
+    pub fn num_virtual_paths(&self) -> usize {
+        self.virtual_paths.len()
     }
 
-    pub fn num_aliases(&self) -> usize {
-        self.aliases.len()
+    pub fn num_decls(&self) -> usize {
+        self.decls.len()
     }
 
     pub fn num_blocks(&self) -> usize {
@@ -1224,19 +1140,25 @@ impl<'a> StateWorkingSet<'a> {
             type_scope: TypeScope::default(),
             currently_parsed_cwd: permanent_state.currently_parsed_cwd.clone(),
             parsed_module_files: vec![],
+            search_predecls: true,
+            parse_errors: vec![],
         }
+    }
+
+    pub fn error(&mut self, parse_error: ParseError) {
+        self.parse_errors.push(parse_error)
     }
 
     pub fn num_files(&self) -> usize {
         self.delta.num_files() + self.permanent_state.num_files()
     }
 
-    pub fn num_decls(&self) -> usize {
-        self.delta.num_decls() + self.permanent_state.num_decls()
+    pub fn num_virtual_paths(&self) -> usize {
+        self.delta.num_virtual_paths() + self.permanent_state.num_virtual_paths()
     }
 
-    pub fn num_aliases(&self) -> usize {
-        self.delta.num_aliases() + self.permanent_state.num_aliases()
+    pub fn num_decls(&self) -> usize {
+        self.delta.num_decls() + self.permanent_state.num_decls()
     }
 
     pub fn num_blocks(&self) -> usize {
@@ -1248,11 +1170,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn unique_overlay_names(&self) -> HashSet<&Vec<u8>> {
-        let mut names: HashSet<&Vec<u8>> = self
-            .permanent_state
-            .active_overlay_names(&[])
-            .into_iter()
-            .collect();
+        let mut names: HashSet<&Vec<u8>> = self.permanent_state.active_overlay_names(&[]).collect();
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame.active_overlays.iter().rev() {
@@ -1295,12 +1213,12 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn use_aliases(&mut self, aliases: Vec<(Vec<u8>, AliasId)>) {
+    pub fn use_modules(&mut self, modules: Vec<(Vec<u8>, ModuleId)>) {
         let overlay_frame = self.last_overlay_mut();
 
-        for (name, alias_id) in aliases {
-            overlay_frame.aliases.insert(name, alias_id);
-            overlay_frame.visibility.use_alias_id(&alias_id);
+        for (name, module_id) in modules {
+            overlay_frame.insert_module(name, module_id);
+            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
         }
     }
 
@@ -1350,7 +1268,7 @@ impl<'a> StateWorkingSet<'a> {
         for scope_frame in self.delta.scope.iter_mut().rev() {
             for overlay_id in scope_frame
                 .active_overlay_ids(&mut removed_overlays)
-                .iter_mut()
+                .iter()
                 .rev()
             {
                 let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
@@ -1372,7 +1290,6 @@ impl<'a> StateWorkingSet<'a> {
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
-            .iter()
             .rev()
         {
             visibility.append(&overlay_frame.visibility);
@@ -1389,106 +1306,9 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn use_alias(&mut self, alias_id: &AliasId) {
-        let mut removed_overlays = vec![];
-        let mut visibility: Visibility = Visibility::new();
-
-        // Since we can mutate scope frames in delta, remove the id directly
-        for scope_frame in self.delta.scope.iter_mut().rev() {
-            for overlay_id in scope_frame
-                .active_overlay_ids(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
-
-                visibility.append(&overlay_frame.visibility);
-
-                if !visibility.is_alias_id_visible(alias_id) {
-                    // Use alias only if it's already hidden
-                    overlay_frame.visibility.use_alias_id(alias_id);
-
-                    return;
-                }
-            }
-        }
-
-        // We cannot mutate the permanent state => store the information in the current scope frame
-        // for scope in self.permanent_state.scope.iter().rev() {
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
-            visibility.append(&overlay_frame.visibility);
-
-            if !visibility.is_alias_id_visible(alias_id) {
-                // Hide alias only if it's not already hidden
-                self.last_overlay_mut().visibility.use_alias_id(alias_id);
-
-                return;
-            }
-        }
-    }
-
-    pub fn hide_alias(&mut self, name: &[u8]) -> Option<AliasId> {
-        let mut removed_overlays = vec![];
-        let mut visibility: Visibility = Visibility::new();
-
-        // Since we can mutate scope frames in delta, remove the id directly
-        for scope_frame in self.delta.scope.iter_mut().rev() {
-            for overlay_id in scope_frame
-                .active_overlay_ids(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
-                let overlay_frame = scope_frame.get_overlay_mut(*overlay_id);
-
-                visibility.append(&overlay_frame.visibility);
-
-                if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                    if visibility.is_alias_id_visible(alias_id) {
-                        // Hide alias only if it's not already hidden
-                        overlay_frame.visibility.hide_alias_id(alias_id);
-                        return Some(*alias_id);
-                    }
-                }
-            }
-        }
-
-        // We cannot mutate the permanent state => store the information in the current scope frame
-        // for scope in self.permanent_state.scope.iter().rev() {
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
-            visibility.append(&overlay_frame.visibility);
-
-            if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                if visibility.is_alias_id_visible(alias_id) {
-                    // Hide alias only if it's not already hidden
-                    self.last_overlay_mut().visibility.hide_alias_id(alias_id);
-
-                    return Some(*alias_id);
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
         for decl in decls.iter() {
             self.hide_decl(decl); // let's assume no errors
-        }
-    }
-
-    pub fn hide_aliases(&mut self, aliases: &[Vec<u8>]) {
-        for alias in aliases.iter() {
-            self.hide_alias(alias); // let's assume no errors
         }
     }
 
@@ -1513,6 +1333,13 @@ impl<'a> StateWorkingSet<'a> {
         module_id
     }
 
+    pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
+        self.delta
+            .usage
+            .get_module_comments(module_id)
+            .or_else(|| self.permanent_state.get_module_comments(module_id))
+    }
+
     pub fn next_span_start(&self) -> usize {
         let permanent_span_start = self.permanent_state.next_span_start();
 
@@ -1531,32 +1358,34 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
 
-    pub fn get_filename(&self, file_id: usize) -> String {
-        for file in self.files().enumerate() {
-            if file.0 == file_id {
-                return file.1 .0.clone();
+    pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
+        for (id, (contents, _, _)) in self.delta.file_contents.iter().enumerate() {
+            if self.permanent_state.num_files() + id == file_id {
+                return Some(contents);
             }
         }
 
-        "<unknown>".into()
-    }
-
-    pub fn get_file_source(&self, file_id: usize) -> String {
-        for file in self.files().enumerate() {
-            if file.0 == file_id {
-                let output = String::from_utf8_lossy(
-                    self.get_span_contents(Span::new(file.1 .1, file.1 .2)),
-                )
-                .to_string();
-
-                return output;
+        for (id, (contents, _, _)) in self.permanent_state.file_contents.iter().enumerate() {
+            if id == file_id {
+                return Some(contents);
             }
         }
 
-        "<unknown>".into()
+        None
     }
 
-    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
+    #[must_use]
+    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> FileId {
+        // First, look for the file to see if we already have it
+        for (idx, (fname, file_start, file_end)) in self.files().enumerate() {
+            if fname == &filename {
+                let prev_contents = self.get_span_contents(Span::new(*file_start, *file_end));
+                if prev_contents == contents {
+                    return idx;
+                }
+            }
+        }
+
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
 
@@ -1569,6 +1398,22 @@ impl<'a> StateWorkingSet<'a> {
             .push((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
+    }
+
+    #[must_use]
+    pub fn add_virtual_path(&mut self, name: String, virtual_path: VirtualPath) -> VirtualPathId {
+        self.delta.virtual_paths.push((name, virtual_path));
+
+        self.num_virtual_paths() - 1
+    }
+
+    pub fn get_span_for_file(&self, file_id: usize) -> Span {
+        let result = self
+            .files()
+            .nth(file_id)
+            .expect("internal error: could not find source for previously parsed file");
+
+        Span::new(result.1, result.2)
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
@@ -1608,11 +1453,7 @@ impl<'a> StateWorkingSet<'a> {
                 return Some(*decl_id);
             }
 
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(decl_id) = overlay_frame.predecls.get(name) {
                     return Some(*decl_id);
                 }
@@ -1628,23 +1469,23 @@ impl<'a> StateWorkingSet<'a> {
         let mut visibility: Visibility = Visibility::new();
 
         for scope_frame in self.delta.scope.iter().rev() {
-            if let Some(decl_id) = scope_frame.predecls.get(name) {
-                if visibility.is_decl_id_visible(decl_id) {
-                    return Some(*decl_id);
+            if self.search_predecls {
+                if let Some(decl_id) = scope_frame.predecls.get(name) {
+                    if visibility.is_decl_id_visible(decl_id) {
+                        return Some(*decl_id);
+                    }
                 }
             }
 
             // check overlay in delta
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 visibility.append(&overlay_frame.visibility);
 
-                if let Some(decl_id) = overlay_frame.predecls.get(name) {
-                    if visibility.is_decl_id_visible(decl_id) {
-                        return Some(*decl_id);
+                if self.search_predecls {
+                    if let Some(decl_id) = overlay_frame.predecls.get(name) {
+                        if visibility.is_decl_id_visible(decl_id) {
+                            return Some(*decl_id);
+                        }
                     }
                 }
 
@@ -1660,7 +1501,6 @@ impl<'a> StateWorkingSet<'a> {
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
-            .iter()
             .rev()
         {
             visibility.append(&overlay_frame.visibility);
@@ -1675,53 +1515,11 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
-        let mut removed_overlays = vec![];
-        let mut visibility: Visibility = Visibility::new();
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
-                visibility.append(&overlay_frame.visibility);
-
-                if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                    if visibility.is_alias_id_visible(alias_id) {
-                        return Some(*alias_id);
-                    }
-                }
-            }
-        }
-
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
-            visibility.append(&overlay_frame.visibility);
-
-            if let Some(alias_id) = overlay_frame.aliases.get(name) {
-                if visibility.is_alias_id_visible(alias_id) {
-                    return Some(*alias_id);
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn find_module(&self, name: &[u8]) -> Option<ModuleId> {
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(module_id) = overlay_frame.modules.get(name) {
                     return Some(*module_id);
                 }
@@ -1731,7 +1529,6 @@ impl<'a> StateWorkingSet<'a> {
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
-            .iter()
             .rev()
         {
             if let Some(module_id) = overlay_frame.modules.get(name) {
@@ -1746,11 +1543,7 @@ impl<'a> StateWorkingSet<'a> {
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for decl in &overlay_frame.decls {
                     if decl.0 .0.starts_with(name) {
                         return true;
@@ -1762,7 +1555,6 @@ impl<'a> StateWorkingSet<'a> {
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
-            .iter()
             .rev()
         {
             for decl in &overlay_frame.decls {
@@ -1780,15 +1572,29 @@ impl<'a> StateWorkingSet<'a> {
         num_permanent_vars + self.delta.vars.len()
     }
 
+    pub fn list_variables(&self) -> Vec<&[u8]> {
+        let mut removed_overlays = vec![];
+        let mut variables = HashSet::new();
+        for scope_frame in self.delta.scope.iter() {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays) {
+                variables.extend(overlay_frame.vars.keys().map(|k| &k[..]));
+            }
+        }
+
+        let permanent_vars = self
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .flat_map(|overlay_frame| overlay_frame.vars.keys().map(|k| &k[..]));
+
+        variables.extend(permanent_vars);
+        variables.into_iter().collect()
+    }
+
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(var_id) = overlay_frame.vars.get(name) {
                     return Some(*var_id);
                 }
@@ -1798,11 +1604,24 @@ impl<'a> StateWorkingSet<'a> {
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
-            .iter()
             .rev()
         {
             if let Some(var_id) = overlay_frame.vars.get(name) {
                 return Some(*var_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_variable_in_current_frame(&self, name: &[u8]) -> Option<VarId> {
+        let mut removed_overlays = vec![];
+
+        for scope_frame in self.delta.scope.iter().rev().take(1) {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
+                if let Some(var_id) = overlay_frame.vars.get(name) {
+                    return Some(*var_id);
+                }
             }
         }
 
@@ -1817,7 +1636,6 @@ impl<'a> StateWorkingSet<'a> {
         mutable: bool,
     ) -> VarId {
         let next_id = self.next_var_id();
-
         // correct name if necessary
         if !name.starts_with(b"$") {
             name.insert(0, b'$');
@@ -1828,20 +1646,6 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.vars.push(Variable::new(span, ty, mutable));
 
         next_id
-    }
-
-    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>, comments: Vec<Span>) {
-        self.delta.aliases.push(replacement);
-        let alias_id = self.num_aliases() - 1;
-
-        if !comments.is_empty() {
-            self.delta.usage.add_alias_comments(alias_id, comments);
-        }
-
-        let last = self.last_overlay_mut();
-
-        last.aliases.insert(name, alias_id);
-        last.visibility.use_alias_id(&alias_id);
     }
 
     pub fn get_cwd(&self) -> String {
@@ -1856,6 +1660,10 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.get_env_var(name)
     }
 
+    /// Returns a reference to the config stored at permanent state
+    ///
+    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
+    /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
     }
@@ -1887,11 +1695,7 @@ impl<'a> StateWorkingSet<'a> {
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 if let Some(val) = overlay_frame.constants.get(&var_id) {
                     return Some(val);
                 }
@@ -1948,19 +1752,6 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
-        let num_permanent_aliases = self.permanent_state.num_aliases();
-        if alias_id < num_permanent_aliases {
-            self.permanent_state.get_alias(alias_id)
-        } else {
-            self.delta
-                .aliases
-                .get(alias_id - num_permanent_aliases)
-                .expect("internal error: missing alias")
-                .as_ref()
-        }
-    }
-
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
@@ -1982,31 +1773,6 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         let mut permanent = self.permanent_state.find_commands_by_predicate(predicate);
-
-        output.append(&mut permanent);
-
-        output
-    }
-
-    pub fn find_aliases_by_predicate(
-        &self,
-        predicate: impl Fn(&[u8]) -> bool + Copy,
-    ) -> Vec<Vec<u8>> {
-        let mut output = vec![];
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_id in scope_frame.active_overlays.iter().rev() {
-                let overlay_frame = scope_frame.get_overlay(*overlay_id);
-
-                for alias in &overlay_frame.aliases {
-                    if overlay_frame.visibility.is_alias_id_visible(alias.1) && predicate(alias.0) {
-                        output.push(alias.0.clone());
-                    }
-                }
-            }
-        }
-
-        let mut permanent = self.permanent_state.find_aliases_by_predicate(predicate);
 
         output.append(&mut permanent);
 
@@ -2098,7 +1864,6 @@ impl<'a> StateWorkingSet<'a> {
         for scope_frame in self.delta.scope.iter().rev() {
             if let Some(last_overlay) = scope_frame
                 .active_overlays(&mut removed_overlays)
-                .iter()
                 .rev()
                 .last()
             {
@@ -2149,37 +1914,12 @@ impl<'a> StateWorkingSet<'a> {
         result
     }
 
-    /// Collect all aliases that belong to an overlay
-    pub fn aliases_of_overlay(&self, name: &[u8]) -> HashMap<Vec<u8>, DeclId> {
-        let mut result = HashMap::new();
-
-        if let Some(overlay_id) = self.permanent_state.find_overlay(name) {
-            let overlay_frame = self.permanent_state.get_overlay(overlay_id);
-
-            for (alias_name, alias_id) in &overlay_frame.aliases {
-                result.insert(alias_name.to_owned(), *alias_id);
-            }
-        }
-
-        for scope_frame in self.delta.scope.iter() {
-            if let Some(overlay_id) = scope_frame.find_overlay(name) {
-                let overlay_frame = scope_frame.get_overlay(overlay_id);
-
-                for (alias_name, alias_id) in &overlay_frame.aliases {
-                    result.insert(alias_name.to_owned(), *alias_id);
-                }
-            }
-        }
-
-        result
-    }
-
     pub fn add_overlay(
         &mut self,
         name: Vec<u8>,
         origin: ModuleId,
         decls: Vec<(Vec<u8>, DeclId)>,
-        aliases: Vec<(Vec<u8>, AliasId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -2207,7 +1947,7 @@ impl<'a> StateWorkingSet<'a> {
         self.move_predecls_to_overlay();
 
         self.use_decls(decls);
-        self.use_aliases(aliases);
+        self.use_modules(modules);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {
@@ -2237,14 +1977,7 @@ impl<'a> StateWorkingSet<'a> {
                     .filter(|(n, _)| !origin_module.has_decl(n))
                     .collect();
 
-                let aliases = self
-                    .aliases_of_overlay(name)
-                    .into_iter()
-                    .filter(|(n, _)| !origin_module.has_alias(n))
-                    .collect();
-
                 self.use_decls(decls);
-                self.use_aliases(aliases);
             }
         }
     }
@@ -2259,6 +1992,66 @@ impl<'a> StateWorkingSet<'a> {
             .map(|span| self.get_span_contents(*span))
             .collect();
         build_usage(&comment_lines)
+    }
+
+    pub fn find_block_by_span(&self, span: Span) -> Option<Block> {
+        for block in &self.delta.blocks {
+            if Some(span) == block.span {
+                return Some(block.clone());
+            }
+        }
+
+        for block in &self.permanent_state.blocks {
+            if Some(span) == block.span {
+                return Some(block.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module_by_span(&self, span: Span) -> Option<ModuleId> {
+        for (id, module) in self.delta.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(self.permanent_state.num_modules() + id);
+            }
+        }
+
+        for (module_id, module) in self.permanent_state.modules.iter().enumerate() {
+            if Some(span) == module.span {
+                return Some(module_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_virtual_path(&self, name: &str) -> Option<&VirtualPath> {
+        for (virtual_name, virtual_path) in self.delta.virtual_paths.iter().rev() {
+            if virtual_name == name {
+                return Some(virtual_path);
+            }
+        }
+
+        for (virtual_name, virtual_path) in self.permanent_state.virtual_paths.iter().rev() {
+            if virtual_name == name {
+                return Some(virtual_path);
+            }
+        }
+
+        None
+    }
+
+    pub fn get_virtual_path(&self, virtual_path_id: VirtualPathId) -> &(String, VirtualPath) {
+        let num_permanent_virtual_paths = self.permanent_state.num_virtual_paths();
+        if virtual_path_id < num_permanent_virtual_paths {
+            self.permanent_state.get_virtual_path(virtual_path_id)
+        } else {
+            self.delta
+                .virtual_paths
+                .get(virtual_path_id - num_permanent_virtual_paths)
+                .expect("internal error: missing virtual path")
+        }
     }
 }
 
@@ -2400,6 +2193,8 @@ fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
 
 #[cfg(test)]
 mod engine_state_tests {
+    use std::str::{from_utf8, Utf8Error};
+
     use super::*;
 
     #[test]
@@ -2430,7 +2225,7 @@ mod engine_state_tests {
 
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            working_set.add_file("child.nu".into(), &[]);
+            let _ = working_set.add_file("child.nu".into(), &[]);
             working_set.render()
         };
 
@@ -2440,6 +2235,27 @@ mod engine_state_tests {
         assert_eq!(&engine_state.files[0].0, "test.nu");
         assert_eq!(&engine_state.files[1].0, "child.nu");
 
+        Ok(())
+    }
+
+    #[test]
+    fn list_variables() -> Result<(), Utf8Error> {
+        let varname = "something";
+        let varname_with_sigil = "$".to_owned() + varname;
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_variable(
+            varname.as_bytes().into(),
+            Span { start: 0, end: 1 },
+            Type::Int,
+            false,
+        );
+        let variables = working_set
+            .list_variables()
+            .into_iter()
+            .map(from_utf8)
+            .collect::<Result<Vec<&str>, Utf8Error>>()?;
+        assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())
     }
 }

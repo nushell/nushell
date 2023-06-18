@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn infers_types() {

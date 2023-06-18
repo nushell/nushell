@@ -57,6 +57,10 @@ impl Command for Cp {
                 "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
             )
+            .switch("update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
@@ -88,6 +92,7 @@ impl Command for Cp {
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         let progress = call.has_flag("progress");
+        let update_mode = call.has_flag("update");
 
         let current_dir_path = current_dir(engine_state, stack)?;
         let source = current_dir_path.join(src.item.as_str());
@@ -177,6 +182,12 @@ impl Command for Cp {
                     if src.is_file() {
                         let dst =
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
+
+                        // ignore when source file is not newer than target file
+                        if update_mode && super::util::is_older(&src, &dst) {
+                            continue;
+                        }
+
                         let res = if src == dst {
                             let message = format!(
                                 "src {source:?} and dst {destination:?} are identical(not copied)"
@@ -361,6 +372,11 @@ impl Command for Cp {
                 example: "cp *.txt dir_a",
                 result: None,
             },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
+                result: None,
+            },
         ]
     }
 }
@@ -379,13 +395,13 @@ fn interactive_copy(
     );
     if let Err(e) = interaction {
         Value::Error {
-            error: ShellError::GenericError(
+            error: Box::new(ShellError::GenericError(
                 e.to_string(),
                 e.to_string(),
                 Some(span),
                 None,
                 Vec::new(),
-            ),
+            )),
         }
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
@@ -518,13 +534,13 @@ fn copy_symlink(
         Ok(p) => p,
         Err(err) => {
             return Value::Error {
-                error: ShellError::GenericError(
+                error: Box::new(ShellError::GenericError(
                     err.to_string(),
                     err.to_string(),
                     Some(span),
                     None,
                     vec![],
-                ),
+                )),
             }
         }
     };
@@ -551,7 +567,13 @@ fn copy_symlink(
             Value::String { val: msg, span }
         }
         Err(e) => Value::Error {
-            error: ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
+            error: Box::new(ShellError::GenericError(
+                e.to_string(),
+                e.to_string(),
+                Some(span),
+                None,
+                vec![],
+            )),
         },
     }
 }
@@ -593,5 +615,7 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         _ => ShellError::IOErrorSpanned(message_src, span),
     };
 
-    Value::Error { error: shell_error }
+    Value::Error {
+        error: Box::new(shell_error),
+    }
 }

@@ -5,10 +5,11 @@ mod status_bar;
 
 use std::{
     cmp::min,
-    collections::HashMap,
     io::{self, Result, Stdout},
     sync::atomic::Ordering,
 };
+
+use std::collections::HashMap;
 
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
@@ -24,7 +25,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use tui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
+use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
 use crate::{
     nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
@@ -43,8 +44,8 @@ use super::views::{Layout, View};
 
 use events::UIEvents;
 
-pub type Frame<'a> = tui::Frame<'a, CrosstermBackend<Stdout>>;
-pub type Terminal = tui::Terminal<CrosstermBackend<Stdout>>;
+pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
 pub type ConfigMap = HashMap<String, Value>;
 
 #[derive(Debug, Clone)]
@@ -743,9 +744,11 @@ fn handle_exit_key_event(key: &KeyEvent) -> bool {
         KeyEvent {
             code: KeyCode::Char('d'),
             modifiers: KeyModifiers::CONTROL,
+            ..
         } | KeyEvent {
             code: KeyCode::Char('z'),
             modifiers: KeyModifiers::CONTROL,
+            ..
         }
     )
 }

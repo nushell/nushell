@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -183,6 +184,36 @@ pub fn split(
 }
 
 #[allow(clippy::type_complexity)]
+fn data_group(
+    values: &Value,
+    grouper: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
+    span: Span,
+) -> Result<Value, ShellError> {
+    let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
+
+    for (idx, value) in values.clone().into_pipeline_data().into_iter().enumerate() {
+        let group_key = if let Some(ref grouper) = grouper {
+            grouper(idx, &value)
+        } else {
+            value.as_string()
+        };
+
+        let group = groups.entry(group_key?).or_default();
+        group.push(value);
+    }
+
+    let mut cols = vec![];
+    let mut vals = vec![];
+
+    for (k, v) in groups {
+        cols.push(k.to_string());
+        vals.push(Value::List { vals: v, span });
+    }
+
+    Ok(Value::Record { cols, vals, span })
+}
+
+#[allow(clippy::type_complexity)]
 pub fn data_split(
     value: PipelineData,
     splitter: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
@@ -203,7 +234,7 @@ pub fn data_split(
             _,
         ) => {
             for (idx, list) in grouped_rows.iter().enumerate() {
-                match super::group_by::data_group(list, splitter, span) {
+                match data_group(list, splitter, span) {
                     Ok(grouped) => {
                         if let Value::Record {
                             vals: li,

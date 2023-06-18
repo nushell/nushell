@@ -1,6 +1,7 @@
 # Nushell <!-- omit in toc -->
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/nushell/nushell/ci.yml?branch=main)](https://github.com/nushell/nushell/actions)
+[![Nightly Build](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
@@ -10,13 +11,14 @@
 
 A new type of shell.
 
-![Example of nushell](images/nushell-autocomplete6.gif "Example of nushell")
+![Example of nushell](assets/nushell-autocomplete6.gif "Example of nushell")
 
 ## Table of Contents <!-- omit in toc -->
 
 - [Status](#status)
 - [Learning About Nu](#learning-about-nu)
 - [Installation](#installation)
+- [Configuration](#configuration)
 - [Philosophy](#philosophy)
   - [Pipelines](#pipelines)
   - [Opening files](#opening-files)
@@ -54,6 +56,22 @@ Detailed installation instructions can be found in the [installation chapter of 
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
 
+
+## Configuration
+
+The default configurations can be found at [sample_config](crates/nu-utils/src/sample_config)
+which are the configuration files one gets when they startup Nushell for the first time.
+
+It sets all of the default configuration to run Nushell.  From here one can
+then customize this file for their specific needs.
+
+To see where *config.nu* is located on your system simply type this command.
+
+```rust
+$nu.config-path
+```
+
+Please see our [book](https://www.nushell.sh) for all of the Nushell documentation.
 
 
 ## Philosophy
@@ -175,7 +193,8 @@ These binaries interact with nu via a simple JSON-RPC protocol where the command
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
-The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins.
+The [awesome-nu repo](https://github.com/nushell/awesome-nu#plugins) lists a variety of nu-plugins while the [showcase repo](https://github.com/nushell/showcase) *shows* off informative blog posts that have been written about Nushell along with videos that highlight technical
+topics that have been presented.
 
 ## Goals
 
@@ -221,6 +240,7 @@ Please submit an issue or PR to be added to this list.
 -   [oh-my-posh](https://ohmyposh.dev)
 -   [Couchbase Shell](https://couchbase.sh)
 -   [virtualenv](https://github.com/pypa/virtualenv)
+-   [atuin](https://github.com/ellie/atuin)
 
 ## Contributing
 

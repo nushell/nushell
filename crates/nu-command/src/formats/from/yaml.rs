@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -6,7 +7,6 @@ use nu_protocol::{
     Value,
 };
 use serde::de::Deserialize;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct FromYaml;
@@ -113,7 +113,8 @@ fn convert_yaml_value_to_nu_value(
         }
         serde_yaml::Value::Mapping(t) => {
             let mut collected = Spanned {
-                item: HashMap::new(),
+                // Using an IndexMap ensures consistent ordering
+                item: IndexMap::new(),
                 span,
             };
 
@@ -173,6 +174,30 @@ fn convert_yaml_value_to_nu_value(
             }
 
             Value::from(collected)
+        }
+        serde_yaml::Value::Tagged(t) => {
+            let tag = &t.tag;
+            let value = match &t.value {
+                serde_yaml::Value::String(s) => {
+                    let val = format!("{} {}", tag, s).trim().to_string();
+                    Value::String { val, span }
+                }
+                serde_yaml::Value::Number(n) => {
+                    let val = format!("{} {}", tag, n).trim().to_string();
+                    Value::String { val, span }
+                }
+                serde_yaml::Value::Bool(b) => {
+                    let val = format!("{} {}", tag, b).trim().to_string();
+                    Value::String { val, span }
+                }
+                serde_yaml::Value::Null => {
+                    let val = format!("{}", tag).trim().to_string();
+                    Value::String { val, span }
+                }
+                v => convert_yaml_value_to_nu_value(v, span, val_span)?,
+            };
+
+            value
         }
         serde_yaml::Value::Null => Value::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
@@ -313,5 +338,126 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromYaml {})
+    }
+
+    #[test]
+    fn test_consistent_mapping_ordering() {
+        let test_yaml = "- a: b
+  b: c
+- a: g
+  b: h";
+
+        // Before the fix this test is verifying, the ordering of columns in the resulting
+        // table was non-deterministic. It would take a few executions of the YAML conversion to
+        // see this ordering difference. This loop should be far more than enough to catch a regression.
+        for ii in 1..1000 {
+            let actual = from_yaml_string_to_value(
+                String::from(test_yaml),
+                Span::test_data(),
+                Span::test_data(),
+            );
+
+            let expected: Result<Value, ShellError> = Ok(Value::List {
+                vals: vec![
+                    Value::Record {
+                        cols: vec!["a".to_string(), "b".to_string()],
+                        vals: vec![Value::test_string("b"), Value::test_string("c")],
+                        span: Span::test_data(),
+                    },
+                    Value::Record {
+                        cols: vec!["a".to_string(), "b".to_string()],
+                        vals: vec![Value::test_string("g"), Value::test_string("h")],
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            });
+
+            // Unfortunately the eq function for Value doesn't compare well enough to detect
+            // ordering errors in List columns or values.
+
+            assert!(actual.is_ok());
+            let actual = actual.ok().unwrap();
+            let expected = expected.ok().unwrap();
+
+            let actual_vals = actual.as_list().unwrap();
+            let expected_vals = expected.as_list().unwrap();
+            assert_eq!(expected_vals.len(), actual_vals.len(), "iteration {ii}");
+
+            for jj in 0..expected_vals.len() {
+                let actual_record = actual_vals[jj].as_record().unwrap();
+                let expected_record = expected_vals[jj].as_record().unwrap();
+
+                let actual_columns = actual_record.0;
+                let expected_columns = expected_record.0;
+                assert_eq!(
+                    expected_columns, actual_columns,
+                    "record {jj}, iteration {ii}"
+                );
+
+                let actual_vals = actual_record.1;
+                let expected_vals = expected_record.1;
+                assert_eq!(expected_vals, actual_vals, "record {jj}, iteration {ii}")
+            }
+        }
+    }
+
+    #[test]
+    fn test_convert_yaml_value_to_nu_value_for_tagged_values() {
+        struct TestCase {
+            input: &'static str,
+            expected: Result<Value, ShellError>,
+        }
+
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                input: "Key: !Value ${TEST}-Test-role",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value ${TEST}-Test-role")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                input: "Key: !Value test-${TEST}",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value test-${TEST}")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                input: "Key: !Value",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!Value")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                input: "Key: !True",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!True")],
+                    span: Span::test_data(),
+                }),
+            },
+            TestCase {
+                input: "Key: !123",
+                expected: Ok(Value::Record {
+                    cols: vec!["Key".to_string()],
+                    vals: vec![Value::test_string("!123")],
+                    span: Span::test_data(),
+                }),
+            },
+        ];
+
+        for test_case in test_cases {
+            let doc = serde_yaml::Deserializer::from_str(test_case.input);
+            let v: serde_yaml::Value = serde_yaml::Value::deserialize(doc.last().unwrap()).unwrap();
+            let result = convert_yaml_value_to_nu_value(&v, Span::test_data(), Span::test_data());
+            assert!(result.is_ok());
+            assert!(result.ok().unwrap() == test_case.expected.ok().unwrap());
+        }
     }
 }

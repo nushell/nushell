@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
@@ -10,6 +9,10 @@ use nu_protocol::{
 use nu_test_support::fs;
 use reedline::Suggestion;
 const SEP: char = std::path::MAIN_SEPARATOR;
+
+fn create_default_context() -> EngineState {
+    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+}
 
 // creates a new engine with the current path into the completions fixtures folder
 pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
@@ -146,9 +149,9 @@ pub fn merge_input(
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let (block, err) = parse(&mut working_set, None, input, false, &[]);
+        let block = parse(&mut working_set, None, input, false);
 
-        assert!(err.is_none());
+        assert!(working_set.parse_errors.is_empty());
 
         (block, working_set.render())
     };

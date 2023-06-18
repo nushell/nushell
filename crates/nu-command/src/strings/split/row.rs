@@ -5,7 +5,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
 };
-
+use regex::Regex;
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "the character that denotes what separates rows",
+                "a character or regex that denotes what separates rows",
             )
             .named(
                 "number",
@@ -29,6 +29,7 @@ impl Command for SubCommand {
                 "Split into maximum number of items",
                 Some('n'),
             )
+            .switch("regex", "use regex syntax for separator", Some('r'))
             .category(Category::Strings)
     }
 
@@ -37,7 +38,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["separate", "divide"]
+        vec!["separate", "divide", "regex"]
     }
 
     fn run(
@@ -92,6 +93,18 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Split a string by regex",
+                example: r"'a   b       c' | split row -r '\s+'",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -104,43 +117,55 @@ fn split_row(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let regex = if call.has_flag("regex") {
+        Regex::new(&separator.item)
+    } else {
+        let escaped = regex::escape(&separator.item);
+        Regex::new(&escaped)
+    }
+    .map_err(|err| {
+        ShellError::GenericError(
+            "Error with regular expression".into(),
+            err.to_string(),
+            Some(separator.span),
+            None,
+            Vec::new(),
+        )
+    })?;
     let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
     input.flat_map(
-        move |x| split_row_helper(&x, &separator, max_split, name_span),
+        move |x| split_row_helper(&x, &regex, max_split, name_span),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_row_helper(
-    v: &Value,
-    separator: &Spanned<String>,
-    max_split: Option<usize>,
-    name: Span,
-) -> Vec<Value> {
+fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
                 match max_split {
-                    Some(max_split) => s
-                        .splitn(max_split, &separator.item)
-                        .map(|s| Value::string(s, v_span))
+                    Some(max_split) => regex
+                        .splitn(&s, max_split)
+                        .map(|x: &str| Value::string(x, v_span))
                         .collect(),
-                    None => s
-                        .split(&separator.item)
-                        .map(|s| Value::string(s, v_span))
+                    None => regex
+                        .split(&s)
+                        .map(|x: &str| Value::string(x, v_span))
                         .collect(),
                 }
             } else {
                 vec![Value::Error {
-                    error: ShellError::PipelineMismatch {
+                    error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: name,
                         src_span: v_span,
-                    },
+                    }),
                 }]
             }
         }
-        Err(error) => vec![Value::Error { error }],
+        Err(error) => vec![Value::Error {
+            error: Box::new(error),
+        }],
     }
 }
 

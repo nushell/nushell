@@ -73,6 +73,12 @@ pub enum SyntaxShape {
     /// A general math expression, eg `1 + 2`
     MathExpression,
 
+    /// A block of matches, used by `match`
+    MatchBlock,
+
+    /// A match pattern, eg `{a: $foo}`
+    MatchPattern,
+
     /// Nothing
     Nothing,
 
@@ -89,7 +95,7 @@ pub enum SyntaxShape {
     Range,
 
     /// A record value, eg `{x: 1, y: 2}`
-    Record,
+    Record(Vec<(String, SyntaxShape)>),
 
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
@@ -137,13 +143,21 @@ impl SyntaxShape {
                 Type::List(Box::new(contents))
             }
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
+            SyntaxShape::MatchBlock => Type::Any,
+            SyntaxShape::MatchPattern => Type::Any,
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Nothing => Type::Any,
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
-            SyntaxShape::Record => Type::Record(vec![]), // FIXME: What role should fields play in the Record type?
+            SyntaxShape::Record(entries) => {
+                let ty = entries
+                    .iter()
+                    .map(|(key, val)| (key.clone(), val.to_type()))
+                    .collect();
+                Type::Record(ty)
+            }
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
@@ -186,7 +200,21 @@ impl Display for SyntaxShape {
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{x}>"),
-            SyntaxShape::Record => write!(f, "record"),
+            SyntaxShape::Record(entries) => {
+                if entries.is_empty() {
+                    write!(f, "record")
+                } else {
+                    write!(
+                        f,
+                        "record<{}>",
+                        entries
+                            .iter()
+                            .map(|(x, y)| format!("{x}: {y}"))
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                    )
+                }
+            }
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
@@ -196,6 +224,8 @@ impl Display for SyntaxShape {
             SyntaxShape::Variable => write!(f, "var"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
+            SyntaxShape::MatchPattern => write!(f, "matchpattern"),
+            SyntaxShape::MatchBlock => write!(f, "matchblock"),
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),

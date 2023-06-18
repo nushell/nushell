@@ -1,5 +1,5 @@
 use crate::completions::{Completer, CompletionOptions};
-use nu_engine::eval_variable;
+use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span, Value,
@@ -179,11 +179,7 @@ impl Completer for VariableCompletion {
         let mut removed_overlays = vec![];
         // Working set scope vars
         for scope_frame in working_set.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame
-                .active_overlays(&mut removed_overlays)
-                .iter()
-                .rev()
-            {
+            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for v in &overlay_frame.vars {
                     if options.match_algorithm.matches_u8_insensitive(
                         options.case_sensitive,
@@ -204,12 +200,7 @@ impl Completer for VariableCompletion {
 
         // Permanent state vars
         // for scope in &self.engine_state.scope {
-        for overlay_frame in self
-            .engine_state
-            .active_overlays(&removed_overlays)
-            .iter()
-            .rev()
-        {
+        for overlay_frame in self.engine_state.active_overlays(&removed_overlays).rev() {
             for v in &overlay_frame.vars {
                 if options.match_algorithm.matches_u8_insensitive(
                     options.case_sensitive,
@@ -276,7 +267,19 @@ fn nested_suggestions(
 
             output
         }
+        Value::List { vals, span: _ } => {
+            for column_name in get_columns(vals.as_slice()) {
+                output.push(Suggestion {
+                    value: column_name,
+                    description: None,
+                    extra: None,
+                    span: current_span,
+                    append_whitespace: false,
+                });
+            }
 
+            output
+        }
         _ => output,
     }
 }
@@ -296,6 +299,38 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                     if item.0.as_bytes().to_vec() == next_sublevel {
                         // If matches try to fetch recursively the next
                         return recursive_value(item.1, sublevels.into_iter().skip(1).collect());
+                    }
+                }
+
+                // Current sublevel value not found
+                return Value::Nothing {
+                    span: Span::unknown(),
+                };
+            }
+            Value::LazyRecord { val, span: _ } => {
+                for col in val.column_names() {
+                    if col.as_bytes().to_vec() == next_sublevel {
+                        return recursive_value(
+                            val.get_column_value(col).unwrap_or_default(),
+                            sublevels.into_iter().skip(1).collect(),
+                        );
+                    }
+                }
+
+                // Current sublevel value not found
+                return Value::Nothing {
+                    span: Span::unknown(),
+                };
+            }
+            Value::List { vals, span } => {
+                for col in get_columns(vals.as_slice()) {
+                    if col.as_bytes().to_vec() == next_sublevel {
+                        return recursive_value(
+                            Value::List { vals, span }
+                                .get_data_by_key(&col)
+                                .unwrap_or_default(),
+                            sublevels.into_iter().skip(1).collect(),
+                        );
                     }
                 }
 

@@ -154,18 +154,18 @@ fn upsert(
                         if let Err(e) =
                             input.upsert_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error { error: e };
+                            return Value::Error { error: Box::new(e) };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: e },
+                    Err(e) => Value::Error { error: Box::new(e) },
                 }
             },
             ctrlc,
         )
     } else {
-        if let Some(PathMember::Int { val, span }) = cell_path.members.get(0) {
+        if let Some(PathMember::Int { val, span, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();
             let mut pre_elems = vec![];
 
@@ -195,7 +195,7 @@ fn upsert(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.upsert_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error { error: e };
+                    return Value::Error { error: Box::new(e) };
                 }
 
                 input

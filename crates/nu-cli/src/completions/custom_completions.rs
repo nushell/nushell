@@ -6,6 +6,7 @@ use nu_protocol::{
     PipelineData, Span, Type, Value,
 };
 use reedline::Suggestion;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::completer::map_value_completions;
@@ -66,7 +67,7 @@ impl Completer for CustomCompletion {
                 ],
                 redirect_stdout: true,
                 redirect_stderr: true,
-                parser_info: vec![],
+                parser_info: HashMap::new(),
             },
             PipelineData::empty(),
         );

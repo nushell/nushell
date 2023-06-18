@@ -1,4 +1,4 @@
-use super::delimited::{from_delimited_data, trim_from_str};
+use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -24,10 +24,33 @@ impl Command for FromCsv {
                 "a character to separate columns, defaults to ','",
                 Some('s'),
             )
+            .named(
+                "comment",
+                SyntaxShape::String,
+                "a comment character to ignore lines starting with it",
+                Some('c'),
+            )
+            .named(
+                "quote",
+                SyntaxShape::String,
+                "a quote character to ignore separators in strings, defaults to '\"'",
+                Some('q'),
+            )
+            .named(
+                "escape",
+                SyntaxShape::String,
+                "an escape character for strings containing the quote character",
+                Some('e'),
+            )
             .switch(
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
+            )
+            .switch(
+                "flexible",
+                "allow the number of fields in records to be variable",
+                None,
             )
             .switch("no-infer", "no field type inferencing", None)
             .named(
@@ -76,27 +99,27 @@ impl Command for FromCsv {
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring headers",
-                example: "open data.txt | from csv -n",
-                result: None,
-            },
-            Example {
                 description: "Convert semicolon-separated data to a table",
                 example: "open data.txt | from csv --separator ';'",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around header names and field values",
+                description: "Convert comma-separated data to a table, ignoring lines starting with '#'",
+                example: "open data.txt | from csv --comment '#'",
+                result: None,
+            },
+            Example {
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values",
                 example: "open data.txt | from csv --trim all",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around header names",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names",
                 example: "open data.txt | from csv --trim headers",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table, dropping all possible whitespaces around field values",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values",
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },
@@ -112,32 +135,41 @@ fn from_csv(
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
 
+    let separator = call
+        .get_flag(engine_state, stack, "separator")?
+        .map(|v: Value| v.as_char())
+        .transpose()?
+        .unwrap_or(',');
+    let comment = call
+        .get_flag(engine_state, stack, "comment")?
+        .map(|v: Value| v.as_char())
+        .transpose()?;
+    let quote = call
+        .get_flag(engine_state, stack, "quote")?
+        .map(|v: Value| v.as_char())
+        .transpose()?
+        .unwrap_or('"');
+    let escape = call
+        .get_flag(engine_state, stack, "escape")?
+        .map(|v: Value| v.as_char())
+        .transpose()?;
     let no_infer = call.has_flag("no-infer");
     let noheaders = call.has_flag("noheaders");
-    let separator: Option<Value> = call.get_flag(engine_state, stack, "separator")?;
-    let trim: Option<Value> = call.get_flag(engine_state, stack, "trim")?;
+    let flexible = call.has_flag("flexible");
+    let trim = trim_from_str(call.get_flag(engine_state, stack, "trim")?)?;
 
-    let sep = match separator {
-        Some(Value::String { val: s, span }) => {
-            if s == r"\t" {
-                '\t'
-            } else {
-                let vec_s: Vec<char> = s.chars().collect();
-                if vec_s.len() != 1 {
-                    return Err(ShellError::MissingParameter {
-                        param_name: "single character separator".into(),
-                        span,
-                    });
-                };
-                vec_s[0]
-            }
-        }
-        _ => ',',
+    let config = DelimitedReaderConfig {
+        separator,
+        comment,
+        quote,
+        escape,
+        noheaders,
+        flexible,
+        no_infer,
+        trim,
     };
 
-    let trim = trim_from_str(trim)?;
-
-    from_delimited_data(noheaders, no_infer, sep, trim, input, name)
+    from_delimited_data(config, input, name)
 }
 
 #[cfg(test)]

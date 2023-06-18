@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -25,6 +25,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
+            .category(Category::Conversions)
     }
 
     fn usage(&self) -> &str {
@@ -88,12 +89,12 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             match other.parse::<f64>() {
                 Ok(x) => Value::float(x, head),
                 Err(reason) => Value::Error {
-                    error: ShellError::CantConvert {
+                    error: Box::new(ShellError::CantConvert {
                         to_type: "float".to_string(),
                         from_type: reason.to_string(),
                         span: *span,
                         help: None,
-                    },
+                    }),
                 },
             }
         }
@@ -108,12 +109,12 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::Error {
-            error: ShellError::OnlySupportsThisInputType {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string, integer or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.expect_span(),
-            },
+            }),
         },
     }
 }

@@ -97,7 +97,9 @@ not supported."#
                             None
                         }
                     }
-                    Err(err) => Some(Value::Error { error: err }),
+                    Err(err) => Some(Value::Error {
+                        error: Box::new(err),
+                    }),
                 }
             })
             .into_pipeline_data(ctrlc)
@@ -148,7 +150,7 @@ not supported."#
             },
             Example {
                 description: "Find files whose filenames don't begin with the correct sequential number",
-                example: "ls | where type == file | sort-by name -n | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each { get item }",
+                example: "ls | where type == file | sort-by name -n | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
                 result: None,
             },
         ]

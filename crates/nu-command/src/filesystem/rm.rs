@@ -50,21 +50,15 @@ impl Command for Rm {
                 "filename",
                 SyntaxShape::Filepath,
                 "the path of the file you want to remove",
-            );
-        #[cfg(all(
-            feature = "trash-support",
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
-        let sig = sig
+            )
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting",
+                "move to the platform's trash instead of permanently deleting. not used on android and ios",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option",
+                "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
@@ -155,7 +149,31 @@ fn rm(
 
     let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
+    let mut unique_argument_check = None;
+
+    let currentdir_path = current_dir(engine_state, stack)?;
+
+    let home: Option<String> = nu_path::home_dir().map(|path| {
+        {
+            if path.exists() {
+                match nu_path::canonicalize_with(&path, &currentdir_path) {
+                    Ok(canon_path) => canon_path,
+                    Err(_) => path,
+                }
+            } else {
+                path
+            }
+        }
+        .to_string_lossy()
+        .into()
+    });
+
     for (idx, path) in targets.clone().into_iter().enumerate() {
+        if let Some(ref home) = home {
+            if &path.item == home {
+                unique_argument_check = Some(path.span);
+            }
+        }
         let corrected_path = Spanned {
             item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
@@ -169,18 +187,13 @@ fn rm(
 
     let rm_always_trash = config.rm_always_trash;
 
-    #[cfg(any(
-        not(feature = "trash-support"),
-        target_os = "android",
-        target_os = "ios"
-    ))]
+    #[cfg(not(feature = "trash-support"))]
     {
         if rm_always_trash {
             return Err(ShellError::GenericError(
                 "Cannot execute `rm`; the current configuration specifies \
                     `always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support` or trash is not supported on \
-                    your platform."
+                    built with feature `trash_support`."
                     .into(),
                 "trash required to be true but not supported".into(),
                 Some(span),
@@ -189,8 +202,7 @@ fn rm(
             ));
         } else if trash {
             return Err(ShellError::GenericError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not \
-                    enabled or trash is not supported on your platform"
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled"
                     .into(),
                 "this option is only available if nu is built with the `trash-support` feature"
                     .into(),
@@ -211,6 +223,16 @@ fn rm(
         ));
     }
 
+    if unique_argument_check.is_some() && !(interactive_once || interactive) {
+        return Err(ShellError::GenericError(
+            "You are trying to remove your home dir".into(),
+            "If you really want to remove your home dir, please use -I or -i".into(),
+            unique_argument_check,
+            None,
+            Vec::new(),
+        ));
+    }
+
     let targets_span = Span::new(
         targets
             .iter()
@@ -224,18 +246,12 @@ fn rm(
             .expect("targets were empty"),
     );
 
-    let path = current_dir(engine_state, stack)?;
-
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
     for target in targets {
-        if path.to_string_lossy() == target.item
-            || path.as_os_str().to_string_lossy().starts_with(&format!(
-                "{}{}",
-                target.item,
-                std::path::MAIN_SEPARATOR
-            ))
+        if currentdir_path.to_string_lossy() == target.item
+            || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError(
                 "Cannot remove any parent directory".into(),
@@ -246,7 +262,7 @@ fn rm(
             ));
         }
 
-        let path = path.join(&target.item);
+        let path = currentdir_path.join(&target.item);
         match nu_glob::glob_with(
             &path.to_string_lossy(),
             nu_glob::MatchOptions {
@@ -330,8 +346,8 @@ fn rm(
     }
 
     all_targets
-        .into_keys()
-        .map(move |f| {
+        .into_iter()
+        .map(move |(f, span)| {
             let is_empty = || match f.read_dir() {
                 Ok(mut p) => p.next().is_none(),
                 Err(_) => false,
@@ -403,15 +419,9 @@ fn rm(
                     }
 
                     if let Err(e) = result {
-                        let msg = format!("Could not delete because: {e:}");
+                        let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
                         Value::Error {
-                            error: ShellError::GenericError(
-                                msg,
-                                e.to_string(),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            ),
+                            error: Box::new(ShellError::RemoveNotPossible(msg, span)),
                         }
                     } else if verbose {
                         let msg = if interactive && !confirmed {
@@ -427,25 +437,25 @@ fn rm(
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
                     Value::Error {
-                        error: ShellError::GenericError(
+                        error: Box::new(ShellError::GenericError(
                             msg,
                             "cannot remove non-empty directory".into(),
                             Some(span),
                             None,
                             Vec::new(),
-                        ),
+                        )),
                     }
                 }
             } else {
                 let msg = format!("no such file or directory: {:}", f.to_string_lossy());
                 Value::Error {
-                    error: ShellError::GenericError(
+                    error: Box::new(ShellError::GenericError(
                         msg,
                         "no such file or directory".into(),
                         Some(span),
                         None,
                         Vec::new(),
-                    ),
+                    )),
                 }
             }
         })

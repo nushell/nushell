@@ -1,3 +1,4 @@
+use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -5,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
     Value,
 };
+use roxmltree::NodeType;
 
 #[derive(Clone)]
 pub struct FromXml;
@@ -17,11 +19,29 @@ impl Command for FromXml {
     fn signature(&self) -> Signature {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .switch("keep-comments", "add comment nodes to result", None)
+            .switch(
+                "keep-pi",
+                "add processing instruction nodes to result",
+                None,
+            )
             .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
         "Parse text as .xml and create record."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Every XML entry is represented via a record with tag, attribute and content fields.
+To represent different types of entries different values are written to this fields:
+1. Tag entry: `{tag: <tag name> attrs: {<attr name>: "<string value>" ...} content: [<entries>]}`
+2. Comment entry: `{tag: '!' attrs: null content: "<comment string>"}`
+3. Processing instruction (PI): `{tag: '?<pi name>' attrs: null content: "<pi content string>"}`
+4. Text: `{tag: null attrs: null content: "<text>"}`.
+
+Unlike to xml command all null values are always present and text is never represented via plain
+string. This way content of every tag is always a table and is easier to parse"#
     }
 
     fn run(
@@ -32,7 +52,14 @@ impl Command for FromXml {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        from_xml(input, head)
+        let keep_comments = call.has_flag("keep-comments");
+        let keep_processing_instructions = call.has_flag("keep-pi");
+        let info = ParsingInfo {
+            span: head,
+            keep_comments,
+            keep_processing_instructions,
+        };
+        from_xml(input, &info)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,51 +69,52 @@ impl Command for FromXml {
   <remember>Event</remember>
 </note>' | from xml"#,
             description: "Converts xml formatted string to record",
-            result: Some(Value::Record {
-                cols: vec!["note".to_string()],
-                vals: vec![Value::Record {
-                    cols: vec!["children".to_string(), "attributes".to_string()],
-                    vals: vec![
-                        Value::List {
-                            vals: vec![Value::Record {
-                                cols: vec!["remember".to_string()],
-                                vals: vec![Value::Record {
-                                    cols: vec!["children".to_string(), "attributes".to_string()],
-                                    vals: vec![
-                                        Value::List {
-                                            vals: vec![Value::test_string("Event")],
-                                            span: Span::test_data(),
-                                        },
-                                        Value::Record {
-                                            cols: vec![],
-                                            vals: vec![],
-                                            span: Span::test_data(),
-                                        },
-                                    ],
-                                    span: Span::test_data(),
-                                }],
-                                span: Span::test_data(),
-                            }],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec![],
-                            vals: vec![],
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_record(
+                vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
+                vec![
+                    Value::test_string("note"),
+                    Value::test_record(Vec::<&str>::new(), vec![]),
+                    Value::list(
+                        vec![Value::test_record(
+                            vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
+                            vec![
+                                Value::test_string("remember"),
+                                Value::test_record(Vec::<&str>::new(), vec![]),
+                                Value::list(
+                                    vec![Value::test_record(
+                                        vec![
+                                            COLUMN_TAG_NAME,
+                                            COLUMN_ATTRS_NAME,
+                                            COLUMN_CONTENT_NAME,
+                                        ],
+                                        vec![
+                                            Value::test_nothing(),
+                                            Value::test_nothing(),
+                                            Value::test_string("Event"),
+                                        ],
+                                    )],
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        Span::test_data(),
+                    ),
+                ],
+            )),
         }]
     }
 }
 
-fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> Value {
+struct ParsingInfo {
+    span: Span,
+    keep_comments: bool,
+    keep_processing_instructions: bool,
+}
+
+fn from_attributes_to_value(attributes: &[roxmltree::Attribute], info: &ParsingInfo) -> Value {
     let mut collected = IndexMap::new();
     for a in attributes {
-        collected.insert(String::from(a.name()), Value::string(a.value(), span));
+        collected.insert(String::from(a.name()), Value::string(a.value(), info.span));
     }
 
     let (cols, vals) = collected
@@ -97,97 +125,204 @@ fn from_attributes_to_value(attributes: &[roxmltree::Attribute], span: Span) -> 
             acc
         });
 
-    Value::Record { cols, vals, span }
-}
-
-fn from_node_to_value(n: &roxmltree::Node, span: Span) -> Value {
-    if n.is_element() {
-        let name = n.tag_name().name().trim().to_string();
-
-        let mut children_values = vec![];
-        for c in n.children() {
-            children_values.push(from_node_to_value(&c, span));
-        }
-
-        let children_values: Vec<Value> = children_values
-            .into_iter()
-            .filter(|x| match x {
-                Value::String { val: f, .. } => {
-                    !f.trim().is_empty() // non-whitespace characters?
-                }
-                _ => true,
-            })
-            .collect();
-
-        let mut collected = IndexMap::new();
-
-        let attribute_value: Value =
-            from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), span);
-
-        let mut row = IndexMap::new();
-        row.insert(
-            String::from("children"),
-            Value::List {
-                vals: children_values,
-                span,
-            },
-        );
-        row.insert(String::from("attributes"), attribute_value);
-        collected.insert(name, Value::from(Spanned { item: row, span }));
-
-        Value::from(Spanned {
-            item: collected,
-            span,
-        })
-    } else if n.is_comment() {
-        Value::String {
-            val: "<comment>".to_string(),
-            span,
-        }
-    } else if n.is_pi() {
-        Value::String {
-            val: "<processing_instruction>".to_string(),
-            span,
-        }
-    } else if n.is_text() {
-        match n.text() {
-            Some(text) => Value::String {
-                val: text.to_string(),
-                span,
-            },
-            None => Value::String {
-                val: "<error>".to_string(),
-                span,
-            },
-        }
-    } else {
-        Value::String {
-            val: "<unknown>".to_string(),
-            span,
-        }
+    Value::Record {
+        cols,
+        vals,
+        span: info.span,
     }
 }
 
-fn from_document_to_value(d: &roxmltree::Document, span: Span) -> Value {
-    from_node_to_value(&d.root_element(), span)
+fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
+    let span = info.span;
+    let mut node = IndexMap::new();
+
+    let tag = n.tag_name().name().trim().to_string();
+    let tag = Value::string(tag, span);
+
+    let content: Vec<Value> = n
+        .children()
+        .filter_map(|node| from_node_to_value(&node, info))
+        .collect();
+    let content = Value::list(content, span);
+
+    let attributes = from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), info);
+
+    node.insert(String::from(COLUMN_TAG_NAME), tag);
+    node.insert(String::from(COLUMN_ATTRS_NAME), attributes);
+    node.insert(String::from(COLUMN_CONTENT_NAME), content);
+
+    Value::from(Spanned { item: node, span })
 }
 
-pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltree::Error> {
+fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+    let span = info.span;
+    let text = n.text().expect("Non-text node supplied to text_to_value");
+    let text = text.trim();
+    if text.is_empty() {
+        None
+    } else {
+        let mut node = IndexMap::new();
+        let content = Value::string(String::from(text), span);
+
+        node.insert(String::from(COLUMN_TAG_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_CONTENT_NAME), content);
+
+        let result = Value::from(Spanned { item: node, span });
+
+        Some(result)
+    }
+}
+
+fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+    if info.keep_comments {
+        let span = info.span;
+        let text = n
+            .text()
+            .expect("Non-comment node supplied to comment_to_value");
+
+        let mut node = IndexMap::new();
+        let content = Value::string(String::from(text), span);
+
+        node.insert(String::from(COLUMN_TAG_NAME), Value::string("!", span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_CONTENT_NAME), content);
+
+        let result = Value::from(Spanned { item: node, span });
+
+        Some(result)
+    } else {
+        None
+    }
+}
+
+fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+    if info.keep_processing_instructions {
+        let span = info.span;
+        let pi = n.pi()?;
+
+        let mut node = IndexMap::new();
+        // Add '?' before target to differentiate tags from pi targets
+        let tag = format!("?{}", pi.target);
+        let tag = Value::string(tag, span);
+        let content = pi
+            .value
+            .map_or_else(|| Value::nothing(span), |x| Value::string(x, span));
+
+        node.insert(String::from(COLUMN_TAG_NAME), tag);
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_CONTENT_NAME), content);
+
+        let result = Value::from(Spanned { item: node, span });
+
+        Some(result)
+    } else {
+        None
+    }
+}
+
+fn from_node_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+    match n.node_type() {
+        NodeType::Element => Some(element_to_value(n, info)),
+        NodeType::Text => text_to_value(n, info),
+        NodeType::Comment => comment_to_value(n, info),
+        NodeType::PI => processing_instruction_to_value(n, info),
+        _ => None,
+    }
+}
+
+fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> Value {
+    element_to_value(&d.root_element(), info)
+}
+
+fn from_xml_string_to_value(s: String, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
     let parsed = roxmltree::Document::parse(&s)?;
-    Ok(from_document_to_value(&parsed, span))
+    Ok(from_document_to_value(&parsed, info))
 }
 
-fn from_xml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let (concat_string, span, metadata) = input.collect_string_strict(head)?;
+fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, ShellError> {
+    let (concat_string, span, metadata) = input.collect_string_strict(info.span)?;
 
-    match from_xml_string_to_value(concat_string, head) {
+    match from_xml_string_to_value(concat_string, info) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
-        _ => Err(ShellError::UnsupportedInput(
-            "Could not parse string as XML".to_string(),
-            "value originates from here".into(),
-            head,
+        Err(err) => Err(process_xml_parse_error(err, span)),
+    }
+}
+
+fn process_xml_parse_error(err: roxmltree::Error, span: Span) -> ShellError {
+    match err {
+        roxmltree::Error::InvalidXmlPrefixUri(_) => make_cant_convert_error(
+            "The `xmlns:xml` attribute must have an <http://www.w3.org/XML/1998/namespace> URI.",
             span,
-        )),
+        ),
+        roxmltree::Error::UnexpectedXmlUri(_) => make_cant_convert_error(
+            "Only the xmlns:xml attribute can have the http://www.w3.org/XML/1998/namespace  URI.",
+            span,
+        ),
+        roxmltree::Error::UnexpectedXmlnsUri(_) => make_cant_convert_error(
+            "The http://www.w3.org/2000/xmlns/  URI must not be declared.",
+            span,
+        ),
+        roxmltree::Error::InvalidElementNamePrefix(_) => {
+            make_cant_convert_error("xmlns can't be used as an element prefix.", span)
+        }
+        roxmltree::Error::DuplicatedNamespace(_, _) => {
+            make_cant_convert_error("A namespace was already defined on this element.", span)
+        }
+        roxmltree::Error::UnknownNamespace(prefix, _) => {
+            make_cant_convert_error(format!("Unknown prefix {}", prefix), span)
+        }
+        roxmltree::Error::UnexpectedCloseTag { .. } => {
+            make_cant_convert_error("Unexpected close tag", span)
+        }
+        roxmltree::Error::UnexpectedEntityCloseTag(_) => {
+            make_cant_convert_error("Entity value starts with a close tag.", span)
+        }
+        roxmltree::Error::UnknownEntityReference(_, _) => make_cant_convert_error(
+            "A reference to an entity that was not defined in the DTD.",
+            span,
+        ),
+        roxmltree::Error::MalformedEntityReference(_) => {
+            make_cant_convert_error("A malformed entity reference.", span)
+        }
+        roxmltree::Error::EntityReferenceLoop(_) => {
+            make_cant_convert_error("A possible entity reference loop.", span)
+        }
+        roxmltree::Error::InvalidAttributeValue(_) => {
+            make_cant_convert_error("Attribute value cannot have a < character.", span)
+        }
+        roxmltree::Error::DuplicatedAttribute(_, _) => {
+            make_cant_convert_error("An element has a duplicated attributes.", span)
+        }
+        roxmltree::Error::NoRootNode => {
+            make_cant_convert_error("The XML document must have at least one element.", span)
+        }
+        roxmltree::Error::UnclosedRootNode => {
+            make_cant_convert_error("The root node was opened but never closed.", span)
+        }
+        roxmltree::Error::DtdDetected => make_cant_convert_error(
+            "An XML with DTD detected. DTDs are currently disabled due to security reasons.",
+            span,
+        ),
+        roxmltree::Error::NodesLimitReached => {
+            make_cant_convert_error("Node limit was reached.", span)
+        }
+        roxmltree::Error::AttributesLimitReached => {
+            make_cant_convert_error("Attribute limit reached", span)
+        }
+        roxmltree::Error::NamespacesLimitReached => {
+            make_cant_convert_error("Namespace limit reached", span)
+        }
+        roxmltree::Error::ParserError(_) => make_cant_convert_error("Parser error", span),
+    }
+}
+
+fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
+    ShellError::CantConvert {
+        from_type: Type::String.to_string(),
+        to_type: "XML".to_string(),
+        span,
+        help: Some(help.into()),
     }
 }
 
@@ -203,9 +338,12 @@ mod tests {
         Value::test_string(input)
     }
 
-    fn row(entries: IndexMap<String, Value>) -> Value {
+    fn attributes(entries: IndexMap<&str, &str>) -> Value {
         Value::from(Spanned {
-            item: entries,
+            item: entries
+                .into_iter()
+                .map(|(k, v)| (k.into(), string(v)))
+                .collect::<IndexMap<String, Value>>(),
             span: Span::test_data(),
         })
     }
@@ -217,23 +355,46 @@ mod tests {
         }
     }
 
+    fn content_tag(
+        tag: impl Into<String>,
+        attrs: IndexMap<&str, &str>,
+        content: &[Value],
+    ) -> Value {
+        Value::from(Spanned {
+            item: indexmap! {
+                COLUMN_TAG_NAME.into() => string(tag),
+                COLUMN_ATTRS_NAME.into() => attributes(attrs),
+                COLUMN_CONTENT_NAME.into() => table(content),
+            },
+            span: Span::test_data(),
+        })
+    }
+
+    fn content_string(value: impl Into<String>) -> Value {
+        Value::from(Spanned {
+            item: indexmap! {
+                COLUMN_TAG_NAME.into() => Value::nothing(Span::test_data()),
+                COLUMN_ATTRS_NAME.into() => Value::nothing(Span::test_data()),
+                COLUMN_CONTENT_NAME.into() => string(value),
+            },
+            span: Span::test_data(),
+        })
+    }
+
     fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
-        from_xml_string_to_value(xml.to_string(), Span::test_data())
+        let info = ParsingInfo {
+            span: Span::test_data(),
+            keep_comments: false,
+            keep_processing_instructions: false,
+        };
+        from_xml_string_to_value(xml.to_string(), &info)
     }
 
     #[test]
     fn parses_empty_element() -> Result<(), roxmltree::Error> {
         let source = "<nu></nu>";
 
-        assert_eq!(
-            parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[]),
-                    "attributes".into() => row(indexmap! {})
-                })
-            })
-        );
+        assert_eq!(parse(source)?, content_tag("nu", indexmap! {}, &[]));
 
         Ok(())
     }
@@ -244,12 +405,11 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[string("La era de los tres caballeros")]),
-                    "attributes".into() => row(indexmap! {})
-                })
-            })
+            content_tag(
+                "nu",
+                indexmap! {},
+                &[content_string("La era de los tres caballeros")]
+            )
         );
 
         Ok(())
@@ -260,37 +420,21 @@ mod tests {
         let source = "\
 <nu>
     <dev>Andrés</dev>
-    <dev>Jonathan</dev>
+    <dev>JT</dev>
     <dev>Yehuda</dev>
 </nu>";
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[
-                        row(indexmap! {
-                            "dev".into() => row(indexmap! {
-                                "children".into() => table(&[string("Andrés")]),
-                                "attributes".into() => row(indexmap! {})
-                            })
-                        }),
-                        row(indexmap! {
-                            "dev".into() => row(indexmap! {
-                                "children".into() => table(&[string("Jonathan")]),
-                                "attributes".into() => row(indexmap! {})
-                            })
-                        }),
-                        row(indexmap! {
-                            "dev".into() => row(indexmap! {
-                                "children".into() => table(&[string("Yehuda")]),
-                                "attributes".into() => row(indexmap! {})
-                            })
-                        })
-                    ]),
-                    "attributes".into() => row(indexmap! {})
-                })
-            })
+            content_tag(
+                "nu",
+                indexmap! {},
+                &vec![
+                    content_tag("dev", indexmap! {}, &[content_string("Andrés")]),
+                    content_tag("dev", indexmap! {}, &[content_string("JT")]),
+                    content_tag("dev", indexmap! {}, &[content_string("Yehuda")])
+                ]
+            )
         );
 
         Ok(())
@@ -304,14 +448,7 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[]),
-                    "attributes".into() => row(indexmap! {
-                        "version".into() => string("2.0")
-                    })
-                })
-            })
+            content_tag("nu", indexmap! {"version" => "2.0"}, &[])
         );
 
         Ok(())
@@ -326,21 +463,15 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[
-                           row(indexmap! {
-                                "version".into() => row(indexmap! {
-                                    "children".into() => table(&[string("2.0")]),
-                                    "attributes".into() => row(indexmap! {})
-                                })
-                          })
-                    ]),
-                    "attributes".into() => row(indexmap! {
-                        "version".into() => string("2.0")
-                    })
-                })
-            })
+            content_tag(
+                "nu",
+                indexmap! {"version" => "2.0"},
+                &[content_tag(
+                    "version",
+                    indexmap! {},
+                    &[content_string("2.0")]
+                )]
+            )
         );
 
         Ok(())
@@ -354,15 +485,7 @@ mod tests {
 
         assert_eq!(
             parse(source)?,
-            row(indexmap! {
-                "nu".into() => row(indexmap! {
-                    "children".into() => table(&[]),
-                    "attributes".into() => row(indexmap! {
-                        "version".into() => string("2.0"),
-                        "age".into() => string("25")
-                    })
-                })
-            })
+            content_tag("nu", indexmap! {"version" => "2.0", "age" => "25"}, &[])
         );
 
         Ok(())

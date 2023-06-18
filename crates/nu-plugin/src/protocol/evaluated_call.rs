@@ -6,19 +6,29 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 
-// The evaluated call is used with the Plugins because the plugin doesn't have
-// access to the Stack and the EngineState. For that reason, before encoding the
-// message to the plugin all the arguments to the original call (which are expressions)
-// are evaluated and passed to Values
+/// A representation of the plugin's invocation command including command line args
+///
+/// The `EvaluatedCall` contains information about the way a [Plugin](crate::Plugin) was invoked
+/// representing the [`Span`] corresponding to the invocation as well as the arguments
+/// it was invoked with. It is one of three items passed to [`run`](crate::Plugin::run()) along with
+/// `name` which command that was invoked and a [`Value`] that represents the input.
+///
+/// The evaluated call is used with the Plugins because the plugin doesn't have
+/// access to the Stack and the EngineState the way a built in command might. For that
+/// reason, before encoding the message to the plugin all the arguments to the original
+/// call (which are expressions) are evaluated and passed to Values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluatedCall {
+    /// Span of the command invocation
     pub head: Span,
+    /// Values of positional arguments
     pub positional: Vec<Value>,
+    /// Names and values of named arguments
     pub named: Vec<(Spanned<String>, Option<Value>)>,
 }
 
 impl EvaluatedCall {
-    pub fn try_from_call(
+    pub(crate) fn try_from_call(
         call: &Call,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -45,6 +55,43 @@ impl EvaluatedCall {
         })
     }
 
+    /// Indicates whether named parameter is present in the arguments
+    ///
+    /// Typically this method would be used on a flag parameter, a named parameter
+    /// that does not take a value.
+    ///
+    /// # Examples
+    /// Invoked as `my_command --foo`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         None
+    /// #     )],
+    /// # };
+    /// assert!(call.has_flag("foo"));
+    /// ```
+    ///
+    /// Invoked as `my_command --bar`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "bar".to_owned(), span: null_span},
+    /// #         None
+    /// #     )],
+    /// # };
+    /// assert!(!call.has_flag("foo"));
+    /// ```
     pub fn has_flag(&self, flag_name: &str) -> bool {
         for name in &self.named {
             if flag_name == name.0.item {
@@ -55,6 +102,47 @@ impl EvaluatedCall {
         false
     }
 
+    /// Returns the [`Value`] of an optional named argument
+    ///
+    /// # Examples
+    /// Invoked as `my_command --foo 123`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #     )],
+    /// # };
+    /// let opt_foo = match call.get_flag_value("foo") {
+    ///     Some(Value::Int { val, .. }) => Some(val),
+    ///     None => None,
+    ///     _ => panic!(),
+    /// };
+    /// assert_eq!(opt_foo, Some(123));
+    /// ```
+    ///
+    /// Invoked as `my_command`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![],
+    /// # };
+    /// let opt_foo = match call.get_flag_value("foo") {
+    ///     Some(Value::Int { val, .. }) => Some(val),
+    ///     None => None,
+    ///     _ => panic!(),
+    /// };
+    /// assert_eq!(opt_foo, None);
+    /// ```
     pub fn get_flag_value(&self, flag_name: &str) -> Option<Value> {
         for name in &self.named {
             if flag_name == name.0.item {
@@ -65,10 +153,89 @@ impl EvaluatedCall {
         None
     }
 
+    /// Returns the [`Value`] of a given (zero indexed) positional argument, if present
+    ///
+    /// Examples:
+    /// Invoked as `my_command a b c`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: vec![
+    /// #         Value::String { val: "a".to_owned(), span: null_span },
+    /// #         Value::String { val: "b".to_owned(), span: null_span },
+    /// #         Value::String { val: "c".to_owned(), span: null_span },
+    /// #     ],
+    /// #     named: vec![],
+    /// # };
+    /// let arg = match call.nth(1) {
+    ///     Some(Value::String { val, .. }) => val,
+    ///     _ => panic!(),
+    /// };
+    /// assert_eq!(arg, "b".to_owned());
+    ///
+    /// let arg = call.nth(7);
+    /// assert!(arg.is_none());
+    /// ```
     pub fn nth(&self, pos: usize) -> Option<Value> {
         self.positional.get(pos).cloned()
     }
 
+    /// Returns the value of a named argument interpreted as type `T`
+    ///
+    /// # Examples
+    /// Invoked as `my_command --foo 123`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #     )],
+    /// # };
+    /// let foo = call.get_flag::<i64>("foo");
+    /// assert_eq!(foo.unwrap(), Some(123));
+    /// ```
+    ///
+    /// Invoked as `my_command --bar 123`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "bar".to_owned(), span: null_span},
+    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #     )],
+    /// # };
+    /// let foo = call.get_flag::<i64>("foo");
+    /// assert_eq!(foo.unwrap(), None);
+    /// ```
+    ///
+    /// Invoked as `my_command --foo abc`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::String { val: "abc".to_owned(), span: null_span })
+    /// #     )],
+    /// # };
+    /// let foo = call.get_flag::<i64>("foo");
+    /// assert!(foo.is_err());
+    /// ```
     pub fn get_flag<T: FromValue>(&self, name: &str) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.get_flag_value(name) {
             FromValue::from_value(&value).map(Some)
@@ -77,6 +244,30 @@ impl EvaluatedCall {
         }
     }
 
+    /// Retrieve the Nth and all following positional arguments as type `T`
+    ///
+    /// # Example
+    /// Invoked as `my_command zero one two three`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: vec![
+    /// #         Value::String { val: "zero".to_owned(), span: null_span },
+    /// #         Value::String { val: "one".to_owned(), span: null_span },
+    /// #         Value::String { val: "two".to_owned(), span: null_span },
+    /// #         Value::String { val: "three".to_owned(), span: null_span },
+    /// #     ],
+    /// #     named: Vec::new(),
+    /// # };
+    /// let args = call.rest::<String>(0);
+    /// assert_eq!(args.unwrap(), vec!["zero", "one", "two", "three"]);
+    ///
+    /// let args = call.rest::<String>(2);
+    /// assert_eq!(args.unwrap(), vec!["two", "three"]);
+    /// ```
     pub fn rest<T: FromValue>(&self, starting_pos: usize) -> Result<Vec<T>, ShellError> {
         self.positional
             .iter()
@@ -85,6 +276,11 @@ impl EvaluatedCall {
             .collect()
     }
 
+    /// Retrieve the value of an optional positional argument interpreted as type `T`
+    ///
+    /// Returns the value of a (zero indexed) positional argument of type `T`.
+    /// Alternatively returns [`None`] if the positional argument does not exist
+    /// or an error that can be passed back to the shell on error.
     pub fn opt<T: FromValue>(&self, pos: usize) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.nth(pos) {
             FromValue::from_value(&value).map(Some)
@@ -93,6 +289,11 @@ impl EvaluatedCall {
         }
     }
 
+    /// Retrieve the value of a mandatory positional argument as type `T`
+    ///
+    /// Expect a positional argument of type `T` and return its value or, if the
+    /// argument does not exist or is of the wrong type, return an error that can
+    /// be passed back to the shell.
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {
             FromValue::from_value(&value)

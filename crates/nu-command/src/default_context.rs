@@ -1,10 +1,10 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-use crate::*;
-
-pub fn create_default_context() -> EngineState {
-    let mut engine_state = nu_cmd_lang::create_default_context();
-
+use crate::{
+    help::{HelpAliases, HelpCommands, HelpExterns, HelpModules, HelpOperators},
+    *,
+};
+pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
@@ -18,8 +18,6 @@ pub fn create_default_context() -> EngineState {
         // they have to be registered before the main declarations. This helps to make
         // them only accessible if the correct input value category is used with the
         // declaration
-        #[cfg(feature = "dataframe")]
-        add_dataframe_decls(&mut working_set);
 
         // Database-related
         // Adds all related commands to query databases
@@ -36,7 +34,6 @@ pub fn create_default_context() -> EngineState {
             All,
             Any,
             Append,
-            Collect,
             Columns,
             Compact,
             Default,
@@ -57,6 +54,8 @@ pub fn create_default_context() -> EngineState {
             GroupBy,
             Headers,
             Insert,
+            Items,
+            Join,
             SplitBy,
             Take,
             Merge,
@@ -102,9 +101,8 @@ pub fn create_default_context() -> EngineState {
 
         // Misc
         bind_command! {
-            History,
+            Source,
             Tutor,
-            HistorySession,
         };
 
         // Path
@@ -127,6 +125,16 @@ pub fn create_default_context() -> EngineState {
             External,
             NuCheck,
             Sys,
+        };
+
+        // Help
+        bind_command! {
+            Help,
+            HelpAliases,
+            HelpExterns,
+            HelpCommands,
+            HelpModules,
+            HelpOperators,
         };
 
         // Debug
@@ -168,6 +176,8 @@ pub fn create_default_context() -> EngineState {
             Encode,
             DecodeBase64,
             EncodeBase64,
+            DecodeHex,
+            EncodeHex,
             DetectColumns,
             Format,
             FileSize,
@@ -181,7 +191,6 @@ pub fn create_default_context() -> EngineState {
             Str,
             StrCamelCase,
             StrCapitalize,
-            StrCollect,
             StrContains,
             StrDistance,
             StrDowncase,
@@ -201,19 +210,6 @@ pub fn create_default_context() -> EngineState {
             StrTitleCase,
             StrUpcase
         };
-
-        // Bits
-        bind_command! {
-            Bits,
-            BitsAnd,
-            BitsNot,
-            BitsOr,
-            BitsXor,
-            BitsRotateLeft,
-            BitsRotateRight,
-            BitsShiftLeft,
-            BitsShiftRight,
-        }
 
         // Bytes
         bind_command! {
@@ -255,12 +251,9 @@ pub fn create_default_context() -> EngineState {
             AnsiLink,
             Clear,
             Du,
-            KeybindingsDefault,
             Input,
-            KeybindingsListen,
-            Keybindings,
+            InputList,
             Kill,
-            KeybindingsList,
             Sleep,
             TermSize,
         };
@@ -279,12 +272,7 @@ pub fn create_default_context() -> EngineState {
 
         // Shells
         bind_command! {
-            Enter,
             Exit,
-            GotoShell,
-            NextShell,
-            PrevShell,
-            Shells,
         };
 
         // Formats
@@ -322,7 +310,6 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Griddle,
             Table,
-            Explore,
         };
 
         // Conversions
@@ -386,6 +373,7 @@ pub fn create_default_context() -> EngineState {
             MathPi,
             MathTau,
             MathEuler,
+            MathExp,
             MathLn,
             MathLog,
         };
@@ -399,6 +387,7 @@ pub fn create_default_context() -> EngineState {
             HttpPatch,
             HttpPost,
             HttpPut,
+            HttpOptions,
             Url,
             UrlBuildQuery,
             UrlEncode,
@@ -442,15 +431,13 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             HashBase64,
             LPadDeprecated,
+            MathEvalDeprecated,
             RPadDeprecated,
-            Source,
+            StrCollectDeprecated,
             StrDatetimeDeprecated,
             StrDecimalDeprecated,
-            StrIntDeprecated,
             StrFindReplaceDeprecated,
-            MathEvalDeprecated,
-            OldAlias,
-            ExportOldAlias,
+            StrIntDeprecated,
         };
 
         working_set.render()
@@ -459,6 +446,10 @@ pub fn create_default_context() -> EngineState {
     if let Err(err) = engine_state.merge_delta(delta) {
         eprintln!("Error creating default context: {err:?}");
     }
+
+    // Cache the table decl id so we don't have to look it up later
+    let table_decl_id = engine_state.find_decl("table".as_bytes(), &[]);
+    engine_state.table_decl_id = table_decl_id;
 
     engine_state
 }
