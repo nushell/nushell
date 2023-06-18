@@ -419,15 +419,9 @@ fn rm(
                     }
 
                     if let Err(e) = result {
-                        let msg = format!("Could not delete because: {e:}");
+                        let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
                         Value::Error {
-                            error: Box::new(ShellError::GenericError(
-                                msg,
-                                e.to_string(),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            )),
+                            error: Box::new(ShellError::RemoveNotPossible(msg, span)),
                         }
                     } else if verbose {
                         let msg = if interactive && !confirmed {
