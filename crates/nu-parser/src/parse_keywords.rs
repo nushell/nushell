@@ -3158,7 +3158,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
-    use nu_plugin::{get_signature, PluginDeclaration};
+    use nu_plugin::nu_internal::{get_signature, PluginDeclaration};
     use nu_protocol::{engine::Stack, PluginSignature};
 
     let cwd = working_set.get_cwd();

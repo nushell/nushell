@@ -13,7 +13,7 @@ bench = false
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.81.1" }
 nu-path = {path = "../nu-path", version = "0.81.1" }
-nu-plugin = { path = "../nu-plugin", optional = true, version = "0.81.1"  }
+nu-plugin = { path = "../nu-plugin", optional = true, version = "0.81.1", features = ['nu-internal'] }
 nu-protocol = { path = "../nu-protocol", version = "0.81.1" }
 
 bytesize = "1.2"
