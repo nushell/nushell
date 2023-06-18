@@ -10,6 +10,9 @@ version = "0.81.1"
 [lib]
 bench = false
 
+[features]
+nu-internal = []
+
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.81.1"  }
 nu-protocol = { path = "../nu-protocol", version = "0.81.1"  }

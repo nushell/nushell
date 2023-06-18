@@ -47,7 +47,8 @@ mod plugin;
 mod protocol;
 mod serializers;
 
-pub use plugin::{get_signature, serve_plugin, Plugin, PluginDeclaration};
+pub use plugin::{serve_plugin, Plugin};
+#[cfg(feature = "nu-internal")]
+pub use plugin::{get_signature, PluginDeclaration};
 pub use protocol::{EvaluatedCall, LabeledError, PluginResponse};
 pub use serializers::EncodingType;
-// pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};

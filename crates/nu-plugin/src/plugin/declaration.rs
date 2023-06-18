@@ -137,7 +137,7 @@ impl Command for PluginDeclaration {
             EncodingType::MsgPack =>
                 call_plugin::<MsgPackSerializer>(&mut child, plugin_call, call.head),
         };
-        
+
         let response = response.map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
             ShellError::GenericError(

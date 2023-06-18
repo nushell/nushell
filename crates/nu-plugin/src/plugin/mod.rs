@@ -1,23 +1,32 @@
+#[cfg(feature = "nu-internal")]
 mod declaration;
-pub use declaration::PluginDeclaration;
-use nu_engine::documentation::get_flags_section;
-use std::collections::HashMap;
 
+#[cfg(feature = "nu-internal")]
+pub use declaration::PluginDeclaration;
+
+use nu_engine::documentation::get_flags_section;
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::serializers::{
     EncodingType,
     json::JsonSerializer,
     msgpack::MsgPackSerializer,
 };
+
 use std::env;
 use std::fmt::Write;
-use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
+use std::io::{BufReader, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
 use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
 
 use super::EvaluatedCall;
+
+#[cfg(feature = "nu-internal")]
+use {
+    std::collections::HashMap,
+    std::io::ErrorKind,
+};
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
@@ -121,6 +130,7 @@ pub(crate) fn call_plugin<Encoder: PluginEncoder>(
 }
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
+#[cfg(feature = "nu-internal")]
 pub fn get_signature(
     path: &Path,
     shell: &Option<PathBuf>,
@@ -158,16 +168,7 @@ pub fn get_signature(
         .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
 
     let encoding = get_plugin_encoding(&mut stdout_reader)?;
-
-    // this is not the prettiest
-    let encode_call = match encoding {
-        EncodingType::Json => JsonSerializer::encode_call,
-        EncodingType::MsgPack => MsgPackSerializer::encode_call,
-    };
-    let decode_response = match encoding {
-        EncodingType::Json => JsonSerializer::decode_response,
-        EncodingType::MsgPack => MsgPackSerializer::decode_response,
-    };
+    let enc_cloned = encoding.clone();
 
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
@@ -175,14 +176,14 @@ pub fn get_signature(
     // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
     // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
     std::thread::spawn(move || {
-        encode_call(&PluginCall::Signature, &mut stdin_writer)
+        enc_cloned.encode_call(&PluginCall::Signature, &mut stdin_writer)
     });
 
     // deserialize response from plugin to extract the signature
     let reader = stdout_reader;
     let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-    let response = decode_response(&mut buf_read)?;
-
+    let response = encoding.decode_response(&mut buf_read)?;
+    
     let signatures = match response {
         PluginResponse::Signature(sign) => Ok(sign),
         PluginResponse::Error(err) => Err(err.into()),

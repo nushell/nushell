@@ -1,5 +1,16 @@
-pub mod json;
-pub mod msgpack;
+#[cfg(feature="nu-internal")]
+use {
+    nu_protocol::ShellError,
+    crate::{
+        plugin::PluginEncoder,
+        PluginResponse
+    },
+};
+
+pub(crate) mod json;
+pub(crate) mod msgpack;
+#[cfg(feature="nu-internal")]
+use self::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 #[derive(Clone, Debug)]
 pub enum EncodingType {
@@ -8,7 +19,7 @@ pub enum EncodingType {
 }
 
 impl EncodingType {
-    pub fn try_from_bytes(bytes: &[u8]) -> Option<Self> {
+    pub(crate) fn try_from_bytes(bytes: &[u8]) -> Option<Self> {
         match bytes {
             b"json" => Some(Self::Json),
             b"msgpack" => Some(Self::MsgPack),
@@ -17,67 +28,26 @@ impl EncodingType {
     }
 }
 
-// #[derive(Clone, Debug)]
-// pub enum EncodingType {
-//     Json(json::JsonSerializer),
-//     MsgPack(msgpack::MsgPackSerializer),
-// }
+#[cfg(feature = "nu-internal")]
+impl EncodingType {
+    pub fn encode_call(
+        &self,
+        plugin_call: &crate::protocol::PluginCall,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), nu_protocol::ShellError> {
+        match self {
+            EncodingType::Json => JsonSerializer::encode_call(plugin_call, writer),
+            EncodingType::MsgPack => MsgPackSerializer::encode_call(plugin_call, writer),
+        }
+    }
 
-// impl EncodingType {
-//     pub fn try_from_bytes(bytes: &[u8]) -> Option<Self> {
-//         match bytes {
-//             b"json" => Some(Self::Json(json::JsonSerializer {})),
-//             b"msgpack" => Some(Self::MsgPack(msgpack::MsgPackSerializer {})),
-//             _ => None,
-//         }
-//     }
-
-//     pub fn encode_call(
-//         &self,
-//         plugin_call: &PluginCall,
-//         writer: &mut impl std::io::Write,
-//     ) -> Result<(), ShellError> {
-//         match self {
-//             EncodingType::Json(encoder) => encoder.encode_call(plugin_call, writer),
-//             EncodingType::MsgPack(encoder) => encoder.encode_call(plugin_call, writer),
-//         }
-//     }
-
-//     pub fn decode_call(
-//         &self,
-//         reader: &mut impl std::io::BufRead,
-//     ) -> Result<PluginCall, ShellError> {
-//         match self {
-//             EncodingType::Json(encoder) => encoder.decode_call(reader),
-//             EncodingType::MsgPack(encoder) => encoder.decode_call(reader),
-//         }
-//     }
-
-//     pub fn encode_response(
-//         &self,
-//         plugin_response: &PluginResponse,
-//         writer: &mut impl std::io::Write,
-//     ) -> Result<(), ShellError> {
-//         match self {
-//             EncodingType::Json(encoder) => encoder.encode_response(plugin_response, writer),
-//             EncodingType::MsgPack(encoder) => encoder.encode_response(plugin_response, writer),
-//         }
-//     }
-
-//     pub fn decode_response(
-//         &self,
-//         reader: &mut impl std::io::BufRead,
-//     ) -> Result<PluginResponse, ShellError> {
-//         match self {
-//             EncodingType::Json(encoder) => encoder.decode_response(reader),
-//             EncodingType::MsgPack(encoder) => encoder.decode_response(reader),
-//         }
-//     }
-
-//     pub fn to_str(&self) -> &'static str {
-//         match self {
-//             Self::Json(_) => "json",
-//             Self::MsgPack(_) => "msgpack",
-//         }
-//     }
-// }
+    pub fn decode_response(
+        &self,
+        reader: &mut impl std::io::BufRead,
+    ) -> Result<PluginResponse, ShellError> {
+        match self {
+            EncodingType::Json => JsonSerializer::decode_response(reader),
+            EncodingType::MsgPack => JsonSerializer::decode_response(reader),
+        }
+    }
+}
