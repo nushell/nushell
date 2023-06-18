@@ -1,12 +1,12 @@
 use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
-use ahash::HashMap;
 use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
 };
+use std::collections::HashMap;
 
 use std::fmt::{Debug, Formatter, Result};
 

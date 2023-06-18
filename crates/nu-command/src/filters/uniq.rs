@@ -1,5 +1,4 @@
 use crate::formats::value_to_string;
-use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -8,6 +7,7 @@ use nu_protocol::{
     Span, Type, Value,
 };
 use std::collections::hash_map::IntoIter;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Uniq;

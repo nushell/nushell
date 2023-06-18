@@ -1,6 +1,6 @@
 use crate::{DeclId, ModuleId, OverlayId, Type, Value, VarId};
-use ahash::{HashMap, HashMapExt};
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";

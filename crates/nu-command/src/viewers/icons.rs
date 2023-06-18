@@ -1,6 +1,6 @@
-use ahash::HashMap;
 use nu_protocol::{ShellError, Span};
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::path::Path;
 
 // Attribution: Thanks exa. Most of this file is taken from around here

@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;

@@ -1,5 +1,4 @@
 use crate::parser_path::ParserPath;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -12,6 +11,7 @@ use nu_protocol::{
     span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 

@@ -2,10 +2,10 @@ mod collapse;
 mod expanded;
 mod general;
 
-use ahash::HashMap;
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::TrimStrategy;
 use nu_protocol::{Config, FooterMode, ShellError, Span, Value};
+use std::collections::HashMap;
 
 use crate::{string_wrap, NuTable, TableConfig, TableTheme};
 

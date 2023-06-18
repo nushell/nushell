@@ -16,11 +16,11 @@ mod test_examples {
     use crate::{
         Break, Collect, Def, Describe, Echo, ExportCommand, ExportDef, If, Let, Module, Mut, Use,
     };
-    use ahash::{HashSet, HashSetExt};
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type, Value,
     };
+    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();

@@ -1,4 +1,3 @@
-use ahash::{HashMap, HashMapExt};
 use nu_ansi_term::*;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
@@ -7,6 +6,7 @@ use nu_protocol::{
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
