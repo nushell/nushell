@@ -2,7 +2,7 @@ mod cool_custom_value;
 mod second_custom_value;
 
 use cool_custom_value::CoolCustomValue;
-use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
+use nu_plugin::{serve_plugin, EncodingType, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{Category, PluginSignature, ShellError, Value};
 use second_custom_value::SecondCustomValue;
@@ -74,5 +74,5 @@ impl CustomValuePlugin {
 }
 
 fn main() {
-    serve_plugin(&mut CustomValuePlugin, MsgPackSerializer {})
+    serve_plugin(&mut CustomValuePlugin, EncodingType::MsgPack)
 }

@@ -1,4 +1,4 @@
-use nu_plugin::{serve_plugin, MsgPackSerializer};
+use nu_plugin::{serve_plugin, EncodingType};
 use nu_plugin_example::Example;
 
 fn main() {
@@ -6,7 +6,7 @@ fn main() {
     // used to encode and decode the messages. The available options are
     // MsgPackSerializer and JsonSerializer. Both are defined in the serializer
     // folder in nu-plugin.
-    serve_plugin(&mut Example {}, MsgPackSerializer {})
+    serve_plugin(&mut Example {}, EncodingType::MsgPack)
 
     // Note
     // When creating plugins in other languages one needs to consider how a plugin

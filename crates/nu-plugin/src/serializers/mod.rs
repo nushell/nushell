@@ -47,7 +47,7 @@ impl EncodingType {
     ) -> Result<PluginResponse, ShellError> {
         match self {
             EncodingType::Json => JsonSerializer::decode_response(reader),
-            EncodingType::MsgPack => JsonSerializer::decode_response(reader),
+            EncodingType::MsgPack => MsgPackSerializer::decode_response(reader),
         }
     }
 }
