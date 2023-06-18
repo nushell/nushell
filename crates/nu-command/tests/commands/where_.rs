@@ -189,3 +189,10 @@ fn where_gt_null() {
     let actual = nu!("[{foo: 123} {}] | where foo? > 10 | to nuon");
     assert_eq!(actual.out, "[[foo]; [123]]");
 }
+
+#[test]
+fn pass_through_empty_pipelines() {
+    let actual = nu!(cwd: ".", pipeline(r#"null | where name == "foo" | to json"#));
+
+    assert_eq!(actual.out, "[]");
+}
