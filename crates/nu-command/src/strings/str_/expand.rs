@@ -13,7 +13,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Expands brace patterns in a string, generating all possible combinations."
+        "Generates all possible combinations defined in brace expansion syntax."
     }
 
     fn signature(&self) -> Signature {
@@ -26,8 +26,21 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
-                description: "the brace expansion pattern {apple,banana,cherry} is expanded by str expand, resulting in the output apple banana cherry.",
-                example: "echo (\"{apple,banana,cherry}\" | str expand)",
+                description: "Define a range inside braces to produce a list of string.",
+                example: "\"{3..5}\" | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("3"),
+                        Value::test_string("4"),
+                        Value::test_string("5")
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "Export comma seperated values inside braces (`{}`) to a string list.",
+                example: "\"{apple,banana,cherry}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("apple"),
@@ -39,8 +52,8 @@ impl Command for SubCommand {
             },
 
             Example {
-                description: "the brace expansion pattern ~/Desktop/{file1,file2,file3}.txt represents multiple file paths with a common directory. str expand expands the pattern, resulting in the output of the expanded file paths.",
-                example: "echo (\"~/Desktop/{file1,file2,file3}.txt\" | str expand)",
+                description: "Instead of listing all the files that has a common path, you may want to use brace expansion syntax.",
+                example: "\"~/Desktop/{file1,file2,file3}.txt\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("~/Desktop/file1.txt"),
@@ -52,14 +65,32 @@ impl Command for SubCommand {
             },
 
             Example {
-                description: "Here, the brace expansion pattern {A{1,2},B{3,4}} contains nested brace expansions. str expand expands the pattern, resulting in the output A1 A2 B3 B4.",
-                example: "echo (\"{A{1,2},B{3,4}}\" | str expand)",
+                description: "Brace expressions can be used one after another.",
+                example: "\"~/Videos/{Movies,Series}/{Comedy,Adventure}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
-                        Value::test_string("A1"),
-                        Value::test_string("A2"),
-                        Value::test_string("B3"),
-                        Value::test_string("B4")
+                        Value::test_string("~/Videos/Movies/Comedy"),
+                        Value::test_string("~/Videos/Movies/Adventure"),
+                        Value::test_string("~/Videos/Series/Comedy"),
+                        Value::test_string("~/Videos/Series/Adventure"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "Also, it is possible to use one inside another",
+                example: "\"/etc/libvirt/hooks/{qemu,qemu.d/win11/{prepare/begin/{10,20,30}.sh,release/end/{10,20,30,40}.sh}}\" | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("/etc/libvirt/hooks/qemu"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/prepare/begin/10.sh"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/prepare/begin/20.sh"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/prepare/begin/30.sh"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/10.sh"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/20.sh"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/30.sh"),
+                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/40.sh"),
                     ],
                     span: Span::test_data()
                 },)
