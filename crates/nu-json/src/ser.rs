@@ -695,6 +695,12 @@ struct HjsonFormatter<'a> {
     braces_same_line: bool,
 }
 
+impl<'a> Default for HjsonFormatter<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> HjsonFormatter<'a> {
     /// Construct a formatter that defaults to using two spaces for indentation.
     pub fn new() -> Self {

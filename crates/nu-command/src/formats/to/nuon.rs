@@ -183,7 +183,7 @@ pub fn value_to_string(
         Value::Float { val, .. } => {
             // This serialises these as 'nan', 'inf' and '-inf', respectively.
             if &val.round() == val
-                && val != &f64::NAN
+                && !val.is_nan()
                 && val != &f64::INFINITY
                 && val != &f64::NEG_INFINITY
             {
