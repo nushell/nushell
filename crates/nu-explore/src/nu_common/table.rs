@@ -50,7 +50,7 @@ fn try_build_list(
     style_computer: &StyleComputer,
 ) -> String {
     let opts = BuildConfig::new(ctrlc, config, style_computer, Span::unknown(), usize::MAX);
-    let result = ExpandedTable::new(None, false, String::new()).build_list(&vals, opts);
+    let result = ExpandedTable::new(None, false, String::new()).build_list(&vals, opts, 0);
     match result {
         Ok(Some(out)) => out,
         Ok(None) | Err(_) => {
