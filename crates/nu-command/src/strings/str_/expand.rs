@@ -79,8 +79,8 @@ impl Command for SubCommand {
             },
 
             Example {
-                description: "Also, it is possible to use one inside another",
-                example: "\"/etc/libvirt/hooks/{qemu,qemu.d/win11/{prepare/begin/{10,20,30}.sh,release/end/{10,20,30,40}.sh}}\" | str expand",
+                description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files:",
+                example: "^touch \"/etc/libvirt/hooks/{qemu,qemu.d/win11/{prepare/begin/{10,20,30}.sh,release/end/{10,20,30,40}.sh}}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("/etc/libvirt/hooks/qemu"),
