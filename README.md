@@ -241,6 +241,7 @@ Please submit an issue or PR to be added to this list.
 -   [Couchbase Shell](https://couchbase.sh)
 -   [virtualenv](https://github.com/pypa/virtualenv)
 -   [atuin](https://github.com/ellie/atuin)
+-   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
 
 ## Contributing
 
