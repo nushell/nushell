@@ -101,6 +101,7 @@ winreg = "0.50"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+nix = "0.26.2"
 umask = "2.1"
 users = "0.11"
 

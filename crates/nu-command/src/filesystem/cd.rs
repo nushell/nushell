@@ -1,6 +1,4 @@
 use crate::filesystem::cd_query::query;
-#[cfg(unix)]
-use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -9,20 +7,11 @@ use nu_protocol::{
 };
 use std::path::Path;
 
-// For checking whether we have permission to cd to a directory
-#[cfg(unix)]
-mod file_permissions {
-    pub type Mode = u32;
-    pub const USER_EXECUTE: Mode = libc::S_IXUSR as Mode;
-    pub const GROUP_EXECUTE: Mode = libc::S_IXGRP as Mode;
-    pub const OTHER_EXECUTE: Mode = libc::S_IXOTH as Mode;
-}
-
 // The result of checking whether we have permission to cd to a directory
 #[derive(Debug)]
-enum PermissionResult<'a> {
+enum PermissionResult {
     PermissionOk,
-    PermissionDenied(&'a str),
+    PermissionDenied(String),
 }
 
 #[derive(Clone)]
@@ -205,11 +194,11 @@ impl Command for Cd {
 // TODO: Maybe we should use file_attributes() from https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html
 // More on that here: https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
 #[cfg(windows)]
-fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
     match dir.as_ref().read_dir() {
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::PermissionDenied) {
-                PermissionResult::PermissionDenied("Folder is unable to be read")
+                PermissionResult::PermissionDenied("Folder is unable to be read".to_string())
             } else {
                 PermissionResult::PermissionOk
             }
@@ -218,82 +207,17 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
+// use exec mode to try to open a directory,
+// same logic in https://github.com/fish-shell/fish-shell/blob/0cfdc9055132f2842007da95bf105a8d122141c3/src/fds.cpp#L237
 #[cfg(unix)]
-fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
-    match dir.as_ref().metadata() {
-        Ok(metadata) => {
-            use std::os::unix::fs::MetadataExt;
-            let bits = metadata.mode();
-            let has_bit = |bit| bits & bit == bit;
-            let current_user_uid = users::get_current_uid();
-            if current_user_uid == 0 {
-                return PermissionResult::PermissionOk;
-            }
-            let current_user_gid = users::get_current_gid();
-            let owner_user = metadata.uid();
-            let owner_group = metadata.gid();
-            match (
-                current_user_uid == owner_user,
-                current_user_gid == owner_group,
-            ) {
-                (true, _) => {
-                    if has_bit(file_permissions::USER_EXECUTE) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are the owner but do not have execute permission",
-                        )
-                    }
-                }
-                (false, true) => {
-                    if has_bit(file_permissions::GROUP_EXECUTE) {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are in the group but do not have execute permission",
-                        )
-                    }
-                }
-                (false, false) => {
-                    if has_bit(file_permissions::OTHER_EXECUTE)
-                        || (has_bit(file_permissions::GROUP_EXECUTE)
-                            && any_group(current_user_gid, owner_group))
-                    {
-                        PermissionResult::PermissionOk
-                    } else {
-                        PermissionResult::PermissionDenied(
-                            "You are neither the owner, in the group, nor the super user and do not have permission",
-                        )
-                    }
-                }
-            }
-        }
-        Err(_) => PermissionResult::PermissionDenied("Could not retrieve file metadata"),
+fn have_permission(dir: impl AsRef<Path>) -> PermissionResult {
+    use nix::fcntl::OFlag;
+    match nix::fcntl::open(
+        dir.as_ref(),
+        OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::empty(),
+    ) {
+        Ok(_) => PermissionResult::PermissionOk,
+        Err(e) => PermissionResult::PermissionDenied(e.to_string()),
     }
-}
-
-#[cfg(unix)]
-fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
-    users::get_current_username()
-        .map(|name| {
-            users::get_user_groups(&name, current_user_gid)
-                .map(|mut groups| {
-                    // Fixes https://github.com/ogham/rust-users/issues/44
-                    // If a user isn't in more than one group then this fix won't work,
-                    // However its common for a user to be in more than one group, so this should work for most.
-                    if groups.len() == 2 && groups[1].gid() == 0 {
-                        // We have no way of knowing if this is due to the issue or the user is actually in the root group
-                        // So we will assume they are in the root group and leave it.
-                        // It's not the end of the world if we are wrong, they will just get a permission denied error once inside.
-                    } else {
-                        groups.pop();
-                    }
-
-                    groups
-                })
-                .unwrap_or_default()
-        })
-        .unwrap_or_default()
-        .into_iter()
-        .any(|group| group.gid() == owner_group)
 }
