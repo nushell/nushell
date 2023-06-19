@@ -123,7 +123,7 @@ nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.81.1" }
 
 dirs-next = "2.0"
-mockito = "1.0"
+mockito = "1.1"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rstest = { version = "0.17", default-features = false }
