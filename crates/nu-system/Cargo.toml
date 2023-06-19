@@ -30,5 +30,5 @@ mach2 = "0.4"
 [target.'cfg(target_os = "windows")'.dependencies]
 chrono = "0.4"
 ntapi = "0.4"
-once_cell = "1.17"
+once_cell = "1.18"
 winapi = { version = "0.3", features = ["tlhelp32", "fileapi", "handleapi", "ifdef", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "winbase", "winerror", "winioctl", "winnt", "oleauto", "wbemcli", "rpcdce", "combaseapi", "objidl", "powerbase", "netioapi", "lmcons", "lmaccess", "lmapibuf", "memoryapi", "shellapi", "std", "securitybaseapi"] }

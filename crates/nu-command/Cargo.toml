@@ -62,7 +62,7 @@ notify = "4.0"
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
-once_cell = "1.17"
+once_cell = "1.18"
 open = "4.0"
 os_pipe = "1.1"
 pathdiff = "0.2"
