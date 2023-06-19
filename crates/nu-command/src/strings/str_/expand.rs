@@ -116,7 +116,7 @@ impl Command for SubCommand {
                     Ok(v) => v,
                 };
                 match v.as_string() {
-                    Ok(s) => str_expand(&s, span),
+                    Ok(s) => str_expand(&s, span, v.expect_span()),
                     Err(_) => Value::Error {
                         error: Box::new(ShellError::PipelineMismatch {
                             exp_input_type: "string".into(),
@@ -131,175 +131,55 @@ impl Command for SubCommand {
     }
 }
 
-fn str_expand(contents: &str, span: Span) -> Value {
-    if let Some(expansions) = expand(contents) {
-        let vals = expansions
-            .iter()
-            .map(|e| Value::string(e, span))
-            .collect::<Vec<Value>>();
-        Value::List { vals, span }
-    } else {
-        Value::Error {
-            error: Box::new(ShellError::DelimiterError {
-                msg: "Please check the piped data.".into(),
-                span,
-            }),
-        }
-    }
-}
-
-// This would fit best in a seperate crate.
-// But I'm a bit lazy. Perhaps, another day...
-// Below code, is 1 day of work. 2 days of thinking.
-// A. Taha Baki <atahabaki@pm.me>
-fn expand(input: &str) -> Option<Vec<String>> {
-    if input.is_empty() {
-        return None;
-    }
-    let mut expansions = Vec::<String>::new();
-    let mut count = (0, 0); // right, left / open, close
-    let mut fixes = (String::new(), String::new()); // prefix, postfix
-    let mut inside = String::new();
-    for c in input.chars() {
-        match c {
-            '{' => {
-                if count.0 != 0 {
-                    inside.push(c);
-                }
-                count.0 += 1;
-            }
-            '}' => {
-                count.1 += 1;
-                if count.0 != count.1 {
-                    inside.push(c);
-                }
-            }
-            _ if count.0 == 0 => fixes.0.push(c),
-            _ if count.0 == count.1 => fixes.1.push(c),
-            _ => inside.push(c),
-        }
-    }
-    let parts = split(inside);
-    if let Some(pieces) = parts {
-        for piece in pieces {
-            let (prefix, postfix) = fixes.clone();
-            if piece.contains('{') || piece.contains('}') {
-                if let Some(recursive_parts) = expand(&piece) {
-                    for recursive_part in recursive_parts {
-                        let combination = combine(&prefix, &recursive_part, &postfix);
-                        expansions.push(combination);
+fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
+    use bracoxide::{
+        expand,
+        parser::{parse, ParsingError},
+        tokenizer::{tokenize, TokenizationError},
+    };
+    match tokenize(contents) {
+        Ok(tokens) => {
+            match parse(&tokens) {
+                Ok(node) => {
+                    match expand(&node) {
+                        Ok(possibilities) => {
+                            Value::List { vals: possibilities.iter().map(|e| Value::string(e,span)).collect::<Vec<Value>>(), span }
+                        },
+                        Err(e) => match e {
+                            bracoxide::ExpansionError::NumConversionFailed(_) => todo!(),
+                        },
                     }
-                }
-            } else {
-                let combination = combine(&prefix, &piece, &postfix);
-                expansions.push(combination);
+                },
+                Err(e) => match e {
+                    ParsingError::NoTokens => todo!(),
+                    ParsingError::OBraExpected(_) => todo!(),
+                    ParsingError::CBraExpected(_) => todo!(),
+                    ParsingError::RangeStartLimitExpected(_) => todo!(),
+                    ParsingError::RangeEndLimitExpected(_) => todo!(),
+                    ParsingError::ExpectedText(_) => todo!(),
+                    ParsingError::InvalidCommaUsage(_) => todo!(),
+                    ParsingError::ExtraCBra(_) => todo!(),
+                    ParsingError::ExtraOBra(_) => todo!(),
+                    ParsingError::NothingInBraces(_) => todo!(),
+                    ParsingError::RangeCantHaveText(_) => todo!(),
+                    ParsingError::ExtraRangeOperator(_) => todo!(),
+                },
             }
-        }
-    } else {
-        return None;
-    }
-    if expansions.is_empty() {
-        None
-    } else {
-        Some(expansions)
-    }
-}
-
-fn combine(prefix: &str, content: &str, postfix: &str) -> String {
-    format!("{}{}{}", prefix, content, postfix)
-}
-
-fn split(content: impl ToString) -> Option<Vec<String>> {
-    let content = content.to_string();
-    if content.is_empty() {
-        return None;
-    }
-    let mut pieces: Vec<String> = Vec::new();
-    let mut count = (0, 0); // right, left / open, close
-    let mut piece = String::new();
-    for c in content.chars() {
-        match c {
-            '{' | '}' => {
-                piece.push(c);
-                if c == '{' {
-                    count.0 += 1;
-                } else {
-                    count.1 += 1;
-                }
+        },
+        Err(e) => match e {
+            TokenizationError::EmptyContent => Value::Error {
+                error: Box::new(ShellError::PipelineEmpty { dst_span: value_span }),
+            },
+            TokenizationError::FormatNotSupported => Value::Error { 
+                error: Box::new(
+                    ShellError::DelimiterError {
+                    msg: "Only opening or closing brace is used. Brace Expansion syntax is as follows: `{COL,LEC,TION}`.".to_owned(),
+                    span: value_span
+                })
+            },
+            TokenizationError::NoBraces => Value::Error {
+                error: Box::new(ShellError::GenericError("No Braces".to_owned(), "At least one `{}` brace expansion expected.".to_owned(), Some(value_span), Some("Please, examine the examples.".to_owned()), vec![]))
             }
-            ',' if count.0 == count.1 => {
-                pieces.push(piece.clone());
-                piece.clear();
-            }
-            _ => piece.push(c),
-        }
-    }
-    if !piece.is_empty() {
-        pieces.push(piece);
-    }
-    if pieces.is_empty() {
-        None
-    } else {
-        Some(pieces)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_expand_simple() {
-        let input = "c{d,e}f";
-        let expected_output: Vec<String> = vec!["cdf".into(), "cef".into()];
-        assert_eq!(expand(input), Some(expected_output));
-    }
-
-    #[test]
-    fn test_expand_recursive1() {
-        let input = "a{b,c{d,e}f,g}h";
-        let output: Vec<String> = vec!["abh".into(), "acdfh".into(), "acefh".into(), "agh".into()];
-        assert_eq!(expand(input), Some(output));
-    }
-
-    #[test]
-    fn test_expand_recursive2() {
-        let input = "a{b,c{d{1,2},e}f,g}h";
-        let output: Vec<String> = vec![
-            "abh".into(),
-            "acd1fh".into(),
-            "acd2fh".into(),
-            "acefh".into(),
-            "agh".into(),
-        ];
-        assert_eq!(expand(input), Some(output));
-    }
-
-    #[test]
-    fn test_split_complex1() {
-        let input = "b,c{d,e}f,g";
-        let output: Vec<String> = vec!["b".into(), "c{d,e}f".into(), "g".into()];
-        assert_eq!(split(input), Some(output));
-    }
-
-    #[test]
-    fn test_split_complex2() {
-        let input = "a,b,c,d{e,f},g{h,i,j},k";
-        let output: Vec<String> = vec![
-            "a".into(),
-            "b".into(),
-            "c".into(),
-            "d{e,f}".into(),
-            "g{h,i,j}".into(),
-            "k".into(),
-        ];
-        assert_eq!(split(input), Some(output));
-    }
-
-    #[test]
-    fn test_basic_brace_expansion() {
-        let input = "{apple,banana,cherry}";
-        let expected_output: Vec<String> = vec!["apple".into(), "banana".into(), "cherry".into()];
-        assert_eq!(expand(&input), Some(expected_output))
+        },
     }
 }
