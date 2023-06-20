@@ -59,7 +59,12 @@ impl ExpandedTable {
         expanded_table_kv(cols, vals, opts)
     }
 
-    pub fn build_list(&self, vals: &[Value], opts: BuildConfig<'_>) -> StringResult {
+    pub fn build_list(
+        &self,
+        vals: &[Value],
+        opts: BuildConfig<'_>,
+        row_offset: usize,
+    ) -> StringResult {
         let opts1 = Options {
             ctrlc: opts.ctrlc,
             config: opts.config,
@@ -68,7 +73,7 @@ impl ExpandedTable {
             span: opts.span,
             format: self.clone(),
         };
-        let out = match expanded_table_list(vals, 0, opts1)? {
+        let out = match expanded_table_list(vals, row_offset, opts1)? {
             Some(out) => out,
             None => return Ok(None),
         };

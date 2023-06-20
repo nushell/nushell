@@ -2369,3 +2369,19 @@ fn _split_str_by_width(s: &str, w: usize) -> Vec<String> {
 
     lines
 }
+
+#[test]
+fn table_expand_index_offset() {
+    let actual = nu!(r#"1..1002 | table --expand"#);
+    let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
+    let expected_suffix = actual.out.strip_suffix(suffix);
+    assert!(expected_suffix.is_some(), "{:?}", actual.out);
+}
+
+#[test]
+fn table_index_offset() {
+    let actual = nu!(r#"1..1002 | table"#);
+    let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
+    let expected_suffix = actual.out.strip_suffix(suffix);
+    assert!(expected_suffix.is_some(), "{:?}", actual.out);
+}

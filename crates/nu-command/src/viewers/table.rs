@@ -424,7 +424,7 @@ fn build_table_batch(
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
+            ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts, row_offset)
         }
         TableView::Collapsed => {
             let span = opts.span();
@@ -659,7 +659,7 @@ impl PagingTableCreator {
             flatten_separator,
         };
 
-        build_table_batch(batch, view, 0, opts)
+        build_table_batch(batch, view, self.row_offset, opts)
     }
 
     fn build_collapsed(&mut self, batch: Vec<Value>) -> StringResult {
@@ -674,7 +674,7 @@ impl PagingTableCreator {
         let span = self.head;
         let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
 
-        build_table_batch(batch, TableView::Collapsed, 0, opts)
+        build_table_batch(batch, TableView::Collapsed, self.row_offset, opts)
     }
 
     fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
