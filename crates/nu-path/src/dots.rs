@@ -295,7 +295,7 @@ mod tests {
 
         #[test]
         fn string_with_three_ndots_and_garbage() {
-            check_ndots_expansion(r"file .../ garbage.*[", "file .../ garbage.*[");
+            check_ndots_expansion(r"not_a_cmd.../ garbage.*[", "not_a_cmd.../ garbage.*[");
         }
     }
 
@@ -324,12 +324,18 @@ mod tests {
         fn string_with_three_ndots_and_garbage() {
             // filenames can contain spaces, in these cases the ... .... etc.
             // that are part of a filepath should not be expanded
-            check_ndots_expansion("not_a_cmd .../ garbage.*[", "not_a_cmd .../ garbage.*[");
-            check_ndots_expansion("/not_a_cmd .../ garbage.*[", "/not_a_cmd .../ garbage.*[");
-            check_ndots_expansion("./not_a_cmd .../ garbage.*[", "./not_a_cmd .../ garbage.*[");
-            check_ndots_expansion("../../nac .../ garbage.*[", ".../nac .../ garbage.*[");
-            check_ndots_expansion("../../nac .../ garbage.*[...", ".../nac .../ garbage.*[...");
-            check_ndots_expansion("../../ garbage.*[", ".../ garbage.*[");
+            check_ndots_expansion("not_a_cmd.../ garbage.*[", "not_a_cmd.../ garbage.*[");
+            check_ndots_expansion("/not_a_cmd.../ garbage.*[", "/not_a_cmd.../ garbage.*[");
+            check_ndots_expansion("./not_a_cmd.../ garbage.*[", "./not_a_cmd.../ garbage.*[");
+            check_ndots_expansion(
+                "../../not a cmd.../ garbage.*[",
+                ".../not a cmd.../ garbage.*[",
+            );
+            check_ndots_expansion(
+                "../../not a cmd.../ garbage.*[...",
+                ".../not a cmd.../ garbage.*[...",
+            );
+            check_ndots_expansion("../../ not a cmd garbage.*[", ".../ not a cmd garbage.*[");
         }
     }
 }
