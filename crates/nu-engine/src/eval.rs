@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help, nu_variable::NuVariable};
+use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -9,8 +9,9 @@ use nu_protocol::{
     DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
     Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::collections::HashMap;
 use std::time::Instant;
+use std::{collections::HashMap, path::PathBuf};
+use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -1202,6 +1203,217 @@ pub fn eval_subexpression(
     Ok(input)
 }
 
+pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+    fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
+        let cwd = engine_state.current_work_dir();
+
+        if path.exists() {
+            match nu_path::canonicalize_with(path, cwd) {
+                Ok(canon_path) => canon_path,
+                Err(_) => path.clone(),
+            }
+        } else {
+            path.clone()
+        }
+    }
+
+    let mut cols = vec![];
+    let mut vals = vec![];
+
+    cols.push("default-config-dir".to_string());
+    if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        vals.push(Value::String {
+            val: path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not get config directory".into())),
+        })
+    }
+
+    cols.push("config-path".to_string());
+    if let Some(path) = engine_state.get_config_path("config-path") {
+        let canon_config_path = canonicalize_path(engine_state, path);
+        vals.push(Value::String {
+            val: canon_config_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path.push("config.nu");
+        vals.push(Value::String {
+            val: path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not get config directory".into())),
+        })
+    }
+
+    cols.push("env-path".to_string());
+    if let Some(path) = engine_state.get_config_path("env-path") {
+        let canon_env_path = canonicalize_path(engine_state, path);
+        vals.push(Value::String {
+            val: canon_env_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path.push("env.nu");
+        vals.push(Value::String {
+            val: path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError(
+                "Could not find environment path".into(),
+            )),
+        })
+    }
+
+    cols.push("history-path".to_string());
+    if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        match engine_state.config.history_file_format {
+            nu_protocol::HistoryFileFormat::Sqlite => {
+                path.push("history.sqlite3");
+            }
+            nu_protocol::HistoryFileFormat::PlainText => {
+                path.push("history.txt");
+            }
+        }
+        let canon_hist_path = canonicalize_path(engine_state, &path);
+        vals.push(Value::String {
+            val: canon_hist_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not find history path".into())),
+        })
+    }
+
+    cols.push("loginshell-path".to_string());
+    if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path.push("login.nu");
+        let canon_login_path = canonicalize_path(engine_state, &path);
+        vals.push(Value::String {
+            val: canon_login_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError(
+                "Could not find login shell path".into(),
+            )),
+        })
+    }
+
+    #[cfg(feature = "plugin")]
+    {
+        cols.push("plugin-path".to_string());
+
+        if let Some(path) = &engine_state.plugin_signatures {
+            let canon_plugin_path = canonicalize_path(engine_state, path);
+            vals.push(Value::String {
+                val: canon_plugin_path.to_string_lossy().to_string(),
+                span,
+            })
+        } else {
+            vals.push(Value::Error {
+                error: Box::new(ShellError::IOError(
+                    "Could not get plugin signature location".into(),
+                )),
+            })
+        }
+    }
+
+    cols.push("home-path".to_string());
+    if let Some(path) = nu_path::home_dir() {
+        let canon_home_path = canonicalize_path(engine_state, &path);
+        vals.push(Value::String {
+            val: canon_home_path.to_string_lossy().into(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not get home path".into())),
+        })
+    }
+
+    cols.push("temp-path".to_string());
+    let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
+    vals.push(Value::String {
+        val: canon_temp_path.to_string_lossy().into(),
+        span,
+    });
+
+    cols.push("pid".to_string());
+    vals.push(Value::int(std::process::id().into(), span));
+
+    cols.push("os-info".to_string());
+    let sys = sysinfo::System::new();
+    let ver = match sys.kernel_version() {
+        Some(v) => v,
+        None => "unknown".into(),
+    };
+    let os_record = Value::Record {
+        cols: vec![
+            "name".into(),
+            "arch".into(),
+            "family".into(),
+            "kernel_version".into(),
+        ],
+        vals: vec![
+            Value::string(std::env::consts::OS, span),
+            Value::string(std::env::consts::ARCH, span),
+            Value::string(std::env::consts::FAMILY, span),
+            Value::string(ver, span),
+        ],
+        span,
+    };
+    vals.push(os_record);
+
+    cols.push("startup-time".to_string());
+    vals.push(Value::Duration {
+        val: engine_state.get_startup_time(),
+        span,
+    });
+
+    cols.push("is-interactive".to_string());
+    vals.push(Value::Bool {
+        val: engine_state.is_interactive,
+        span,
+    });
+
+    cols.push("is-login".to_string());
+    vals.push(Value::Bool {
+        val: engine_state.is_login,
+        span,
+    });
+
+    cols.push("current-exe".to_string());
+    if let Ok(current_exe) = std::env::current_exe() {
+        vals.push(Value::String {
+            val: current_exe.to_string_lossy().into(),
+            span,
+        });
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError(
+                "Could not get current executable path".to_string(),
+            )),
+        })
+    }
+
+    Ok(Value::Record { cols, vals, span })
+}
+
 pub fn eval_variable(
     engine_state: &EngineState,
     stack: &Stack,
@@ -1210,14 +1422,7 @@ pub fn eval_variable(
 ) -> Result<Value, ShellError> {
     match var_id {
         // $nu
-        nu_protocol::NU_VARIABLE_ID => Ok(Value::LazyRecord {
-            val: Box::new(NuVariable {
-                engine_state: engine_state.clone(),
-                stack: stack.clone(),
-                span,
-            }),
-            span,
-        }),
+        nu_protocol::NU_VARIABLE_ID => eval_nu_variable(engine_state, span),
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();
