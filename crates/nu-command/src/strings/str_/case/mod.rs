@@ -1,13 +1,13 @@
-pub mod camel_case;
-pub mod capitalize;
-pub mod downcase;
-pub mod kebab_case;
-pub mod pascal_case;
-pub mod screaming_snake_case;
-pub mod snake_case;
-pub mod str_;
-pub mod title_case;
-pub mod upcase;
+mod camel_case;
+mod capitalize;
+mod downcase;
+mod kebab_case;
+mod pascal_case;
+mod screaming_snake_case;
+mod snake_case;
+mod str_;
+mod title_case;
+mod upcase;
 
 pub use camel_case::SubCommand as StrCamelCase;
 pub use capitalize::SubCommand as StrCapitalize;
