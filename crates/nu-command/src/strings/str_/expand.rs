@@ -16,6 +16,10 @@ impl Command for SubCommand {
         "Generates all possible combinations defined in brace expansion syntax."
     }
 
+    fn extra_usage(&self) -> &str {
+        "This syntax may seem familiar with `glob {A,B}.C`. The difference is glob relies on filesystem, but str expand is not. Inside braces, we put variants. Then basically we're creating all possible outcomes."
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("str expand")
             .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
@@ -52,27 +56,14 @@ impl Command for SubCommand {
             },
 
             Example {
-                description: "Instead of listing all the files that has a common path, you may want to use brace expansion syntax.",
-                example: "\"~/Desktop/{file1,file2,file3}.txt\" | str expand",
-                result: Some(Value::List{
-                    vals: vec![
-                        Value::test_string("~/Desktop/file1.txt"),
-                        Value::test_string("~/Desktop/file2.txt"),
-                        Value::test_string("~/Desktop/file3.txt")
-                    ],
-                    span: Span::test_data()
-                },)
-            },
-
-            Example {
                 description: "Brace expressions can be used one after another.",
-                example: "\"~/Videos/{Movies,Series}/{Comedy,Adventure}\" | str expand",
+                example: "\"A{b,c}D{e,f}G\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
-                        Value::test_string("~/Videos/Movies/Comedy"),
-                        Value::test_string("~/Videos/Movies/Adventure"),
-                        Value::test_string("~/Videos/Series/Comedy"),
-                        Value::test_string("~/Videos/Series/Adventure"),
+                        Value::test_string("AbDeG"),
+                        Value::test_string("AbDfG"),
+                        Value::test_string("AcDeG"),
+                        Value::test_string("AcDfG"),
                     ],
                     span: Span::test_data()
                 },)
@@ -80,17 +71,13 @@ impl Command for SubCommand {
 
             Example {
                 description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files:",
-                example: "^touch \"/etc/libvirt/hooks/{qemu,qemu.d/win11/{prepare/begin/{10,20,30}.sh,release/end/{10,20,30,40}.sh}}\" | str expand",
+                example: "\"A{B{1,3},C{2,5}}D\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
-                        Value::test_string("/etc/libvirt/hooks/qemu"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/prepare/begin/10.sh"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/prepare/begin/20.sh"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/prepare/begin/30.sh"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/10.sh"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/20.sh"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/30.sh"),
-                        Value::test_string("/etc/libvirt/hooks/qemu.d/win11/release/end/40.sh"),
+                        Value::test_string("AB1D"),
+                        Value::test_string("AB3D"),
+                        Value::test_string("AC2D"),
+                        Value::test_string("AC5D"),
                     ],
                     span: Span::test_data()
                 },)
