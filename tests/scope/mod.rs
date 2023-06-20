@@ -7,7 +7,7 @@ fn scope_shows_alias() {
     let actual = nu!(
         cwd: ".",
         r#"alias xaz = echo alias1
-        $nu.scope.aliases | find xaz | length
+        scope aliases | find xaz | length
         "#
     );
 
@@ -20,7 +20,7 @@ fn scope_shows_command() {
     let actual = nu!(
         cwd: ".",
         r#"def xaz [] { echo xaz }
-        $nu.scope.commands | find xaz | length
+        scope commands | find xaz | length
         "#
     );
 
@@ -35,7 +35,7 @@ fn scope_doesnt_show_scoped_hidden_alias() {
         r#"alias xaz = echo alias1
         do {
             hide xaz
-            $nu.scope.aliases | find xaz | length
+            scope aliases | find xaz | length
         }
         "#
     );
@@ -50,7 +50,7 @@ fn scope_doesnt_show_hidden_alias() {
         cwd: ".",
         r#"alias xaz = echo alias1
         hide xaz
-        $nu.scope.aliases | find xaz | length
+        scope aliases | find xaz | length
         "#
     );
 
@@ -65,7 +65,7 @@ fn scope_doesnt_show_scoped_hidden_command() {
         r#"def xaz [] { echo xaz }
         do {
             hide xaz
-            $nu.scope.commands | find xaz | length
+            scope commands | find xaz | length
         }
         "#
     );
@@ -80,7 +80,7 @@ fn scope_doesnt_show_hidden_command() {
         cwd: ".",
         r#"def xaz [] { echo xaz }
         hide xaz
-        $nu.scope.commands | find xaz | length
+        scope commands | find xaz | length
         "#
     );
 
@@ -97,7 +97,7 @@ fn correctly_report_of_shadowed_alias() {
         r#"alias xaz = echo alias1
         def helper [] {
             alias xaz = echo alias2
-            $nu.scope.aliases
+            scope aliases
         }
         helper | where alias == xaz | get expansion.0"#
     );

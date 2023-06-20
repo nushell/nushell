@@ -390,7 +390,7 @@ let-env config = {
             description_text: yellow
         }
         source: { |buffer, position|
-            $nu.scope.commands
+            scope commands
             | where name =~ $buffer
             | each { |it| {value: $it.name description: $it.usage} }
         }
@@ -409,7 +409,7 @@ let-env config = {
             description_text: yellow
         }
         source: { |buffer, position|
-            $nu.scope.vars
+            scope variables
             | where name =~ $buffer
             | sort-by name
             | each { |it| {value: $it.name description: $it.type} }
@@ -433,7 +433,7 @@ let-env config = {
             description_text: yellow
         }
         source: { |buffer, position|
-            $nu.scope.commands
+            scope commands
             | where name =~ $buffer
             | each { |it| {value: $it.name description: $it.usage} }
         }
