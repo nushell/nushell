@@ -24,7 +24,7 @@ fn alias_hiding_1() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             overlay use ./activate-foo.nu;
-            $nu.scope.aliases | find deactivate-foo | length
+            scope aliases | find deactivate-foo | length
         "#
     ));
 
@@ -39,7 +39,7 @@ fn alias_hiding_2() {
         r#"
             overlay use ./activate-foo.nu;
             deactivate-foo;
-            $nu.scope.aliases | find deactivate-foo | length
+            scope aliases | find deactivate-foo | length
         "#
     ));
 
