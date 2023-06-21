@@ -10,3 +10,4 @@ version = "0.80.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+nu-protocol = { version = "0.81.1", path = "../nu-protocol" }

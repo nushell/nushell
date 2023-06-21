@@ -15,7 +15,6 @@ mod generators;
 mod hash;
 mod help;
 pub mod hook;
-mod input_handler;
 mod math;
 mod misc;
 mod network;

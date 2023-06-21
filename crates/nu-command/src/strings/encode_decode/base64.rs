@@ -1,8 +1,8 @@
-use crate::input_handler::{operate as general_operate, CmdArgument};
 use base64::{
     alphabet, engine::general_purpose::NO_PAD, engine::general_purpose::PAD,
     engine::GeneralPurpose, Engine,
 };
+use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};

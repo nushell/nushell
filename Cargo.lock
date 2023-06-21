@@ -2744,6 +2744,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-cmd-base"
+version = "0.80.1"
+dependencies = [
+ "nu-protocol",
+]
+
+[[package]]
 name = "nu-cmd-dataframe"
 version = "0.81.1"
 dependencies = [
@@ -2846,6 +2853,7 @@ dependencies = [
  "native-tls",
  "notify",
  "nu-ansi-term",
+ "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
