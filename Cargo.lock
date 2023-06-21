@@ -2745,7 +2745,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.80.1"
+version = "0.81.1"
 dependencies = [
  "nu-protocol",
 ]
