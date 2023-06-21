@@ -13,6 +13,7 @@ use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Duration, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Duration, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 use fancy_regex::Regex;
