@@ -38,6 +38,10 @@ join' subcommand can be used to join the structured path or path parts back into
 the path literal."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

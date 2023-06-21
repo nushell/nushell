@@ -57,6 +57,10 @@ impl Command for SubCommand {
         "Get the parent directory of a path."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

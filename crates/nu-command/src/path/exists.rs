@@ -49,6 +49,10 @@ impl Command for SubCommand {
 If you need to distinguish dirs and files, please use `path type`."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

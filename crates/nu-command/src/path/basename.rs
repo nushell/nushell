@@ -54,6 +54,10 @@ impl Command for SubCommand {
         "Get the final component of a path."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

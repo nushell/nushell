@@ -56,6 +56,10 @@ absolute or both relative. The argument path needs to be a parent of the input
 path."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

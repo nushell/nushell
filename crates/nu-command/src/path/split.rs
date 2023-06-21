@@ -42,6 +42,10 @@ impl Command for SubCommand {
         "Split a path into a list based on the system's path separator."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

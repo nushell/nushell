@@ -27,6 +27,10 @@ impl Command for Describe {
             .category(Category::Core)
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

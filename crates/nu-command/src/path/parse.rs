@@ -56,6 +56,10 @@ impl Command for SubCommand {
 On Windows, an extra 'prefix' column is added."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

@@ -24,6 +24,10 @@ impl Command for Ignore {
         vec!["silent", "quiet", "out-null"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,

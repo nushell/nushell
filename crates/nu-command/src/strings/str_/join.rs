@@ -33,6 +33,10 @@ impl Command for StrJoin {
         vec!["collect", "concatenate"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

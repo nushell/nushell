@@ -53,6 +53,10 @@ impl Command for SubCommand {
         "Try to expand a path to its absolute form."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

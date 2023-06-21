@@ -31,6 +31,10 @@ it returns it. Otherwise, it returns a list of the arguments. There is usually
 little reason to use this over just writing the values as-is."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
