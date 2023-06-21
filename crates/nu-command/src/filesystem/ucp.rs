@@ -63,13 +63,13 @@ impl Command for Ucp {
 
         // MVP args
         // [OPTIONS] SOURCE DEST
-        // -r, --recursive                            copy directories recursively [short aliases: R]
-        // -v, --verbose                              explicitly state what is being done
-        // -f, --force                                if an existing destination file cannot be opened, remove it and try again
-        //                                            (this option is ignored when the -n option is also used). Currently not
-        //                                            implemented for Windows.
-        // -i, --interactive                          ask before overwriting files
-        // -g, --progress                             Display a progress bar.
+        // -r, --recursive     copy directories recursively [short aliases: R]
+        // -v, --verbose       explicitly state what is being done (also adds --debug)
+        // -f, --force         if an existing destination file cannot be opened, remove it and try again
+        //                     (this option is ignored when the -n option is also used). Currently not
+        //                     implemented for Windows.
+        // -i, --interactive   ask before overwriting files
+        // -g, --progress      Display a progress bar.
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
         let src = {
             Spanned {
