@@ -1263,6 +1263,50 @@ impl Value {
                             );
                         }
                     }
+                    "datetime_format" => {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
+                                match key2 {
+                                    "normal" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.datetime_normal_format = Some(v);
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                        }
+                                    }
+                                    "table" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.datetime_table_format = Some(v);
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                        }
+                                    }
+                                    x => {
+                                        invalid_key!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            value.span().ok(),
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
+                                    }
+                                }
+                            }
+                        } else {
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["metric".into(), "format".into()],
+                                vec![
+                                    Value::boolean(config.filesize_metric, *span),
+                                    Value::string(config.filesize_format.clone(), *span),
+                                ],
+                                *span,
+                            );
+                        }
+                    }
                     // Catch all
                     x => {
                         invalid_key!(
