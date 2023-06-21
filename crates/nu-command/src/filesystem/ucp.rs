@@ -10,16 +10,15 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 // use super::util::try_interaction;
 
 // use crate::filesystem::util::FileStructure;
 // use crate::progress_bar;
 
-use uu_cp::*;
+// use uu_cp::*;
 
 #[derive(Clone)]
 pub struct Ucp;
@@ -86,8 +85,8 @@ impl Command for Ucp {
         let current_dir_path = current_dir(engine_state, stack)?;
         let source = current_dir_path.join(src.item.as_str());
         let destination = current_dir_path.join(dst.item.as_str());
-        let ctrlc = engine_state.ctrlc.clone();
-        let span = call.head;
+        // let ctrlc = engine_state.ctrlc.clone();
+        // let span = call.head;
 
         // POC
         // Create uucore::Args somehow from nushell args
@@ -113,11 +112,36 @@ impl Command for Ucp {
             // working (you won't see it unless there are a lot of files)
             args.push(OsString::from("-g"));
         }
-        args.push(OsString::from(source.to_str().unwrap()));
-        args.push(OsString::from(destination.to_str().unwrap()));
+        let src_input = match source.to_str() {
+            Some(s) => s,
+            None => {
+                return Err(ShellError::GenericError(
+                    "No source input provided".into(),
+                    "No source input provided".into(),
+                    Some(src.span),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
+        let dest_input = match destination.to_str() {
+            Some(d) => d,
+            None => {
+                return Err(ShellError::GenericError(
+                    "No destination input provided".into(),
+                    "No destinantion input provided".into(),
+                    Some(dst.span),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
+
+        args.push(OsString::from(src_input));
+        args.push(OsString::from(dest_input));
 
         // Pass uucore::Args to app.uumain
-        uu_cp::uumain(&mut args.into_iter());
+        uu_cp::uumain(args.into_iter());
         Ok(PipelineData::empty())
     }
 
