@@ -107,6 +107,8 @@ pub struct Config {
     pub cursor_shape_vi_insert: NuCursorShape,
     pub cursor_shape_vi_normal: NuCursorShape,
     pub cursor_shape_emacs: NuCursorShape,
+    pub datetime_normal_format: Option<String>,
+    pub datetime_abbreviated_format: Option<String>,
 }
 
 impl Default for Config {
@@ -152,6 +154,8 @@ impl Default for Config {
             cursor_shape_vi_insert: NuCursorShape::Block,
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
             cursor_shape_emacs: NuCursorShape::Line,
+            datetime_normal_format: None,
+            datetime_abbreviated_format: None,
         }
     }
 }
@@ -1210,6 +1214,50 @@ impl Value {
                     }
                     "show_banner" => {
                         try_bool!(cols, vals, index, span, show_banner);
+                    }
+                    "datetime_format" => {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
+                                match key2 {
+                                    "normal" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.datetime_normal_format = Some(v);
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                        }
+                                    }
+                                    "abbreviated" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.datetime_abbreviated_format = Some(v);
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                        }
+                                    }
+                                    x => {
+                                        invalid_key!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            value.span().ok(),
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
+                                    }
+                                }
+                            }
+                        } else {
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["metric".into(), "format".into()],
+                                vec![
+                                    Value::boolean(config.filesize_metric, *span),
+                                    Value::string(config.filesize_format.clone(), *span),
+                                ],
+                                *span,
+                            );
+                        }
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
