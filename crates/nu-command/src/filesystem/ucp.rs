@@ -129,7 +129,7 @@ impl Command for Ucp {
             None => {
                 return Err(ShellError::GenericError(
                     "No destination input provided".into(),
-                    "No destinantion input provided".into(),
+                    "No destination input provided".into(),
                     Some(dst.span),
                     None,
                     Vec::new(),
