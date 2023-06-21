@@ -4,8 +4,8 @@
 // use std::sync::atomic::AtomicBool;
 // use std::sync::Arc;
 
-// use nu_engine::env::current_dir;
-// use nu_engine::CallExt;
+use nu_engine::env::current_dir;
+use nu_engine::CallExt;
 // use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -38,33 +38,15 @@ impl Command for Ucp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cp")
+        Signature::build("ucp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
-            .switch(
-                "recursive",
-                "copy recursively through subdirectories",
-                Some('r'),
-            )
-            .switch(
-                "verbose",
-                "show successful copies in addition to failed copies (default:false)",
-                Some('v'),
-            )
-            .switch("update",
-                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
-                Some('u')
-            )
-            // TODO: add back in additional features
-            // .switch("force", "suppress error when no file", Some('f'))
-            .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch(
-                "no-symlink",
-                "no symbolic links are followed, only works if -r is active",
-                Some('n'),
-            )
-            .switch("progress", "enable progress bar", Some('p'))
+            .switch("recursive", "copy directories recursively", Some('r'))
+            .switch("verbose", "explicitly state what is being done", Some('v'))
+            .switch("force", "if an existing destination file cannot be opened, remove it and try again (this option is ignored when the -n option is also used). currently not implemented for windows", Some('f'))
+            .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch("progress", "display a progress bar", Some('g'))
             .category(Category::FileSystem)
     }
 
@@ -79,10 +61,61 @@ impl Command for Ucp {
         // let mut app = uu_cp::uu_app();
         // app.print_help()?;
 
+        // MVP args
+        // [OPTIONS] SOURCE DEST
+        // -r, --recursive                            copy directories recursively [short aliases: R]
+        // -v, --verbose                              explicitly state what is being done
+        // -f, --force                                if an existing destination file cannot be opened, remove it and try again
+        //                                            (this option is ignored when the -n option is also used). Currently not
+        //                                            implemented for Windows.
+        // -i, --interactive                          ask before overwriting files
+        // -g, --progress                             Display a progress bar.
+        let src: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let src = {
+            Spanned {
+                item: nu_utils::strip_ansi_string_unlikely(src.item),
+                span: src.span,
+            }
+        };
+        let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
+        let recursive = call.has_flag("recursive");
+        let verbose = call.has_flag("verbose");
+        let interactive = call.has_flag("interactive");
+        let progress = call.has_flag("progress");
+
+        let current_dir_path = current_dir(engine_state, stack)?;
+        let source = current_dir_path.join(src.item.as_str());
+        let destination = current_dir_path.join(dst.item.as_str());
+        let ctrlc = engine_state.ctrlc.clone();
+        let span = call.head;
+
+        // POC
         // Create uucore::Args somehow from nushell args
-        let s1 = "cp".to_string();
-        let s2 = "-h".to_string();
-        let args = vec![OsString::from(s1), OsString::from(s2)];
+        // let s1 = "cp".to_string();
+        // let s2 = "-h".to_string();
+        // let args = vec![OsString::from(s1), OsString::from(s2)];
+
+        let mut args: Vec<OsString> = vec![OsString::from("cp")]; // seed it with the cp command
+        if recursive {
+            // working
+            args.push(OsString::from("-r"));
+        }
+        if verbose {
+            // working
+            args.push(OsString::from("-v"));
+            args.push(OsString::from("--debug"));
+        }
+        if interactive {
+            // working
+            args.push(OsString::from("-i"));
+        }
+        if progress {
+            // working (you won't see it unless there are a lot of files)
+            args.push(OsString::from("-g"));
+        }
+        args.push(OsString::from(source.to_str().unwrap()));
+        args.push(OsString::from(destination.to_str().unwrap()));
+
         // Pass uucore::Args to app.uumain
         uu_cp::uumain(&mut args.into_iter());
         Ok(PipelineData::empty())
@@ -92,27 +125,27 @@ impl Command for Ucp {
         vec![
             Example {
                 description: "Copy myfile to dir_b",
-                example: "cp myfile dir_b",
+                example: "ucp myfile dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b",
-                example: "cp -r dir_a dir_b",
+                example: "ucp -r dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "cp -r -v dir_a dir_b",
+                example: "ucp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "cp *.txt dir_a",
+                example: "ucp *.txt dir_a",
                 result: None,
             },
             Example {
-                description: "Copy only if source file is newer than target file",
-                example: "cp -u a b",
+                description: "Copy many file recursively into a new folder showing a progress bar",
+                example: "cp -r -g big_folder new_folder",
                 result: None,
             },
         ]
