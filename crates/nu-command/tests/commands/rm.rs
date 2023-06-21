@@ -389,7 +389,7 @@ fn rm_prints_filenames_on_error() {
 
         set_dir_read_only(test_dir, true);
         let _cleanup = Cleanup {
-            dir_to_clean: &test_dir,
+            dir_to_clean: test_dir,
         };
 
         // This rm is expected to fail, and stderr output indicating so is also expected.

@@ -1,4 +1,4 @@
-use crossterm::event::{Event, KeyCode, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -7,6 +7,7 @@ use nu_protocol::{
     Type, Value,
 };
 use std::io::{Read, Write};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Input;
@@ -132,31 +133,46 @@ impl Command for Input {
 
             if suppress_output || numchar_exists {
                 crossterm::terminal::enable_raw_mode()?;
+                // clear terminal events
+                while crossterm::event::poll(Duration::from_secs(0))? {
+                    // If there's an event, read it to remove it from the queue
+                    let _ = crossterm::event::read()?;
+                }
+
                 loop {
                     if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
                         let _ = crossterm::terminal::disable_raw_mode();
                         break;
                     }
                     match crossterm::event::read() {
-                        Ok(Event::Key(k)) => match k.code {
-                            // TODO: maintain keycode parity with existing command
-                            KeyCode::Char(c) => {
-                                if k.modifiers == KeyModifiers::ALT
-                                    || k.modifiers == KeyModifiers::CONTROL
-                                {
-                                    if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
-                                        crossterm::terminal::disable_raw_mode()?;
-                                        return Err(ShellError::IOError("SIGINT".to_string()));
-                                    }
-                                    continue;
-                                }
+                        Ok(Event::Key(k)) => match k.kind {
+                            KeyEventKind::Press | KeyEventKind::Repeat => {
+                                match k.code {
+                                    // TODO: maintain keycode parity with existing command
+                                    KeyCode::Char(c) => {
+                                        if k.modifiers == KeyModifiers::ALT
+                                            || k.modifiers == KeyModifiers::CONTROL
+                                        {
+                                            if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
+                                                crossterm::terminal::disable_raw_mode()?;
+                                                return Err(ShellError::IOError(
+                                                    "SIGINT".to_string(),
+                                                ));
+                                            }
+                                            continue;
+                                        }
 
-                                buf.push(c);
+                                        buf.push(c);
+                                    }
+                                    KeyCode::Backspace => {
+                                        let _ = buf.pop();
+                                    }
+                                    KeyCode::Enter => {
+                                        break;
+                                    }
+                                    _ => continue,
+                                }
                             }
-                            KeyCode::Backspace => {
-                                let _ = buf.pop();
-                            }
-                            KeyCode::Enter => break,
                             _ => continue,
                         },
                         Ok(_) => continue,

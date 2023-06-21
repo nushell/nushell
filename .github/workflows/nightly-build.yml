@@ -162,7 +162,7 @@ jobs:
       with:
         update_existing: true
         search_existing: open
-        filename: .github/ISSUE_TEMPLATE/nightly-build-fail.md
+        filename: .github/AUTO_ISSUE_TEMPLATE/nightly-build-fail.md
 
     - name: Set Outputs of Short SHA
       id: vars
