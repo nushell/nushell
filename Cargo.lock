@@ -2771,6 +2771,7 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.81.1"
 dependencies = [
+ "nu-cmd-base",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",

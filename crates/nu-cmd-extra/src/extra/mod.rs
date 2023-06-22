@@ -1,4 +1,5 @@
 mod bits;
+mod bytes;
 
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
@@ -15,7 +16,7 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             };
         }
 
-        bind_command!(
+        bind_command! {
             bits::bits_::Bits,
             bits::and::BitsAnd,
             bits::not::BitsNot,
@@ -25,7 +26,24 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             bits::rotate_right::BitsRor,
             bits::shift_left::BitsShl,
             bits::shift_right::BitsShr
-        );
+        }
+
+        // Bytes
+        bind_command! {
+            bytes::bytes_::Bytes,
+            bytes::length::BytesLen,
+            bytes::starts_with::BytesStartsWith,
+            bytes::ends_with::BytesEndsWith,
+            bytes::reverse::BytesReverse,
+            bytes::replace::BytesReplace,
+            bytes::add::BytesAdd,
+            bytes::at::BytesAt,
+            bytes::index_of::BytesIndexOf,
+            bytes::collect::BytesCollect,
+            bytes::remove::BytesRemove,
+            bytes::build_::BytesBuild
+        }
+
         working_set.render()
     };
 
