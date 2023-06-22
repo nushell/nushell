@@ -207,6 +207,15 @@ let-env config = {
     }
   }
 
+  # datetime_format determines what a datetime rendered in the shell would look like.
+  # Behavior without this configuration point will be to "humanize" the datetime display,
+  # showing something like "a day ago."
+
+  datetime_format: {
+    normal: '%a, %d %b %Y %H:%M:%S %z'  # shows up in displays of variables or other datetime's outside of tables
+    abbreviated: '%m/%d/%y %I:%M:%S%p'  # generally shows up in tabular outputs such as ls
+  }
+  
   explore: {
     help_banner: true
     exit_esc: true
