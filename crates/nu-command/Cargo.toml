@@ -13,6 +13,7 @@ version = "0.81.1"
 bench = false
 
 [dependencies]
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.81.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.81.1" }
 nu-engine = { path = "../nu-engine", version = "0.81.1" }
 nu-glob = { path = "../nu-glob", version = "0.81.1" }
@@ -95,7 +96,6 @@ url = "2.2"
 uuid = { version = "1.3", features = ["v4"] }
 wax = { version = "0.5" }
 which = { version = "4.4", optional = true }
-nu-cmd-base = { version = "0.81.1", path = "../nu-cmd-base" }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.50"

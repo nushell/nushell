@@ -25,7 +25,6 @@ mod shells;
 mod sort_utils;
 mod strings;
 mod system;
-pub mod util;
 mod viewers;
 
 pub use charting::*;
@@ -55,7 +54,6 @@ pub use shells::*;
 pub use sort_utils::*;
 pub use strings::*;
 pub use system::*;
-pub use util::*;
 pub use viewers::*;
 
 #[cfg(feature = "sqlite")]
