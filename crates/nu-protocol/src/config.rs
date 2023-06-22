@@ -108,7 +108,7 @@ pub struct Config {
     pub cursor_shape_vi_normal: NuCursorShape,
     pub cursor_shape_emacs: NuCursorShape,
     pub datetime_normal_format: Option<String>,
-    pub datetime_abbreviated_format: Option<String>,
+    pub datetime_table_format: Option<String>,
 }
 
 impl Default for Config {
@@ -155,7 +155,7 @@ impl Default for Config {
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
             cursor_shape_emacs: NuCursorShape::Line,
             datetime_normal_format: None,
-            datetime_abbreviated_format: None,
+            datetime_table_format: None,
         }
     }
 }
@@ -1228,9 +1228,9 @@ impl Value {
                                             invalid!(Some(*span), "should be a string");
                                         }
                                     }
-                                    "abbreviated" => {
+                                    "table" => {
                                         if let Ok(v) = value.as_string() {
-                                            config.datetime_abbreviated_format = Some(v);
+                                            config.datetime_table_format = Some(v);
                                         } else {
                                             invalid!(Some(*span), "should be a string");
                                         }

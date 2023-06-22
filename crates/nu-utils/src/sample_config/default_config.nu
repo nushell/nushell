@@ -213,9 +213,9 @@ let-env config = {
 
   datetime_format: {
     normal: '%a, %d %b %Y %H:%M:%S %z'  # shows up in displays of variables or other datetime's outside of tables
-    abbreviated: '%m/%d/%y %I:%M:%S%p'  # generally shows up in tabular outputs such as ls
+    table: '%m/%d/%y %I:%M:%S%p'        # generally shows up in tabular outputs such as ls
   }
-  
+
   explore: {
     help_banner: true
     exit_esc: true
