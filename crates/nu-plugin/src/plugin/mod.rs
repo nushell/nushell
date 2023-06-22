@@ -129,6 +129,12 @@ pub(crate) fn call_plugin<Encoder: PluginEncoder>(
     }
 }
 
+/// Generates a signature of the plugin for the shell
+/// 
+/// This function handles serialization and IO to pass details on a plugin's
+/// signature to Nushell. It will invoke the plugin executable at the specified
+/// path and send it commands to report it's [`PluginSignature`] on stdout, which
+/// this function will then deserialize for use by Nushell.
 #[cfg(feature = "nu-internal")]
 pub fn get_signature(
     path: &Path,

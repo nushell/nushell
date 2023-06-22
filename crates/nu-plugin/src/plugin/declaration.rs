@@ -11,6 +11,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
 
+/// Description of a plugin used internally by Nushell
 #[derive(Clone)]
 pub struct PluginDeclaration {
     name: String,

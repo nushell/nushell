@@ -107,13 +107,19 @@ impl From<ShellError> for LabeledError {
     }
 }
 
-// Information received from the plugin
-// Needs to be public to communicate with nu-parser but not typically
-// used by Plugin authors
+/// Possible responses from a plugin to Nushell
+/// 
+/// This enum is used internally by [`serve_plugin`](crate::serve_plugin)
+/// to serialize [Plugin](crate::Plugin) output and by Nushell to deserialize
+/// the response.
 #[derive(Serialize, Deserialize)]
 pub enum PluginResponse {
+    /// An error response
     Error(LabeledError),
+    /// Signatures for the commands created by the plugin
     Signature(Vec<PluginSignature>),
+    /// A standard response to a plugin invocation
     Value(Box<Value>),
+    /// A plugin response utilizing plugin custom values
     PluginData(String, PluginData),
 }

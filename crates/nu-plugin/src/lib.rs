@@ -51,6 +51,12 @@ pub use plugin::{serve_plugin, Plugin};
 pub use protocol::{EvaluatedCall, LabeledError};
 pub use serializers::EncodingType;
 
+/// Contains functionality internal to Nushell
+/// 
+/// This module contains items that are used by other components of Nushell
+/// to interface with Nushell plugins. They generally will not be of use to
+/// plugin authors. Plugin authors should not typically include the `nu-internal`
+/// feature.
 #[cfg(feature = "nu-internal")]
 pub mod nu_internal {
     pub use crate::plugin::{get_signature, PluginDeclaration};
