@@ -35,9 +35,7 @@ impl PluginEncoder for JsonSerializer {
             .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
     }
 
-    fn decode_response(
-        reader: &mut impl std::io::BufRead,
-    ) -> Result<PluginResponse, ShellError> {
+    fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginResponse, ShellError> {
         serde_json::from_reader(reader)
             .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
     }
@@ -56,11 +54,9 @@ mod tests {
         let plugin_call = PluginCall::Signature;
 
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_call(&plugin_call, &mut buffer)
+        JsonSerializer::encode_call(&plugin_call, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_call(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_call(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -110,11 +106,9 @@ mod tests {
         });
 
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_call(&plugin_call, &mut buffer)
+        JsonSerializer::encode_call(&plugin_call, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_call(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_call(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -159,11 +153,9 @@ mod tests {
         });
 
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_call(&collapse_custom_value, &mut buffer)
+        JsonSerializer::encode_call(&collapse_custom_value, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_call(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_call(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -193,11 +185,9 @@ mod tests {
         let response = PluginResponse::Signature(vec![signature.clone()]);
 
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_response(&response, &mut buffer)
+        JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_response(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -253,11 +243,9 @@ mod tests {
         let response = PluginResponse::Value(Box::new(value.clone()));
 
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_response(&response, &mut buffer)
+        JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_response(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -287,11 +275,9 @@ mod tests {
 
         let JsonSerializer = JsonSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_response(&response, &mut buffer)
+        JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_response(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -316,11 +302,9 @@ mod tests {
         let response = PluginResponse::Error(error.clone());
 
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_response(&response, &mut buffer)
+        JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_response(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {
@@ -342,11 +326,9 @@ mod tests {
 
         let JsonSerializer = JsonSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
-        JsonSerializer
-            ::encode_response(&response, &mut buffer)
+        JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
-        let returned = JsonSerializer
-            ::decode_response(&mut buffer.as_slice())
+        let returned = JsonSerializer::decode_response(&mut buffer.as_slice())
             .expect("unable to deserialize message");
 
         match returned {

@@ -1,22 +1,19 @@
-#[cfg(feature="nu-internal")]
+#[cfg(feature = "nu-internal")]
 use {
+    crate::{plugin::PluginEncoder, protocol::PluginResponse},
     nu_protocol::ShellError,
-    crate::{
-        plugin::PluginEncoder,
-        protocol::PluginResponse,
-    },
 };
 
 pub(crate) mod json;
 pub(crate) mod msgpack;
 
-#[cfg(feature="nu-internal")]
+#[cfg(feature = "nu-internal")]
 use self::{json::JsonSerializer, msgpack::MsgPackSerializer};
 
 /// Indicates what encoding type should be used when serving the [Plugin](crate::Plugin)
-/// 
+///
 /// An `EncodingType` is passed to [`serve_plugin`](crate::serve_plugin) to indicate
-/// how data should be serialized when passed between the Plugin executable and 
+/// how data should be serialized when passed between the Plugin executable and
 /// Nushell.
 #[derive(Clone, Debug)]
 pub enum EncodingType {
@@ -39,7 +36,7 @@ impl EncodingType {
 #[cfg(feature = "nu-internal")]
 impl EncodingType {
     /// Internal method used by Nushell
-    /// 
+    ///
     /// Hidden behind the `nu-internal` feature.
     pub fn encode_call(
         &self,
@@ -53,7 +50,7 @@ impl EncodingType {
     }
 
     /// Internal method used by Nushell
-    /// 
+    ///
     /// Hidden behind the `nu-internal` feature.
     pub fn decode_response(
         &self,

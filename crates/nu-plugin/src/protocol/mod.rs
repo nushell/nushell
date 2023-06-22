@@ -108,7 +108,7 @@ impl From<ShellError> for LabeledError {
 }
 
 /// Possible responses from a plugin to Nushell
-/// 
+///
 /// This enum is used internally by [`serve_plugin`](crate::serve_plugin)
 /// to serialize [Plugin](crate::Plugin) output and by Nushell to deserialize
 /// the response.

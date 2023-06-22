@@ -52,7 +52,7 @@ pub use protocol::{EvaluatedCall, LabeledError};
 pub use serializers::EncodingType;
 
 /// Contains functionality internal to Nushell
-/// 
+///
 /// This module contains items that are used by other components of Nushell
 /// to interface with Nushell plugins. They generally will not be of use to
 /// plugin authors. Plugin authors should not typically include the `nu-internal`

@@ -1,5 +1,5 @@
-use crate::{EvaluatedCall, EncodingType};
 use crate::serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
+use crate::{EncodingType, EvaluatedCall};
 
 use super::{call_plugin, create_command, get_plugin_encoding};
 use crate::protocol::{
@@ -132,10 +132,10 @@ impl Command for PluginDeclaration {
         };
 
         let response = match encoding {
-            EncodingType::Json =>
-                call_plugin::<JsonSerializer>(&mut child, plugin_call, call.head),
-            EncodingType::MsgPack =>
-                call_plugin::<MsgPackSerializer>(&mut child, plugin_call, call.head),
+            EncodingType::Json => call_plugin::<JsonSerializer>(&mut child, plugin_call, call.head),
+            EncodingType::MsgPack => {
+                call_plugin::<MsgPackSerializer>(&mut child, plugin_call, call.head)
+            }
         };
 
         let response = response.map_err(|err| {
