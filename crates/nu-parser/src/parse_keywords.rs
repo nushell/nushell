@@ -290,9 +290,21 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
 
     // All positional arguments must be in the call positional vector by this point
     let var_decl = call.positional_nth(0).expect("for call already checked");
+    let iteration_expr = call.positional_nth(1).expect("for call already checked");
     let block = call.positional_nth(2).expect("for call already checked");
 
+    let iteration_expr_ty = iteration_expr.ty.clone();
+
+    // Figure out the type of the variable the `for` uses for iteration
+    let var_type = match iteration_expr_ty {
+        Type::List(x) => *x,
+        Type::Table(x) => Type::Record(x),
+        x => x,
+    };
+
     if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
+        working_set.set_variable_type(*var_id, var_type.clone());
+
         let block = working_set.get_block_mut(block_id);
 
         block.signature.required_positional.insert(
@@ -300,7 +312,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             PositionalArg {
                 name: String::new(),
                 desc: String::new(),
-                shape: SyntaxShape::Any,
+                shape: var_type.to_shape(),
                 var_id: Some(*var_id),
                 default_value: None,
             },
@@ -310,7 +322,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     Expression {
         expr: Expr::Call(call),
         span: call_span,
-        ty: Type::Any,
+        ty: Type::Nothing,
         custom_completion: None,
     }
 }
