@@ -1,7 +1,5 @@
-use crate::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},

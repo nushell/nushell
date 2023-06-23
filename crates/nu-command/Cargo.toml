@@ -13,6 +13,7 @@ version = "0.81.1"
 bench = false
 
 [dependencies]
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.81.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.81.1" }
 nu-engine = { path = "../nu-engine", version = "0.81.1" }
 nu-glob = { path = "../nu-glob", version = "0.81.1" }

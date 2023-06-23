@@ -1,5 +1,5 @@
-use crate::input_handler::{operate, CmdArgument};
 use fancy_regex::{NoExpand, Regex};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -15,6 +15,7 @@ struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
     literal_replace: bool,
     no_regex: bool,
+    multiline: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -53,6 +54,11 @@ impl Command for SubCommand {
                 "match the pattern as a substring of the input, instead of a regular expression",
                 Some('s'),
             )
+            .switch(
+                "multiline",
+                "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
+                Some('m'),
+            )
             .category(Category::Strings)
     }
 
@@ -77,6 +83,7 @@ impl Command for SubCommand {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let literal_replace = call.has_flag("no-expand");
         let no_regex = call.has_flag("string");
+        let multiline = call.has_flag("multiline");
 
         let args = Arguments {
             all: call.has_flag("all"),
@@ -85,6 +92,7 @@ impl Command for SubCommand {
             cell_paths,
             literal_replace,
             no_regex,
+            multiline,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -148,6 +156,11 @@ impl Command for SubCommand {
                 example: r#"'GHIKK-9+*' | str replace '[*[:xdigit:]+]' 'z'"#,
                 result: Some(Value::test_string("GHIKK-z+*")),
             },
+            Example {
+                description: "Find and replace on individual lines (multiline)",
+                example: r#""non-matching line\n123. one line\n124. another line\n" | str replace -am '^[0-9]+\. ' ''"#,
+                result: Some(Value::test_string("non-matching line\none line\nanother line\n")),
+            },
 
         ]
     }
@@ -163,6 +176,7 @@ fn action(
         all,
         literal_replace,
         no_regex,
+        multiline,
         ..
     }: &Arguments,
     head: Span,
@@ -185,7 +199,12 @@ fn action(
                 }
             } else {
                 // use regular expressions to replace strings
-                let regex = Regex::new(find_str);
+                let flags = match multiline {
+                    true => "(?m)",
+                    false => "",
+                };
+                let regex_string = flags.to_string() + find_str;
+                let regex = Regex::new(&regex_string);
 
                 match regex {
                     Ok(re) => {
@@ -264,6 +283,7 @@ mod tests {
             literal_replace: false,
             all: false,
             no_regex: false,
+            multiline: false,
         };
 
         let actual = action(&word, &options, Span::test_data());

@@ -22,7 +22,7 @@ pub use upcase::SubCommand as StrUpcase;
 
 use nu_engine::CallExt;
 
-use crate::input_handler::{operate as general_operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{PipelineData, ShellError, Span, Value};
