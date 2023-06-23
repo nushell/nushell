@@ -33,7 +33,7 @@ impl Command for DetectColumns {
             .named(
                 "combine-columns",
                 SyntaxShape::Range,
-                "columns to be combined listed as a range",
+                "columns to be combined; listed as a range",
                 Some('c'),
             )
             .category(Category::Strings)
