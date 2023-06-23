@@ -1,15 +1,15 @@
-pub(crate) mod add;
-pub(crate) mod at;
-pub(crate) mod build_;
-pub(crate) mod bytes_;
-pub(crate) mod collect;
-pub(crate) mod ends_with;
-pub(crate) mod index_of;
-pub(crate) mod length;
-pub(crate) mod remove;
-pub(crate) mod replace;
-pub(crate) mod reverse;
-pub(crate) mod starts_with;
+mod add;
+mod at;
+mod build_;
+mod bytes_;
+mod collect;
+mod ends_with;
+mod index_of;
+mod length;
+mod remove;
+mod replace;
+mod reverse;
+mod starts_with;
 
 pub use add::BytesAdd;
 pub use at::BytesAt;
