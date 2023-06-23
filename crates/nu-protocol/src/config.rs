@@ -1308,6 +1308,7 @@ impl Value {
                             );
                         }
                     }
+                    // Catch all
                     x => {
                         invalid_key!(
                             cols,
