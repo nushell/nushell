@@ -19,10 +19,7 @@ use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
 use super::EvaluatedCall;
 
 #[cfg(feature = "nu-internal")]
-use std::{
-    collections::HashMap,
-    io::ErrorKind,
-};
+use std::{collections::HashMap, io::ErrorKind};
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
