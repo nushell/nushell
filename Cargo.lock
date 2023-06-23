@@ -2671,6 +2671,7 @@ dependencies = [
  "nix",
  "nu-ansi-term",
  "nu-cli",
+ "nu-cmd-base",
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
@@ -2725,6 +2726,7 @@ dependencies = [
  "log",
  "miette",
  "nu-ansi-term",
+ "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
  "nu-command",
@@ -2746,6 +2748,8 @@ dependencies = [
 name = "nu-cmd-base"
 version = "0.81.1"
 dependencies = [
+ "nu-engine",
+ "nu-path",
  "nu-protocol",
 ]
 
@@ -2771,11 +2775,13 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.81.1"
 dependencies = [
+ "nu-cmd-base",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
+ "nu-utils",
  "num-traits",
 ]
 
