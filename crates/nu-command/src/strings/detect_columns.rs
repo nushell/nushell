@@ -188,7 +188,7 @@ fn detect_columns(
             if range.is_some() {
                 // Destructure the range parameter
                 let (start_index, end_index) = if let Some(range) = &range {
-                    match crate::util::process_range(range) {
+                    match nu_cmd_base::util::process_range(range) {
                         Ok(r) => {
                             // `process_range()` returns `isize::MAX` if the range is open-ended,
                             // which is not ideal for us
