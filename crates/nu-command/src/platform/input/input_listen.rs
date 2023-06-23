@@ -8,11 +8,15 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct KeybindingsGet;
+pub struct InputListen;
 
-impl Command for KeybindingsGet {
+impl Command for InputListen {
     fn name(&self) -> &str {
-        "keybindings get"
+        "input listen"
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["prompt", "interactive", "keycode"]
     }
 
     fn signature(&self) -> Signature {
@@ -21,7 +25,7 @@ impl Command for KeybindingsGet {
             .named(
                 "types",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Listen for events of specified types only (can be one of: focus, key, mouse, paste, resize)",
+                "Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)",
                 Some('t'),
             )
             .input_output_types(vec![(
@@ -34,12 +38,12 @@ impl Command for KeybindingsGet {
     }
 
     fn usage(&self) -> &str {
-        "Get keyboard event from user"
+        "Listen for user interface event"
     }
 
     fn extra_usage(&self) -> &str {
-        r#"There can be 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
-corresponding record, distinguished by field type:
+        r#"There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
+corresponding record, distinguished by type field:
     { type: focus event: (gained|lost) }
     { type: key key_type: <key_type> code: <string> modifiers: [ <modifier> ... ] }
     { type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
