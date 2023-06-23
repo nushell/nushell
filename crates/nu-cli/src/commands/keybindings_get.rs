@@ -87,7 +87,7 @@ There are 4 <key_type> variants:
     }
 }
 
-pub struct EventTypeFilter {
+struct EventTypeFilter {
     listen_focus: bool,
     listen_key: bool,
     listen_mouse: bool,
@@ -106,7 +106,7 @@ impl EventTypeFilter {
         }
     }
 
-    pub fn all() -> EventTypeFilter {
+    fn all() -> EventTypeFilter {
         EventTypeFilter {
             listen_focus: true,
             listen_key: true,
@@ -158,7 +158,7 @@ impl EventTypeFilter {
     }
 }
 
-pub fn parse_event(
+fn parse_event(
     head: Span,
     event: &crossterm::event::Event,
     filter: &EventTypeFilter,
