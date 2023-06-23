@@ -184,6 +184,7 @@ jobs:
 
 
   nu-coverage:
+    # FIXME: the job was failing and blocking PRs
     if: false
     env:
       NUSHELL_CARGO_TARGET: ci
