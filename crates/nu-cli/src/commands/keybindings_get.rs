@@ -40,11 +40,11 @@ impl Command for KeybindingsGet {
     fn extra_usage(&self) -> &str {
         r#"There can be 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by field type:
-{ type: focus event: (gained|lost) }
-{ type: key key: { type: <key_type> key: <string> } modifiers: [ <modifier> ... ] }
-{ type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
-{ type: paste content: <string> }
-{ type: resize col: <int> row: <int> }
+    { type: focus event: (gained|lost) }
+    { type: key key_type: <key_type> code: <string> modifiers: [ <modifier> ... ] }
+    { type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
+    { type: paste content: <string> }
+    { type: resize col: <int> row: <int> }
 There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
 There are 4 <key_type> variants:
     f - f1, f2, f3 ... keys
@@ -235,14 +235,15 @@ fn create_key_event(
 
         let cols = vec![
             "type".to_string(),
-            "key".to_string(),
+            "key_type".to_string(),
+            "code".to_string(),
             "modifiers".to_string(),
         ];
 
         let typ = Value::string("key".to_string(), head);
-        let key = get_keycode_name(head, code);
+        let (key, code) = get_keycode_name(head, code);
         let modifiers = parse_modifiers(head, modifiers);
-        let vals = vec![typ, key, modifiers];
+        let vals = vec![typ, key, code, modifiers];
 
         Some(Value::record(cols, vals, head))
     } else {
@@ -250,23 +251,15 @@ fn create_key_event(
     }
 }
 
-fn get_keycode_name(head: Span, code: &KeyCode) -> Value {
-    let (typ, key) = match code {
+fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
+    let (typ, code) = match code {
         KeyCode::F(n) => ("f", n.to_string()),
         KeyCode::Char(c) => ("char", c.to_string()),
         KeyCode::Media(m) => ("media", format!("{m:?}").to_lowercase()),
         KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_lowercase()),
         _ => ("other", format!("{code:?}").to_lowercase()),
     };
-    make_key_record(head, typ.to_string(), key)
-}
-
-fn make_key_record(head: Span, typ: String, key: String) -> Value {
-    Value::record(
-        vec!["type".to_string(), "key".to_string()],
-        vec![Value::string(typ, head), Value::string(key, head)],
-        head,
-    )
+    (Value::string(typ, head), Value::string(code, head))
 }
 
 fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
