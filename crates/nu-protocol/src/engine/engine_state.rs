@@ -981,7 +981,7 @@ impl TypeScope {
     pub fn get_previous(&self) -> &Type {
         match self.outputs.last().and_then(|v| v.last()) {
             Some(input) => input,
-            None => &Type::Any,
+            None => &Type::Nothing,
         }
     }
 
@@ -1193,7 +1193,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
         let name = decl.name().as_bytes().to_vec();
-        let input_type = decl.signature().input_type;
+        let input_type = decl.signature().get_input_type();
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;

@@ -30,8 +30,10 @@ impl Command for Shift {
                 "Expression used to fill the null values (lazy df)",
                 Some('f'),
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 

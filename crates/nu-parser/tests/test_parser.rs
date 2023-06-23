@@ -1361,8 +1361,7 @@ mod input_types {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .input_type(Type::Any)
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Any, Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1393,8 +1392,7 @@ mod input_types {
             Signature::build(self.name())
                 .required("column", SyntaxShape::String, "column name")
                 .required("other", SyntaxShape::String, "other value")
-                .input_type(Type::Custom("custom".into()))
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1424,7 +1422,7 @@ mod input_types {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
                 .required("operation", SyntaxShape::String, "operation")
-                .input_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1481,8 +1479,7 @@ mod input_types {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
                 .rest("operation", SyntaxShape::Any, "operation")
-                .input_type(Type::Custom("custom".into()))
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1511,8 +1508,7 @@ mod input_types {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .input_type(Type::Custom("custom".into()))
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1619,7 +1615,7 @@ mod input_types {
                 },
             ) => {
                 let expected_id = working_set
-                    .find_decl(b"ls", &Type::Any)
+                    .find_decl(b"ls", &Type::Nothing)
                     .expect("Error merging delta");
                 assert_eq!(call.decl_id, expected_id)
             }
@@ -1789,7 +1785,7 @@ mod input_types {
                     ..
                 },
             ) => {
-                let expected_id = working_set.find_decl(b"ls", &Type::Any).unwrap();
+                let expected_id = working_set.find_decl(b"ls", &Type::Nothing).unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),

@@ -114,8 +114,6 @@ pub struct Signature {
     pub rest_positional: Option<PositionalArg>,
     pub vectorizes_over_list: bool,
     pub named: Vec<Flag>,
-    pub input_type: Type,
-    pub output_type: Type,
     pub input_output_types: Vec<(Type, Type)>,
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
@@ -215,8 +213,6 @@ impl Signature {
             optional_positional: vec![],
             rest_positional: None,
             vectorizes_over_list: false,
-            input_type: Type::Any,
-            output_type: Type::Any,
             input_output_types: vec![],
             allow_variants_without_examples: false,
             named: vec![],
@@ -224,6 +220,24 @@ impl Signature {
             creates_scope: false,
             category: Category::Default,
             allows_unknown_args: false,
+        }
+    }
+
+    // Gets the first input type from the signature
+    pub fn get_input_type(&self) -> Type {
+        if let Some((input, _)) = self.input_output_types.get(0) {
+            input.clone()
+        } else {
+            Type::Any
+        }
+    }
+
+    // Gets the first output type from the signature
+    pub fn get_output_type(&self) -> Type {
+        if let Some((_, output)) = self.input_output_types.get(0) {
+            output.clone()
+        } else {
+            Type::Any
         }
     }
 
@@ -423,14 +437,8 @@ impl Signature {
     }
 
     /// Changes the input type of the command signature
-    pub fn input_type(mut self, input_type: Type) -> Signature {
-        self.input_type = input_type;
-        self
-    }
-
-    /// Changes the output type of the command signature
-    pub fn output_type(mut self, output_type: Type) -> Signature {
-        self.output_type = output_type;
+    pub fn input_output_type(mut self, input_type: Type, output_type: Type) -> Signature {
+        self.input_output_types.push((input_type, output_type));
         self
     }
 

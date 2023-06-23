@@ -22,6 +22,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
+        (Type::List(c), Type::Table(_)) => matches!(**c, Type::Any),
         (Type::Number, Type::Int) => true,
         (Type::Number, Type::Float) => true,
         (Type::Closure, Type::Block) => true,
@@ -411,6 +412,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -454,6 +456,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -497,6 +500,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -540,6 +544,7 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),

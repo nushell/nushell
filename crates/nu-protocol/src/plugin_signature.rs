@@ -138,14 +138,8 @@ impl PluginSignature {
     }
 
     /// Changes the input type of the command signature
-    pub fn input_type(mut self, input_type: Type) -> PluginSignature {
-        self.sig = self.sig.input_type(input_type);
-        self
-    }
-
-    /// Changes the output type of the command signature
-    pub fn output_type(mut self, output_type: Type) -> PluginSignature {
-        self.sig = self.sig.output_type(output_type);
+    pub fn input_output_type(mut self, input_type: Type, output_type: Type) -> PluginSignature {
+        self.sig.input_output_types.push((input_type, output_type));
         self
     }
 

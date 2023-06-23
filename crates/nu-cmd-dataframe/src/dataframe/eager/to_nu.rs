@@ -28,8 +28,7 @@ impl Command for ToNu {
                 Some('n'),
             )
             .switch("tail", "shows tail rows", Some('t'))
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Any)
+            .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 
