@@ -1,10 +1,12 @@
-use nu_engine::eval_expression;
-use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack},
-    FromValue, ShellError, Span, Spanned, Value,
-};
+use nu_protocol::{FromValue, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "nu-internal")]
+use {
+    nu_engine::eval_expression,
+    nu_protocol::ast::Call,
+    nu_protocol::engine::{EngineState, Stack},
+};
 
 /// A representation of the plugin's invocation command including command line args
 ///
@@ -28,6 +30,7 @@ pub struct EvaluatedCall {
 }
 
 impl EvaluatedCall {
+    #[cfg(feature = "nu-internal")]
     pub(crate) fn try_from_call(
         call: &Call,
         engine_state: &EngineState,
