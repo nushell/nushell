@@ -4,7 +4,6 @@ use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 
 /// A `PluginEncoder` that enables the plugin to communicate with Nushel with JSON
 /// serialized data.
-// #[derive(Clone, Debug)]
 pub(crate) struct JsonSerializer;
 
 impl PluginEncoder for JsonSerializer {
@@ -273,7 +272,6 @@ mod tests {
             },
         );
 
-        let JsonSerializer = JsonSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
         JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");
@@ -324,7 +322,6 @@ mod tests {
         };
         let response = PluginResponse::Error(error.clone());
 
-        let JsonSerializer = JsonSerializer {};
         let mut buffer: Vec<u8> = Vec::new();
         JsonSerializer::encode_response(&response, &mut buffer)
             .expect("unable to serialize message");

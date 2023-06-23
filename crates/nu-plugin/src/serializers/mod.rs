@@ -1,7 +1,8 @@
 #[cfg(feature = "nu-internal")]
 use {
-    crate::{plugin::PluginEncoder, protocol::PluginResponse},
+    crate::{plugin::PluginEncoder, protocol::PluginCall, protocol::PluginResponse},
     nu_protocol::ShellError,
+    std::io::{BufRead, Write},
 };
 
 pub(crate) mod json;
@@ -40,8 +41,8 @@ impl EncodingType {
     /// Hidden behind the `nu-internal` feature.
     pub fn encode_call(
         &self,
-        plugin_call: &crate::protocol::PluginCall,
-        writer: &mut impl std::io::Write,
+        plugin_call: &PluginCall,
+        writer: &mut impl Write,
     ) -> Result<(), nu_protocol::ShellError> {
         match self {
             EncodingType::Json => JsonSerializer::encode_call(plugin_call, writer),
@@ -52,10 +53,7 @@ impl EncodingType {
     /// Internal method used by Nushell
     ///
     /// Hidden behind the `nu-internal` feature.
-    pub fn decode_response(
-        &self,
-        reader: &mut impl std::io::BufRead,
-    ) -> Result<PluginResponse, ShellError> {
+    pub fn decode_response(&self, reader: &mut impl BufRead) -> Result<PluginResponse, ShellError> {
         match self {
             EncodingType::Json => JsonSerializer::decode_response(reader),
             EncodingType::MsgPack => MsgPackSerializer::decode_response(reader),
