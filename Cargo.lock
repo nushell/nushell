@@ -2781,6 +2781,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-test-support",
+ "nu-utils",
  "num-traits",
 ]
 
