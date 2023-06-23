@@ -1,12 +1,13 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -29,6 +30,12 @@ impl Command for DetectColumns {
             )
             .input_output_types(vec![(Type::String, Type::Table(vec![]))])
             .switch("no-headers", "don't detect headers", Some('n'))
+            .named(
+                "combine-columns",
+                SyntaxShape::Range,
+                "columns to be combined; listed as a range",
+                Some('c'),
+            )
             .category(Category::Strings)
     }
 
@@ -37,7 +44,7 @@ impl Command for DetectColumns {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["split"]
+        vec!["split", "tabular"]
     }
 
     fn run(
@@ -78,6 +85,11 @@ impl Command for DetectColumns {
                 example: "$'c1 c2 c3(char nl)a b c' | detect columns",
                 result: None,
             },
+            Example {
+                description: "Parse external ls command and combine columns for datetime",
+                example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7",
+                result: None,
+            },
         ]
     }
 }
@@ -91,6 +103,7 @@ fn detect_columns(
     let name_span = call.head;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
     let noheader = call.has_flag("no-headers");
+    let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();
     let input = input.collect_string("", config)?;
@@ -172,10 +185,70 @@ fn detect_columns(
                 }
             }
 
-            Value::Record {
-                cols,
-                vals,
-                span: name_span,
+            if range.is_some() {
+                // Destructure the range parameter
+                let (start_index, end_index) = if let Some(range) = &range {
+                    match nu_cmd_base::util::process_range(range) {
+                        Ok(r) => {
+                            // `process_range()` returns `isize::MAX` if the range is open-ended,
+                            // which is not ideal for us
+                            let end = if r.1 as usize > cols.len() {
+                                cols.len()
+                            } else {
+                                r.1 as usize
+                            };
+                            (r.0 as usize, end)
+                        }
+                        Err(processing_error) => {
+                            let err = processing_error("could not find range index", name_span);
+                            return Value::Error {
+                                error: Box::new(err),
+                            };
+                        }
+                    }
+                } else {
+                    (0usize, cols.len())
+                };
+
+                // Merge Columns
+                let part1 = &cols.clone()[0..start_index];
+                let combined = &cols.clone()[start_index..=end_index];
+                let binding = combined.join("");
+                let part3 = &cols.clone()[end_index + 1..];
+                let new_cols = [part1, &[binding], part3].concat();
+                // Now renumber columns since we merged some
+                let mut renum_cols = vec![];
+                for (idx, _acol) in new_cols.iter().enumerate() {
+                    renum_cols.push(format!("column{idx}"));
+                }
+
+                // Merge Values
+                let part1 = &vals.clone()[0..start_index];
+                let combined = &vals.clone()[start_index..=end_index];
+                let binding = Value::string(
+                    combined
+                        .iter()
+                        .map(|f| match f.as_string() {
+                            Ok(s) => s,
+                            _ => "".to_string(),
+                        })
+                        .join(" "), // add a space between items
+                    Span::unknown(),
+                );
+                let part3 = &vals.clone()[end_index + 1..];
+                let new_vals = [part1, &[binding], part3].concat();
+
+                Value::Record {
+                    cols: renum_cols,
+                    vals: new_vals,
+                    span: name_span,
+                }
+            } else {
+                Value::Record {
+                    cols,
+                    vals,
+                    span: name_span,
+                }
             }
         })
         .into_pipeline_data(ctrlc))
@@ -207,9 +280,9 @@ pub fn find_columns(input: &str) -> Vec<Spanned<String>> {
 
 #[derive(Clone, Copy)]
 enum BlockKind {
-    Paren,
-    CurlyBracket,
-    SquareBracket,
+    Parenthesis,
+    Brace,
+    Bracket,
 }
 
 fn baseline(src: &mut Input) -> Spanned<String> {
@@ -265,27 +338,27 @@ fn baseline(src: &mut Input) -> Spanned<String> {
             quote_start = Some(c);
         } else if c == '[' {
             // We encountered an opening `[` delimiter.
-            block_level.push(BlockKind::SquareBracket);
+            block_level.push(BlockKind::Bracket);
         } else if c == ']' {
             // We encountered a closing `]` delimiter. Pop off the opening `[`
             // delimiter.
-            if let Some(BlockKind::SquareBracket) = block_level.last() {
+            if let Some(BlockKind::Bracket) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if c == '{' {
             // We encountered an opening `{` delimiter.
-            block_level.push(BlockKind::CurlyBracket);
+            block_level.push(BlockKind::Brace);
         } else if c == '}' {
             // We encountered a closing `}` delimiter. Pop off the opening `{`.
-            if let Some(BlockKind::CurlyBracket) = block_level.last() {
+            if let Some(BlockKind::Brace) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if c == '(' {
             // We enceountered an opening `(` delimiter.
-            block_level.push(BlockKind::Paren);
+            block_level.push(BlockKind::Parenthesis);
         } else if c == ')' {
             // We encountered a closing `)` delimiter. Pop off the opening `(`.
-            if let Some(BlockKind::Paren) = block_level.last() {
+            if let Some(BlockKind::Parenthesis) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if is_termination(&block_level, c) {
