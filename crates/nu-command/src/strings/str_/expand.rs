@@ -176,3 +176,13 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+        test_examples(SubCommand {})
+    }
+}
