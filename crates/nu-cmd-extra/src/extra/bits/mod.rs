@@ -1,12 +1,22 @@
-pub(crate) mod and;
-pub(crate) mod bits_;
-pub(crate) mod not;
-pub(crate) mod or;
-pub(crate) mod rotate_left;
-pub(crate) mod rotate_right;
-pub(crate) mod shift_left;
-pub(crate) mod shift_right;
-pub(crate) mod xor;
+mod and;
+mod bits_;
+mod not;
+mod or;
+mod rotate_left;
+mod rotate_right;
+mod shift_left;
+mod shift_right;
+mod xor;
+
+pub use and::BitsAnd;
+pub use bits_::Bits;
+pub use not::BitsNot;
+pub use or::BitsOr;
+pub use rotate_left::BitsRol;
+pub use rotate_right::BitsRor;
+pub use shift_left::BitsShl;
+pub use shift_right::BitsShr;
+pub use xor::BitsXor;
 
 use nu_protocol::Spanned;
 
