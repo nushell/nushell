@@ -223,7 +223,7 @@ impl Signature {
         }
     }
 
-    // Gets the first input type from the signature
+    // Gets the input type from the signature
     pub fn get_input_type(&self) -> Type {
         match self.input_output_types.len() {
             0 => Type::Any,
@@ -243,7 +243,7 @@ impl Signature {
         }
     }
 
-    // Gets the first output type from the signature
+    // Gets the output type from the signature
     pub fn get_output_type(&self) -> Type {
         match self.input_output_types.len() {
             0 => Type::Any,
