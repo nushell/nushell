@@ -1,8 +1,13 @@
 mod commands;
+mod default_context;
+mod explore;
 mod nu_common;
 mod pager;
 mod registry;
 mod views;
+
+pub use default_context::add_explore_context;
+pub use explore::Explore;
 
 use std::io;
 
@@ -20,13 +25,13 @@ use registry::{Command, CommandRegistry};
 use terminal_size::{Height, Width};
 use views::{InformationView, Orientation, Preview, RecordView};
 
-pub use pager::{PagerConfig, StyleConfig};
+use pager::{PagerConfig, StyleConfig};
 
-pub mod util {
+mod util {
     pub use super::nu_common::{create_lscolors, create_map, map_into_value};
 }
 
-pub fn run_pager(
+fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,
     ctrlc: CtrlC,
@@ -83,7 +88,7 @@ fn information_view() -> Option<Page> {
     Some(Page::new(InformationView, true))
 }
 
-pub fn create_command_registry() -> CommandRegistry {
+fn create_command_registry() -> CommandRegistry {
     let mut registry = CommandRegistry::new();
     create_commands(&mut registry);
     create_aliases(&mut registry);
@@ -101,7 +106,7 @@ pub fn create_command_registry() -> CommandRegistry {
     registry
 }
 
-pub fn create_commands(registry: &mut CommandRegistry) {
+fn create_commands(registry: &mut CommandRegistry) {
     registry.register_command_view(NuCmd::new(), false);
     registry.register_command_view(TableCmd::new(), false);
 
@@ -111,11 +116,11 @@ pub fn create_commands(registry: &mut CommandRegistry) {
     registry.register_command_view(ConfigCmd::default(), true);
     registry.register_command_view(HelpCmd::default(), true);
 
-    registry.register_command_reactive(QuitCmd::default());
+    registry.register_command_reactive(QuitCmd);
     registry.register_command_reactive(TweakCmd::default());
 }
 
-pub fn create_aliases(registry: &mut CommandRegistry) {
+fn create_aliases(registry: &mut CommandRegistry) {
     registry.create_aliases("h", HelpCmd::NAME);
     registry.create_aliases("e", ExpandCmd::NAME);
     registry.create_aliases("q", QuitCmd::NAME);

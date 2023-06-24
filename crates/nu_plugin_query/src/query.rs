@@ -71,6 +71,6 @@ pub fn get_brief_subcommand_help(sigs: &[PluginSignature]) -> String {
         let _ = writeln!(help, "  {} - {}", x.1.sig.name, x.1.sig.usage);
     }
 
-    help.push_str(&get_flags_section(&sigs[0].sig));
+    help.push_str(&get_flags_section(&sigs[0].sig, |v| format!("{:#?}", v)));
     help
 }

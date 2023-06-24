@@ -22,7 +22,6 @@ fn removes_duplicate_rows() {
                 open los_tres_caballeros.csv
                 | uniq-by last_name
                 | length
-
             "#
         ));
 
@@ -32,30 +31,15 @@ fn removes_duplicate_rows() {
 
 #[test]
 fn uniq_when_keys_out_of_order() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [{"a": "a", "b": [1,2,3]}, {"b": [1,2,3,4], "a": "a"}]
-            | uniq-by a
-        "#
-    ));
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo [{"a": "a", "b": [1,2,3]}]
-        "#
-    ));
+    let actual = nu!(r#"[{"a": "a", "b": [1,2,3]}, {"b": [1,2,3,4], "a": "a"}] | uniq-by a"#);
+    let expected = nu!(r#"[{"a": "a", "b": [1,2,3]}]"#);
 
-    print!("{}", actual.out);
-    print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn uniq_counting() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             ["A", "B", "A"]
             | wrap item
@@ -68,10 +52,9 @@ fn uniq_counting() {
     ));
     assert_eq!(actual.out, "2");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
-            echo ["A", "B", "A"]
+            ["A", "B", "A"]
             | wrap item
             | uniq-by item --count
             | flatten
@@ -85,8 +68,7 @@ fn uniq_counting() {
 
 #[test]
 fn uniq_unique() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [1 2 3 4 1 5]
             | wrap item
@@ -94,29 +76,20 @@ fn uniq_unique() {
             | get item
         "#
     ));
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo [2 3 4 5]
-        "#
-    ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
+    let expected = nu!("[2 3 4 5]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn table() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
             | uniq-by fruit
         "#
     ));
 
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let expected = nu!(pipeline(
         r#"
         echo [[fruit day]; [apple monday] [Apple friday] [pear monday] [orange tuesday]]
         "#
@@ -135,29 +108,24 @@ fn uniq_by_empty() {
 
 #[test]
 fn uniq_by_multiple_columns() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
             | uniq-by fruit day
         "#
     ));
 
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let expected = nu!(pipeline(
         r#"
         echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
         "#
     ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn table_with_ignore_case() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[origin, people];
                 [World, (
@@ -179,8 +147,7 @@ fn table_with_ignore_case() {
         "#
     ));
 
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let expected = nu!(pipeline(
         r#"
         echo [[origin, people];
                 [World, (
@@ -197,33 +164,19 @@ fn table_with_ignore_case() {
         "#
     ));
 
-    print!("{}", actual.out);
-    print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn missing_parameter() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [11 22 33] | uniq-by
-        "#
-    ));
+    let actual = nu!("[11 22 33] | uniq-by");
 
     assert!(actual.err.contains("missing parameter"));
 }
 
 #[test]
 fn wrong_column() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            [[fruit day]; [apple monday] [apple friday]]
-            | uniq-by column1
-        "#
-    ));
+    let actual = nu!("[[fruit day]; [apple monday] [apple friday]] | uniq-by column1");
 
     assert!(actual.err.contains("cannot find column 'column1'"));
 }

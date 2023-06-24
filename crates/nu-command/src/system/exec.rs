@@ -67,6 +67,7 @@ fn exec(
 
     let redirect_stdout = call.has_flag("redirect-stdout");
     let redirect_stderr = call.has_flag("redirect-stderr");
+    let redirect_combine = call.has_flag("redirect-combine");
     let trim_end_newline = call.has_flag("trim-end-newline");
 
     let external_command = create_external_command(
@@ -75,6 +76,7 @@ fn exec(
         call,
         redirect_stdout,
         redirect_stderr,
+        redirect_combine,
         trim_end_newline,
     )?;
 

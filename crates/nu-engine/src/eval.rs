@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help, nu_variable::NuVariable};
+use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -9,8 +9,9 @@ use nu_protocol::{
     DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
     Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::collections::HashMap;
 use std::time::Instant;
+use std::{collections::HashMap, path::PathBuf};
+use sysinfo::SystemExt;
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -117,10 +118,8 @@ pub fn eval_call(
                                 let result = eval_expression(engine_state, caller_stack, arg)?;
 
                                 callee_stack.add_var(var_id, result);
-                            } else if let Some(arg) = &named.default_value {
-                                let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                                callee_stack.add_var(var_id, result);
+                            } else if let Some(value) = &named.default_value {
+                                callee_stack.add_var(var_id, value.to_owned());
                             } else {
                                 callee_stack.add_var(var_id, Value::boolean(true, call.head))
                             }
@@ -131,10 +130,8 @@ pub fn eval_call(
                             let result = eval_expression(engine_state, caller_stack, arg)?;
 
                             callee_stack.add_var(var_id, result);
-                        } else if let Some(arg) = &named.default_value {
-                            let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                            callee_stack.add_var(var_id, result);
+                        } else if let Some(value) = &named.default_value {
+                            callee_stack.add_var(var_id, value.to_owned());
                         } else {
                             callee_stack.add_var(var_id, Value::boolean(true, call.head))
                         }
@@ -145,10 +142,8 @@ pub fn eval_call(
                 if !found {
                     if named.arg.is_none() {
                         callee_stack.add_var(var_id, Value::boolean(false, call.head))
-                    } else if let Some(arg) = &named.default_value {
-                        let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                        callee_stack.add_var(var_id, result);
+                    } else if let Some(value) = named.default_value {
+                        callee_stack.add_var(var_id, value);
                     } else {
                         callee_stack.add_var(var_id, Value::Nothing { span: call.head })
                     }
@@ -197,6 +192,11 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     }
 }
 
+enum RedirectTarget {
+    Piped(bool, bool),
+    CombinedPipe,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn eval_external(
     engine_state: &EngineState,
@@ -204,8 +204,7 @@ fn eval_external(
     head: &Expression,
     args: &[Expression],
     input: PipelineData,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
+    redirect_target: RedirectTarget,
     is_subexpression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
@@ -222,26 +221,38 @@ fn eval_external(
         call.add_positional(arg.clone())
     }
 
-    if redirect_stdout {
-        call.add_named((
-            Spanned {
-                item: "redirect-stdout".into(),
-                span: head.span,
-            },
-            None,
-            None,
-        ))
-    }
+    match redirect_target {
+        RedirectTarget::Piped(redirect_stdout, redirect_stderr) => {
+            if redirect_stdout {
+                call.add_named((
+                    Spanned {
+                        item: "redirect-stdout".into(),
+                        span: head.span,
+                    },
+                    None,
+                    None,
+                ))
+            }
 
-    if redirect_stderr {
-        call.add_named((
+            if redirect_stderr {
+                call.add_named((
+                    Spanned {
+                        item: "redirect-stderr".into(),
+                        span: head.span,
+                    },
+                    None,
+                    None,
+                ))
+            }
+        }
+        RedirectTarget::CombinedPipe => call.add_named((
             Spanned {
-                item: "redirect-stderr".into(),
+                item: "redirect-combine".into(),
                 span: head.span,
             },
             None,
             None,
-        ))
+        )),
     }
 
     if is_subexpression {
@@ -338,8 +349,7 @@ pub fn eval_expression(
                 head,
                 args,
                 PipelineData::empty(),
-                false,
-                false,
+                RedirectTarget::Piped(false, false),
                 *is_subexpression,
             )?
             .into_value(span))
@@ -704,8 +714,7 @@ pub fn eval_expression_with_input(
                 head,
                 args,
                 input,
-                redirect_stdout,
-                redirect_stderr,
+                RedirectTarget::Piped(redirect_stdout, redirect_stderr),
                 *is_subexpression,
             )?;
         }
@@ -797,50 +806,6 @@ pub fn eval_element_with_input(
                         span,
                         metadata,
                         trim_end_newline,
-                    },
-                    (
-                        Redirection::StdoutAndStderr,
-                        PipelineData::ExternalStream {
-                            stdout,
-                            stderr,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                    ) => match (stdout, stderr) {
-                        (Some(stdout), Some(stderr)) => PipelineData::ExternalStream {
-                            stdout: Some(stdout.chain(stderr)),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        (None, Some(stderr)) => PipelineData::ExternalStream {
-                            stdout: Some(stderr),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        (Some(stdout), None) => PipelineData::ExternalStream {
-                            stdout: Some(stdout),
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
-                        (None, None) => PipelineData::ExternalStream {
-                            stdout: None,
-                            stderr: None,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                        },
                     },
                     (_, input) => input,
                 };
@@ -976,6 +941,48 @@ pub fn eval_element_with_input(
                 }
             }
         },
+        PipelineElement::SameTargetRedirection {
+            cmd: (cmd_span, cmd_exp),
+            redirection: (redirect_span, redirect_exp),
+        } => {
+            // general idea: eval cmd and call save command to redirect stdout to result.
+            input = match &cmd_exp.expr {
+                Expr::ExternalCall(head, args, is_subexpression) => {
+                    // if cmd's expression is ExternalStream, then invoke run-external with
+                    // special --redirect-combine flag.
+                    eval_external(
+                        engine_state,
+                        stack,
+                        head,
+                        args,
+                        input,
+                        RedirectTarget::CombinedPipe,
+                        *is_subexpression,
+                    )?
+                }
+                _ => eval_element_with_input(
+                    engine_state,
+                    stack,
+                    &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
+                    input,
+                    redirect_stdout,
+                    redirect_stderr,
+                )
+                .map(|x| x.0)?,
+            };
+            eval_element_with_input(
+                engine_state,
+                stack,
+                &PipelineElement::Redirection(
+                    *redirect_span,
+                    Redirection::Stdout,
+                    redirect_exp.clone(),
+                ),
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            )
+        }
         PipelineElement::And(_, expr) => eval_expression_with_input(
             engine_state,
             stack,
@@ -1196,6 +1203,217 @@ pub fn eval_subexpression(
     Ok(input)
 }
 
+pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+    fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
+        let cwd = engine_state.current_work_dir();
+
+        if path.exists() {
+            match nu_path::canonicalize_with(path, cwd) {
+                Ok(canon_path) => canon_path,
+                Err(_) => path.clone(),
+            }
+        } else {
+            path.clone()
+        }
+    }
+
+    let mut cols = vec![];
+    let mut vals = vec![];
+
+    cols.push("default-config-dir".to_string());
+    if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        vals.push(Value::String {
+            val: path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not get config directory".into())),
+        })
+    }
+
+    cols.push("config-path".to_string());
+    if let Some(path) = engine_state.get_config_path("config-path") {
+        let canon_config_path = canonicalize_path(engine_state, path);
+        vals.push(Value::String {
+            val: canon_config_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path.push("config.nu");
+        vals.push(Value::String {
+            val: path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not get config directory".into())),
+        })
+    }
+
+    cols.push("env-path".to_string());
+    if let Some(path) = engine_state.get_config_path("env-path") {
+        let canon_env_path = canonicalize_path(engine_state, path);
+        vals.push(Value::String {
+            val: canon_env_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path.push("env.nu");
+        vals.push(Value::String {
+            val: path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError(
+                "Could not find environment path".into(),
+            )),
+        })
+    }
+
+    cols.push("history-path".to_string());
+    if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        match engine_state.config.history_file_format {
+            nu_protocol::HistoryFileFormat::Sqlite => {
+                path.push("history.sqlite3");
+            }
+            nu_protocol::HistoryFileFormat::PlainText => {
+                path.push("history.txt");
+            }
+        }
+        let canon_hist_path = canonicalize_path(engine_state, &path);
+        vals.push(Value::String {
+            val: canon_hist_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not find history path".into())),
+        })
+    }
+
+    cols.push("loginshell-path".to_string());
+    if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path.push("login.nu");
+        let canon_login_path = canonicalize_path(engine_state, &path);
+        vals.push(Value::String {
+            val: canon_login_path.to_string_lossy().to_string(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError(
+                "Could not find login shell path".into(),
+            )),
+        })
+    }
+
+    #[cfg(feature = "plugin")]
+    {
+        cols.push("plugin-path".to_string());
+
+        if let Some(path) = &engine_state.plugin_signatures {
+            let canon_plugin_path = canonicalize_path(engine_state, path);
+            vals.push(Value::String {
+                val: canon_plugin_path.to_string_lossy().to_string(),
+                span,
+            })
+        } else {
+            vals.push(Value::Error {
+                error: Box::new(ShellError::IOError(
+                    "Could not get plugin signature location".into(),
+                )),
+            })
+        }
+    }
+
+    cols.push("home-path".to_string());
+    if let Some(path) = nu_path::home_dir() {
+        let canon_home_path = canonicalize_path(engine_state, &path);
+        vals.push(Value::String {
+            val: canon_home_path.to_string_lossy().into(),
+            span,
+        })
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError("Could not get home path".into())),
+        })
+    }
+
+    cols.push("temp-path".to_string());
+    let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
+    vals.push(Value::String {
+        val: canon_temp_path.to_string_lossy().into(),
+        span,
+    });
+
+    cols.push("pid".to_string());
+    vals.push(Value::int(std::process::id().into(), span));
+
+    cols.push("os-info".to_string());
+    let sys = sysinfo::System::new();
+    let ver = match sys.kernel_version() {
+        Some(v) => v,
+        None => "unknown".into(),
+    };
+    let os_record = Value::Record {
+        cols: vec![
+            "name".into(),
+            "arch".into(),
+            "family".into(),
+            "kernel_version".into(),
+        ],
+        vals: vec![
+            Value::string(std::env::consts::OS, span),
+            Value::string(std::env::consts::ARCH, span),
+            Value::string(std::env::consts::FAMILY, span),
+            Value::string(ver, span),
+        ],
+        span,
+    };
+    vals.push(os_record);
+
+    cols.push("startup-time".to_string());
+    vals.push(Value::Duration {
+        val: engine_state.get_startup_time(),
+        span,
+    });
+
+    cols.push("is-interactive".to_string());
+    vals.push(Value::Bool {
+        val: engine_state.is_interactive,
+        span,
+    });
+
+    cols.push("is-login".to_string());
+    vals.push(Value::Bool {
+        val: engine_state.is_login,
+        span,
+    });
+
+    cols.push("current-exe".to_string());
+    if let Ok(current_exe) = std::env::current_exe() {
+        vals.push(Value::String {
+            val: current_exe.to_string_lossy().into(),
+            span,
+        });
+    } else {
+        vals.push(Value::Error {
+            error: Box::new(ShellError::IOError(
+                "Could not get current executable path".to_string(),
+            )),
+        })
+    }
+
+    Ok(Value::Record { cols, vals, span })
+}
+
 pub fn eval_variable(
     engine_state: &EngineState,
     stack: &Stack,
@@ -1204,14 +1422,7 @@ pub fn eval_variable(
 ) -> Result<Value, ShellError> {
     match var_id {
         // $nu
-        nu_protocol::NU_VARIABLE_ID => Ok(Value::LazyRecord {
-            val: Box::new(NuVariable {
-                engine_state: engine_state.clone(),
-                stack: stack.clone(),
-                span,
-            }),
-            span,
-        }),
+        nu_protocol::NU_VARIABLE_ID => eval_nu_variable(engine_state, span),
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();
@@ -1237,128 +1448,7 @@ pub fn eval_variable(
 }
 
 fn compute(size: i64, unit: Unit, span: Span) -> Value {
-    match unit {
-        Unit::Byte => Value::Filesize { val: size, span },
-        Unit::Kilobyte => Value::Filesize {
-            val: size * 1000,
-            span,
-        },
-        Unit::Megabyte => Value::Filesize {
-            val: size * 1000 * 1000,
-            span,
-        },
-        Unit::Gigabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Terabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Petabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Exabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Zettabyte => Value::Filesize {
-            val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-            span,
-        },
-
-        Unit::Kibibyte => Value::Filesize {
-            val: size * 1024,
-            span,
-        },
-        Unit::Mebibyte => Value::Filesize {
-            val: size * 1024 * 1024,
-            span,
-        },
-        Unit::Gibibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024,
-            span,
-        },
-        Unit::Tebibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024 * 1024,
-            span,
-        },
-        Unit::Pebibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024 * 1024 * 1024,
-            span,
-        },
-        Unit::Exbibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-            span,
-        },
-        Unit::Zebibyte => Value::Filesize {
-            val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-            span,
-        },
-
-        Unit::Nanosecond => Value::Duration { val: size, span },
-        Unit::Microsecond => Value::Duration {
-            val: size * 1000,
-            span,
-        },
-        Unit::Millisecond => Value::Duration {
-            val: size * 1000 * 1000,
-            span,
-        },
-        Unit::Second => Value::Duration {
-            val: size * 1000 * 1000 * 1000,
-            span,
-        },
-        Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: Box::new(ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )),
-            },
-        },
-        Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: Box::new(ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )),
-            },
-        },
-        Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: Box::new(ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )),
-            },
-        },
-        Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-            Some(val) => Value::Duration { val, span },
-            None => Value::Error {
-                error: Box::new(ShellError::GenericError(
-                    "duration too large".into(),
-                    "duration too large".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )),
-            },
-        },
-    }
+    unit.to_value(size, span)
 }
 
 #[allow(clippy::too_many_arguments)]

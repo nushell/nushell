@@ -114,6 +114,13 @@ pub fn eval_constant(
             span: expr.span,
         }),
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::ValueWithUnit(expr, unit) => {
+            if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
+                Ok(unit.item.to_value(val, unit.span))
+            } else {
+                Err(ParseError::NotAConstant(expr.span))
+            }
+        }
         _ => Err(ParseError::NotAConstant(expr.span)),
     }
 }

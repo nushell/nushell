@@ -24,7 +24,7 @@ fn alias_hiding_1() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             overlay use ./activate-foo.nu;
-            $nu.scope.aliases | find deactivate-foo | length
+            scope aliases | find deactivate-foo | length
         "#
     ));
 
@@ -39,7 +39,7 @@ fn alias_hiding_2() {
         r#"
             overlay use ./activate-foo.nu;
             deactivate-foo;
-            $nu.scope.aliases | find deactivate-foo | length
+            scope aliases | find deactivate-foo | length
         "#
     ));
 
@@ -71,9 +71,8 @@ fn cant_alias_keyword() {
 
 #[test]
 fn alias_wont_recurse() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(pipeline(
+        "
             module myspamsymbol {
                 export def myfoosymbol [prefix: string, msg: string] {
                     $prefix + $msg
@@ -82,7 +81,7 @@ fn alias_wont_recurse() {
             use myspamsymbol myfoosymbol;
             alias myfoosymbol = myfoosymbol 'hello';
             myfoosymbol ' world'
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "hello world");
@@ -149,4 +148,10 @@ fn alias_multiword_name() {
 
     let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
     assert_eq!(actual.out, "test");
+}
+
+#[test]
+fn alias_ordering() {
+    let actual = nu!(r#"alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'"#);
+    assert_eq!(actual.out, "foo");
 }

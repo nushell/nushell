@@ -118,6 +118,11 @@ impl Command for SubCommand {
                 example: "http get -H [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get content from example.com, with custom headers",
+                example: "http get -H [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                result: None,
+            },
         ]
     }
 }

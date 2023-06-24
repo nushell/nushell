@@ -1,5 +1,4 @@
 use crate::filesystem::cd_query::query;
-use crate::{get_current_shell, get_shells};
 #[cfg(unix)]
 use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
@@ -164,23 +163,6 @@ impl Command for Cd {
             val: path.clone(),
             span,
         };
-        let cwd = Value::string(cwd.to_string_lossy(), call.head);
-
-        let mut shells = get_shells(engine_state, stack, cwd);
-        let current_shell = get_current_shell(engine_state, stack);
-        shells[current_shell] = path_value.clone();
-
-        stack.add_env_var(
-            "NUSHELL_SHELLS".into(),
-            Value::List {
-                vals: shells,
-                span: call.head,
-            },
-        );
-        stack.add_env_var(
-            "NUSHELL_CURRENT_SHELL".into(),
-            Value::int(current_shell as i64, call.head),
-        );
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
             stack.add_env_var("OLDPWD".into(), oldpwd)

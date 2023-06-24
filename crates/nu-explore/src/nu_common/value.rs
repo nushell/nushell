@@ -121,6 +121,13 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (vec![String::from("")], lines)
         }
+        Value::LazyRecord { val, span } => match val.collect() {
+            Ok(value) => collect_input(value),
+            Err(_) => (
+                vec![String::from("")],
+                vec![vec![Value::LazyRecord { val, span }]],
+            ),
+        },
         Value::Nothing { .. } => (vec![], vec![]),
         value => (vec![String::from("")], vec![vec![value]]),
     }
@@ -177,7 +184,7 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
 
             item.clone()
                 .follow_cell_path(&[path], false)
-                .unwrap_or_else(|_| item.clone())
+                .unwrap_or_else(|_| unknown_error_value())
         }
         item => item.clone(),
     }
@@ -212,4 +219,8 @@ pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
 
 pub fn nu_str<S: AsRef<str>>(s: S) -> Value {
     Value::string(s.as_ref().to_owned(), NuSpan::unknown())
+}
+
+fn unknown_error_value() -> Value {
+    Value::string(String::from("❎"), NuSpan::unknown())
 }

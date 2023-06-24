@@ -366,3 +366,21 @@ fn url_join_with_fragment_and_params() {
         "http://usr:pwd@localhost:1234?par_1=aaa&par_2=bbb#frag"
     );
 }
+
+#[test]
+fn url_join_with_empty_params() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+            r#"
+            {
+                "scheme": "https",
+                "host": "localhost",
+                "path": "/foo",
+                "params": {}
+            } | url join
+            "#
+        )
+    );
+
+    assert_eq!(actual.out, "https://localhost/foo");
+}

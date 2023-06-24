@@ -206,6 +206,10 @@ impl OverlayFrame {
         self.decls.insert((name, input), decl_id)
     }
 
+    pub fn insert_module(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
+        self.modules.insert(name, module_id)
+    }
+
     pub fn get_decl(&self, name: &[u8], input: &Type) -> Option<DeclId> {
         if let Some(decl) = self.decls.get(&(name, input) as &dyn DeclKey) {
             Some(*decl)

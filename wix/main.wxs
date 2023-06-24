@@ -375,7 +375,7 @@
         <SetProperty
             Id="ReplacePathsInWindowsTerminalProfile"
             Sequence="execute"
-            Value="&quot;[#exe0]&quot; -c &quot;open '[#WindowsTerminalProfileFile]' | update profiles.commandline '[#exe0]' | update profiles.icon '[#icon0]' | save -f '[#WindowsTerminalProfileFile]'&quot;"
+            Value="&quot;[#exe0]&quot; -c &quot;open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#exe0]` | update profiles.icon `[#icon0]` | save -f `[#WindowsTerminalProfileFile]`&quot;"
             After='CostFinalize'/>
         <CustomAction
             Id="ReplacePathsInWindowsTerminalProfile"

@@ -42,6 +42,7 @@ tarpaulin-report.html
 *.rsproj
 *.rsproj.user
 *.sln
+*.code-workspace
 
 # direnv
 .direnv/

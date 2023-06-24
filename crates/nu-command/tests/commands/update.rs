@@ -16,9 +16,7 @@ fn sets_the_column() {
 
 #[test]
 fn doesnt_convert_record_to_table() {
-    let actual = nu!(
-        cwd: ".", r#"{a:1} | update a 2 | to nuon"#
-    );
+    let actual = nu!("{a:1} | update a 2 | to nuon");
 
     assert_eq!(actual.out, "{a: 2}");
 }
@@ -83,44 +81,34 @@ fn upsert_column_missing() {
 
 #[test]
 fn update_list() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            [1, 2, 3] | update 1 abc | to json -r
-        "#
-    ));
-
+    let actual = nu!("[1, 2, 3] | update 1 abc | to json -r");
     assert_eq!(actual.out, r#"[1,"abc",3]"#);
 }
 
 #[test]
 fn update_past_end_list() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            [1, 2, 3] | update 5 abc | to json -r
-        "#
-    ));
-
+    let actual = nu!("[1, 2, 3] | update 5 abc | to json -r");
     assert!(actual.err.contains("too large"));
 }
 
 #[test]
 fn update_nonexistent_column() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"{a:1} | update b 2"#
-    ));
-
+    let actual = nu!("{a:1} | update b 2");
     assert!(actual.err.contains("cannot find column 'b'"));
 }
 
 #[test]
 fn update_uses_enumerate_index() {
     let actual = nu!(
-        cwd: ".", pipeline(
         r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
-    ));
+    );
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
+}
+
+#[test]
+fn update_support_lazy_record() {
+    let actual =
+        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | update h 10 | get h"#);
+    assert_eq!(actual.out, "10");
 }

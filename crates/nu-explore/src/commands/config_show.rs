@@ -1,10 +1,10 @@
-use std::{collections::HashMap, io::Result};
-
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
 use ratatui::layout::Rect;
+use std::collections::HashMap;
+use std::io::Result;
 
 use crate::{
     nu_common::{try_build_table, NuSpan},

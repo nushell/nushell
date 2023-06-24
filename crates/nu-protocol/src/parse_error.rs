@@ -1,4 +1,9 @@
-use crate::{Span, Type};
+use std::{
+    fmt::Display,
+    str::{from_utf8, Utf8Error},
+};
+
+use crate::{did_you_mean, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -37,7 +42,11 @@ pub enum ParseError {
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
-    Expected(String, #[label("expected {0}")] Span),
+    Expected(&'static str, #[label("expected {0}")] Span),
+
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
+    ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -162,7 +171,7 @@ pub enum ParseError {
 
     #[error("Variable not found.")]
     #[diagnostic(code(nu::parser::variable_not_found))]
-    VariableNotFound(#[label = "variable not found"] Span),
+    VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
@@ -188,6 +197,13 @@ pub enum ParseError {
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
+    #[error("Missing mod.nu file.")]
+    #[diagnostic(
+        code(nu::parser::module_missing_mod_nu_file),
+        help("When importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+    )]
+    ModuleMissingModNuFile(#[label = "module directory is missing a mod.nu file"] Span),
+
     #[error("Cyclical module import.")]
     #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
     CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
@@ -195,12 +211,34 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `main` custom command.")
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
     )]
     NamedAsModule(
         String,
         String,
+        String,
         #[label = "can't export from module {1}"] Span,
+    ),
+
+    #[error("Module already contains 'main' command.")]
+    #[diagnostic(
+        code(nu::parser::module_double_main),
+        help("Tried to add 'main' command to module '{0}' but it has already been added.")
+    )]
+    ModuleDoubleMain(
+        String,
+        #[label = "module '{0}' already contains 'main'"] Span,
+    ),
+
+    #[error("Invalid module file name")]
+    #[diagnostic(
+        code(nu::parser::invalid_module_file_name),
+        help("File {0} resolves to module name {1} which is the same as the parent module. Either rename the file or, save it as 'mod.nu' to define the parent module.")
+    )]
+    InvalidModuleFileName(
+        String,
+        String,
+        #[label = "submodule can't have the same name as the parent module"] Span,
     ),
 
     #[error("Can't export alias defined as 'main'.")]
@@ -366,7 +404,7 @@ pub enum ParseError {
 
     #[error("Wrong import pattern structure.")]
     #[diagnostic(code(nu::parser::missing_import_pattern))]
-    WrongImportPattern(#[label = "invalid import pattern structure"] Span),
+    WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]
     #[diagnostic(code(nu::parser::export_not_found))]
@@ -418,6 +456,16 @@ pub enum ParseError {
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
+
+    #[error("{error}")]
+    #[diagnostic(help("{help}"))]
+    LabeledErrorWithHelp {
+        error: String,
+        label: String,
+        help: String,
+        #[label("{label}")]
+        span: Span,
+    },
 }
 
 impl ParseError {
@@ -429,6 +477,7 @@ impl ParseError {
             ParseError::Unclosed(_, s) => *s,
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
+            ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
             ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
@@ -442,12 +491,15 @@ impl ParseError {
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
-            ParseError::VariableNotFound(s) => *s,
+            ParseError::VariableNotFound(_, s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
-            ParseError::NamedAsModule(_, _, s) => *s,
+            ParseError::ModuleMissingModNuFile(s) => *s,
+            ParseError::NamedAsModule(_, _, _, s) => *s,
+            ParseError::ModuleDoubleMain(_, s) => *s,
+            ParseError::InvalidModuleFileName(_, _, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
@@ -481,7 +533,7 @@ impl ParseError {
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
             ParseError::MissingImportPattern(s) => *s,
-            ParseError::WrongImportPattern(s) => *s,
+            ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,
@@ -495,6 +547,41 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::NotAConstant(s) => *s,
+            ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DidYouMean(Option<String>);
+
+fn did_you_mean_impl(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> Option<String> {
+    let input = from_utf8(input_bytes).ok()?;
+    let possibilities = possibilities_bytes
+        .iter()
+        .map(|p| from_utf8(p))
+        .collect::<Result<Vec<&str>, Utf8Error>>()
+        .ok()?;
+    did_you_mean(&possibilities, input)
+}
+impl DidYouMean {
+    pub fn new(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> DidYouMean {
+        DidYouMean(did_you_mean_impl(possibilities_bytes, input_bytes))
+    }
+}
+
+impl From<Option<String>> for DidYouMean {
+    fn from(value: Option<String>) -> Self {
+        Self(value)
+    }
+}
+
+impl Display for DidYouMean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(suggestion) = &self.0 {
+            write!(f, "Did you mean '{}'?", suggestion)
+        } else {
+            write!(f, "")
         }
     }
 }

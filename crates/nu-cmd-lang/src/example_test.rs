@@ -15,12 +15,12 @@ mod test_examples {
     };
     use crate::{
         Break, Collect, Def, DefEnv, Describe, Echo, ExportCommand, ExportDef, ExportDefEnv, If,
-        Let, Module, Mut,
+        Let, Module, Mut, Use,
     };
     use nu_protocol::Value;
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
-        Type,
+        Type, Value,
     };
     use std::collections::HashSet;
 
@@ -58,6 +58,11 @@ mod test_examples {
 
     fn make_engine_state(cmd: Box<dyn Command>) -> Box<EngineState> {
         let mut engine_state = Box::new(EngineState::new());
+        let cwd = std::env::current_dir()
+            .expect("Could not get current working directory.")
+            .to_string_lossy()
+            .to_string();
+        engine_state.add_env_var("PWD".to_string(), Value::test_string(cwd));
 
         let delta = {
             // Base functions that are needed for testing
@@ -76,6 +81,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Module));
             working_set.add_decl(Box::new(Mut));
+            working_set.add_decl(Box::new(Use));
 
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);

@@ -1,6 +1,8 @@
 mod tablew;
 
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
+
+use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::{get_color_map, StyleComputer};

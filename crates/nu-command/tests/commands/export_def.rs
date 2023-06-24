@@ -1,13 +1,8 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn export_subcommands_help() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        export def -h
-        "#
-    ));
+    let actual = nu!("export def -h");
 
     assert!(actual
         .out

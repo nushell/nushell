@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, Type, Value};
+use crate::{ast::Operator, Span, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -19,10 +19,10 @@ pub enum ShellError {
     OperatorMismatch {
         #[label = "type mismatch for operator"]
         op_span: Span,
-        lhs_ty: Type,
+        lhs_ty: String,
         #[label("{lhs_ty}")]
         lhs_span: Span,
-        rhs_ty: Type,
+        rhs_ty: String,
         #[label("{rhs_ty}")]
         rhs_span: Span,
     },
@@ -391,20 +391,13 @@ pub enum ShellError {
         help: Option<String>,
     },
 
-    /// Failed to convert a value of one type into a different type. Includes hint for what the first value is.
-    ///
-    /// ## Resolution
-    ///
-    /// Not all values can be coerced this way. Check the supported type(s) and try again.
-    #[error("Can't convert {from_type} `{details}` to {to_type}.")]
+    #[error("Can't convert string `{details}` to duration.")]
     #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertWithValue {
-        to_type: String,
-        from_type: String,
+    CantConvertToDuration {
         details: String,
-        #[label("can't be converted to {to_type}")]
+        #[label("can't be converted to duration")]
         dst_span: Span,
-        #[label("this {from_type} value...")]
+        #[label("this string value...")]
         src_span: Span,
         #[help]
         help: Option<String>,
@@ -876,9 +869,12 @@ pub enum ShellError {
     ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
 
     /// Unable to remove this item.
+    ///
+    /// ## Resolution
+    ///
+    /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
-    // NOTE: Currently unused. Remove?
     RemoveNotPossible(String, #[label("{0}")] Span),
 
     // These three are unused. Remove?
@@ -1099,93 +1095,4 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
 
 pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
-}
-
-pub fn did_you_mean<S: AsRef<str>>(possibilities: &[S], input: &str) -> Option<String> {
-    let possibilities: Vec<&str> = possibilities.iter().map(|s| s.as_ref()).collect();
-    let suggestion =
-        crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
-            .map(|s| s.to_string());
-    if let Some(suggestion) = &suggestion {
-        if suggestion.len() == 1 && suggestion.to_lowercase() != input.to_lowercase() {
-            return None;
-        }
-    }
-    suggestion
-}
-
-pub fn levenshtein_distance(a: &str, b: &str) -> usize {
-    crate::lev_distance::lev_distance(a, b, usize::max_value())
-        .expect("It is impossible to exceed the supplied limit since all types involved are usize.")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::did_you_mean;
-
-    #[test]
-    fn did_you_mean_examples() {
-        let all_cases = [
-            (
-                vec!["a", "b"],
-                vec![
-                    ("a", Some("a"), ""),
-                    ("A", Some("a"), ""),
-                    (
-                        "c",
-                        None,
-                        "Not helpful to suggest an arbitrary choice when none are close",
-                    ),
-                    ("ccccccccccccccccccccccc", None, "Not helpful to suggest an arbitrary choice when none are close"),
-                ],
-            ),
-            (
-                vec!["OS", "PWD", "PWDPWDPWDPWD"],
-                vec![
-                    ("pwd", Some("PWD"), "Exact case insensitive match yields a match"),
-                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "Exact case insensitive match yields a match"),
-                    ("PWF", Some("PWD"), "One-letter typo yields a match"),
-                    ("pwf", None, "Case difference plus typo yields no match"),
-                    ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
-                ]
-            ),
-            (
-                vec!["foo", "bar", "baz"],
-                vec![
-                    ("fox", Some("foo"), ""),
-                    ("FOO", Some("foo"), ""),
-                    ("FOX", None, ""),
-                    (
-                        "ccc",
-                        None,
-                        "Not helpful to suggest an arbitrary choice when none are close",
-                    ),
-                    (
-                        "zzz",
-                        None,
-                        "'baz' does share a character, but rustc rule is edit distance must be <= 1/3 of the length of the user input",
-                    ),
-                ],
-            ),
-            (
-                vec!["aaaaaa"],
-                vec![
-                    ("XXaaaa", Some("aaaaaa"), "Distance of 2 out of 6 chars: close enough to meet rustc's rule"),
-                    ("XXXaaa", None,  "Distance of 3 out of 6 chars: not close enough to meet rustc's rule"),
-                    ("XaaaaX", Some("aaaaaa"), "Distance of 2 out of 6 chars: close enough to meet rustc's rule"),
-                    ("XXaaaaXX", None, "Distance of 4 out of 6 chars: not close enough to meet rustc's rule")
-                ]
-            ),
-        ];
-        for (possibilities, cases) in all_cases {
-            for (input, expected_suggestion, discussion) in cases {
-                let suggestion = did_you_mean(&possibilities, input);
-                assert_eq!(
-                    suggestion.as_deref(),
-                    expected_suggestion,
-                    "Expected the following reasoning to hold but it did not: '{discussion}'"
-                );
-            }
-        }
-    }
 }

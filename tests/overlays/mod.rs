@@ -1312,3 +1312,71 @@ fn alias_overlay_new() {
     assert_eq!(actual.out, "eggs");
     assert_eq!(actual_repl.out, "eggs");
 }
+
+#[test]
+fn overlay_use_module_dir() {
+    let import = "overlay use samples/spam";
+
+    let inp = &[import, "spam"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spam");
+
+    let inp = &[import, "foo"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[import, "bar"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "bar");
+
+    let inp = &[import, "foo baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foobaz");
+
+    let inp = &[import, "bar baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "barbaz");
+
+    let inp = &[import, "baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spambaz");
+}
+
+#[test]
+fn overlay_use_module_dir_prefix() {
+    let import = "overlay use samples/spam --prefix";
+
+    let inp = &[import, "spam"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spam");
+
+    let inp = &[import, "spam foo"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foo");
+
+    let inp = &[import, "spam bar"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "bar");
+
+    let inp = &[import, "spam foo baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "foobaz");
+
+    let inp = &[import, "spam bar baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "barbaz");
+
+    let inp = &[import, "spam baz"];
+    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    assert_eq!(actual.out, "spambaz");
+}
+
+#[test]
+fn overlay_help_no_error() {
+    let actual = nu!(cwd: ".", "overlay hide -h");
+    assert!(actual.err.is_empty());
+    let actual = nu!(cwd: ".", "overlay new -h");
+    assert!(actual.err.is_empty());
+    let actual = nu!(cwd: ".", "overlay use -h");
+    assert!(actual.err.is_empty());
+}

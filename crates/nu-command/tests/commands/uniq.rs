@@ -23,7 +23,6 @@ fn removes_duplicate_rows() {
                 open los_tres_caballeros.csv
                 | uniq
                 | length
-
             "#
         ));
 
@@ -53,7 +52,6 @@ fn uniq_values() {
                 | select type
                 | uniq
                 | length
-
             "#
         ));
 
@@ -125,7 +123,6 @@ fn nested_json_structures() {
                 open nested_json_structures.json
                 | uniq
                 | length
-
             "#
         ));
         assert_eq!(actual.out, "3");
@@ -134,13 +131,11 @@ fn nested_json_structures() {
 
 #[test]
 fn uniq_when_keys_out_of_order() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [{"a": "a", "b": [1,2,3]}, {"b": [1,2,3], "a": "a"}]
             | uniq
             | length
-
         "#
     ));
 
@@ -149,8 +144,7 @@ fn uniq_when_keys_out_of_order() {
 
 #[test]
 fn uniq_counting() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             ["A", "B", "A"]
             | wrap item
@@ -163,10 +157,9 @@ fn uniq_counting() {
     ));
     assert_eq!(actual.out, "2");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
-            echo ["A", "B", "A"]
+            ["A", "B", "A"]
             | wrap item
             | uniq --count
             | flatten
@@ -180,89 +173,41 @@ fn uniq_counting() {
 
 #[test]
 fn uniq_unique() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            echo [1 2 3 4 1 5]
-            | uniq --unique
-        "#
-    ));
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo [2 3 4 5]
-        "#
-    ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
+    let actual = nu!("[1 2 3 4 1 5] | uniq --unique");
+    let expected = nu!("[2 3 4 5]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn uniq_simple_vals_ints() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            echo [1 2 3 4 1 5]
-            | uniq
-        "#
-    ));
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo [1 2 3 4 5]
-        "#
-    ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
+    let actual = nu!("[1 2 3 4 1 5] | uniq");
+    let expected = nu!("[1 2 3 4 5]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn uniq_simple_vals_strs() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            echo [A B C A]
-            | uniq
-        "#
-    ));
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo [A B C]
-        "#
-    ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
+    let actual = nu!("[A B C A] | uniq");
+    let expected = nu!("[A B C]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn table() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
             | uniq
         "#
     ));
 
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
-        "#
-    ));
-    print!("{}", actual.out);
-    print!("{}", expected.out);
+    let expected = nu!("[[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn table_with_ignore_case() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[origin, people];
                 [World, (
@@ -284,8 +229,7 @@ fn table_with_ignore_case() {
         "#
     ));
 
-    let expected = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let expected = nu!(pipeline(
         r#"
         echo [[origin, people];
                 [World, (
@@ -302,8 +246,5 @@ fn table_with_ignore_case() {
         "#
     ));
 
-    print!("{}", actual.out);
-    print!("{}", expected.out);
-    assert_eq!(actual.out, expected.out);
     assert_eq!(actual.out, expected.out);
 }

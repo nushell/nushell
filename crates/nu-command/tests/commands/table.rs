@@ -38,7 +38,7 @@ fn table_collapse_0() {
 #[test]
 fn table_collapse_basic() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: basic };",
+        "let-env config = { table: { mode: basic }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -60,7 +60,7 @@ fn table_collapse_basic() {
 #[test]
 fn table_collapse_heavy() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: heavy };",
+        "let-env config = { table: { mode: heavy }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -82,7 +82,7 @@ fn table_collapse_heavy() {
 #[test]
 fn table_collapse_compact() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: compact };",
+        "let-env config = { table: { mode: compact }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -104,7 +104,7 @@ fn table_collapse_compact() {
 #[test]
 fn table_collapse_compact_double() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: compact_double };",
+        "let-env config = { table: { mode: compact_double }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -126,7 +126,7 @@ fn table_collapse_compact_double() {
 #[test]
 fn table_collapse_compact_light() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: light };",
+        "let-env config = { table: { mode: light }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -148,7 +148,7 @@ fn table_collapse_compact_light() {
 #[test]
 fn table_collapse_none() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: none };",
+        "let-env config = { table: { mode: none }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -166,7 +166,7 @@ fn table_collapse_none() {
 #[test]
 fn table_collapse_compact_reinforced() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: reinforced };",
+        "let-env config = { table: { mode: reinforced }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -188,7 +188,7 @@ fn table_collapse_compact_reinforced() {
 #[test]
 fn table_collapse_compact_thin() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: thin };",
+        "let-env config = { table: { mode: thin }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -210,7 +210,7 @@ fn table_collapse_compact_thin() {
 #[test]
 fn table_collapse_hearts() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: with_love };",
+        "let-env config = { table: { mode: with_love }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -784,22 +784,21 @@ fn test_expand_big_0() {
             "│                  │ │               │ │          │ │           │ field} │ │ │ │",
             "│                  │ │               │ │          │ │ pkg-fmt   │ tgz    │ │ │ │",
             "│                  │ │               │ │          │ │ pkg-url   │ { repo │ │ │ │",
-            "│                  │ │               │ │          │ │           │        │ │ │ │",
-            "│                  │ │               │ │          │ │           │ }/rele │ │ │ │",
-            "│                  │ │               │ │          │ │           │ ases/d │ │ │ │",
-            "│                  │ │               │ │          │ │           │ ownloa │ │ │ │",
-            "│                  │ │               │ │          │ │           │ d/{    │ │ │ │",
-            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
-            "│                  │ │               │ │          │ │           │ n }/{  │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }/rel │ │ │ │",
+            "│                  │ │               │ │          │ │           │ eases/ │ │ │ │",
+            "│                  │ │               │ │          │ │           │ downlo │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ad/{ v │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ersion │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }/{   │ │ │ │",
             "│                  │ │               │ │          │ │           │ name   │ │ │ │",
+            "│                  │ │               │ │          │ │           │ }-{ ve │ │ │ │",
+            "│                  │ │               │ │          │ │           │ rsion  │ │ │ │",
             "│                  │ │               │ │          │ │           │ }-{    │ │ │ │",
-            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
-            "│                  │ │               │ │          │ │           │ n }-{  │ │ │ │",
             "│                  │ │               │ │          │ │           │ target │ │ │ │",
-            "│                  │ │               │ │          │ │           │  }.{   │ │ │ │",
-            "│                  │ │               │ │          │ │           │ archiv │ │ │ │",
-            "│                  │ │               │ │          │ │           │ e-form │ │ │ │",
-            "│                  │ │               │ │          │ │           │ at }   │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }.{ a │ │ │ │",
+            "│                  │ │               │ │          │ │           │ rchive │ │ │ │",
+            "│                  │ │               │ │          │ │           │ -forma │ │ │ │",
+            "│                  │ │               │ │          │ │           │ t }    │ │ │ │",
             "│                  │ │               │ │          │ ╰───────────┴────────╯ │ │ │",
             "│                  │ │               │ ╰──────────┴────────────────────────╯ │ │",
             "│                  │ │ name          │ nu                                    │ │",
@@ -1046,6 +1045,8 @@ fn test_expand_big_0() {
             "open sample.toml | table --expand --width=60"
         ));
 
+        _print_lines(&actual.out, 60);
+
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────╮",
             "│                  │ ╭───┬─────────┬────────────╮          │",
@@ -1230,9 +1231,8 @@ fn test_expand_big_0() {
             "│ package          │ │               │ ╭───┬───────────╮ │ │",
             "│                  │ │ authors       │ │ 0 │ The       │ │ │",
             "│                  │ │               │ │   │ Nushell   │ │ │",
-            "│                  │ │               │ │   │ Project   │ │ │",
-            "│                  │ │               │ │   │ Developer │ │ │",
-            "│                  │ │               │ │   │ s         │ │ │",
+            "│                  │ │               │ │   │ Project D │ │ │",
+            "│                  │ │               │ │   │ evelopers │ │ │",
             "│                  │ │               │ ╰───┴───────────╯ │ │",
             "│                  │ │ default-run   │ nu                │ │",
             "│                  │ │ description   │ A new type of     │ │",
@@ -1266,9 +1266,8 @@ fn test_expand_big_0() {
             "│                  │ ╭───────────┬───────────────────────╮ │",
             "│ patch            │ │           │ ╭──────────┬────────╮ │ │",
             "│                  │ │ crates-io │ │ reedline │ {recor │ │ │",
-            "│                  │ │           │ │          │ d 2    │ │ │",
-            "│                  │ │           │ │          │ fields │ │ │",
-            "│                  │ │           │ │          │ }      │ │ │",
+            "│                  │ │           │ │          │ d 2 fi │ │ │",
+            "│                  │ │           │ │          │ elds}  │ │ │",
             "│                  │ │           │ ╰──────────┴────────╯ │ │",
             "│                  │ ╰───────────┴───────────────────────╯ │",
             "│ target           │ {record 3 fields}                     │",
@@ -1311,6 +1310,8 @@ fn test_expand_big_0() {
             cwd: dirs.test(), pipeline(
             "open sample.toml | table --expand --width=40"
         ));
+
+        _print_lines(&actual.out, 40);
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────╮",
@@ -1357,7 +1358,7 @@ fn test_expand_big_0() {
 
 #[test]
 fn table_expande_with_no_header_internally_0() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!("{} | table --expand --width 141", nu_value.trim()));
 
@@ -1464,6 +1465,10 @@ fn table_expande_with_no_header_internally_0() {
             "│                    │ │                                  │ │ list                       │ white              │                           │ │",
             "│                    │ │                                  │ │ block                      │ white              │                           │ │",
             "│                    │ │                                  │ │ hints                      │ dark_gray          │                           │ │",
+            "│                    │ │                                  │ │                            │ ╭────┬───────╮     │                           │ │",
+            "│                    │ │                                  │ │ search_result              │ │ fg │ white │     │                           │ │",
+            "│                    │ │                                  │ │                            │ │ bg │ red   │     │                           │ │",
+            "│                    │ │                                  │ │                            │ ╰────┴───────╯     │                           │ │",
             "│                    │ │                                  │ │ shape_and                  │ purple_bold        │                           │ │",
             "│                    │ │                                  │ │ shape_binary               │ purple_bold        │                           │ │",
             "│                    │ │                                  │ │ shape_block                │ blue_bold          │                           │ │",
@@ -1599,7 +1604,7 @@ fn table_expande_with_no_header_internally_0() {
 
 #[test]
 fn table_expande_with_no_header_internally_1() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!("{} | table --expand --width 136", nu_value.trim()));
 
@@ -1706,6 +1711,10 @@ fn table_expande_with_no_header_internally_1() {
             "│                    │ │                                  │ │ list                       │ white              │                      │ │",
             "│                    │ │                                  │ │ block                      │ white              │                      │ │",
             "│                    │ │                                  │ │ hints                      │ dark_gray          │                      │ │",
+            "│                    │ │                                  │ │                            │ ╭────┬───────╮     │                      │ │",
+            "│                    │ │                                  │ │ search_result              │ │ fg │ white │     │                      │ │",
+            "│                    │ │                                  │ │                            │ │ bg │ red   │     │                      │ │",
+            "│                    │ │                                  │ │                            │ ╰────┴───────╯     │                      │ │",
             "│                    │ │                                  │ │ shape_and                  │ purple_bold        │                      │ │",
             "│                    │ │                                  │ │ shape_binary               │ purple_bold        │                      │ │",
             "│                    │ │                                  │ │ shape_block                │ blue_bold          │                      │ │",
@@ -1823,16 +1832,16 @@ fn test_collapse_big_0() {
             repository = "https://github.com/nushell/nushell"
             rust-version = "1.60"
             version = "0.74.1"
-            
+
             # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-            
+
             [package.metadata.binstall]
             pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
             pkg-fmt = "tgz"
-            
+
             [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
             pkg-fmt = "zip"
-            
+
             [workspace]
             members = [
                 "crates/nu-cli",
@@ -1849,7 +1858,7 @@ fn test_collapse_big_0() {
                 "crates/nu_plugin_custom_values",
                 "crates/nu-utils",
             ]
-            
+
             [dependencies]
             chrono = { version = "0.4.23", features = ["serde"] }
             crossterm = "0.24.0"
@@ -1860,25 +1869,25 @@ fn test_collapse_big_0() {
             nu-cli = { path = "./crates/nu-cli", version = "0.74.1" }
             nu-engine = { path = "./crates/nu-engine", version = "0.74.1" }
             reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
-            
+
             rayon = "1.6.1"
             is_executable = "1.0.1"
             simplelog = "0.12.0"
             time = "0.3.12"
-            
+
             [target.'cfg(not(target_os = "windows"))'.dependencies]
             # Our dependencies don't use OpenSSL on Windows
             openssl = { version = "0.10.38", features = ["vendored"], optional = true }
             signal-hook = { version = "0.3.14", default-features = false }
-            
-            
+
+
             [target.'cfg(windows)'.build-dependencies]
             winres = "0.1"
-            
+
             [target.'cfg(target_family = "unix")'.dependencies]
             nix = { version = "0.25", default-features = false, features = ["signal", "process", "fs", "term"] }
             atty = "0.2"
-            
+
             [dev-dependencies]
             nu-test-support = { path = "./crates/nu-test-support", version = "0.74.1" }
             tempfile = "3.2.0"
@@ -1889,7 +1898,7 @@ fn test_collapse_big_0() {
             hamcrest2 = "0.3.0"
             rstest = { version = "0.15.0", default-features = false }
             itertools = "0.10.3"
-            
+
             [features]
             plugin = [
                 "nu-plugin",
@@ -1904,10 +1913,10 @@ fn test_collapse_big_0() {
             default = ["plugin", "which-support", "trash-support", "sqlite"]
             stable = ["default"]
             wasi = []
-            
+
             # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
             static-link-openssl = ["dep:openssl"]
-            
+
             # Stable (Default)
             which-support = ["nu-command/which-support"]
             trash-support = ["nu-command/trash-support"]
@@ -1916,12 +1925,12 @@ fn test_collapse_big_0() {
             [[bin]]
             name = "nu"
             path = "src/main.rs"
-            
+
             # To use a development version of a dependency please use a global override here
             # changing versions in each sub-crate of the workspace is tedious
             [patch.crates-io]
             reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
-            
+
             # Criterion benchmarking setup
             # Run all benchmarks with `cargo bench`
             # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
@@ -2359,4 +2368,20 @@ fn _split_str_by_width(s: &str, w: usize) -> Vec<String> {
     lines.push(line);
 
     lines
+}
+
+#[test]
+fn table_expand_index_offset() {
+    let actual = nu!(r#"1..1002 | table --expand"#);
+    let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
+    let expected_suffix = actual.out.strip_suffix(suffix);
+    assert!(expected_suffix.is_some(), "{:?}", actual.out);
+}
+
+#[test]
+fn table_index_offset() {
+    let actual = nu!(r#"1..1002 | table"#);
+    let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
+    let expected_suffix = actual.out.strip_suffix(suffix);
+    assert!(expected_suffix.is_some(), "{:?}", actual.out);
 }

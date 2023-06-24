@@ -94,37 +94,17 @@ fn summarizes_by_values() {
 
 #[test]
 fn help() {
-    Playground::setup("histogram_test_3", |dirs, _sandbox| {
-        let help_command = nu!(
-        cwd: dirs.test(), pipeline(
-        r#"
-                help histogram
-            "#
-        ));
+    let help_command = nu!("help histogram");
+    let help_short = nu!("histogram -h");
+    let help_long = nu!("histogram --help");
 
-        let help_short = nu!(
-        cwd: dirs.test(), pipeline(
-        r#"
-                histogram -h
-            "#
-        ));
-
-        let help_long = nu!(
-        cwd: dirs.test(), pipeline(
-        r#"
-                histogram --help
-            "#
-        ));
-
-        assert_eq!(help_short.out, help_command.out);
-        assert_eq!(help_long.out, help_command.out);
-    })
+    assert_eq!(help_short.out, help_command.out);
+    assert_eq!(help_long.out, help_command.out);
 }
 
 #[test]
 fn count() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1] [1]]
             | histogram bit --percentage-type relative

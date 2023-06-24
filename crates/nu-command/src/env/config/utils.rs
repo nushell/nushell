@@ -1,4 +1,5 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -71,6 +72,7 @@ pub(crate) fn gen_command(
         arg_keep_raw: vec![false; number_of_args],
         redirect_stdout: false,
         redirect_stderr: false,
+        redirect_combine: false,
         env_vars: env_vars_str,
         trim_end_newline: false,
     }

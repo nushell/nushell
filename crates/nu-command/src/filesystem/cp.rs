@@ -57,6 +57,10 @@ impl Command for Cp {
                 "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
             )
+            .switch("update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
@@ -88,6 +92,7 @@ impl Command for Cp {
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         let progress = call.has_flag("progress");
+        let update_mode = call.has_flag("update");
 
         let current_dir_path = current_dir(engine_state, stack)?;
         let source = current_dir_path.join(src.item.as_str());
@@ -177,6 +182,12 @@ impl Command for Cp {
                     if src.is_file() {
                         let dst =
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
+
+                        // ignore when source file is not newer than target file
+                        if update_mode && super::util::is_older(&src, &dst) {
+                            continue;
+                        }
+
                         let res = if src == dst {
                             let message = format!(
                                 "src {source:?} and dst {destination:?} are identical(not copied)"
@@ -359,6 +370,11 @@ impl Command for Cp {
             Example {
                 description: "Move many files into a directory",
                 example: "cp *.txt dir_a",
+                result: None,
+            },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
                 result: None,
             },
         ]

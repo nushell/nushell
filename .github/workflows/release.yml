@@ -23,11 +23,10 @@ jobs:
         - aarch64-apple-darwin
         - x86_64-apple-darwin
         - x86_64-pc-windows-msvc
+        - aarch64-pc-windows-msvc
         - x86_64-unknown-linux-gnu
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
-        - armv7-unknown-linux-gnueabihf
-        - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
         - target: aarch64-apple-darwin
@@ -44,6 +43,14 @@ jobs:
           extra: msi
           os: windows-latest
           target_rustflags: ''
+        - target: aarch64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: ''
+        - target: aarch64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-20.04
           target_rustflags: ''
@@ -51,12 +58,6 @@ jobs:
           os: ubuntu-20.04
           target_rustflags: ''
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: ''
-        - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-20.04
-          target_rustflags: ''
-        - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-20.04
           target_rustflags: ''
 
@@ -70,12 +71,14 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      with:
+        rustflags: ''
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.78.0
+        version: 0.81.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

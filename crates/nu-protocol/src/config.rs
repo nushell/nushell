@@ -86,7 +86,7 @@ pub struct Config {
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
     pub history_file_format: HistoryFileFormat,
-    pub log_level: String,
+    pub history_isolation: bool,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
@@ -99,12 +99,15 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
+    pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
     pub cursor_shape_vi_insert: NuCursorShape,
     pub cursor_shape_vi_normal: NuCursorShape,
     pub cursor_shape_emacs: NuCursorShape,
+    pub datetime_normal_format: Option<String>,
+    pub datetime_table_format: Option<String>,
 }
 
 impl Default for Config {
@@ -129,7 +132,7 @@ impl Default for Config {
             max_history_size: i64::MAX,
             sync_history_on_enter: true,
             history_file_format: HistoryFileFormat::PlainText,
-            log_level: String::new(),
+            history_isolation: false,
             keybindings: Vec::new(),
             menus: Vec::new(),
             hooks: Hooks::new(),
@@ -142,12 +145,15 @@ impl Default for Config {
             enable_external_completion: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             show_banner: true,
+            bracketed_paste: true,
             show_clickable_links_in_ls: true,
             render_right_prompt_on_last_line: false,
             explore: HashMap::new(),
             cursor_shape_vi_insert: NuCursorShape::Block,
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
             cursor_shape_emacs: NuCursorShape::Line,
+            datetime_normal_format: None,
+            datetime_table_format: None,
         }
     }
 }
@@ -221,9 +227,7 @@ impl TrimStrategy {
 impl Value {
     pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
-
         let mut config = config.clone();
-        let mut legacy_options_used = false;
 
         // Vec for storing errors.
         // Current Nushell behaviour (Dec 2022) is that having some typo like "always_trash": tru in your config.nu's
@@ -419,6 +423,9 @@ impl Value {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
+                                    "isolation" => {
+                                        try_bool!(cols, vals, index, span, history_isolation)
+                                    }
                                     "sync_on_enter" => {
                                         try_bool!(cols, vals, index, span, sync_history_on_enter)
                                     }
@@ -471,11 +478,13 @@ impl Value {
                                     "sync_on_enter".into(),
                                     "max_size".into(),
                                     "file_format".into(),
+                                    "isolation".into(),
                                 ],
                                 vec![
                                     Value::boolean(config.sync_history_on_enter, *span),
                                     Value::int(config.max_history_size, *span),
                                     reconstruct_history_file_format!(span),
+                                    Value::boolean(config.history_isolation, *span),
                                 ],
                                 *span,
                             );
@@ -949,11 +958,17 @@ impl Value {
                             invalid!(vals[index].span().ok(), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["mode".into(), "index_mode".into(), "trim".into()],
+                                vec![
+                                    "mode".into(),
+                                    "index_mode".into(),
+                                    "trim".into(),
+                                    "show_empty".into(),
+                                ],
                                 vec![
                                     Value::string(config.table_mode.clone(), *span),
                                     reconstruct_index_mode!(span),
                                     reconstruct_trim_strategy!(span),
+                                    Value::boolean(config.table_show_empty, *span),
                                 ],
                                 *span,
                             )
@@ -1067,15 +1082,26 @@ impl Value {
                             vals[index] = Value::string(config.edit_mode.clone(), *span);
                         }
                     }
-                    "log_level" => {
+                    "shell_integration" => {
+                        try_bool!(cols, vals, index, span, shell_integration);
+                    }
+                    "buffer_editor" => {
                         if let Ok(v) = value.as_string() {
-                            config.log_level = v.to_lowercase();
+                            config.buffer_editor = v.to_lowercase();
                         } else {
                             invalid!(Some(*span), "should be a string");
-                            // Reconstruct
-                            vals[index] = Value::string(config.log_level.clone(), *span);
                         }
                     }
+                    "show_banner" => {
+                        try_bool!(cols, vals, index, span, show_banner);
+                    }
+                    "render_right_prompt_on_last_line" => {
+                        try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
+                    }
+                    "bracketed_paste" => {
+                        try_bool!(cols, vals, index, span, bracketed_paste);
+                    }
+                    // Menus
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
@@ -1121,6 +1147,7 @@ impl Value {
                             }
                         }
                     },
+                    // Keybindings
                     "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
@@ -1160,6 +1187,7 @@ impl Value {
                             }
                         }
                     },
+                    // Hooks
                     "hooks" => match create_hooks(value) {
                         Ok(hooks) => config.hooks = hooks,
                         Err(e) => {
@@ -1191,226 +1219,51 @@ impl Value {
                             });
                         }
                     },
-                    "shell_integration" => {
-                        try_bool!(cols, vals, index, span, shell_integration);
-                    }
-                    "buffer_editor" => {
-                        if let Ok(v) = value.as_string() {
-                            config.buffer_editor = v.to_lowercase();
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "show_banner" => {
-                        try_bool!(cols, vals, index, span, show_banner);
-                    }
-                    "render_right_prompt_on_last_line" => {
-                        try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
-                    }
-                    // Legacy config options (deprecated as of 2022-11-02)
-                    // Legacy options do NOT reconstruct their values on error
-                    "use_ls_colors" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, use_ls_colors);
-                    }
-                    "rm_always_trash" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, rm_always_trash);
-                    }
-                    "history_file_format" => {
-                        legacy_options_used = true;
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            config.history_file_format = match val_str.as_ref() {
-                                "sqlite" => HistoryFileFormat::Sqlite,
-                                "plaintext" => HistoryFileFormat::PlainText,
-                                _ => {
-                                    invalid!(
-                                        Some(*span),
-                                        "unrecognized $env.config.{key} '{val_str}'"
-                                    );
-                                    HistoryFileFormat::PlainText
-                                }
-                            };
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "sync_history_on_enter" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, sync_history_on_enter);
-                    }
-                    "max_history_size" => {
-                        legacy_options_used = true;
-                        try_int!(cols, vals, index, span, max_history_size);
-                    }
-                    "quick_completions" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, quick_completions);
-                    }
-                    "partial_completions" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, partial_completions);
-                    }
-                    "max_external_completion_results" => {
-                        legacy_options_used = true;
-                        try_int!(cols, vals, index, span, max_external_completion_results);
-                    }
-                    "completion_algorithm" => {
-                        legacy_options_used = true;
-                        if let Ok(v) = value.as_string() {
-                            let val_str = v.to_lowercase();
-                            config.completion_algorithm = match val_str.as_ref() {
-                                // This should match the MatchAlgorithm enum in completions::completion_options
-                                "prefix" => val_str,
-                                "fuzzy" => val_str,
-                                _ => {
-                                    invalid!( Some(*span),
-                                        "unrecognized $env.config.{key} '{val_str}'; expected either 'prefix' or 'fuzzy'"
-                                    );
-                                    val_str
-                                }
-                            };
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "case_sensitive_completions" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, case_sensitive_completions);
-                    }
-                    "enable_external_completion" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, enable_external_completion);
-                    }
-                    "external_completer" => {
-                        legacy_options_used = true;
-                        if let Ok(v) = value.as_block() {
-                            config.external_completer = Some(v)
-                        }
-                        // No error here because external completers are optional.
-                        // Idea: maybe error if this is a non-block, non-null?
-                    }
-                    "table_mode" => {
-                        legacy_options_used = true;
-                        if let Ok(v) = value.as_string() {
-                            config.table_mode = v;
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "table_index_mode" => {
-                        legacy_options_used = true;
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            match val_str.as_ref() {
-                                "always" => config.table_index_mode = TableIndexMode::Always,
-                                "never" => config.table_index_mode = TableIndexMode::Never,
-                                "auto" => config.table_index_mode = TableIndexMode::Auto,
-                                _ => {
-                                    invalid!( Some(*span),
-                                        "unrecognized $env.config.table_index_mode '{val_str}'; expected either 'never', 'always' or 'auto'"
-                                    );
+                    "datetime_format" => {
+                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
+                                match key2 {
+                                    "normal" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.datetime_normal_format = Some(v);
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                        }
+                                    }
+                                    "table" => {
+                                        if let Ok(v) = value.as_string() {
+                                            config.datetime_table_format = Some(v);
+                                        } else {
+                                            invalid!(Some(*span), "should be a string");
+                                        }
+                                    }
+                                    x => {
+                                        invalid_key!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            value.span().ok(),
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
+                                    }
                                 }
                             }
                         } else {
-                            invalid!(Some(*span), "should be a string");
+                            invalid!(vals[index].span().ok(), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                vec!["metric".into(), "format".into()],
+                                vec![
+                                    Value::boolean(config.filesize_metric, *span),
+                                    Value::string(config.filesize_format.clone(), *span),
+                                ],
+                                *span,
+                            );
                         }
                     }
-                    "table_trim" => {
-                        legacy_options_used = true;
-                        match try_parse_trim_strategy(value, &mut errors) {
-                            Ok(v) => config.trim_strategy = v,
-                            Err(e) => {
-                                // try_parse_trim_strategy() already calls eprintln!() on error
-                                cols.remove(index);
-                                vals.remove(index);
-                                errors.push(e);
-                            }
-                        }
-                    }
-                    "show_clickable_links_in_ls" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, show_clickable_links_in_ls);
-                    }
-                    "cd_with_abbreviations" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, cd_with_abbreviations);
-                    }
-                    "filesize_metric" => {
-                        legacy_options_used = true;
-                        try_bool!(cols, vals, index, span, filesize_metric);
-                    }
-                    "filesize_format" => {
-                        legacy_options_used = true;
-                        if let Ok(v) = value.as_string() {
-                            config.filesize_format = v.to_lowercase();
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "cursor_shape_vi_insert" => {
-                        legacy_options_used = true;
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            config.cursor_shape_vi_insert = match val_str.as_ref() {
-                                "block" => NuCursorShape::Block,
-                                "underline" => NuCursorShape::UnderScore,
-                                "line" => NuCursorShape::Line,
-                                _ => {
-                                    invalid!(
-                                        Some(*span),
-                                        "unrecognized $env.config.{key} '{val_str}'"
-                                    );
-                                    NuCursorShape::Line
-                                }
-                            };
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "cursor_shape_vi_normal" => {
-                        legacy_options_used = true;
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            config.cursor_shape_vi_normal = match val_str.as_ref() {
-                                "block" => NuCursorShape::Block,
-                                "underline" => NuCursorShape::UnderScore,
-                                "line" => NuCursorShape::Line,
-                                _ => {
-                                    invalid!(
-                                        Some(*span),
-                                        "unrecognized $env.config.{key} '{val_str}'"
-                                    );
-                                    NuCursorShape::Line
-                                }
-                            };
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-                    "cursor_shape_emacs" => {
-                        legacy_options_used = true;
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            config.cursor_shape_emacs = match val_str.as_ref() {
-                                "block" => NuCursorShape::Block,
-                                "underline" => NuCursorShape::UnderScore,
-                                "line" => NuCursorShape::Line,
-                                _ => {
-                                    invalid!(
-                                        Some(*span),
-                                        "unrecognized $env.config.{key} '{val_str}'"
-                                    );
-                                    NuCursorShape::Line
-                                }
-                            };
-                        } else {
-                            invalid!(Some(*span), "should be a string");
-                        }
-                    }
-
-                    // End legacy options
+                    // Catch all
                     x => {
                         invalid_key!(
                             cols,
@@ -1432,14 +1285,6 @@ impl Value {
                     None,
                     vec![],
                 )),
-            );
-        }
-
-        if legacy_options_used {
-            // This is a notification message, not an error.
-            eprintln!(
-                r#"The format of $env.config has recently changed, and several options have been grouped into sub-records. You may need to update your config.nu file.
-Please consult https://www.nushell.sh/blog/2022-11-29-nushell-0.72.html for details. Support for the old format will be removed in an upcoming Nu release."#
             );
         }
 

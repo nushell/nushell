@@ -3,6 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -104,9 +105,9 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
             if elem[0].partial_cmp(&elem[1]).is_none() {
                 return Err(ShellError::OperatorMismatch {
                     op_span: *head,
-                    lhs_ty: elem[0].get_type(),
+                    lhs_ty: elem[0].get_type().to_string(),
                     lhs_span: elem[0].span()?,
-                    rhs_ty: elem[1].get_type(),
+                    rhs_ty: elem[1].get_type().to_string(),
                     rhs_span: elem[1].span()?,
                 });
             }
@@ -142,7 +143,7 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
 
-    let mut frequency_map = std::collections::HashMap::new();
+    let mut frequency_map = HashMap::new();
     for v in hashable_values {
         let counter = frequency_map.entry(v).or_insert(0);
         *counter += 1;

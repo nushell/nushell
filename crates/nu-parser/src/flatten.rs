@@ -532,6 +532,21 @@ pub fn flatten_pipeline_element(
             output.append(&mut flatten_expression(working_set, err_expr));
             output
         }
+        PipelineElement::SameTargetRedirection {
+            cmd: (cmd_span, cmd_expr),
+            redirection: (redirect_span, redirect_expr),
+        } => {
+            let mut output = if let Some(span) = cmd_span {
+                let mut output = vec![(*span, FlatShape::Pipe)];
+                output.append(&mut flatten_expression(working_set, cmd_expr));
+                output
+            } else {
+                flatten_expression(working_set, cmd_expr)
+            };
+            output.push((*redirect_span, FlatShape::Redirection));
+            output.append(&mut flatten_expression(working_set, redirect_expr));
+            output
+        }
         PipelineElement::And(span, expr) => {
             let mut output = vec![(*span, FlatShape::And)];
             output.append(&mut flatten_expression(working_set, expr));

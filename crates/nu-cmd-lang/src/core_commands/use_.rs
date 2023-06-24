@@ -22,7 +22,7 @@ impl Command for Use {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
             .required("module", SyntaxShape::String, "Module or module file")
-            .optional(
+            .rest(
                 "members",
                 SyntaxShape::Any,
                 "Which members of the module to import",

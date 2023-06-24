@@ -128,6 +128,7 @@ impl NuCompleter {
                     | PipelineElement::Redirection(_, _, expr)
                     | PipelineElement::And(_, expr)
                     | PipelineElement::Or(_, expr)
+                    | PipelineElement::SameTargetRedirection { cmd: (_, expr), .. }
                     | PipelineElement::SeparateRedirection { out: (_, expr), .. } => {
                         let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                         let mut spans: Vec<String> = vec![];
@@ -500,7 +501,8 @@ mod completer_tests {
 
     #[test]
     fn test_completion_helper() {
-        let mut engine_state = nu_command::create_default_context();
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
 
         // Custom additions
         let delta = {

@@ -4,7 +4,7 @@ use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Val
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use crate::{Cell, NuTable};
+use crate::{Cell, NuTable, NuText};
 
 use super::{
     clean_charset, create_table_config, get_empty_style, get_header_style, get_index_style,
@@ -176,27 +176,7 @@ fn to_table_with_header(
 
         let skip_index = usize::from(with_index);
         for (col, header) in headers.iter().enumerate().skip(skip_index) {
-            let (text, style) = match item {
-                Value::Record { .. } => {
-                    let path = PathMember::String {
-                        val: header.clone(),
-                        span: Span::unknown(),
-                        optional: false,
-                    };
-                    let value = item.clone().follow_cell_path(&[path], false);
-
-                    match value {
-                        Ok(value) => get_value_style(&value, opts.config, opts.style_computer),
-                        Err(_) => get_empty_style(opts.style_computer),
-                    }
-                }
-                value if matches!(value, Value::String { .. }) => {
-                    let (text, style) = get_value_style(value, opts.config, opts.style_computer);
-                    let text = clean_charset(&text);
-                    (text, style)
-                }
-                value => get_value_style(value, opts.config, opts.style_computer),
-            };
+            let (text, style) = get_string_value_with_header(item, header, &opts);
 
             table.insert((row + 1, col), text);
             table.set_cell_style((row + 1, col), style);
@@ -229,11 +209,7 @@ fn to_table_with_no_header(
             table.insert((row, 0), text);
         }
 
-        let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
-        let is_string_value = matches!(item, Value::String { .. });
-        if is_string_value {
-            text = clean_charset(&text);
-        }
+        let (text, style) = get_string_value(item, &opts);
 
         let pos = (row, with_index as usize);
         table.insert(pos, text);
@@ -241,6 +217,35 @@ fn to_table_with_no_header(
     }
 
     Ok(Some(table))
+}
+
+fn get_string_value_with_header(item: &Value, header: &str, opts: &BuildConfig) -> NuText {
+    match item {
+        Value::Record { .. } => {
+            let path = PathMember::String {
+                val: header.to_owned(),
+                span: Span::unknown(),
+                optional: false,
+            };
+            let value = item.clone().follow_cell_path(&[path], false);
+
+            match value {
+                Ok(value) => get_string_value(&value, opts),
+                Err(_) => get_empty_style(opts.style_computer),
+            }
+        }
+        value => get_string_value(value, opts),
+    }
+}
+
+fn get_string_value(item: &Value, opts: &BuildConfig) -> NuText {
+    let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
+    let is_string_value = matches!(item, Value::String { .. });
+    if is_string_value {
+        text = clean_charset(&text);
+    }
+
+    (text, style)
 }
 
 fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize) -> String {

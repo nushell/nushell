@@ -72,6 +72,12 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
   ```shell
   cargo test --workspace
   ```
+
+  along with dataframe tests
+
+  ```shell
+  cargo test --workspace --features=dataframe
+  ```
   or via the `toolkit.nu` command:
   ```shell
   use toolkit.nu test
@@ -214,3 +220,7 @@ You can help us to make the review process a smooth experience:
     - Choose what simplifies having confidence in the conflict resolution and the review. **Merge commits in your branch are OK** in the squash model.
   - Feel free to notify your reviewers or affected PR authors if your change might cause larger conflicts with another change.
   - During the rollup of multiple PRs, we may choose to resolve merge conflicts and CI failures ourselves. (Allow maintainers to push to your branch to enable us to do this quickly.)
+
+### License
+
+We use the [MIT License](https://github.com/nushell/nushell/blob/main/LICENSE) in all of our Nushell projects. If you are including or referencing a crate that uses the [GPL License](https://www.gnu.org/licenses/gpl-3.0.en.html#license-text) unfortunately we will not be able to accept your PR.

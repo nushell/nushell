@@ -57,7 +57,9 @@ impl NuHelpCompleter {
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(sig))
+                    long_desc.push_str(&get_flags_section(sig, |v| {
+                        v.into_string_parsable(", ", &self.0.config)
+                    }))
                 }
 
                 if !sig.required_positional.is_empty()
@@ -69,10 +71,18 @@ impl NuHelpCompleter {
                         let _ = write!(long_desc, "  {}: {}\r\n", positional.name, positional.desc);
                     }
                     for positional in &sig.optional_positional {
+                        let opt_suffix = if let Some(value) = &positional.default_value {
+                            format!(
+                                " (optional, default: {})",
+                                &value.into_string_parsable(", ", &self.0.config),
+                            )
+                        } else {
+                            (" (optional)").to_string()
+                        };
                         let _ = write!(
                             long_desc,
-                            "  (optional) {}: {}\r\n",
-                            positional.name, positional.desc
+                            "  (optional) {}: {}{}\r\n",
+                            positional.name, positional.desc, opt_suffix
                         );
                     }
 

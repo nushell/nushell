@@ -31,6 +31,12 @@ fn style_get_attr(s: Style) -> Option<String> {
     if s.is_dimmed {
         attrs.push('d');
     };
+    if s.is_hidden {
+        attrs.push('h');
+    };
+    if s.is_italic {
+        attrs.push('i');
+    };
     if s.is_reverse {
         attrs.push('r');
     };
@@ -546,28 +552,7 @@ pub fn lookup_style(s: &str) -> Style {
 }
 
 pub fn lookup_color(s: &str) -> Option<Color> {
-    let color = match s {
-        "g" | "green" => Color::Green,
-        "lg" | "light_green" => Color::LightGreen,
-        "r" | "red" => Color::Red,
-        "lr" | "light_red" => Color::LightRed,
-        "u" | "blue" => Color::Blue,
-        "lu" | "light_blue" => Color::LightBlue,
-        "b" | "black" => Color::Black,
-        "ligr" | "light_gray" => Color::LightGray,
-        "y" | "yellow" => Color::Yellow,
-        "ly" | "light_yellow" => Color::LightYellow,
-        "p" | "purple" => Color::Purple,
-        "lp" | "light_purple" => Color::LightPurple,
-        "c" | "cyan" => Color::Cyan,
-        "lc" | "light_cyan" => Color::LightCyan,
-        "w" | "white" => Color::White,
-        "dgr" | "dark_gray" => Color::DarkGray,
-        "def" | "default" => Color::Default,
-        _ => return None,
-    };
-
-    Some(color)
+    lookup_style(s).foreground
 }
 
 fn fill_modifiers(attrs: &str, style: &mut Style) {

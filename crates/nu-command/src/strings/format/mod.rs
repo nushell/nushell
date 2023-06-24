@@ -1,4 +1,4 @@
-pub mod command;
+mod command;
 mod filesize;
 
 pub use self::filesize::FileSize;

@@ -9,6 +9,10 @@ mod test_bins;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
@@ -19,9 +23,10 @@ use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_command::{create_default_context, get_init_cwd};
-use nu_protocol::{report_error_new, Value};
+use nu_cmd_base::util::get_init_cwd;
+use nu_protocol::{engine::EngineState, report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::{ctrlc_protection, sigquit_protection};
@@ -30,6 +35,17 @@ use std::{
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
+
+fn get_engine_state() -> EngineState {
+    let engine_state = nu_cmd_lang::create_default_context();
+    let engine_state = nu_command::add_shell_command_context(engine_state);
+    #[cfg(feature = "extra")]
+    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+    #[cfg(feature = "dataframe")]
+    let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);
+    let engine_state = nu_cli::add_cli_context(engine_state);
+    nu_explore::add_explore_context(engine_state)
+}
 
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
@@ -42,7 +58,7 @@ fn main() -> Result<()> {
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
-    let mut engine_state = nu_cli::add_cli_context(create_default_context());
+    let mut engine_state = get_engine_state();
 
     // Custom additions
     let delta = {
@@ -151,6 +167,22 @@ fn main() -> Result<()> {
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
     }
 
+    start_time = std::time::Instant::now();
+    // First, set up env vars as strings only
+    gather_parent_env_vars(&mut engine_state, &init_cwd);
+    perf(
+        "gather env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(&mut engine_state)?;
+    }
+
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -169,6 +201,10 @@ fn main() -> Result<()> {
         return Ok(());
     } else if let Some(max_errors) = parsed_nu_cli_args.ide_check {
         ide::check(&mut engine_state, &script_name, &max_errors);
+
+        return Ok(());
+    } else if parsed_nu_cli_args.ide_ast.is_some() {
+        ide::ast(&mut engine_state, &script_name);
 
         return Ok(());
     }
@@ -227,18 +263,6 @@ fn main() -> Result<()> {
     };
     perf(
         "redirect stdin",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
-    // First, set up env vars as strings only
-    gather_parent_env_vars(&mut engine_state, &init_cwd);
-    perf(
-        "gather env vars",
         start_time,
         file!(),
         line!(),

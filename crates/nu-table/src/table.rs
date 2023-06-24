@@ -2,7 +2,8 @@ use crate::table_theme::TableTheme;
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
-use std::{cmp::min, collections::HashMap};
+use std::cmp::min;
+use std::collections::HashMap;
 use tabled::{
     builder::Builder,
     grid::{
@@ -375,7 +376,7 @@ fn load_theme(
     let mut theme = theme.get_theme();
 
     if !with_header {
-        theme.set_horizontals(HashMap::new());
+        theme.set_horizontals(std::collections::HashMap::new());
     } else if with_footer && table.count_rows() > 2 {
         if let Some(line) = theme.get_horizontal(1) {
             theme.insert_horizontal(table.count_rows() - 1, line);

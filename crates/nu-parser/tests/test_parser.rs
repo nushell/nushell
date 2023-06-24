@@ -1955,7 +1955,7 @@ mod input_types {
 
         assert!(matches!(
             working_set.parse_errors.first(),
-            Some(ParseError::VariableNotFound(_))
+            Some(ParseError::VariableNotFound(_, _))
         ));
     }
 
@@ -1974,7 +1974,7 @@ mod input_types {
 
         assert!(matches!(
             working_set.parse_errors.first(),
-            Some(ParseError::VariableNotFound(_))
+            Some(ParseError::VariableNotFound(_, _))
         ));
     }
 }

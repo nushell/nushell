@@ -244,3 +244,188 @@ impl Default for TextStyle {
         Self::new()
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_ansi_term::Style;
+
+    #[test]
+    fn test_is_bold() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_bold: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_bold());
+    }
+
+    #[test]
+    fn test_dimmed() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let dimmed_style = text_style.dimmed();
+        assert!(dimmed_style.is_dimmed());
+    }
+
+    #[test]
+    fn test_is_dimmed() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_dimmed: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_dimmed());
+    }
+
+    #[test]
+    fn test_italic() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let italic_style = text_style.italic();
+        assert!(italic_style.is_italic());
+    }
+
+    #[test]
+    fn test_is_italic() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_italic: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_italic());
+    }
+
+    #[test]
+    fn test_underline() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let underline_style = text_style.underline();
+        assert!(underline_style.is_underline());
+    }
+
+    #[test]
+    fn test_is_underline() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_underline: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_underline());
+    }
+
+    #[test]
+    fn test_blink() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let blink_style = text_style.blink();
+        assert!(blink_style.is_blink());
+    }
+
+    #[test]
+    fn test_is_blink() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_blink: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_blink());
+    }
+
+    #[test]
+    fn test_reverse() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let reverse_style = text_style.reverse();
+        assert!(reverse_style.is_reverse());
+    }
+
+    #[test]
+    fn test_is_reverse() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_reverse: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_reverse());
+    }
+
+    #[test]
+    fn test_hidden() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let hidden_style = text_style.hidden();
+        assert!(hidden_style.is_hidden());
+    }
+
+    #[test]
+    fn test_is_hidden() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_hidden: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_hidden());
+    }
+
+    #[test]
+    fn test_strikethrough() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                ..Default::default()
+            }),
+        };
+        let strikethrough_style = text_style.strikethrough();
+        assert!(strikethrough_style.is_strikethrough());
+    }
+
+    #[test]
+    fn test_is_strikethrough() {
+        let text_style = TextStyle {
+            alignment: Alignment::Left,
+            color_style: Some(Style {
+                is_strikethrough: true,
+                ..Default::default()
+            }),
+        };
+        assert!(text_style.is_strikethrough());
+    }
+}
