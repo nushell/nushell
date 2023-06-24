@@ -17,7 +17,6 @@ mod test_examples {
         Break, Collect, Def, DefEnv, Describe, Echo, ExportCommand, ExportDef, ExportDefEnv, If,
         Let, Module, Mut, Use,
     };
-    use nu_protocol::Value;
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type, Value,
