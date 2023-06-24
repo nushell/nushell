@@ -225,19 +225,41 @@ impl Signature {
 
     // Gets the first input type from the signature
     pub fn get_input_type(&self) -> Type {
-        if let Some((input, _)) = self.input_output_types.get(0) {
-            input.clone()
-        } else {
-            Type::Any
+        match self.input_output_types.len() {
+            0 => Type::Any,
+            1 => self.input_output_types[0].0.clone(),
+            _ => {
+                let first = &self.input_output_types[0].0;
+                if self
+                    .input_output_types
+                    .iter()
+                    .all(|(input, _)| input == first)
+                {
+                    first.clone()
+                } else {
+                    Type::Any
+                }
+            }
         }
     }
 
     // Gets the first output type from the signature
     pub fn get_output_type(&self) -> Type {
-        if let Some((_, output)) = self.input_output_types.get(0) {
-            output.clone()
-        } else {
-            Type::Any
+        match self.input_output_types.len() {
+            0 => Type::Any,
+            1 => self.input_output_types[0].1.clone(),
+            _ => {
+                let first = &self.input_output_types[0].1;
+                if self
+                    .input_output_types
+                    .iter()
+                    .all(|(_, output)| output == first)
+                {
+                    first.clone()
+                } else {
+                    Type::Any
+                }
+            }
         }
     }
 
