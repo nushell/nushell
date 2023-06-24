@@ -211,22 +211,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrUpcase
         };
 
-        // Bytes
-        bind_command! {
-            Bytes,
-            BytesLen,
-            BytesStartsWith,
-            BytesEndsWith,
-            BytesReverse,
-            BytesReplace,
-            BytesAdd,
-            BytesAt,
-            BytesIndexOf,
-            BytesCollect,
-            BytesRemove,
-            BytesBuild,
-        }
-
         // FileSystem
         bind_command! {
             Cd,

@@ -10,4 +10,6 @@ version = "0.81.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+nu-engine = { path = "../nu-engine", version = "0.81.1" }
+nu-path = { path = "../nu-path", version = "0.81.1" }
 nu-protocol = { version = "0.81.1", path = "../nu-protocol" }

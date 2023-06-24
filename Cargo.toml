@@ -48,6 +48,7 @@ members = [
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.81.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.81.1" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.81.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.81.1" }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.81.1", optional = true }
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.81.1", optional = true }

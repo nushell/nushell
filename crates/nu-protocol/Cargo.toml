@@ -16,7 +16,7 @@ bench = false
 nu-utils = { path = "../nu-utils", version = "0.81.1" }
 
 byte-unit = "4.0"
-chrono = { version = "0.4", features = [ "serde", "std", ], default-features = false }
+chrono = { version = "0.4", features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = "0.2"
 fancy-regex = "0.11"
 indexmap = { version = "1.7" }
