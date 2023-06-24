@@ -1,6 +1,12 @@
 mod bits;
 mod bytes;
 
+pub use bits::Bits;
+pub use bits::BitsAnd;
+pub use bits::BitsNot;
+pub use bits::BitsOr;
+pub use bits::BitsXor;
+
 pub use bytes::Bytes;
 pub use bytes::BytesAdd;
 pub use bytes::BytesAt;
@@ -30,11 +36,11 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
         }
 
         bind_command! {
-            bits::bits_::Bits,
-            bits::and::BitsAnd,
-            bits::not::BitsNot,
-            bits::or::BitsOr,
-            bits::xor::BitsXor,
+            Bits,
+            BitsAnd,
+            BitsNot,
+            BitsOr,
+            BitsXor,
             bits::rotate_left::BitsRol,
             bits::rotate_right::BitsRor,
             bits::shift_left::BitsShl,
