@@ -1,4 +1,3 @@
-
 let test_lines = [
     "python -c 'import sys; print(sys.executable)'"
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'"
@@ -21,14 +20,14 @@ def main [] {
     let expected = [
         $orig_python_interpreter
         "None"
-        $"($env.PWD)/spam/bin/python"
-        $"($env.PWD)/spam"
+        $"($env.PWD)/e-$ èрт🚒♞中片-j/bin/python"
+        $"($env.PWD)/e-$ èрт🚒♞中片-j"
         "(spam)"
         $orig_python_interpreter
         "None"
     ]
 
-    virtualenv spam
+    virtualenv 'e-$ èрт🚒♞中片-j'
 
     $test_lines | save script.nu
     let out = (nu script.nu | lines)
