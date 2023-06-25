@@ -1,4 +1,3 @@
-use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
@@ -7,6 +6,7 @@ use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
+use tracing::trace;
 
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,

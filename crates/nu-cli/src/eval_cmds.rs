@@ -1,4 +1,3 @@
-use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
@@ -8,6 +7,7 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     PipelineData, Spanned, Value,
 };
+use tracing::info;
 
 /// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(

@@ -19,7 +19,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.81.1" }
 bytesize = "1.2"
 chrono = { default-features = false, features = ['std'], version = "0.4" }
 itertools = "0.10"
-log = "0.4"
+tracing = "0.1"
 serde_json = "1.0"
 
 [dev-dependencies]

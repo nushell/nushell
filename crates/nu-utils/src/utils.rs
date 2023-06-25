@@ -1,4 +1,4 @@
-use log::info;
+use tracing::info;
 use lscolors::LsColors;
 use std::io::{Result, Write};
 

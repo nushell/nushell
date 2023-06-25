@@ -1,5 +1,4 @@
 use crate::NushellPrompt;
-use log::trace;
 use nu_engine::eval_subexpression;
 use nu_protocol::report_error;
 use nu_protocol::{
@@ -7,6 +6,7 @@ use nu_protocol::{
     Config, PipelineData, Value,
 };
 use reedline::Prompt;
+use tracing::trace;
 
 // Name of environment variable where the prompt could be stored
 pub(crate) const PROMPT_COMMAND: &str = "PROMPT_COMMAND";

@@ -344,7 +344,7 @@ impl Command for Nu {
             .named(
                 "log-target",
                 SyntaxShape::String,
-                "set the target for the log to output. stdout, stderr(default), mixed or file",
+                "set the target for the log to output. stdout, stderr(default) or file",
                 None,
             )
             .switch(

@@ -1,4 +1,3 @@
-use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
@@ -10,6 +9,7 @@ use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use tracing::info;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";

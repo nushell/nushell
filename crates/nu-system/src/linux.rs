@@ -1,4 +1,4 @@
-use log::info;
+use tracing::info;
 use procfs::process::{FDInfo, Io, Process, Stat, Status};
 use procfs::{ProcError, ProcessCgroup};
 use std::thread;

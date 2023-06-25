@@ -1,6 +1,5 @@
 use crate::parser_path::ParserPath;
 use itertools::Itertools;
-use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
@@ -14,6 +13,7 @@ use nu_protocol::{
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use tracing::trace;
 
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 #[cfg(feature = "plugin")]

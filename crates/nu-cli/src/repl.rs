@@ -6,7 +6,6 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
-use log::{trace, warn};
 use miette::{IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_color_config::StyleComputer;
@@ -27,6 +26,7 @@ use std::{
     time::Instant,
 };
 use sysinfo::SystemExt;
+use tracing::{trace, warn};
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>

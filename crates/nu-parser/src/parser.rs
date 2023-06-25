@@ -28,9 +28,9 @@ use crate::parse_keywords::{
 };
 
 use itertools::Itertools;
-use log::trace;
 use std::collections::{HashMap, HashSet};
 use std::{num::ParseIntError, str};
+use tracing::trace;
 
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;

@@ -1,4 +1,4 @@
-use log::trace;
+use tracing::trace;
 use nu_engine::env;
 use nu_engine::CallExt;
 use nu_protocol::{

@@ -17,7 +17,7 @@ bench = false
 bench = false
 
 [dependencies]
-log = "0.4"
+tracing = "0.1"
 lscolors = { version = "0.14", default-features = false, features = ["nu-ansi-term"] }
 num-format = { version = "0.4" }
 strip-ansi-escapes = "0.1"

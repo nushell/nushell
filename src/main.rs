@@ -14,13 +14,10 @@ mod tests;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use crate::{
-    command::parse_commandline_args,
-    config_files::set_config_path,
-    logger::{configure, logger},
+    command::parse_commandline_args, config_files::set_config_path, logger::setup_logger,
     terminal::acquire_terminal,
 };
 use command::gather_commandline_args;
-use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
@@ -35,6 +32,7 @@ use std::{
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
+use tracing::Level;
 
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
@@ -104,7 +102,7 @@ fn main() -> Result<()> {
             .map(|target| target.item.clone())
             .unwrap_or_else(|| "stderr".to_string());
 
-        logger(|builder| configure(&level, &target, builder))?;
+        setup_logger(&level, &target)?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf(
             "start logging",

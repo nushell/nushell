@@ -1,6 +1,4 @@
 use crate::util::eval_source;
-use log::info;
-use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
@@ -12,6 +10,8 @@ use nu_protocol::{
     Config, PipelineData, ShellError, Span, Type, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
+use tracing::info;
+use tracing::trace;
 
 /// Main function used when a file path is found as argument for nu
 pub fn evaluate_file(
