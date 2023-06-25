@@ -149,7 +149,7 @@ jobs:
         shell: bash
 
       - name: Test Nushell in virtualenv
-        run: nu test_virtualenv.nu
+        run: cd scripts; nu test_virtualenv.nu
         shell: bash
 
   # Build+test plugins on their own, without the rest of Nu. This helps with CI parallelization and
