@@ -720,7 +720,7 @@ mod windows_helper {
                     "Failed to read metadata for '{}'. It may have an illegal filename",
                     filename.to_string_lossy()
                 );
-                log::error!("{e}");
+                tracing::error!("{e}");
                 return Value::Record { cols, vals, span };
             }
         };
