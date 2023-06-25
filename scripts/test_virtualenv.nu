@@ -37,7 +37,7 @@ def main [] {
     let o = ($out | str trim | str join (char nl))
     let e = ($expected | str trim | str join (char nl))
     if $o != $e {
-        print $"OUTPUT:\n($o)\n\nEXPECTED:\n($e)"
-        error make {msg: "Output does not match the expected value"}
+        let msg = $"OUTPUT:\n($o)\n\nEXPECTED:\n($e)"
+        error make {msg: $"Output does not match the expected value:\n($msg)"}
     }
 }
