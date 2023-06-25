@@ -1,7 +1,7 @@
 let test_lines = [
     "python -c 'import sys; print(sys.executable)'"
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'"
-    $"overlay use e-$ ([$env.PWD 'èрт🚒♞中片-j' bin activate.nu] | path join)"
+    $"overlay use '([$env.PWD 'èрт🚒♞中片-j' bin activate.nu] | path join)'"
     "python -c 'import sys; print(sys.executable)'"
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'"
     "print $env.VIRTUAL_PROMPT"
