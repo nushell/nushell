@@ -6,6 +6,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use num_traits::AsPrimitive;
 
 #[derive(Clone)]
 pub struct InputListen;
@@ -27,6 +28,11 @@ impl Command for InputListen {
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)",
                 Some('t'),
+            )
+            .switch(
+                "raw",
+                "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags",
+                Some('r'),
             )
             .input_output_types(vec![(
                 Type::Nothing,
@@ -65,11 +71,8 @@ There are 4 <key_type> variants:
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let event_type_filter = call.get_flag::<Value>(engine_state, stack, "types")?;
-        let event_type_filter = event_type_filter
-            .map(|list| EventTypeFilter::from_value(list, head))
-            .transpose()?
-            .unwrap_or_else(EventTypeFilter::all);
+        let event_type_filter = get_event_type_filter(engine_state, stack, call, head)?;
+        let add_raw = call.has_flag("raw");
 
         terminal::enable_raw_mode()?;
         loop {
@@ -82,13 +85,27 @@ There are 4 <key_type> variants:
                     Vec::new(),
                 )
             })?;
-            let event = parse_event(head, &event, &event_type_filter);
+            let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
                 terminal::disable_raw_mode()?;
                 return Ok(event.into_pipeline_data());
             }
         }
     }
+}
+
+fn get_event_type_filter(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    head: Span,
+) -> Result<EventTypeFilter, ShellError> {
+    let event_type_filter = call.get_flag::<Value>(engine_state, stack, "types")?;
+    let event_type_filter = event_type_filter
+        .map(|list| EventTypeFilter::from_value(list, head))
+        .transpose()?
+        .unwrap_or_else(EventTypeFilter::all);
+    Ok(event_type_filter)
 }
 
 struct EventTypeFilter {
@@ -166,6 +183,7 @@ fn parse_event(
     head: Span,
     event: &crossterm::event::Event,
     filter: &EventTypeFilter,
+    add_raw: bool,
 ) -> Option<Value> {
     match event {
         crossterm::event::Event::FocusGained => {
@@ -174,8 +192,8 @@ fn parse_event(
         crossterm::event::Event::FocusLost => {
             create_focus_event(head, filter, FocusEventType::Lost)
         }
-        crossterm::event::Event::Key(event) => create_key_event(head, filter, event),
-        crossterm::event::Event::Mouse(event) => create_mouse_event(head, filter, event),
+        crossterm::event::Event::Key(event) => create_key_event(head, filter, event, add_raw),
+        crossterm::event::Event::Mouse(event) => create_mouse_event(head, filter, event, add_raw),
         crossterm::event::Event::Paste(content) => create_paste_event(head, filter, content),
         crossterm::event::Event::Resize(cols, rows) => {
             create_resize_event(head, filter, *cols, *rows)
@@ -219,11 +237,12 @@ fn create_key_event(
     head: Span,
     filter: &EventTypeFilter,
     event: &crossterm::event::KeyEvent,
+    add_raw: bool,
 ) -> Option<Value> {
     if filter.listen_key {
         let crossterm::event::KeyEvent {
-            code,
-            modifiers,
+            code: raw_code,
+            modifiers: raw_modifiers,
             kind,
             ..
         } = event;
@@ -237,7 +256,7 @@ fn create_key_event(
             return None;
         }
 
-        let cols = vec![
+        let mut cols = vec![
             "type".to_string(),
             "key_type".to_string(),
             "code".to_string(),
@@ -245,9 +264,18 @@ fn create_key_event(
         ];
 
         let typ = Value::string("key".to_string(), head);
-        let (key, code) = get_keycode_name(head, code);
-        let modifiers = parse_modifiers(head, modifiers);
-        let vals = vec![typ, key, code, modifiers];
+        let (key, code) = get_keycode_name(head, raw_code);
+        let modifiers = parse_modifiers(head, raw_modifiers);
+        let mut vals = vec![typ, key, code, modifiers];
+
+        if add_raw {
+            if let KeyCode::Char(c) = raw_code {
+                cols.push("raw_code".to_string());
+                vals.push(Value::int(c.as_(), head));
+            }
+            cols.push("raw_modifiers".to_string());
+            vals.push(Value::int(raw_modifiers.bits() as i64, head));
+        }
 
         Some(Value::record(cols, vals, head))
     } else {
@@ -286,9 +314,14 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
     Value::list(parsed_modifiers, head)
 }
 
-fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) -> Option<Value> {
+fn create_mouse_event(
+    head: Span,
+    filter: &EventTypeFilter,
+    event: &MouseEvent,
+    add_raw: bool,
+) -> Option<Value> {
     if filter.listen_mouse {
-        let cols = vec![
+        let mut cols = vec![
             "type".to_string(),
             "col".to_string(),
             "row".to_string(),
@@ -311,7 +344,12 @@ fn create_mouse_event(head: Span, filter: &EventTypeFilter, event: &MouseEvent) 
         let kind = Value::string(kind, head);
         let modifiers = parse_modifiers(head, &event.modifiers);
 
-        let vals = vec![typ, col, row, kind, modifiers];
+        let mut vals = vec![typ, col, row, kind, modifiers];
+
+        if add_raw {
+            cols.push("raw_modifiers".to_string());
+            vals.push(Value::int(event.modifiers.bits() as i64, head));
+        }
 
         Some(Value::record(cols, vals, head))
     } else {
