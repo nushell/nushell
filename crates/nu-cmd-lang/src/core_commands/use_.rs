@@ -20,6 +20,7 @@ impl Command for Use {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("module", SyntaxShape::String, "Module or module file")
             .rest(
                 "members",
@@ -134,7 +135,7 @@ This command is a parser keyword. For details, check:
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
-                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
+                example: r#"module foo { export def-env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
@@ -158,5 +159,15 @@ This command is a parser keyword. For details, check:
                 result: Some(Value::test_string("foobaz")),
             },
         ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::Use;
+        use crate::test_examples;
+        test_examples(Use {})
     }
 }
