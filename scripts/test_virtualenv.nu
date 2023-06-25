@@ -1,7 +1,9 @@
+let env_name = 'e-$ èрт🚒♞中片-j'
+
 let test_lines = [
     "python -c 'import sys; print(sys.executable)'"
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'"
-    $"overlay use '([$env.PWD 'èрт🚒♞中片-j' bin activate.nu] | path join)'"
+    $"overlay use '([$env.PWD $env_name bin activate.nu] | path join)'"
     "python -c 'import sys; print(sys.executable)'"
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'"
     "print $env.VIRTUAL_PROMPT"
@@ -20,14 +22,14 @@ def main [] {
     let expected = [
         $orig_python_interpreter
         "None"
-        ([$env.PWD 'e-$ èрт🚒♞中片-j' bin python] | path join)
-        ([$env.PWD 'e-$ èрт🚒♞中片-j'] | path join)
+        ([$env.PWD $env_name bin python] | path join)
+        ([$env.PWD $env_name] | path join)
         "(spam)"
         $orig_python_interpreter
         "None"
     ]
 
-    virtualenv 'e-$ èрт🚒♞中片-j'
+    virtualenv $env_name
 
     $test_lines | save script.nu
     let out = (nu script.nu | lines)
