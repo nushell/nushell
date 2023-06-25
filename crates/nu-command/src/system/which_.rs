@@ -1,4 +1,3 @@
-use tracing::trace;
 use nu_engine::env;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -7,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+use tracing::trace;
 
 use std::ffi::OsStr;
 use std::path::Path;

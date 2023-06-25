@@ -1,8 +1,8 @@
-use tracing::info;
 use procfs::process::{FDInfo, Io, Process, Stat, Status};
 use procfs::{ProcError, ProcessCgroup};
 use std::thread;
 use std::time::{Duration, Instant};
+use tracing::info;
 
 pub enum ProcessTask {
     Process(Process),

@@ -1,6 +1,6 @@
-use tracing::info;
 use lscolors::LsColors;
 use std::io::{Result, Write};
+use tracing::info;
 
 pub fn enable_vt_processing() -> Result<()> {
     #[cfg(windows)]
