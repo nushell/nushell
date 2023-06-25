@@ -25,9 +25,7 @@ pub fn setup_logger(level: &str, target: &str) -> Result<(), ShellError> {
         Err(_) => Level::WARN,
     };
     let builder = tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::from_level(level))
-        .with_file(true)
-        .with_line_number(true);
+        .with_max_level(LevelFilter::from_level(level));
 
     // setup target.
     let log_target = LogTarget::from(target);
