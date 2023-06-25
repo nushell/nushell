@@ -16,8 +16,8 @@ def make-error [] {
 }
 
 def main [] {
-    error make {msg: (which python)}
-    let orig_python_interpreter = (which python).path.0
+    let orig_python_interpreter = (python -c 'import sys; print(sys.executable)')
+
     let expected = [
         $orig_python_interpreter
         "None"
