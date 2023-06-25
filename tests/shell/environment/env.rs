@@ -175,3 +175,11 @@ fn hides_env_in_block() {
     assert!(actual.err.contains("column_not_found"));
     assert!(actual_repl.err.contains("column_not_found"));
 }
+
+#[test]
+fn env_var_not_var() {
+    let actual = nu!(cwd: ".", r#"
+        echo $CARGO
+        "#);
+    assert!(actual.err.contains("use $env.CARGO instead of $CARGO"));
+}
