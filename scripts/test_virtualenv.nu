@@ -24,7 +24,7 @@ def main [] {
         "None"
         ([$env.PWD $env_name bin python] | path join)
         ([$env.PWD $env_name] | path join)
-        $"(($env_name))"
+        $"(char lparen)($env_name)(char rparen)"
         $orig_python_interpreter
         "None"
     ]
