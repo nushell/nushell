@@ -43,7 +43,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
-            .switch("raw", "Convert to raw", Some('r'))
+            .switch("raw", "convert strings to raw binary", Some('r'))
             .category(Category::Conversions)
     }
 
@@ -145,7 +145,6 @@ fn into_binary(
             stdout: Some(stream),
             ..
         } => {
-            eprintln!("external stream");
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
             Ok(Value::Binary {
