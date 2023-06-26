@@ -1,16 +1,6 @@
 mod bits;
 mod bytes;
 
-pub use bits::Bits;
-pub use bits::BitsAnd;
-pub use bits::BitsNot;
-pub use bits::BitsOr;
-pub use bits::BitsRol;
-pub use bits::BitsRor;
-pub use bits::BitsShl;
-pub use bits::BitsShr;
-pub use bits::BitsXor;
-
 pub use bytes::Bytes;
 pub use bytes::BytesAdd;
 pub use bytes::BytesAt;
