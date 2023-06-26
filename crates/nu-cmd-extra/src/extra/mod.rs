@@ -14,6 +14,17 @@ pub use bytes::BytesReplace;
 pub use bytes::BytesReverse;
 pub use bytes::BytesStartsWith;
 
+pub use bits::Bits;
+pub use bits::BitsAnd;
+pub use bits::BitsInto;
+pub use bits::BitsNot;
+pub use bits::BitsOr;
+pub use bits::BitsRol;
+pub use bits::BitsRor;
+pub use bits::BitsShl;
+pub use bits::BitsShr;
+pub use bits::BitsXor;
+
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
@@ -29,16 +40,18 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             };
         }
 
+        // Bits
         bind_command! {
-            bits::bits_::Bits,
-            bits::and::BitsAnd,
-            bits::not::BitsNot,
-            bits::or::BitsOr,
-            bits::xor::BitsXor,
-            bits::rotate_left::BitsRol,
-            bits::rotate_right::BitsRor,
-            bits::shift_left::BitsShl,
-            bits::shift_right::BitsShr
+            Bits,
+            BitsAnd,
+            BitsInto,
+            BitsNot,
+            BitsOr,
+            BitsRol,
+            BitsRor,
+            BitsShl,
+            BitsShr,
+            BitsXor
         }
 
         // Bytes
