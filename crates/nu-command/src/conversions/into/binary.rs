@@ -114,7 +114,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string into a raw binary string, padded with 0s to 8 places",
-                example: "'nushell.sh' | into binary --raw",
+                example: "'nushell.sh' | into binary --raw | str trim",
                 result: Some(Value::String {
                     val: "01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000".to_string(),
                     span: Span::test_data(),
