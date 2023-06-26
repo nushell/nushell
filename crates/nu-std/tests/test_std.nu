@@ -1,6 +1,6 @@
 use std
 
-# test
+#[test]
 def path_add [] {
     use std assert
 
@@ -36,7 +36,7 @@ def path_add [] {
     }
 }
 
-# test
+#[test]
 def banner [] {
     std assert ((std banner | lines | length) == 15)
 }

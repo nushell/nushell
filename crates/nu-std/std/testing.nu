@@ -1,22 +1,22 @@
 use log.nu
 
-# Here we store the list of annotations the test runner should concern itself with
+
+# Here we store the map of annotations internal names and the annotation actually used during test creation
+# The reason we do that is to allow annotations to be easily renamed without modifying rest of the code
 # Functions with no annotations or with annotations not on the list are rejected during module evaluation
-# Annotations starting with test- may be used multiple times throughout the module as the function names are stored in a list
+# test and test-skip annotations may be used multiple times throughout the module as the function names are stored in a list
 # Other annotations should only be used once within a module file
 # If you find yourself in need of multiple before- or after- functions it's a sign your test suite probably needs redesign
-def valid-annotations [] {
-    [
-        test,
-        test-skip,
-        before-each,
-        before-all,
-        after-each,
-        after-all
-
-    ]
+export-env {
+    let-env TEST_ANNOTATIONS = {
+        "#[test]": "test",
+        "#[ignore]": "test-skip",
+        "#[before-each]": "before-each"
+        "#[before-all]": "before-all"
+        "#[after-each]": "after-each"
+        "#[after-all]": "after-all"
+    }
 }
-
 
 # Returns a table containing the list of function names together with their annotations (comments above the declaration)
 #
@@ -55,7 +55,6 @@ def get-annotated [
             | str substring $preceding_span.end..$x.span.start
             | lines
             | where $it != ''
-            | str replace '^#' ''
             | last
             | str trim
             | str join (char nl)
@@ -69,7 +68,7 @@ def get-annotated [
 
 # Takes table of function names and their annotations such as the one returned by get-annotated
 #
-# Returns a record where keys are valid annotations and values are corresponding function names
+# Returns a record where keys are internal names of valid annotations and values are corresponding function names
 # Annotations that allow multiple functions are of type list<string>
 # Other annotations are of type string
 # Result gets merged with the template record so that the output shape remains consistent regardless of the table content
@@ -86,12 +85,16 @@ def create-test-record [] {
 
     let test_record = (
         $input
+        | where annotation in ($env.TEST_ANNOTATIONS|columns)
+        | update annotation {|x|
+            $env.TEST_ANNOTATIONS
+            | get $x.annotation
+        }
         | group-by annotation
         | transpose key value
-        | where key in (valid-annotations)
         | update value {|x|
             $x.value.function_name
-            | if $x.key in [test, test-skip] {
+            | if $x.key in ["test", "test-skip"] {
                 $in
             } else {
                 get 0
@@ -102,6 +105,7 @@ def create-test-record [] {
 
     $template_record
     | merge $test_record
+
 }
 
 def throw-error [error: record] {
@@ -182,7 +186,6 @@ export def ($test_function_name) [] {
     let result = (
         ^$nu.current-exe -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
         | complete
-
     )
 
     rm $rendered_module_path
@@ -253,7 +256,9 @@ def run-tests-for-module [
             }
         }
         | each {|test|
-            log info $"Running ($test.test) in module ($module.name) with context ($global_context)"
+            log info $"Running ($test.test) in module ($module.name)"
+            log debug $"Global context is ($global_context)"
+
             $test|insert result {|x|
                 run-test $test
                 | if $in.exit_code == 0 {
@@ -333,7 +338,7 @@ export def run-tests [
         | insert commands {|module|
             get-annotated $module.file
         }
-        | filter {|x| ($x.commands|length) > 0 and ($x.commands.annotation|any {|y| $y in (valid-annotations)})} # if file has no private functions at all or no functions annotated with a valid annotation we drop it
+        | filter {|x| ($x.commands|length) > 0 and ($x.commands.annotation|any {|y| $y in ($env.TEST_ANNOTATIONS|values)})} # if file has no private functions at all or no functions annotated with a valid annotation we drop it
         | upsert commands {|module|
             $module.commands
             | create-test-record

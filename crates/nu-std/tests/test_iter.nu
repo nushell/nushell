@@ -1,6 +1,6 @@
 use std *
 
-# test
+#[test]
 def iter_find [] {
     let hastack1 = [1 2 3 4 5 6 7]
     let hastack2 = [nushell rust shell iter std]
@@ -19,7 +19,7 @@ def iter_find [] {
     assert equal $res null
 }
 
-# test
+#[test]
 def iter_intersperse [] {
     let res = ([1 2 3 4] | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
@@ -40,7 +40,7 @@ def iter_intersperse [] {
     assert equal $res [4]
 }
 
-# test
+#[test]
 def iter_scan [] {
     let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y} -n)
     assert equal $scanned [1, 3, 6]
@@ -52,7 +52,7 @@ def iter_scan [] {
     assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
 
-# test
+#[test]
 def iter_filter_map [] {
     let res = ([2 5 "4" 7] | iter filter-map {|it| $it ** 2})
     assert equal $res [4 25 49]
@@ -64,7 +64,7 @@ def iter_filter_map [] {
     assert equal $res [3 42 69]
 }
 
-# test
+#[test]
 def iter_find_index [] {
     let res = (
          ["iter", "abc", "shell", "around", "nushell", "std"]
@@ -80,7 +80,7 @@ def iter_find_index [] {
     assert equal $res 0
 }
 
-# test
+#[test]
 def iter_zip_with [] {
     let res = (
         [1 2 3] | iter zip-with [2 3 4] {|a, b| $a + $b }
@@ -107,7 +107,7 @@ def iter_zip_with [] {
     ]
 }
 
-# test
+#[test]
 def iter_flat_map [] {
     let res = (
         [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
@@ -118,7 +118,7 @@ def iter_flat_map [] {
     assert equal $res [11 22 33]
 }
 
-# test
+#[test]
 def iter_zip_into_record [] {
     let headers = [name repo position]
     let values = [rust github 1]

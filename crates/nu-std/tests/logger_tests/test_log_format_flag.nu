@@ -39,7 +39,7 @@ def "assert formatted" [
     assert equal ($output | str trim --right) (format-message $message $format $prefix $ansi)
 }
 
-# test
+#[test]
 def format_flag [] {
     assert formatted "test" "25 %MSG% %ANSI_START% %LEVEL%%ANSI_STOP%" critical
     assert formatted "test" "25 %MSG% %ANSI_START% %LEVEL%%ANSI_STOP%" error

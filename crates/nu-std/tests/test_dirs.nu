@@ -6,7 +6,7 @@ use std log
 # Each 'use' for that module in the test script will execute the def-env block.
 # PWD at the time of the `use` will be what the export def-env block will see.
 
-# before-each
+#[before-each]
 def before-each [] {
     # need some directories to play with
     let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
@@ -18,7 +18,7 @@ def before-each [] {
     {base_path: $base_path, path_a:$path_a, path_b: $path_b}
 }
 
-# after-each
+#[after-each]
 def after-each [] {
     let base_path = $in.base_path
     cd $base_path
@@ -37,7 +37,7 @@ def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
     assert equal $expect_position $env.DIRS_POSITION $"position in ring after ($scenario)"
 }
 
-# test
+#[test]
 def dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
@@ -78,7 +78,7 @@ def dirs_command [] {
     assert equal (dirs show) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
 }
 
-# test
+#[test]
 def dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
@@ -100,7 +100,7 @@ def dirs_next [] {
 
 }
 
-# test
+#[test]
 def dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in

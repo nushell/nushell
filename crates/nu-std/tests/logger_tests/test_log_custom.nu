@@ -22,14 +22,14 @@ def run-command [
     }  | complete | get --ignore-errors stderr
 }
 
-# test
+#[test]
 def errors_during_deduction [] {
     assert str contains (run-command "DEBUG" "msg" "%MSG%" 25) "Cannot deduce log level prefix for given log level"
     assert str contains (run-command "DEBUG" "msg" "%MSG%" 25 --ansi (ansi red)) "Cannot deduce log level prefix for given log level"
     assert str contains (run-command "DEBUG" "msg" "%MSG%" 25 --level-prefix "abc") "Cannot deduce ansi for given log level"
 }
 
-# test
+#[test]
 def valid_calls [] {
     assert equal (run-command "DEBUG" "msg" "%MSG%" 25 --level-prefix "abc" --ansi (ansi default) | str trim --right) "msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"($env.LOG_PREFIX.INFO) msg"
@@ -37,7 +37,7 @@ def valid_calls [] {
     assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG%%ANSI_STOP%" $env.LOG_LEVEL.CRITICAL | str trim --right) $"($env.LOG_ANSI.CRITICAL)CRT msg(ansi reset)"
 }
 
-# test
+#[test]
 def log_level_handling [] {
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"($env.LOG_PREFIX.INFO) msg"
     assert equal (run-command "WARNING" "msg" "%LEVEL% %MSG%" 20 | str trim --right) ""
