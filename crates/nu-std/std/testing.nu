@@ -7,8 +7,8 @@ use log.nu
 # test and test-skip annotations may be used multiple times throughout the module as the function names are stored in a list
 # Other annotations should only be used once within a module file
 # If you find yourself in need of multiple before- or after- functions it's a sign your test suite probably needs redesign
-export-env {
-    let-env TEST_ANNOTATIONS = {
+def valid-annotations [] {
+    {
         "#[test]": "test",
         "#[ignore]": "test-skip",
         "#[before-each]": "before-each"
@@ -85,9 +85,9 @@ def create-test-record [] {
 
     let test_record = (
         $input
-        | where annotation in ($env.TEST_ANNOTATIONS|columns)
+        | where annotation in (valid-annotations|columns)
         | update annotation {|x|
-            $env.TEST_ANNOTATIONS
+            valid-annotations
             | get $x.annotation
         }
         | group-by annotation
@@ -338,7 +338,7 @@ export def run-tests [
         | insert commands {|module|
             get-annotated $module.file
         }
-        | filter {|x| ($x.commands|length) > 0 and ($x.commands.annotation|any {|y| $y in ($env.TEST_ANNOTATIONS|values)})} # if file has no private functions at all or no functions annotated with a valid annotation we drop it
+        | filter {|x| ($x.commands|length) > 0 and ($x.commands.annotation|any {|y| $y in (valid-annotations|columns)})} # if file has no private functions at all or no functions annotated with a valid annotation we drop it
         | upsert commands {|module|
             $module.commands
             | create-test-record
