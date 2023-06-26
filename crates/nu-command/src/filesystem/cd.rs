@@ -305,7 +305,7 @@ mod nu_users {
         let mut buff: Vec<i32> = vec![0; 1024];
         #[cfg(all(unix, not(target_os = "macos")))]
         let mut buff: Vec<gid_t> = vec![0; 1024];
-        let name = CString::new(username.as_ref().as_bytes()).unwrap();
+        let name = CString::new(username.as_ref().as_bytes()).expect("not valid cstring");
         let mut count = buff.len() as c_int;
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
         #[cfg(all(unix, target_os = "macos"))]
