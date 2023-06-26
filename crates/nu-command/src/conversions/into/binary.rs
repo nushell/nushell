@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -6,6 +6,16 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
     Type, Value,
 };
+
+pub struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+    raw: bool,
+}
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -25,6 +35,7 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Binary),
                 (Type::Filesize, Type::Binary),
                 (Type::Date, Type::Binary),
+                (Type::String, Type::String),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
@@ -32,6 +43,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
+            .switch("raw", "Convert to raw", Some('r'))
             .category(Category::Conversions)
     }
 
@@ -100,6 +112,14 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "convert a string into a raw binary string, padded with 0s to 8 places",
+                example: "'nushell.sh' | into binary --raw",
+                result: Some(Value::String {
+                    val: "01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -111,7 +131,9 @@ fn into_binary(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths = call.rest(engine_state, stack, 0)?;
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+    let raw: bool = call.has_flag("raw");
 
     match input {
         PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
@@ -123,6 +145,7 @@ fn into_binary(
             stdout: Some(stream),
             ..
         } => {
+            eprintln!("external stream");
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
             Ok(Value::Binary {
@@ -132,8 +155,8 @@ fn into_binary(
             .into_pipeline_data())
         }
         _ => {
-            let arg = CellPathOnlyArgs::from(cell_paths);
-            operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+            let args = Arguments { raw, cell_paths };
+            operate(action, args, input, call.head, engine_state.ctrlc.clone())
         }
     }
 }
@@ -154,7 +177,7 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+pub fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
@@ -169,10 +192,24 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             val: int_to_endian(*val),
             span,
         },
-        Value::String { val, .. } => Value::Binary {
-            val: val.as_bytes().to_vec(),
-            span,
-        },
+        Value::String { val, .. } => {
+            let raw_bytes = val.as_bytes();
+            if args.raw {
+                let mut raw_string = "".to_string();
+                for ch in raw_bytes {
+                    raw_string.push_str(&format!("{:08b} ", ch));
+                }
+                Value::String {
+                    val: raw_string,
+                    span,
+                }
+            } else {
+                Value::Binary {
+                    val: raw_bytes.to_vec(),
+                    span,
+                }
+            }
+        }
         Value::Bool { val, .. } => Value::Binary {
             val: int_to_endian(i64::from(*val)),
             span,
