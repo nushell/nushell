@@ -1381,7 +1381,7 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
 
     cols.push("startup-time".to_string());
     vals.push(Value::Duration {
-        val: engine_state.get_startup_time(),
+        val: NuDuration::ns(engine_state.get_startup_time()),
         span,
     });
 

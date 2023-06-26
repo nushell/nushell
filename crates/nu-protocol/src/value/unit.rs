@@ -93,10 +93,6 @@ impl Unit {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
             },
-            Unit::Zebibyte => Value::Filesize {
-                val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                span,
-            },
             Unit::Nanosecond => Value::Duration {
                 val: NuDuration {
                     quantity: size,
@@ -222,14 +218,12 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
     (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
     (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Zettabyte, "ZB", Some((Unit::Exabyte, 1000))),
     (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
     (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
     (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
     (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
     (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
     (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Zebibyte, "ZIB", Some((Unit::Exbibyte, 1024))),
     (Unit::Byte, "B", None),
 ];
 

@@ -482,10 +482,6 @@ fn convert_to_value(
                     val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
-                Unit::Zebibyte => Ok(Value::Filesize {
-                    val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                }),
                 Unit::Nanosecond
                 | Unit::Microsecond
                 | Unit::Millisecond

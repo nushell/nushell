@@ -2337,45 +2337,6 @@ pub fn parse_unit_value<'res>(
     }
 }
 
-pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Byte, "B", None),
-];
-
-pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Nanosecond, "ns", None),
-    (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
-    (
-        // µ Micro Sign
-        Unit::Microsecond,
-        "\u{00B5}s",
-        Some((Unit::Nanosecond, 1000)),
-    ),
-    (
-        // μ Greek small letter Mu
-        Unit::Microsecond,
-        "\u{03BC}s",
-        Some((Unit::Nanosecond, 1000)),
-    ),
-    (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
-    (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
-    (Unit::Minute, "min", Some((Unit::Second, 60))),
-    (Unit::Hour, "hr", Some((Unit::Minute, 60))),
-    (Unit::Day, "day", Some((Unit::Minute, 1440))),
-    (Unit::Week, "wk", Some((Unit::Day, 7))),
-];
-
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
 fn modf(x: f64) -> (f64, f64) {
     let rv2: f64;

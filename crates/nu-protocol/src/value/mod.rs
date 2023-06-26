@@ -14,7 +14,7 @@ use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
 
 use byte_unit::ByteUnit;
-use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 pub use duration::NuDuration;
@@ -3828,6 +3828,8 @@ mod tests {
 
             let observed = b_duration.add(Span::test_data(), &a_date, Span::test_data());
             assert!(observed.expect("foo") > a_date);
+        }
+    }
     mod into_string {
         use chrono::{DateTime, FixedOffset, NaiveDateTime};
 
