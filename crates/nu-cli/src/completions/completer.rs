@@ -501,7 +501,8 @@ mod completer_tests {
 
     #[test]
     fn test_completion_helper() {
-        let mut engine_state = nu_command::create_default_context();
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
 
         // Custom additions
         let delta = {

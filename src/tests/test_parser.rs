@@ -443,6 +443,16 @@ fn unary_not_6() -> TestResult {
 }
 
 #[test]
+fn comment_in_multiple_pipelines() -> TestResult {
+    run_test(
+        r#"[[name, present]; [abc, true], [def, false]]
+        # | where not present
+        | get name.0"#,
+        "abc",
+    )
+}
+
+#[test]
 fn date_literal() -> TestResult {
     run_test(r#"2022-09-10 | date to-record | get day"#, "10")
 }

@@ -869,9 +869,12 @@ pub enum ShellError {
     ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
 
     /// Unable to remove this item.
+    ///
+    /// ## Resolution
+    ///
+    /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
-    // NOTE: Currently unused. Remove?
     RemoveNotPossible(String, #[label("{0}")] Span),
 
     // These three are unused. Remove?

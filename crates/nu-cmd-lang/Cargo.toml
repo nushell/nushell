@@ -12,7 +12,6 @@ version = "0.81.1"
 bench = false
 
 [dependencies]
-nu-color-config = { path = "../nu-color-config", version = "0.81.1" }
 nu-engine = { path = "../nu-engine", version = "0.81.1" }
 nu-parser = { path = "../nu-parser", version = "0.81.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.81.1"  }
@@ -21,13 +20,13 @@ nu-ansi-term = "0.47.0"
 
 fancy-regex = "0.11"
 itertools = "0.10"
-shadow-rs = { version = "0.22", default-features = false }
-ahash = "0.8.3"
+shadow-rs = { version = "0.23", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.22", default-features = false }
+shadow-rs = { version = "0.23", default-features = false }
 
 [features]
+mimalloc = []
 which-support = []
 trash-support = []
 sqlite = []

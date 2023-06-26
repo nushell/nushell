@@ -7,12 +7,13 @@
 // But a simpler algo could be implemented that depends only on Value::PartialOrd: a vector of unique values and a parallel vector of counts.
 // Long run, that's the way to go, then we can dispense with current pseudo-hash-based algo.
 use crate::math::utils::run_with_function;
-use ahash::{HashMap, HashMapExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 use std::cmp::Ordering;
 use std::hash::Hash;
+use std::collections::HashMap;
+
 #[derive(Clone)]
 pub struct SubCommand;
 

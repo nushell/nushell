@@ -1,6 +1,6 @@
-use crate::help_aliases::help_aliases;
-use crate::help_commands::help_commands;
-use crate::help_modules::help_modules;
+use crate::help::help_aliases;
+use crate::help::help_commands;
+use crate::help::help_modules;
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_engine::CallExt;

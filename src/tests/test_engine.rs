@@ -60,7 +60,7 @@ fn help_works_with_missing_requirements() -> TestResult {
 #[test]
 fn scope_variable() -> TestResult {
     run_test(
-        r#"let x = 3; $nu.scope.vars | where name == "$x" | get type.0"#,
+        r#"let x = 3; scope variables | where name == "$x" | get type.0"#,
         "int",
     )
 }
@@ -74,7 +74,7 @@ fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestRe
     run_test(
         &format!(
             r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }}; 
-            let rslt = ($nu.scope.commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
+            let rslt = (scope commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
             $"<($rslt)> ($rslt | describe)""#
         ),
         exp_result,

@@ -1,5 +1,4 @@
 use crate::parser_path::ParserPath;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -12,6 +11,7 @@ use nu_protocol::{
     span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -2637,7 +2637,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 (
                     new_name
                         .map(|spanned| spanned.item)
-                        .unwrap_or(String::from_utf8_lossy(&new_module.name).to_string()),
+                        .unwrap_or_else(|| String::from_utf8_lossy(&new_module.name).to_string()),
                     new_module,
                     module_id,
                     true,

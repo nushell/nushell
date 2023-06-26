@@ -28,6 +28,7 @@ members = [
 	"crates/nu-engine",
 	"crates/nu-parser",
 	"crates/nu-system",
+	"crates/nu-cmd-base",
 	"crates/nu-cmd-extra",
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
@@ -47,10 +48,13 @@ members = [
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.81.1" }
 nu-color-config = { path = "./crates/nu-color-config", version = "0.81.1" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.81.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.81.1" }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.81.1", optional = true }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.81.1", optional = true }
 nu-command = { path = "./crates/nu-command", version = "0.81.1" }
 nu-engine = { path = "./crates/nu-engine", version = "0.81.1" }
+nu-explore = { path = "./crates/nu-explore", version = "0.81.1" }
 nu-json = { path = "./crates/nu-json", version = "0.81.1" }
 nu-parser = { path = "./crates/nu-parser", version = "0.81.1" }
 nu-path = { path = "./crates/nu-path", version = "0.81.1" }
@@ -64,6 +68,8 @@ nu-std = { path = "./crates/nu-std", version = "0.81.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.81.1" }
 nu-ansi-term = "0.47.0"
 reedline = { version = "0.20.0", features = ["bashisms", "sqlite"]}
+
+mimalloc = { version = "0.1.37", default-features = false, optional = true}
 
 crossterm = "0.26"
 ctrlc = "3.4"
@@ -106,19 +112,22 @@ plugin = ["nu-plugin", "nu-cli/plugin", "nu-parser/plugin", "nu-command/plugin",
 default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
+# NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
 
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
+
+mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
 
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # Extra feature for nushell
-extra = ["nu-command/extra", "nu-cmd-lang/extra"]
+extra = ["dep:nu-cmd-extra", "nu-cmd-lang/extra"]
 
 # Dataframe feature for nushell
-dataframe = ["nu-command/dataframe", "nu-cmd-lang/dataframe"]
+dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
 
 # SQLite commands for nushell
 sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]

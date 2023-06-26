@@ -1,10 +1,10 @@
-use ahash::{HashSet, HashSetExt};
 use itertools::Itertools;
 use nu_protocol::{
     ast::Block,
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
     Example, PipelineData, Signature, Span, Type, Value,
 };
+use std::collections::HashSet;
 
 pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,

@@ -13,12 +13,9 @@ version = "0.81.1"
 bench = false
 
 [dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
-nu-cmd-dataframe = { path = "../nu-cmd-dataframe", version = "0.81.1", optional = true }
-nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.81.1", optional = true }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.81.1" }
 nu-color-config = { path = "../nu-color-config", version = "0.81.1" }
 nu-engine = { path = "../nu-engine", version = "0.81.1" }
-nu-explore = { path = "../nu-explore", version = "0.81.1" }
 nu-glob = { path = "../nu-glob", version = "0.81.1" }
 nu-json = { path = "../nu-json", version = "0.81.1" }
 nu-parser = { path = "../nu-parser", version = "0.81.1" }
@@ -32,7 +29,6 @@ nu-utils = { path = "../nu-utils", version = "0.81.1" }
 nu-ansi-term = "0.47.0"
 
 alphanumeric-sort = "1.5"
-ahash = "0.8.3"
 atty = "0.2"
 base64 = "0.21"
 byteorder = "1.4"
@@ -67,14 +63,14 @@ notify = "4.0"
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
-once_cell = "1.17"
+once_cell = "1.18"
 open = "4.0"
 os_pipe = "1.1"
 pathdiff = "0.2"
-percent-encoding = "2.2"
+percent-encoding = "2.3"
 powierza-coefficient = "1.0"
 print-positions = "0.6"
-quick-xml = "0.28"
+quick-xml = "0.29"
 rand = "0.8"
 rayon = "1.7"
 regex = "1.7"
@@ -118,19 +114,17 @@ features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_System
 version = "0.48"
 
 [features]
-dataframe = ["dep:nu-cmd-dataframe"]
-extra = ["dep:nu-cmd-extra"]
 plugin = ["nu-parser/plugin"]
-sqlite = [
-	"rusqlite",
-] # TODO: given that rusqlite is included in reedline, should we just always include it?
+sqlite = ["rusqlite"]
 trash-support = ["trash"]
 which-support = ["which"]
 
 [dev-dependencies]
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.81.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.81.1" }
+
 dirs-next = "2.0"
-mockito = "1.0"
+mockito = "1.1"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rstest = { version = "0.17", default-features = false }

@@ -538,7 +538,7 @@ fn variables_completions() {
         "loginshell-path".into(),
         "os-info".into(),
         "pid".into(),
-        "scope".into(),
+        "plugin-path".into(),
         "startup-time".into(),
         "temp-path".into(),
     ];
@@ -606,6 +606,7 @@ fn variables_completions() {
 
     // Test completions for $nu.scope.commands.signatures
     let suggestions = completer.complete("$nu.scope.commands.signatures.", 30);
+    assert_eq!(17, suggestions.len());
     let expected: Vec<String> = vec![
         "any".into(),
         "binary".into(),
@@ -622,7 +623,6 @@ fn variables_completions() {
         "number".into(),
         "range".into(),
         "record".into(),
-        "record<quantity: number, unit: string>".into(),
         "string".into(),
         "table".into(),
     ];

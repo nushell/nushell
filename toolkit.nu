@@ -19,7 +19,9 @@ export def fmt [
         try {
             cargo fmt --all -- --check
         } catch {
-            error make -u { msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!" }
+            error make --unspanned {
+                msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!"
+            }
         }
     } else {
         cargo fmt --all
@@ -31,36 +33,56 @@ export def fmt [
 # > it is important to make `clippy` happy :relieved:
 export def clippy [
     --verbose: bool # print extra information about the command's progress
-    --dataframe: bool # use the dataframe feature
+    --features: list<string> # the list of features to run *Clippy* on
+    --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
         print $"running ('toolkit clippy' | pretty-print-command)"
     }
 
     try {
-        if $dataframe {
-            cargo clippy --workspace --features=dataframe -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
-        } else {
-            cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
-        }
+        if $workspace {(
+            cargo clippy
+                --workspace
+            --
+                -D warnings
+                -D clippy::unwrap_used
+                -A clippy::needless_collect
+                -A clippy::result_large_err
+        )} else {(
+            cargo clippy
+                --features ($features | str join ",")
+            --
+                -D warnings
+                -D clippy::unwrap_used
+                -A clippy::needless_collect
+                -A clippy::result_large_err
+        )}
     } catch {
-        error make -u { msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!" }
+        error make --unspanned {
+            msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!"
+        }
     }
 }
 
 # check that all the tests pass
 export def test [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --dataframe: bool # use the dataframe feature
+    --features: list<string> # the list of features to run the tests on
+    --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
-    if ($fast and $dataframe) {
-        cargo nextest run --all --features=dataframe
-    } else if ($fast) {
-        cargo nextest run --all
-    } else if ($dataframe) {
-        cargo test --workspace --features=dataframe
+    if $fast {
+        if $workspace {
+            cargo nextest run --all
+        } else {
+            cargo nextest run --features ($features | str join ",")
+        }
     } else {
-        cargo test --workspace
+        if $workspace {
+            cargo test --workspace
+        } else {
+            cargo test --features ($features | str join ",")
+        }
     }
 }
 
@@ -208,7 +230,7 @@ def report [
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --dataframe: bool # use the dataframe feature
+    --features: list<string> # the list of features to check the current PR on
 ] {
     let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
@@ -218,23 +240,17 @@ export def "check pr" [
     }
 
     try {
-        if $dataframe {
-            clippy --dataframe --verbose
-        } else {
-            clippy --verbose
-        }
+        clippy --features $features --verbose
     } catch {
         return (report --fail-clippy)
     }
 
     print $"running ('toolkit test' | pretty-print-command)"
     try {
-        if $fast and $dataframe {
-            test --fast --dataframe
-        } else if $fast {
-            test --fast
+        if $fast {
+            test --features $features --fast
         } else {
-            test
+            test --features $features
         }
     } catch {
         return (report --fail-test)
@@ -309,11 +325,36 @@ def "nu-complete list features" [] {
     open Cargo.toml | get features | transpose feature dependencies | get feature
 }
 
+def install-plugin [] {
+    let plugin = $in
+
+    print $'(char nl)Installing ($plugin)'
+    print '----------------------------'
+
+    cargo install --path $"crates/($plugin)"
+}
+
 # install Nushell and features you want
 export def install [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
+    --all: bool  # install all plugins with Nushell
 ] {
     cargo install --path . --features ($features | str join ",")
+    if not $all {
+        return
+    }
+
+    let plugins = [
+        nu_plugin_inc,
+        nu_plugin_gstat,
+        nu_plugin_query,
+        nu_plugin_example,
+        nu_plugin_custom_values,
+        nu_plugin_formats,
+    ]
+    for plugin in $plugins {
+        $plugin | install-plugin
+    }
 }
 
 def windows? [] {

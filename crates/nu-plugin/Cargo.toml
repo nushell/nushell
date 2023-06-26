@@ -18,4 +18,3 @@ bincode = "1.3"
 rmp-serde = "1.1"
 serde = { version = "1.0" }
 serde_json = { version = "1.0"}
-ahash = "0.8.3"

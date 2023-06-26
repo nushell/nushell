@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -170,6 +170,10 @@ pub fn send_request(
             Box::new(move || request.send_bytes(&val)),
             ctrl_c,
         ),
+        Value::String { .. } if body_type == BodyType::Json => {
+            let data = value_to_json_value(&body)?;
+            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
+        }
         Value::String { val, .. } => send_cancellable_request(
             &request_url,
             Box::new(move || request.send_string(&val)),

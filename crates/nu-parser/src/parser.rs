@@ -28,9 +28,9 @@ use crate::parse_keywords::{
     parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
 };
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use itertools::Itertools;
 use log::trace;
+use std::collections::{HashMap, HashSet};
 use std::{num::ParseIntError, str};
 
 #[cfg(feature = "plugin")]
@@ -1818,6 +1818,12 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         };
     }
 
+    let name = if contents.starts_with(b"$") {
+        String::from_utf8_lossy(&contents[1..]).to_string()
+    } else {
+        String::from_utf8_lossy(contents).to_string()
+    };
+
     if let Some(id) = parse_variable(working_set, span) {
         Expression {
             expr: Expr::Var(id),
@@ -1825,6 +1831,9 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             ty: working_set.get_variable(id).ty.clone(),
             custom_completion: None,
         }
+    } else if working_set.get_env_var(&name).is_some() {
+        working_set.error(ParseError::EnvVarNotVar(name, span));
+        garbage(span)
     } else {
         let ws = &*working_set;
         let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
@@ -2327,6 +2336,45 @@ pub fn parse_unit_value<'res>(
         None
     }
 }
+
+pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
+    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
+    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
+    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
+    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
+    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
+    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
+    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
+    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
+    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
+    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
+    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
+    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
+    (Unit::Byte, "B", None),
+];
+
+pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
+    (Unit::Nanosecond, "ns", None),
+    (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
+    (
+        // µ Micro Sign
+        Unit::Microsecond,
+        "\u{00B5}s",
+        Some((Unit::Nanosecond, 1000)),
+    ),
+    (
+        // μ Greek small letter Mu
+        Unit::Microsecond,
+        "\u{03BC}s",
+        Some((Unit::Nanosecond, 1000)),
+    ),
+    (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
+    (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
+    (Unit::Minute, "min", Some((Unit::Second, 60))),
+    (Unit::Hour, "hr", Some((Unit::Minute, 60))),
+    (Unit::Day, "day", Some((Unit::Minute, 1440))),
+    (Unit::Week, "wk", Some((Unit::Day, 7))),
+];
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
 fn modf(x: f64) -> (f64, f64) {

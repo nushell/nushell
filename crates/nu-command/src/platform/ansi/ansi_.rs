@@ -1,4 +1,3 @@
-use ahash::{HashMap, HashMapExt};
 use nu_ansi_term::*;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
@@ -7,6 +6,7 @@ use nu_protocol::{
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -697,12 +697,14 @@ Operating system commands:
         if (escape || osc) && (param_is_valid_string) {
             let code_vec: Vec<char> = code_string.chars().collect();
             if code_vec[0] == '\\' {
+                let span = match call.get_flag_expr("escape") {
+                    Some(expr) => expr.span,
+                    None => call.head,
+                };
+
                 return Err(ShellError::TypeMismatch {
                     err_message: "no need for escape characters".into(),
-                    span: call
-                        .get_flag_expr("escape")
-                        .expect("Unexpected missing argument")
-                        .span,
+                    span,
                 });
             }
         }
