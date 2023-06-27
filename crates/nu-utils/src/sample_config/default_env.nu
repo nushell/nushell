@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = 0.81.1
+# version = 0.82.0
 
 def create_left_prompt [] {
     mut home = ""
