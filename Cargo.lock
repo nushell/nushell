@@ -2543,7 +2543,6 @@ dependencies = [
  "criterion",
  "crossterm",
  "ctrlc",
- "is-terminal",
  "log",
  "miette",
  "mimalloc",
@@ -2609,7 +2608,6 @@ dependencies = [
  "crossterm",
  "fancy-regex",
  "fuzzy-matcher",
- "is-terminal",
  "is_executable",
  "log",
  "miette",
@@ -2740,7 +2738,6 @@ dependencies = [
  "indexmap 2.0.0",
  "indicatif",
  "is-root",
- "is-terminal",
  "itertools",
  "libc",
  "log",
@@ -2942,7 +2939,6 @@ name = "nu-system"
 version = "0.82.1"
 dependencies = [
  "chrono",
- "is-terminal",
  "libc",
  "libproc",
  "log",

@@ -51,7 +51,6 @@ htmlescape = "0.3"
 indexmap = "2.0"
 indicatif = "0.17"
 is-root = "0.1"
-is-terminal = "0.4.8"
 itertools = "0.10"
 log = "0.4"
 lscolors = { version = "0.14", default-features = false, features = ["nu-ansi-term"] }

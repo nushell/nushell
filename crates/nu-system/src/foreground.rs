@@ -82,11 +82,11 @@ impl Drop for ForegroundChild {
 // Note: we exclude macos because the techniques below seem to have issues in macos 13 currently.
 #[cfg(all(target_family = "unix", not(target_os = "macos")))]
 mod fg_process_setup {
-    use is_terminal::IsTerminal;
     use nix::{
         sys::signal,
         unistd::{self, Pid},
     };
+    use std::io::IsTerminal;
     use std::os::unix::prelude::{CommandExt, RawFd};
 
     // TODO: when raising MSRV past 1.63.0, switch to OwnedFd

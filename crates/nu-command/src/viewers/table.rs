@@ -1,4 +1,3 @@
-use is_terminal::IsTerminal;
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
@@ -14,6 +13,7 @@ use nu_table::{
     TableConfig, TableOutput, TableTheme,
 };
 use nu_utils::get_ls_colors;
+use std::io::IsTerminal;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{path::PathBuf, sync::atomic::AtomicBool};

@@ -6,7 +6,6 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
-use is_terminal::IsTerminal;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
@@ -26,7 +25,7 @@ use reedline::{
     SqliteBackedHistory, Vi,
 };
 use std::{
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     path::Path,
     sync::atomic::Ordering,
     time::Instant,

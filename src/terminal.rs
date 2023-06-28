@@ -1,7 +1,7 @@
 #[cfg(unix)]
 pub(crate) fn acquire_terminal(interactive: bool) {
-    use is_terminal::IsTerminal;
     use nix::sys::signal::{signal, SigHandler, Signal};
+    use std::io::IsTerminal;
 
     if !std::io::stdin().is_terminal() {
         return;

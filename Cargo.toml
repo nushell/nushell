@@ -94,7 +94,6 @@ nix = { version = "0.26", default-features = false, features = [
 	"fs",
 	"term",
 ] }
-is-terminal = "0.4.8"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.82.1" }
