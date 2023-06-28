@@ -139,7 +139,7 @@ fn apply_window_spec(expr: Expr, window_type: &Option<WindowType>) -> Result<Exp
                 // Order by and Row range may not be supported at the moment
             }
             // TODO: make NamedWindow work
-            WindowType::NamedWindow(named) => {
+            WindowType::NamedWindow(_named) => {
                 return Err(PolarsError::ComputeError(
                     format!("Expression: {expr:?} was not supported in polars-sql yet!").into(),
                 ))
