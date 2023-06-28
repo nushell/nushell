@@ -2768,7 +2768,7 @@ dependencies = [
  "num 0.4.0",
  "polars",
  "serde",
- "sqlparser 0.33.0",
+ "sqlparser",
 ]
 
 [[package]]
@@ -2894,7 +2894,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
- "sqlparser 0.33.0",
+ "sqlparser",
  "sysinfo",
  "tabled",
  "terminal_size 0.2.6",
@@ -3991,7 +3991,7 @@ dependencies = [
  "polars-plan",
  "serde",
  "serde_json",
- "sqlparser 0.34.0",
+ "sqlparser",
 ]
 
 [[package]]
@@ -4991,21 +4991,12 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "355dc4d4b6207ca8a3434fc587db0a8016130a574dbcdbfb93d7f7b5bc5b211a"
-dependencies = [
- "log",
- "serde",
-]
-
-[[package]]
-name = "sqlparser"
 version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37d3706eefb17039056234df6b566b0014f303f867f2656108334a55b8096f59"
 dependencies = [
  "log",
+ "serde",
 ]
 
 [[package]]
