@@ -11,6 +11,7 @@ mod save;
 mod start;
 mod touch;
 mod ucp;
+mod umv;
 mod util;
 mod watch;
 
@@ -27,4 +28,5 @@ pub use save::Save;
 pub use start::Start;
 pub use touch::Touch;
 pub use ucp::Ucp;
+pub use umv::Umv;
 pub use watch::Watch;
