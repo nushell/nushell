@@ -43,7 +43,7 @@ impl Command for SubCommand {
             },
 
             Example {
-                description: "Export comma seperated values inside braces (`{}`) to a string list.",
+                description: "Export comma separated values inside braces (`{}`) to a string list.",
                 example: "\"{apple,banana,cherry}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
@@ -151,7 +151,7 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                         ParsingError::ExtraRangeOperator(s) => ShellError::GenericError("Extra Range Operator".to_owned(), format!("Found additional, range operator at {s}."), Some(value_span), Some("Please, use the format `{M..N}` where M and N are numeric values representing the starting and ending limits of the range.".to_owned()), vec![]),
                         ParsingError::ExtraCBra(s) => ShellError::GenericError("Extra Closing Brace".to_owned(), format!("Used extra closing brace at {s}."), Some(value_span), Some("To escape closing brace use backslash, e.g. `\\}`".to_owned()), vec![]),
                         ParsingError::ExtraOBra(s) => ShellError::GenericError("Extra Opening Brace".to_owned(), format!("Used extra opening brace at {s}."), Some(value_span), Some("To escape opening brace use backslash, e.g. `\\{`".to_owned()), vec![]),
-                        ParsingError::NothingInBraces(s) => ShellError::GenericError("Nothing In Braces".to_owned(), format!("Nothing found inside braces at {s}."), Some(value_span), Some("Please provide valid content within the braces. Additionaly, you can safely remove it, not needed.".to_owned()), vec![]),
+                        ParsingError::NothingInBraces(s) => ShellError::GenericError("Nothing In Braces".to_owned(), format!("Nothing found inside braces at {s}."), Some(value_span), Some("Please provide valid content within the braces. Additionally, you can safely remove it, not needed.".to_owned()), vec![]),
                     }
                 ) }
             }
