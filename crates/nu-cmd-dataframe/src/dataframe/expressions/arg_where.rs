@@ -22,8 +22,7 @@ impl Command for ExprArgWhere {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("column name", SyntaxShape::Any, "Expression to evaluate")
-            .input_type(Type::Any)
-            .output_type(Type::Custom("expression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

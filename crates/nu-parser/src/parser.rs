@@ -607,7 +607,7 @@ pub fn parse_multispan_value(
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            parse_var_with_opt_type(working_set, spans, spans_idx, false)
+            parse_var_with_opt_type(working_set, spans, spans_idx, false).0
         }
         SyntaxShape::RowCondition => {
             trace!("parsing: row condition");
@@ -779,7 +779,7 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = decl.signature();
-    let output = signature.output_type.clone();
+    let output = signature.get_output_type();
 
     if decl.is_builtin() {
         attach_parser_info_builtin(working_set, decl.name(), &mut call);
@@ -1172,6 +1172,7 @@ pub fn parse_call(
 }
 
 pub fn parse_binary(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    trace!("parsing: binary");
     let contents = working_set.get_span_contents(span);
     if contents.starts_with(b"0x[") {
         parse_binary_with_base(working_set, span, 16, 2, b"0x[", b"]")
@@ -2007,25 +2008,7 @@ pub fn parse_full_cell_path(
                 .type_scope
                 .add_type(working_set.type_scope.get_last_output());
 
-            let ty = output
-                .pipelines
-                .last()
-                .and_then(|Pipeline { elements, .. }| elements.last())
-                .map(|element| match element {
-                    PipelineElement::Expression(_, expr)
-                        if matches!(
-                            expr,
-                            Expression {
-                                expr: Expr::BinaryOp(..),
-                                ..
-                            }
-                        ) =>
-                    {
-                        expr.ty.clone()
-                    }
-                    _ => working_set.type_scope.get_last_output(),
-                })
-                .unwrap_or_else(|| working_set.type_scope.get_last_output());
+            let ty = output.output_type();
 
             let block_id = working_set.add_block(output);
             tokens.next();
@@ -3081,7 +3064,7 @@ pub fn parse_var_with_opt_type(
     spans: &[Span],
     spans_idx: &mut usize,
     mutable: bool,
-) -> Expression {
+) -> (Expression, Option<Type>) {
     let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
 
     if bytes.contains(&b' ')
@@ -3090,7 +3073,7 @@ pub fn parse_var_with_opt_type(
         || bytes.contains(&b'`')
     {
         working_set.error(ParseError::VariableNotValid(spans[*spans_idx]));
-        return garbage(spans[*spans_idx]);
+        return (garbage(spans[*spans_idx]), None);
     }
 
     if bytes.ends_with(b":") {
@@ -3108,17 +3091,20 @@ pub fn parse_var_with_opt_type(
                     "valid variable name",
                     spans[*spans_idx],
                 ));
-                return garbage(spans[*spans_idx]);
+                return (garbage(spans[*spans_idx]), None);
             }
 
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
-            Expression {
-                expr: Expr::VarDecl(id),
-                span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
-                ty,
-                custom_completion: None,
-            }
+            (
+                Expression {
+                    expr: Expr::VarDecl(id),
+                    span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
+                    ty: ty.clone(),
+                    custom_completion: None,
+                },
+                Some(ty),
+            )
         } else {
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
@@ -3127,18 +3113,21 @@ pub fn parse_var_with_opt_type(
                     "valid variable name",
                     spans[*spans_idx],
                 ));
-                return garbage(spans[*spans_idx]);
+                return (garbage(spans[*spans_idx]), None);
             }
 
             let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
 
             working_set.error(ParseError::MissingType(spans[*spans_idx]));
-            Expression {
-                expr: Expr::VarDecl(id),
-                span: spans[*spans_idx],
-                ty: Type::Any,
-                custom_completion: None,
-            }
+            (
+                Expression {
+                    expr: Expr::VarDecl(id),
+                    span: spans[*spans_idx],
+                    ty: Type::Any,
+                    custom_completion: None,
+                },
+                None,
+            )
         }
     } else {
         let var_name = bytes;
@@ -3148,7 +3137,7 @@ pub fn parse_var_with_opt_type(
                 "valid variable name",
                 spans[*spans_idx],
             ));
-            return garbage(spans[*spans_idx]);
+            return (garbage(spans[*spans_idx]), None);
         }
 
         let id = working_set.add_variable(
@@ -3158,12 +3147,15 @@ pub fn parse_var_with_opt_type(
             mutable,
         );
 
-        Expression {
-            expr: Expr::VarDecl(id),
-            span: span(&spans[*spans_idx..*spans_idx + 1]),
-            ty: Type::Any,
-            custom_completion: None,
-        }
+        (
+            Expression {
+                expr: Expr::VarDecl(id),
+                span: span(&spans[*spans_idx..*spans_idx + 1]),
+                ty: Type::Any,
+                custom_completion: None,
+            },
+            None,
+        )
     }
 }
 
@@ -5088,11 +5080,13 @@ pub fn parse_builtin_commands(
     lite_command: &LiteCommand,
     is_subexpression: bool,
 ) -> Pipeline {
+    trace!("parsing: builtin commands");
     if !is_math_expression_like(working_set, lite_command.parts[0])
         && !is_unaliasable_parser_keyword(working_set, &lite_command.parts)
     {
+        trace!("parsing: not math expression or unaliasable parser keyword");
         let name = working_set.get_span_contents(lite_command.parts[0]);
-        if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
+        if let Some(decl_id) = working_set.find_decl(name, &Type::Nothing) {
             let cmd = working_set.get_decl(decl_id);
             if cmd.is_alias() {
                 // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
@@ -5122,6 +5116,7 @@ pub fn parse_builtin_commands(
         }
     }
 
+    trace!("parsing: checking for keywords");
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
@@ -5347,9 +5342,9 @@ pub fn parse_block(
                         parse_builtin_commands(working_set, command, is_subexpression);
 
                     if idx == 0 {
-                        if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Any) {
+                        if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Nothing) {
                             if let Some(let_env_decl_id) =
-                                working_set.find_decl(b"let-env", &Type::Any)
+                                working_set.find_decl(b"let-env", &Type::Nothing)
                             {
                                 for element in pipeline.elements.iter_mut() {
                                     if let PipelineElement::Expression(
@@ -5823,7 +5818,7 @@ fn wrap_element_with_collect(
 fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
     let span = expr.span;
 
-    if let Some(decl_id) = working_set.find_decl(b"collect", &Type::Any) {
+    if let Some(decl_id) = working_set.find_decl(b"collect", &Type::List(Box::new(Type::Any))) {
         let mut output = vec![];
 
         let var_id = IN_VARIABLE_ID;
