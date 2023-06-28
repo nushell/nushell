@@ -118,10 +118,10 @@ jobs:
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: ''
+          target_rustflags: '--exclude=nu-cmd-dataframe'
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
+          target_rustflags: '--exclude=nu-cmd-dataframe'
 
     runs-on: ${{matrix.os}}
 

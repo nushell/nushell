@@ -1817,6 +1817,12 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         };
     }
 
+    let name = if contents.starts_with(b"$") {
+        String::from_utf8_lossy(&contents[1..]).to_string()
+    } else {
+        String::from_utf8_lossy(contents).to_string()
+    };
+
     if let Some(id) = parse_variable(working_set, span) {
         Expression {
             expr: Expr::Var(id),
@@ -1824,6 +1830,9 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             ty: working_set.get_variable(id).ty.clone(),
             custom_completion: None,
         }
+    } else if working_set.get_env_var(&name).is_some() {
+        working_set.error(ParseError::EnvVarNotVar(name, span));
+        garbage(span)
     } else {
         let ws = &*working_set;
         let suggestion = DidYouMean::new(&ws.list_variables(), ws.get_span_contents(span));
