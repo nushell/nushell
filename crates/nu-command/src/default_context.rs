@@ -195,6 +195,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrDistance,
             StrDowncase,
             StrEndswith,
+            StrExpand,
             StrJoin,
             StrReplace,
             StrIndexOf,
