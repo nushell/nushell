@@ -27,8 +27,10 @@ impl Command for WithColumn {
                 SyntaxShape::Any,
                 "series to be added or expressions used to define the new columns",
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 

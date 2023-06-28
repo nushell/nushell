@@ -24,8 +24,6 @@ impl Command for QueryDb {
                 SyntaxShape::String,
                 "SQL to execute against the database",
             )
-            .input_type(Type::Any)
-            .output_type(Type::Any)
             .category(Category::Custom("database".into()))
     }
 

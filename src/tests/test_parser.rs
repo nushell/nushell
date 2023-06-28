@@ -576,3 +576,8 @@ fn filesize_with_underscores_3() -> TestResult {
 fn filesize_is_not_hex() -> TestResult {
     run_test("0x42b", "1067")
 }
+
+#[test]
+fn let_variable_type_mismatch() -> TestResult {
+    fail_test(r#"let x: int = "foo""#, "expected int, found string")
+}

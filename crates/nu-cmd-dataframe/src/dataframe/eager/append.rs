@@ -23,8 +23,10 @@ impl Command for AppendDF {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "dataframe to be appended")
             .switch("col", "appends in col orientation", Some('c'))
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 
