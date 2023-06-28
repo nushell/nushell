@@ -2277,7 +2277,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18a9df1d1fb6d9e92fa043e9eb9a3ecf6892c7b542bae5137cd1e419e40aa8bf"
 dependencies = [
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
 ]
 
 [[package]]
@@ -2665,11 +2665,10 @@ dependencies = [
  "criterion",
  "crossterm 0.26.1",
  "ctrlc",
- "log",
  "miette",
  "mimalloc",
  "nix",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-dataframe",
@@ -2698,10 +2697,21 @@ dependencies = [
  "serde_json",
  "serial_test",
  "signal-hook",
- "simplelog",
  "tempfile",
  "time 0.3.21",
+ "tracing",
+ "tracing-subscriber",
  "winresource",
+]
+
+[[package]]
+name = "nu-ansi-term"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
+dependencies = [
+ "overload",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2723,9 +2733,8 @@ dependencies = [
  "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
- "log",
  "miette",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
@@ -2741,6 +2750,7 @@ dependencies = [
  "reedline",
  "rstest",
  "sysinfo",
+ "tracing",
  "unicode-segmentation",
 ]
 
@@ -2791,7 +2801,7 @@ version = "0.81.1"
 dependencies = [
  "fancy-regex",
  "itertools",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -2803,7 +2813,7 @@ dependencies = [
 name = "nu-color-config"
 version = "0.81.1"
 dependencies = [
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-engine",
  "nu-json",
  "nu-protocol",
@@ -2843,7 +2853,6 @@ dependencies = [
  "is-root",
  "itertools",
  "libc",
- "log",
  "lscolors",
  "md-5",
  "miette",
@@ -2852,7 +2861,7 @@ dependencies = [
  "mockito",
  "native-tls",
  "notify",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
@@ -2900,6 +2909,7 @@ dependencies = [
  "terminal_size 0.2.6",
  "titlecase",
  "toml",
+ "tracing",
  "trash",
  "umask",
  "unicode-segmentation",
@@ -2931,7 +2941,7 @@ dependencies = [
  "ansi-str 0.7.2",
  "crossterm 0.26.1",
  "lscolors",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-color-config",
  "nu-engine",
  "nu-json",
@@ -2967,13 +2977,13 @@ dependencies = [
  "bytesize",
  "chrono",
  "itertools",
- "log",
  "nu-engine",
  "nu-path",
  "nu-plugin",
  "nu-protocol",
  "rstest",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -3002,7 +3012,7 @@ name = "nu-pretty-hex"
 version = "0.81.1"
 dependencies = [
  "heapless",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "rand 0.8.5",
 ]
 
@@ -3046,12 +3056,12 @@ dependencies = [
  "chrono",
  "libc",
  "libproc",
- "log",
  "mach2",
  "nix",
  "ntapi",
  "once_cell",
  "procfs",
+ "tracing",
  "winapi 0.3.9",
 ]
 
@@ -3059,7 +3069,7 @@ dependencies = [
 name = "nu-table"
 version = "0.81.1"
 dependencies = [
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "nu-color-config",
  "nu-engine",
  "nu-protocol",
@@ -3094,11 +3104,11 @@ name = "nu-utils"
 version = "0.81.1"
 dependencies = [
  "crossterm_winapi",
- "log",
  "lscolors",
  "num-format",
  "strip-ansi-escapes",
  "sys-locale",
+ "tracing",
 ]
 
 [[package]]
@@ -3440,6 +3450,12 @@ checksum = "628223faebab4e3e40667ee0b2336d34a5b960ff60ea743ddfdbcf7770bcfb66"
 dependencies = [
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "overload"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "owo-colors"
@@ -4409,7 +4425,7 @@ dependencies = [
  "crossterm 0.26.1",
  "fd-lock",
  "itertools",
- "nu-ansi-term",
+ "nu-ansi-term 0.47.0",
  "rusqlite",
  "serde",
  "serde_json",
@@ -4844,6 +4860,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sharded-slab"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "shell-words"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4912,17 +4937,6 @@ name = "similar"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "420acb44afdae038210c99e69aae24109f32f15500aa708e81d46c9f29d55fcf"
-
-[[package]]
-name = "simplelog"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acee08041c5de3d5048c8b3f6f13fafb3026b24ba43c6a695a0c76179b844369"
-dependencies = [
- "log",
- "termcolor",
- "time 0.3.21",
-]
 
 [[package]]
 name = "siphasher"
@@ -5233,15 +5247,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termcolor"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bab24d30b911b2376f3a13cc2cd443142f0c81dda04c118693e35b3835757755"
-dependencies = [
- "winapi-util",
-]
-
-[[package]]
 name = "terminal_size"
 version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5485,7 +5490,19 @@ checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
  "cfg-if 1.0.0",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.17",
 ]
 
 [[package]]
@@ -5495,6 +5512,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0955b8137a1df6f1a2e9a37d8a6656291ff0297c1a97c24e0d8425fe2312f79a"
 dependencies = [
  "once_cell",
+ "valuable",
+]
+
+[[package]]
+name = "tracing-log"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
+dependencies = [
+ "lazy_static",
+ "log",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30a651bc37f915e81f087d86e62a18eec5f79550c7faff886f7090b4ea757c77"
+dependencies = [
+ "nu-ansi-term 0.46.0",
+ "sharded-slab",
+ "smallvec",
+ "thread_local",
+ "tracing-core",
+ "tracing-log",
 ]
 
 [[package]]
@@ -5702,6 +5745,12 @@ checksum = "345444e32442451b267fc254ae85a209c64be56d2890e601a0c37ff0c3c5ecd2"
 dependencies = [
  "getrandom 0.2.9",
 ]
+
+[[package]]
+name = "valuable"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 
 [[package]]
 name = "value-trait"
