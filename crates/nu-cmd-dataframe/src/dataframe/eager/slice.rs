@@ -25,8 +25,10 @@ impl Command for SliceDF {
         Signature::build(self.name())
             .required("offset", SyntaxShape::Int, "start of slice")
             .required("size", SyntaxShape::Int, "size of slice")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

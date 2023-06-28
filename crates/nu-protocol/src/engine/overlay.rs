@@ -1,6 +1,6 @@
 use crate::{DeclId, ModuleId, OverlayId, Type, Value, VarId};
-use ahash::{HashMap, HashMapExt};
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
@@ -214,7 +214,23 @@ impl OverlayFrame {
         if let Some(decl) = self.decls.get(&(name, input) as &dyn DeclKey) {
             Some(*decl)
         } else {
-            self.decls.get(&(name, &Type::Any) as &dyn DeclKey).cloned()
+            // then fallback to not using the input type
+            for decl_key in self.decls.keys() {
+                if decl_key.0 == name {
+                    // FIXME: this fallback may give bad type information
+                    // in the case where no matching type is found. But, at
+                    // least we treat it as a found internal command rather
+                    // than an external command, which would cause further issues
+                    return Some(
+                        *self
+                            .decls
+                            .get(decl_key)
+                            .expect("internal error: found decl not actually found"),
+                    );
+                }
+            }
+
+            None
         }
     }
 }

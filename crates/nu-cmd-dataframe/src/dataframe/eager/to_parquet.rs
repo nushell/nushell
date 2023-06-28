@@ -25,8 +25,7 @@ impl Command for ToParquet {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("file", SyntaxShape::Filepath, "file path to save dataframe")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Any)
+            .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 

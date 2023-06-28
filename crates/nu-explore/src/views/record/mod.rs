@@ -2,7 +2,7 @@ mod tablew;
 
 use std::borrow::Cow;
 
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::{get_color_map, StyleComputer};

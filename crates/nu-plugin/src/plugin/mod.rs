@@ -1,7 +1,7 @@
 mod declaration;
-use ahash::HashMap;
 pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
+use std::collections::HashMap;
 
 use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
 use crate::EncodingType;
@@ -203,7 +203,7 @@ pub fn get_signature(
 /// impl Plugin for HelloPlugin {
 ///     fn signature(&self) -> Vec<PluginSignature> {
 ///         let sig = PluginSignature::build("hello")
-///             .output_type(Type::String);
+///             .input_output_type(Type::Nothing, Type::String);
 ///
 ///         vec![sig]
 ///     }

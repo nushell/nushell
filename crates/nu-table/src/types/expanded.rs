@@ -1,7 +1,7 @@
-use ahash::{HashMap, HashMapExt};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{ast::PathMember, Config, Span, TableIndexMode, Value};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::{cmp::max, sync::atomic::AtomicBool};
 
@@ -59,7 +59,12 @@ impl ExpandedTable {
         expanded_table_kv(cols, vals, opts)
     }
 
-    pub fn build_list(&self, vals: &[Value], opts: BuildConfig<'_>) -> StringResult {
+    pub fn build_list(
+        &self,
+        vals: &[Value],
+        opts: BuildConfig<'_>,
+        row_offset: usize,
+    ) -> StringResult {
         let opts1 = Options {
             ctrlc: opts.ctrlc,
             config: opts.config,
@@ -68,7 +73,7 @@ impl ExpandedTable {
             span: opts.span,
             format: self.clone(),
         };
-        let out = match expanded_table_list(vals, 0, opts1)? {
+        let out = match expanded_table_list(vals, row_offset, opts1)? {
             Some(out) => out,
             None => return Ok(None),
         };

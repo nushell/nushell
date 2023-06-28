@@ -23,7 +23,7 @@ use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_command::get_init_cwd;
+use nu_cmd_base::util::get_init_cwd;
 use nu_protocol::{engine::EngineState, report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_std::load_standard_library;
