@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.80.1"
+version = "0.82.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -19,9 +19,9 @@ bench = false
 [dependencies]
 log = "0.4"
 lscolors = { version = "0.14", default-features = false, features = ["nu-ansi-term"] }
-num-format = { version = "0.4.3" }
-strip-ansi-escapes = "0.1.1"
-sys-locale = "0.3.0"
+num-format = { version = "0.4" }
+strip-ansi-escapes = "0.1"
+sys-locale = "0.3"
 
 [target.'cfg(windows)'.dependencies]
-crossterm_winapi = "0.9.0"
+crossterm_winapi = "0.9"

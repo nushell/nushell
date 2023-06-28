@@ -64,10 +64,10 @@ jobs:
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: ''
+          target_rustflags: '--exclude=nu-cmd-dataframe'
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
+          target_rustflags: '--exclude=nu-cmd-dataframe'
 
     runs-on: ${{matrix.os}}
 
@@ -79,12 +79,14 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      with:
+        rustflags: ''
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.79.0
+        version: 0.81.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

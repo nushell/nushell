@@ -42,7 +42,11 @@ pub enum ParseError {
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
-    Expected(String, #[label("expected {0}")] Span),
+    Expected(&'static str, #[label("expected {0}")] Span),
+
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
+    ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -168,6 +172,10 @@ pub enum ParseError {
     #[error("Variable not found.")]
     #[diagnostic(code(nu::parser::variable_not_found))]
     VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
+
+    #[error("Use $env.{0} instead of ${0}.")]
+    #[diagnostic(code(nu::parser::env_var_not_var))]
+    EnvVarNotVar(String, #[label = "use $env.{0} instead of ${0}"] Span),
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
@@ -473,6 +481,7 @@ impl ParseError {
             ParseError::Unclosed(_, s) => *s,
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
+            ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
             ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
@@ -487,6 +496,7 @@ impl ParseError {
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(_, s) => *s,
+            ParseError::EnvVarNotVar(_, s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,

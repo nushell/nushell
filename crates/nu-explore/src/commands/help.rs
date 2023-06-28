@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap,
-    io::{self, Result},
-};
+use std::collections::HashMap;
+use std::io::{self, Result};
 
 use crossterm::event::KeyEvent;
 use nu_protocol::{

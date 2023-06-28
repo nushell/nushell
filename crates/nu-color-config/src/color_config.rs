@@ -87,3 +87,92 @@ fn color_string_to_nustyle(color_string: String) -> Style {
 
     parse_nustyle(nu_style)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_ansi_term::{Color, Style};
+    use nu_protocol::{Span, Value};
+
+    #[test]
+    fn test_color_string_to_nustyle_empty_string() {
+        let color_string = String::new();
+        let style = color_string_to_nustyle(color_string);
+        assert_eq!(style, Style::default());
+    }
+
+    #[test]
+    fn test_color_string_to_nustyle_valid_string() {
+        let color_string = r#"{"fg": "black", "bg": "white", "attr": "b"}"#.to_string();
+        let style = color_string_to_nustyle(color_string);
+        assert_eq!(style.foreground, Some(Color::Black));
+        assert_eq!(style.background, Some(Color::White));
+        assert!(style.is_bold);
+    }
+
+    #[test]
+    fn test_color_string_to_nustyle_invalid_string() {
+        let color_string = "invalid string".to_string();
+        let style = color_string_to_nustyle(color_string);
+        assert_eq!(style, Style::default());
+    }
+
+    #[test]
+    fn test_get_style_from_value() {
+        // Test case 1: all values are valid
+        let cols = vec!["bg".to_string(), "fg".to_string(), "attr".to_string()];
+        let vals = vec![
+            Value::String {
+                val: "red".to_string(),
+                span: Span::unknown(),
+            },
+            Value::String {
+                val: "blue".to_string(),
+                span: Span::unknown(),
+            },
+            Value::String {
+                val: "bold".to_string(),
+                span: Span::unknown(),
+            },
+        ];
+        let expected_style = NuStyle {
+            bg: Some("red".to_string()),
+            fg: Some("blue".to_string()),
+            attr: Some("bold".to_string()),
+        };
+        assert_eq!(get_style_from_value(&cols, &vals), Some(expected_style));
+
+        // Test case 2: no values are valid
+        let cols = vec!["invalid".to_string()];
+        let vals = vec![Value::nothing(Span::unknown())];
+        assert_eq!(get_style_from_value(&cols, &vals), None);
+
+        // Test case 3: some values are valid
+        let cols = vec!["bg".to_string(), "invalid".to_string()];
+        let vals = vec![
+            Value::String {
+                val: "green".to_string(),
+                span: Span::unknown(),
+            },
+            Value::nothing(Span::unknown()),
+        ];
+        let expected_style = NuStyle {
+            bg: Some("green".to_string()),
+            fg: None,
+            attr: None,
+        };
+        assert_eq!(get_style_from_value(&cols, &vals), Some(expected_style));
+    }
+
+    #[test]
+    fn test_parse_map_entry() {
+        let mut hm = HashMap::new();
+        let key = "test_key".to_owned();
+        let value = Value::String {
+            val: "red".to_owned(),
+            span: Span::unknown(),
+        };
+        parse_map_entry(&mut hm, &key, &value);
+        assert_eq!(hm.get(&key), Some(&lookup_ansi_color_style("red")));
+    }
+}

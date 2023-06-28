@@ -6,7 +6,8 @@ use nu_protocol::{
     PipelineData, Span, Type, Value,
 };
 use reedline::Suggestion;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::completer::map_value_completions;
 

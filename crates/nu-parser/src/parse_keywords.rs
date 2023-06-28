@@ -464,7 +464,7 @@ pub fn parse_def(
 
             *declaration = signature.clone().into_block_command(block_id);
 
-            let mut block = working_set.get_block_mut(block_id);
+            let block = working_set.get_block_mut(block_id);
             let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
@@ -1368,7 +1368,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, def-env, alias, use, module, or extern keyword".into(),
+                    "def, def-env, alias, use, module, or extern keyword",
                     spans[1],
                 ));
 
@@ -1713,7 +1713,7 @@ pub fn parse_module_block(
                 } => block.pipelines.push(garbage_pipeline(&command.parts)),
             }
         } else {
-            working_set.error(ParseError::Expected("not a pipeline".into(), span));
+            working_set.error(ParseError::Expected("not a pipeline", span));
             block.pipelines.push(garbage_pipeline(&[span]))
         }
     }
@@ -2042,7 +2042,7 @@ pub fn parse_module(
     if block_bytes.starts_with(b"{") {
         start += 1;
     } else {
-        working_set.error(ParseError::Expected("block".into(), block_span));
+        working_set.error(ParseError::Expected("block", block_span));
         return (garbage_pipeline(spans), None);
     }
 
@@ -2637,7 +2637,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 (
                     new_name
                         .map(|spanned| spanned.item)
-                        .unwrap_or(String::from_utf8_lossy(&new_module.name).to_string()),
+                        .unwrap_or_else(|| String::from_utf8_lossy(&new_module.name).to_string()),
                     new_module,
                     module_id,
                     true,

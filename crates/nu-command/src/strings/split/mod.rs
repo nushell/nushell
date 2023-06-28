@@ -1,9 +1,9 @@
-pub mod chars;
-pub mod column;
-pub mod command;
-pub mod list;
-pub mod row;
-pub mod words;
+mod chars;
+mod column;
+mod command;
+mod list;
+mod row;
+mod words;
 
 pub use chars::SubCommand as SplitChars;
 pub use column::SubCommand as SplitColumn;

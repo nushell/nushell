@@ -11,7 +11,6 @@ pub enum Unit {
     Terabyte,
     Petabyte,
     Exabyte,
-    Zettabyte,
 
     // Filesize units: ISO/IEC 80000
     Kibibyte,
@@ -20,7 +19,6 @@ pub enum Unit {
     Tebibyte,
     Pebibyte,
     Exbibyte,
-    Zebibyte,
 
     // Duration units
     Nanosecond,
@@ -61,10 +59,6 @@ impl Unit {
                 val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
                 span,
             },
-            Unit::Zettabyte => Value::Filesize {
-                val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-                span,
-            },
 
             Unit::Kibibyte => Value::Filesize {
                 val: size * 1024,
@@ -88,10 +82,6 @@ impl Unit {
             },
             Unit::Exbibyte => Value::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                span,
-            },
-            Unit::Zebibyte => Value::Filesize {
-                val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
             },
 

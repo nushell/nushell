@@ -138,7 +138,7 @@ pub fn request_add_authorization_header(
 #[allow(clippy::large_enum_variant)]
 pub enum ShellErrorOrRequestError {
     ShellError(ShellError),
-    RequestError(String, Error),
+    RequestError(String, Box<Error>),
 }
 
 impl From<ShellError> for ShellErrorOrRequestError {
@@ -170,6 +170,10 @@ pub fn send_request(
             Box::new(move || request.send_bytes(&val)),
             ctrl_c,
         ),
+        Value::String { .. } if body_type == BodyType::Json => {
+            let data = value_to_json_value(&body)?;
+            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
+        }
         Value::String { val, .. } => send_cancellable_request(
             &request_url,
             Box::new(move || request.send_string(&val)),
@@ -256,7 +260,7 @@ fn send_cancellable_request(
         match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(result) => {
                 return result.map_err(|e| {
-                    ShellErrorOrRequestError::RequestError(request_url.to_string(), e)
+                    ShellErrorOrRequestError::RequestError(request_url.to_string(), Box::new(e))
                 });
             }
             Err(RecvTimeoutError::Timeout) => continue,
@@ -516,7 +520,7 @@ pub fn request_handle_response(
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(_, e) => {
                 if flags.allow_errors {
-                    if let Error::Status(_, resp) = e {
+                    if let Error::Status(_, resp) = *e {
                         Ok(request_handle_response_content(
                             engine_state,
                             stack,
@@ -526,10 +530,10 @@ pub fn request_handle_response(
                             resp,
                         )?)
                     } else {
-                        Err(handle_response_error(span, requested_url, e))
+                        Err(handle_response_error(span, requested_url, *e))
                     }
                 } else {
-                    Err(handle_response_error(span, requested_url, e))
+                    Err(handle_response_error(span, requested_url, *e))
                 }
             }
         },
@@ -574,7 +578,7 @@ pub fn request_handle_response_headers(
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(requested_url, e) => {
-                Err(handle_response_error(span, &requested_url, e))
+                Err(handle_response_error(span, &requested_url, *e))
             }
         },
     }

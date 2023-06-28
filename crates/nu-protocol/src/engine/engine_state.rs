@@ -9,15 +9,13 @@ use crate::{
 use crate::{ParseError, Value};
 use core::panic;
 use std::borrow::Borrow;
+use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc, Mutex,
-    },
+use std::sync::{
+    atomic::{AtomicBool, AtomicU32},
+    Arc, Mutex,
 };
 
 static PWD_ENV: &str = "PWD";
@@ -60,6 +58,12 @@ impl Default for Usage {
 pub enum VirtualPath {
     File(FileId),
     Dir(Vec<VirtualPathId>),
+}
+
+pub struct ReplState {
+    pub buffer: String,
+    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
+    pub cursor_pos: usize,
 }
 
 /// The core global engine state. This includes all global definitions as well as any global state that
@@ -120,10 +124,8 @@ pub struct EngineState {
     pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
-    pub repl_buffer_state: Arc<Mutex<String>>,
+    pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
-    // A byte position, as `EditCommand::MoveToPosition` is also a byte position
-    pub repl_cursor_pos: Arc<Mutex<usize>>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     #[cfg(not(windows))]
@@ -170,12 +172,16 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: EnvVars::from([(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]),
+            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+                .into_iter()
+                .collect(),
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
-            repl_buffer_state: Arc::new(Mutex::new("".to_string())),
-            repl_cursor_pos: Arc::new(Mutex::new(0)),
+            repl_state: Arc::new(Mutex::new(ReplState {
+                buffer: "".to_string(),
+                cursor_pos: 0,
+            })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
@@ -436,7 +442,7 @@ impl EngineState {
             env_vars.insert(name, val);
         } else {
             self.env_vars
-                .insert(overlay_name, HashMap::from([(name, val)]));
+                .insert(overlay_name, [(name, val)].into_iter().collect());
         }
     }
 
@@ -1654,6 +1660,10 @@ impl<'a> StateWorkingSet<'a> {
         self.permanent_state.get_env_var(name)
     }
 
+    /// Returns a reference to the config stored at permanent state
+    ///
+    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
+    /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
     }
@@ -2243,7 +2253,7 @@ mod engine_state_tests {
         let variables = working_set
             .list_variables()
             .into_iter()
-            .map(|v| from_utf8(v))
+            .map(from_utf8)
             .collect::<Result<Vec<&str>, Utf8Error>>()?;
         assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())

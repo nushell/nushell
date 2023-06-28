@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, Type, Value};
+use crate::{ast::Operator, Span, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -19,10 +19,10 @@ pub enum ShellError {
     OperatorMismatch {
         #[label = "type mismatch for operator"]
         op_span: Span,
-        lhs_ty: Type,
+        lhs_ty: String,
         #[label("{lhs_ty}")]
         lhs_span: Span,
-        rhs_ty: Type,
+        rhs_ty: String,
         #[label("{rhs_ty}")]
         rhs_span: Span,
     },
@@ -391,20 +391,13 @@ pub enum ShellError {
         help: Option<String>,
     },
 
-    /// Failed to convert a value of one type into a different type. Includes hint for what the first value is.
-    ///
-    /// ## Resolution
-    ///
-    /// Not all values can be coerced this way. Check the supported type(s) and try again.
-    #[error("Can't convert {from_type} `{details}` to {to_type}.")]
+    #[error("Can't convert string `{details}` to duration.")]
     #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertWithValue {
-        to_type: String,
-        from_type: String,
+    CantConvertToDuration {
         details: String,
-        #[label("can't be converted to {to_type}")]
+        #[label("can't be converted to duration")]
         dst_span: Span,
-        #[label("this {from_type} value...")]
+        #[label("this string value...")]
         src_span: Span,
         #[help]
         help: Option<String>,
@@ -876,9 +869,12 @@ pub enum ShellError {
     ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
 
     /// Unable to remove this item.
+    ///
+    /// ## Resolution
+    ///
+    /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
-    // NOTE: Currently unused. Remove?
     RemoveNotPossible(String, #[label("{0}")] Span),
 
     // These three are unused. Remove?

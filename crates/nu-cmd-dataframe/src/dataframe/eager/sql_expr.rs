@@ -3,7 +3,7 @@ use polars::prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Re
 
 use sqlparser::ast::{
     BinaryOperator as SQLBinaryOperator, DataType as SQLDataType, Expr as SqlExpr,
-    Function as SQLFunction, Value as SqlValue, WindowSpec,
+    Function as SQLFunction, Value as SqlValue, WindowType,
 };
 
 fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
@@ -29,8 +29,8 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         SQLDataType::Boolean => DataType::Boolean,
         SQLDataType::Date => DataType::Date,
         SQLDataType::Time(_, _) => DataType::Time,
-        SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Milliseconds, None),
-        SQLDataType::Interval => DataType::Duration(TimeUnit::Milliseconds),
+        SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Microseconds, None),
+        SQLDataType::Interval => DataType::Duration(TimeUnit::Microseconds),
         SQLDataType::Array(inner_type) => match inner_type {
             Some(inner_type) => DataType::List(Box::new(map_sql_polars_datatype(inner_type)?)),
             None => {
@@ -125,18 +125,26 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
     })
 }
 
-fn apply_window_spec(expr: Expr, window_spec: &Option<WindowSpec>) -> Result<Expr> {
-    Ok(match &window_spec {
-        Some(window_spec) => {
-            // Process for simple window specification, partition by first
-            let partition_by = window_spec
-                .partition_by
-                .iter()
-                .map(parse_sql_expr)
-                .collect::<Result<Vec<_>>>()?;
-            expr.over(partition_by)
-            // Order by and Row range may not be supported at the moment
-        }
+fn apply_window_spec(expr: Expr, window_type: &Option<WindowType>) -> Result<Expr> {
+    Ok(match &window_type {
+        Some(wtype) => match wtype {
+            WindowType::WindowSpec(window_spec) => {
+                // Process for simple window specification, partition by first
+                let partition_by = window_spec
+                    .partition_by
+                    .iter()
+                    .map(parse_sql_expr)
+                    .collect::<Result<Vec<_>>>()?;
+                expr.over(partition_by)
+                // Order by and Row range may not be supported at the moment
+            }
+            // TODO: make NamedWindow work
+            WindowType::NamedWindow(_named) => {
+                return Err(PolarsError::ComputeError(
+                    format!("Expression: {expr:?} was not supported in polars-sql yet!").into(),
+                ))
+            }
+        },
         None => expr,
     })
 }

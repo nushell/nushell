@@ -1,9 +1,9 @@
 use std xml xaccess
 use std xml xupdate
 use std xml xinsert
-use std "assert equal"
+use std assert
 
-export def setup [] {
+def before-each [] {
     {sample_xml: ('
         <a>
             <b>
@@ -18,7 +18,7 @@ export def setup [] {
     }
 }
 
-export def test_xml_xaccess [] {
+def test_xml_xaccess [] {
     let sample_xml = $in.sample_xml
 
     assert equal ($sample_xml | xaccess [a]) [$sample_xml]
@@ -28,7 +28,7 @@ export def test_xml_xaccess [] {
     assert equal ($sample_xml | xaccess [* * * {|e| $e.attributes != {}}]) [[tag, attributes, content]; [c, {a: b}, []]]
 }
 
-export def test_xml_xupdate [] {
+def test_xml_xupdate [] {
     let sample_xml = $in.sample_xml
 
     assert equal ($sample_xml | xupdate [*] {|x| $x | update attributes {i: j}}) ('<a i="j"><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
@@ -36,7 +36,7 @@ export def test_xml_xupdate [] {
     assert equal ($sample_xml | xupdate [* * * {|e| $e.attributes != {}}] {|x| $x | update content ['xml']}) {tag: a, attributes: {}, content: [[tag, attributes, content]; [b, {}, [[tag, attributes, content]; [c, {a: b}, [xml]]]], [c, {}, []], [d, {}, [[tag, attributes, content]; [e, {}, [[tag, attributes, content]; [null, null, z]]], [e, {}, [[tag, attributes, content]; [null, null, x]]]]]]}
 }
 
-export def test_xml_xinsert [] {
+def test_xml_xinsert [] {
     let sample_xml = $in.sample_xml
 
     assert equal ($sample_xml | xinsert [a] {tag: b attributes:{} content: []}) ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d><b></b></a>' | from xml)

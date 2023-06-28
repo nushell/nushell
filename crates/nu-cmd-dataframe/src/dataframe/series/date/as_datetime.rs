@@ -46,35 +46,66 @@ impl Command for AsDateTime {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Converts string to datetime",
-            example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S""#,
-            result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "datetime".to_string(),
-                    vec![
-                        Value::Date {
-                            val: DateTime::parse_from_str(
-                                "2021-12-30 00:00:00 +0000",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
-                            span: Span::test_data(),
-                        },
-                        Value::Date {
-                            val: DateTime::parse_from_str(
-                                "2021-12-31 00:00:00 +0000",
-                                "%Y-%m-%d %H:%M:%S %z",
-                            )
-                            .expect("date calculation should not fail in test"),
-                            span: Span::test_data(),
-                        },
-                    ],
-                )])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Converts string to datetime",
+                example: r#"["2021-12-30 00:00:00" "2021-12-31 00:00:00"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S""#,
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "datetime".to_string(),
+                        vec![
+                            Value::Date {
+                                val: DateTime::parse_from_str(
+                                    "2021-12-30 00:00:00 +0000",
+                                    "%Y-%m-%d %H:%M:%S %z",
+                                )
+                                .expect("date calculation should not fail in test"),
+                                span: Span::test_data(),
+                            },
+                            Value::Date {
+                                val: DateTime::parse_from_str(
+                                    "2021-12-31 00:00:00 +0000",
+                                    "%Y-%m-%d %H:%M:%S %z",
+                                )
+                                .expect("date calculation should not fail in test"),
+                                span: Span::test_data(),
+                            },
+                        ],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Converts string to datetime with high resolutions",
+                example: r#"["2021-12-30 00:00:00.123456789" "2021-12-31 00:00:00.123456789"] | dfr into-df | dfr as-datetime "%Y-%m-%d %H:%M:%S.%9f""#,
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "datetime".to_string(),
+                        vec![
+                            Value::Date {
+                                val: DateTime::parse_from_str(
+                                    "2021-12-30 00:00:00.123456789 +0000",
+                                    "%Y-%m-%d %H:%M:%S.%9f %z",
+                                )
+                                .expect("date calculation should not fail in test"),
+                                span: Span::test_data(),
+                            },
+                            Value::Date {
+                                val: DateTime::parse_from_str(
+                                    "2021-12-31 00:00:00.123456789 +0000",
+                                    "%Y-%m-%d %H:%M:%S.%9f %z",
+                                )
+                                .expect("date calculation should not fail in test"),
+                                span: Span::test_data(),
+                            },
+                        ],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -110,14 +141,13 @@ fn command(
     })?;
 
     let res = if not_exact {
-        casted.as_datetime_not_exact(Some(format.as_str()), TimeUnit::Milliseconds, None)
+        casted.as_datetime_not_exact(Some(format.as_str()), TimeUnit::Nanoseconds, None)
     } else {
         casted.as_datetime(
             Some(format.as_str()),
-            TimeUnit::Milliseconds,
+            TimeUnit::Nanoseconds,
             false,
             false,
-            true,
             None,
         )
     };

@@ -1,6 +1,7 @@
 # Nushell <!-- omit in toc -->
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/nushell/nushell/ci.yml?branch=main)](https://github.com/nushell/nushell/actions)
+[![Nightly Build](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/nushell/nushell/actions/workflows/nightly-build.yml)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
 [![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
@@ -23,7 +24,6 @@ A new type of shell.
   - [Opening files](#opening-files)
   - [Plugins](#plugins)
 - [Goals](#goals)
-- [Progress](#progress)
 - [Officially Supported By](#officially-supported-by)
 - [Contributing](#contributing)
 - [License](#license)
@@ -209,27 +209,6 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 -   Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
-## Progress
-
-Nu is under heavy development and will naturally change as it matures. The chart below isn't meant to be exhaustive, but it helps give an idea for some of the areas of development and their relative maturity:
-
-| Features      | Not started | Prototype | MVP | Preview | Mature | Notes                                                                |
-| ------------- | :---------: | :-------: | :-: | :-----: | :----: | -------------------------------------------------------------------- |
-| Aliases       |             |           |     |    X    |        | Aliases allow for shortening large commands, while passing flags     |
-| Notebook      |             |     X     |     |         |        | Initial jupyter support, but it loses state and lacks features       |
-| File ops      |             |           |     |    X    |        | cp, mv, rm, mkdir have some support, but lacking others              |
-| Environment   |             |           |     |    X    |        | Temporary environment and scoped environment variables               |
-| Shells        |             |           |     |    X    |        | Basic value and file shells, but no opt-in/opt-out for commands      |
-| Protocol      |             |           |     |    X    |        | Streaming protocol is serviceable                                    |
-| Plugins       |             |           |  X  |         |        | Plugins work on one row at a time, lack batching and expression eval |
-| Errors        |             |           |     |    X    |        | Error reporting works, but could use usability polish                |
-| Documentation |             |           |  X  |         |        | Book updated to latest release, including usage examples             |
-| Paging        |             |           |     |    X    |        | Textview has paging, but we'd like paging for tables                 |
-| Functions     |             |           |     |    X    |        | Functions and aliases are supported                                  |
-| Variables     |             |           |     |    X    |        | Nu supports variables and environment variables                      |
-| Completions   |             |           |     |    X    |        | Completions for filepaths                                            |
-| Type-checking |             |           |     |    x    |        | Commands check basic types, and input/output types                   |
-
 ## Officially Supported By
 
 Please submit an issue or PR to be added to this list.
@@ -240,6 +219,7 @@ Please submit an issue or PR to be added to this list.
 -   [Couchbase Shell](https://couchbase.sh)
 -   [virtualenv](https://github.com/pypa/virtualenv)
 -   [atuin](https://github.com/ellie/atuin)
+-   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
 
 ## Contributing
 

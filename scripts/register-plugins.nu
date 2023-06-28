@@ -1,3 +1,7 @@
+use std log warning
+
+warning "./scripts/register-plugin.nu will be deprecated, please use the `toolkit plugin register` command instead"
+
 # are we on windows or not?
 def windows? [] {
     $nu.os-info.name == windows

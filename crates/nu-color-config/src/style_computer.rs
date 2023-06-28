@@ -1,16 +1,14 @@
 use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_engine::eval_block;
+use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
 };
+use std::collections::HashMap;
 
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Formatter, Result},
-};
+use std::fmt::{Debug, Formatter, Result};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which
@@ -138,11 +136,11 @@ impl<'a> StyleComputer<'a> {
 
     // The main constructor.
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
-        let config = engine_state.get_config();
+        let config = get_config(engine_state, stack);
 
         // Create the hashmap
         #[rustfmt::skip]
-        let mut map: StyleMapping = HashMap::from([
+        let mut map: StyleMapping = [
             ("separator".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("leading_trailing_space_bg".to_string(), ComputableStyle::Static(Style::default().on(Color::Rgb(128, 128, 128)))),
             ("header".to_string(), ComputableStyle::Static(Color::White.normal())),
@@ -163,7 +161,8 @@ impl<'a> StyleComputer<'a> {
             ("list".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("block".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
-        ]);
+            ("search_result".to_string(), ComputableStyle::Static(Color::White.normal().on(Color::Red))),
+        ].into_iter().collect();
 
         for (key, value) in &config.color_config {
             match value {
@@ -215,10 +214,12 @@ fn test_computable_style_static() {
     let style_computer = StyleComputer::new(
         &dummy_engine_state,
         &dummy_stack,
-        HashMap::from([
+        [
             ("string".into(), ComputableStyle::Static(style1)),
             ("row_index".into(), ComputableStyle::Static(style2)),
-        ]),
+        ]
+        .into_iter()
+        .collect(),
     );
     assert_eq!(
         style_computer.compute("string", &Value::nothing(Span::unknown())),

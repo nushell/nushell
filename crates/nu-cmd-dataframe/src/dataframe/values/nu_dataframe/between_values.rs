@@ -6,7 +6,7 @@ use nu_protocol::{
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series, TimeUnit, Utf8NameSpaceImpl,
+    NumOpsDispatchChecked, PolarsError, Series, Utf8NameSpaceImpl,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -25,9 +25,9 @@ pub(super) fn between_dataframes(
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
+            lhs_ty: left.get_type().to_string(),
             lhs_span: left.span()?,
-            rhs_ty: right.get_type(),
+            rhs_ty: right.get_type().to_string(),
             rhs_span: right.span()?,
         }),
     }
@@ -167,9 +167,9 @@ pub(super) fn compute_between_series(
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
+            lhs_ty: left.get_type().to_string(),
             lhs_span: left.span()?,
-            rhs_ty: right.get_type(),
+            rhs_ty: right.get_type().to_string(),
             rhs_span: right.span()?,
         }),
     }
@@ -210,9 +210,9 @@ pub(super) fn compute_series_single_value(
     if !lhs.is_series() {
         return Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
+            lhs_ty: left.get_type().to_string(),
             lhs_span: left.span()?,
-            rhs_ty: right.get_type(),
+            rhs_ty: right.get_type().to_string(),
             rhs_span: right.span()?,
         });
     }
@@ -231,9 +231,9 @@ pub(super) fn compute_series_single_value(
             Value::String { val, .. } => add_string_to_series(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -246,9 +246,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -261,9 +261,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -284,9 +284,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -304,9 +304,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -325,9 +325,9 @@ pub(super) fn compute_series_single_value(
             ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -341,9 +341,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -357,9 +357,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -373,9 +373,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -389,9 +389,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -400,9 +400,9 @@ pub(super) fn compute_series_single_value(
             Value::String { val, .. } => contains_series_pat(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -413,9 +413,9 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
@@ -426,17 +426,17 @@ pub(super) fn compute_series_single_value(
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
-                lhs_ty: left.get_type(),
+                lhs_ty: left.get_type().to_string(),
                 lhs_span: left.span()?,
-                rhs_ty: right.get_type(),
+                rhs_ty: right.get_type().to_string(),
                 rhs_span: right.span()?,
             }),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
-            lhs_ty: left.get_type(),
+            lhs_ty: left.get_type().to_string(),
             lhs_span: left.span()?,
-            rhs_ty: right.get_type(),
+            rhs_ty: right.get_type().to_string(),
             rhs_span: right.span()?,
         }),
     }
@@ -580,10 +580,7 @@ where
     F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
     match series.dtype() {
-        DataType::UInt32
-        | DataType::Int32
-        | DataType::UInt64
-        | DataType::Datetime(TimeUnit::Milliseconds, _) => {
+        DataType::UInt32 | DataType::Int32 | DataType::UInt64 | DataType::Datetime(_, _) => {
             let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {

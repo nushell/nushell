@@ -29,10 +29,19 @@ pub enum PluginCall {
     CollapseCustomValue(PluginData),
 }
 
+/// An error message with debugging information that can be passed to Nushell from the plugin
+///
+/// The `LabeledError` struct is a structured error message that can be returned from
+/// a [Plugin](crate::Plugin)'s [`run`](crate::Plugin::run()) method. It contains
+/// the error message along with optional [Span] data to support highlighting in the
+/// shell.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct LabeledError {
+    /// The name of the error
     pub label: String,
+    /// A detailed error description
     pub msg: String,
+    /// The [Span] in which the error occurred
     pub span: Option<Span>,
 }
 
@@ -99,6 +108,9 @@ impl From<ShellError> for LabeledError {
 }
 
 // Information received from the plugin
+// Needs to be public to communicate with nu-parser but not typically
+// used by Plugin authors
+#[doc(hidden)]
 #[derive(Serialize, Deserialize)]
 pub enum PluginResponse {
     Error(LabeledError),

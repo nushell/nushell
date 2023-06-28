@@ -1,6 +1,6 @@
 use std *
 
-export def test_iter_find [] {
+def test_iter_find [] {
     let hastack1 = [1 2 3 4 5 6 7]
     let hastack2 = [nushell rust shell iter std]
     let hastack3 = [nu 69 2023-04-20 "std"]
@@ -18,7 +18,7 @@ export def test_iter_find [] {
     assert equal $res null
 }
 
-export def test_iter_intersperse [] {
+def test_iter_intersperse [] {
     let res = ([1 2 3 4] | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
 
@@ -38,7 +38,7 @@ export def test_iter_intersperse [] {
     assert equal $res [4]
 }
 
-export def test_iter_scan [] {
+def test_iter_scan [] {
     let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y} -n)
     assert equal $scanned [1, 3, 6]
 
@@ -49,18 +49,18 @@ export def test_iter_scan [] {
     assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
 
-export def test_iter_filter_map [] {
+def test_iter_filter_map [] {
     let res = ([2 5 "4" 7] | iter filter-map {|it| $it ** 2})
     assert equal $res [4 25 49]
 
     let res = (
-        ["3" "42" "69" "n" "x" ""] 
+        ["3" "42" "69" "n" "x" ""]
         | iter filter-map {|it| $it | into int}
         )
     assert equal $res [3 42 69]
 }
 
-export def test_iter_find_index [] {
+def test_iter_find_index [] {
     let res = (
          ["iter", "abc", "shell", "around", "nushell", "std"]
          | iter find-index {|x| $x starts-with 's'}
@@ -75,7 +75,7 @@ export def test_iter_find_index [] {
     assert equal $res 0
 }
 
-export def test_iter_zip_with [] {
+def test_iter_zip_with [] {
     let res = (
         [1 2 3] | iter zip-with [2 3 4] {|a, b| $a + $b }
     )
@@ -98,10 +98,10 @@ export def test_iter_zip_with [] {
         [name    repo    position];
         [rust    github  1]
         [haskell gitlab  2]
-    ] 
+    ]
 }
 
-export def test_iter_flat_map [] {
+def test_iter_flat_map [] {
     let res = (
         [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
     )
@@ -109,4 +109,18 @@ export def test_iter_flat_map [] {
 
     let res = ([1 2 3] | iter flat-map {|it| $it + ($it * 10)})
     assert equal $res [11 22 33]
+}
+
+export def test_iter_zip_into_record [] {
+    let headers = [name repo position]
+    let values = [rust github 1]
+
+    let res = (
+        $headers | iter zip-into-record $values
+    )
+
+    assert equal $res [
+        [name    repo    position];
+        [rust    github  1]
+    ]
 }

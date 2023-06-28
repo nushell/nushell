@@ -9,6 +9,7 @@ mod avg;
 mod ceil;
 mod cos;
 mod cosh;
+mod egamma;
 mod euler;
 mod exp;
 mod floor;
@@ -19,6 +20,7 @@ mod max;
 mod median;
 mod min;
 mod mode;
+mod phi;
 mod pi;
 mod product;
 mod reducers;
@@ -64,7 +66,9 @@ pub use arcsinh::SubCommand as MathArcSinH;
 pub use arctan::SubCommand as MathArcTan;
 pub use arctanh::SubCommand as MathArcTanH;
 
+pub use egamma::SubCommand as MathEulerGamma;
 pub use euler::SubCommand as MathEuler;
+pub use phi::SubCommand as MathPhi;
 pub use pi::SubCommand as MathPi;
 pub use tau::SubCommand as MathTau;
 

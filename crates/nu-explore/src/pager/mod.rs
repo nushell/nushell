@@ -5,10 +5,11 @@ mod status_bar;
 
 use std::{
     cmp::min,
-    collections::HashMap,
     io::{self, Result, Stdout},
     sync::atomic::Ordering,
 };
+
+use std::collections::HashMap;
 
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},

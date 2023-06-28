@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;

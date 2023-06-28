@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-json"
 edition = "2021"
 license = "MIT"
 name = "nu-json"
-version = "0.80.1"
+version = "0.82.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,9 +18,9 @@ default = ["preserve_order"]
 
 [dependencies]
 linked-hash-map = { version="0.5", optional=true }
-num-traits = "0.2.14"
+num-traits = "0.2"
 serde = "1.0"
 
 [dev-dependencies]
-# nu-path = { path="../nu-path", version = "0.80.1" }
+# nu-path = { path="../nu-path", version = "0.82.1" }
 # serde_json = "1.0"

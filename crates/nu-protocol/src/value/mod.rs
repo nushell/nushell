@@ -11,8 +11,9 @@ use crate::ast::{Math, Operator};
 use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+
 use byte_unit::ByteUnit;
-use chrono::{DateTime, Duration, FixedOffset};
+use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 use fancy_regex::Regex;
@@ -20,12 +21,14 @@ pub use from_value::FromValue;
 use indexmap::map::IndexMap;
 pub use lazy_record::LazyRecord;
 use nu_utils::get_system_locale;
+use nu_utils::locale::get_system_locale_string;
 use num_format::ToFormattedString;
 pub use range::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::Write;
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult},
     iter,
     path::PathBuf,
@@ -534,7 +537,21 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val)),
+
+            Value::Date { val, .. } => match &config.datetime_normal_format {
+                Some(format) => self.format_datetime(val, format),
+                None => {
+                    format!(
+                        "{} ({})",
+                        if val.year() >= 0 {
+                            val.to_rfc2822()
+                        } else {
+                            val.to_rfc3339()
+                        },
+                        HumanTime::from(*val),
+                    )
+                }
+            },
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
@@ -586,7 +603,10 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
-            Value::Date { val, .. } => HumanTime::from(*val).to_string(),
+            Value::Date { val, .. } => match &config.datetime_table_format {
+                Some(format) => self.format_datetime(val, format),
+                None => HumanTime::from(*val).to_string(),
+            },
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
@@ -628,6 +648,26 @@ impl Value {
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { .. } => "<Pattern>".into(),
         }
+    }
+
+    fn format_datetime<Tz: TimeZone>(&self, date_time: &DateTime<Tz>, formatter: &str) -> String
+    where
+        Tz::Offset: Display,
+    {
+        let mut formatter_buf = String::new();
+        let locale: Locale = get_system_locale_string()
+            .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
+            .unwrap_or_else(|| String::from("en_US"))
+            .as_str()
+            .try_into()
+            .unwrap_or(Locale::en_US);
+        let format = date_time.format_localized(formatter, locale);
+
+        match formatter_buf.write_fmt(format_args!("{format}")) {
+            Ok(_) => (),
+            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
+        }
+        formatter_buf
     }
 
     /// Convert Value into a debug string
@@ -798,8 +838,8 @@ impl Value {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream {
-  span: *origin_span
-});
+                                    span: *origin_span
+                                });
                             }
                         }
                         Value::CustomValue { val, .. } => {
@@ -1050,6 +1090,12 @@ impl Value {
                             }
                         }
                     }
+                    Value::LazyRecord { val, .. } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.upsert_data_at_cell_path(cell_path, new_val)?;
+                        *self = record
+                    }
                     Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
@@ -1181,6 +1227,12 @@ impl Value {
                             });
                         }
                     }
+                    Value::LazyRecord { val, .. } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.update_data_at_cell_path(cell_path, new_val)?;
+                        *self = record
+                    }
                     Value::Error { error } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
@@ -1293,6 +1345,13 @@ impl Value {
                             }
                             Ok(())
                         }
+                        Value::LazyRecord { val, .. } => {
+                            // convert to Record first.
+                            let mut record = val.collect()?;
+                            record.remove_data_at_cell_path(cell_path)?;
+                            *self = record;
+                            Ok(())
+                        }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
@@ -1389,6 +1448,13 @@ impl Value {
                                     src_span: *v_span,
                                 });
                             }
+                            Ok(())
+                        }
+                        Value::LazyRecord { val, .. } => {
+                            // convert to Record first.
+                            let mut record = val.collect()?;
+                            record.remove_data_at_cell_path(cell_path)?;
+                            *self = record;
                             Ok(())
                         }
                         v => Err(ShellError::CantFindColumn {
@@ -1506,6 +1572,12 @@ impl Value {
 
                         cols.push(col_name.clone());
                         vals.push(new_val);
+                    }
+                    Value::LazyRecord { val, span } => {
+                        // convert to Record first.
+                        let mut record = val.collect()?;
+                        record.insert_data_at_cell_path(cell_path, new_val, *span)?;
+                        *self = record
                     }
                     other => {
                         return Err(ShellError::UnsupportedInput(
@@ -2174,9 +2246,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2211,9 +2283,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2292,9 +2364,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2402,9 +2474,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2539,9 +2611,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2675,9 +2747,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2698,9 +2770,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2713,9 +2785,9 @@ impl Value {
         } else {
             Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             })
         }
@@ -2741,9 +2813,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2755,9 +2827,9 @@ impl Value {
             })
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             })
     }
@@ -2782,9 +2854,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2796,9 +2868,9 @@ impl Value {
             })
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             })
     }
@@ -2823,9 +2895,9 @@ impl Value {
         {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             });
         }
@@ -2837,9 +2909,9 @@ impl Value {
             }),
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -2862,9 +2934,9 @@ impl Value {
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
-                    lhs_ty: self.get_type(),
+                    lhs_ty: self.get_type().to_string(),
                     lhs_span: self.span()?,
-                    rhs_ty: rhs.get_type(),
+                    rhs_ty: rhs.get_type().to_string(),
                     rhs_span: rhs.span()?,
                 }),
             }
@@ -2888,9 +2960,9 @@ impl Value {
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
-                    lhs_ty: self.get_type(),
+                    lhs_ty: self.get_type().to_string(),
                     lhs_span: self.span()?,
-                    rhs_ty: rhs.get_type(),
+                    rhs_ty: rhs.get_type().to_string(),
                     rhs_span: rhs.span()?,
                 }),
             }
@@ -2946,9 +3018,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3003,9 +3075,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3079,9 +3151,9 @@ impl Value {
             ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3098,9 +3170,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3117,9 +3189,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3136,9 +3208,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3155,9 +3227,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3174,9 +3246,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3193,9 +3265,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3212,9 +3284,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3268,9 +3340,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3287,9 +3359,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3306,9 +3378,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3325,9 +3397,9 @@ impl Value {
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3360,9 +3432,9 @@ impl Value {
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
-                lhs_ty: self.get_type(),
+                lhs_ty: self.get_type().to_string(),
                 lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
+                rhs_ty: rhs.get_type().to_string(),
                 rhs_span: rhs.span()?,
             }),
         }
@@ -3722,7 +3794,6 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
         "tb" | "tib" => either!(format_value, TB, TiB),
         "pb" | "pib" => either!(format_value, TB, TiB),
         "eb" | "eib" => either!(format_value, EB, EiB),
-        "zb" | "zib" => either!(format_value, ZB, ZiB),
         _ => (byte_unit::ByteUnit::B, "auto"),
     }
 }
@@ -3826,6 +3897,46 @@ mod tests {
                 list_of_ints_and_floats.get_type(),
                 Type::List(Box::new(Type::Number))
             );
+        }
+    }
+
+    mod into_string {
+        use chrono::{DateTime, FixedOffset, NaiveDateTime};
+
+        use super::*;
+
+        #[test]
+        fn test_datetime() {
+            let string = Value::Date {
+                val: DateTime::from_utc(
+                    NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
+                    FixedOffset::east_opt(0).unwrap(),
+                ),
+                span: Span::unknown(),
+            }
+            .into_string("", &Default::default());
+
+            // We need to cut the humanized part off for tests to work, because
+            // it is relative to current time.
+            let formatted = string.split("(").next().unwrap();
+            assert_eq!("Tue, 30 Dec 1969 13:42:23 +0000 ", formatted);
+        }
+
+        #[test]
+        fn test_negative_year_datetime() {
+            let string = Value::Date {
+                val: DateTime::from_utc(
+                    NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
+                    FixedOffset::east_opt(0).unwrap(),
+                ),
+                span: Span::unknown(),
+            }
+            .into_string("", &Default::default());
+
+            // We need to cut the humanized part off for tests to work, because
+            // it is relative to current time.
+            let formatted = string.split(" ").next().unwrap();
+            assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
         }
     }
 }

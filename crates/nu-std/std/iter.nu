@@ -197,3 +197,26 @@ export def zip-with [ # -> list<any>
         reduce {|it, acc| do $fn $acc $it }
     }
 }
+
+# Zips two lists and returns a record with the first list as headers
+#
+# # Example
+# ```nu
+# use std ["assert equal" "iter iter zip-into-record"]
+#
+# let res = (
+#     [1 2 3] | iter zip-into-record [2 3 4]
+# )
+#
+# assert equal $res [
+#     [1 2 3];
+#     [2 3 4]
+# ]
+# ```
+export def zip-into-record [ # -> table<any>
+    other: list                     # the values to zip with
+] {
+    into record
+    | append ($other | into record)
+    | headers
+}

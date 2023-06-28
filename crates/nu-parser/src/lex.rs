@@ -388,7 +388,24 @@ fn lex_internal(
                         *prev = Token::new(
                             TokenContents::Pipe,
                             Span::new(span_offset + idx, span_offset + idx + 1),
-                        )
+                        );
+                        // And this is a continuation of the previous line if previous line is a
+                        // comment line (combined with EOL + Comment)
+                        //
+                        // Initially, the last one token is TokenContents::Pipe, we don't need to
+                        // check it, so the beginning offset is 2.
+                        let mut offset = 2;
+                        while output.len() > offset {
+                            let index = output.len() - offset;
+                            if output[index].contents == TokenContents::Comment
+                                && output[index - 1].contents == TokenContents::Eol
+                            {
+                                output.remove(index - 1);
+                                offset += 1;
+                            } else {
+                                break;
+                            }
+                        }
                     }
                     _ => {
                         output.push(Token::new(

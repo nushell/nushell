@@ -5,25 +5,25 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-parser"
 edition = "2021"
 license = "MIT"
 name = "nu-parser"
-version = "0.80.1"
+version = "0.82.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.80.1" }
-nu-path = {path = "../nu-path", version = "0.80.1" }
-nu-plugin = { path = "../nu-plugin", optional = true, version = "0.80.1"  }
-nu-protocol = { path = "../nu-protocol", version = "0.80.1" }
+nu-engine = { path = "../nu-engine", version = "0.82.1" }
+nu-path = {path = "../nu-path", version = "0.82.1" }
+nu-plugin = { path = "../nu-plugin", optional = true, version = "0.82.1"  }
+nu-protocol = { path = "../nu-protocol", version = "0.82.1" }
 
-bytesize = "1.2.0"
-chrono = { default-features = false, features = ['std'], version = "0.4.23" }
+bytesize = "1.2"
+chrono = { default-features = false, features = ['std'], version = "0.4" }
 itertools = "0.10"
 log = "0.4"
 serde_json = "1.0"
 
 [dev-dependencies]
-rstest = { version = "0.17.0", default-features = false }
+rstest = { version = "0.17", default-features = false }
 
 [features]
 plugin = ["nu-plugin"]

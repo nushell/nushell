@@ -2,7 +2,7 @@ use crate::tests::{fail_test, run_test_std, TestResult};
 
 #[test]
 fn library_loaded() -> TestResult {
-    run_test_std("$nu.scope.modules | where name == 'std' | length", "1")
+    run_test_std("scope modules | where name == 'std' | length", "1")
 }
 
 #[test]

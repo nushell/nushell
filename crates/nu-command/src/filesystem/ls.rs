@@ -506,7 +506,7 @@ pub(crate) fn dir_entry_dict(
                     span,
                 });
 
-                cols.push("uid".into());
+                cols.push("user".into());
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
                     vals.push(Value::String {
                         val: user.name().to_string_lossy().into(),
@@ -835,16 +835,14 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => {
-                    return Err(ShellError::ReadingFile(
-                        format!(
-                            "Could not read metadata for '{}':\n  '{}'",
-                            filename.to_string_lossy(),
-                            e
-                        ),
-                        span,
-                    ));
-                }
+                Err(e) => Err(ShellError::ReadingFile(
+                    format!(
+                        "Could not read metadata for '{}':\n  '{}'",
+                        filename.to_string_lossy(),
+                        e
+                    ),
+                    span,
+                )),
             }
         }
     }

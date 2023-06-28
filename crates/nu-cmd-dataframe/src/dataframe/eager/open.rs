@@ -9,8 +9,8 @@ use nu_protocol::{
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 use polars::prelude::{
-    CsvEncoding, CsvReader, IpcReader, JsonReader, LazyCsvReader, LazyFileListReader, LazyFrame,
-    ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+    CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
+    LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
 #[derive(Clone)]
@@ -22,7 +22,7 @@ impl Command for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens CSV, JSON, arrow, or parquet file to create dataframe."
+        "Opens CSV, JSON, JSON lines, arrow, or parquet file to create dataframe."
     }
 
     fn signature(&self) -> Signature {
@@ -118,6 +118,7 @@ fn command(
             "parquet" => from_parquet(engine_state, stack, call),
             "ipc" | "arrow" => from_ipc(engine_state, stack, call),
             "json" => from_json(engine_state, stack, call),
+            "jsonl" => from_jsonl(engine_state, stack, call),
             _ => Err(ShellError::FileNotFoundCustom(
                 format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
                 blamed,
@@ -288,6 +289,44 @@ fn from_json(
         .map_err(|e| {
             ShellError::GenericError(
                 "Json reader error".into(),
+                format!("{e:?}"),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        })?
+        .into();
+
+    Ok(df.into_value(call.head))
+}
+
+fn from_jsonl(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Value, ShellError> {
+    let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
+    let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+    let file = File::open(&file.item).map_err(|e| {
+        ShellError::GenericError(
+            "Error opening file".into(),
+            e.to_string(),
+            Some(file.span),
+            None,
+            Vec::new(),
+        )
+    })?;
+
+    let buf_reader = BufReader::new(file);
+    let reader = JsonReader::new(buf_reader)
+        .with_json_format(JsonFormat::JsonLines)
+        .infer_schema_len(infer_schema);
+
+    let df: NuDataFrame = reader
+        .finish()
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Json lines reader error".into(),
                 format!("{e:?}"),
                 Some(call.head),
                 None,

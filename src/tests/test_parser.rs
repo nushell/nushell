@@ -443,6 +443,16 @@ fn unary_not_6() -> TestResult {
 }
 
 #[test]
+fn comment_in_multiple_pipelines() -> TestResult {
+    run_test(
+        r#"[[name, present]; [abc, true], [def, false]]
+        # | where not present
+        | get name.0"#,
+        "abc",
+    )
+}
+
+#[test]
 fn date_literal() -> TestResult {
     run_test(r#"2022-09-10 | date to-record | get day"#, "10")
 }
@@ -560,4 +570,9 @@ fn filesize_with_underscores_2() -> TestResult {
 #[test]
 fn filesize_with_underscores_3() -> TestResult {
     fail_test("42m_b", "executable was not found")
+}
+
+#[test]
+fn filesize_is_not_hex() -> TestResult {
+    run_test("0x42b", "1067")
 }
