@@ -1,4 +1,7 @@
-use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::event::{
+    DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
+    EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+};
 use crossterm::terminal;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -7,6 +10,7 @@ use nu_protocol::{
     Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use num_traits::AsPrimitive;
+use std::io::stdout;
 
 #[derive(Clone)]
 pub struct InputListen;
@@ -75,6 +79,7 @@ There are 4 <key_type> variants:
         let add_raw = call.has_flag("raw");
 
         terminal::enable_raw_mode()?;
+        let console_state = event_type_filter.enable_events()?;
         loop {
             let event = crossterm::event::read().map_err(|_| {
                 ShellError::GenericError(
@@ -88,6 +93,7 @@ There are 4 <key_type> variants:
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
                 terminal::disable_raw_mode()?;
+                console_state.restore();
                 return Ok(event.into_pipeline_data());
             }
         }
@@ -108,6 +114,7 @@ fn get_event_type_filter(
     Ok(event_type_filter)
 }
 
+#[derive(Clone)]
 struct EventTypeFilter {
     listen_focus: bool,
     listen_key: bool,
@@ -176,6 +183,49 @@ impl EventTypeFilter {
             head,
             value.span().unwrap_or(head),
         )
+    }
+
+    /// Enable capturing of all events allowed by this filter.
+    /// Call [`DeferredConsoleRestore::restore`] when done capturing events to restore
+    /// console state
+    fn enable_events(&self) -> Result<DeferredConsoleRestore, ShellError> {
+        if self.listen_mouse {
+            crossterm::execute!(stdout(), EnableMouseCapture)?;
+        }
+
+        if self.listen_paste {
+            crossterm::execute!(stdout(), EnableBracketedPaste)?;
+        }
+
+        if self.listen_focus {
+            crossterm::execute!(stdout(), crossterm::event::EnableFocusChange)?;
+        }
+
+        Ok(DeferredConsoleRestore {
+            setup_event_types: self.clone(),
+        })
+    }
+}
+
+/// Promise to disable all event capturing previously enabled by [`EventTypeFilter::enable_events`]
+struct DeferredConsoleRestore {
+    setup_event_types: EventTypeFilter,
+}
+
+impl DeferredConsoleRestore {
+    /// Disable all event capturing flags set up by [`EventTypeFilter::enable_events`]
+    fn restore(self) {
+        if self.setup_event_types.listen_mouse {
+            let _ = crossterm::execute!(stdout(), DisableMouseCapture);
+        }
+
+        if self.setup_event_types.listen_paste {
+            let _ = crossterm::execute!(stdout(), DisableBracketedPaste);
+        }
+
+        if self.setup_event_types.listen_focus {
+            let _ = crossterm::execute!(stdout(), DisableFocusChange);
+        }
     }
 }
 
