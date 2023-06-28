@@ -466,7 +466,7 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
     }
 
     let mut table = NuTable::from(data);
-    let keys_style = get_index_style(opts.style_computer).alignment(Alignment::Left);
+    let keys_style = get_header_style(opts.style_computer).alignment(Alignment::Left);
     table.set_index_style(keys_style);
 
     let out = TableOutput::new(table, false, true);
