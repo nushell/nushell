@@ -319,7 +319,7 @@ impl Command for Nu {
             .named(
                 "ide-check",
                 SyntaxShape::Int,
-                "run a diagnostic check on the given source and limit errors to provided number",
+                "run a diagnostic check on the given source and limit number of errors returned to provided number",
                 None,
             )
             .switch("ide-ast", "generate the ast on the given source", None);
