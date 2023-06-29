@@ -39,10 +39,13 @@ impl Command for InputList {
 
     fn signature(&self) -> Signature {
         Signature::build("input list")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+                (Type::List(Box::new(Type::Any)), Type::String),
+            ])
             .optional("prompt", SyntaxShape::String, "the prompt to display")
             .switch(
                 "multi",
