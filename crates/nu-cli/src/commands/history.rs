@@ -46,7 +46,7 @@ impl Command for History {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
+        // TODO: for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
             let clear = call.has_flag("clear");
             let long = call.has_flag("long");
