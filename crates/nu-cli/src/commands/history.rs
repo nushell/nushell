@@ -60,7 +60,10 @@ impl Command for History {
 
             if clear {
                 let _ = std::fs::remove_file(history_path);
-                // TODO: FIXME also clear the auxiliary files when using sqlite
+                if let HistoryFileFormat::Sqlite = engine_state.config.history_file_format {
+                    let _ = std::fs::remove_file(nushell_dir.join("history.sqlite3-shm"));
+                    let _ = std::fs::remove_file(nushell_dir.join("history.sqlite3-wal"));
+                }
                 return Ok(PipelineData::empty());
             }
             let history_reader: Option<Box<dyn ReedlineHistory>> =
