@@ -26,8 +26,7 @@ impl Command for ExprCol {
                 SyntaxShape::String,
                 "Name of column to be used",
             )
-            .input_type(Type::Any)
-            .output_type(Type::Custom("expression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

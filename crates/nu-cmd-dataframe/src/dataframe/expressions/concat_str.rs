@@ -31,8 +31,7 @@ impl Command for ExprConcatStr {
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "Expression(s) that define the string concatenation",
             )
-            .input_type(Type::Any)
-            .output_type(Type::Custom("expression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

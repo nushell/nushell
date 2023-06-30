@@ -31,9 +31,11 @@ impl Command for AsDate {
         Signature::build(self.name())
             .required("format", SyntaxShape::String, "formatting date string")
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
-                        .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
-.category(Category::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
+            .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {

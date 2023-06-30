@@ -19,7 +19,7 @@ export def xaccess [
     # In xpath first element in path is applied to root element
     # this way it is possible to apply first step to root element
     # of nu xml without unrolling one step of loop
-    mut values = ()
+    mut values: any = ()
     $values = {content: [ { content: $input } ] }
     for $step in ($path) {
         match ($step | describe) {
@@ -66,7 +66,7 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
 
     let new_values = ($to_update.item | xupdate-internal $rest $updater)
 
-    mut reenumerated_new_values = ($to_update.index | zip $new_values | each {|x| {index: $x.0 item: $x.1}})
+    mut reenumerated_new_values: any = ($to_update.index | zip $new_values | each {|x| {index: $x.0 item: $x.1}})
 
     mut new_content = []
     for it in ($input.content | enumerate) {

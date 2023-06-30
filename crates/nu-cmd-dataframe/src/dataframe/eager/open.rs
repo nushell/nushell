@@ -68,8 +68,7 @@ impl Command for OpenDataFrame {
                 "Columns to be selected from csv file. CSV and Parquet file",
                 None,
             )
-            .input_type(Type::Any)
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 

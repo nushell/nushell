@@ -1,5 +1,6 @@
 mod and;
 mod bits_;
+mod into;
 mod not;
 mod or;
 mod rotate_left;
@@ -10,6 +11,7 @@ mod xor;
 
 pub use and::BitsAnd;
 pub use bits_::Bits;
+pub use into::BitsInto;
 pub use not::BitsNot;
 pub use or::BitsOr;
 pub use rotate_left::BitsRol;

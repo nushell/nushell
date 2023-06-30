@@ -38,8 +38,10 @@ impl Command for LazyJoin {
                 "Suffix to use on columns with same name",
                 Some('s'),
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("lazyframe".into()))
     }
 

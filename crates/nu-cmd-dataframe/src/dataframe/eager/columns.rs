@@ -19,8 +19,7 @@ impl Command for ColumnsDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Any)
+            .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 
