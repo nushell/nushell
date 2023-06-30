@@ -87,8 +87,8 @@ fn env_assignment() {
 }
 
 #[test]
-fn let_env_file_pwd_env_var_fails() {
-    let actual = nu!(cwd: ".", r#"let-env FILE_PWD = 'foo'"#);
+fn mutate_env_file_pwd_env_var_fails() {
+    let actual = nu!(cwd: ".", r#"$env.FILE_PWD = 'foo'"#);
 
     assert!(actual.err.contains("automatic_env_var_set_manually"));
 }
@@ -163,7 +163,7 @@ fn passes_env_from_local_cfg_to_external_process() {
 #[test]
 fn hides_env_in_block() {
     let inp = &[
-        "let-env foo = 'foo'",
+        "$env.foo = 'foo'",
         "hide-env foo",
         "let b = {|| $env.foo }",
         "do $b",

@@ -1,5 +1,5 @@
 export-env {
-    let-env LOG_ANSI = {
+    $env.LOG_ANSI = {
         "CRITICAL": (ansi red_bold),
         "ERROR": (ansi red),
         "WARNING": (ansi yellow),
@@ -7,7 +7,7 @@ export-env {
         "DEBUG": (ansi default_dimmed)
     }
 
-    let-env LOG_LEVEL = {
+    $env.LOG_LEVEL = {
         "CRITICAL": 50,
         "ERROR": 40,
         "WARNING": 30,
@@ -15,7 +15,7 @@ export-env {
         "DEBUG": 10
     }
 
-    let-env LOG_PREFIX = {
+    $env.LOG_PREFIX = {
         "CRITICAL": "CRT",
         "ERROR": "ERR",
         "WARNING": "WRN",
@@ -23,7 +23,7 @@ export-env {
         "DEBUG": "DBG"
     }
 
-    let-env LOG_SHORT_PREFIX = {
+    $env.LOG_SHORT_PREFIX = {
         "CRITICAL": "C",
         "ERROR": "E",
         "WARNING": "W",
@@ -31,7 +31,7 @@ export-env {
         "DEBUG": "D"
     }
 
-    let-env LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
+    $env.LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
 }
 
 def log-types [] {

@@ -15,23 +15,23 @@
 # unset CARGO_TARGET_DIR if set (I have to do this in the parent shell to get it to work)
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
-# 3. let-env TARGET = 'x86_64-pc-windows-msvc'
-# 4. let-env TARGET_RUSTFLAGS = ''
-# 5. let-env GITHUB_WORKSPACE = 'C:\Users\dschroeder\source\repos\forks\nushell'
-# 6. let-env GITHUB_OUTPUT = 'C:\Users\dschroeder\source\repos\forks\nushell\output\out.txt'
-# 7. let-env OS = 'windows-latest'
+# 3. $env.TARGET = 'x86_64-pc-windows-msvc'
+# 4. $env.TARGET_RUSTFLAGS = ''
+# 5. $env.GITHUB_WORKSPACE = 'C:\Users\dschroeder\source\repos\forks\nushell'
+# 6. $env.GITHUB_OUTPUT = 'C:\Users\dschroeder\source\repos\forks\nushell\output\out.txt'
+# 7. $env.OS = 'windows-latest'
 # make sure 7z.exe is in your path https://www.7-zip.org/download.html
-# 8. let-env Path = ($env.Path | append 'c:\apps\7-zip')
+# 8. $env.Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
-# 9. let-env Path = ($env.Path | append 'c:\path\to\aria2c')
+# 9. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
 # make sure you have the wixtools installed https://wixtoolset.org/
-# 10. let-env Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
+# 10. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
 # You need to run the release-pkg twice. The first pass, with _EXTRA_ as 'bin', makes the output
 # folder and builds everything. The second pass, that generates the msi file, with _EXTRA_ as 'msi'
-# 11. let-env _EXTRA_ = 'bin'
+# 11. $env._EXTRA_ = 'bin'
 # 12. source .github\workflows\release-pkg.nu
 # 13. cd ..
-# 14. let-env _EXTRA_ = 'msi'
+# 14. $env._EXTRA_ = 'msi'
 # 15. source .github\workflows\release-pkg.nu
 # After msi is generated, you have to update winget-pkgs repo, you'll need to patch the release
 # by deleting the existing msi and uploading this new msi. Then you'll need to update the hash
@@ -73,17 +73,17 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
     match $target {
         'aarch64-unknown-linux-gnu' => {
             sudo apt-get install gcc-aarch64-linux-gnu -y
-            let-env CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
+            $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
             cargo-build-nu $flags
         }
         'riscv64gc-unknown-linux-gnu' => {
             sudo apt-get install gcc-riscv64-linux-gnu -y
-            let-env CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
+            $env.CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
             cargo-build-nu $flags
         }
         'armv7-unknown-linux-gnueabihf' => {
             sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
-            let-env CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
+            $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
             cargo-build-nu $flags
         }
         _ => {
