@@ -99,12 +99,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
-    # let-env CARGO_BUILD_TARGET = $target
-    if ($flags | str trim | is-empty) {
-        cargo build --release --all --target $target
-    } else {
-        cargo build --release --all --target $target $flags
-    }
+    cargo-build-nu $flags
 }
 
 # ----------------------------------------------------------------------------
@@ -194,11 +189,13 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 }
 
 def 'cargo-build-nu' [ options: string ] {
-    if ($options | str trim | is-empty) {
-        cargo build --release --all --target $target --features=static-link-openssl
+    let features = if $os == 'windows-latest' {
+        ''
     } else {
-        cargo build --release --all --target $target --features=static-link-openssl $options
+        '--features=static-link-openssl'
     }
+
+    cargo build --release --all --target $target $features $options
 }
 
 # Print a horizontal line marker

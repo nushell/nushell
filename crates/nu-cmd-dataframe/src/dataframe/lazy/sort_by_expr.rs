@@ -37,8 +37,10 @@ impl Command for LazySortBy {
                 "nulls are shown last in the dataframe",
                 Some('n'),
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("lazyframe".into()))
     }
 

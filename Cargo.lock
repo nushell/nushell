@@ -361,6 +361,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bracoxide"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "218d42d1e9cdf071a7badff501a139dd6f598fe21348e5e5c4e2302e43bdcefb"
+
+[[package]]
 name = "brotli"
 version = "3.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2768,7 +2774,7 @@ dependencies = [
  "num 0.4.0",
  "polars",
  "serde",
- "sqlparser 0.33.0",
+ "sqlparser",
 ]
 
 [[package]]
@@ -2820,6 +2826,7 @@ dependencies = [
  "alphanumeric-sort",
  "atty",
  "base64 0.21.2",
+ "bracoxide",
  "byteorder",
  "bytesize",
  "calamine",
@@ -2894,7 +2901,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
- "sqlparser 0.33.0",
+ "sqlparser",
  "sysinfo",
  "tabled",
  "terminal_size 0.2.6",
@@ -3350,11 +3357,12 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 
 [[package]]
 name = "open"
-version = "4.1.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d16814a067484415fda653868c9be0ac5f2abd2ef5d951082a5f2fe1b3662944"
+checksum = "cfabf1927dce4d6fdf563d63328a0a506101ced3ec780ca2135747336c98cef8"
 dependencies = [
  "is-wsl",
+ "libc",
  "pathdiff",
 ]
 
@@ -3991,7 +3999,7 @@ dependencies = [
  "polars-plan",
  "serde",
  "serde_json",
- "sqlparser 0.34.0",
+ "sqlparser",
 ]
 
 [[package]]
@@ -4991,21 +4999,12 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "355dc4d4b6207ca8a3434fc587db0a8016130a574dbcdbfb93d7f7b5bc5b211a"
-dependencies = [
- "log",
- "serde",
-]
-
-[[package]]
-name = "sqlparser"
 version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37d3706eefb17039056234df6b566b0014f303f867f2656108334a55b8096f59"
 dependencies = [
  "log",
+ "serde",
 ]
 
 [[package]]

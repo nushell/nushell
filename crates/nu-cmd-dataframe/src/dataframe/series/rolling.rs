@@ -59,8 +59,10 @@ impl Command for Rolling {
         Signature::build(self.name())
             .required("type", SyntaxShape::String, "rolling operation")
             .required("window", SyntaxShape::Int, "Window size for rolling")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

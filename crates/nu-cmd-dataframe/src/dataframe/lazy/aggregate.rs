@@ -27,8 +27,10 @@ impl Command for LazyAggregate {
                 SyntaxShape::Any,
                 "Expression(s) that define the aggregations to be applied",
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("lazyframe".into()))
     }
 
@@ -121,7 +123,7 @@ impl Command for LazyAggregate {
         let group_by = NuLazyGroupBy::try_from_pipeline(input, call.head)?;
 
         if let Some(schema) = &group_by.schema {
-            for expr in &expressions {
+            for expr in expressions.iter() {
                 if let Some(name) = get_col_name(expr) {
                     let dtype = schema.get(name.as_str());
 

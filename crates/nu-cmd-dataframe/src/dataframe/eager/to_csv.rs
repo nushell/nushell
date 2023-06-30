@@ -32,8 +32,7 @@ impl Command for ToCSV {
                 Some('d'),
             )
             .switch("no-header", "Indicates if file doesn't have header", None)
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Any)
+            .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
     }
 
