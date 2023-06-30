@@ -305,9 +305,16 @@ mod nu_users {
         let mut buff: Vec<i32> = vec![0; 1024];
         #[cfg(all(unix, not(target_os = "macos")))]
         let mut buff: Vec<gid_t> = vec![0; 1024];
-        let name = CString::new(username.as_ref().as_bytes()).expect("not valid cstring");
+        let name = CString::new(username.as_ref().as_bytes()).expect("OsStr is guaranteed to be zero-free, which is the condition for CString::new to succeed");
         let mut count = buff.len() as c_int;
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
+        // SAFETY:
+        // int getgrouplist(const char *user, gid_t group, gid_t *groups, int *ngroups);
+        //
+        // `name` is valid CStr to be `const char*` for `user`
+        // every valid value will be accepted for `group`
+        // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max length/capacity (as we initialize with 0)
+        // Following reads from `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
         #[cfg(all(unix, target_os = "macos"))]
         let res =
             unsafe { libc::getgrouplist(name.as_ptr(), gid as i32, buff.as_mut_ptr(), &mut count) };
