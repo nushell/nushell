@@ -1,35 +1,22 @@
-// use std::fs::read_link;
-// use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-// use std::path::PathBuf;
-// use std::sync::atomic::AtomicBool;
-// use std::sync::Arc;
-
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-// use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::ffi::OsString;
-// use super::util::try_interaction;
-
-// use crate::filesystem::util::FileStructure;
-// use crate::progress_bar;
-
-// use uu_cp::*;
 
 #[derive(Clone)]
 pub struct Umv;
 
 impl Command for Umv {
     fn name(&self) -> &str {
-        "umv"
+        "mv"
     }
 
     fn usage(&self) -> &str {
-        "Move files."
+        "Move files using uutils/coreutils mv."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -37,7 +24,7 @@ impl Command for Umv {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("umv")
+        Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
@@ -52,6 +39,31 @@ impl Command for Umv {
             .switch("progress", "display a progress bar", Some('g'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .category(Category::FileSystem)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Move myfile to dir_b",
+                example: "mv myfile dir_b",
+                result: None,
+            },
+            Example {
+                description: "Force move dir_a to dir_b",
+                example: "mv -f dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Move dir_a to dir_b, and print the feedbacks",
+                example: "mv -v dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Move many file recursively into a new folder showing a progress bar",
+                example: "mv -p big_folder new_folder",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -161,30 +173,5 @@ impl Command for Umv {
         // Pass uucore::Args to app.uumain
         uu_mv::uumain(args.into_iter());
         Ok(PipelineData::empty())
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Move myfile to dir_b",
-                example: "umv myfile dir_b",
-                result: None,
-            },
-            Example {
-                description: "Force move dir_a to dir_b",
-                example: "umv -f dir_a dir_b",
-                result: None,
-            },
-            Example {
-                description: "Move dir_a to dir_b, and print the feedbacks",
-                example: "umv -v dir_a dir_b",
-                result: None,
-            },
-            Example {
-                description: "Move many file recursively into a new folder showing a progress bar",
-                example: "umv -p big_folder new_folder",
-                result: None,
-            },
-        ]
     }
 }

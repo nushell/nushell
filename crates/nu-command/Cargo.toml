@@ -118,6 +118,7 @@ features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_System
 version = "0.48"
 
 [features]
+nuuu = []
 plugin = ["nu-parser/plugin"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]

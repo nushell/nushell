@@ -1,35 +1,22 @@
-// use std::fs::read_link;
-// use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-// use std::path::PathBuf;
-// use std::sync::atomic::AtomicBool;
-// use std::sync::Arc;
-
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-// use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::ffi::OsString;
-// use super::util::try_interaction;
-
-// use crate::filesystem::util::FileStructure;
-// use crate::progress_bar;
-
-// use uu_cp::*;
 
 #[derive(Clone)]
 pub struct Ucp;
 
 impl Command for Ucp {
     fn name(&self) -> &str {
-        "ucp"
+        "cp"
     }
 
     fn usage(&self) -> &str {
-        "Copy files."
+        "Copy files using uutils/coreutils cp."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -37,7 +24,7 @@ impl Command for Ucp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ucp")
+        Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
@@ -47,6 +34,36 @@ impl Command for Ucp {
             .switch("interactive", "ask before overwriting files", Some('i'))
             .switch("progress", "display a progress bar", Some('g'))
             .category(Category::FileSystem)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Copy myfile to dir_b",
+                example: "cp myfile dir_b",
+                result: None,
+            },
+            Example {
+                description: "Recursively copy dir_a to dir_b",
+                example: "cp -r dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Recursively copy dir_a to dir_b, and print the feedbacks",
+                example: "cp -r -v dir_a dir_b",
+                result: None,
+            },
+            Example {
+                description: "Move many files into a directory",
+                example: "cp *.txt dir_a",
+                result: None,
+            },
+            Example {
+                description: "Copy many file recursively into a new folder showing a progress bar",
+                example: "cp -r -g big_folder new_folder",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -143,35 +160,5 @@ impl Command for Ucp {
         // Pass uucore::Args to app.uumain
         uu_cp::uumain(args.into_iter());
         Ok(PipelineData::empty())
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Copy myfile to dir_b",
-                example: "ucp myfile dir_b",
-                result: None,
-            },
-            Example {
-                description: "Recursively copy dir_a to dir_b",
-                example: "ucp -r dir_a dir_b",
-                result: None,
-            },
-            Example {
-                description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "ucp -r -v dir_a dir_b",
-                result: None,
-            },
-            Example {
-                description: "Move many files into a directory",
-                example: "ucp *.txt dir_a",
-                result: None,
-            },
-            Example {
-                description: "Copy many file recursively into a new folder showing a progress bar",
-                example: "cp -r -g big_folder new_folder",
-                result: None,
-            },
-        ]
     }
 }
