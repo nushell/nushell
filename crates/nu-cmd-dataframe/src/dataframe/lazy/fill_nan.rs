@@ -25,8 +25,10 @@ impl Command for LazyFillNA {
                 SyntaxShape::Any,
                 "Expression to use to fill the NAN values",
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("lazyframe".into()))
     }
 

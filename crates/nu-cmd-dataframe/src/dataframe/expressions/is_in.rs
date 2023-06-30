@@ -26,8 +26,10 @@ impl Command for ExprIsIn {
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "List to check if values are in",
             )
-            .input_type(Type::Custom("expression".into()))
-            .output_type(Type::Custom("expression".into()))
+            .input_output_type(
+                Type::Custom("expression".into()),
+                Type::Custom("expression".into()),
+            )
             .category(Category::Custom("expression".into()))
     }
 

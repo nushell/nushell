@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -6,6 +6,16 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
     Type, Value,
 };
+
+pub struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -120,7 +130,8 @@ fn into_binary(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let cell_paths = call.rest(engine_state, stack, 0)?;
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     match input {
         PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
@@ -141,8 +152,8 @@ fn into_binary(
             .into_pipeline_data())
         }
         _ => {
-            let arg = CellPathOnlyArgs::from(cell_paths);
-            operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+            let args = Arguments { cell_paths };
+            operate(action, args, input, call.head, engine_state.ctrlc.clone())
         }
     }
 }
@@ -163,7 +174,7 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
