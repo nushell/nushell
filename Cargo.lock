@@ -543,21 +543,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e3c5919066adf22df73762e50cffcde3a758f2a848b113b586d1f86728b673b"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-integer",
  "num-traits",
  "pure-rust-locales",
  "serde",
- "time 0.1.45",
- "wasm-bindgen",
  "winapi 0.3.9",
 ]
 
 [[package]]
 name = "chrono-humanize"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32dce1ea1988dbdf9f9815ff11425828523bd2a134ec0805d2ac8af26ee6096e"
+source = "git+https://gitlab.com/adamchalmers/chrono-humanize-rs?branch=achalmers/fix-10#4aedb030692adc1eac9fa36a55283270f24cebab"
 dependencies = [
  "chrono",
 ]
@@ -1099,8 +1095,7 @@ dependencies = [
 [[package]]
 name = "dtparse"
 version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68235de3c014ade82e550337b2c88a2a884361793ed3be2d74ee703bd810e401"
+source = "git+https://github.com/nibon7/dtparse.git?branch=chrono#dbd2eab7d42376b15ab127a431848193c933f449"
 dependencies = [
  "chrono",
  "lazy_static",
@@ -2706,7 +2701,7 @@ dependencies = [
  "signal-hook",
  "simplelog",
  "tempfile",
- "time 0.3.21",
+ "time",
  "winresource",
 ]
 
@@ -4411,8 +4406,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8022fd7e194d238a6af0f558aad44d874640151616f76e2250b8251c902d415"
+source = "git+https://github.com/nushell/reedline.git?branch=main#2142c5c8e98aac8ce09d443b17a94f589b75afde"
 dependencies = [
  "chrono",
  "crossterm 0.26.1",
@@ -4849,7 +4843,7 @@ checksum = "970538704756fd0bb4ec8cb89f80674afb661e7c0fe716f9ba5be57717742300"
 dependencies = [
  "const_format",
  "is_debug",
- "time 0.3.21",
+ "time",
 ]
 
 [[package]]
@@ -4930,7 +4924,7 @@ checksum = "acee08041c5de3d5048c8b3f6f13fafb3026b24ba43c6a695a0c76179b844369"
 dependencies = [
  "log",
  "termcolor",
- "time 0.3.21",
+ "time",
 ]
 
 [[package]]
@@ -5310,17 +5304,6 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "time"
 version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f3403384eaacbca9923fa06940178ac13e4edb725486d70e8e15881d0c836cc"
@@ -5499,9 +5482,8 @@ dependencies = [
 
 [[package]]
 name = "trash"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b782240476bca40f750a7f205510ac1449ab707d3ac3f451c4b356f557c0ecd"
+version = "3.0.3"
+source = "git+https://github.com/nibon7/trash-rs.git?branch=chrono#fad81a4992fe053e30113f9ab0c7001d12b1ec17"
 dependencies = [
  "chrono",
  "libc",
@@ -5782,12 +5764,6 @@ name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
-
-[[package]]
-name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasi"
