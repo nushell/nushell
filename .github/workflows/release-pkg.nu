@@ -189,13 +189,19 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 }
 
 def 'cargo-build-nu' [ options: string ] {
-    let features = if $os == 'windows-latest' {
-        ''
+    if ($options | str trim | is-empty) {
+        if $os == 'windows-latest' {
+            cargo build --release --all --target $target
+        } else {
+            cargo build --release --all --target $target --features=static-link-openssl
+        }
     } else {
-        '--features=static-link-openssl'
+        if $os == 'windows-latest' {
+            cargo build --release --all --target $target $options
+        } else {
+            cargo build --release --all --target $target --features=static-link-openssl $options
+        }
     }
-
-    cargo build --release --all --target $target $features $options
 }
 
 # Print a horizontal line marker
