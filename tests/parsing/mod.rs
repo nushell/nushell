@@ -79,7 +79,7 @@ fn parse_file_relative_to_parsed_file_simple() {
                 r#"
                     use ../lol_shell.nu
 
-                    let-env LOL = (lol_shell ls)
+                    $env.LOL = (lol_shell ls)
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -115,7 +115,7 @@ fn parse_file_relative_to_parsed_file() {
                     use ../lol_shell.nu
                     overlay use ../../lol/lol_shell.nu
 
-                    let-env LOL = $'($env.FOO) (lol_shell ls) (ls)'
+                    $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -127,7 +127,7 @@ fn parse_file_relative_to_parsed_file() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = 'foo'
+                    $env.FOO = 'foo'
                 "#,
             )]);
 
@@ -157,13 +157,13 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/foo.nu",
                 r#"
-                    let-env FOO = 'good'
+                    $env.FOO = 'good'
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = 'bad'
+                    $env.FOO = 'bad'
                 "#,
             )]);
 
@@ -193,7 +193,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = 'bad'
+                    $env.FOO = 'bad'
                 "#,
             )]);
 

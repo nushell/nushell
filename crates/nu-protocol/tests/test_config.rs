@@ -3,7 +3,7 @@ use nu_test_support::{nu, nu_repl_code};
 #[test]
 fn filesize_metric_true() {
     let code = &[
-        r#"let-env config = { filesize: { metric: true, format:"mb" } }"#,
+        r#"$env.config = { filesize: { metric: true, format:"mb" } }"#,
         r#"20mib | into string"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));
@@ -13,7 +13,7 @@ fn filesize_metric_true() {
 #[test]
 fn filesize_metric_false() {
     let code = &[
-        r#"let-env config = { filesize: { metric: false, format:"mib" } }"#,
+        r#"$env.config = { filesize: { metric: false, format:"mib" } }"#,
         r#"20mib | into string"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));
@@ -23,7 +23,7 @@ fn filesize_metric_false() {
 #[test]
 fn filesize_metric_overrides_format() {
     let code = &[
-        r#"let-env config = { filesize: { metric: false, format:"mb" } }"#,
+        r#"$env.config = { filesize: { metric: false, format:"mb" } }"#,
         r#"20mib | into string"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));
@@ -33,7 +33,7 @@ fn filesize_metric_overrides_format() {
 #[test]
 fn filesize_format_auto_metric_true() {
     let code = &[
-        r#"let-env config = { filesize: { metric: true, format:"auto" } }"#,
+        r#"$env.config = { filesize: { metric: true, format:"auto" } }"#,
         r#"[2mb 2gb 2tb] | into string | to nuon"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));
@@ -43,7 +43,7 @@ fn filesize_format_auto_metric_true() {
 #[test]
 fn filesize_format_auto_metric_false() {
     let code = &[
-        r#"let-env config = { filesize: { metric: false, format:"auto" } }"#,
+        r#"$env.config = { filesize: { metric: false, format:"auto" } }"#,
         r#"[2mb 2gb 2tb] | into string | to nuon"#,
     ];
     let actual = nu!(cwd: ".", nu_repl_code( code ));

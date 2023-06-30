@@ -68,7 +68,7 @@ export def-env "path add" [
         }}
     }
 
-    let-env $path_name = (
+    $env.$path_name = (
             $env
             | get $path_name
             | if $append { append $paths }

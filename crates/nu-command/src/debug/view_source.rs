@@ -163,8 +163,8 @@ impl Command for ViewSource {
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
-                example: r#"def-env foo [] { let-env BAR = 'BAZ' }; view source foo"#,
-                result: Some(Value::test_string("def foo [] { let-env BAR = 'BAZ' }")),
+                example: r#"def-env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
+                result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a custom command with flags and arguments",
@@ -173,8 +173,8 @@ impl Command for ViewSource {
             },
             Example {
                 description: "View the source of a module",
-                example: r#"module mod-foo { export-env { let-env FOO_ENV = 'BAZ' } }; view source mod-foo"#,
-                result: Some(Value::test_string(" export-env { let-env FOO_ENV = 'BAZ' }")),
+                example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
+                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
             },
             Example {
                 description: "View the source of an alias",
