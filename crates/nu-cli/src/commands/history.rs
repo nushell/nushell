@@ -61,65 +61,65 @@ impl Command for History {
             if clear {
                 let _ = std::fs::remove_file(history_path);
                 // TODO: FIXME also clear the auxiliary files when using sqlite
-                Ok(PipelineData::empty())
-            } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> =
-                    match engine_state.config.history_file_format {
-                        HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(history_path)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok(),
-
-                        HistoryFileFormat::PlainText => FileBackedHistory::with_file(
-                            engine_state.config.max_history_size as usize,
-                            history_path,
-                        )
+                return Ok(PipelineData::empty());
+            }
+            let history_reader: Option<Box<dyn ReedlineHistory>> =
+                match engine_state.config.history_file_format {
+                    HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(history_path)
                         .map(|inner| {
                             let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                             boxed
                         })
                         .ok(),
-                    };
 
-                match engine_state.config.history_file_format {
-                    HistoryFileFormat::PlainText => Ok(history_reader
-                        .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                                .ok()
-                        })
-                        .map(move |entries| {
-                            entries
-                                .into_iter()
-                                .enumerate()
-                                .map(move |(idx, entry)| Value::Record {
-                                    cols: vec!["command".to_string(), "index".to_string()],
-                                    vals: vec![
-                                        Value::String {
-                                            val: entry.command_line,
-                                            span: head,
-                                        },
-                                        Value::int(idx as i64, head),
-                                    ],
-                                    span: head,
-                                })
-                        })
-                        .ok_or(ShellError::FileNotFound(head))?
-                        .into_pipeline_data(ctrlc)),
-                    HistoryFileFormat::Sqlite => Ok(history_reader
-                        .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                                .ok()
-                        })
-                        .map(move |entries| {
-                            entries.into_iter().enumerate().map(move |(idx, entry)| {
-                                create_history_record(idx, entry, long, head)
+                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
+                        engine_state.config.max_history_size as usize,
+                        history_path,
+                    )
+                    .map(|inner| {
+                        let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                        boxed
+                    })
+                    .ok(),
+                };
+
+            match engine_state.config.history_file_format {
+                HistoryFileFormat::PlainText => Ok(history_reader
+                    .and_then(|h| {
+                        h.search(SearchQuery::everything(SearchDirection::Forward, None))
+                            .ok()
+                    })
+                    .map(move |entries| {
+                        entries
+                            .into_iter()
+                            .enumerate()
+                            .map(move |(idx, entry)| Value::Record {
+                                cols: vec!["command".to_string(), "index".to_string()],
+                                vals: vec![
+                                    Value::String {
+                                        val: entry.command_line,
+                                        span: head,
+                                    },
+                                    Value::int(idx as i64, head),
+                                ],
+                                span: head,
                             })
-                        })
-                        .ok_or(ShellError::FileNotFound(head))?
-                        .into_pipeline_data(ctrlc)),
-                }
+                    })
+                    .ok_or(ShellError::FileNotFound(head))?
+                    .into_pipeline_data(ctrlc)),
+                HistoryFileFormat::Sqlite => Ok(history_reader
+                    .and_then(|h| {
+                        h.search(SearchQuery::everything(SearchDirection::Forward, None))
+                            .ok()
+                    })
+                    .map(move |entries| {
+                        entries
+                            .into_iter()
+                            .enumerate()
+                            .map(move |(idx, entry)| create_history_record(idx, entry, long, head))
+                    })
+                    .ok_or(ShellError::FileNotFound(head))?
+                    .into_pipeline_data(ctrlc)),
             }
         } else {
             Err(ShellError::FileNotFound(head))
