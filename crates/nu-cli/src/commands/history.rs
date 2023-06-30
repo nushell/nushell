@@ -52,16 +52,11 @@ impl Command for History {
             let long = call.has_flag("long");
             let ctrlc = engine_state.ctrlc.clone();
 
-            let mut history_path = config_path;
-            history_path.push("nushell");
-            match engine_state.config.history_file_format {
-                HistoryFileFormat::Sqlite => {
-                    history_path.push("history.sqlite3");
-                }
-                HistoryFileFormat::PlainText => {
-                    history_path.push("history.txt");
-                }
-            }
+            let nushell_dir = config_path.join("nushell");
+            let history_path = nushell_dir.join(match engine_state.config.history_file_format {
+                HistoryFileFormat::Sqlite => "history.sqlite3",
+                HistoryFileFormat::PlainText => "history.txt",
+            });
 
             if clear {
                 let _ = std::fs::remove_file(history_path);

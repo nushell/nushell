@@ -6,8 +6,8 @@ use nu_protocol::{
         Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, ProfilingConfig, Stack},
-    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
-    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    DataSource, HistoryFileFormat, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    PipelineMetadata, Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::time::Instant;
 use std::{collections::HashMap, path::PathBuf};
@@ -1276,17 +1276,14 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
     }
 
     cols.push("history-path".to_string());
-    if let Some(mut path) = nu_path::config_dir() {
-        path.push("nushell");
-        match engine_state.config.history_file_format {
-            nu_protocol::HistoryFileFormat::Sqlite => {
-                path.push("history.sqlite3");
-            }
-            nu_protocol::HistoryFileFormat::PlainText => {
-                path.push("history.txt");
-            }
-        }
-        let canon_hist_path = canonicalize_path(engine_state, &path);
+    if let Some(path) = nu_path::config_dir() {
+        let history_path =
+            path.join("nushell")
+                .join(match engine_state.config.history_file_format {
+                    HistoryFileFormat::Sqlite => "history.sqlite3",
+                    HistoryFileFormat::PlainText => "history.txt",
+                });
+        let canon_hist_path = canonicalize_path(engine_state, &history_path);
         vals.push(Value::String {
             val: canon_hist_path.to_string_lossy().to_string(),
             span,
