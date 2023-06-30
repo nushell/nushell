@@ -306,7 +306,7 @@ fn module_import_env_1() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
-                    export-env { let-env FOO_HELPER = "foo" }
+                    export-env { $env.FOO_HELPER = "foo" }
                 "#,
             )]);
 
@@ -331,7 +331,7 @@ fn module_import_env_2() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
-                    export-env { let-env FOO = "foo" }
+                    export-env { $env.FOO = "foo" }
                 "#,
             )]);
 

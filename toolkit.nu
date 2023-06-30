@@ -232,7 +232,7 @@ export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to check the current PR on
 ] {
-    let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
+    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
         fmt --check --verbose
     } catch {
@@ -436,7 +436,7 @@ def compute-coverage [] {
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
 export def cov [] {
     let start = (date now)
-    let-env NUSHELL_CARGO_TARGET = "ci"
+    $env.NUSHELL_CARGO_TARGET = "ci"
 
     compute-coverage
 

@@ -16,7 +16,7 @@ def test_path_add [] {
         std path add "/bar/" "/baz/"
         assert equal (get_path) ["/bar/", "/baz/", "/foo/"]
 
-        let-env $path_name = []
+        load-env {$path_name: []}
 
         std path add "foo"
         std path add "bar" "baz" --append
@@ -25,13 +25,11 @@ def test_path_add [] {
         assert equal (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
         assert equal (get_path) ["fooooo", "foo", "bar", "baz"]
 
-        let-env $path_name = []
+        load-env {$path_name: []}
         let target_paths = {linux: "foo", windows: "bar", macos: "baz"}
 
         std path add $target_paths
         assert equal (get_path) [($target_paths | get $nu.os-info.name)]
-
-
     }
 }
 

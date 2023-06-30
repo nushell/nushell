@@ -17,8 +17,8 @@
 # This situation could arise if we started with [/a, /b, /c], then
 # we changed directories from /b to /var/tmp.
 export-env {
-    let-env DIRS_POSITION = 0
-    let-env DIRS_LIST = [($env.PWD | path expand)]
+    $env.DIRS_POSITION = 0
+    $env.DIRS_LIST = [($env.PWD | path expand)]
 }
 
 # Add one or more directories to the list.
@@ -36,7 +36,7 @@ export def-env add [
             $abspaths = ($abspaths | append $exp)
         }
 
-        let-env DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
+        $env.DIRS_LIST = ($env.DIRS_LIST | insert ($env.DIRS_POSITION + 1) $abspaths | flatten)
 
 
     _fetch 1
@@ -66,7 +66,7 @@ export alias p = prev
 # PWD becomes the next working directory
 export def-env drop [] {
     if ($env.DIRS_LIST | length) > 1 {
-        let-env DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
+        $env.DIRS_LIST = ($env.DIRS_LIST | reject $env.DIRS_POSITION)
         if ($env.DIRS_POSITION >= ($env.DIRS_LIST | length)) {$env.DIRS_POSITION = 0}
     }
 
@@ -111,7 +111,7 @@ export def-env goto [shell?: int] {
             }
         }
     }
-    let-env DIRS_POSITION = $shell
+    $env.DIRS_POSITION = $shell
 
     cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
 }

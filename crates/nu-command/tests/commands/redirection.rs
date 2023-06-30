@@ -143,7 +143,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
         nu!(
             cwd: dirs.test(), pipeline(
                 r#"
-                let-env LARGE = (open --raw a_large_file.txt);
+                $env.LARGE = (open --raw a_large_file.txt);
                 nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt
                 "#
             ),
