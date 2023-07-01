@@ -17,8 +17,6 @@ impl Command for SchemaDb {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .input_type(Type::Any)
-            .output_type(Type::Any)
             .category(Category::Custom("database".into()))
     }
 

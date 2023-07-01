@@ -1,10 +1,10 @@
-use ahash::{HashMap, HashMapExt};
 use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
     ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 pub fn create_scope(
     engine_state: &EngineState,
@@ -283,7 +283,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             .collect::<Vec<(String, Value)>>();
 
         // Until we allow custom commands to have input and output types, let's just
-        // make them Type::Any Type::Any so they can show up in our $nu.scope.commands
+        // make them Type::Any Type::Any so they can show up in our `scope commands`
         // a little bit better. If sigs is empty, we're pretty sure that we're dealing
         // with a custom command.
         if sigs.is_empty() {

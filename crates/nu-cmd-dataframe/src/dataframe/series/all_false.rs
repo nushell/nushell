@@ -20,8 +20,10 @@ impl Command for AllFalse {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

@@ -26,8 +26,10 @@ impl Command for ExprAlias {
                 SyntaxShape::String,
                 "Alias name for the expression",
             )
-            .input_type(Type::Custom("expression".into()))
-            .output_type(Type::Custom("expression".into()))
+            .input_output_type(
+                Type::Custom("expression".into()),
+                Type::Custom("expression".into()),
+            )
             .category(Category::Custom("expression".into()))
     }
 

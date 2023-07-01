@@ -49,7 +49,7 @@ fn headers_invalid_column_type_record() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
         r#"
-            [[a b]; [1 ($nu.scope)] [2 2]]
+            [[a b]; [1 (scope aliases)] [2 2]]
             | headers"#
     ));
 

@@ -20,8 +20,7 @@ impl Command for ToDataFrame {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_type(Type::Any)
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
 

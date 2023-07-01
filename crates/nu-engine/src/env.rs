@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::{Call, Expr, PathMember};

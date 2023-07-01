@@ -118,10 +118,10 @@ jobs:
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: ''
+          target_rustflags: '--exclude=nu-cmd-dataframe'
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
+          target_rustflags: '--exclude=nu-cmd-dataframe'
 
     runs-on: ${{matrix.os}}
 
@@ -136,6 +136,8 @@ jobs:
 
     - name: Setup Rust toolchain and cache
       uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      with:
+        rustflags: ''
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
@@ -162,7 +164,7 @@ jobs:
       with:
         update_existing: true
         search_existing: open
-        filename: .github/ISSUE_TEMPLATE/nightly-build-fail.md
+        filename: .github/AUTO_ISSUE_TEMPLATE/nightly-build-fail.md
 
     - name: Set Outputs of Short SHA
       id: vars

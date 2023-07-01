@@ -182,11 +182,7 @@ pub fn value_to_string(
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => {
             // This serialises these as 'nan', 'inf' and '-inf', respectively.
-            if &val.round() == val
-                && val != &f64::NAN
-                && val != &f64::INFINITY
-                && val != &f64::NEG_INFINITY
-            {
+            if &val.round() == val && val.is_finite() {
                 Ok(format!("{}.0", *val))
             } else {
                 Ok(format!("{}", *val))

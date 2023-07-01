@@ -173,6 +173,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::variable_not_found))]
     VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
 
+    #[error("Use $env.{0} instead of ${0}.")]
+    #[diagnostic(code(nu::parser::env_var_not_var))]
+    EnvVarNotVar(String, #[label = "use $env.{0} instead of ${0}"] Span),
+
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     VariableNotValid(#[label = "variable name can't contain spaces or quotes"] Span),
@@ -492,6 +496,7 @@ impl ParseError {
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(_, s) => *s,
+            ParseError::EnvVarNotVar(_, s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,

@@ -1,12 +1,12 @@
 use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
-use ahash::HashMap;
 use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
 };
+use std::collections::HashMap;
 
 use std::fmt::{Debug, Formatter, Result};
 
@@ -238,7 +238,7 @@ fn test_computable_style_closure_basic() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("computable_style_closure_basic", |dirs, _| {
         let inp = [
-            r#"let-env config = {
+            r#"$env.config = {
                 color_config: {
                     string: {|e| touch ($e + '.obj'); 'red' }
                 }
@@ -256,7 +256,7 @@ fn test_computable_style_closure_basic() {
 fn test_computable_style_closure_errors() {
     use nu_test_support::{nu, nu_repl_code};
     let inp = [
-        r#"let-env config = {
+        r#"$env.config = {
             color_config: {
                 string: {|e| $e + 2 }
             }
