@@ -5,7 +5,11 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
+use std::default;
 use std::ffi::OsString;
+use std::path::PathBuf;
+// use uucore::error::UClapError;
+static EXIT_ERR: i32 = 1;
 
 #[derive(Clone)]
 pub struct Ucp;
@@ -159,6 +163,59 @@ impl Command for Ucp {
 
         // Pass uucore::Args to app.uumain
         uu_cp::uumain(args.into_iter());
+
+        // Try to use uu error handling but make the errors ShellError
+        // I think this is the only way to catch errors from uu and
+        // turn them in to ShellError.
+        //
+        // We'd have to iterat through uu_app().try_get_matches_from(args)
+        // and when there are errors, create a ShellError. However, for
+        // this to work, it seems like we need a special mode for nushell
+        // to pass parameters through without checking them.
+        //
+        // Once we pass that hurdle, we'll need some things in uu to be
+        // pub like uu_cp::Options (any_uu_cmd::Options) will probably
+        // need to be public to go this route.
+        //
+        // After options, we'll need the commands themselves to be public
+        // such as uu_cp::copy() and uu_cp::parse_path_args()
+
+        // let matches = uu_cp::uu_app().try_get_matches_from(args);
+        // // eprint!("Result<ArgMatches>: {:#?}\n\n", matches);
+
+        // // The error is parsed here because we do not want version or help being printed to stderr.
+        // if let Err(e) = matches {
+        //     // We don't get here because nushell pukes on bad params.
+        //     // We do need to figure out how to support all the syntax that cp/mv support
+        //     // like mv [a b c d] test <-- this doesn't work yet
+        //     let mut app = uu_cp::uu_app();
+        //     app.print_help()?;
+        // } else if let Ok(mut matches) = matches {
+        //     eprint!("ArgMatches: {:#?}\n\n", matches);
+
+        //     if let Some(c) = matches.get_one::<bool>("recursive") {
+        //         println!("Value for recursive(-r): {c}");
+        //     }
+        //     if let Some(c) = matches.get_one::<bool>("progress") {
+        //         println!("Value for progress(-g): {c}");
+        //     }
+        //     if let Some(c) = matches.get_one::<bool>("verbose") {
+        //         println!("Value for verbose(-v): {c}");
+        //     }
+        //     if let Some(c) = matches.get_one::<bool>("force") {
+        //         println!("Value for force(-f): {c}");
+        //     }
+        //     if let Some(c) = matches.get_one::<bool>("interactive") {
+        //         println!("Value for interactive(-i): {c}");
+        //     }
+
+        //     let paths: Vec<PathBuf> = matches
+        //         .remove_many::<PathBuf>("paths")
+        //         .map(|v| v.collect())
+        //         .unwrap_or_default();
+        //     eprintln!("paths: {:?}", paths); // }
+        // }
+
         Ok(PipelineData::empty())
     }
 }
