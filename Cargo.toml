@@ -167,7 +167,6 @@ bench = false
 [patch.crates-io]
 reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
 dtparse = { git = "https://github.com/nibon7/dtparse.git", branch = "chrono" }
-trash = { git = "https://github.com/nibon7/trash-rs.git", branch = "chrono" }
 chrono-humanize = { git = "https://gitlab.com/adamchalmers/chrono-humanize-rs", branch = "achalmers/fix-10" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
