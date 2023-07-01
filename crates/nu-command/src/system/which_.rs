@@ -44,7 +44,6 @@ impl Command for Which {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        println!("run: call={:?}", call);
         which(engine_state, stack, call)
     }
 
@@ -76,7 +75,6 @@ fn entry(arg: impl Into<String>, path: impl Into<String>, builtin: bool, span: S
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
-        println!("decl_id={}, decl={:?}, signatur={:?}", decl_id, engine_state.get_decl(decl_id).is_alias(), engine_state.get_decl(decl_id).signature());
         let (msg, is_builtin) = if engine_state.get_decl(decl_id).is_custom_command() {
             ("Nushell custom command", false)
         } else if engine_state.get_decl(decl_id).is_alias() {
@@ -84,7 +82,6 @@ fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> 
         } else {
             ("Nushell built-in command", true)
         };
-        println!("\tmsg={}, is_builtin{}", msg, is_builtin);
 
         trace!("Found command: {}", name);
 
@@ -108,7 +105,6 @@ fn get_entries_in_nu(
     }
 
     if let Some(ent) = get_entry_in_commands(engine_state, name, span) {
-        println!("\tget_entries_in_nu(engine_state, {}, span): ent={:?}", name, ent);
         all_entries.push(ent);
     }
 
@@ -232,7 +228,6 @@ fn which(
         applications: call.rest(engine_state, stack, 0)?,
         all: call.has_flag("all"),
     };
-    println!("\t{:?}", which_args);
     let ctrlc = engine_state.ctrlc.clone();
 
     if which_args.applications.is_empty() {
@@ -247,10 +242,7 @@ fn which(
     let cwd = env::current_dir_str(engine_state, stack)?;
     let paths = env::path_str(engine_state, stack, call.head)?;
 
-    println!("\tcwd={}\tpaths={}", cwd, paths);
-
     for app in which_args.applications {
-        println!("\tapp={:?}", &app);
         let values = which_single(
             app,
             which_args.all,
@@ -258,7 +250,6 @@ fn which(
             cwd.clone(),
             paths.clone(),
         );
-        println!("\t\tvalues:{:?}", values);
         output.extend(values);
     }
 
