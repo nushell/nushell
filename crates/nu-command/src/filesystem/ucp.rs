@@ -111,23 +111,23 @@ impl Command for Ucp {
         // let s2 = "-h".to_string();
         // let args = vec![OsString::from(s1), OsString::from(s2)];
 
-        let mut args: Vec<OsString> = vec![OsString::from("cp")]; // seed it with the cp command
+        let mut args: Vec<OsString> = vec!["cp".into()]; // seed it with the cp command
         if recursive {
             // working
-            args.push(OsString::from("-r"));
+            args.push("-r".into());
         }
         if verbose {
             // working
-            args.push(OsString::from("-v"));
-            args.push(OsString::from("--debug"));
+            args.push("-v".into());
+            args.push("--debug".into());
         }
         if interactive {
             // working
-            args.push(OsString::from("-i"));
+            args.push("-i".into());
         }
         if progress {
             // working (you won't see it unless there are a lot of files)
-            args.push(OsString::from("-g"));
+            args.push("-g".into());
         }
         let src_input = match source.to_str() {
             Some(s) => s,
@@ -154,8 +154,8 @@ impl Command for Ucp {
             }
         };
 
-        args.push(OsString::from(src_input));
-        args.push(OsString::from(dest_input));
+        args.push(src_input.into());
+        args.push(dest_input.into());
 
         // Pass uucore::Args to app.uumain
         uu_cp::uumain(args.into_iter());
