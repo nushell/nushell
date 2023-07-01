@@ -36,7 +36,7 @@ impl Command for LetEnvDeprecated {
     ) -> Result<PipelineData, ShellError> {
         Err(nu_protocol::ShellError::DeprecatedCommand(
             self.name().to_string(),
-            "$nu.<environment variable> = ...".to_owned(),
+            "$env.<environment variable> = ...".to_owned(),
             call.head,
         ))
     }
