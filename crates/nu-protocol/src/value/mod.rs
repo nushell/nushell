@@ -3918,7 +3918,7 @@ mod tests {
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
-            let formatted = string.split("(").next().unwrap();
+            let formatted = string.split('(').next().unwrap();
             assert_eq!("Tue, 30 Dec 1969 13:42:23 +0000 ", formatted);
         }
 
@@ -3935,7 +3935,7 @@ mod tests {
 
             // We need to cut the humanized part off for tests to work, because
             // it is relative to current time.
-            let formatted = string.split(" ").next().unwrap();
+            let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
         }
     }
