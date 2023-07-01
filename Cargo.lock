@@ -2802,6 +2802,7 @@ dependencies = [
 name = "nu-cmd-base"
 version = "0.82.1"
 dependencies = [
+ "indexmap 1.9.3",
  "nu-engine",
  "nu-path",
  "nu-protocol",
@@ -2951,7 +2952,6 @@ dependencies = [
  "roxmltree",
  "rstest",
  "rusqlite",
- "rust-embed",
  "same-file",
  "serde",
  "serde_json",
