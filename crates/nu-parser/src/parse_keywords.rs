@@ -894,6 +894,7 @@ pub fn parse_alias(
                 }
             };
 
+            println!("new alias_name: {}", alias_name);
             let decl = Alias {
                 name: alias_name,
                 command,
