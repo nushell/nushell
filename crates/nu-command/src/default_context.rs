@@ -212,14 +212,25 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrUpcase
         };
 
+        // UUtils Support
+        #[cfg(feature = "nuuu")]
+        bind_command! {
+            Ucp,
+            Umv,
+        }
+
+        // FileSystem non-nuuu
+        #[cfg(not(feature = "nuuu"))]
+        bind_command! {
+            Cp,
+            Mv,
+        };
+
         // FileSystem
         bind_command! {
             Cd,
-            Cp,
-            Ucp,
             Ls,
             Mkdir,
-            Mv,
             Open,
             Start,
             Rm,

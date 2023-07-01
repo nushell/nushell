@@ -3020,6 +3020,7 @@ dependencies = [
  "url",
  "users 0.11.0",
  "uu_cp",
+ "uu_mv",
  "uucore",
  "uuid",
  "wax",
@@ -5873,6 +5874,18 @@ dependencies = [
  "uucore",
  "walkdir",
  "xattr",
+]
+
+[[package]]
+name = "uu_mv"
+version = "0.0.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "949caf8b9983c900abc5ff0a2d809ebd0e3fabd4ddd5b12c797f6e12a62ff2b6"
+dependencies = [
+ "clap",
+ "fs_extra",
+ "indicatif",
+ "uucore",
 ]
 
 [[package]]

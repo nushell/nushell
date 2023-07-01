@@ -5,6 +5,7 @@
 We need to get arguments form nushell and pass arguments to uumain. I seriously doubt that the nushell argument structures will be 100% compatible with clap, which is what is used in uutils, so there could be some rough edges.
 
 This is a prototype for copy in PR #9463
+
 ```rust
 fn run(
     &self,
@@ -26,9 +27,11 @@ fn run(
     Ok(PipelineData::empty())
 }
 ```
+
 You can see that I'm creating `s1` and `s2` just as strings to pass as arguments into `uumain`. We could do this with only the arguments we want to support in nushell. Maybe we start with a few popular arguments and grow them as needed.
 
 - Another approach is to entirely creat our own main. This is what the `uu_cp` `uumain` currently looks like.
+
 ```rust
 pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     let matches = uu_app().try_get_matches_from(args);
@@ -76,6 +79,7 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     Ok(())
 }
 ```
+
 We could call `let matches = uu_app().try_get_matches_from(args);` from our nushell command run function and return `ShellError` on parameter issues. So, the nushell run function for cp could look something more familiar.
 
 ```rust
@@ -89,22 +93,22 @@ fn run(
     // Do our normal nushell argument parsing
 
     // Create uucore::Args somehow from nushell args
-    // Seems like the easiest way for copy is jus to use OsStrong::from()
+    // Seems like the easiest way for copy is just to use OsStrong::from()
     let s1 = "cp".to_string();
     let s2 = "-h".to_string();
     let args = vec![OsString::from(s1), OsString::from(s2)];
 
     // Get the App
     let matches = uu_app().try_get_matches_from(args);
-    // We match on matches. 
+    // We match on matches.
     //
-    //If things go the happy path, we call 
+    //If things go the happy path, we call
     // `copy(&source, &target, &options)`
     // Which means `copy` has to be exposed to us, as well as the
     // source, target, and copy Options struct.
     //
     // If we go the unhappy path, we have to do error handling.
-    // I doubt we have spans here. So, having nice errors may not be 
+    // I doubt we have spans here. So, having nice errors may not be
     // possible yet. I wonder if clap can return spans somewhere?
 
 

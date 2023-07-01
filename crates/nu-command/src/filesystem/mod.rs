@@ -10,7 +10,10 @@ mod rm;
 mod save;
 mod start;
 mod touch;
+#[cfg(feature = "nuuu")]
 mod ucp;
+#[cfg(feature = "nuuu")]
+mod umv;
 mod util;
 mod watch;
 
@@ -26,5 +29,8 @@ pub use rm::Rm;
 pub use save::Save;
 pub use start::Start;
 pub use touch::Touch;
+#[cfg(feature = "nuuu")]
 pub use ucp::Ucp;
+#[cfg(feature = "nuuu")]
+pub use umv::Umv;
 pub use watch::Watch;

@@ -8,59 +8,59 @@ use nu_protocol::{
 use std::ffi::OsString;
 
 #[derive(Clone)]
-pub struct Ucp;
+pub struct Umv;
 
-impl Command for Ucp {
+impl Command for Umv {
     fn name(&self) -> &str {
-        "cp"
+        "mv"
     }
 
     fn usage(&self) -> &str {
-        "Copy files using uutils/coreutils cp."
+        "Move files using uutils/coreutils mv."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["copy", "file", "files"]
+        vec!["move", "file", "files"]
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cp")
+        Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
-            .switch("recursive", "copy directories recursively", Some('r'))
-            .switch("verbose", "explicitly state what is being done", Some('v'))
-            .switch("force", "if an existing destination file cannot be opened, remove it and try again (this option is ignored when the -n option is also used). currently not implemented for windows", Some('f'))
-            .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch(
+                "strip-trailing-slashes",
+                "remove any trailing slashes from each SOURCE argument",
+                Some('s'),
+            )
+            .switch("verbose", "explain what is being done", Some('v'))
+            .switch("force", "do not prompt before overwriting", Some('f'))
+            .switch("interactive", "prompt before override", Some('i'))
             .switch("progress", "display a progress bar", Some('g'))
+            .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .category(Category::FileSystem)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Copy myfile to dir_b",
-                example: "cp myfile dir_b",
+                description: "Move myfile to dir_b",
+                example: "mv myfile dir_b",
                 result: None,
             },
             Example {
-                description: "Recursively copy dir_a to dir_b",
-                example: "cp -r dir_a dir_b",
+                description: "Force move dir_a to dir_b",
+                example: "mv -f dir_a dir_b",
                 result: None,
             },
             Example {
-                description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "cp -r -v dir_a dir_b",
+                description: "Move dir_a to dir_b, and print the feedbacks",
+                example: "mv -v dir_a dir_b",
                 result: None,
             },
             Example {
-                description: "Move many files into a directory",
-                example: "cp *.txt dir_a",
-                result: None,
-            },
-            Example {
-                description: "Copy many file recursively into a new folder showing a progress bar",
-                example: "cp -r -g big_folder new_folder",
+                description: "Move many file recursively into a new folder showing a progress bar",
+                example: "mv -p big_folder new_folder",
                 result: None,
             },
         ]
@@ -78,14 +78,18 @@ impl Command for Ucp {
         // app.print_help()?;
 
         // MVP args
-        // [OPTIONS] SOURCE DEST
-        // -r, --recursive     copy directories recursively [short aliases: R]
-        // -v, --verbose       explicitly state what is being done (also adds --debug)
-        // -f, --force         if an existing destination file cannot be opened, remove it and try again
-        //                     (this option is ignored when the -n option is also used). Currently not
-        //                     implemented for Windows.
-        // -i, --interactive   ask before overwriting files
-        // -g, --progress      Display a progress bar.
+        // Usage: mv [OPTION]... SOURCE DEST
+        // Rename SOURCE to DEST, or move SOURCE(s) to DIRECTORY.
+
+        // Mandatory arguments to long options are mandatory for short options too.
+        //   -f, --force                  do not prompt before overwriting
+        //   -i, --interactive            prompt before overwrite
+        // If you specify more than one of -i, -f, -n, only the final one takes effect.
+        //   -s, --strip-trailing-slashes  remove any trailing slashes from each SOURCE argument
+        //   -p, --progress               show progress bar
+        //   -n, --no-clobber             do not overwrite an existing file
+        //   -v, --verbose                explain what is being done
+
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
         let src = {
             Spanned {
@@ -94,10 +98,12 @@ impl Command for Ucp {
             }
         };
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let recursive = call.has_flag("recursive");
-        let verbose = call.has_flag("verbose");
+        let force = call.has_flag("force");
         let interactive = call.has_flag("interactive");
+        let strip_trailing_slashes = call.has_flag("strip-trailing-slashes");
         let progress = call.has_flag("progress");
+        let no_clobber = call.has_flag("no-clobber");
+        let verbose = call.has_flag("verbose");
 
         let current_dir_path = current_dir(engine_state, stack)?;
         let source = current_dir_path.join(src.item.as_str());
@@ -111,15 +117,18 @@ impl Command for Ucp {
         // let s2 = "-h".to_string();
         // let args = vec![OsString::from(s1), OsString::from(s2)];
 
-        let mut args: Vec<OsString> = vec![OsString::from("cp")]; // seed it with the cp command
-        if recursive {
+        let mut args: Vec<OsString> = vec![OsString::from("mv")]; // seed it with the cp command
+        if strip_trailing_slashes {
             // working
-            args.push(OsString::from("-r"));
+            args.push(OsString::from("--strip-trailing-slashes"));
         }
         if verbose {
             // working
             args.push(OsString::from("-v"));
-            args.push(OsString::from("--debug"));
+        }
+        if force {
+            // working
+            args.push(OsString::from("-f"));
         }
         if interactive {
             // working
@@ -127,7 +136,11 @@ impl Command for Ucp {
         }
         if progress {
             // working (you won't see it unless there are a lot of files)
-            args.push(OsString::from("-g"));
+            args.push(OsString::from("-p"));
+        }
+        if no_clobber {
+            // working (you won't see it unless there are a lot of files)
+            args.push(OsString::from("-n"));
         }
         let src_input = match source.to_str() {
             Some(s) => s,
@@ -158,7 +171,7 @@ impl Command for Ucp {
         args.push(OsString::from(dest_input));
 
         // Pass uucore::Args to app.uumain
-        uu_cp::uumain(args.into_iter());
+        uu_mv::uumain(args.into_iter());
         Ok(PipelineData::empty())
     }
 }
