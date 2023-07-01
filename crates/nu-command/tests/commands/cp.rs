@@ -8,7 +8,7 @@ use nu_test_support::playground::Playground;
 use std::path::Path;
 
 fn get_file_hash<T: std::fmt::Display>(file: T) -> String {
-    nu!("open {} | to text | hash md5", file).out
+    nu!("open -r {} | to text | hash md5", file).out
 }
 
 #[test]

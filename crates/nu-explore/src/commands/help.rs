@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 use std::io::{self, Result};
 
 use crossterm::event::KeyEvent;

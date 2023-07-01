@@ -363,7 +363,7 @@ fn list_all_columns() {
                     "mode",
                     "num_links",
                     "inode",
-                    "uid",
+                    "user",
                     "group",
                     "size",
                     "created",

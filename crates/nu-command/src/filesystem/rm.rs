@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashMapExt};
+use std::collections::HashMap;
 #[cfg(all(
     feature = "trash-support",
     not(target_os = "android"),
@@ -251,7 +251,7 @@ fn rm(
 
     for target in targets {
         if currentdir_path.to_string_lossy() == target.item
-            || currentdir_path.starts_with(&format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
+            || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError(
                 "Cannot remove any parent directory".into(),
@@ -419,15 +419,9 @@ fn rm(
                     }
 
                     if let Err(e) = result {
-                        let msg = format!("Could not delete because: {e:}");
+                        let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
                         Value::Error {
-                            error: Box::new(ShellError::GenericError(
-                                msg,
-                                e.to_string(),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            )),
+                            error: Box::new(ShellError::RemoveNotPossible(msg, span)),
                         }
                     } else if verbose {
                         let msg = if interactive && !confirmed {

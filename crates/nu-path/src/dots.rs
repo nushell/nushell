@@ -55,18 +55,38 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
         return path.as_ref().into();
     }
 
+    enum Segment {
+        Empty,
+        OnlyDots,
+        OtherChars,
+    }
     let mut dots_count = 0u8;
-    let mut expanded = String::new();
+    let mut path_segment = Segment::Empty;
+    let mut expanded = String::with_capacity(path_str.len() + 10);
     for chr in path_str.chars() {
         if chr == '.' {
+            if matches!(path_segment, Segment::Empty) {
+                path_segment = Segment::OnlyDots;
+            }
             dots_count += 1;
         } else {
             if is_separator(chr) {
-                // check for dots expansion only at path component boundaries
-                handle_dots_push(&mut expanded, dots_count);
-                dots_count = 0;
+                if matches!(path_segment, Segment::OnlyDots) {
+                    // check for dots expansion only at path component boundaries
+                    handle_dots_push(&mut expanded, dots_count);
+                    dots_count = 0;
+                } else {
+                    // if at a path component boundary a secment consists of not only dots
+                    // don't expand the dots and only append the the appropriate number of .
+                    while dots_count > 0 {
+                        expanded.push('.');
+                        dots_count -= 1;
+                    }
+                }
+                path_segment = Segment::Empty;
             } else {
                 // got non-dot within path component => do not expand any dots
+                path_segment = Segment::OtherChars;
                 while dots_count > 0 {
                     expanded.push('.');
                     dots_count -= 1;
@@ -76,7 +96,14 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
         }
     }
 
-    handle_dots_push(&mut expanded, dots_count);
+    // Here only the final dots without any following characters are handled
+    if matches!(path_segment, Segment::OnlyDots) {
+        handle_dots_push(&mut expanded, dots_count);
+    } else {
+        for _ in 0..dots_count {
+            expanded.push('.');
+        }
+    }
 
     expanded.into()
 }
@@ -135,6 +162,9 @@ mod tests {
         assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path));
     }
 
+    // track_caller refers, in the panic-message, to the line of the function call and not
+    // inside of the function, which is nice for a test-helper-function
+    #[track_caller]
     fn check_ndots_expansion(expected: &str, s: &str) {
         let expanded = expand_ndots(Path::new(s));
         assert_eq!(Path::new(expected), &expanded);
@@ -159,6 +189,42 @@ mod tests {
     #[test]
     fn string_with_one_dot_and_chars() {
         check_ndots_expansion("a.b", "a.b");
+    }
+
+    #[test]
+    fn string_starts_with_dots() {
+        check_ndots_expansion(".file", ".file");
+        check_ndots_expansion("..file", "..file");
+        check_ndots_expansion("...file", "...file");
+        check_ndots_expansion("....file", "....file");
+        check_ndots_expansion(".....file", ".....file");
+    }
+
+    #[test]
+    fn string_ends_with_dots() {
+        check_ndots_expansion("file.", "file.");
+        check_ndots_expansion("file..", "file..");
+        check_ndots_expansion("file...", "file...");
+        check_ndots_expansion("file....", "file....");
+        check_ndots_expansion("file.....", "file.....");
+    }
+
+    #[test]
+    fn string_starts_and_ends_with_dots() {
+        check_ndots_expansion(".file.", ".file.");
+        check_ndots_expansion("..file..", "..file..");
+        check_ndots_expansion("...file...", "...file...");
+        check_ndots_expansion("....file....", "....file....");
+        check_ndots_expansion(".....file.....", ".....file.....");
+    }
+    #[test]
+    fn expand_multiple_dots() {
+        check_ndots_expansion("../..", "...");
+        check_ndots_expansion("../../..", "....");
+        check_ndots_expansion("../../../..", ".....");
+        check_ndots_expansion("../../../../", ".../...");
+        check_ndots_expansion("../../file name/../../", ".../file name/...");
+        check_ndots_expansion("../../../file name/../../../", "..../file name/....");
     }
 
     #[test]
@@ -229,7 +295,7 @@ mod tests {
 
         #[test]
         fn string_with_three_ndots_and_garbage() {
-            check_ndots_expansion(r"ls ..\../ garbage.*[", "ls .../ garbage.*[");
+            check_ndots_expansion(r"not_a_cmd.../ garbage.*[", "not_a_cmd.../ garbage.*[");
         }
     }
 
@@ -256,7 +322,20 @@ mod tests {
 
         #[test]
         fn string_with_three_ndots_and_garbage() {
-            check_ndots_expansion("ls ../../ garbage.*[", "ls .../ garbage.*[");
+            // filenames can contain spaces, in these cases the ... .... etc.
+            // that are part of a filepath should not be expanded
+            check_ndots_expansion("not_a_cmd.../ garbage.*[", "not_a_cmd.../ garbage.*[");
+            check_ndots_expansion("/not_a_cmd.../ garbage.*[", "/not_a_cmd.../ garbage.*[");
+            check_ndots_expansion("./not_a_cmd.../ garbage.*[", "./not_a_cmd.../ garbage.*[");
+            check_ndots_expansion(
+                "../../not a cmd.../ garbage.*[",
+                ".../not a cmd.../ garbage.*[",
+            );
+            check_ndots_expansion(
+                "../../not a cmd.../ garbage.*[...",
+                ".../not a cmd.../ garbage.*[...",
+            );
+            check_ndots_expansion("../../ not a cmd garbage.*[", ".../ not a cmd garbage.*[");
         }
     }
 }

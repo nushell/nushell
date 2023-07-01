@@ -1,6 +1,6 @@
 use crate::query_web::css;
-use ahash::{HashMap, HashMapExt};
 use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
+use std::collections::HashMap;
 
 pub type Headers = HashMap<String, usize>;
 

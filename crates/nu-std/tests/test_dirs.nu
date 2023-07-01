@@ -3,10 +3,10 @@ use std assert
 use std log
 
 # A couple of nuances to understand when testing module that exports environment:
-# Each 'use' for that module in the test script will execute the export def-env block.
+# Each 'use' for that module in the test script will execute the def-env block.
 # PWD at the time of the `use` will be what the export def-env block will see.
 
-export def setup [] {
+def before-each [] {
     # need some directories to play with
     let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
     let path_a = ($base_path | path join "a")
@@ -14,10 +14,10 @@ export def setup [] {
 
     mkdir $base_path $path_a $path_b
 
-    {base_path: $base_path, path_a:$path_a, path_b: $path_b}
+    {base_path: $base_path, path_a: $path_a, path_b: $path_b}
 }
 
-export def teardown [] {
+def after-each [] {
     let base_path = $in.base_path
     cd $base_path
     cd ..
@@ -34,18 +34,19 @@ def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
     assert equal $expect_position $env.DIRS_POSITION $"position in ring after ($scenario)"
 }
 
-export def test_dirs_command [] {
+def test_dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
     let $c = $in
 
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
-    # the export def-env gets messed up
+    # the def-env gets messed up
     use std dirs
 
+    # Stack: [BASE]
     assert equal [$c.base_path] $env.DIRS_LIST "list is just pwd after initialization"
 
     dirs next
@@ -54,30 +55,39 @@ export def test_dirs_command [] {
     dirs prev
     assert equal $c.base_path $env.DIRS_LIST.0 "prev wraps at top of list"
 
+    # Stack becomes: [base PATH_B path_a]
     dirs add $c.path_b $c.path_a
     assert equal $c.path_b $env.PWD "add changes PWD to first added dir"
     assert length $env.DIRS_LIST 3 "add in fact adds to list"
     assert equal $c.path_a $env.DIRS_LIST.2 "add in fact adds to list"
 
+    # Stack becomes: [BASE path_b path_a]
     dirs next 2
     # assert (not) equal requires span.start of first arg < span.end of 2nd
     assert equal $env.PWD $c.base_path "next wraps at end of list"
 
+    # Stack becomes: [base path_b PATH_A]
     dirs prev 1
     assert equal $c.path_a $env.PWD "prev wraps at start of list"
     cur_dir_check $c.path_a "prev wraps to end from start of list"
 
+    # Stack becomes: [base PATH_B]
     dirs drop
     assert length $env.DIRS_LIST 2 "drop removes from list"
     assert equal $env.PWD $c.path_b "drop changes PWD to previous in list (before dropped element)"
 
     assert equal (dirs show) [[active path]; [false $c.base_path] [true $c.path_b]] "show table contains expected information"
+
+    # Stack becomes: [BASE]
+    dirs drop
+    assert length $env.DIRS_LIST 1 "drop removes from list"
+    assert equal $env.PWD $c.base_path "drop changes PWD (regression test for #9449)"
 }
 
-export def test_dirs_next [] {
+def test_dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
@@ -95,10 +105,10 @@ export def test_dirs_next [] {
 
 }
 
-export def test_dirs_cd [] {
+def test_dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the export def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
 
     use std dirs

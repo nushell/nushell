@@ -1,4 +1,5 @@
-use nu_cmd_lang::help::highlight_search_string;
+use crate::help::highlight_search_string;
+use itertools::Itertools;
 
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
@@ -292,9 +293,9 @@ fn record_matches_regex(values: &[Value], re: &Regex, config: &Config) -> bool {
 #[allow(clippy::too_many_arguments)]
 fn highlight_terms_in_record_with_search_columns(
     search_cols: &Vec<String>,
-    cols: &mut [String],
-    vals: &mut Vec<Value>,
-    span: &mut Span,
+    cols: &[String],
+    vals: &[Value],
+    span: &Span,
     config: &Config,
     terms: &[Value],
     string_style: Style,
@@ -305,38 +306,40 @@ fn highlight_terms_in_record_with_search_columns(
     } else {
         search_cols.to_vec()
     };
-    let mut output = vec![];
+    let term_strs: Vec<_> = terms.iter().map(|v| v.into_string("", config)).collect();
 
-    // We iterate every column in the record and every search term for matches
-    for (cur_col, val) in cols.iter().zip(vals) {
+    // iterator of Ok((val_str, term_str)) pairs if the value should be highlighted, otherwise Err(val)
+    let try_val_highlight = vals.iter().zip(cols).map(|(val, col)| {
         let val_str = val.into_string("", config);
-        for term in terms {
-            let term_str = term.into_string("", config);
-            let output_value =
-                if contains_ignore_case(&val_str, &term_str) && cols_to_search.contains(cur_col) {
-                    let highlighted_str = match highlight_search_string(
-                        &val_str,
-                        &term_str,
-                        &string_style,
-                        &highlight_style,
-                    ) {
-                        Ok(highlighted_str) => highlighted_str,
-                        Err(_) => string_style.paint(term_str).to_string(),
-                    };
-                    Value::String {
-                        val: highlighted_str,
-                        span: *span,
-                    }
-                } else {
-                    val.clone()
-                };
-            output.push(output_value);
-        }
-    }
+        let predicate = cols_to_search.contains(col);
+        predicate
+            .then_some(val_str)
+            .and_then(|val_str| {
+                term_strs
+                    .iter()
+                    .find(|term_str| contains_ignore_case(&val_str, term_str))
+                    .map(|term_str| (val_str, term_str))
+            })
+            .ok_or_else(|| val.clone())
+    });
+
+    // turn Ok pairs into vals of highlighted strings, Err vals is original vals
+    let new_vals = try_val_highlight
+        .map_ok(|(val_str, term_str)| {
+            let highlighted_str =
+                highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
+                    .unwrap_or_else(|_| string_style.paint(term_str).to_string());
+
+            Value::String {
+                val: highlighted_str,
+                span: *span,
+            }
+        })
+        .map(|v| v.unwrap_or_else(|v| v));
 
     Value::Record {
         cols: cols.to_vec(),
-        vals: output,
+        vals: new_vals.collect(),
         span: *span,
     }
 }

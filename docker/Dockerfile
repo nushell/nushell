@@ -20,9 +20,11 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     |xargs -I{} wget {} \
     && tar -xzf nu* \
     && cd nu*-musl \
-    && mv nu /usr/bin/nu \
+    && mv nu* /usr/bin \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
+    && ls /usr/bin/nu_plugin* \
+    |xargs -I{} su -c 'register {}' nushell \
     && rm -rf /tmp/*
 
 USER nushell

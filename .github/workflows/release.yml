@@ -27,6 +27,8 @@ jobs:
         - x86_64-unknown-linux-gnu
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
+        - armv7-unknown-linux-gnueabihf
+        - riscv64gc-unknown-linux-gnu
         extra: ['bin']
         include:
         - target: aarch64-apple-darwin
@@ -60,6 +62,12 @@ jobs:
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-20.04
           target_rustflags: ''
+        - target: armv7-unknown-linux-gnueabihf
+          os: ubuntu-20.04
+          target_rustflags: '--exclude=nu-cmd-dataframe'
+        - target: riscv64gc-unknown-linux-gnu
+          os: ubuntu-20.04
+          target_rustflags: '--exclude=nu-cmd-dataframe'
 
     runs-on: ${{matrix.os}}
 
@@ -71,12 +79,14 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.4.4
+      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      with:
+        rustflags: ''
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.79.0
+        version: 0.81.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

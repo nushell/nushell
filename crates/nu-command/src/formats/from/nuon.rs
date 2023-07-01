@@ -457,10 +457,6 @@ fn convert_to_value(
                     val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
                     span,
                 }),
-                Unit::Zettabyte => Ok(Value::Filesize {
-                    val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                }),
 
                 Unit::Kibibyte => Ok(Value::Filesize {
                     val: size * 1024,
@@ -484,10 +480,6 @@ fn convert_to_value(
                 }),
                 Unit::Exbibyte => Ok(Value::Filesize {
                     val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                }),
-                Unit::Zebibyte => Ok(Value::Filesize {
-                    val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
 

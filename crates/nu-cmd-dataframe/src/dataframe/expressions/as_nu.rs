@@ -20,8 +20,7 @@ impl Command for ExprAsNu {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_type(Type::Custom("expression".into()))
-            .output_type(Type::Any)
+            .input_output_type(Type::Custom("expression".into()), Type::Any)
             .category(Category::Custom("expression".into()))
     }
 

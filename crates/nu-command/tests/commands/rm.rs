@@ -1,6 +1,8 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use std::fs;
+use std::path::PathBuf;
 
 #[test]
 fn removes_a_file() {
@@ -140,7 +142,7 @@ fn errors_if_attempting_to_delete_home() {
     Playground::setup("rm_test_8", |dirs, _| {
         let actual = nu!(
             cwd: dirs.root(),
-            "let-env HOME = myhome ; rm -rf ~"
+            "$env.HOME = myhome ; rm -rf ~"
         );
 
         assert!(actual.err.contains("please use -I or -i"));
@@ -347,5 +349,62 @@ fn remove_ignores_ansi() {
             "ls | find test | get name | rm $in.0; ls | is-empty",
         );
         assert_eq!(actual.out, "true");
+    });
+}
+
+struct Cleanup<'a> {
+    dir_to_clean: &'a PathBuf,
+}
+
+fn set_dir_read_only(directory: &PathBuf, read_only: bool) {
+    let mut permissions = fs::metadata(directory).unwrap().permissions();
+    permissions.set_readonly(read_only);
+    fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
+}
+
+impl<'a> Drop for Cleanup<'a> {
+    /// Restores write permissions to the given directory so that the Playground can be successfully
+    /// cleaned up.
+    fn drop(&mut self) {
+        set_dir_read_only(self.dir_to_clean, false);
+    }
+}
+
+#[test]
+// This test is only about verifying file names are included in rm error messages. It is easier
+// to only have this work on non-windows systems (i.e., unix-like) than to try to get the
+// permissions to work on all platforms.
+#[cfg(not(windows))]
+fn rm_prints_filenames_on_error() {
+    Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
+        let file_names = vec!["test1.txt", "test2.txt"];
+
+        let with_files = file_names
+            .iter()
+            .map(|file_name| EmptyFile(file_name))
+            .collect();
+        sandbox.with_files(with_files);
+
+        let test_dir = dirs.test();
+
+        set_dir_read_only(test_dir, true);
+        let _cleanup = Cleanup {
+            dir_to_clean: test_dir,
+        };
+
+        // This rm is expected to fail, and stderr output indicating so is also expected.
+        let actual = nu!(cwd: test_dir, "rm test*.txt");
+
+        assert!(files_exist_at(file_names.clone(), test_dir));
+        for file_name in file_names {
+            let path = test_dir.join(file_name);
+            let substr = format!("Could not delete {}", path.to_string_lossy());
+            assert!(
+                actual.err.contains(&substr),
+                "Matching: {}\n=== Command stderr:\n{}\n=== End stderr",
+                substr,
+                actual.err
+            );
+        }
     });
 }

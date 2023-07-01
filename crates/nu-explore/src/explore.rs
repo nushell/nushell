@@ -1,17 +1,17 @@
-use ahash::HashMap;
+use crate::{
+    run_pager,
+    util::{create_lscolors, create_map, map_into_value},
+    PagerConfig, StyleConfig,
+};
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::CallExt;
-use nu_explore::{
-    run_pager,
-    util::{create_map, map_into_value},
-    PagerConfig, StyleConfig,
-};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use std::collections::HashMap;
 
 /// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]
@@ -82,7 +82,7 @@ impl Command for Explore {
 
         let style = style_from_config(&config);
 
-        let lscolors = nu_explore::util::create_lscolors(engine_state, stack);
+        let lscolors = create_lscolors(engine_state, stack);
 
         let mut config = PagerConfig::new(nu_config, &style_computer, &lscolors, config);
         config.style = style;

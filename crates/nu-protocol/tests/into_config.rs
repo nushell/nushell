@@ -2,7 +2,7 @@ use nu_test_support::{nu, nu_repl_code};
 
 #[test]
 fn config_is_mutable() {
-    let actual = nu!(cwd: ".", nu_repl_code(&[r"let-env config = { ls: { clickable_links: true } }",
+    let actual = nu!(cwd: ".", nu_repl_code(&[r"$env.config = { ls: { clickable_links: true } }",
         "$env.config.ls.clickable_links = false;",
         "$env.config.ls.clickable_links"]));
 
@@ -11,7 +11,7 @@ fn config_is_mutable() {
 
 #[test]
 fn config_preserved_after_do() {
-    let actual = nu!(cwd: ".", nu_repl_code(&[r"let-env config = { ls: { clickable_links: true } }",
+    let actual = nu!(cwd: ".", nu_repl_code(&[r"$env.config = { ls: { clickable_links: true } }",
         "do -i { $env.config.ls.clickable_links = false }",
         "$env.config.ls.clickable_links"]));
 
@@ -20,7 +20,7 @@ fn config_preserved_after_do() {
 
 #[test]
 fn config_affected_when_mutated() {
-    let actual = nu!(cwd: ".", nu_repl_code(&[r#"let-env config = { filesize: { metric: false, format:"auto" } }"#,
+    let actual = nu!(cwd: ".", nu_repl_code(&[r#"$env.config = { filesize: { metric: false, format:"auto" } }"#,
         r#"$env.config = { filesize: { metric: true, format:"auto" } }"#,
         "20mib | into string"]));
 

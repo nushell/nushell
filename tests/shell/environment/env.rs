@@ -87,8 +87,8 @@ fn env_assignment() {
 }
 
 #[test]
-fn let_env_file_pwd_env_var_fails() {
-    let actual = nu!(cwd: ".", r#"let-env FILE_PWD = 'foo'"#);
+fn mutate_env_file_pwd_env_var_fails() {
+    let actual = nu!(cwd: ".", r#"$env.FILE_PWD = 'foo'"#);
 
     assert!(actual.err.contains("automatic_env_var_set_manually"));
 }
@@ -163,7 +163,7 @@ fn passes_env_from_local_cfg_to_external_process() {
 #[test]
 fn hides_env_in_block() {
     let inp = &[
-        "let-env foo = 'foo'",
+        "$env.foo = 'foo'",
         "hide-env foo",
         "let b = {|| $env.foo }",
         "do $b",
@@ -174,4 +174,12 @@ fn hides_env_in_block() {
 
     assert!(actual.err.contains("column_not_found"));
     assert!(actual_repl.err.contains("column_not_found"));
+}
+
+#[test]
+fn env_var_not_var() {
+    let actual = nu!(cwd: ".", r#"
+        echo $CARGO
+        "#);
+    assert!(actual.err.contains("use $env.CARGO instead of $CARGO"));
 }

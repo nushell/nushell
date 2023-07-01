@@ -222,10 +222,10 @@ fn equals_separates_long_flag() -> TestResult {
 }
 
 #[test]
-fn let_env_expressions() -> TestResult {
+fn assign_expressions() -> TestResult {
     let env = HashMap::from([("VENV_OLD_PATH", "Foobar"), ("Path", "Quux")]);
     run_test_with_env(
-        r#"let-env Path = if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
+        r#"$env.Path = (if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }); echo $env.Path"#,
         "Foobar",
         &env,
     )
@@ -443,6 +443,16 @@ fn unary_not_6() -> TestResult {
 }
 
 #[test]
+fn comment_in_multiple_pipelines() -> TestResult {
+    run_test(
+        r#"[[name, present]; [abc, true], [def, false]]
+        # | where not present
+        | get name.0"#,
+        "abc",
+    )
+}
+
+#[test]
 fn date_literal() -> TestResult {
     run_test(r#"2022-09-10 | date to-record | get day"#, "10")
 }
@@ -565,4 +575,9 @@ fn filesize_with_underscores_3() -> TestResult {
 #[test]
 fn filesize_is_not_hex() -> TestResult {
     run_test("0x42b", "1067")
+}
+
+#[test]
+fn let_variable_type_mismatch() -> TestResult {
+    fail_test(r#"let x: int = "foo""#, "expected int, found string")
 }

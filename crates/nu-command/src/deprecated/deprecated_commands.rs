@@ -1,4 +1,4 @@
-use ahash::HashMap;
+use std::collections::HashMap;
 
 /// Return map of <deprecated_command_name, new_command_name>
 /// This covers simple deprecated commands nicely, but it's not great for deprecating

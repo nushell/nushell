@@ -21,8 +21,10 @@ impl Command for LastDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional("rows", SyntaxShape::Int, "Number of rows for tail")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

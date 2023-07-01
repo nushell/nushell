@@ -74,11 +74,11 @@ def get-all-operators [] { return [
 ]}
 
 def "nu-complete list-aliases" [] {
-    $nu.scope.aliases | select name usage | rename value description
+    scope aliases | select name usage | rename value description
 }
 
 def "nu-complete list-modules" [] {
-    $nu.scope.modules | select name usage | rename value description
+    scope modules | select name usage | rename value description
 }
 
 def "nu-complete list-operators" [] {
@@ -91,11 +91,11 @@ def "nu-complete list-operators" [] {
 }
 
 def "nu-complete list-commands" [] {
-    $nu.scope.commands | select name usage | rename value description
+    scope commands | select name usage | rename value description
 }
 
 def "nu-complete list-externs" [] {
-    $nu.scope.commands | where is_extern | select name usage | rename value description
+    scope commands | where is_extern | select name usage | rename value description
 }
 
 def build-help-header [
@@ -164,7 +164,7 @@ def build-module-page [module: record] {
 #     >     export def baz [] { "foo::baz" }
 #     >
 #     >     export-env {
-#     >         let-env FOO = "foo::FOO"
+#     >         $env.FOO = "foo::FOO"
 #     >     }
 #     > }
 #     >
@@ -174,7 +174,7 @@ def build-module-page [module: record] {
 #     >     export def baz [] { "bar::baz" }
 #     >
 #     >     export-env {
-#     >         let-env BAR = "bar::BAR"
+#     >         $env.BAR = "bar::BAR"
 #     >     }
 #     > }
 #     >
@@ -184,7 +184,7 @@ def build-module-page [module: record] {
 #     >     export def bar [] { "baz::bar" }
 #     >
 #     >     export-env {
-#     >         let-env BAZ = "baz::BAZ"
+#     >         $env.BAZ = "baz::BAZ"
 #     >     }
 #     > }
 #     > ```
@@ -223,7 +223,7 @@ def build-module-page [module: record] {
 #
 #     This module exports environment.
 #     {
-#             let-env FOO = "foo::FOO"
+#             $env.FOO = "foo::FOO"
 #         }
 #
 #     search for a module that does not exist
@@ -239,7 +239,7 @@ export def modules [
     ...module: string@"nu-complete list-modules"  # the name of module to get help on
     --find (-f): string  # string to find in module names
 ] {
-    let modules = $nu.scope.modules
+    let modules = (scope modules)
 
     if not ($find | is-empty) {
         $modules | find $find --columns [name usage]
@@ -345,7 +345,7 @@ export def aliases [
     ...alias: string@"nu-complete list-aliases"  # the name of alias to get help on
     --find (-f): string  # string to find in alias names
 ] {
-    let aliases = ($nu.scope.aliases | sort-by name)
+    let aliases = (scope aliases | sort-by name)
 
     if not ($find | is-empty) {
         $aliases | find $find --columns [name usage]
@@ -382,7 +382,7 @@ export def externs [
     --find (-f): string  # string to find in extern names
 ] {
     let externs = (
-        $nu.scope.commands
+        scope commands
         | where is_extern
         | select name module_name usage
         | sort-by name
@@ -557,7 +557,7 @@ def build-command-page [command: record] {
         ]
     } else { [] })
 
-    let subcommands = ($nu.scope.commands | where name =~ $"^($command.name) " | select name usage)
+    let subcommands = (scope commands | where name =~ $"^($command.name) " | select name usage)
     let subcommands = (if not ($subcommands | is-empty) {[
         (build-help-header "Subcommands")
         ($subcommands | each {|subcommand |
@@ -677,7 +677,7 @@ export def commands [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
-    let commands = ($nu.scope.commands | where not is_extern | reject is_extern | sort-by name)
+    let commands = (scope commands | where not is_extern | reject is_extern | sort-by name)
 
     if not ($find | is-empty) {
         # TODO: impl find for external commands
