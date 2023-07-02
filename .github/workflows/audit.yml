@@ -11,7 +11,7 @@ on:
 env:
   RUST_BACKTRACE: 1
   CARGO_TERM_COLOR: always
-  CLIOLOR: 1
+  CLICOLOR: 1
 
 jobs:
   security_audit:
