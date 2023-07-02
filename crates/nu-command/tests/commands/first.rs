@@ -80,6 +80,18 @@ fn gets_first_row_as_list_when_amount_given() {
 }
 
 #[test]
+fn gets_first_bytes() {
+    let actual = nu!(pipeline(
+        r#"
+            0x[aa bb]
+            | first 1
+        "#
+    ));
+
+    assert!(actual.out.contains("aa"));
+}
+
+#[test]
 // covers a situation where `first` used to behave strangely on list<binary> input
 fn works_with_binary_list() {
     let actual = nu!("([0x[01 11]] | first) == 0x[01 11]");
@@ -97,4 +109,16 @@ fn errors_on_negative_rows() {
     ));
 
     assert!(actual.err.contains("use a positive value"));
+}
+
+#[test]
+fn errors_on_empty_list_when_no_rows_given() {
+    let actual = nu!(pipeline(
+        r#"
+            []
+            | first
+        "#
+    ));
+
+    assert!(actual.err.contains("index too large"));
 }
