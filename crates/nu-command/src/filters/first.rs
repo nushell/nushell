@@ -130,11 +130,25 @@ fn first_helper(
                 }
             }
             Value::Binary { val, span } => {
-                let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                Ok(PipelineData::Value(
-                    Value::Binary { val: slice, span },
-                    metadata,
-                ))
+                if return_single_element {
+                    if val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    } else {
+                        Ok(PipelineData::Value(
+                            Value::Int {
+                                val: val[0] as i64,
+                                span,
+                            },
+                            metadata,
+                        ))
+                    }
+                } else {
+                    let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
+                    Ok(PipelineData::Value(
+                        Value::Binary { val: slice, span },
+                        metadata,
+                    ))
+                }
             }
             Value::Range { val, .. } => {
                 if return_single_element {

@@ -83,9 +83,18 @@ fn gets_first_row_as_list_when_amount_given() {
 fn gets_first_bytes() {
     let actual = nu!(pipeline(
         r#"
-            0x[aa bb]
-            | first 1
-            | into int
+            (0x[aa bb cc] | first 2) == 0x[aa bb]
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn gets_first_byte() {
+    let actual = nu!(pipeline(
+        r#"
+            0x[aa bb cc] | first
         "#
     ));
 

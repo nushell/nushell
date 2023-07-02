@@ -83,13 +83,22 @@ fn gets_last_row_as_list_when_amount_given() {
 fn gets_last_bytes() {
     let actual = nu!(pipeline(
         r#"
-            0x[aa bb]
-            | last 1
-            | into int
+            (0x[aa bb cc] | last 2) == 0x[bb cc]
         "#
     ));
 
-    assert_eq!(actual.out, "187");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn gets_last_byte() {
+    let actual = nu!(pipeline(
+        r#"
+            0x[aa bb cc] | last
+        "#
+    ));
+
+    assert_eq!(actual.out, "204");
 }
 
 #[test]

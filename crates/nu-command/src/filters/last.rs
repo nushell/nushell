@@ -148,11 +148,26 @@ impl Command for Last {
                     }
                 }
                 Value::Binary { val, span } => {
-                    let slice: Vec<u8> = val.into_iter().rev().take(rows_desired).rev().collect();
-                    Ok(PipelineData::Value(
-                        Value::Binary { val: slice, span },
-                        metadata,
-                    ))
+                    if return_single_element {
+                        if let Some(b) = val.last() {
+                            Ok(PipelineData::Value(
+                                Value::Int {
+                                    val: *b as i64,
+                                    span,
+                                },
+                                metadata,
+                            ))
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
+                    } else {
+                        let slice: Vec<u8> =
+                            val.into_iter().rev().take(rows_desired).rev().collect();
+                        Ok(PipelineData::Value(
+                            Value::Binary { val: slice, span },
+                            metadata,
+                        ))
+                    }
                 }
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error } => Err(*error),
