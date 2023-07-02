@@ -85,7 +85,7 @@ impl Command for Last {
         let head = call.head;
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
 
-        // FIXME: Read the FIXME message in `first.rs`'s `first_helper` implementation.
+        // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
         // It has the same issue.
         let return_single_element = rows.is_none();
         let rows_desired: usize = match rows {
