@@ -53,17 +53,15 @@ pub enum LiteElement {
 #[derive(Debug)]
 pub struct LitePipeline {
     pub commands: Vec<LiteElement>,
-}
-
-impl Default for LitePipeline {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub span: Span,
 }
 
 impl LitePipeline {
-    pub fn new() -> Self {
-        Self { commands: vec![] }
+    pub fn new(span: Span) -> Self {
+        Self {
+            commands: vec![],
+            span,
+        }
     }
 
     pub fn push(&mut self, element: LiteElement) {
@@ -191,9 +189,9 @@ impl LiteBlock {
     }
 }
 
-pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
+pub fn lite_parse(tokens: &[Token], span: Span) -> (LiteBlock, Option<ParseError>) {
     let mut block = LiteBlock::new();
-    let mut curr_pipeline = LitePipeline::new();
+    let mut curr_pipeline = LitePipeline::new(span);
     let mut curr_command = LiteCommand::new();
 
     let mut last_token = TokenContents::Eol;

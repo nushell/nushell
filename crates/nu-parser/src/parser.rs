@@ -21,10 +21,10 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    find_dirs_var, is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
-    parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword, parse_let_or_const,
-    parse_module, parse_overlay_hide, parse_overlay_new, parse_overlay_use, parse_source,
-    parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
+    find_dirs_var, is_unaliasable_parser_keyword, parse_alias, parse_const, parse_def,
+    parse_def_predecl, parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword,
+    parse_let, parse_module, parse_overlay_hide, parse_overlay_new, parse_overlay_use,
+    parse_source, parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
 };
 
 use itertools::Itertools;
@@ -5139,7 +5139,8 @@ pub fn parse_builtin_commands(
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command, None),
         b"extern" => parse_extern(working_set, lite_command, None),
-        b"let" | b"const" => parse_let_or_const(working_set, &lite_command.parts),
+        b"let" => parse_let(working_set, &lite_command.parts),
+        b"const" => parse_const(working_set, &lite_command.parts),
         b"mut" => parse_mut(working_set, &lite_command.parts),
         b"for" => {
             let expr = parse_for(working_set, &lite_command.parts);
@@ -5242,10 +5243,31 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 pub fn parse_pipeline(
     working_set: &mut StateWorkingSet,
     pipeline: &LitePipeline,
+    span: Span,
     is_subexpression: bool,
     pipeline_index: usize,
 ) -> Pipeline {
     if pipeline.commands.len() > 1 {
+        // Special case: allow `let` to consume the whole pipeline, eg) `let abc = "foo" | str length`
+
+        let expanded_pipeline = LitePipeline::new();
+
+        let pipeline = match &pipeline.commands[0] {
+            LiteElement::Command(_, command) if !command.parts.is_empty() => {
+                if working_set.get_span_contents(command.parts[0]) == b"let" {
+                    let mut new_command = LiteCommand {
+                        comments: vec![],
+                        parts: command.parts.clone(),
+                    };
+
+                    &expanded_pipeline
+                } else {
+                    pipeline
+                }
+            }
+            _ => pipeline,
+        };
+
         let mut output = pipeline
             .commands
             .iter()
