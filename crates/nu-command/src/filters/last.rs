@@ -53,7 +53,7 @@ impl Command for Last {
         vec![
             Example {
                 example: "[1,2,3] | last 2",
-                description: "Get the last 2 items",
+                description: "Return the last 2 items of a list/table",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2), Value::test_int(3)],
                     span: Span::test_data(),
@@ -61,12 +61,12 @@ impl Command for Last {
             },
             Example {
                 example: "[1,2,3] | last",
-                description: "Get the last item",
+                description: "Return the last item of a list/table",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 example: "0x[01 23 45] | last 2",
-                description: "Get the last 2 bytes",
+                description: "Return the last 2 bytes of a binary value",
                 result: Some(Value::Binary {
                     val: vec![0x23, 0x45],
                     span: Span::test_data(),
