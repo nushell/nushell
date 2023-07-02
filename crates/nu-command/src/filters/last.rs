@@ -106,7 +106,7 @@ impl Command for Last {
 
         match input {
             PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
-                let iterator = input.into_iter_strict(head).unwrap();
+                let iterator = input.into_iter_strict(head)?;
 
                 // only keep last `rows_desired` rows in memory
                 let mut buf = VecDeque::<_>::new();
@@ -132,10 +132,10 @@ impl Command for Last {
             PipelineData::Value(val, _) => match val {
                 Value::List { vals, .. } => {
                     if return_single_element {
-                        if vals.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(v) = vals.last() {
+                            Ok(v.clone().into_pipeline_data())
                         } else {
-                            Ok(vals.last().unwrap().clone().into_pipeline_data())
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
                         Ok(vals
