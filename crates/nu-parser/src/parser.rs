@@ -2687,7 +2687,15 @@ pub fn parse_shape_name(
     let result = match bytes {
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,
-        b"block" => SyntaxShape::Block, //FIXME: Blocks should have known output types
+        b"block" => {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "Blocks are not support as first-class values".into(),
+                label: "blocks are not supported as values".into(),
+                help: "Use 'closure' instead of 'block'".into(),
+                span,
+            });
+            SyntaxShape::Any
+        }
         b"bool" => SyntaxShape::Boolean,
         b"cell-path" => SyntaxShape::CellPath,
         b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
@@ -2919,10 +2927,19 @@ fn prepare_inner_span(
     }
 }
 
-pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
+pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
     match bytes {
         b"binary" => Type::Binary,
-        b"block" => Type::Block,
+        b"block" => {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "Blocks are not support as first-class values".into(),
+                label: "blocks are not supported as values".into(),
+                help: "Use 'closure' instead of 'block'".into(),
+                span,
+            });
+
+            Type::Any
+        }
         b"bool" => Type::Bool,
         b"cellpath" => Type::CellPath,
         b"closure" => Type::Closure,
@@ -3080,18 +3097,18 @@ pub fn parse_var_with_opt_type(
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
             *spans_idx += 1;
-            let type_bytes = working_set.get_span_contents(spans[*spans_idx]);
+            let type_bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
 
-            let ty = parse_type(working_set, type_bytes);
+            let ty = parse_type(working_set, &type_bytes, spans[*spans_idx]);
 
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
             if !is_variable(&var_name) {
                 working_set.error(ParseError::Expected(
                     "valid variable name",
-                    spans[*spans_idx],
+                    spans[*spans_idx - 1],
                 ));
-                return (garbage(spans[*spans_idx]), None);
+                return (garbage(spans[*spans_idx - 1]), None);
             }
 
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
