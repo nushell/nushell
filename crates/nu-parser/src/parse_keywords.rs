@@ -1,4 +1,4 @@
-use crate::{parser_path::ParserPath, type_check::type_compatible};
+use crate::{parser::parse_pipeline, parser_path::ParserPath, type_check::type_compatible};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -2820,15 +2820,26 @@ pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> 
                     let item = working_set.get_span_contents(*span.1);
                     if item == b"=" && spans.len() > (span.0 + 1) {
                         let mut idx = span.0;
-                        let rvalue = parse_multispan_value(
-                            working_set,
-                            spans,
-                            &mut idx,
-                            &SyntaxShape::Keyword(
-                                b"=".to_vec(),
-                                Box::new(SyntaxShape::MathExpression),
-                            ),
+                        // let rvalue = parse_multispan_value(
+                        //     working_set,
+                        //     spans,
+                        //     &mut idx,
+                        //     &SyntaxShape::Keyword(
+                        //         b"=".to_vec(),
+                        //         Box::new(SyntaxShape::MathExpression),
+                        //     ),
+                        // );
+
+                        let (tokens, parse_errors) = lex(
+                            working_set
+                                .get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
+                            spans[(span.0 + 1)].start,
+                            &[],
+                            &[],
+                            true,
                         );
+                        let (lite_pipeline, parse_errors) = lite_parse(&tokens);
+                        let rvalue = parse_pipeline(working_set, &lite_pipeline.block[0], false, 0);
 
                         if idx < (spans.len() - 1) {
                             working_set
