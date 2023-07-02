@@ -85,10 +85,11 @@ fn gets_last_bytes() {
         r#"
             0x[aa bb]
             | last 1
+            | into int
         "#
     ));
 
-    assert!(actual.out.contains("bb"));
+    assert_eq!(actual.out, "187");
 }
 
 #[test]

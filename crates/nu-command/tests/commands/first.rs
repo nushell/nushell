@@ -85,10 +85,11 @@ fn gets_first_bytes() {
         r#"
             0x[aa bb]
             | first 1
+            | into int
         "#
     ));
 
-    assert!(actual.out.contains("aa"));
+    assert_eq!(actual.out, "170");
 }
 
 #[test]
