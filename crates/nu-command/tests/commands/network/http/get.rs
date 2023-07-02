@@ -75,7 +75,7 @@ fn http_get_with_accept_errors_and_full_raw_response() {
     let actual = nu!(pipeline(
         format!(
             r#"
-        http get -e -f {url} | $"($in.status) => ($in.body)"
+        http get -e -f {url} | $"($pipe.status) => ($pipe.body)"
         "#,
             url = server.url()
         )
@@ -103,7 +103,7 @@ fn http_get_with_accept_errors_and_full_json_response() {
     let actual = nu!(pipeline(
         format!(
             r#"
-        http get -e -f {url} | $"($in.status) => ($in.body.msg)"
+        http get -e -f {url} | $"($pipe.status) => ($pipe.body.msg)"
         "#,
             url = server.url()
         )

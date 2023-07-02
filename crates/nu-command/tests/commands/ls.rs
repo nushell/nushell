@@ -548,7 +548,7 @@ fn list_ignores_ansi() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ls | find .txt | each {|| ls $in.name } 
+                ls | find .txt | each {|| ls $pipe.name } 
             "#
         ));
 

@@ -82,7 +82,7 @@ export def-env "path add" [
 
 # print a command name as dimmed and italic
 def pretty-command [] {
-    let command = $in
+    let command = $pipe
     return $"(ansi default_dimmed)(ansi default_italic)($command)(ansi reset)"
 }
 
@@ -144,7 +144,7 @@ export def clip [
     --expand (-e): bool  # auto-expand the data given as input
 ] {
     let input = (
-        $in
+        $pipe
         | if $expand { table --expand } else { table }
         | into string
         | if $no_strip {} else { ansi strip }
@@ -195,7 +195,7 @@ export def clip [
 
 # convert an integer amount of nanoseconds to a real duration
 def "from ns" [] {
-    [$in "ns"] | str join | into duration
+    [$pipe "ns"] | str join | into duration
 }
 
 # run a piece of `nushell` code multiple times and measure the time of execution.

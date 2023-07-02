@@ -95,7 +95,7 @@ export def "test stdlib" [
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
 def pretty-print-command [] {
-    $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
+    $"`(ansi default_dimmed)(ansi default_italic)($pipe)(ansi reset)`"
 }
 
 # return a report about the check stage
@@ -289,7 +289,7 @@ def build-nushell [features: string] {
 }
 
 def build-plugin [] {
-    let plugin = $in
+    let plugin = $pipe
 
     print $'(char nl)Building ($plugin)'
     print '----------------------------'
@@ -328,7 +328,7 @@ def "nu-complete list features" [] {
 }
 
 def install-plugin [] {
-    let plugin = $in
+    let plugin = $pipe
 
     print $'(char nl)Installing ($plugin)'
     print '----------------------------'

@@ -17,7 +17,7 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, PIPE_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1802,9 +1802,9 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             ty: Type::Any,
             custom_completion: None,
         };
-    } else if contents == b"$in" {
+    } else if contents == b"$pipe" {
         return Expression {
-            expr: Expr::Var(nu_protocol::IN_VARIABLE_ID),
+            expr: Expr::Var(nu_protocol::PIPE_VARIABLE_ID),
             span,
             ty: Type::Any,
             custom_completion: None,
@@ -5335,13 +5335,13 @@ pub fn parse_block(
 
             if is_subexpression {
                 for element in output.iter_mut().skip(1) {
-                    if element.has_in_variable(working_set) {
+                    if element.has_pipe_variable(working_set) {
                         *element = wrap_element_with_collect(working_set, element);
                     }
                 }
             } else {
                 for element in output.iter_mut() {
-                    if element.has_in_variable(working_set) {
+                    if element.has_pipe_variable(working_set) {
                         *element = wrap_element_with_collect(working_set, element);
                     }
                 }
@@ -5376,7 +5376,7 @@ pub fn parse_block(
                                             ..
                                         }) = call.positional_iter_mut().nth(1)
                                         {
-                                            if expr.has_in_variable(working_set) {
+                                            if expr.has_pipe_variable(working_set) {
                                                 *expr = Box::new(wrap_expr_with_collect(
                                                     working_set,
                                                     expr,
@@ -5384,12 +5384,13 @@ pub fn parse_block(
                                             }
                                         }
                                         continue;
-                                    } else if element.has_in_variable(working_set)
+                                    } else if element.has_pipe_variable(working_set)
                                         && !is_subexpression
                                     {
                                         *element = wrap_element_with_collect(working_set, element);
                                     }
-                                } else if element.has_in_variable(working_set) && !is_subexpression
+                                } else if element.has_pipe_variable(working_set)
+                                    && !is_subexpression
                                 {
                                     *element = wrap_element_with_collect(working_set, element);
                                 }
@@ -5772,7 +5773,8 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
+            if (*var_id > ENV_VARIABLE_ID || *var_id == PIPE_VARIABLE_ID) && !seen.contains(var_id)
+            {
                 output.push((*var_id, expr.span));
             }
         }
@@ -5830,18 +5832,18 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
     if let Some(decl_id) = working_set.find_decl(b"collect", &Type::List(Box::new(Type::Any))) {
         let mut output = vec![];
 
-        let var_id = IN_VARIABLE_ID;
+        let var_id = PIPE_VARIABLE_ID;
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),
-            name: "$in".into(),
+            name: "$pipe".into(),
             desc: String::new(),
             shape: SyntaxShape::Any,
             default_value: None,
         });
 
         let mut expr = expr.clone();
-        expr.replace_in_variable(working_set, var_id);
+        expr.replace_pipe_variable(working_set, var_id);
 
         let block = Block {
             pipelines: vec![Pipeline::from_vec(vec![expr])],

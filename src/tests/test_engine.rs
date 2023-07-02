@@ -16,38 +16,44 @@ fn proper_shadow() -> TestResult {
 
 #[test]
 fn in_variable_1() -> TestResult {
-    run_test(r#"[3] | if $in.0 > 4 { "yay!" } else { "boo" }"#, "boo")
+    run_test(r#"[3] | if $pipe.0 > 4 { "yay!" } else { "boo" }"#, "boo")
 }
 
 #[test]
 fn in_variable_2() -> TestResult {
-    run_test(r#"3 | if $in > 2 { "yay!" } else { "boo" }"#, "yay!")
+    run_test(r#"3 | if $pipe > 2 { "yay!" } else { "boo" }"#, "yay!")
 }
 
 #[test]
 fn in_variable_3() -> TestResult {
-    run_test(r#"3 | if $in > 4 { "yay!" } else { $in }"#, "3")
+    run_test(r#"3 | if $pipe > 4 { "yay!" } else { $pipe }"#, "3")
 }
 
 #[test]
 fn in_variable_4() -> TestResult {
-    run_test(r#"3 | do { $in }"#, "3")
+    run_test(r#"3 | do { $pipe }"#, "3")
 }
 
 #[test]
 fn in_variable_5() -> TestResult {
-    run_test(r#"3 | if $in > 2 { $in - 10 } else { $in * 10 }"#, "-7")
+    run_test(
+        r#"3 | if $pipe > 2 { $pipe - 10 } else { $pipe * 10 }"#,
+        "-7",
+    )
 }
 
 #[test]
 fn in_variable_6() -> TestResult {
-    run_test(r#"3 | if $in > 6 { $in - 10 } else { $in * 10 }"#, "30")
+    run_test(
+        r#"3 | if $pipe > 6 { $pipe - 10 } else { $pipe * 10 }"#,
+        "30",
+    )
 }
 
 #[test]
 fn in_and_if_else() -> TestResult {
     run_test(
-        r#"[1, 2, 3] | if false {} else if true { $in | length }"#,
+        r#"[1, 2, 3] | if false {} else if true { $pipe | length }"#,
         "3",
     )
 }
@@ -171,7 +177,7 @@ fn let_sees_input() -> TestResult {
 #[test]
 fn let_sees_in_variable() -> TestResult {
     run_test(
-        r#"def c [] { let x = $in.name; $x | str length }; {name: bob, size: 100 } | c"#,
+        r#"def c [] { let x = $pipe.name; $x | str length }; {name: bob, size: 100 } | c"#,
         "3",
     )
 }
@@ -179,7 +185,7 @@ fn let_sees_in_variable() -> TestResult {
 #[test]
 fn let_sees_in_variable2() -> TestResult {
     run_test(
-        r#"def c [] { let x = ($in | str length); $x }; 'bob' | c"#,
+        r#"def c [] { let x = ($pipe | str length); $x }; 'bob' | c"#,
         "3",
     )
 }
@@ -368,20 +374,20 @@ fn default_value_not_constant2() -> TestResult {
 #[test]
 fn loose_each() -> TestResult {
     run_test(
-        r#"[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum"#,
+        r#"[[1, 2, 3], [4, 5, 6]] | each {|| $pipe.1 } | math sum"#,
         "7",
     )
 }
 
 #[test]
 fn in_means_input() -> TestResult {
-    run_test(r#"def shl [] { $in * 2 }; 2 | shl"#, "4")
+    run_test(r#"def shl [] { $pipe * 2 }; 2 | shl"#, "4")
 }
 
 #[test]
 fn in_iteration() -> TestResult {
     run_test(
-        r#"[3, 4, 5] | each {|| echo $"hi ($in)" } | str join"#,
+        r#"[3, 4, 5] | each {|| echo $"hi ($pipe)" } | str join"#,
         "hi 3hi 4hi 5",
     )
 }
@@ -389,7 +395,7 @@ fn in_iteration() -> TestResult {
 #[test]
 fn reusable_in() -> TestResult {
     run_test(
-        r#"[1, 2, 3, 4] | take (($in | length) - 1) | math sum"#,
+        r#"[1, 2, 3, 4] | take (($pipe | length) - 1) | math sum"#,
         "6",
     )
 }
@@ -397,7 +403,7 @@ fn reusable_in() -> TestResult {
 #[test]
 fn better_operator_spans() -> TestResult {
     run_test(
-        r#"metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end"#,
+        r#"metadata ({foo: 10} | (20 - $pipe.foo)) | get span | $pipe.start < $pipe.end"#,
         "true",
     )
 }
@@ -410,7 +416,7 @@ fn range_right_exclusive() -> TestResult {
 /// Issue #7872
 #[test]
 fn assignment_to_in_var_no_panic() -> TestResult {
-    fail_test(r#"$in = 3"#, "needs to be a mutable variable")
+    fail_test(r#"$pipe = 3"#, "needs to be a mutable variable")
 }
 
 #[test]

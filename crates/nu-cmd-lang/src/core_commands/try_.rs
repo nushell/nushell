@@ -112,7 +112,7 @@ fn handle_catch(
             engine_state,
             stack,
             catch_block,
-            // Make the error accessible with $in, too
+            // Make the error accessible with $pipe, too
             err_value.into_pipeline_data(),
             false,
             false,

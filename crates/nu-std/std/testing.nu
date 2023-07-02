@@ -73,7 +73,7 @@ def get-annotated [
 # Other annotations are of type string
 # Result gets merged with the template record so that the output shape remains consistent regardless of the table content
 def create-test-record [] {
-    let input = $in
+    let input = $pipe
 
     let template_record = {
         before-each: '',
@@ -95,7 +95,7 @@ def create-test-record [] {
         | update value {|x|
             $x.value.function_name
             | if $x.key in ["test", "test-skip"] {
-                $in
+                $pipe
             } else {
                 get 0
             }
@@ -121,14 +121,14 @@ def throw-error [error: record] {
 
 # show a test record in a pretty way
 #
-# `$in` must be a `record<file: string, module: string, name: string, pass: bool>`.
+# `$pipe` must be a `record<file: string, module: string, name: string, pass: bool>`.
 #
 # the output would be like
 # - "<indentation> x <module> <test>" all in red if failed
 # - "<indentation> s <module> <test>" all in yellow if skipped
 # - "<indentation>   <module> <test>" all in green if passed
 def show-pretty-test [indent: int = 4] {
-    let test = $in
+    let test = $pipe
 
     [
         (" " * $indent)
@@ -211,13 +211,13 @@ def run-tests-for-module [
                 after-each: '',
                 test: $module.before-all
             }
-            | if $in.exit_code == 0 {
-                $in.stdout
+            | if $pipe.exit_code == 0 {
+                $pipe.stdout
             } else {
                 throw-error {
                     msg: "Before-all failed"
                     label: "Failure in test setup"
-                    span: (metadata $in | get span)
+                    span: (metadata $pipe | get span)
                 }
             }
         } else {
@@ -261,7 +261,7 @@ def run-tests-for-module [
 
             $test|insert result {|x|
                 run-test $test
-                | if $in.exit_code == 0 {
+                | if $pipe.exit_code == 0 {
                     'pass'
                 } else {
                     'fail'
@@ -350,7 +350,7 @@ export def run-tests [
         | update test {|x|
             $x.test
             | if ($test|is-empty) {
-                $in
+                $pipe
             } else {
                 where $it == $test
             }

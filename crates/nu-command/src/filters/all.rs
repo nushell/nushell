@@ -45,7 +45,7 @@ impl Command for All {
             },
             Example {
                 description: "Check that each item is a string",
-                example: "[foo bar 2 baz] | all {|| ($in | describe) == 'string' }",
+                example: "[foo bar 2 baz] | all {|| ($pipe | describe) == 'string' }",
                 result: Some(Value::test_bool(false)),
             },
             Example {

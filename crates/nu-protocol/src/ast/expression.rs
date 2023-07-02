@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::Expr;
 use crate::ast::ImportPattern;
 use crate::DeclId;
-use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
+use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, PIPE_VARIABLE_ID};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
@@ -121,22 +121,22 @@ impl Expression {
         }
     }
 
-    pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
+    pub fn has_pipe_variable(&self, working_set: &StateWorkingSet) -> bool {
         match &self.expr {
             Expr::BinaryOp(left, _, right) => {
-                left.has_in_variable(working_set) || right.has_in_variable(working_set)
+                left.has_pipe_variable(working_set) || right.has_pipe_variable(working_set)
             }
-            Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
+            Expr::UnaryNot(expr) => expr.has_pipe_variable(working_set),
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                if block.captures.contains(&IN_VARIABLE_ID) {
+                if block.captures.contains(&PIPE_VARIABLE_ID) {
                     return true;
                 }
 
                 if let Some(pipeline) = block.pipelines.get(0) {
                     match pipeline.elements.get(0) {
-                        Some(element) => element.has_in_variable(working_set),
+                        Some(element) => element.has_pipe_variable(working_set),
                         None => false,
                     }
                 } else {
@@ -146,13 +146,13 @@ impl Expression {
             Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                if block.captures.contains(&IN_VARIABLE_ID) {
+                if block.captures.contains(&PIPE_VARIABLE_ID) {
                     return true;
                 }
 
                 if let Some(pipeline) = block.pipelines.get(0) {
                     match pipeline.elements.get(0) {
-                        Some(element) => element.has_in_variable(working_set),
+                        Some(element) => element.has_pipe_variable(working_set),
                         None => false,
                     }
                 } else {
@@ -163,13 +163,13 @@ impl Expression {
             Expr::Bool(_) => false,
             Expr::Call(call) => {
                 for positional in call.positional_iter() {
-                    if positional.has_in_variable(working_set) {
+                    if positional.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
                 for named in call.named_iter() {
                     if let Some(expr) = &named.2 {
-                        if expr.has_in_variable(working_set) {
+                        if expr.has_pipe_variable(working_set) {
                             return true;
                         }
                     }
@@ -179,11 +179,11 @@ impl Expression {
             Expr::CellPath(_) => false,
             Expr::DateTime(_) => false,
             Expr::ExternalCall(head, args, _) => {
-                if head.has_in_variable(working_set) {
+                if head.has_pipe_variable(working_set) {
                     return true;
                 }
                 for arg in args {
-                    if arg.has_in_variable(working_set) {
+                    if arg.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
@@ -195,7 +195,7 @@ impl Expression {
             Expr::Directory(_) => false,
             Expr::Float(_) => false,
             Expr::FullCellPath(full_cell_path) => {
-                if full_cell_path.head.has_in_variable(working_set) {
+                if full_cell_path.head.has_pipe_variable(working_set) {
                     return true;
                 }
                 false
@@ -204,10 +204,10 @@ impl Expression {
             Expr::Nothing => false,
             Expr::GlobPattern(_) => false,
             Expr::Int(_) => false,
-            Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
+            Expr::Keyword(_, _, expr) => expr.has_pipe_variable(working_set),
             Expr::List(list) => {
                 for l in list {
-                    if l.has_in_variable(working_set) {
+                    if l.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
@@ -215,7 +215,7 @@ impl Expression {
             }
             Expr::StringInterpolation(items) => {
                 for i in items {
-                    if i.has_in_variable(working_set) {
+                    if i.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
@@ -226,17 +226,17 @@ impl Expression {
             Expr::MatchBlock(_) => false,
             Expr::Range(left, middle, right, ..) => {
                 if let Some(left) = &left {
-                    if left.has_in_variable(working_set) {
+                    if left.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
                 if let Some(middle) = &middle {
-                    if middle.has_in_variable(working_set) {
+                    if middle.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
                 if let Some(right) = &right {
-                    if right.has_in_variable(working_set) {
+                    if right.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
@@ -244,10 +244,10 @@ impl Expression {
             }
             Expr::Record(fields) => {
                 for (field_name, field_value) in fields {
-                    if field_name.has_in_variable(working_set) {
+                    if field_name.has_pipe_variable(working_set) {
                         return true;
                     }
-                    if field_value.has_in_variable(working_set) {
+                    if field_value.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
@@ -260,7 +260,7 @@ impl Expression {
 
                 if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(expr) = pipeline.elements.get(0) {
-                        expr.has_in_variable(working_set)
+                        expr.has_pipe_variable(working_set)
                     } else {
                         false
                     }
@@ -270,14 +270,14 @@ impl Expression {
             }
             Expr::Table(headers, cells) => {
                 for header in headers {
-                    if header.has_in_variable(working_set) {
+                    if header.has_pipe_variable(working_set) {
                         return true;
                     }
                 }
 
                 for row in cells {
                     for cell in row.iter() {
-                        if cell.has_in_variable(working_set) {
+                        if cell.has_pipe_variable(working_set) {
                             return true;
                         }
                     }
@@ -286,20 +286,20 @@ impl Expression {
                 false
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
-            Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
+            Expr::ValueWithUnit(expr, _) => expr.has_pipe_variable(working_set),
+            Expr::Var(var_id) => *var_id == PIPE_VARIABLE_ID,
             Expr::VarDecl(_) => false,
         }
     }
 
-    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
+    pub fn replace_pipe_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
         match &mut self.expr {
             Expr::BinaryOp(left, _, right) => {
-                left.replace_in_variable(working_set, new_var_id);
-                right.replace_in_variable(working_set, new_var_id);
+                left.replace_pipe_variable(working_set, new_var_id);
+                right.replace_pipe_variable(working_set, new_var_id);
             }
             Expr::UnaryNot(expr) => {
-                expr.replace_in_variable(working_set, new_var_id);
+                expr.replace_pipe_variable(working_set, new_var_id);
             }
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
@@ -307,7 +307,7 @@ impl Expression {
                 let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(element) = pipeline.elements.get(0) {
                         let mut new_element = element.clone();
-                        new_element.replace_in_variable(working_set, new_var_id);
+                        new_element.replace_pipe_variable(working_set, new_var_id);
                         Some(new_element)
                     } else {
                         None
@@ -329,7 +329,13 @@ impl Expression {
                 block.captures = block
                     .captures
                     .iter()
-                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
+                    .map(|x| {
+                        if *x != PIPE_VARIABLE_ID {
+                            *x
+                        } else {
+                            new_var_id
+                        }
+                    })
                     .collect();
             }
             Expr::Closure(block_id) => {
@@ -338,7 +344,7 @@ impl Expression {
                 let new_element = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(element) = pipeline.elements.get(0) {
                         let mut new_element = element.clone();
-                        new_element.replace_in_variable(working_set, new_var_id);
+                        new_element.replace_pipe_variable(working_set, new_var_id);
                         Some(new_element)
                     } else {
                         None
@@ -360,27 +366,33 @@ impl Expression {
                 block.captures = block
                     .captures
                     .iter()
-                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
+                    .map(|x| {
+                        if *x != PIPE_VARIABLE_ID {
+                            *x
+                        } else {
+                            new_var_id
+                        }
+                    })
                     .collect();
             }
             Expr::Binary(_) => {}
             Expr::Bool(_) => {}
             Expr::Call(call) => {
                 for positional in call.positional_iter_mut() {
-                    positional.replace_in_variable(working_set, new_var_id);
+                    positional.replace_pipe_variable(working_set, new_var_id);
                 }
                 for named in call.named_iter_mut() {
                     if let Some(expr) = &mut named.2 {
-                        expr.replace_in_variable(working_set, new_var_id)
+                        expr.replace_pipe_variable(working_set, new_var_id)
                     }
                 }
             }
             Expr::CellPath(_) => {}
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args, _) => {
-                head.replace_in_variable(working_set, new_var_id);
+                head.replace_pipe_variable(working_set, new_var_id);
                 for arg in args {
-                    arg.replace_in_variable(working_set, new_var_id)
+                    arg.replace_pipe_variable(working_set, new_var_id)
                 }
             }
             Expr::Filepath(_) => {}
@@ -389,7 +401,7 @@ impl Expression {
             Expr::FullCellPath(full_cell_path) => {
                 full_cell_path
                     .head
-                    .replace_in_variable(working_set, new_var_id);
+                    .replace_pipe_variable(working_set, new_var_id);
             }
             Expr::ImportPattern(_) => {}
             Expr::Overlay(_) => {}
@@ -399,35 +411,35 @@ impl Expression {
             Expr::Int(_) => {}
             Expr::MatchPattern(_) => {}
             Expr::MatchBlock(_) => {}
-            Expr::Keyword(_, _, expr) => expr.replace_in_variable(working_set, new_var_id),
+            Expr::Keyword(_, _, expr) => expr.replace_pipe_variable(working_set, new_var_id),
             Expr::List(list) => {
                 for l in list {
-                    l.replace_in_variable(working_set, new_var_id)
+                    l.replace_pipe_variable(working_set, new_var_id)
                 }
             }
             Expr::Operator(_) => {}
             Expr::Range(left, middle, right, ..) => {
                 if let Some(left) = left {
-                    left.replace_in_variable(working_set, new_var_id)
+                    left.replace_pipe_variable(working_set, new_var_id)
                 }
                 if let Some(middle) = middle {
-                    middle.replace_in_variable(working_set, new_var_id)
+                    middle.replace_pipe_variable(working_set, new_var_id)
                 }
                 if let Some(right) = right {
-                    right.replace_in_variable(working_set, new_var_id)
+                    right.replace_pipe_variable(working_set, new_var_id)
                 }
             }
             Expr::Record(fields) => {
                 for (field_name, field_value) in fields {
-                    field_name.replace_in_variable(working_set, new_var_id);
-                    field_value.replace_in_variable(working_set, new_var_id);
+                    field_name.replace_pipe_variable(working_set, new_var_id);
+                    field_value.replace_pipe_variable(working_set, new_var_id);
                 }
             }
             Expr::Signature(_) => {}
             Expr::String(_) => {}
             Expr::StringInterpolation(items) => {
                 for i in items {
-                    i.replace_in_variable(working_set, new_var_id)
+                    i.replace_pipe_variable(working_set, new_var_id)
                 }
             }
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
@@ -436,7 +448,7 @@ impl Expression {
                 let new_element = if let Some(pipeline) = block.pipelines.get(0) {
                     if let Some(element) = pipeline.elements.get(0) {
                         let mut new_element = element.clone();
-                        new_element.replace_in_variable(working_set, new_var_id);
+                        new_element.replace_pipe_variable(working_set, new_var_id);
                         Some(new_element)
                     } else {
                         None
@@ -458,24 +470,30 @@ impl Expression {
                 block.captures = block
                     .captures
                     .iter()
-                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
+                    .map(|x| {
+                        if *x != PIPE_VARIABLE_ID {
+                            *x
+                        } else {
+                            new_var_id
+                        }
+                    })
                     .collect();
             }
             Expr::Table(headers, cells) => {
                 for header in headers {
-                    header.replace_in_variable(working_set, new_var_id)
+                    header.replace_pipe_variable(working_set, new_var_id)
                 }
 
                 for row in cells {
                     for cell in row.iter_mut() {
-                        cell.replace_in_variable(working_set, new_var_id)
+                        cell.replace_pipe_variable(working_set, new_var_id)
                     }
                 }
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.replace_in_variable(working_set, new_var_id),
+            Expr::ValueWithUnit(expr, _) => expr.replace_pipe_variable(working_set, new_var_id),
             Expr::Var(x) => {
-                if *x == IN_VARIABLE_ID {
+                if *x == PIPE_VARIABLE_ID {
                     *x = new_var_id
                 }
             }

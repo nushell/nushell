@@ -92,7 +92,7 @@ export def intersperse [ # -> list<any>
     reduce -f [] {|it, acc|
          $acc ++ [$it, $separator]
     } 
-    | match $in {
+    | match $pipe {
          [] => [],
          $xs => ($xs | take (($xs | length) - 1 ))
     }
@@ -126,15 +126,15 @@ export def scan [ # -> list<any>
         $acc ++ [(do $fn ($acc | last) $it)]
     }
     | if $noinit {
-        $in | skip
+        $pipe | skip
     } else {
-        $in
+        $pipe
     }
 }
 
 # Returns a list of values for which the supplied closure does not
 # return `null` or an error. It is equivalent to 
-#     `$in | each $fn | filter $fn`
+#     `$pipe | each $fn | filter $fn`
 #
 # # Example
 # ```nu

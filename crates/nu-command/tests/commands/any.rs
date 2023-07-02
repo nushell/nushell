@@ -53,7 +53,7 @@ fn works_with_1_param_blocks() {
 
 #[test]
 fn works_with_0_param_blocks() {
-    let actual = nu!("[1 2 3] | any {|| print $in | false }");
+    let actual = nu!("[1 2 3] | any {|| print $pipe | false }");
 
     assert_eq!(actual.out, "123false");
 }
@@ -67,7 +67,7 @@ fn early_exits_with_1_param_blocks() {
 
 #[test]
 fn early_exits_with_0_param_blocks() {
-    let actual = nu!("[1 2 3] | any {|| print $in | true }");
+    let actual = nu!("[1 2 3] | any {|| print $pipe | true }");
 
     assert_eq!(actual.out, "1true");
 }

@@ -20,7 +20,7 @@ def before-each [] {
 
 #[after-each]
 def after-each [] {
-    let base_path = $in.base_path
+    let base_path = $pipe.base_path
     cd $base_path
     cd ..
     rm -r $base_path
@@ -40,8 +40,8 @@ def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
 #[test]
 def dirs_command [] {
     # careful with order of these statements!
-    # must capture value of $in before executing `use`s
-    let $c = $in
+    # must capture value of $pipe before executing `use`s
+    let $c = $pipe
 
     # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
@@ -90,8 +90,8 @@ def dirs_command [] {
 
 #[test]
 def dirs_next [] {
-    # must capture value of $in before executing `use`s
-    let $c = $in
+    # must capture value of $pipe before executing `use`s
+    let $c = $pipe
     # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
@@ -112,8 +112,8 @@ def dirs_next [] {
 
 #[test]
 def dirs_cd [] {
-    # must capture value of $in before executing `use`s
-    let $c = $in
+    # must capture value of $pipe before executing `use`s
+    let $c = $pipe
     # must set PWD *before* doing `use` that will run the def-env block in dirs module.
     cd $c.base_path
 

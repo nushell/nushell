@@ -45,7 +45,7 @@ impl Command for Any {
             },
             Example {
                 description: "Check that any item is a string",
-                example: "[1 2 3 4] | any {|| ($in | describe) == 'string' }",
+                example: "[1 2 3 4] | any {|| ($pipe | describe) == 'string' }",
                 result: Some(Value::test_bool(false)),
             },
             Example {

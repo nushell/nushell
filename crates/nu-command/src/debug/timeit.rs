@@ -129,7 +129,7 @@ fn test_time_block_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_block", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }"#,
+            r#"[2 3 4] | timeit {{result: $pipe} | to nuon | save foo.txt }"#,
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

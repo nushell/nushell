@@ -138,7 +138,7 @@ fn from_int_decimal_trim_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        1.00000 | into string | $"($in) flat"
+        1.00000 | into string | $"($pipe) flat"
         "#
     ));
 

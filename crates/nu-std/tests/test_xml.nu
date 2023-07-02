@@ -21,7 +21,7 @@ def before-each [] {
 
 #[test]
 def xml_xaccess [] {
-    let sample_xml = $in.sample_xml
+    let sample_xml = $pipe.sample_xml
 
     assert equal ($sample_xml | xaccess [a]) [$sample_xml]
     assert equal ($sample_xml | xaccess [*]) [$sample_xml]
@@ -32,7 +32,7 @@ def xml_xaccess [] {
 
 #[test]
 def xml_xupdate [] {
-    let sample_xml = $in.sample_xml
+    let sample_xml = $pipe.sample_xml
 
     assert equal ($sample_xml | xupdate [*] {|x| $x | update attributes {i: j}}) ('<a i="j"><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d></a>' | from xml)
     assert equal ($sample_xml | xupdate [* d e *] {|x| $x | update content 'nushell'}) ('<a><b><c a="b"></c></b><c></c><d><e>nushell</e><e>nushell</e></d></a>' | from xml)
@@ -41,7 +41,7 @@ def xml_xupdate [] {
 
 #[test]
 def xml_xinsert [] {
-    let sample_xml = $in.sample_xml
+    let sample_xml = $pipe.sample_xml
 
     assert equal ($sample_xml | xinsert [a] {tag: b attributes:{} content: []}) ('<a><b><c a="b"></c></b><c></c><d><e>z</e><e>x</e></d><b></b></a>' | from xml)
     assert equal ($sample_xml | xinsert [a d *] {tag: null attributes: null content: 'n'} | to xml) '<a><b><c a="b"></c></b><c></c><d><e>zn</e><e>xn</e></d></a>'

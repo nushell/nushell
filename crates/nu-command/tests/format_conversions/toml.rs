@@ -8,7 +8,7 @@ fn record_map_to_toml() {
             {a: 1 b: 2 c: 'qwe'} 
             | to toml
             | from toml
-            | $in == {a: 1 b: 2 c: 'qwe'}
+            | $pipe == {a: 1 b: 2 c: 'qwe'}
         "#
     ));
 
@@ -23,7 +23,7 @@ fn nested_records_to_toml() {
             {a: {a: a b: b} c: 1} 
             | to toml
             | from toml
-            | $in == {a: {a: a b: b} c: 1}
+            | $pipe == {a: {a: a b: b} c: 1}
         "#
     ));
 
@@ -38,7 +38,7 @@ fn records_with_tables_to_toml() {
             {a: [[a b]; [1 2] [3 4]] b: [[c d e]; [1 2 3]]}
             | to toml
             | from toml
-            | $in == {a: [[a b]; [1 2] [3 4]] b: [[c d e]; [1 2 3]]}
+            | $pipe == {a: [[a b]; [1 2] [3 4]] b: [[c d e]; [1 2 3]]}
         "#
     ));
 
@@ -53,7 +53,7 @@ fn nested_tables_to_toml() {
             {c: [[f g]; [[[h k]; [1 2] [3 4]] 1]]}
             | to toml
             | from toml
-            | $in == {c: [[f g]; [[[h k]; [1 2] [3 4]] 1]]}
+            | $pipe == {c: [[f g]; [[[h k]; [1 2] [3 4]] 1]]}
         "#
     ));
 

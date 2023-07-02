@@ -104,7 +104,7 @@ impl Command for Match {
             },
             Example {
                 description: "Match against pipeline input",
-                example: "{a: {b: 3}} | match $in {{a: { $b }} => ($b + 10) }",
+                example: "{a: {b: 3}} | match $pipe {{a: { $b }} => ($b + 10) }",
                 result: Some(Value::test_int(13)),
             },
         ]

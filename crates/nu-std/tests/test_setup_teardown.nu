@@ -9,23 +9,23 @@ def before-each [] {
 
 #[after-each]
 def after-each [] {
-    log debug $"Teardown is running. Context: ($in)"
+    log debug $"Teardown is running. Context: ($pipe)"
 }
 
 #[test]
 def assert_pass [] {
-    log debug $"Assert is running. Context: ($in)"
+    log debug $"Assert is running. Context: ($pipe)"
 }
 
 #[ignore]
 def assert_skip [] {
-    log debug $"Assert is running. Context: ($in)"
+    log debug $"Assert is running. Context: ($pipe)"
 }
 
 #[ignore]
 def assert_fail_skipped_by_default [] {
     # Change test-skip to test if you want to see what happens if a test fails
-    log debug $"Assert is running. Context: ($in)"
+    log debug $"Assert is running. Context: ($pipe)"
     assert false
 }
 

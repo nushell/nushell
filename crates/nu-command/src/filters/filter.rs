@@ -228,7 +228,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             // See https://github.com/nushell/nushell/issues/7034
             // Example {
             //     description: "List all numbers above 3, using an existing closure condition",
-            //     example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
+            //     example: "let a = {$pipe > 3}; [1, 2, 5, 6] | filter $a",
             //     result: Some(Value::List {
             //         vals: vec![
             //             Value::Int {

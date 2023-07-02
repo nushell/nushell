@@ -292,7 +292,7 @@ impl Command for Do {
             },
             Example {
                 description: "Run the closure, with input",
-                example: r#"77 | do {|x| 100 + $in }"#,
+                example: r#"77 | do {|x| 100 + $pipe }"#,
                 result: None, // TODO: returns 177
             },
         ]

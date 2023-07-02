@@ -77,7 +77,7 @@ impl Command for Zip {
                 }),
             },
             Example {
-                example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each {|| mv $in.0 $in.1 }",
+                example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each {|| mv $pipe.0 $pipe.1 }",
                 description: "Rename .ogg files to match an existing list of filenames",
                 result: None,
             },

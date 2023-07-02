@@ -8,7 +8,7 @@ fn to_nuon_correct_compaction() {
             open appveyor.yml 
             | to nuon 
             | str length 
-            | $in > 500
+            | $pipe > 500
         "#
     ));
 
@@ -23,7 +23,7 @@ fn to_nuon_list_of_numbers() {
             [1, 2, 3, 4]
             | to nuon
             | from nuon
-            | $in == [1, 2, 3, 4]
+            | $pipe == [1, 2, 3, 4]
         "#
     ));
 
@@ -38,7 +38,7 @@ fn to_nuon_list_of_strings() {
             [abc, xyz, def]
             | to nuon
             | from nuon
-            | $in == [abc, xyz, def]
+            | $pipe == [abc, xyz, def]
         "#
     ));
 
@@ -53,7 +53,7 @@ fn to_nuon_table() {
             [[my, columns]; [abc, xyz], [def, ijk]]
             | to nuon
             | from nuon
-            | $in == [[my, columns]; [abc, xyz], [def, ijk]]
+            | $pipe == [[my, columns]; [abc, xyz], [def, ijk]]
         "#
     ));
 
@@ -110,7 +110,7 @@ fn to_nuon_escaping3() {
             ["hello\\world"]
             | to nuon
             | from nuon
-            | $in == [hello\world]
+            | $pipe == [hello\world]
         "#
     ));
 
@@ -125,7 +125,7 @@ fn to_nuon_escaping4() {
             ["hello\"world"]
             | to nuon
             | from nuon
-            | $in == ["hello\"world"]
+            | $pipe == ["hello\"world"]
         "#
     ));
 
@@ -140,7 +140,7 @@ fn to_nuon_escaping5() {
             {s: "hello\"world"}
             | to nuon
             | from nuon
-            | $in == {s: "hello\"world"}
+            | $pipe == {s: "hello\"world"}
         "#
     ));
 
@@ -169,7 +169,7 @@ fn to_nuon_records() {
             {name: "foo bar", age: 100, height: 10}
             | to nuon
             | from nuon
-            | $in == {name: "foo bar", age: 100, height: 10}
+            | $pipe == {name: "foo bar", age: 100, height: 10}
         "#
     ));
 
@@ -350,7 +350,7 @@ fn read_bool() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open sample.nuon | get 3 | $in == true
+            open sample.nuon | get 3 | $pipe == true
         "#
     ));
 
@@ -433,7 +433,7 @@ fn to_nuon_quotes_empty_string_in_list() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
             r#"
-    let test = [""]; $test | to nuon | from nuon | $in == [""]
+    let test = [""]; $test | to nuon | from nuon | $pipe == [""]
     "#
     ));
     assert!(actual.err.is_empty());

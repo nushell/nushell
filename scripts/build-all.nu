@@ -17,7 +17,7 @@ def build-nushell [] {
 }
 
 def build-plugin [] {
-    let plugin = $in
+    let plugin = $pipe
 
     print $'(char nl)Building ($plugin)'
     print '----------------------------'

@@ -315,7 +315,8 @@ impl Command for Ls {
             },
             Example {
                 description: "List given paths and show directories themselves",
-                example: "['/path/to/directory' '/path/to/file'] | each {|| ls -D $in } | flatten",
+                example:
+                    "['/path/to/directory' '/path/to/file'] | each {|| ls -D $pipe } | flatten",
                 result: None,
             },
         ]

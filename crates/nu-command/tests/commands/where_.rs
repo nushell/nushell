@@ -32,7 +32,7 @@ fn where_inside_block_works() {
 
 #[test]
 fn filters_with_0_arity_block() {
-    let actual = nu!("[1 2 3 4] | where {|| $in < 3 } | to nuon");
+    let actual = nu!("[1 2 3 4] | where {|| $pipe < 3 } | to nuon");
 
     assert_eq!(actual.out, "[1, 2]");
 }

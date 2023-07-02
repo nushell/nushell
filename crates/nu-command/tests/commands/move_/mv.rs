@@ -381,7 +381,7 @@ fn mv_ignores_ansi() {
         let actual = nu!(
              cwd: sandbox.cwd(),
             r#"
-                 ls | find test | mv $in.0.name success.txt; ls | $in.0.name
+                 ls | find test | mv $pipe.0.name success.txt; ls | $pipe.0.name
             "#
         );
 

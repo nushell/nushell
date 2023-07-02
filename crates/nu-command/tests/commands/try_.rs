@@ -34,7 +34,7 @@ fn catch_can_access_error() {
 fn catch_can_access_error_as_dollar_in() {
     let output = nu!(
         cwd: ".",
-        "try { foobarbaz } catch { $in | get raw }"
+        "try { foobarbaz } catch { $pipe | get raw }"
     );
 
     assert!(output.err.contains("External command failed"));

@@ -14,7 +14,7 @@ let dark_theme = {
     empty: blue
     # Closures can be used to choose colors for specific values.
     # The value (in this case, a bool) is piped into the closure.
-    bool: {|| if $in { 'light_cyan' } else { 'light_gray' } }
+    bool: {|| if $pipe { 'light_cyan' } else { 'light_gray' } }
     int: white
     filesize: {|e|
       if $e == 0b {
@@ -24,20 +24,20 @@ let dark_theme = {
       } else { 'blue' }
     }
     duration: white
-    date: {|| (date now) - $in |
-      if $in < 1hr {
+    date: {|| (date now) - $pipe |
+      if $pipe < 1hr {
         'purple'
-      } else if $in < 6hr {
+      } else if $pipe < 6hr {
         'red'
-      } else if $in < 1day {
+      } else if $pipe < 1day {
         'yellow'
-      } else if $in < 3day {
+      } else if $pipe < 3day {
         'green'
-      } else if $in < 1wk {
+      } else if $pipe < 1wk {
         'light_green'
-      } else if $in < 6wk {
+      } else if $pipe < 6wk {
         'cyan'
-      } else if $in < 52wk {
+      } else if $pipe < 52wk {
         'blue'
       } else { 'dark_gray' }
     }
@@ -99,7 +99,7 @@ let light_theme = {
     empty: blue
     # Closures can be used to choose colors for specific values.
     # The value (in this case, a bool) is piped into the closure.
-    bool: {|| if $in { 'dark_cyan' } else { 'dark_gray' } }
+    bool: {|| if $pipe { 'dark_cyan' } else { 'dark_gray' } }
     int: dark_gray
     filesize: {|e|
       if $e == 0b {
@@ -109,20 +109,20 @@ let light_theme = {
       } else { 'blue_bold' }
     }
     duration: dark_gray
-  date: {|| (date now) - $in |
-    if $in < 1hr {
+  date: {|| (date now) - $pipe |
+    if $pipe < 1hr {
       'purple'
-    } else if $in < 6hr {
+    } else if $pipe < 6hr {
       'red'
-    } else if $in < 1day {
+    } else if $pipe < 1day {
       'yellow'
-    } else if $in < 3day {
+    } else if $pipe < 3day {
       'green'
-    } else if $in < 1wk {
+    } else if $pipe < 1wk {
       'light_green'
-    } else if $in < 6wk {
+    } else if $pipe < 6wk {
       'cyan'
-    } else if $in < 52wk {
+    } else if $pipe < 52wk {
       'blue'
     } else { 'dark_gray' }
   }

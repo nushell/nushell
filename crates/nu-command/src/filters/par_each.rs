@@ -47,7 +47,7 @@ impl Command for ParEach {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[1 2 3] | par-each {|| 2 * $in }",
+                example: "[1 2 3] | par-each {|| 2 * $pipe }",
                 description:
                     "Multiplies each number. Note that the list will become arbitrarily disordered.",
                 result: None,

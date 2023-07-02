@@ -3767,7 +3767,7 @@ pub fn format_filesize(
 
 fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (ByteUnit, &str) {
     macro_rules! either {
-        ($in:ident, $metric:ident, $binary:ident) => {
+        ($pipe:ident, $metric:ident, $binary:ident) => {
             (
                 // filesize_metric always overrides the unit of
                 // filesize_format.
@@ -3775,7 +3775,7 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
                     Some(true) => byte_unit::ByteUnit::$metric,
                     Some(false) => byte_unit::ByteUnit::$binary,
                     None => {
-                        if $in.ends_with("ib") {
+                        if $pipe.ends_with("ib") {
                             byte_unit::ByteUnit::$binary
                         } else {
                             byte_unit::ByteUnit::$metric

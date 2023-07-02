@@ -68,7 +68,7 @@ impl PipelineElement {
             },
         }
     }
-    pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
+    pub fn has_pipe_variable(&self, working_set: &StateWorkingSet) -> bool {
         match self {
             PipelineElement::Expression(_, expression)
             | PipelineElement::Redirection(_, _, expression)
@@ -77,15 +77,15 @@ impl PipelineElement {
             | PipelineElement::SameTargetRedirection {
                 cmd: (_, expression),
                 ..
-            } => expression.has_in_variable(working_set),
+            } => expression.has_pipe_variable(working_set),
             PipelineElement::SeparateRedirection {
                 out: (_, out_expr),
                 err: (_, err_expr),
-            } => out_expr.has_in_variable(working_set) || err_expr.has_in_variable(working_set),
+            } => out_expr.has_pipe_variable(working_set) || err_expr.has_pipe_variable(working_set),
         }
     }
 
-    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
+    pub fn replace_pipe_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
         match self {
             PipelineElement::Expression(_, expression)
             | PipelineElement::Redirection(_, _, expression)
@@ -94,16 +94,16 @@ impl PipelineElement {
             | PipelineElement::SameTargetRedirection {
                 cmd: (_, expression),
                 ..
-            } => expression.replace_in_variable(working_set, new_var_id),
+            } => expression.replace_pipe_variable(working_set, new_var_id),
             PipelineElement::SeparateRedirection {
                 out: (_, out_expr),
                 err: (_, err_expr),
             } => {
-                if out_expr.has_in_variable(working_set) {
-                    out_expr.replace_in_variable(working_set, new_var_id)
+                if out_expr.has_pipe_variable(working_set) {
+                    out_expr.replace_pipe_variable(working_set, new_var_id)
                 }
-                if err_expr.has_in_variable(working_set) {
-                    err_expr.replace_in_variable(working_set, new_var_id)
+                if err_expr.has_pipe_variable(working_set) {
+                    err_expr.replace_pipe_variable(working_set, new_var_id)
                 }
             }
         }

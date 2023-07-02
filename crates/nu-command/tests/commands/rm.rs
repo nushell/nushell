@@ -346,7 +346,7 @@ fn remove_ignores_ansi() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ls | find test | get name | rm $in.0; ls | is-empty",
+            "ls | find test | get name | rm $pipe.0; ls | is-empty",
         );
         assert_eq!(actual.out, "true");
     });

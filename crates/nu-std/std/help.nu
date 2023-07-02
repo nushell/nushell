@@ -1,5 +1,5 @@
 def error-fmt [] {
-    $"(ansi red)($in)(ansi reset)"
+    $"(ansi red)($pipe)(ansi reset)"
 }
 
 def throw-error [error: string, msg: string, span: record] {
@@ -702,7 +702,7 @@ export def commands [
 }
 
 def pretty-cmd [] {
-    let cmd = $in
+    let cmd = $pipe
     $"(ansi default_dimmed)(ansi default_italic)($cmd)(ansi reset)"
 }
 

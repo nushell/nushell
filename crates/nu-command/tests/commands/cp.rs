@@ -523,7 +523,7 @@ fn copy_ignores_ansi_impl(progress: bool) {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ls | find test | get name | cp {} $in.0 success.txt; ls | find success | get name | ansi strip | get 0",
+            "ls | find test | get name | cp {} $pipe.0 success.txt; ls | find success | get name | ansi strip | get 0",
             progress_flag,
         );
         assert_eq!(actual.out, "success.txt");

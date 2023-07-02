@@ -9,7 +9,7 @@ fn cd_works_with_in_var() {
         let actual = nu!(
             cwd: dirs.root(),
             r#"
-                "cd_test_1" | cd $in; $env.PWD | path split | last
+                "cd_test_1" | cd $pipe; $env.PWD | path split | last
             "#
         );
 

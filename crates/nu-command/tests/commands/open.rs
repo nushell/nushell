@@ -281,7 +281,7 @@ fn open_ignore_ansi() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ls | find nu.zion | get 0 | get name | open $in
+                ls | find nu.zion | get 0 | get name | open $pipe
             "#
         ));
 

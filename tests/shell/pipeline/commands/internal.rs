@@ -1084,7 +1084,7 @@ fn pipeline_params_simple() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1 2 3 | $in.1 * $in.2
+        echo 1 2 3 | $pipe.1 * $pipe.2
         "#)
     );
 
@@ -1096,7 +1096,7 @@ fn pipeline_params_inner() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1 2 3 | (echo $in.2 6 7 | $in.0 * $in.1 * $in.2)
+        echo 1 2 3 | (echo $pipe.2 6 7 | $pipe.0 * $pipe.1 * $pipe.2)
         "#)
     );
 

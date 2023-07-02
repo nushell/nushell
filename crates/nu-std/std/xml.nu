@@ -9,7 +9,7 @@ export def xaccess [
                # 3. Int. Select n-th among nodes selected by previous path. Equivalent to `(...)[1]` in xpath, but is indexed from 0.
                # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
 ] {
-    let input = $in
+    let input = $pipe
     if ($path | is-empty) {
         let path_span = (metadata $path).span
         error make {msg: 'Empty path provided'
@@ -52,7 +52,7 @@ export def xaccess [
 }
 
 def xupdate-string-step [ step: string rest: list updater: closure ] {
-    let input = $in
+    let input = $pipe
 
     # Get a list of elements to be updated and their indices
     let to_update = ($input.content | enumerate | filter {|it|
@@ -88,7 +88,7 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
 }
 
 def xupdate-int-step [ step: int rest: list updater: closure ] {
-    $in | enumerate | each {|it|
+    $pipe | enumerate | each {|it|
         let item = $it.item
         let idx = $it.index
 
@@ -101,7 +101,7 @@ def xupdate-int-step [ step: int rest: list updater: closure ] {
 }
 
 def xupdate-closure-step [ step: closure rest: list updater: closure ] {
-    $in | each {|it|
+    $pipe | each {|it|
         if (do $step $it) {
             [ $it ] | xupdate-internal $rest $updater | get 0
         } else {
@@ -111,7 +111,7 @@ def xupdate-closure-step [ step: closure rest: list updater: closure ] {
 }
 
 def xupdate-internal [ path: list updater: closure ] {
-    let input = $in
+    let input = $pipe
 
     if ($path | is-empty) {
         $input | each $updater
@@ -149,14 +149,14 @@ export def xupdate [
                 # 4. Closure. Predicate accepting entry. Selects all entries among nodes selected by previous path for which predicate returns true. 
     updater: closure # A closure used to transform entries matching path.
 ] {
-    {tag:? attributes:? content: [$in]} | xupdate-internal $path $updater | get content.0
+    {tag:? attributes:? content: [$pipe]} | xupdate-internal $path $updater | get content.0
 }
 
 # Get type of an xml entry
 #
 # Possible types are 'tag', 'text', 'pi' and 'comment'
 export def xtype [] {
-    let input = $in
+    let input = $pipe
     if (($input | describe) == 'string' or 
         ($input.tag? == null and $input.attributes? == null and ($input.content? | describe) == 'string')) {
         'text'
@@ -183,7 +183,7 @@ export def xinsert [
                     # position is greater than number of elements) in content of all entries of input matched by 
                     # path. If not specified inserts at the end.
 ] {
-    $in | xupdate $path {|entry|
+    $pipe | xupdate $path {|entry|
         match ($entry | xtype) {
             'tag' => {
                 let new_content = if $position == null {

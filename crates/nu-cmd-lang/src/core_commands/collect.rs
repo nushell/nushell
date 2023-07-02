@@ -69,7 +69,7 @@ impl Command for Collect {
 
         if call.has_flag("keep-env") {
             redirect_env(engine_state, stack, &stack_captures);
-            // for when we support `data | let x = $in;`
+            // for when we support `data | let x = $pipe;`
             // remove the variables added earlier
             for var_id in capture_block.captures.keys() {
                 stack_captures.remove_var(*var_id);

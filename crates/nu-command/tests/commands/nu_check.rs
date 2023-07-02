@@ -374,10 +374,10 @@ fn parse_script_success_with_complex_internal_stream() {
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada
@@ -423,10 +423,10 @@ fn parse_script_failure_with_complex_internal_stream() {
                   #open file.txt | grep-nu search
                 ]
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada
@@ -472,10 +472,10 @@ fn parse_script_success_with_complex_external_stream() {
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada
@@ -521,10 +521,10 @@ fn parse_module_success_with_complex_external_stream() {
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada
@@ -570,10 +570,10 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada
@@ -619,10 +619,10 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada
@@ -668,10 +668,10 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
                   #open file.txt | grep-nu search
                 ] {
                   if ($entrada | is-empty) {
-                    if ($in | column? name) {
-                      grep -ihHn $search ($in | get name)
+                    if ($pipe | column? name) {
+                      grep -ihHn $search ($pipe | get name)
                     } else {
-                      ($in | into string) | grep -ihHn $search
+                      ($pipe | into string) | grep -ihHn $search
                     }
                   } else {
                       grep -ihHn $search $entrada

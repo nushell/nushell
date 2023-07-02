@@ -60,7 +60,7 @@ impl Command for Tutor {
             },
             Example {
                 description: "Search a tutorial by phrase",
-                example: "tutor -f \"$in\"",
+                example: "tutor -f \"$pipe\"",
                 result: None,
             },
         ]
@@ -351,7 +351,7 @@ $x
 Nushell also comes with built-in variables. The `$nu` variable is a reserved
 variable that contains a lot of information about the currently running
 instance of Nushell. The `$it` variable is the name given to block parameters
-if you don't specify one. And `$in` is the variable that allows you to work
+if you don't specify one. And `$pipe` is the variable that allows you to work
 with all of the data coming in from the pipeline in one place.
 
 "#
