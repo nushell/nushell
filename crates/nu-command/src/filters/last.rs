@@ -105,8 +105,7 @@ impl Command for Last {
         }
 
         match input {
-            PipelineData::ListStream(_, _)
-            | PipelineData::Value(Value::Range { .. }, _) => {
+            PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
                 let iterator = input.into_iter_strict(head).unwrap();
 
                 // only keep last `rows_desired` rows in memory
@@ -121,7 +120,6 @@ impl Command for Last {
                 }
 
                 if return_single_element {
-
                     if let Some(last) = buf.pop_back() {
                         Ok(last.into_pipeline_data().set_metadata(metadata))
                     } else {
@@ -130,7 +128,7 @@ impl Command for Last {
                 } else {
                     Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
                 }
-            },
+            }
             PipelineData::Value(val, _) => match val {
                 Value::List { vals, .. } => {
                     if return_single_element {
@@ -150,12 +148,7 @@ impl Command for Last {
                     }
                 }
                 Value::Binary { val, span } => {
-                    let slice: Vec<u8> = val
-                        .into_iter()
-                        .rev()
-                        .take(rows_desired)
-                        .rev()
-                        .collect();
+                    let slice: Vec<u8> = val.into_iter().rev().take(rows_desired).rev().collect();
                     Ok(PipelineData::Value(
                         Value::Binary { val: slice, span },
                         metadata,
@@ -170,12 +163,14 @@ impl Command for Last {
                     src_span: other.expect_span(),
                 }),
             },
-            PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: "raw data".into(),
-                dst_span: head,
-                src_span: span,
-            }),
+            PipelineData::ExternalStream { span, .. } => {
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: "raw data".into(),
+                    dst_span: head,
+                    src_span: span,
+                })
+            }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),
