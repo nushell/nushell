@@ -230,7 +230,7 @@ fn parse_module_success_2() {
             r#"
                 # foo.nu
 
-                export-env { let-env MYNAME = "Arthur, King of the Britons" }
+                export-env { $env.MYNAME = "Arthur, King of the Britons" }
             "#,
         )]);
 
@@ -749,7 +749,7 @@ fn parse_script_with_nested_scripts_success() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = 'foo'
+                    $env.FOO = 'foo'
                 "#,
             )]);
 
@@ -772,7 +772,7 @@ fn nu_check_respects_file_pwd() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    let-env RETURN = (nu-check ../foo.nu)
+                    $env.RETURN = (nu-check ../foo.nu)
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(

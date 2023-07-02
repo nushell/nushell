@@ -368,11 +368,11 @@ fn let_doesnt_leak() {
 }
 
 #[test]
-fn let_env_variable() {
+fn mutate_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TESTENVVAR = "hello world"
+            $env.TESTENVVAR = "hello world"
             echo $env.TESTENVVAR
         "#
     );
@@ -381,11 +381,11 @@ fn let_env_variable() {
 }
 
 #[test]
-fn let_env_hides_variable() {
+fn mutate_env_hides_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TESTENVVAR = "hello world"
+            $env.TESTENVVAR = "hello world"
             print $env.TESTENVVAR
             hide-env TESTENVVAR
             print $env.TESTENVVAR
@@ -397,11 +397,11 @@ fn let_env_hides_variable() {
 }
 
 #[test]
-fn let_env_hides_variable_in_parent_scope() {
+fn mutate_env_hides_variable_in_parent_scope() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TESTENVVAR = "hello world"
+            $env.TESTENVVAR = "hello world"
             print $env.TESTENVVAR
             do {
                 hide-env TESTENVVAR
@@ -420,7 +420,7 @@ fn unlet_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TEST_VAR = "hello world"
+            $env.TEST_VAR = "hello world"
             hide-env TEST_VAR
             echo $env.TEST_VAR
         "#
@@ -446,10 +446,10 @@ fn unlet_variable_in_parent_scope() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env DEBUG = "1"
+            $env.DEBUG = "1"
             print $env.DEBUG
             do {
-                let-env DEBUG = "2"
+                $env.DEBUG = "2"
                 print $env.DEBUG
                 hide-env DEBUG
                 print $env.DEBUG
@@ -462,11 +462,11 @@ fn unlet_variable_in_parent_scope() {
 }
 
 #[test]
-fn let_env_doesnt_leak() {
+fn mutate_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
-        do { let-env xyz = "my message" }; echo $env.xyz
+        do { $env.xyz = "my message" }; echo $env.xyz
         "#
     );
 
@@ -474,11 +474,11 @@ fn let_env_doesnt_leak() {
 }
 
 #[test]
-fn proper_shadow_let_env_aliases() {
+fn proper_shadow_mutate_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; print $env.DEBUG | table; do { let-env DEBUG = "false"; print $env.DEBUG } | table; print $env.DEBUG
+        $env.DEBUG = "true"; print $env.DEBUG | table; do { $env.DEBUG = "false"; print $env.DEBUG } | table; print $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -527,7 +527,7 @@ fn proper_shadow_load_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; print $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; print $env.DEBUG } | table; print $env.DEBUG
+        $env.DEBUG = "true"; print $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; print $env.DEBUG } | table; print $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -540,7 +540,7 @@ fn load_env_can_hide_var_envs() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "1"
+        $env.DEBUG = "1"
         echo $env.DEBUG
         load-env [[name, value]; [DEBUG null]]
         echo $env.DEBUG
@@ -558,7 +558,7 @@ fn load_env_can_hide_var_envs_in_parent_scope() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "1"
+        $env.DEBUG = "1"
         echo $env.DEBUG
         do {
             load-env [[name, value]; [DEBUG null]]

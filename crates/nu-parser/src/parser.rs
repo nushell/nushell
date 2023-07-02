@@ -5343,46 +5343,38 @@ pub fn parse_block(
 
                     if idx == 0 {
                         if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Nothing) {
-                            if let Some(let_env_decl_id) =
-                                working_set.find_decl(b"let-env", &Type::Nothing)
-                            {
-                                for element in pipeline.elements.iter_mut() {
-                                    if let PipelineElement::Expression(
-                                        _,
-                                        Expression {
-                                            expr: Expr::Call(call),
+                            for element in pipeline.elements.iter_mut() {
+                                if let PipelineElement::Expression(
+                                    _,
+                                    Expression {
+                                        expr: Expr::Call(call),
+                                        ..
+                                    },
+                                ) = element
+                                {
+                                    if call.decl_id == let_decl_id {
+                                        // Do an expansion
+                                        if let Some(Expression {
+                                            expr: Expr::Keyword(_, _, expr),
                                             ..
-                                        },
-                                    ) = element
-                                    {
-                                        if call.decl_id == let_decl_id
-                                            || call.decl_id == let_env_decl_id
+                                        }) = call.positional_iter_mut().nth(1)
                                         {
-                                            // Do an expansion
-                                            if let Some(Expression {
-                                                expr: Expr::Keyword(_, _, expr),
-                                                ..
-                                            }) = call.positional_iter_mut().nth(1)
-                                            {
-                                                if expr.has_in_variable(working_set) {
-                                                    *expr = Box::new(wrap_expr_with_collect(
-                                                        working_set,
-                                                        expr,
-                                                    ));
-                                                }
+                                            if expr.has_in_variable(working_set) {
+                                                *expr = Box::new(wrap_expr_with_collect(
+                                                    working_set,
+                                                    expr,
+                                                ));
                                             }
-                                            continue;
-                                        } else if element.has_in_variable(working_set)
-                                            && !is_subexpression
-                                        {
-                                            *element =
-                                                wrap_element_with_collect(working_set, element);
                                         }
+                                        continue;
                                     } else if element.has_in_variable(working_set)
                                         && !is_subexpression
                                     {
                                         *element = wrap_element_with_collect(working_set, element);
                                     }
+                                } else if element.has_in_variable(working_set) && !is_subexpression
+                                {
+                                    *element = wrap_element_with_collect(working_set, element);
                                 }
                             }
                         }

@@ -68,12 +68,12 @@ fn nu_lib_dirs_repl() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
+            r#"$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
             r#"source-env foo.nu"#,
             r#"$env.FOO"#,
         ];
@@ -93,7 +93,7 @@ fn nu_lib_dirs_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -104,7 +104,7 @@ fn nu_lib_dirs_script() {
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
+            r#"$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
             r#"source-env main.nu"#,
             r#"$env.FOO"#,
         ];
@@ -124,12 +124,12 @@ fn nu_lib_dirs_relative_repl() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
+            r#"$env.NU_LIB_DIRS = [ 'scripts' ]"#,
             r#"source-env foo.nu"#,
             r#"$env.FOO"#,
         ];
@@ -150,7 +150,7 @@ fn const_nu_lib_dirs_relative() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -183,12 +183,12 @@ fn nu_lib_dirs_relative_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
+            r#"$env.NU_LIB_DIRS = [ 'scripts' ]"#,
             r#"source-env scripts/main.nu"#,
             r#"$env.FOO"#,
         ];

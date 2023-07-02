@@ -87,8 +87,10 @@ export def test [
 }
 
 # run the tests for the standard library
-export def "test stdlib" [] {
-    cargo run -- -c "use std testing; testing run-tests --path crates/nu-std"
+export def "test stdlib" [
+    --extra-args: string = ''
+] {
+    cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
@@ -232,7 +234,7 @@ export def "check pr" [
     --fast: bool  # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to check the current PR on
 ] {
-    let-env NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
+    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
     try {
         fmt --check --verbose
     } catch {
@@ -436,7 +438,7 @@ def compute-coverage [] {
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
 export def cov [] {
     let start = (date now)
-    let-env NUSHELL_CARGO_TARGET = "ci"
+    $env.NUSHELL_CARGO_TARGET = "ci"
 
     compute-coverage
 

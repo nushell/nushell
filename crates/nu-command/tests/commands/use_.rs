@@ -71,7 +71,7 @@ fn use_eval_export_env() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                export-env { let-env FOO = 'foo' }
+                export-env { $env.FOO = 'foo' }
             "#,
         )]);
 
@@ -93,7 +93,7 @@ fn use_eval_export_env_hide() {
             "#,
         )]);
 
-        let inp = &[r#"let-env FOO = 'foo'"#, r#"use spam.nu"#, r#"$env.FOO"#];
+        let inp = &[r#"$env.FOO = 'foo'"#, r#"use spam.nu"#, r#"$env.FOO"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
@@ -173,7 +173,7 @@ fn use_export_env_combined() {
             r#"
                 def foo [] { 'foo' }
                 alias bar = foo
-                export-env { let-env FOO = (bar) }
+                export-env { $env.FOO = (bar) }
             "#,
         )]);
 
@@ -267,7 +267,7 @@ fn use_main_4() {
 #[test]
 fn use_main_def_env() {
     let inp = &[
-        r#"module spam { export def-env main [] { let-env SPAM = "spam" } }"#,
+        r#"module spam { export def-env main [] { $env.SPAM = "spam" } }"#,
         r#"use spam"#,
         r#"spam"#,
         r#"$env.SPAM"#,
