@@ -544,29 +544,33 @@ pub fn request_handle_response_headers_raw(
     span: Span,
     response: &Response,
 ) -> Result<PipelineData, ShellError> {
-    let cols = response.headers_names();
+    let header_names = response.headers_names();
 
-    let mut vals = Vec::with_capacity(cols.len());
-    for key in &cols {
-        match response.header(key) {
-            // match value.to_str() {
-            Some(str_value) => vals.push(Value::String {
-                val: str_value.to_string(),
-                span,
-            }),
-            None => {
-                return Err(ShellError::GenericError(
-                    "Failure when converting header value".to_string(),
-                    "".to_string(),
-                    None,
-                    Some("Failure when converting header value".to_string()),
-                    Vec::new(),
-                ))
+    let cols = vec!["name".to_string(), "value".to_string()];
+    let mut vals = Vec::with_capacity(header_names.len());
+
+    for name in &header_names {
+        let is_duplicate = vals.iter().any(|val| {
+            if let Value::Record { vals, .. } = val {
+                if let Some(header_name) = vals.get(0) {
+                    if let Value::String { val: header_name, .. } = header_name {
+                        return name == header_name;
+                    }
+                }
+            }
+            false
+        });
+        if !is_duplicate {
+            // Use the urql `Response.all` api to get all of the header values with a given name.
+            // This interface is why we needed to check if we've already parsed this header name.
+            for str_value in response.all(name) {
+                let header = vec![Value::string(name, span), Value::string(str_value, span)];
+                vals.push(Value::record(cols.clone(), header, span));
             }
         }
     }
 
-    Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+    Ok(Value::list(vals, span).into_pipeline_data())
 }
 
 pub fn request_handle_response_headers(
