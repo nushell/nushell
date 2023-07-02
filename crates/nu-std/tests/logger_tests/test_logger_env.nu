@@ -1,6 +1,7 @@
 use std *
 
-def test_env_log_ansi [] {
+#[test]
+def env_log_ansi [] {
     assert equal $env.LOG_ANSI.CRITICAL (ansi red_bold)
     assert equal $env.LOG_ANSI.ERROR (ansi red)
     assert equal $env.LOG_ANSI.WARNING (ansi yellow)
@@ -8,7 +9,8 @@ def test_env_log_ansi [] {
     assert equal $env.LOG_ANSI.DEBUG (ansi default_dimmed)
 }
 
-def test_env_log_level [] {
+#[test]
+def env_log_level [] {
     assert equal $env.LOG_LEVEL.CRITICAL 50
     assert equal $env.LOG_LEVEL.ERROR 40
     assert equal $env.LOG_LEVEL.WARNING 30
@@ -16,7 +18,8 @@ def test_env_log_level [] {
     assert equal $env.LOG_LEVEL.DEBUG 10
 }
 
-def test_env_log_prefix [] {
+#[test]
+def env_log_prefix [] {
     assert equal $env.LOG_PREFIX.CRITICAL "CRT"
     assert equal $env.LOG_PREFIX.ERROR "ERR"
     assert equal $env.LOG_PREFIX.WARNING "WRN"
@@ -24,7 +27,8 @@ def test_env_log_prefix [] {
     assert equal $env.LOG_PREFIX.DEBUG "DBG"
 }
 
-def test_env_log_short_prefix [] {
+#[test]
+def env_log_short_prefix [] {
     assert equal $env.LOG_SHORT_PREFIX.CRITICAL "C"
     assert equal $env.LOG_SHORT_PREFIX.ERROR "E"
     assert equal $env.LOG_SHORT_PREFIX.WARNING "W"
@@ -32,6 +36,7 @@ def test_env_log_short_prefix [] {
     assert equal $env.LOG_SHORT_PREFIX.DEBUG "D"
 }
 
-def test_env_log_format [] {
+#[test]
+def env_log_format [] {
     assert equal $env.LOG_FORMAT $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
 }
