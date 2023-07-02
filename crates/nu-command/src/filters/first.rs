@@ -105,6 +105,13 @@ fn first_helper(
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
+    // early exit for `first 0`
+    if rows_desired == 0 {
+        return Ok(Vec::<Value>::new()
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata));
+    }
+
     match input {
         PipelineData::Value(val, _) => match val {
             Value::List { vals, .. } => {
