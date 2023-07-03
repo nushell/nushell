@@ -16,8 +16,6 @@ jobs:
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
         style: [default, dataframe, extra]
-        rust:
-          - stable
         include:
           - style: default
             flags: ""
@@ -61,8 +59,6 @@ jobs:
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
         style: [default, dataframe, extra]
-        rust:
-          - stable
         include:
           - style: default
             flags: ""
@@ -81,8 +77,6 @@ jobs:
             style: extra
           - platform: macos-latest
             style: extra
-
-
 
     runs-on: ${{ matrix.platform }}
 
@@ -105,8 +99,6 @@ jobs:
       fail-fast: true
       matrix:
         platform: [ubuntu-20.04, macos-latest, windows-latest]
-        rust:
-          - stable
         py:
           - py
 
@@ -168,8 +160,6 @@ jobs:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        rust:
-          - stable
 
     runs-on: ${{ matrix.platform }}
 
