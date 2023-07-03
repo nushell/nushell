@@ -80,6 +80,28 @@ fn gets_last_row_as_list_when_amount_given() {
 }
 
 #[test]
+fn gets_last_bytes() {
+    let actual = nu!(pipeline(
+        r#"
+            (0x[aa bb cc] | last 2) == 0x[bb cc]
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn gets_last_byte() {
+    let actual = nu!(pipeline(
+        r#"
+            0x[aa bb cc] | last
+        "#
+    ));
+
+    assert_eq!(actual.out, "204");
+}
+
+#[test]
 fn last_errors_on_negative_index() {
     let actual = nu!(pipeline(
         "
@@ -96,4 +118,16 @@ fn fail_on_non_iterator() {
     let actual = nu!("1 | last");
 
     assert!(actual.err.contains("only_supports_this_input_type"));
+}
+
+#[test]
+fn errors_on_empty_list_when_no_rows_given() {
+    let actual = nu!(pipeline(
+        r#"
+            []
+            | last
+        "#
+    ));
+
+    assert!(actual.err.contains("index too large"));
 }
