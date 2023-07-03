@@ -6,6 +6,7 @@ use std log
 # Each 'use' for that module in the test script will execute the def-env block.
 # PWD at the time of the `use` will be what the export def-env block will see.
 
+#[before-each]
 def before-each [] {
     # need some directories to play with
     let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
@@ -17,6 +18,7 @@ def before-each [] {
     {base_path: $base_path, path_a: $path_a, path_b: $path_b}
 }
 
+#[after-each]
 def after-each [] {
     let base_path = $in.base_path
     cd $base_path
@@ -28,13 +30,15 @@ def cur_dir_check [expect_dir, scenario] {
     log debug $"check dir ($expect_dir), scenario ($scenario)"
     assert equal $expect_dir $env.PWD $"expected not PWD after ($scenario)"
 }
+
 def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
     log debug $"check ring ($expect_dir), position ($expect_position) scenario ($scenario)"
     assert ($expect_position < ($env.DIRS_LIST | length)) $"ring big enough after ($scenario)"
     assert equal $expect_position $env.DIRS_POSITION $"position in ring after ($scenario)"
 }
 
-def test_dirs_command [] {
+#[test]
+def dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
     let $c = $in
@@ -84,7 +88,8 @@ def test_dirs_command [] {
     assert equal $env.PWD $c.base_path "drop changes PWD (regression test for #9449)"
 }
 
-def test_dirs_next [] {
+#[test]
+def dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
     # must set PWD *before* doing `use` that will run the def-env block in dirs module.
@@ -105,7 +110,8 @@ def test_dirs_next [] {
 
 }
 
-def test_dirs_cd [] {
+#[test]
+def dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in
     # must set PWD *before* doing `use` that will run the def-env block in dirs module.

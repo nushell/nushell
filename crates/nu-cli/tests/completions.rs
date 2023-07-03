@@ -143,7 +143,7 @@ fn external_completer_trailing_space() {
 
 #[test]
 fn external_completer_no_trailing_space() {
-    let block = "let external_completer = {|spans| $spans}";
+    let block = "{|spans| $spans}";
     let input = "gh alias".to_string();
 
     let suggestions = run_external_completion(block, &input);
@@ -154,7 +154,7 @@ fn external_completer_no_trailing_space() {
 
 #[test]
 fn external_completer_pass_flags() {
-    let block = "let external_completer = {|spans| $spans}";
+    let block = "{|spans| $spans}";
     let input = "gh api --".to_string();
 
     let suggestions = run_external_completion(block, &input);

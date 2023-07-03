@@ -98,7 +98,7 @@ atty = "0.2"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.82.1" }
-tempfile = "3.5"
+tempfile = "3.6"
 assert_cmd = "2.0"
 criterion = "0.5"
 pretty_assertions = "1.0"
@@ -165,7 +165,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
 dtparse = { git = "https://github.com/nibon7/dtparse.git", branch = "chrono" }
 chrono-humanize = { git = "https://gitlab.com/adamchalmers/chrono-humanize-rs", branch = "achalmers/fix-10" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
