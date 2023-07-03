@@ -238,6 +238,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Du,
             Input,
             InputList,
+            InputListen,
             Kill,
             Sleep,
             TermSize,

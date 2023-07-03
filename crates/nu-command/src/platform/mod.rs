@@ -13,6 +13,7 @@ pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use du::Du;
 pub use input::Input;
 pub use input::InputList;
+pub use input::InputListen;
 pub use kill::Kill;
 pub use sleep::Sleep;
 pub use term_size::TermSize;
