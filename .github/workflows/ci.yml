@@ -19,7 +19,6 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        style: [default, dataframe, extra]
         include:
           - style: default
             flags: ""
@@ -54,7 +53,6 @@ jobs:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        style: [default, dataframe, extra]
         include:
           - style: default
             flags: ""
