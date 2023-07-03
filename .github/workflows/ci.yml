@@ -11,7 +11,7 @@ env:
   NU_LOG_LEVEL: DEBUG
 
 jobs:
-  nu-fmt-clippy:
+  fmt-clippy:
     strategy:
       fail-fast: true
       matrix:
@@ -49,8 +49,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
 
-  nu-tests:
-
+  tests:
     strategy:
       fail-fast: true
       matrix:
