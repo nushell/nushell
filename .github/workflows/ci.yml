@@ -6,6 +6,10 @@ on:
 
 name: continuous-integration
 
+env:
+  NUSHELL_CARGO_TARGET: ci
+  NU_LOG_LEVEL: DEBUG
+
 jobs:
   nu-fmt-clippy:
     strategy:
@@ -30,8 +34,6 @@ jobs:
             style: dataframe
 
     runs-on: ${{ matrix.platform }}
-    env:
-      NUSHELL_CARGO_TARGET: ci
 
     steps:
       - uses: actions/checkout@v3
@@ -48,8 +50,6 @@ jobs:
         run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
 
   nu-tests:
-    env:
-      NUSHELL_CARGO_TARGET: ci
 
     strategy:
       fail-fast: true
@@ -87,9 +87,6 @@ jobs:
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
   std-lib-and-python-virtualenv:
-    env:
-      NU_LOG_LEVEL: DEBUG
-
     strategy:
       fail-fast: true
       matrix:
@@ -136,9 +133,6 @@ jobs:
         shell: bash
 
   plugins:
-    env:
-      NUSHELL_CARGO_TARGET: ci
-
     strategy:
       fail-fast: true
       matrix:
