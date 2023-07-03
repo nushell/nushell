@@ -97,7 +97,7 @@ nu-test-support = { path = "./crates/nu-test-support", version = "0.82.1" }
 pretty_assertions = "1.0"
 rstest = { version = "0.17", default-features = false }
 serial_test = "2.0"
-tempfile = "3.5"
+tempfile = "3.6"
 
 [features]
 default = ["plugin", "sqlite", "trash-support", "which-support"]
@@ -155,7 +155,7 @@ path = "src/main.rs"
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup

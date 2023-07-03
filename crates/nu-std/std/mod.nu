@@ -68,12 +68,12 @@ export def-env "path add" [
         }}
     }
 
-    let-env $path_name = (
-            $env
-            | get $path_name
-            | if $append { append $paths }
-            else { prepend $paths }
-    )
+    load-env {$path_name: (
+        $env
+        | get $path_name
+        | if $append { append $paths }
+        else { prepend $paths }
+    )}
 
     if $ret {
         $env | get $path_name

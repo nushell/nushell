@@ -50,15 +50,9 @@ pub enum LiteElement {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LitePipeline {
     pub commands: Vec<LiteElement>,
-}
-
-impl Default for LitePipeline {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl LitePipeline {

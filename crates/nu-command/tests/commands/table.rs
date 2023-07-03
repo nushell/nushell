@@ -38,7 +38,7 @@ fn table_collapse_0() {
 #[test]
 fn table_collapse_basic() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: basic }};",
+        "$env.config = { table: { mode: basic }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -60,7 +60,7 @@ fn table_collapse_basic() {
 #[test]
 fn table_collapse_heavy() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: heavy }};",
+        "$env.config = { table: { mode: heavy }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -82,7 +82,7 @@ fn table_collapse_heavy() {
 #[test]
 fn table_collapse_compact() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: compact }};",
+        "$env.config = { table: { mode: compact }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -104,7 +104,7 @@ fn table_collapse_compact() {
 #[test]
 fn table_collapse_compact_double() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: compact_double }};",
+        "$env.config = { table: { mode: compact_double }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -126,7 +126,7 @@ fn table_collapse_compact_double() {
 #[test]
 fn table_collapse_compact_light() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: light }};",
+        "$env.config = { table: { mode: light }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -148,7 +148,7 @@ fn table_collapse_compact_light() {
 #[test]
 fn table_collapse_none() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: none }};",
+        "$env.config = { table: { mode: none }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -166,7 +166,7 @@ fn table_collapse_none() {
 #[test]
 fn table_collapse_compact_reinforced() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: reinforced }};",
+        "$env.config = { table: { mode: reinforced }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -188,7 +188,7 @@ fn table_collapse_compact_reinforced() {
 #[test]
 fn table_collapse_compact_thin() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: thin }};",
+        "$env.config = { table: { mode: thin }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -210,7 +210,7 @@ fn table_collapse_compact_thin() {
 #[test]
 fn table_collapse_hearts() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table: { mode: with_love }};",
+        "$env.config = { table: { mode: with_love }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(

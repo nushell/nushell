@@ -57,12 +57,12 @@ impl Command for Module {
             },
             Example {
                 description: "Define an environment variable in a module",
-                example: r#"module foo { export-env { let-env FOO = "BAZ" } }; use foo; $env.FOO"#,
+                example: r#"module foo { export-env { $env.FOO = "BAZ" } }; use foo; $env.FOO"#,
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
-                example: r#"module foo { export def-env bar [] { let-env FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
+                example: r#"module foo { export def-env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
             },
         ]

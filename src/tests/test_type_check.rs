@@ -43,3 +43,19 @@ fn date_plus_duration() -> TestResult {
     let expected = "2023-04-20";
     run_test(input, expected)
 }
+
+#[test]
+fn block_not_first_class_def() -> TestResult {
+    fail_test(
+        "def foo [x: block] { do $x }",
+        "Blocks are not support as first-class values",
+    )
+}
+
+#[test]
+fn block_not_first_class_let() -> TestResult {
+    fail_test(
+        "let x: block = { 3 }",
+        "Blocks are not support as first-class values",
+    )
+}

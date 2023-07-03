@@ -48,7 +48,7 @@ impl Command for DefEnv {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Set environment variable by call a custom command",
-            example: r#"def-env foo [] { let-env BAR = "BAZ" }; foo; $env.BAR"#,
+            example: r#"def-env foo [] { $env.BAR = "BAZ" }; foo; $env.BAR"#,
             result: Some(Value::test_string("BAZ")),
         }]
     }

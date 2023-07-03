@@ -212,7 +212,7 @@ pub(crate) fn setup_config(
             .and_then(|id| stack.get_var(id, Span::unknown()).ok())
         {
             if var.as_record().is_ok() {
-                println!("warning: use `let-env config = ...` instead of `let config = ...`");
+                println!("warning: use `$env.config = ...` instead of `let config = ...`");
             }
         }
     }

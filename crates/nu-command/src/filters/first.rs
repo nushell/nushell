@@ -105,6 +105,13 @@ fn first_helper(
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
+    // early exit for `first 0`
+    if rows_desired == 0 {
+        return Ok(Vec::<Value>::new()
+            .into_pipeline_data(ctrlc)
+            .set_metadata(metadata));
+    }
+
     match input {
         PipelineData::Value(val, _) => match val {
             Value::List { vals, .. } => {
@@ -123,11 +130,25 @@ fn first_helper(
                 }
             }
             Value::Binary { val, span } => {
-                let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                Ok(PipelineData::Value(
-                    Value::Binary { val: slice, span },
-                    metadata,
-                ))
+                if return_single_element {
+                    if val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    } else {
+                        Ok(PipelineData::Value(
+                            Value::Int {
+                                val: val[0] as i64,
+                                span,
+                            },
+                            metadata,
+                        ))
+                    }
+                } else {
+                    let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
+                    Ok(PipelineData::Value(
+                        Value::Binary { val: slice, span },
+                        metadata,
+                    ))
+                }
             }
             Value::Range { val, .. } => {
                 if return_single_element {

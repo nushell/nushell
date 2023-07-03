@@ -20,7 +20,7 @@ fn hides_alias() -> TestResult {
 #[test]
 fn hides_env() -> TestResult {
     fail_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; $env.myfoosymbol"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; $env.myfoosymbol"#,
         "",
     )
 }
@@ -47,7 +47,7 @@ fn hides_alias_then_redefines() -> TestResult {
 #[test]
 fn hides_env_then_redefines() -> TestResult {
     run_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; let-env myfoosymbol = "bar"; $env.myfoosymbol"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; $env.myfoosymbol = "bar"; $env.myfoosymbol"#,
         "bar",
     )
 }
@@ -119,7 +119,7 @@ fn hides_alias_in_scope_4() -> TestResult {
 #[test]
 fn hides_env_in_scope_1() -> TestResult {
     fail_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; do { hide-env myfoosymbol; $env.myfoosymbol }"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; do { hide-env myfoosymbol; $env.myfoosymbol }"#,
         "not_found",
     )
 }
@@ -127,7 +127,7 @@ fn hides_env_in_scope_1() -> TestResult {
 #[test]
 fn hides_env_in_scope_2() -> TestResult {
     run_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; do { let-env myfoosymbol = "bar"; hide-env myfoosymbol; $env.myfoosymbol }"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; do { $env.myfoosymbol = "bar"; hide-env myfoosymbol; $env.myfoosymbol }"#,
         "myfoosymbol",
     )
 }
@@ -135,7 +135,7 @@ fn hides_env_in_scope_2() -> TestResult {
 #[test]
 fn hides_env_in_scope_3() -> TestResult {
     fail_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; do { hide-env myfoosymbol; let-env myfoosymbol = "bar"; hide-env myfoosymbol; $env.myfoosymbol }"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; do { hide-env myfoosymbol; $env.myfoosymbol = "bar"; hide-env myfoosymbol; $env.myfoosymbol }"#,
         "",
     )
 }
@@ -143,7 +143,7 @@ fn hides_env_in_scope_3() -> TestResult {
 #[test]
 fn hides_env_in_scope_4() -> TestResult {
     fail_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; do { let-env myfoosymbol = "bar"; hide-env myfoosymbol; hide-env myfoosymbol; $env.myfoosymbol }"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; do { $env.myfoosymbol = "bar"; hide-env myfoosymbol; hide-env myfoosymbol; $env.myfoosymbol }"#,
         "",
     )
 }
@@ -169,7 +169,7 @@ fn hide_alias_twice_not_allowed() -> TestResult {
 #[test]
 fn hide_env_twice_not_allowed() -> TestResult {
     fail_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; hide-env myfoosymbol"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; hide-env myfoosymbol"#,
         "",
     )
 }
@@ -177,7 +177,7 @@ fn hide_env_twice_not_allowed() -> TestResult {
 #[test]
 fn hide_env_twice_allowed() -> TestResult {
     fail_test(
-        r#"let-env myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; hide-env -i myfoosymbol; $env.myfoosymbol"#,
+        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; hide-env -i myfoosymbol; $env.myfoosymbol"#,
         "",
     )
 }
@@ -185,7 +185,7 @@ fn hide_env_twice_allowed() -> TestResult {
 #[test]
 fn hides_def_runs_env() -> TestResult {
     run_test(
-        r#"let-env myfoosymbol = "bar"; def myfoosymbol [] { "myfoosymbol" }; hide myfoosymbol; $env.myfoosymbol"#,
+        r#"$env.myfoosymbol = "bar"; def myfoosymbol [] { "myfoosymbol" }; hide myfoosymbol; $env.myfoosymbol"#,
         "bar",
     )
 }
@@ -305,7 +305,7 @@ fn hides_alias_import_then_reimports() -> TestResult {
 #[test]
 fn hides_env_import_1() -> TestResult {
     fail_test(
-        r#"module myspammodule { export-env { let-env myfoosymbol = "myfoosymbol" } }; use myspammodule; hide-env myfoosymbol; $env.myfoosymbol"#,
+        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" } }; use myspammodule; hide-env myfoosymbol; $env.myfoosymbol"#,
         "",
     )
 }
@@ -313,7 +313,7 @@ fn hides_env_import_1() -> TestResult {
 #[test]
 fn hides_def_runs_env_import() -> TestResult {
     run_test(
-        r#"module myspammodule { export-env { let-env myfoosymbol = "myfoosymbol" }; export def myfoosymbol [] { "bar" } }; use myspammodule myfoosymbol; hide myfoosymbol; $env.myfoosymbol"#,
+        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" }; export def myfoosymbol [] { "bar" } }; use myspammodule myfoosymbol; hide myfoosymbol; $env.myfoosymbol"#,
         "myfoosymbol",
     )
 }
@@ -321,7 +321,7 @@ fn hides_def_runs_env_import() -> TestResult {
 #[test]
 fn hides_def_and_env_import_1() -> TestResult {
     fail_test(
-        r#"module myspammodule { export-env { let-env myfoosymbol = "myfoosymbol" }; export def myfoosymbol [] { "bar" } }; use myspammodule myfoosymbol; hide myfoosymbol; hide-env myfoosymbol; $env.myfoosymbol"#,
+        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" }; export def myfoosymbol [] { "bar" } }; use myspammodule myfoosymbol; hide myfoosymbol; hide-env myfoosymbol; $env.myfoosymbol"#,
         "",
     )
 }
@@ -337,7 +337,7 @@ fn use_def_import_after_hide() -> TestResult {
 #[test]
 fn use_env_import_after_hide() -> TestResult {
     run_test(
-        r#"module myspammodule { export-env { let-env myfoosymbol = "myfoosymbol" } }; use myspammodule; hide-env myfoosymbol; use myspammodule; $env.myfoosymbol"#,
+        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" } }; use myspammodule; hide-env myfoosymbol; use myspammodule; $env.myfoosymbol"#,
         "myfoosymbol",
     )
 }
@@ -353,7 +353,7 @@ fn hide_shadowed_decl() -> TestResult {
 #[test]
 fn hide_shadowed_env() -> TestResult {
     run_test(
-        r#"module myspammodule { export-env { let-env myfoosymbol = "bar" } }; let-env myfoosymbol = "myfoosymbol"; do { use myspammodule; hide-env myfoosymbol; $env.myfoosymbol }"#,
+        r#"module myspammodule { export-env { $env.myfoosymbol = "bar" } }; $env.myfoosymbol = "myfoosymbol"; do { use myspammodule; hide-env myfoosymbol; $env.myfoosymbol }"#,
         "myfoosymbol",
     )
 }
@@ -369,7 +369,7 @@ fn hides_all_decls_within_scope() -> TestResult {
 #[test]
 fn hides_all_envs_within_scope() -> TestResult {
     fail_test(
-        r#"module myspammodule { export-env { let-env myfoosymbol = "bar" } }; let-env myfoosymbol = "myfoosymbol"; use myspammodule; hide-env myfoosymbol; $env.myfoosymbol"#,
+        r#"module myspammodule { export-env { $env.myfoosymbol = "bar" } }; $env.myfoosymbol = "myfoosymbol"; use myspammodule; hide-env myfoosymbol; $env.myfoosymbol"#,
         "",
     )
 }
