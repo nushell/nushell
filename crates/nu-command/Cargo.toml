@@ -34,7 +34,7 @@ atty = "0.2"
 base64 = "0.21"
 byteorder = "1.4"
 bytesize = "1.2"
-calamine = "0.19"
+calamine = "0.21"
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 chrono-humanize = "0.2"
 chrono-tz = "0.8"
