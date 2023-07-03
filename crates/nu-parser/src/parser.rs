@@ -5278,48 +5278,63 @@ pub fn parse_pipeline(
                         let mut pipeline =
                             parse_builtin_commands(working_set, &new_command, is_subexpression);
 
-                        println!("pipeline is: {:?}", pipeline);
-                        // if pipeline_index == 0 {
-                        //     if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Nothing)
-                        //     {
-                        //         for element in pipeline.elements.iter_mut() {
-                        //             if let PipelineElement::Expression(
-                        //                 _,
-                        //                 Expression {
-                        //                     expr: Expr::Call(call),
-                        //                     ..
-                        //                 },
-                        //             ) = element
-                        //             {
-                        //                 if call.decl_id == let_decl_id {
-                        //                     // Do an expansion
-                        //                     if let Some(Expression {
-                        //                         expr: Expr::Keyword(_, _, expr),
-                        //                         ..
-                        //                     }) = call.positional_iter_mut().nth(1)
-                        //                     {
-                        //                         if expr.has_in_variable(working_set) {
-                        //                             *expr = Box::new(wrap_expr_with_collect(
-                        //                                 working_set,
-                        //                                 expr,
-                        //                             ));
-                        //                         }
-                        //                     }
-                        //                     continue;
-                        //                 } else if element.has_in_variable(working_set)
-                        //                     && !is_subexpression
-                        //                 {
-                        //                     *element =
-                        //                         wrap_element_with_collect(working_set, element);
-                        //                 }
-                        //             } else if element.has_in_variable(working_set)
-                        //                 && !is_subexpression
-                        //             {
-                        //                 *element = wrap_element_with_collect(working_set, element);
-                        //             }
-                        //         }
-                        //     }
-                        // }
+                        if pipeline_index == 0 {
+                            if let Some(let_decl_id) = working_set.find_decl(b"let", &Type::Nothing)
+                            {
+                                for element in pipeline.elements.iter_mut() {
+                                    if let PipelineElement::Expression(
+                                        _,
+                                        Expression {
+                                            expr: Expr::Call(call),
+                                            ..
+                                        },
+                                    ) = element
+                                    {
+                                        if call.decl_id == let_decl_id {
+                                            // Do an expansion
+                                            if let Some(Expression {
+                                                expr: Expr::Block(block_id),
+                                                ..
+                                            }) = call.positional_iter_mut().nth(1)
+                                            {
+                                                let block = working_set.get_block(*block_id);
+
+                                                let element =
+                                                    block.pipelines[0].elements[0].clone();
+
+                                                if let PipelineElement::Expression(prepend, expr) =
+                                                    element
+                                                {
+                                                    if expr.has_in_variable(working_set) {
+                                                        let new_expr = PipelineElement::Expression(
+                                                            prepend,
+                                                            wrap_expr_with_collect(
+                                                                working_set,
+                                                                &expr,
+                                                            ),
+                                                        );
+
+                                                        let block =
+                                                            working_set.get_block_mut(*block_id);
+                                                        block.pipelines[0].elements[0] = new_expr;
+                                                    }
+                                                }
+                                            }
+                                            continue;
+                                        } else if element.has_in_variable(working_set)
+                                            && !is_subexpression
+                                        {
+                                            *element =
+                                                wrap_element_with_collect(working_set, element);
+                                        }
+                                    } else if element.has_in_variable(working_set)
+                                        && !is_subexpression
+                                    {
+                                        *element = wrap_element_with_collect(working_set, element);
+                                    }
+                                }
+                            }
+                        }
 
                         return pipeline;
                     }
@@ -5424,13 +5439,20 @@ pub fn parse_pipeline(
                                         ..
                                     }) = call.positional_iter_mut().nth(1)
                                     {
-                                        let block = working_set.get_block_mut(*block_id);
+                                        let block = working_set.get_block(*block_id);
 
-                                        let element = &mut block.pipelines[0].elements[0];
+                                        let element = block.pipelines[0].elements[0].clone();
 
-                                        if let PipelineElement::Expression(_, expr) = element {
+                                        if let PipelineElement::Expression(prepend, expr) = element
+                                        {
                                             if expr.has_in_variable(working_set) {
-                                                *expr = wrap_expr_with_collect(working_set, expr);
+                                                let new_expr = PipelineElement::Expression(
+                                                    prepend,
+                                                    wrap_expr_with_collect(working_set, &expr),
+                                                );
+
+                                                let block = working_set.get_block_mut(*block_id);
+                                                block.pipelines[0].elements[0] = new_expr;
                                             }
                                         }
                                     }

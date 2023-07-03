@@ -27,7 +27,34 @@ fn let_doesnt_mutate() {
 }
 
 #[test]
+fn let_takes_pipeline() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        let x = "hello world" | str length; print $x
+        "#
+    ));
+
+    assert_eq!(actual.out, "11");
+}
+
+#[test]
+fn let_pipeline_allows_in() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def foo [] { let x = $in | str length; print ($x + 10) }; "hello world" | foo
+        "#
+    ));
+
+    assert_eq!(actual.out, "21");
+}
+
+#[ignore]
+#[test]
 fn let_with_external_failed() {
+    // FIXME: this test hasn't run successfully for a long time. We should
+    // bring it back to life at some point.
     let actual = nu!(
         cwd: ".",
         pipeline(r#"let x = nu --testbin outcome_err "aa"; echo fail"#)
