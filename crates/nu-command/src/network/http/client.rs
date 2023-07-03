@@ -552,13 +552,10 @@ pub fn request_handle_response_headers_raw(
     for name in &header_names {
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { vals, .. } = val {
-                if let Some(header_name) = vals.get(0) {
-                    if let Value::String {
-                        val: header_name, ..
-                    } = header_name
-                    {
-                        return name == header_name;
-                    }
+                if let Some(Value::String {
+                    val: header_name, ..
+                }) = vals.get(0) {
+                    return name == header_name;
                 }
             }
             false
