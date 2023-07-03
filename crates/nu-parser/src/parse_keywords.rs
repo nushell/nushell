@@ -2810,17 +2810,17 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 if item == b"=" && spans.len() > (span.0 + 1) {
-                    let (tokens, parse_errors) = lex(
+                    let (tokens, parse_error) = lex(
                         working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
                         spans[(span.0 + 1)].start,
                         &[],
                         &[],
                         true,
                     );
-                    // TODO: add parse_errors
 
-                    // let (lite_pipeline, parse_errors) = lite_parse(&tokens);
-                    // let rvalue = parse_pipeline(working_set, &lite_pipeline.block[0], false, 0);
+                    if let Some(parse_error) = parse_error {
+                        working_set.parse_errors.push(parse_error)
+                    }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
                     let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
@@ -2835,11 +2835,6 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         ty: output_type,
                         custom_completion: None,
                     };
-
-                    // if idx < (spans.len() - 1) {
-                    //     working_set
-                    //         .error(ParseError::ExtraPositional(call_signature, spans[idx + 1]));
-                    // }
 
                     let mut idx = 0;
 
