@@ -554,7 +554,8 @@ pub fn request_handle_response_headers_raw(
             if let Value::Record { vals, .. } = val {
                 if let Some(Value::String {
                     val: header_name, ..
-                }) = vals.get(0) {
+                }) = vals.get(0)
+                {
                     return name == header_name;
                 }
             }
