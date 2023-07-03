@@ -19,19 +19,19 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        style: [default, dataframe, extra]
+        feature: [default, dataframe, extra]
         include:
-          - style: default
+          - feature: default
             flags: ""
-          - style: dataframe
+          - feature: dataframe
             flags: "--features=dataframe "
-          - style: extra
+          - feature: extra
             flags: "--features=extra "
         exclude:
           - platform: windows-latest
-            style: dataframe
+            feature: dataframe
           - platform: macos-latest
-            style: dataframe
+            feature: dataframe
 
     runs-on: ${{ matrix.platform }}
 
@@ -54,23 +54,23 @@ jobs:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        style: [default, dataframe, extra]
+        feature: [default, dataframe, extra]
         include:
-          - style: default
+          - feature: default
             flags: ""
-          - style: dataframe
+          - feature: dataframe
             flags: "--features=dataframe"
-          - style: extra
+          - feature: extra
             flags: "--features=extra"
         exclude:
           - platform: windows-latest
-            style: dataframe
+            feature: dataframe
           - platform: macos-latest
-            style: dataframe
+            feature: dataframe
           - platform: windows-latest
-            style: extra
+            feature: extra
           - platform: macos-latest
-            style: extra
+            feature: extra
 
     runs-on: ${{ matrix.platform }}
 
