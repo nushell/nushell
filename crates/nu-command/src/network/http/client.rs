@@ -562,7 +562,7 @@ pub fn request_handle_response_headers_raw(
             false
         });
         if !is_duplicate {
-            // Use the urql `Response.all` api to get all of the header values with a given name.
+            // Use the ureq `Response.all` api to get all of the header values with a given name.
             // This interface is why we needed to check if we've already parsed this header name.
             for str_value in response.all(name) {
                 let header = vec![Value::string(name, span), Value::string(str_value, span)];
