@@ -25,14 +25,13 @@ def create_left_prompt [] {
 }
 
 def create_right_prompt [] {
-    let time_segment_color = (ansi magenta)
-
+    # create a right prompt in magenta with green separators and am/pm underlined
     let time_segment = ([
         (ansi reset)
-        $time_segment_color
-        (date now | date format '%m/%d/%Y %r')
-    ] | str join | str replace --all "([/:])" $"(ansi light_magenta_bold)${1}($time_segment_color)" |
-        str replace --all "([AP]M)" $"(ansi light_magenta_underline)${1}")
+        (ansi magenta)
+        (date now | date format '%Y/%m/%d %r')
+    ] | str join | str replace --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
+        str replace --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
         (ansi rb)

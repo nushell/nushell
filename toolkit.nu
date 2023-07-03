@@ -87,8 +87,10 @@ export def test [
 }
 
 # run the tests for the standard library
-export def "test stdlib" [] {
-    cargo run -- -c "use std testing; testing run-tests --path crates/nu-std"
+export def "test stdlib" [
+    --extra-args: string = ''
+] {
+    cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
 }
 
 # print the pipe input inside backticks, dimmed and italic, as a pretty command
