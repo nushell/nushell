@@ -2812,7 +2812,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                 if item == b"=" && spans.len() > (span.0 + 1) {
                     let (tokens, parse_error) = lex(
                         working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
-                        spans[(span.0 + 1)].start,
+                        spans[span.0 + 1].start,
                         &[],
                         &[],
                         true,
