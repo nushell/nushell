@@ -62,11 +62,7 @@ fn gets_first_bytes() {
 
 #[test]
 fn gets_first_byte() {
-    let actual = nu!(pipeline(
-        r#"
-            0x[aa bb cc] | first
-        "#
-    ));
+    let actual = nu!("0x[aa bb cc] | first");
 
     assert_eq!(actual.out, "170");
 }
