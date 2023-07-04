@@ -287,7 +287,7 @@ Startup Time: ($nu.startup-time)
 "
 }
 
-
+# Return the current working directory
 export def pwd [] {
     $env.PWD
 }
