@@ -1947,7 +1947,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04a4202a60e86f1c9702706bb42270dadd333f2db7810157563c86f17af3c873"
 dependencies = [
- "users 0.10.0",
+ "users",
  "winapi 0.3.9",
 ]
 
@@ -2852,6 +2852,7 @@ dependencies = [
  "mime_guess",
  "mockito",
  "native-tls",
+ "nix",
  "notify",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -2906,7 +2907,6 @@ dependencies = [
  "unicode-segmentation",
  "ureq",
  "url",
- "users 0.11.0",
  "uuid",
  "wax",
  "which",
@@ -5655,16 +5655,6 @@ name = "users"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa4227e95324a443c9fcb06e03d4d85e91aabe9a5a02aa818688b6918b6af486"
-dependencies = [
- "libc",
- "log",
-]
-
-[[package]]
-name = "users"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cc0f6d6f267b73e5a2cadf007ba8f9bc39c6a6f9666f8cf25ea809a153b032"
 dependencies = [
  "libc",
  "log",
