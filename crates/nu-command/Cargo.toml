@@ -60,7 +60,7 @@ miette = { version = "5.9", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
-notify = "4.0"
+notify-debouncer-full = { version = "0.2", default-features = false }
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"

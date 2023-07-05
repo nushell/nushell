@@ -59,6 +59,7 @@ use std dirs [
     p
     dexit
 ]
+use std pwd
 "#
         );
 
