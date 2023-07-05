@@ -63,7 +63,7 @@ fn block_not_first_class_let() -> TestResult {
 #[test]
 fn record_subtyping() -> TestResult {
     run_test(
-        "def test [r: record<name: string, age: int>] { $rec | describe };
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
         test { age: 4, name: 'John' }",
         "record<name: string, age: int>",
     )
