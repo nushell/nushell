@@ -44,9 +44,13 @@ impl Type {
             } else if this.len() != that.len() {
                 false
             } else {
-                this.iter()
-                    .zip(that.iter())
-                    .all(|(lhs, rhs)| lhs.0 == rhs.0 && lhs.1.is_subtype(&rhs.1))
+                this.iter().all(|(col_x, ty_x)| {
+                    if let Some((_, ty_y)) = that.iter().find(|(col_y, _)| col_x == col_y) {
+                        ty_x.is_subtype(ty_y)
+                    } else {
+                        false
+                    }
+                })
             }
         };
 
