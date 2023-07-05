@@ -6,7 +6,7 @@ use crate::{
     ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
-use crate::{ParseError, Value};
+use crate::{Category, ParseError, Value};
 use core::panic;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
@@ -708,6 +708,7 @@ impl EngineState {
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
+        ignore_deprecated: bool,
     ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
@@ -715,6 +716,9 @@ impl EngineState {
             for decl in &overlay_frame.decls {
                 if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0) {
                     let command = self.get_decl(*decl.1);
+                    if ignore_deprecated && command.signature().category == Category::Deprecated {
+                        continue;
+                    }
                     output.push((decl.0 .0.clone(), Some(command.usage().to_string())));
                 }
             }
@@ -1755,6 +1759,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
+        ignore_deprecated: bool,
     ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
@@ -1766,13 +1771,19 @@ impl<'a> StateWorkingSet<'a> {
                     if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0)
                     {
                         let command = self.get_decl(*decl.1);
+                        if ignore_deprecated && command.signature().category == Category::Deprecated
+                        {
+                            continue;
+                        }
                         output.push((decl.0 .0.clone(), Some(command.usage().to_string())));
                     }
                 }
             }
         }
 
-        let mut permanent = self.permanent_state.find_commands_by_predicate(predicate);
+        let mut permanent = self
+            .permanent_state
+            .find_commands_by_predicate(predicate, ignore_deprecated);
 
         output.append(&mut permanent);
 
