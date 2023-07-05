@@ -7,10 +7,6 @@ use nu_protocol::{
 };
 use std::ffi::OsString;
 use std::path::PathBuf;
-use uucore::mods::backup_control::BackupMode;
-use uucore::mods::update_control::UpdateMode;
-
-static EXIT_ERR: i32 = 1;
 
 #[derive(Clone)]
 pub struct Ucp;
@@ -169,12 +165,17 @@ impl Command for Ucp {
         if hidden_options {
             uu_cp::uumain(args.into_iter());
         } else {
+            use uucore::mods::backup_control::BackupMode;
+            use uucore::mods::update_control::UpdateMode;
+
+            // static EXIT_ERR: i32 = 1;
+
             // If hidden_options is set to false, this means we need to parse the args
             // ourselves and throw ShellErrors if bad things happen. We don't have spans yet though.
             // Also, changes have to be made to uucore and uu_cp to make this work. These
             // changes are really just making some enums, structs, and functions public.
             let attrs = uu_cp::Attributes::default();
-            let options = uu_cp::Options {
+            let _options = uu_cp::Options {
                 attributes_only: false,
                 backup: BackupMode::SimpleBackup,
                 copy_contents: true,
@@ -218,7 +219,7 @@ impl Command for Ucp {
             // eprint!("Result<ArgMatches>: {:#?}\n\n", matches);
 
             // The error is parsed here because we do not want version or help being printed to stderr.
-            if let Err(e) = matches {
+            if let Err(_e) = matches {
                 // We don't get here because nushell pukes on bad params.
                 // We do need to figure out how to support all the syntax that cp/mv support
                 // like mv [a b c d] test <-- this doesn't work yet
@@ -298,4 +299,50 @@ impl Command for Ucp {
         }
         Ok(PipelineData::empty())
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // static TEST_EXISTING_FILE: &str = "existing_file.txt";
+    // static TEST_HELLO_WORLD_SOURCE: &str = "hello_world.txt";
+    // static TEST_HELLO_WORLD_SOURCE_SYMLINK: &str = "hello_world.txt.link";
+    // static TEST_HELLO_WORLD_DEST: &str = "copy_of_hello_world.txt";
+    // static TEST_HELLO_WORLD_DEST_SYMLINK: &str = "copy_of_hello_world.txt.link";
+    // static TEST_HOW_ARE_YOU_SOURCE: &str = "how_are_you.txt";
+    // static TEST_HOW_ARE_YOU_DEST: &str = "hello_dir/how_are_you.txt";
+    // static TEST_COPY_TO_FOLDER: &str = "hello_dir/";
+    // static TEST_COPY_TO_FOLDER_FILE: &str = "hello_dir/hello_world.txt";
+    // static TEST_COPY_FROM_FOLDER: &str = "hello_dir_with_file/";
+    // static TEST_COPY_FROM_FOLDER_FILE: &str = "hello_dir_with_file/hello_world.txt";
+    // static TEST_COPY_TO_FOLDER_NEW: &str = "hello_dir_new";
+    // static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
+    // #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+    // static TEST_MOUNT_COPY_FROM_FOLDER: &str = "dir_with_mount";
+    // #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+    // static TEST_MOUNT_MOUNTPOINT: &str = "mount";
+    // #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+    // static TEST_MOUNT_OTHER_FILESYSTEM_FILE: &str = "mount/DO_NOT_copy_me.txt";
+    // #[cfg(unix)]
+    // static TEST_NONEXISTENT_FILE: &str = "nonexistent_file.txt";
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Ucp {})
+    }
+
+    // #[test]
+    // fn test_cp_cp() {
+    //     let (at, mut ucmd) = at_and_ucmd!();
+    //     // Invoke our binary to make the copy.
+    //     ucmd.arg(TEST_HELLO_WORLD_SOURCE)
+    //         .arg(TEST_HELLO_WORLD_DEST)
+    //         .succeeds();
+
+    //     // Check the content of the destination file that was copied.
+    //     assert_eq!(at.read(TEST_HELLO_WORLD_DEST), "Hello, World!\n");
+    // }
 }
