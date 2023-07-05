@@ -1910,16 +1910,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "is-root"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04a4202a60e86f1c9702706bb42270dadd333f2db7810157563c86f17af3c873"
-dependencies = [
- "users",
- "winapi",
-]
-
-[[package]]
 name = "is-terminal"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2777,7 +2767,6 @@ dependencies = [
  "htmlescape",
  "indexmap",
  "indicatif",
- "is-root",
  "itertools",
  "libc",
  "log",
@@ -5584,16 +5573,6 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
-]
-
-[[package]]
-name = "users"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4227e95324a443c9fcb06e03d4d85e91aabe9a5a02aa818688b6918b6af486"
-dependencies = [
- "libc",
- "log",
 ]
 
 [[package]]
