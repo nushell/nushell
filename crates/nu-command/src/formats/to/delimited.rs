@@ -1,5 +1,5 @@
 use csv::{Writer, WriterBuilder};
-use indexmap::{indexset, IndexSet};
+use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Value};
 use std::collections::VecDeque;
 use std::error::Error;
@@ -140,24 +140,6 @@ pub fn find_non_record(values: &[Value]) -> Option<&Value> {
     values
         .iter()
         .find(|val| !matches!(val, Value::Record { .. }))
-}
-
-pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
-    let mut ret: Vec<String> = vec![];
-    let mut seen: IndexSet<String> = indexset! {};
-    for value in values {
-        let data_descriptors = match value {
-            Value::Record { cols, .. } => cols.to_owned(),
-            _ => vec!["".to_string()],
-        };
-        for desc in data_descriptors {
-            if !desc.is_empty() && !seen.contains(&desc) {
-                seen.insert(desc.to_string());
-                ret.push(desc.to_string());
-            }
-        }
-    }
-    ret
 }
 
 pub fn to_delimited_data(

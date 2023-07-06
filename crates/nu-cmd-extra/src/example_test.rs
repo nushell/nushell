@@ -61,6 +61,9 @@ mod test_examples {
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
 
+            working_set.add_decl(Box::new(nu_command::Enumerate));
+            working_set.add_decl(Box::new(nu_cmd_lang::If));
+
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
             working_set.render()
