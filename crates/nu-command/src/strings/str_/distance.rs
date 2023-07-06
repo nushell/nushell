@@ -28,7 +28,10 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str distance")
-            .input_output_types(vec![(Type::String, Type::Int)])
+            .input_output_types(vec![
+                (Type::String, Type::Int),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .required(
                 "compare-string",
                 SyntaxShape::String,
