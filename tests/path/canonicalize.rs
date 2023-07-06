@@ -318,6 +318,10 @@ fn canonicalize_tilde_relative_to() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg_attr(
+    all(target_os = "windows", not(feature = "elevated")),
+    ignore = "requires admin privileges on Windows (use 'elevated' feature)"
+)]
 #[test]
 fn canonicalize_symlink() {
     Playground::setup("nu_path_test_1", |dirs, sandbox| {
@@ -337,6 +341,10 @@ fn canonicalize_symlink() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg_attr(
+    all(target_os = "windows", not(feature = "elevated")),
+    ignore = "requires admin privileges on Windows (use 'elevated' feature)"
+)]
 #[test]
 fn canonicalize_symlink_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, sandbox| {
@@ -368,6 +376,10 @@ fn canonicalize_symlink_loop_relative_to_should_fail() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg_attr(
+    all(target_os = "windows", not(feature = "elevated")),
+    ignore = "requires admin privileges on Windows (use 'elevated' feature)"
+)]
 #[test]
 fn canonicalize_nested_symlink_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, sandbox| {
@@ -385,6 +397,10 @@ fn canonicalize_nested_symlink_relative_to() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg_attr(
+    all(target_os = "windows", not(feature = "elevated")),
+    ignore = "requires admin privileges on Windows (use 'elevated' feature)"
+)]
 #[test]
 fn canonicalize_nested_symlink_within_symlink_dir_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, sandbox| {

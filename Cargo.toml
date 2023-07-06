@@ -137,6 +137,9 @@ dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
 # SQLite commands for nushell
 sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
 
+# Elevated feature for running tests with administrative privileges on Windows
+elevated = []
+
 [profile.release]
 opt-level = "s"     # Optimize for size
 strip = "debuginfo"
