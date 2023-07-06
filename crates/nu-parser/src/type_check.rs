@@ -7,16 +7,18 @@ use nu_protocol::{
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     // Structural subtyping
     let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
-        // the expected type is `any`
         if expected.is_empty() {
             true
-        } else if expected.len() != found.len() {
+        } else if expected.len() > found.len() {
             false
         } else {
-            expected
-                .iter()
-                .zip(found.iter())
-                .all(|(lhs, rhs)| lhs.0 == rhs.0 && type_compatible(&lhs.1, &rhs.1))
+            expected.iter().all(|(col_x, ty_x)| {
+                if let Some((_, ty_y)) = found.iter().find(|(col_y, _)| col_x == col_y) {
+                    type_compatible(ty_x, ty_y)
+                } else {
+                    false
+                }
+            })
         }
     };
 

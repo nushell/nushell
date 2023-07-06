@@ -34,7 +34,7 @@ atty = "0.2"
 base64 = "0.21"
 byteorder = "1.4"
 bytesize = "1.2"
-calamine = "0.19"
+calamine = "0.21"
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 chrono-humanize = "0.2"
 chrono-tz = "0.8"
@@ -60,7 +60,7 @@ miette = { version = "5.9", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
-notify = "4.0"
+notify-debouncer-full = { version = "0.2", default-features = false }
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
@@ -90,7 +90,7 @@ terminal_size = "0.2"
 titlecase = "2.0"
 toml = "0.7"
 unicode-segmentation = "1.10"
-ureq = { version = "2.6", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+ureq = { version = "2.7", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
 uuid = { version = "1.3", features = ["v4"] }
 wax = { version = "0.5" }
@@ -103,7 +103,7 @@ winreg = "0.50"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-users = "0.11"
+nix = { version = "0.26", default-features = false, features = ["user"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true

@@ -597,11 +597,6 @@ pub fn evaluate_repl(
                         }
                     }
 
-                    // should disable bracketed_paste to avoid strange pasting behavior
-                    // while running commands.
-                    #[cfg(not(target_os = "windows"))]
-                    let _ = line_editor.disable_bracketed_paste();
-
                     eval_source(
                         engine_state,
                         stack,

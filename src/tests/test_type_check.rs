@@ -43,3 +43,46 @@ fn date_plus_duration() -> TestResult {
     let expected = "2023-04-20";
     run_test(input, expected)
 }
+
+#[test]
+fn block_not_first_class_def() -> TestResult {
+    fail_test(
+        "def foo [x: block] { do $x }",
+        "Blocks are not support as first-class values",
+    )
+}
+
+#[test]
+fn block_not_first_class_let() -> TestResult {
+    fail_test(
+        "let x: block = { 3 }",
+        "Blocks are not support as first-class values",
+    )
+}
+
+#[test]
+fn record_subtyping() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John' }",
+        "record<age: int, name: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_2() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John', height: '5-9' }",
+        "record<age: int, name: string, height: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_3() -> TestResult {
+    fail_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { name: 'Nu' }",
+        "expected",
+    )
+}

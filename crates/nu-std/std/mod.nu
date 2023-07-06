@@ -286,3 +286,8 @@ It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
 Startup Time: ($nu.startup-time)
 "
 }
+
+# Return the current working directory
+export def pwd [] {
+    $env.PWD
+}

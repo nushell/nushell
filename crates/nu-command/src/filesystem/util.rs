@@ -160,3 +160,92 @@ pub fn is_older(src: &Path, dst: &Path) -> bool {
         src_ctime <= dst_ctime
     }
 }
+
+#[cfg(unix)]
+pub mod users {
+    use libc::{c_int, gid_t, uid_t};
+    use nix::unistd::{Gid, Group, Uid, User};
+    use std::ffi::CString;
+
+    pub fn get_user_by_uid(uid: uid_t) -> Option<User> {
+        User::from_uid(Uid::from_raw(uid)).ok().flatten()
+    }
+
+    pub fn get_group_by_gid(gid: gid_t) -> Option<Group> {
+        Group::from_gid(Gid::from_raw(gid)).ok().flatten()
+    }
+
+    pub fn get_current_uid() -> uid_t {
+        Uid::current().as_raw()
+    }
+
+    pub fn get_current_gid() -> gid_t {
+        Gid::current().as_raw()
+    }
+
+    pub fn get_current_username() -> Option<String> {
+        User::from_uid(Uid::current())
+            .ok()
+            .flatten()
+            .map(|user| user.name)
+    }
+
+    /// Returns groups for a provided user name and primary group id.
+    ///
+    /// # libc functions used
+    ///
+    /// - [`getgrouplist`](https://docs.rs/libc/*/libc/fn.getgrouplist.html)
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use users::get_user_groups;
+    ///
+    /// for group in get_user_groups("stevedore", 1001).expect("Error looking up groups") {
+    ///     println!("User is a member of group #{group}");
+    /// }
+    /// ```
+    pub fn get_user_groups(username: &str, gid: gid_t) -> Option<Vec<Gid>> {
+        // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
+        #[cfg(target_os = "macos")]
+        let mut buff: Vec<i32> = vec![0; 1024];
+        #[cfg(not(target_os = "macos"))]
+        let mut buff: Vec<gid_t> = vec![0; 1024];
+
+        let Ok(name) = CString::new(username.as_bytes()) else {
+            return None;
+        };
+
+        let mut count = buff.len() as c_int;
+
+        // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
+        // SAFETY:
+        // int getgrouplist(const char *user, gid_t group, gid_t *groups, int *ngroups);
+        //
+        // `name` is valid CStr to be `const char*` for `user`
+        // every valid value will be accepted for `group`
+        // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max length/capacity (as we initialize with 0)
+        // Following reads from `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
+        #[cfg(target_os = "macos")]
+        let res =
+            unsafe { libc::getgrouplist(name.as_ptr(), gid as i32, buff.as_mut_ptr(), &mut count) };
+
+        #[cfg(not(target_os = "macos"))]
+        let res = unsafe { libc::getgrouplist(name.as_ptr(), gid, buff.as_mut_ptr(), &mut count) };
+
+        if res < 0 {
+            None
+        } else {
+            buff.truncate(count as usize);
+            buff.sort_unstable();
+            buff.dedup();
+            // allow trivial cast: on macos i is i32, on linux it's already gid_t
+            #[allow(trivial_numeric_casts)]
+            buff.into_iter()
+                .filter_map(|i| get_group_by_gid(i as gid_t))
+                .map(|group| group.gid)
+                .collect::<Vec<_>>()
+                .into()
+        }
+    }
+}

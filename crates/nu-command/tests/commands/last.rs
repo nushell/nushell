@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn gets_the_last_row() {
@@ -22,14 +22,7 @@ fn gets_last_rows_by_amount() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | last 3
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), "ls | last 3 | length");
 
         assert_eq!(actual.out, "3");
     })
@@ -40,14 +33,7 @@ fn gets_last_row_when_no_amount_given() {
     Playground::setup("last_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | last
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), "ls | last | length");
 
         assert_eq!(actual.out, "1");
     })
@@ -55,38 +41,35 @@ fn gets_last_row_when_no_amount_given() {
 
 #[test]
 fn requests_more_rows_than_table_has() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        [date] | last 50 | length
-        "#
-    ));
+    let actual = nu!("[date] | last 50 | length");
 
     assert_eq!(actual.out, "1");
 }
 
 #[test]
 fn gets_last_row_as_list_when_amount_given() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-                [1, 2, 3]
-                | last 1
-                | describe
-            "#
-    ));
+    let actual = nu!("[1, 2, 3] | last 1 | describe");
 
     assert_eq!(actual.out, "list<int> (stream)");
 }
 
 #[test]
+fn gets_last_bytes() {
+    let actual = nu!("(0x[aa bb cc] | last 2) == 0x[bb cc]");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn gets_last_byte() {
+    let actual = nu!("0x[aa bb cc] | last");
+
+    assert_eq!(actual.out, "204");
+}
+
+#[test]
 fn last_errors_on_negative_index() {
-    let actual = nu!(pipeline(
-        "
-            [1, 2, 3]
-            | last -2
-        "
-    ));
+    let actual = nu!("[1, 2, 3] | last -2");
 
     assert!(actual.err.contains("use a positive value"));
 }
@@ -96,4 +79,11 @@ fn fail_on_non_iterator() {
     let actual = nu!("1 | last");
 
     assert!(actual.err.contains("only_supports_this_input_type"));
+}
+
+#[test]
+fn errors_on_empty_list_when_no_rows_given() {
+    let actual = nu!("[] | last");
+
+    assert!(actual.err.contains("index too large"));
 }
