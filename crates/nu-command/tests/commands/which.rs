@@ -22,6 +22,16 @@ fn which_alias_ls() {
 }
 
 #[test]
+fn which_custom_alias() {
+    let actual = nu!(
+        cwd: ".", 
+        r#"alias foo = print "foo!"; which foo | get path.0 | str trim"#
+    );
+
+    assert_eq!(actual.out, "Nushell alias");
+}
+
+#[test]
 fn which_def_ls() {
     let actual = nu!(
         cwd: ".",
