@@ -59,3 +59,30 @@ fn block_not_first_class_let() -> TestResult {
         "Blocks are not support as first-class values",
     )
 }
+
+#[test]
+fn record_subtyping() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John' }",
+        "record<age: int, name: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_2() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John', height: '5-9' }",
+        "record<age: int, name: string, height: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_3() -> TestResult {
+    fail_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { name: 'Nu' }",
+        "expected",
+    )
+}
