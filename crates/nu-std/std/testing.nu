@@ -298,10 +298,12 @@ def run-tests-for-module [
 # * after-each  - function to run after every test case. Receives the context record just like the test cases
 # * after-all   - function to run after all test cases have been executed. Receives the global context record
 export def run-tests [
-    --path: path,      # Path to look for tests. Default: current directory.
-    --module: string,  # Test module to run. Default: all test modules found.
-    --test: string,    # Individual test to run. Default: all test command found in the files.
-    --list,            # list the selected tests without running them.
+    --path: path,             # Path to look for tests. Default: current directory.
+    --module: string,         # Test module to run. Default: all test modules found.
+    --test: string,           # Individual test to run. Default: all test command found in the files.
+    --exclude: string,        # Individual test to exclude. Default: no tests are excluded
+    --exclude-module: string, # Test module to exclude. Default: No modules are excluded
+    --list,                   # list the selected tests without running them.
 ] {
 
     let module_search_pattern = ('**' | path join ({
@@ -345,15 +347,13 @@ export def run-tests [
         }
         | flatten
         | filter {|x| ($x.test|length) > 0}
+        | filter {|x| if ($exclude_module|is-empty) {true} else {$exclude_module != $x.name}}
         | filter {|x| if ($test|is-empty) {true} else {$test in $x.test}}
         | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | if ($test|is-empty) {
-                $in
-            } else {
-                where $it == $test
-            }
+            | filter {|y| if ($test|is-empty) {true} else {$y == $test}}
+            | filter {|y| if ($exclude|is-empty) {true} else {$y != $exclude}}
         }
     )
     if $list {
