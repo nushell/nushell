@@ -32,15 +32,15 @@ fn headers_adds_missing_column_name() {
 
 #[test]
 fn headers_handles_missing_values() {
-    let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
-            [{x: x, y: y}, {x: x, y: y}, {x: x, z: z}]
+            [{x: a, y: b}, {x: 1, y: 2}, {x: 1, z: 3}]
             | headers
-            | to json --raw"#
+            | to nuon --raw
+        "#
     ));
 
-    assert_eq!(actual.out, r#"[{"x": "x","y": "y"},{"x": "x"}]"#)
+    assert_eq!(actual.out, "[{a: 1, b: 2}, {a: 1}]")
 }
 
 #[test]
