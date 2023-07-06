@@ -99,7 +99,6 @@ fn get_entries_in_nu(
 ) -> Vec<Value> {
     let mut all_entries = vec![];
 
-    // TODO: how can all_entries ever be non-empty here?
     if !all_entries.is_empty() && skip_after_first_found {
         return all_entries;
     }
