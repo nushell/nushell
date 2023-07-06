@@ -65,6 +65,24 @@ fn record_subtyping() -> TestResult {
     run_test(
         "def test [rec: record<name: string, age: int>] { $rec | describe };
         test { age: 4, name: 'John' }",
-        "record<name: string, age: int>",
+        "record<age: int, name: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_2() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John', height: '5-9' }",
+        "record<age: int, name: string, height: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_3() -> TestResult {
+    fail_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { name: 'Nu' }",
+        "expected"
     )
 }
