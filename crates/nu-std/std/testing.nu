@@ -336,7 +336,7 @@ export def run-tests [
 
     let modules = (
         ls ($path | path join $module_search_pattern)
-        | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        | par-each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | insert commands {|module|
             get-annotated $module.file
         }
@@ -366,7 +366,7 @@ export def run-tests [
 
     let results = (
         $modules
-        | each {|module|
+        | par-each {|module|
             run-tests-for-module $module
         }
         | flatten
@@ -375,7 +375,7 @@ export def run-tests [
         let text = ([
             $"(ansi purple)some tests did not pass (char lparen)see complete errors below(char rparen):(ansi reset)"
             ""
-            ($results | each {|test| ($test | show-pretty-test 4)} | str join "\n")
+            ($results | par-each {|test| ($test | show-pretty-test 4)} | str join "\n")
             ""
         ] | str join "\n")
 
