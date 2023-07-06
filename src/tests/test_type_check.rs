@@ -83,6 +83,6 @@ fn record_subtyping_3() -> TestResult {
     fail_test(
         "def test [rec: record<name: string, age: int>] { $rec | describe };
         test { name: 'Nu' }",
-        "expected"
+        "expected",
     )
 }
