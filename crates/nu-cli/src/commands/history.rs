@@ -47,12 +47,16 @@ impl Command for History {
         let head = call.head;
 
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
-        if let Some(config_path) = nu_path::config_dir() {
+        #[cfg(not(unix))]
+        let history_dir_result = nu_path::config_dir();
+        #[cfg(unix)]
+        let history_dir_result = nu_path::state_dir();
+        if let Some(history_dir) = history_dir_result {
             let clear = call.has_flag("clear");
             let long = call.has_flag("long");
             let ctrlc = engine_state.ctrlc.clone();
 
-            let mut history_path = config_path;
+            let mut history_path = history_dir;
             history_path.push("nushell");
             match engine_state.config.history_file_format {
                 HistoryFileFormat::Sqlite => {

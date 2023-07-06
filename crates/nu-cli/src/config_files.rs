@@ -115,7 +115,11 @@ pub fn eval_config_contents(
 }
 
 pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> Option<PathBuf> {
-    nu_path::config_dir().map(|mut history_path| {
+    #[cfg(unix)]
+    let history_path = nu_path::state_dir();
+    #[cfg(not(unix))]
+    let history_path = nu_path::config_dir();
+    history_path.map(|mut history_path| {
         history_path.push(storage_path);
         history_path.push(match mode {
             HistoryFileFormat::PlainText => HISTORY_FILE_TXT,

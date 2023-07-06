@@ -10,6 +10,25 @@ pub fn config_dir() -> Option<PathBuf> {
     dirs_next::config_dir()
 }
 
+#[cfg(unix)]
+pub fn state_dir() -> Option<PathBuf> {
+    let Some(home_dir) = dirs_next::home_dir() else {
+        return None;
+    };
+    Some(
+        std::env::var_os("XDG_STATE_HOME")
+            .and_then(|path| {
+                let path = PathBuf::from(path);
+                if path.is_absolute() {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| home_dir.join(".local/state")),
+    )
+}
+
 #[cfg(windows)]
 pub fn canonicalize(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
     path.canonicalize()?.to_winuser_path()
