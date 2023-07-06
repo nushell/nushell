@@ -300,9 +300,9 @@ def run-tests-for-module [
 export def run-tests [
     --path: path,             # Path to look for tests. Default: current directory.
     --module: string,         # Test module to run. Default: all test modules found.
-    --test: string,           # Individual test to run. Default: all test command found in the files.
-    --exclude: string,        # Individual test to exclude. Default: no tests are excluded
-    --exclude-module: string, # Test module to exclude. Default: No modules are excluded
+    --test: string,           # Pattern to use to include tests. Default: all tests found in the files.
+    --exclude: string,        # Pattern to use to exclude tests. Default: no tests are excluded
+    --exclude-module: string, # Pattern to use to exclude test modules. Default: No modules are excluded
     --list,                   # list the selected tests without running them.
 ] {
 
@@ -347,13 +347,13 @@ export def run-tests [
         }
         | flatten
         | filter {|x| ($x.test|length) > 0}
-        | filter {|x| if ($exclude_module|is-empty) {true} else {$exclude_module != $x.name}}
-        | filter {|x| if ($test|is-empty) {true} else {$test in $x.test}}
+        | filter {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
+        | filter {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
         | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | filter {|y| if ($test|is-empty) {true} else {$y == $test}}
-            | filter {|y| if ($exclude|is-empty) {true} else {$y != $exclude}}
+            | filter {|y| if ($test|is-empty) {true} else {$y =~ $test}}
+            | filter {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
         }
     )
     if $list {
