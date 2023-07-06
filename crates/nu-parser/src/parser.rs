@@ -2808,13 +2808,11 @@ fn parse_collection_shape(
         let mut sig = vec![];
         let mut idx = 0;
 
-        let key_error = |span| {
-            ParseError::LabeledError(
-                format!("`{name}` type annotations key not string"),
-                "must be a string".into(),
-                span,
-            )
-        };
+        let key_error = |span| ParseError::LabeledError(
+            format!("`{name}` type annotations key not string"),
+            "must be a string".into(),
+            span,
+        );
 
         while idx < tokens.len() {
             let TokenContents::Item = tokens[idx].contents else {
@@ -4038,9 +4036,10 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
 }
 
 fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
-    let mut rows_vec = rows.to_vec();
+    let mut errors = vec![];
+    let mut rows = rows.to_vec();
     let mut mk_ty = || -> Type {
-        rows_vec
+        rows
             .iter_mut()
             .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
             .reduce(|acc, ty| -> Type {
@@ -4053,16 +4052,30 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
             .unwrap_or_default()
     };
 
+    let mk_error = |span| ParseError::LabeledErrorWithHelp {
+        error: "Table column name not string".into(),
+        label: "must be a string".into(),
+        help: "Table column names should be able to be converted into strings".into(),
+        span,
+    };
+
     let mut ty = head
         .iter()
         .rev()
-        .map(|expr| expr.as_string().unwrap_or("{}".into()))
+        .map(|expr| {
+            if let Some(str) = expr.as_string() {
+                str
+            } else {
+                errors.push(mk_error(expr.span));
+                String::from("{ column }")
+            }
+        })
         .map(|title| (title, mk_ty()))
         .collect_vec();
 
     ty.reverse();
 
-    (Type::Table(ty), vec![])
+    (Type::Table(ty), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
