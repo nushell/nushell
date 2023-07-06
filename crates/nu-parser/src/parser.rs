@@ -4147,8 +4147,12 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             break;
         }
 
+        let connector = working_set
+            .get_span_contents(output[position].span)
+            .to_vec();
+        let mut connector = connector.as_slice();
+
         // Multiple patterns connected by '|'
-        let mut connector = working_set.get_span_contents(output[position].span);
         if connector == b"|" && position < output.len() {
             let mut or_pattern = vec![pattern];
 
@@ -4199,7 +4203,57 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
             pattern = MatchPattern {
                 pattern: Pattern::Or(or_pattern),
+                guard: None,
                 span: Span::new(start, end),
+            }
+        // A match guard
+        } else if connector == b"if" {
+            let if_span = output[position].span;
+            position += 1;
+
+            let maybe_guard = working_set.get_span_contents(output[position].span);
+            if maybe_guard == b"=>" {
+                let err = ParseError::LabeledErrorWithHelp {
+                    error: "Match guard without an expression".into(),
+                    label: "expected an expression".into(),
+                    help: "The `if` keyword must be followed with an expression".into(),
+                    span: if_span,
+                };
+
+                working_set.error(err)
+            } else {
+                let (tokens, found) = if let Some((pos, _)) = output[position..]
+                    .iter()
+                    .find_position(|t| working_set.get_span_contents(t.span) == b"=>")
+                {
+                    (&output[position..position + pos], true)
+                } else {
+                    (&output[position..], false)
+                };
+
+                let mut start = 0;
+                let guard = parse_multispan_value(
+                    working_set,
+                    &tokens.iter().map(|tok| tok.span).collect_vec(),
+                    &mut start,
+                    &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression, SyntaxShape::Boolean]),
+                );
+
+                if guard.as_bool().is_none() {
+                    let err = ParseError::LabeledErrorWithHelp {
+                        error: "Match guard expression not a boolean".into(),
+                        label: "not an boolean expression".into(),
+                        help: "A match guard's expression should evaluate to a boolean".into(),
+                        span: guard.span,
+                    };
+
+                    working_set.error(err);
+                } else {
+                    pattern.guard = Some(guard);
+                }
+
+                position += if found { start + 1 } else { start };
+                connector = working_set.get_span_contents(output[position].span);
             }
         }
 

@@ -7,6 +7,7 @@ use super::Expression;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
+    pub guard: Option<Expression>,
     pub span: Span,
 }
 
