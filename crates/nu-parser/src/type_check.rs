@@ -9,7 +9,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
         if expected.is_empty() {
             true
-        } else if expected.len() != found.len() {
+        } else if expected.len() > found.len() {
             false
         } else {
             expected.iter().all(|(col_x, ty_x)| {

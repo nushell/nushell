@@ -41,7 +41,7 @@ impl Type {
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
             if this.is_empty() || that.is_empty() {
                 true
-            } else if this.len() != that.len() {
+            } else if this.len() > that.len() {
                 false
             } else {
                 this.iter().all(|(col_x, ty_x)| {
