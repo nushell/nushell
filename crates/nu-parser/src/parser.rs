@@ -2808,11 +2808,13 @@ fn parse_collection_shape(
         let mut sig = vec![];
         let mut idx = 0;
 
-        let key_error = |span| ParseError::LabeledError(
-            format!("`{name}` type annotations key not string"),
-            "must be a string".into(),
-            span,
-        );
+        let key_error = |span| {
+            ParseError::LabeledError(
+                format!("`{name}` type annotations key not string"),
+                "must be a string".into(),
+                span,
+            )
+        };
 
         while idx < tokens.len() {
             let TokenContents::Item = tokens[idx].contents else {
@@ -4039,8 +4041,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     let mut errors = vec![];
     let mut rows = rows.to_vec();
     let mut mk_ty = || -> Type {
-        rows
-            .iter_mut()
+        rows.iter_mut()
             .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
             .reduce(|acc, ty| -> Type {
                 if type_compatible(&acc, &ty) {
