@@ -4236,7 +4236,11 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                     working_set,
                     &tokens.iter().map(|tok| tok.span).collect_vec(),
                     &mut start,
-                    &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression, SyntaxShape::Boolean]),
+                    &SyntaxShape::OneOf(vec![
+                        SyntaxShape::Block,
+                        SyntaxShape::Expression,
+                        SyntaxShape::Boolean,
+                    ]),
                 );
 
                 if guard.as_bool().is_none() {
