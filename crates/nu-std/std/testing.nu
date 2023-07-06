@@ -30,7 +30,7 @@ def get-annotated [
     let raw_file = (open $file)
 
     let ast = (
-        ^$nu.current-exe --ide-ast $file
+        ^$nu.current-exe --no-config-file --no-std-lib --ide-ast $file
         | from json
         | enumerate
         | flatten
@@ -184,7 +184,7 @@ export def ($test_function_name) [] {
     | save $rendered_module_path
 
     let result = (
-        ^$nu.current-exe -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
+        ^$nu.current-exe --no-config-file -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
         | complete
     )
 
@@ -255,7 +255,7 @@ def run-tests-for-module [
                 ''
             }
         }
-        | each {|test|
+        | par-each {|test|
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
