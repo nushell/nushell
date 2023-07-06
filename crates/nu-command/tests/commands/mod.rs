@@ -27,6 +27,7 @@ mod find;
 mod first;
 mod flatten;
 mod for_;
+#[cfg(feature = "extra")]
 mod format;
 mod get;
 mod glob;
@@ -72,7 +73,9 @@ mod rename;
 mod return_;
 mod reverse;
 mod rm;
+#[cfg(feature = "extra")]
 mod roll;
+#[cfg(feature = "extra")]
 mod rotate;
 mod run_external;
 mod save;

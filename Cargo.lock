@@ -2836,6 +2836,7 @@ dependencies = [
  "nu-ansi-term 0.48.0",
  "nu-cmd-base",
  "nu-cmd-lang",
+ "nu-command",
  "nu-engine",
  "nu-json",
  "nu-parser",
