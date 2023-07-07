@@ -9,6 +9,7 @@ name: continuous-integration
 env:
   NUSHELL_CARGO_TARGET: ci
   NU_LOG_LEVEL: DEBUG
+  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err"
 
 jobs:
   fmt-clippy:
@@ -47,7 +48,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+        run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- $CLIPPY_OPTIONS
 
   tests:
     strategy:
@@ -148,7 +149,7 @@ jobs:
           rustflags: ""
 
       - name: Clippy
-        run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+        run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- $CLIPPY_OPTIONS
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
