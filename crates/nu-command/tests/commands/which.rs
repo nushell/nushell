@@ -24,11 +24,14 @@ fn which_alias_ls() {
 #[test]
 fn which_custom_alias() {
     let actual = nu!(
-        cwd: ".", 
+        cwd: ".",
         r#"alias foo = print "foo!"; which foo | to nuon"#
     );
 
-    assert_eq!(actual.out, "[[arg, path, built-in]; [foo, \"Nushell alias\", false]]");
+    assert_eq!(
+        actual.out,
+        "[[arg, path, built-in]; [foo, \"Nushell alias\", false]]"
+    );
 }
 
 #[test]
