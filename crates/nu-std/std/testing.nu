@@ -1,5 +1,8 @@
 use log.nu
 
+def "nu-complete threads" [] {
+    seq 1 (sys|get cpu|length)
+}
 
 # Here we store the map of annotations internal names and the annotation actually used during test creation
 # The reason we do that is to allow annotations to be easily renamed without modifying rest of the code
@@ -255,7 +258,7 @@ def run-tests-for-module [
                 ''
             }
         }
-        | par-each {|test|
+        | par-each  --threads $env.threads {|test|
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
@@ -298,13 +301,27 @@ def run-tests-for-module [
 # * after-each  - function to run after every test case. Receives the context record just like the test cases
 # * after-all   - function to run after all test cases have been executed. Receives the global context record
 export def run-tests [
-    --path: path,             # Path to look for tests. Default: current directory.
-    --module: string,         # Test module to run. Default: all test modules found.
-    --test: string,           # Pattern to use to include tests. Default: all tests found in the files.
-    --exclude: string,        # Pattern to use to exclude tests. Default: no tests are excluded
-    --exclude-module: string, # Pattern to use to exclude test modules. Default: No modules are excluded
-    --list,                   # list the selected tests without running them.
+    --path: path,                         # Path to look for tests. Default: current directory.
+    --module: string,                     # Test module to run. Default: all test modules found.
+    --test: string,                       # Pattern to use to include tests. Default: all tests found in the files.
+    --exclude: string,                    # Pattern to use to exclude tests. Default: no tests are excluded
+    --exclude-module: string,             # Pattern to use to exclude test modules. Default: No modules are excluded
+    --list,                               # list the selected tests without running them.
+    --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
 ] {
+
+    let available_threads = (sys | get cpu | length)
+
+    # Can't use pattern matching here due to https://github.com/nushell/nushell/issues/9198
+    $env.threads = (if $threads == null {
+        $available_threads
+    } else if $threads < 1 {
+        1
+    } else if $threads <= $available_threads {
+        $threads
+    } else {
+        $available_threads
+    })
 
     let module_search_pattern = ('**' | path join ({
         stem: ($module | default "*")
@@ -336,7 +353,7 @@ export def run-tests [
 
     let modules = (
         ls ($path | path join $module_search_pattern)
-        | par-each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        | par-each --threads $env.threads {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | insert commands {|module|
             get-annotated $module.file
         }
@@ -366,7 +383,7 @@ export def run-tests [
 
     let results = (
         $modules
-        | par-each {|module|
+        | par-each  --threads $env.threads {|module|
             run-tests-for-module $module
         }
         | flatten
@@ -375,7 +392,7 @@ export def run-tests [
         let text = ([
             $"(ansi purple)some tests did not pass (char lparen)see complete errors below(char rparen):(ansi reset)"
             ""
-            ($results | par-each {|test| ($test | show-pretty-test 4)} | str join "\n")
+            ($results | par-each   --threads $env.threads {|test| ($test | show-pretty-test 4)} | str join "\n")
             ""
         ] | str join "\n")
 
