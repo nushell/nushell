@@ -24,7 +24,7 @@ impl Command for DropNulls {
         Signature::build(self.name())
             .optional(
                 "subset",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "subset of columns to drop nulls",
             )
             .input_output_type(

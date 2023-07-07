@@ -26,7 +26,7 @@ impl Command for UpdateCells {
             )
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "list of columns to update",
                 Some('c'),
             )

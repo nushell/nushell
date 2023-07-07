@@ -262,3 +262,116 @@ fn record_annotations_with_extra_characters() -> TestResult {
     let expected = "Extra characters in the parameter name";
     fail_test(input, expected)
 }
+
+#[test]
+fn table_annotations_none() -> TestResult {
+    let input = "def run [t: table] { $t }; run [[]; []] | describe";
+    let expected = "table";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations() -> TestResult {
+    let input = "def run [t: table<age: int>] { $t }; run [[age]; [3]] | describe";
+    let expected = "table<age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_two_types() -> TestResult {
+    let input = "\
+def run [t: table<name: string age: int>] { $t };
+run [[name, age]; [nushell, 3]] | describe";
+    let expected = "table<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_two_types_comma_sep() -> TestResult {
+    let input = "\
+def run [t: table<name: string, age: int>] { $t };
+run [[name, age]; [nushell, 3]] | describe";
+    let expected = "table<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_key_with_no_type() -> TestResult {
+    let input = "def run [t: table<name>] { $t }; run [[name]; [nushell]] | describe";
+    let expected = "table<name: string>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_two_types_one_with_no_type() -> TestResult {
+    let input = "\
+def run [t: table<name: string, age>] { $t };
+run [[name, age]; [nushell, 3]] | describe";
+    let expected = "table<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_two_types_both_with_no_types() -> TestResult {
+    let input = "\
+def run [t: table<name, age>] { $t };
+run [[name, age]; [nushell, 3]] | describe";
+    let expected = "table<name: string, age: int>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_type_inference_1() -> TestResult {
+    let input = "def run [t: table<age: any>] { $t }; run [[age]; [2wk]] | describe";
+    let expected = "table<age: duration>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_type_inference_2() -> TestResult {
+    let input = "def run [t: table<size>] { $t }; run [[size]; [2mb]] | describe";
+    let expected = "table<size: filesize>";
+    run_test(input, expected)
+}
+
+#[test]
+fn table_annotations_not_terminated() -> TestResult {
+    let input = "def run [t: table<age: int] { $t }";
+    let expected = "expected closing >";
+    fail_test(input, expected)
+}
+
+#[test]
+fn table_annotations_not_terminated_inner() -> TestResult {
+    let input = "def run [t: table<name: string, repos: list<string>] { $t }";
+    let expected = "expected closing >";
+    fail_test(input, expected)
+}
+
+#[test]
+fn table_annotations_no_type_after_colon() -> TestResult {
+    let input = "def run [t: table<name: >] { $t }";
+    let expected = "type after colon";
+    fail_test(input, expected)
+}
+
+#[test]
+fn table_annotations_type_mismatch_column() -> TestResult {
+    let input = "def run [t: table<name: string>] { $t }; run [[nme]; [nushell]]";
+    let expected = "expected table<name: string>, found table<nme: string>";
+    fail_test(input, expected)
+}
+
+#[test]
+fn table_annotations_type_mismatch_shape() -> TestResult {
+    let input = "def run [t: table<age: int>] { $t }; run [[age]; [2wk]]";
+    let expected = "expected table<age: int>, found table<age: duration>";
+    fail_test(input, expected)
+}
+
+#[test]
+fn table_annotations_with_extra_characters() -> TestResult {
+    let input = "def run [t: table<int>extra] {$t | length}; run [[int]; [8]]";
+    let expected = "Extra characters in the parameter name";
+    fail_test(input, expected)
+}

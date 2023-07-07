@@ -2724,7 +2724,7 @@ pub fn parse_shape_name(
         _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
-        b"table" => SyntaxShape::Table,
+        _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
         b"variable" => SyntaxShape::Variable,
         b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
@@ -2765,14 +2765,24 @@ fn parse_collection_shape(
     bytes: &[u8],
     span: Span,
 ) -> SyntaxShape {
-    assert!(bytes.starts_with(b"record"));
-    let name = "record";
-    let mk_shape = SyntaxShape::Record;
+    assert!(bytes.starts_with(b"record") || bytes.starts_with(b"table"));
+    let is_table = bytes.starts_with(b"table");
+
+    let name = if is_table { "table" } else { "record" };
+    let prefix = (if is_table { "table<" } else { "record<" }).as_bytes();
+    let prefix_len = prefix.len();
+    let mk_shape = |ty| -> SyntaxShape {
+        if is_table {
+            SyntaxShape::Table(ty)
+        } else {
+            SyntaxShape::Record(ty)
+        }
+    };
 
     if bytes == name.as_bytes() {
         mk_shape(vec![])
-    } else if bytes.starts_with(b"record<") {
-        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 7) else {
+    } else if bytes.starts_with(prefix) {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, prefix_len) else {
             return SyntaxShape::Any;
         };
 
@@ -3902,120 +3912,171 @@ pub fn parse_list_expression(
     }
 }
 
-pub fn parse_table_expression(
-    working_set: &mut StateWorkingSet,
-    original_span: Span,
-) -> Expression {
-    let bytes = working_set.get_span_contents(original_span);
+fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let bytes = working_set.get_span_contents(span);
+    let inner_span = {
+        let start = if bytes.starts_with(b"[") {
+            span.start + 1
+        } else {
+            span.start
+        };
 
-    let mut start = original_span.start;
-    let mut end = original_span.end;
+        let end = if bytes.ends_with(b"]") {
+            span.end - 1
+        } else {
+            let end = span.end;
+            working_set.error(ParseError::Unclosed("]".into(), Span::new(end, end)));
+            span.end
+        };
 
-    if bytes.starts_with(b"[") {
-        start += 1;
-    }
-    if bytes.ends_with(b"]") {
-        end -= 1;
-    } else {
-        working_set.error(ParseError::Unclosed("]".into(), Span::new(end, end)));
-    }
-
-    let inner_span = Span::new(start, end);
+        Span::new(start, end)
+    };
 
     let source = working_set.get_span_contents(inner_span);
-
-    let (output, err) = lex(source, start, &[b'\n', b'\r', b','], &[], true);
+    let (tokens, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     if let Some(err) = err {
         working_set.error(err);
     }
 
-    let (output, err) = lite_parse(&output);
-    if let Some(err) = err {
-        working_set.error(err);
-    }
-
-    match output.block.len() {
-        0 => Expression {
-            expr: Expr::List(vec![]),
-            span: original_span,
-            ty: Type::List(Box::new(Type::Any)),
-            custom_completion: None,
-        },
-        1 => {
-            // List
-            parse_list_expression(working_set, original_span, &SyntaxShape::Any)
+    let head = if let Some(first) = tokens.first() {
+        if working_set.get_span_contents(first.span).starts_with(b"[") {
+            parse_list_expression(working_set, first.span, &SyntaxShape::Any)
+        } else {
+            return parse_list_expression(working_set, span, &SyntaxShape::Any);
         }
-        _ => {
-            match &output.block[0].commands[0] {
-                LiteElement::Command(_, command)
-                | LiteElement::Redirection(_, _, command)
-                | LiteElement::SeparateRedirection {
-                    out: (_, command), ..
+    } else {
+        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+    };
+
+    if tokens
+        .get(1)
+        .filter(|second| second.contents == TokenContents::Semicolon)
+        .is_none()
+    {
+        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+    };
+
+    let rest = &tokens[2..];
+    if rest.is_empty() {
+        return parse_list_expression(working_set, span, &SyntaxShape::Any);
+    }
+
+    let head = {
+        let Expression { expr: Expr::List(vals), .. } = head else {
+            unreachable!("head must be a list by now")
+        };
+
+        vals
+    };
+
+    let errors = working_set.parse_errors.len();
+
+    let rows = rest
+        .iter()
+        .fold(Vec::with_capacity(rest.len()), |mut acc, it| {
+            use std::cmp::Ordering;
+            let text = working_set.get_span_contents(it.span).to_vec();
+            match text.as_slice() {
+                b"," => acc,
+                _ if !&text.starts_with(b"[") => {
+                    let err = ParseError::LabeledErrorWithHelp {
+                        error: String::from("Table item not list"),
+                        label: String::from("not a list"),
+                        span: it.span,
+                        help: String::from("All table items must be lists"),
+                    };
+                    working_set.error(err);
+                    acc
                 }
-                | LiteElement::SameTargetRedirection {
-                    cmd: (_, command), ..
-                } => {
-                    let mut table_headers = vec![];
-
-                    let headers =
-                        parse_list_expression(working_set, command.parts[0], &SyntaxShape::Any);
-
-                    if let Expression {
-                        expr: Expr::List(headers),
+                _ => {
+                    let ls = parse_list_expression(working_set, it.span, &SyntaxShape::Any);
+                    let Expression {
+                        expr: Expr::List(item),
+                        span,
                         ..
-                    } = headers
-                    {
-                        table_headers = headers;
+                    } = ls  else {
+                        unreachable!("the item must be a list")
+                    };
+
+                    match item.len().cmp(&head.len()) {
+                        Ordering::Less => {
+                            let err = ParseError::MissingColumns(head.len(), span);
+                            working_set.error(err);
+                        }
+                        Ordering::Greater => {
+                            let span = {
+                                let start = item[head.len()].span.start;
+                                let end = span.end;
+                                Span::new(start, end)
+                            };
+                            let err = ParseError::ExtraColumns(head.len(), span);
+                            working_set.error(err);
+                        }
+                        Ordering::Equal => {}
                     }
 
-                    match &output.block[1].commands[0] {
-                        LiteElement::Command(_, command)
-                        | LiteElement::Redirection(_, _, command)
-                        | LiteElement::SeparateRedirection {
-                            out: (_, command), ..
-                        }
-                        | LiteElement::SameTargetRedirection {
-                            cmd: (_, command), ..
-                        } => {
-                            let mut rows = vec![];
-                            for part in &command.parts {
-                                let values =
-                                    parse_list_expression(working_set, *part, &SyntaxShape::Any);
-                                if let Expression {
-                                    expr: Expr::List(values),
-                                    span,
-                                    ..
-                                } = values
-                                {
-                                    match values.len().cmp(&table_headers.len()) {
-                                        std::cmp::Ordering::Less => working_set.error(
-                                            ParseError::MissingColumns(table_headers.len(), span),
-                                        ),
-                                        std::cmp::Ordering::Equal => {}
-                                        std::cmp::Ordering::Greater => {
-                                            working_set.error(ParseError::ExtraColumns(
-                                                table_headers.len(),
-                                                values[table_headers.len()].span,
-                                            ))
-                                        }
-                                    }
-
-                                    rows.push(values);
-                                }
-                            }
-
-                            Expression {
-                                expr: Expr::Table(table_headers, rows),
-                                span: original_span,
-                                ty: Type::Table(vec![]), //FIXME
-                                custom_completion: None,
-                            }
-                        }
-                    }
+                    acc.push(item);
+                    acc
                 }
             }
-        }
+        });
+
+    let ty = if working_set.parse_errors.len() == errors {
+        let (ty, errs) = table_type(&head, &rows);
+        working_set.parse_errors.extend(errs.into_iter());
+        ty
+    } else {
+        Type::Table(vec![])
+    };
+
+    Expression {
+        expr: Expr::Table(head, rows),
+        span,
+        ty,
+        custom_completion: None,
     }
+}
+
+fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
+    let mut errors = vec![];
+    let mut rows = rows.to_vec();
+    let mut mk_ty = || -> Type {
+        rows.iter_mut()
+            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
+            .reduce(|acc, ty| -> Type {
+                if type_compatible(&acc, &ty) {
+                    ty
+                } else {
+                    Type::Any
+                }
+            })
+            .unwrap_or_default()
+    };
+
+    let mk_error = |span| ParseError::LabeledErrorWithHelp {
+        error: "Table column name not string".into(),
+        label: "must be a string".into(),
+        help: "Table column names should be able to be converted into strings".into(),
+        span,
+    };
+
+    let mut ty = head
+        .iter()
+        .rev()
+        .map(|expr| {
+            if let Some(str) = expr.as_string() {
+                str
+            } else {
+                errors.push(mk_error(expr.span));
+                String::from("{ column }")
+            }
+        })
+        .map(|title| (title, mk_ty()))
+        .collect_vec();
+
+    ty.reverse();
+
+    (Type::Table(ty), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -4456,7 +4517,7 @@ pub fn parse_value(
         b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
-            | SyntaxShape::Table
+            | SyntaxShape::Table(_)
             | SyntaxShape::Signature => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
@@ -4503,7 +4564,7 @@ pub fn parse_value(
                 Expression::garbage(span)
             }
         }
-        SyntaxShape::Table => {
+        SyntaxShape::Table(_) => {
             if bytes.starts_with(b"[") {
                 parse_table_expression(working_set, span)
             } else {

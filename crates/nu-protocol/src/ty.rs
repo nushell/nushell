@@ -81,6 +81,12 @@ impl Type {
     }
 
     pub fn to_shape(&self) -> SyntaxShape {
+        let mk_shape = |tys: &[(String, Type)]| {
+            tys.iter()
+                .map(|(key, val)| (key.clone(), val.to_shape()))
+                .collect()
+        };
+
         match self {
             Type::Int => SyntaxShape::Int,
             Type::Float => SyntaxShape::Number,
@@ -96,14 +102,8 @@ impl Type {
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(entries) => {
-                let entries = entries
-                    .iter()
-                    .map(|(key, val)| (key.clone(), val.to_shape()))
-                    .collect();
-                SyntaxShape::Record(entries)
-            }
-            Type::Table(_) => SyntaxShape::Table,
+            Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
+            Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
