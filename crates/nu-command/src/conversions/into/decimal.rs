@@ -19,6 +19,7 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Number),
                 (Type::Bool, Type::Number),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .rest(
                 "rest",

@@ -35,7 +35,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "For a record or table input, convert strings at the given columns",
                 Some('c'),
             )

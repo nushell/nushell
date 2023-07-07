@@ -32,8 +32,8 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Closure, Type::Block) => true,
         (Type::Any, _) => true,
         (_, Type::Any) => true,
-        (Type::Record(fields_lhs), Type::Record(fields_rhs)) => {
-            is_compatible(fields_lhs, fields_rhs)
+        (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
+            is_compatible(lhs, rhs)
         }
         (lhs, rhs) => lhs == rhs,
     }

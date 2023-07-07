@@ -108,7 +108,7 @@ pub enum SyntaxShape {
     String,
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
-    Table,
+    Table(Vec<(String, SyntaxShape)>),
 
     /// A variable name, eg `$foo`
     Variable,
@@ -119,6 +119,12 @@ pub enum SyntaxShape {
 
 impl SyntaxShape {
     pub fn to_type(&self) -> Type {
+        let mk_ty = |tys: &[(String, SyntaxShape)]| {
+            tys.iter()
+                .map(|(key, val)| (key.clone(), val.to_type()))
+                .collect()
+        };
+
         match self {
             SyntaxShape::Any => Type::Any,
             SyntaxShape::Block => Type::Block,
@@ -151,18 +157,12 @@ impl SyntaxShape {
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Any,
-            SyntaxShape::Record(entries) => {
-                let ty = entries
-                    .iter()
-                    .map(|(key, val)| (key.clone(), val.to_type()))
-                    .collect();
-                Type::Record(ty)
-            }
+            SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::Table(vec![]), // FIXME:  What role should columns play in the Table type?
+            SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
             SyntaxShape::Variable => Type::Any,
         }
@@ -171,6 +171,13 @@ impl SyntaxShape {
 
 impl Display for SyntaxShape {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mk_fmt = |tys: &[(String, SyntaxShape)]| -> String {
+            tys.iter()
+                .map(|(x, y)| format!("{x}: {y}"))
+                .collect::<Vec<String>>()
+                .join(", ")
+        };
+
         match self {
             SyntaxShape::Keyword(kw, shape) => {
                 write!(f, "\"{}\" {}", String::from_utf8_lossy(kw), shape)
@@ -198,21 +205,19 @@ impl Display for SyntaxShape {
                 }
             }
             SyntaxShape::Binary => write!(f, "binary"),
-            SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{x}>"),
+            SyntaxShape::Table(columns) => {
+                if columns.is_empty() {
+                    write!(f, "table")
+                } else {
+                    write!(f, "table<{}>", mk_fmt(columns))
+                }
+            }
             SyntaxShape::Record(entries) => {
                 if entries.is_empty() {
                     write!(f, "record")
                 } else {
-                    write!(
-                        f,
-                        "record<{}>",
-                        entries
-                            .iter()
-                            .map(|(x, y)| format!("{x}: {y}"))
-                            .collect::<Vec<String>>()
-                            .join(", "),
-                    )
+                    write!(f, "record<{}>", mk_fmt(entries))
                 }
             }
             SyntaxShape::Filesize => write!(f, "filesize"),
