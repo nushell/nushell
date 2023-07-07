@@ -25,9 +25,9 @@ jobs:
           - feature: default
             flags: ""
           - feature: dataframe
-            flags: "--features=dataframe "
+            flags: "--features=dataframe"
           - feature: extra
-            flags: "--features=extra "
+            flags: "--features=extra"
         exclude:
           - platform: windows-latest
             feature: dataframe
@@ -48,7 +48,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace ${{ matrix.flags }}--exclude nu_plugin_* -- $CLIPPY_OPTIONS
+        run: cargo clippy --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
 
   tests:
     strategy:
