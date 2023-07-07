@@ -205,6 +205,7 @@ export def ($test_function_name) [] {
 # * result - test execution result
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
+    threads: int
 ] {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
@@ -258,7 +259,7 @@ def run-tests-for-module [
                 ''
             }
         }
-        | par-each  --threads $env.threads {|test|
+        | par-each  --threads $threads {|test|
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
@@ -313,7 +314,7 @@ export def run-tests [
     let available_threads = (sys | get cpu | length)
 
     # Can't use pattern matching here due to https://github.com/nushell/nushell/issues/9198
-    $env.threads = (if $threads == null {
+    let threads = (if $threads == null {
         $available_threads
     } else if $threads < 1 {
         1
@@ -353,7 +354,7 @@ export def run-tests [
 
     let modules = (
         ls ($path | path join $module_search_pattern)
-        | par-each --threads $env.threads {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        | par-each --threads $threads {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | insert commands {|module|
             get-annotated $module.file
         }
@@ -383,8 +384,8 @@ export def run-tests [
 
     let results = (
         $modules
-        | par-each  --threads $env.threads {|module|
-            run-tests-for-module $module
+        | par-each  --threads $threads {|module|
+            run-tests-for-module $module $threads
         }
         | flatten
     )
@@ -392,7 +393,7 @@ export def run-tests [
         let text = ([
             $"(ansi purple)some tests did not pass (char lparen)see complete errors below(char rparen):(ansi reset)"
             ""
-            ($results | par-each   --threads $env.threads {|test| ($test | show-pretty-test 4)} | str join "\n")
+            ($results | par-each   --threads $threads {|test| ($test | show-pretty-test 4)} | str join "\n")
             ""
         ] | str join "\n")
 
