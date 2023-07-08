@@ -59,7 +59,7 @@ impl Highlighter for NuHighlighter {
                 ($shape:expr, $span:expr, $text:expr) => {{
                     let spans = split_span_by_highlight_positions(
                         line,
-                        &$span,
+                        $span,
                         &matching_brackets_pos,
                         global_span_offset,
                     );
@@ -143,16 +143,16 @@ impl Highlighter for NuHighlighter {
 
 fn split_span_by_highlight_positions(
     line: &str,
-    span: &Span,
+    span: Span,
     highlight_positions: &Vec<usize>,
     global_span_offset: usize,
 ) -> Vec<(Span, bool)> {
     let mut start = span.start;
     let mut result: Vec<(Span, bool)> = Vec::new();
-    for pos in highlight_positions {
-        if start <= *pos && pos < &span.end {
-            if start < *pos {
-                result.push((Span::new(start, *pos), false));
+    for &pos in highlight_positions {
+        if start <= pos && pos < span.end {
+            if start < pos {
+                result.push((Span::new(start, pos), false));
             }
             let span_str = &line[pos - global_span_offset..span.end - global_span_offset];
             let end = span_str
@@ -160,7 +160,7 @@ fn split_span_by_highlight_positions(
                 .next()
                 .map(|c| pos + get_char_length(c))
                 .unwrap_or(pos + 1);
-            result.push((Span::new(*pos, end), true));
+            result.push((Span::new(pos, end), true));
             start = end;
         }
     }

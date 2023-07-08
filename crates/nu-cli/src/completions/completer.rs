@@ -454,7 +454,7 @@ pub fn map_value_completions<'a>(
         }
 
         // Match for record values
-        if let Ok((cols, vals)) = x.as_record() {
+        if let Ok(record) = x.as_record() {
             let mut suggestion = Suggestion {
                 value: String::from(""), // Initialize with empty string
                 description: None,
@@ -467,7 +467,7 @@ pub fn map_value_completions<'a>(
             };
 
             // Iterate the cols looking for `value` and `description`
-            cols.iter().zip(vals).for_each(|it| {
+            record.iter().for_each(|it| {
                 // Match `value` column
                 if it.0 == "value" {
                     // Convert the value to string
