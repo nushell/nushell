@@ -1,5 +1,5 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Value};
+use nu_protocol::{PluginExample, Record, ShellError, Value};
 
 pub const CMD_NAME: &str = "from ini";
 
@@ -11,46 +11,23 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
     let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&input_string);
     match ini_config {
         Ok(config) => {
-            let mut sections: Vec<String> = Vec::new();
-            let mut sections_key_value_pairs: Vec<Value> = Vec::new();
+            let record = config
+                .iter()
+                .map(|(section, properties)| {
+                    let section_name = section.unwrap_or_default().to_owned();
 
-            for (section, properties) in config.iter() {
-                let mut keys_for_section: Vec<String> = Vec::new();
-                let mut values_for_section: Vec<Value> = Vec::new();
+                    // section's key value pairs
+                    let properties = properties
+                        .iter()
+                        .map(|(key, value)| (key.to_owned(), Value::string(value.to_owned(), span)))
+                        .collect();
 
-                // section
-                match section {
-                    Some(section_name) => {
-                        sections.push(section_name.to_owned());
-                    }
-                    None => {
-                        sections.push(String::new());
-                    }
-                }
+                    // section with its key value pairs
+                    (section_name, Value::record(properties, span))
+                })
+                .collect();
 
-                // section's key value pairs
-                for (key, value) in properties.iter() {
-                    keys_for_section.push(key.to_owned());
-                    values_for_section.push(Value::String {
-                        val: value.to_owned(),
-                        span,
-                    });
-                }
-
-                // section with its key value pairs
-                sections_key_value_pairs.push(Value::Record {
-                    cols: keys_for_section,
-                    vals: values_for_section,
-                    span,
-                });
-            }
-
-            // all sections with all its key value pairs
-            Ok(Value::Record {
-                cols: sections,
-                vals: sections_key_value_pairs,
-                span,
-            })
+            Ok(Value::record(record, span))
         }
         Err(err) => Err(ShellError::UnsupportedInput(
             format!("Could not load ini: {err}"),
@@ -69,14 +46,12 @@ a=1
 b=2' | from ini"
             .into(),
         description: "Converts ini formatted string to record".into(),
-        result: Some(Value::Record {
+        result: Some(Value::test_record(Record {
             cols: vec!["foo".to_string()],
-            vals: vec![Value::Record {
+            vals: vec![Value::test_record(Record {
                 cols: vec!["a".to_string(), "b".to_string()],
                 vals: vec![Value::test_string("1"), Value::test_string("2")],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        }),
+            })],
+        })),
     }]
 }

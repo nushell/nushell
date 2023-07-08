@@ -2,7 +2,7 @@ use ical::parser::vcard::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
+use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
 
 pub const CMD_NAME: &str = "from vcf";
 
@@ -49,116 +49,92 @@ EMAIL:foo@bar.com
 END:VCARD' | from vcf"
             .into(),
         description: "Converts ics formatted string to table".into(),
-        result: Some(Value::List {
-            vals: vec![Value::Record {
-                cols: vec!["properties".to_string()],
-                vals: vec![Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec![
-                                "name".to_string(),
-                                "value".to_string(),
-                                "params".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("N"),
-                                Value::test_string("Foo"),
-                                Value::Nothing {
-                                    span: Span::test_data(),
-                                },
-                            ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec![
-                                "name".to_string(),
-                                "value".to_string(),
-                                "params".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("FN"),
-                                Value::test_string("Bar"),
-                                Value::Nothing {
-                                    span: Span::test_data(),
-                                },
-                            ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec![
-                                "name".to_string(),
-                                "value".to_string(),
-                                "params".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("EMAIL"),
-                                Value::test_string("foo@bar.com"),
-                                Value::Nothing {
-                                    span: Span::test_data(),
-                                },
-                            ],
-                            span: Span::test_data(),
-                        },
+        result: Some(Value::test_list(vec![Value::test_record(Record {
+            cols: vec!["properties".to_string()],
+            vals: vec![Value::test_list(vec![
+                Value::test_record(Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "value".to_string(),
+                        "params".to_string(),
                     ],
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        }),
+                    vals: vec![
+                        Value::test_string("N"),
+                        Value::test_string("Foo"),
+                        Value::test_nothing(),
+                    ],
+                }),
+                Value::test_record(Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "value".to_string(),
+                        "params".to_string(),
+                    ],
+                    vals: vec![
+                        Value::test_string("FN"),
+                        Value::test_string("Bar"),
+                        Value::test_nothing(),
+                    ],
+                }),
+                Value::test_record(Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "value".to_string(),
+                        "params".to_string(),
+                    ],
+                    vals: vec![
+                        Value::test_string("EMAIL"),
+                        Value::test_string("foo@bar.com"),
+                        Value::test_nothing(),
+                    ],
+                }),
+            ])],
+        })])),
     }]
 }
 
 fn contact_to_value(contact: VcardContact, span: Span) -> Value {
-    let mut row = IndexMap::new();
-    row.insert(
-        "properties".to_string(),
-        properties_to_value(contact.properties, span),
-    );
-    Value::from(Spanned { item: row, span })
+    Value::record(
+        record! {
+            properties => properties_to_value(contact.properties, span)
+        },
+        span,
+    )
 }
 
 fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
-    Value::List {
-        vals: properties
+    Value::list(
+        properties
             .into_iter()
             .map(|prop| {
-                let mut row = IndexMap::new();
-
-                let name = Value::String {
-                    val: prop.name,
-                    span,
-                };
+                let name = Value::string(prop.name, span);
                 let value = match prop.value {
-                    Some(val) => Value::String { val, span },
-                    None => Value::Nothing { span },
+                    Some(val) => Value::string(val, span),
+                    None => Value::nothing(span),
                 };
                 let params = match prop.params {
                     Some(param_list) => params_to_value(param_list, span),
-                    None => Value::Nothing { span },
+                    None => Value::nothing(span),
                 };
 
-                row.insert("name".to_string(), name);
-                row.insert("value".to_string(), value);
-                row.insert("params".to_string(), params);
-                Value::from(Spanned { item: row, span })
+                Value::record(record! { name, value, params }, span)
             })
-            .collect::<Vec<Value>>(),
+            .collect(),
         span,
-    }
+    )
 }
 
 fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     let mut row = IndexMap::new();
 
     for (param_name, param_values) in params {
-        let values: Vec<Value> = param_values
+        let values = param_values
             .into_iter()
             .map(|val| Value::string(val, span))
             .collect();
-        let values = Value::List { vals: values, span };
-        row.insert(param_name, values);
+
+        row.insert(param_name, Value::list(values, span));
     }
 
-    Value::from(Spanned { item: row, span })
+    Value::record_from_iter(row, span)
 }
