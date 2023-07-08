@@ -1073,6 +1073,18 @@ pub enum ShellError {
         #[label("This operation was interrupted")]
         span: Option<Span>,
     },
+
+    /// An attempt to use, as a match guard, an expression that
+    /// does not resolve into a boolean
+    #[error("Match guard not bool")]
+    #[diagnostic(
+        code(nu::shell::match_guard_not_bool),
+        help("Match guards should evaluate to a boolean")
+    )]
+    MatchGuardNotBool {
+        #[label("not a boolean expression")]
+        span: Span
+    },
 }
 
 impl From<std::io::Error> for ShellError {
