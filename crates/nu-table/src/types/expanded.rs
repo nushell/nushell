@@ -1,5 +1,6 @@
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
+use nu_protocol::Record;
 use nu_protocol::{ast::PathMember, Config, Span, TableIndexMode, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -42,12 +43,7 @@ impl ExpandedTable {
         expanded_table_entry2(item, opts)
     }
 
-    pub fn build_map(
-        &self,
-        cols: &[String],
-        vals: &[Value],
-        opts: BuildConfig<'_>,
-    ) -> StringResult {
+    pub fn build_map(&self, record: &Record, opts: BuildConfig<'_>) -> StringResult {
         let opts = Options {
             ctrlc: opts.ctrlc,
             config: opts.config,
@@ -56,7 +52,7 @@ impl ExpandedTable {
             span: opts.span,
             format: self.clone(),
         };
-        expanded_table_kv(cols, vals, opts)
+        expanded_table_kv(record, opts)
     }
 
     pub fn build_list(
@@ -369,9 +365,14 @@ fn expanded_table_list(input: &[Value], row_offset: usize, opts: Options) -> Tab
     Ok(Some(TableOutput::new(table, true, with_index)))
 }
 
-fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> StringResult {
+fn expanded_table_kv(record: &Record, opts: Options<'_>) -> StringResult {
     let theme = load_theme_from_config(opts.config);
-    let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
+    let key_width = record
+        .cols
+        .iter()
+        .map(|col| string_width(col))
+        .max()
+        .unwrap_or(0);
     let count_borders =
         theme.has_inner() as usize + theme.has_right() as usize + theme.has_left() as usize;
     let padding = 2;
@@ -381,8 +382,8 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
 
     let value_width = opts.available_width - key_width - count_borders - padding - padding;
 
-    let mut data = Vec::with_capacity(cols.len());
-    for (key, value) in cols.iter().zip(vals) {
+    let mut data = Vec::with_capacity(record.len());
+    for (key, value) in record {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
             return Ok(None);
         }
@@ -419,8 +420,8 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
                         }
                     }
                 }
-                Value::Record { cols, vals, span } => {
-                    if cols.is_empty() {
+                Value::Record { val, span } => {
+                    if val.is_empty() {
                         // Like list case return styled string instead of empty value
                         let text =
                             value_to_styled_string(value, opts.config, opts.style_computer).0;
@@ -428,7 +429,7 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], opts: Options<'_>) -> Stri
                     } else {
                         let mut oopts = dive_options(&opts, *span);
                         oopts.available_width = value_width;
-                        let result = expanded_table_kv(cols, vals, oopts)?;
+                        let result = expanded_table_kv(val, oopts)?;
                         match result {
                             Some(result) => {
                                 is_expanded = true;
@@ -501,14 +502,14 @@ fn expanded_table_entry2(item: &Value, opts: Options<'_>) -> NuText {
     }
 
     match &item {
-        Value::Record { cols, vals, span } => {
-            if cols.is_empty() && vals.is_empty() {
+        Value::Record { val, span } => {
+            if val.is_empty() {
                 return value_to_styled_string(item, opts.config, opts.style_computer);
             }
 
             // we verify what is the structure of a Record cause it might represent
             let oopts = dive_options(&opts, *span);
-            let table = expanded_table_kv(cols, vals, oopts);
+            let table = expanded_table_kv(val, oopts);
 
             match table {
                 Ok(Some(table)) => (table, TextStyle::default()),

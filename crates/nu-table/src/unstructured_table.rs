@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, Record, Span, Value};
 use tabled::{
     grid::{
         color::{AnsiColor, StaticColor},
@@ -79,9 +79,9 @@ fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableThe
 
 fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue {
     match value {
-        Value::Record { cols, vals, .. } => build_vertical_map(cols, vals, config),
+        Value::Record { val, .. } => build_vertical_map(*val, config),
         Value::List { vals, .. } => {
-            let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
+            let rebuild_array_as_map = is_valid_record(&vals) && !get_columns(&vals).is_empty();
             if rebuild_array_as_map {
                 build_map_from_record(vals, config)
             } else {
@@ -99,9 +99,9 @@ fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue 
     }
 }
 
-fn build_vertical_map(cols: Vec<String>, vals: Vec<Value>, config: &Config) -> TableValue {
-    let mut rows = Vec::with_capacity(cols.len());
-    for (key, value) in cols.into_iter().zip(vals) {
+fn build_vertical_map(record: Record, config: &Config) -> TableValue {
+    let mut rows = Vec::with_capacity(record.len());
+    for (key, value) in record {
         let val = convert_nu_value_to_table_value(value, config);
         let row = TableValue::Row(vec![TableValue::Cell(key), val]);
         rows.push(row);
@@ -149,14 +149,14 @@ fn is_valid_record(vals: &[Value]) -> bool {
     let mut used_cols: Option<&[String]> = None;
     for val in vals {
         match val {
-            Value::Record { cols, .. } => {
+            Value::Record { val, .. } => {
                 let cols_are_not_equal =
-                    used_cols.is_some() && !matches!(used_cols, Some(used) if cols == used);
+                    used_cols.is_some() && !matches!(used_cols, Some(used) if val.cols == used);
                 if cols_are_not_equal {
                     return false;
                 }
 
-                used_cols = Some(cols);
+                used_cols = Some(&val.cols);
             }
             _ => return false,
         }
@@ -165,17 +165,14 @@ fn is_valid_record(vals: &[Value]) -> bool {
     true
 }
 
-fn count_columns_in_record(vals: &[Value]) -> usize {
-    match vals.iter().next() {
-        Some(Value::Record { cols, .. }) => cols.len(),
-        _ => 0,
-    }
+fn get_columns(vals: &[Value]) -> &[String] {
+    vals.first().map(Value::columns).unwrap_or(&[])
 }
 
 fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     let mut list = vec![];
 
-    let head = get_columns_in_record(&vals);
+    let head = get_columns(&vals).to_vec();
     let count_columns = head.len();
     for col in head {
         list.push(vec![TableValue::Cell(col)]);
@@ -183,8 +180,8 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
 
     for val in vals {
         match val {
-            Value::Record { vals, .. } => {
-                for (i, cell) in vals.into_iter().take(count_columns).enumerate() {
+            Value::Record { val, .. } => {
+                for (i, cell) in val.vals.into_iter().take(count_columns).enumerate() {
                     let cell = convert_nu_value_to_table_value(cell, config);
                     list[i].push(cell);
                 }
@@ -196,13 +193,6 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     let columns = list.into_iter().map(TableValue::Column).collect::<Vec<_>>();
 
     TableValue::Row(columns)
-}
-
-fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
-    match vals.iter().next() {
-        Some(Value::Record { cols, .. }) => cols.clone(),
-        _ => vec![],
-    }
 }
 
 struct SetRawStyle(RawStyle);

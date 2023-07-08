@@ -38,14 +38,14 @@ fn collapsed_table(
 
 fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
     match value {
-        Value::Record { cols, vals, .. } => {
-            for val in vals {
+        Value::Record { val, .. } => {
+            for val in &mut val.vals {
                 colorize_value(val, config, style_computer);
             }
 
             let style = get_index_style(style_computer);
             if let Some(color) = style.color_style {
-                for header in cols {
+                for header in &mut val.cols {
                     *header = color.paint(header.to_owned()).to_string();
                 }
             }
