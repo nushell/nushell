@@ -193,20 +193,84 @@ impl Clone for Value {
 }
 
 impl Value {
-    pub fn as_char(&self) -> Result<char, ShellError> {
+    pub fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
-            Value::String { val, span } => {
-                let mut chars = val.chars();
-                match (chars.next(), chars.next()) {
-                    (Some(c), None) => Ok(c),
-                    _ => Err(ShellError::MissingParameter {
-                        param_name: "single character separator".into(),
-                        span: *span,
-                    }),
-                }
-            }
+            Value::Bool { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {
-                to_type: "char".into(),
+                to_type: "boolean".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_int(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "integer".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_float(&self) -> Result<f64, ShellError> {
+        match self {
+            Value::Float { val, .. } => Ok(*val),
+            Value::Int { val, .. } => Ok(*val as f64),
+            x => Err(ShellError::CantConvert {
+                to_type: "float".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_filesize(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Filesize { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "filesize".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_duration(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Duration { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "duration".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
+        match self {
+            Value::Date { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "date".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_range(&self) -> Result<&Range, ShellError> {
+        match self {
+            Value::Range { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "range".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -270,37 +334,32 @@ impl Value {
         }
     }
 
+    pub fn as_char(&self) -> Result<char, ShellError> {
+        match self {
+            Value::String { val, span } => {
+                let mut chars = val.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(c), None) => Ok(c),
+                    _ => Err(ShellError::MissingParameter {
+                        param_name: "single character separator".into(),
+                        span: *span,
+                    }),
+                }
+            }
+            x => Err(ShellError::CantConvert {
+                to_type: "char".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self {
             Value::String { val, .. } => Ok(PathBuf::from(val)),
             x => Err(ShellError::CantConvert {
                 to_type: "path".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span()?,
-                help: None,
-            }),
-        }
-    }
-
-    pub fn as_block(&self) -> Result<BlockId, ShellError> {
-        match self {
-            Value::Block { val, .. } => Ok(*val),
-            Value::Closure { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "block".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span()?,
-                help: None,
-            }),
-        }
-    }
-
-    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
-        match self {
-            Value::Binary { val, .. } => Ok(val),
-            Value::String { val, .. } => Ok(val.as_bytes()),
-            x => Err(ShellError::CantConvert {
-                to_type: "binary".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -332,11 +391,12 @@ impl Value {
         }
     }
 
-    pub fn as_bool(&self) -> Result<bool, ShellError> {
+    pub fn as_block(&self) -> Result<BlockId, ShellError> {
         match self {
-            Value::Bool { val, .. } => Ok(*val),
+            Value::Block { val, .. } => Ok(*val),
+            Value::Closure { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {
-                to_type: "boolean".into(),
+                to_type: "block".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -344,12 +404,11 @@ impl Value {
         }
     }
 
-    pub fn as_float(&self) -> Result<f64, ShellError> {
+    pub fn as_closure(&self) -> Result<(BlockId, &HashMap<VarId, Value>), ShellError> {
         match self {
-            Value::Float { val, .. } => Ok(*val),
-            Value::Int { val, .. } => Ok(*val as f64),
+            Value::Closure { val, captures, .. } => Ok((*val, captures)),
             x => Err(ShellError::CantConvert {
-                to_type: "float".into(),
+                to_type: "closure".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -357,11 +416,60 @@ impl Value {
         }
     }
 
-    pub fn as_integer(&self) -> Result<i64, ShellError> {
+    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
         match self {
-            Value::Int { val, .. } => Ok(*val),
+            Value::Binary { val, .. } => Ok(val),
+            Value::String { val, .. } => Ok(val.as_bytes()),
             x => Err(ShellError::CantConvert {
-                to_type: "integer".into(),
+                to_type: "binary".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
+        match self {
+            Value::CustomValue { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "custom value".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
+        match self {
+            Value::LazyRecord { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "lazy record".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_match_pattern(&self) -> Result<&MatchPattern, ShellError> {
+        match self {
+            Value::MatchPattern { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "match pattern".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_cell_path(&self) -> Result<&CellPath, ShellError> {
+        match self {
+            Value::CellPath { val, .. } => Ok(val),
+            x => Err(ShellError::CantConvert {
+                to_type: "cell path".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,

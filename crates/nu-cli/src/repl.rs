@@ -537,14 +537,14 @@ pub fn evaluate_repl(
 
                     let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
                     let current_shell = if let Some(v) = current_shell {
-                        v.as_integer().unwrap_or_default() as usize
+                        v.as_int().unwrap_or_default() as usize
                     } else {
                         0
                     };
 
                     let last_shell = stack.get_env_var(engine_state, "NUSHELL_LAST_SHELL");
                     let last_shell = if let Some(v) = last_shell {
-                        v.as_integer().unwrap_or_default() as usize
+                        v.as_int().unwrap_or_default() as usize
                     } else {
                         0
                     };
