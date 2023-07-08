@@ -261,7 +261,7 @@ fn convert_to_list(
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
-        let mut headers = first.columns();
+        let mut headers = first.columns().to_vec();
 
         if !headers.is_empty() {
             headers.insert(0, "#".into());
@@ -298,26 +298,24 @@ fn convert_to_list(
             data.push(row);
         }
 
-        let mut h: Vec<String> = headers.into_iter().collect();
-
         // This is just a list
-        if h.is_empty() {
+        if headers.is_empty() {
             // let's fake the header
-            h.push("#".to_string());
-            h.push("name".to_string());
+            headers.push("#".to_string());
+            headers.push("name".to_string());
         }
 
         // this tuple is (row_index, header_name, value)
         let mut interleaved = vec![];
         for (i, v) in data.into_iter().enumerate() {
             for (n, s) in v.into_iter().enumerate() {
-                if h.len() == 1 {
+                if headers.len() == 1 {
                     // always get the 1th element since this is a simple list
                     // and we hacked the header above because it was empty
                     // 0th element is an index, 1th element is the value
-                    interleaved.push((i, h[1].clone(), s))
+                    interleaved.push((i, headers[1].clone(), s))
                 } else {
-                    interleaved.push((i, h[n].clone(), s))
+                    interleaved.push((i, headers[n].clone(), s))
                 }
             }
         }
