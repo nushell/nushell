@@ -1,6 +1,6 @@
 use crate::web_tables::WebTable;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Value};
+use nu_protocol::{Record, Span, Value};
 use scraper::{Html, Selector as ScraperSelector};
 
 pub struct Selector {
@@ -160,56 +160,53 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         }
     }
 
-    let mut table_out = Vec::new();
     // sometimes there are tables where the first column is the headers, kind of like
     // a table has ben rotated ccw 90 degrees, in these cases all columns will be missing
     // we keep track of this with this variable so we can deal with it later
     let mut at_least_one_row_filled = false;
     // if columns are still empty, let's just make a single column table with the data
-    if cols.is_empty() {
+    let table_out = if cols.is_empty() {
         at_least_one_row_filled = true;
-        let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
 
-        let mut cols = vec![];
-        let mut vals = vec![];
-        for row in &table_with_no_empties {
-            for (counter, cell) in row.iter().enumerate() {
-                cols.push(format!("column{counter}"));
-                vals.push(Value::string(cell.to_string(), span))
-            }
-        }
-        table_out.push(Value::Record { cols, vals, span })
-    } else {
+        let mut record = Record::new();
         for row in &table {
-            let mut vals = vec![];
-            let record_cols = &cols;
-            for col in &cols {
-                let val = row
-                    .get(col)
-                    .unwrap_or(&format!("Missing column: '{}'", &col))
-                    .to_string();
-
-                if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
-                    at_least_one_row_filled = true;
-                }
-                vals.push(Value::string(val, span));
+            for (counter, cell) in row.iter().enumerate() {
+                record.push(
+                    format!("column{counter}"),
+                    Value::string(cell.to_string(), span),
+                )
             }
-            table_out.push(Value::Record {
-                cols: record_cols.to_vec(),
-                vals,
-                span,
+        }
+        vec![Value::record(record, span)]
+    } else {
+        table
+            .iter()
+            .map(|row| {
+                let record = cols
+                    .iter()
+                    .map(|col| {
+                        let val = row.get(col);
+
+                        if !at_least_one_row_filled && val.is_some() {
+                            at_least_one_row_filled = true;
+                        }
+
+                        let val =
+                            val.map_or_else(|| format!("Missing column: '{col}'"), str::to_owned);
+
+                        (col.clone(), Value::string(val, span))
+                    })
+                    .collect();
+
+                Value::record(record, span)
             })
-        }
-    }
+            .collect()
+    };
+
     if !at_least_one_row_filled {
-        let mut data2 = Vec::new();
-        for x in &table.data {
-            data2.push(x.join(", "));
-        }
-        table.data = vec![data2];
+        table.data = vec![table.data.into_iter().map(|x| x.join(", ")).collect()];
         return retrieve_table(table, columns, span);
     }
-    // table_out
 
     Value::List {
         vals: table_out,

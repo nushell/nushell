@@ -1,5 +1,5 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Spanned, Value};
+use nu_protocol::{Record, Span, Spanned, Value};
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
 
@@ -9,8 +9,8 @@ pub fn execute_xpath_query(
     input: &Value,
     query: Option<Spanned<String>>,
 ) -> Result<Value, LabeledError> {
-    let (query_string, span) = match &query {
-        Some(v) => (&v.item, &v.span),
+    let (query_string, span) = match query {
+        Some(v) => (v.item, v.span),
         None => {
             return Err(LabeledError {
                 msg: "problem with input data".to_string(),
@@ -20,7 +20,7 @@ pub fn execute_xpath_query(
         }
     };
 
-    let xpath = build_xpath(query_string, span)?;
+    let xpath = build_xpath(&query_string, span)?;
     let input_string = input.as_string()?;
     let package = parser::parse(&input_string);
 
@@ -48,50 +48,38 @@ pub fn execute_xpath_query(
         key.truncate(17);
         key += "...";
     } else {
-        key = query_string.to_string();
+        key = query_string;
     };
 
     match res {
         Ok(r) => {
-            let mut cols: Vec<String> = vec![];
-            let mut vals: Vec<Value> = vec![];
-            let mut records: Vec<Value> = vec![];
+            fn singleton(key: String, value: Value, span: Span) -> Value {
+                Value::record(Record::singleton(key, value), span)
+            }
 
-            match r {
-                sxd_xpath::Value::Nodeset(ns) => {
-                    for n in ns.into_iter() {
-                        cols.push(key.to_string());
-                        vals.push(Value::string(n.string_value(), call.head));
-                    }
-                }
+            let records = match r {
+                sxd_xpath::Value::Nodeset(ns) => ns
+                    .into_iter()
+                    .map(|n| {
+                        singleton(
+                            key.clone(),
+                            Value::string(n.string_value(), call.head),
+                            call.head,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
                 sxd_xpath::Value::Boolean(b) => {
-                    cols.push(key.to_string());
-                    vals.push(Value::bool(b, call.head));
+                    vec![singleton(key, Value::bool(b, call.head), call.head)]
                 }
                 sxd_xpath::Value::Number(n) => {
-                    cols.push(key.to_string());
-                    vals.push(Value::float(n, call.head));
+                    vec![singleton(key, Value::float(n, call.head), call.head)]
                 }
                 sxd_xpath::Value::String(s) => {
-                    cols.push(key.to_string());
-                    vals.push(Value::string(s, call.head));
+                    vec![singleton(key, Value::string(s, call.head), call.head)]
                 }
             };
 
-            // convert the cols and vecs to a table by creating individual records
-            // for each item so we can then use a list to make a table
-            for (k, v) in cols.iter().zip(vals.iter()) {
-                records.push(Value::Record {
-                    cols: vec![k.to_string()],
-                    vals: vec![v.clone()],
-                    span: call.head,
-                })
-            }
-
-            Ok(Value::List {
-                vals: records,
-                span: call.head,
-            })
+            Ok(Value::list(records, call.head))
         }
         Err(_) => Err(LabeledError {
             label: "xpath query error".to_string(),
@@ -101,20 +89,20 @@ pub fn execute_xpath_query(
     }
 }
 
-fn build_xpath(xpath_str: &str, span: &Span) -> Result<sxd_xpath::XPath, LabeledError> {
+fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
     if let Ok(xpath) = factory.build(xpath_str) {
         xpath.ok_or_else(|| LabeledError {
             label: "invalid xpath query".to_string(),
             msg: "invalid xpath query".to_string(),
-            span: Some(*span),
+            span: Some(span),
         })
     } else {
         Err(LabeledError {
             label: "expected valid xpath query".to_string(),
             msg: "expected valid xpath query".to_string(),
-            span: Some(*span),
+            span: Some(span),
         })
     }
 }
@@ -123,7 +111,7 @@ fn build_xpath(xpath_str: &str, span: &Span) -> Result<sxd_xpath::XPath, Labeled
 mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
-    use nu_protocol::{Span, Spanned, Value};
+    use nu_protocol::{Record, Span, Spanned, Value};
 
     #[test]
     fn position_function_in_predicate() {
@@ -144,14 +132,10 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = Value::List {
-            vals: vec![Value::Record {
-                cols: vec!["count(//a/*[posit...".to_string()],
-                vals: vec![Value::test_float(1.0)],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        };
+        let expected = Value::test_list(vec![Value::test_record(Record {
+            cols: vec!["count(//a/*[posit...".to_string()],
+            vals: vec![Value::test_float(1.0)],
+        })]);
 
         assert_eq!(actual, expected);
     }
@@ -175,14 +159,10 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = Value::List {
-            vals: vec![Value::Record {
-                cols: vec!["count(//*[contain...".to_string()],
-                vals: vec![Value::test_float(1.0)],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        };
+        let expected = Value::test_list(vec![Value::test_record(Record {
+            cols: vec!["count(//*[contain...".to_string()],
+            vals: vec![Value::test_float(1.0)],
+        })]);
 
         assert_eq!(actual, expected);
     }
