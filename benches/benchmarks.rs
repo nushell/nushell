@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use nu_cli::eval_source;
 use nu_parser::parse;
 use nu_plugin::{EncodingType, PluginResponse};
-use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
+use nu_protocol::{engine::EngineState, PipelineData, Record, Value};
 use nu_utils::{get_default_config, get_default_env};
 
 fn load_bench_commands() -> EngineState {
@@ -16,10 +16,7 @@ fn load_bench_commands() -> EngineState {
 fn parser_benchmarks(c: &mut Criterion) {
     let mut engine_state = load_bench_commands();
     // parsing config.nu breaks without PWD set
-    engine_state.add_env_var(
-        "PWD".into(),
-        Value::string("/some/dir".to_string(), Span::test_data()),
-    );
+    engine_state.add_env_var("PWD".into(), Value::test_string("/some/dir"));
 
     let default_env = get_default_env().as_bytes();
     c.bench_function("parse_default_env_file", |b| {
@@ -58,10 +55,7 @@ fn parser_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut engine_state = load_bench_commands();
             // parsing config.nu breaks without PWD set
-            engine_state.add_env_var(
-                "PWD".into(),
-                Value::string("/some/dir".to_string(), Span::test_data()),
-            );
+            engine_state.add_env_var("PWD".into(), Value::test_string("/some/dir"));
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -95,10 +89,7 @@ fn eval_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut engine_state = load_bench_commands();
             // parsing config.nu breaks without PWD set
-            engine_state.add_env_var(
-                "PWD".into(),
-                Value::string("/some/dir".to_string(), Span::test_data()),
-            );
+            engine_state.add_env_var("PWD".into(), Value::test_string("/some/dir"));
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -114,15 +105,16 @@ fn eval_benchmarks(c: &mut Criterion) {
 
 // generate a new table data with `row_cnt` rows, `col_cnt` columns.
 fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
-    let columns: Vec<String> = (0..col_cnt).map(|x| format!("col_{x}")).collect();
-    let vals: Vec<Value> = (0..col_cnt as i64).map(Value::test_int).collect();
+    let record = Record {
+        cols: (0..col_cnt).map(|x| format!("col_{x}")).collect(),
+        vals: (0..col_cnt as i64).map(Value::test_int).collect(),
+    };
 
-    Value::List {
-        vals: (0..row_cnt)
-            .map(|_| Value::test_record(columns.clone(), vals.clone()))
+    Value::test_list(
+        (0..row_cnt)
+            .map(|_| Value::test_record(record.clone()))
             .collect(),
-        span: Span::test_data(),
-    }
+    )
 }
 
 fn encoding_benchmarks(c: &mut Criterion) {
