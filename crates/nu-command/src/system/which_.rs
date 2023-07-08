@@ -77,6 +77,8 @@ fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> 
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
         let (msg, is_builtin) = if engine_state.get_decl(decl_id).is_custom_command() {
             ("Nushell custom command", false)
+        } else if engine_state.get_decl(decl_id).is_alias() {
+            ("Nushell alias", false)
         } else {
             ("Nushell built-in command", true)
         };
