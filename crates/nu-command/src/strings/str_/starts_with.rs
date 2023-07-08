@@ -110,7 +110,7 @@ fn action(
             } else {
                 s.starts_with(substring)
             };
-            Value::boolean(starts_with, head)
+            Value::bool(starts_with, head)
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {

@@ -163,7 +163,7 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => Value::boolean(
+        Value::String { val, .. } => Value::bool(
             match case_insensitive {
                 true => {
                     if *not_contain {

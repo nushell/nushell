@@ -12,7 +12,7 @@ pub fn eval_constant(
     expr: &Expression,
 ) -> Result<Value, ParseError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
+        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {

@@ -125,7 +125,7 @@ pub enum Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::boolean(*val, *span),
+            Value::Bool { val, span } => Value::bool(*val, *span),
             Value::Int { val, span } => Value::int(*val, *span),
             Value::Filesize { val, span } => Value::Filesize {
                 val: *val,
@@ -766,11 +766,6 @@ impl Value {
 
     pub fn is_nothing(&self) -> bool {
         matches!(self, Value::Nothing { .. })
-    }
-
-    /// Create a new `Nothing` value
-    pub fn nothing(span: Span) -> Value {
-        Value::Nothing { span }
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
@@ -1635,18 +1630,8 @@ impl Value {
         }
     }
 
-    pub fn string(val: impl Into<String>, span: Span) -> Value {
-        Value::String {
-            val: val.into(),
-            span,
-        }
-    }
-
-    pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
-        Value::Binary {
-            val: val.into(),
-            span,
-        }
+    pub fn bool(val: bool, span: Span) -> Value {
+        Value::Bool { val, span }
     }
 
     pub fn int(val: i64, span: Span) -> Value {
@@ -1657,8 +1642,30 @@ impl Value {
         Value::Float { val, span }
     }
 
-    pub fn boolean(val: bool, span: Span) -> Value {
-        Value::Bool { val, span }
+    pub fn filesize(val: i64, span: Span) -> Value {
+        Value::Filesize { val, span }
+    }
+
+    pub fn duration(val: i64, span: Span) -> Value {
+        Value::Duration { val, span }
+    }
+
+    pub fn date(val: DateTime<FixedOffset>, span: Span) -> Value {
+        Value::Date { val, span }
+    }
+
+    pub fn range(val: Range, span: Span) -> Value {
+        Value::Range {
+            val: Box::new(val),
+            span,
+        }
+    }
+
+    pub fn string(val: impl Into<String>, span: Span) -> Value {
+        Value::String {
+            val: val.into(),
+            span,
+        }
     }
 
     pub fn record(cols: Vec<String>, vals: Vec<Value>, span: Span) -> Value {
@@ -1677,6 +1684,55 @@ impl Value {
 
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
         Value::List { vals, span }
+    }
+
+    pub fn block(val: BlockId, span: Span) -> Value {
+        Value::Block { val, span }
+    }
+
+    pub fn closure(val: BlockId, captures: HashMap<VarId, Value>, span: Span) -> Value {
+        Value::Closure {
+            val,
+            captures,
+            span,
+        }
+    }
+
+    /// Create a new `Nothing` value
+    pub fn nothing(span: Span) -> Value {
+        Value::Nothing { span }
+    }
+
+    pub fn error(error: ShellError) -> Value {
+        Value::Error {
+            error: Box::new(error),
+        }
+    }
+
+    pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
+        Value::Binary {
+            val: val.into(),
+            span,
+        }
+    }
+
+    pub fn cell_path(val: CellPath, span: Span) -> Value {
+        Value::CellPath { val, span }
+    }
+
+    pub fn custom_value(val: Box<dyn CustomValue>, span: Span) -> Value {
+        Value::CustomValue { val, span }
+    }
+
+    pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: Span) -> Value {
+        Value::LazyRecord { val, span }
+    }
+
+    pub fn match_pattern(val: MatchPattern, span: Span) -> Value {
+        Value::MatchPattern {
+            val: Box::new(val),
+            span,
+        }
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -3883,7 +3939,7 @@ mod tests {
                 vals: vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
-                    Value::boolean(false, Span::unknown()),
+                    Value::bool(false, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };
