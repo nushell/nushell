@@ -1083,7 +1083,7 @@ pub enum ShellError {
     )]
     MatchGuardNotBool {
         #[label("not a boolean expression")]
-        span: Span
+        span: Span,
     },
 }
 
