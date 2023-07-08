@@ -15,20 +15,11 @@ pub trait LazyRecord<'a>: fmt::Debug + Send + Sync {
 
     // Convert the lazy record into a regular Value::Record by collecting all its columns
     fn collect(&'a self) -> Result<Value, ShellError> {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        for column in self.column_names() {
-            cols.push(column.into());
-            let val = self.get_column_value(column)?;
-            vals.push(val);
-        }
-
-        Ok(Value::Record {
-            cols,
-            vals,
-            span: self.span(),
-        })
+        self.column_names()
+            .iter()
+            .map(|col| self.get_column_value(col).map(|val| (col.to_string(), val)))
+            .collect::<Result<_, _>>()
+            .map(|record| Value::record(record, self.span()))
     }
 
     fn clone_value(&self, span: Span) -> Value;

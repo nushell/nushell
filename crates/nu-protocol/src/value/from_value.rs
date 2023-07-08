@@ -4,8 +4,8 @@ use std::str::FromStr;
 
 use crate::ast::{CellPath, MatchPattern, PathMember};
 use crate::engine::{Block, Closure};
-use crate::ShellError;
 use crate::{Range, Spanned, Value};
+use crate::{Record, ShellError};
 use chrono::{DateTime, FixedOffset};
 
 pub trait FromValue: Sized {
@@ -181,7 +181,7 @@ impl FromValue for String {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(val.into_string()),
+            Value::CellPath { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val.clone()),
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
@@ -197,7 +197,7 @@ impl FromValue for Spanned<String> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         Ok(Spanned {
             item: match v {
-                Value::CellPath { val, .. } => val.into_string(),
+                Value::CellPath { val, .. } => val.to_string(),
                 Value::String { val, .. } => val.clone(),
                 v => {
                     return Err(ShellError::CantConvert {
@@ -490,11 +490,10 @@ impl FromValue for Vec<Value> {
     }
 }
 
-// A record
-impl FromValue for (Vec<String>, Vec<Value>) {
+impl FromValue for Record {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { cols, vals, .. } => Ok((cols.clone(), vals.clone())),
+            Value::Record { val, .. } => Ok(*val.clone()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),

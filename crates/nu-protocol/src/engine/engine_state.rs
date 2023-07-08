@@ -737,7 +737,7 @@ impl EngineState {
         None
     }
 
-    pub fn get_span_contents(&self, span: &Span) -> &[u8] {
+    pub fn get_span_contents(&self, span: Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
             if span.start >= *start && span.end <= *finish {
                 return &contents[(span.start - start)..(span.end - start)];
@@ -915,7 +915,7 @@ impl EngineState {
     pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
-            .map(|span| self.get_span_contents(span))
+            .map(|&span| self.get_span_contents(span))
             .collect();
         build_usage(&comment_lines)
     }
@@ -1435,7 +1435,7 @@ impl<'a> StateWorkingSet<'a> {
                 }
             }
         } else {
-            return self.permanent_state.get_span_contents(&span);
+            return self.permanent_state.get_span_contents(span);
         }
 
         panic!("internal error: missing span contents in file cache")

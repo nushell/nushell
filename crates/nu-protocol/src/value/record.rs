@@ -34,6 +34,10 @@ impl Record {
         self.into_iter()
     }
 
+    pub fn iter_cloned(&self) -> impl DoubleEndedIterator<Item = (String, Value)> + '_ {
+        self.into_iter().map(|(k, v)| (k.clone(), v.clone()))
+    }
+
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = (&String, &mut Value)> {
         self.cols.iter().zip(&mut self.vals)
     }
@@ -49,6 +53,12 @@ impl Record {
     pub fn push(&mut self, col: impl Into<String>, val: Value) {
         self.cols.push(col.into());
         self.vals.push(val);
+    }
+}
+
+impl Default for Record {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
