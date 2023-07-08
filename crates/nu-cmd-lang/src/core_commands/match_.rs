@@ -123,7 +123,7 @@ impl Command for Match {
                 description: "Match with a guard",
                 example: "
                     match [1 2 3] {
-                        [$x, ..$y] if $x == 1 { 'good list' },
+                        [$x, ..$y] if $x == 1 => { 'good list' },
                         _ => { 'not a very good list' }
                     }
                     ",
