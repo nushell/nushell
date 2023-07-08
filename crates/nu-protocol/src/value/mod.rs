@@ -1737,81 +1737,114 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_string(s: impl Into<String>) -> Value {
-        Value::string(s, Span::test_data())
+    pub fn test_bool(val: bool) -> Value {
+        Value::boolean(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_int(val: i64) -> Value {
-        Value::Int {
-            val,
-            span: Span::test_data(),
-        }
+        Value::int(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_float(val: f64) -> Value {
-        Value::Float {
-            val,
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_bool(val: bool) -> Value {
-        Value::Bool {
-            val,
-            span: Span::test_data(),
-        }
+        Value::float(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_filesize(val: i64) -> Value {
-        Value::Filesize {
-            val,
-            span: Span::test_data(),
-        }
+        Value::filesize(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_nothing() -> Value {
-        Value::Nothing {
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
-        Value::Record {
-            cols: cols.into_iter().map(|s| s.into()).collect(),
-            vals,
-
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_list(vals: Vec<Value>) -> Value {
-        Value::List {
-            vals,
-            span: Span::test_data(),
-        }
+    pub fn test_duration(val: i64) -> Value {
+        Value::duration(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
-        Value::Date {
-            val,
-            span: Span::test_data(),
-        }
+        Value::date(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_range(val: Range) -> Value {
+        Value::range(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_string(val: impl Into<String>) -> Value {
+        Value::string(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
+        Value::record(
+            cols.into_iter().map(|s| s.into()).collect(),
+            vals,
+            Span::test_data(),
+        )
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_list(vals: Vec<Value>) -> Value {
+        Value::list(vals, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_block(val: BlockId) -> Value {
+        Value::block(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_closure(val: BlockId, captures: HashMap<VarId, Value>) -> Value {
+        Value::closure(val, captures, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_nothing() -> Value {
+        Value::nothing(Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_binary(val: impl Into<Vec<u8>>) -> Value {
+        Value::binary(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_cell_path(val: CellPath) -> Value {
+        Value::cell_path(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_custom_value(val: Box<dyn CustomValue>) -> Value {
+        Value::custom_value(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
+        Value::lazy_record(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_match_pattern(val: MatchPattern) -> Value {
+        Value::match_pattern(val, Span::test_data())
     }
 }
 
