@@ -484,24 +484,24 @@ impl Value {
     pub fn span(&self) -> Result<Span, ShellError> {
         match self {
             Value::Error { error } => Err(*error.clone()),
-            Value::Bool { span, .. } => Ok(*span),
-            Value::Int { span, .. } => Ok(*span),
-            Value::Float { span, .. } => Ok(*span),
-            Value::Filesize { span, .. } => Ok(*span),
-            Value::Duration { span, .. } => Ok(*span),
-            Value::Date { span, .. } => Ok(*span),
-            Value::Range { span, .. } => Ok(*span),
-            Value::String { span, .. } => Ok(*span),
-            Value::Record { span, .. } => Ok(*span),
-            Value::List { span, .. } => Ok(*span),
-            Value::Block { span, .. } => Ok(*span),
-            Value::Closure { span, .. } => Ok(*span),
-            Value::Nothing { span, .. } => Ok(*span),
-            Value::Binary { span, .. } => Ok(*span),
-            Value::CellPath { span, .. } => Ok(*span),
-            Value::CustomValue { span, .. } => Ok(*span),
-            Value::LazyRecord { span, .. } => Ok(*span),
-            Value::MatchPattern { span, .. } => Ok(*span),
+            Value::Bool { span, .. }
+            | Value::Int { span, .. }
+            | Value::Float { span, .. }
+            | Value::Filesize { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Date { span, .. }
+            | Value::Range { span, .. }
+            | Value::String { span, .. }
+            | Value::Record { span, .. }
+            | Value::List { span, .. }
+            | Value::Block { span, .. }
+            | Value::Closure { span, .. }
+            | Value::Nothing { span, .. }
+            | Value::Binary { span, .. }
+            | Value::CellPath { span, .. }
+            | Value::CustomValue { span, .. }
+            | Value::LazyRecord { span, .. }
+            | Value::MatchPattern { span, .. } => Ok(*span),
         }
     }
 
@@ -515,25 +515,25 @@ impl Value {
     /// Update the value with a new span
     pub fn with_span(mut self, new_span: Span) -> Value {
         match &mut self {
-            Value::Bool { span, .. } => *span = new_span,
-            Value::Int { span, .. } => *span = new_span,
-            Value::Float { span, .. } => *span = new_span,
-            Value::Filesize { span, .. } => *span = new_span,
-            Value::Duration { span, .. } => *span = new_span,
-            Value::Date { span, .. } => *span = new_span,
-            Value::Range { span, .. } => *span = new_span,
-            Value::String { span, .. } => *span = new_span,
-            Value::Record { span, .. } => *span = new_span,
-            Value::LazyRecord { span, .. } => *span = new_span,
-            Value::List { span, .. } => *span = new_span,
-            Value::Closure { span, .. } => *span = new_span,
-            Value::Block { span, .. } => *span = new_span,
-            Value::Nothing { span, .. } => *span = new_span,
             Value::Error { .. } => {}
-            Value::Binary { span, .. } => *span = new_span,
-            Value::CellPath { span, .. } => *span = new_span,
-            Value::CustomValue { span, .. } => *span = new_span,
-            Value::MatchPattern { span, .. } => *span = new_span,
+            Value::Bool { span, .. }
+            | Value::Int { span, .. }
+            | Value::Float { span, .. }
+            | Value::Filesize { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Date { span, .. }
+            | Value::Range { span, .. }
+            | Value::String { span, .. }
+            | Value::Record { span, .. }
+            | Value::LazyRecord { span, .. }
+            | Value::List { span, .. }
+            | Value::Closure { span, .. }
+            | Value::Block { span, .. }
+            | Value::Nothing { span, .. }
+            | Value::Binary { span, .. }
+            | Value::CellPath { span, .. }
+            | Value::CustomValue { span, .. }
+            | Value::MatchPattern { span, .. } => *span = new_span,
         }
 
         self
@@ -608,9 +608,8 @@ impl Value {
 
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         match self {
-            Value::Record { cols, vals, .. } => cols
+            Value::Record { val, .. } => val
                 .iter()
-                .zip(vals.iter())
                 .find(|(col, _)| col == &name)
                 .map(|(_, val)| val.clone()),
             Value::List { vals, span } => {
@@ -689,10 +688,9 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Record { cols, vals, .. } => format!(
+            Value::Record { val, .. } => format!(
                 "{{{}}}",
-                cols.iter()
-                    .zip(vals.iter())
+                val.iter()
                     .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -711,7 +709,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern: {:?}>", val),
         }
@@ -752,10 +750,10 @@ impl Value {
                     )
                 }
             }
-            Value::Record { cols, .. } => format!(
+            Value::Record { val, .. } => format!(
                 "{{record {} field{}}}",
-                cols.len(),
-                if cols.len() == 1 { "" } else { "s" }
+                val.cols.len(),
+                if val.cols.len() == 1 { "" } else { "s" }
             ),
             Value::LazyRecord { val, .. } => match val.collect() {
                 Ok(val) => val.into_abbreviated_string(config),
@@ -766,7 +764,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { .. } => "<Pattern>".into(),
         }
@@ -813,10 +811,9 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Record { cols, vals, .. } => format!(
+            Value::Record { val, .. } => format!(
                 "{{{}}}",
-                cols.iter()
-                    .zip(vals.iter())
+                val.iter()
                     .map(|(x, y)| format!("{}: {}", x, y.into_string_parsable(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -851,10 +848,9 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Record { cols, vals, .. } => format!(
+            Value::Record { val, .. } => format!(
                 "{{{}}}",
-                cols.iter()
-                    .zip(vals.iter())
+                val.iter()
                     .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -868,7 +864,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern {:?}>", val),
         }
@@ -879,7 +875,7 @@ impl Value {
         match self {
             Value::String { val, .. } => val.is_empty(),
             Value::List { vals, .. } => vals.is_empty(),
-            Value::Record { cols, .. } => cols.is_empty(),
+            Value::Record { val, .. } => val.is_empty(),
             Value::Binary { val, .. } => val.is_empty(),
             Value::Nothing { .. } => true,
             _ => false,
@@ -994,12 +990,9 @@ impl Value {
                     span: origin_span,
                     optional,
                 } => match &mut current {
-                    Value::Record { cols, vals, span } => {
-                        let cols = cols.clone();
-                        let span = *span;
-
+                    Value::Record { val, span } => {
                         // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
-                        if let Some(found) = cols.iter().zip(vals.iter()).rev().find(|x| {
+                        if let Some(found) = val.iter().rev().find(|x| {
                             if insensitive {
                                 x.0.to_lowercase() == column_name.to_lowercase()
                             } else {
@@ -1011,14 +1004,14 @@ impl Value {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
                         } else {
                             if from_user_input {
-                                if let Some(suggestion) = did_you_mean(&cols, column_name) {
+                                if let Some(suggestion) = did_you_mean(&val.cols, column_name) {
                                     return Err(ShellError::DidYouMean(suggestion, *origin_span));
                                 }
                             }
                             return Err(ShellError::CantFindColumn {
                                 col_name: column_name.to_string(),
                                 span: *origin_span,
-                                src_span: span,
+                                src_span: *span,
                             });
                         }
                     }
@@ -1139,12 +1132,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
                             match val {
-                                Value::Record { cols, vals, .. } => {
+                                Value::Record { val, .. } => {
                                     let mut found = false;
-                                    for col in cols.iter().zip(vals.iter_mut()) {
-                                        if col.0 == col_name {
+                                    for (col, val) in val.iter_mut() {
+                                        if col == col_name {
                                             found = true;
-                                            col.1.upsert_data_at_cell_path(
+                                            val.upsert_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val.clone(),
                                             )?
@@ -1152,15 +1145,11 @@ impl Value {
                                     }
                                     if !found {
                                         if cell_path.len() == 1 {
-                                            cols.push(col_name.clone());
-                                            vals.push(new_val);
+                                            val.push(col_name.clone(), new_val);
                                             break;
                                         } else {
-                                            let mut new_col = Value::Record {
-                                                cols: vec![],
-                                                vals: vec![],
-                                                span: new_val.span()?,
-                                            };
+                                            let mut new_col =
+                                                Value::record(Record::new(), new_val.span()?);
                                             new_col.upsert_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val,
@@ -1181,29 +1170,23 @@ impl Value {
                             }
                         }
                     }
-                    Value::Record { cols, vals, .. } => {
+                    Value::Record { val, .. } => {
                         let mut found = false;
 
-                        for col in cols.iter().zip(vals.iter_mut()) {
-                            if col.0 == col_name {
+                        for (col, val) in val.iter_mut() {
+                            if col == col_name {
                                 found = true;
-
-                                col.1
-                                    .upsert_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                                val.upsert_data_at_cell_path(&cell_path[1..], new_val.clone())?
                             }
                         }
                         if !found {
-                            cols.push(col_name.clone());
+                            let col_name = col_name.clone();
                             if cell_path.len() == 1 {
-                                vals.push(new_val);
+                                val.push(col_name, new_val);
                             } else {
-                                let mut new_col = Value::Record {
-                                    cols: vec![],
-                                    vals: vec![],
-                                    span: new_val.span()?,
-                                };
+                                let mut new_col = Value::record(Record::new(), new_val.span()?);
                                 new_col.upsert_data_at_cell_path(&cell_path[1..], new_val)?;
-                                vals.push(new_col);
+                                val.push(col_name, new_col);
                             }
                         }
                     }
@@ -1287,16 +1270,12 @@ impl Value {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
                             match val {
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: v_span,
-                                } => {
+                                Value::Record { val, span: v_span } => {
                                     let mut found = false;
-                                    for col in cols.iter().zip(vals.iter_mut()) {
-                                        if col.0 == col_name {
+                                    for (col, val) in val.iter_mut() {
+                                        if col == col_name {
                                             found = true;
-                                            col.1.update_data_at_cell_path(
+                                            val.update_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val.clone(),
                                             )?
@@ -1321,19 +1300,13 @@ impl Value {
                             }
                         }
                     }
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: v_span,
-                    } => {
+                    Value::Record { val, span: v_span } => {
                         let mut found = false;
 
-                        for col in cols.iter().zip(vals.iter_mut()) {
-                            if col.0 == col_name {
+                        for (col, val) in val.iter_mut() {
+                            if col == col_name {
                                 found = true;
-
-                                col.1
-                                    .update_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                                val.update_data_at_cell_path(&cell_path[1..], new_val.clone())?
                             }
                         }
                         if !found {
@@ -1405,16 +1378,15 @@ impl Value {
                             for val in vals.iter_mut() {
                                 match val {
                                     Value::Record {
-                                        cols,
-                                        vals,
+                                        val: record,
                                         span: v_span,
                                     } => {
                                         let mut found = false;
                                         let mut index = 0;
-                                        cols.retain_mut(|col| {
+                                        record.cols.retain_mut(|col| {
                                             if col == col_name {
                                                 found = true;
-                                                vals.remove(index);
+                                                record.vals.remove(index);
                                                 false
                                             } else {
                                                 index += 1;
@@ -1441,18 +1413,21 @@ impl Value {
                             Ok(())
                         }
                         Value::Record {
-                            cols,
-                            vals,
+                            val: record,
                             span: v_span,
                         } => {
                             let mut found = false;
-                            for (i, col) in cols.clone().iter().enumerate() {
+                            let mut index = 0;
+                            record.cols.retain_mut(|col| {
                                 if col == col_name {
-                                    cols.remove(i);
-                                    vals.remove(i);
                                     found = true;
+                                    record.vals.remove(index);
+                                    false
+                                } else {
+                                    index += 1;
+                                    true
                                 }
-                            }
+                            });
                             if !found && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
@@ -1513,16 +1488,12 @@ impl Value {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
                                 match val {
-                                    Value::Record {
-                                        cols,
-                                        vals,
-                                        span: v_span,
-                                    } => {
+                                    Value::Record { val, span: v_span } => {
                                         let mut found = false;
-                                        for col in cols.iter().zip(vals.iter_mut()) {
-                                            if col.0 == col_name {
+                                        for (col, val) in val.iter_mut() {
+                                            if col == col_name {
                                                 found = true;
-                                                col.1.remove_data_at_cell_path(&cell_path[1..])?
+                                                val.remove_data_at_cell_path(&cell_path[1..])?
                                             }
                                         }
                                         if !found && !optional {
@@ -1544,18 +1515,13 @@ impl Value {
                             }
                             Ok(())
                         }
-                        Value::Record {
-                            cols,
-                            vals,
-                            span: v_span,
-                        } => {
+                        Value::Record { val, span: v_span } => {
                             let mut found = false;
 
-                            for col in cols.iter().zip(vals.iter_mut()) {
-                                if col.0 == col_name {
+                            for (col, val) in val.iter_mut() {
+                                if col == col_name {
                                     found = true;
-
-                                    col.1.remove_data_at_cell_path(&cell_path[1..])?
+                                    val.remove_data_at_cell_path(&cell_path[1..])?
                                 }
                             }
                             if !found && !optional {
@@ -1625,13 +1591,9 @@ impl Value {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
                             match val {
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: v_span,
-                                } => {
-                                    for col in cols.iter().zip(vals.iter_mut()) {
-                                        if col.0 == col_name {
+                                Value::Record { val, span: v_span } => {
+                                    for (col, val) in val.iter_mut() {
+                                        if col == col_name {
                                             if cell_path.len() == 1 {
                                                 return Err(ShellError::ColumnAlreadyExists {
                                                     col_name: col_name.to_string(),
@@ -1639,7 +1601,7 @@ impl Value {
                                                     src_span: *v_span,
                                                 });
                                             } else {
-                                                return col.1.insert_data_at_cell_path(
+                                                return val.insert_data_at_cell_path(
                                                     &cell_path[1..],
                                                     new_val,
                                                     head_span,
@@ -1648,8 +1610,7 @@ impl Value {
                                         }
                                     }
 
-                                    cols.push(col_name.clone());
-                                    vals.push(new_val.clone());
+                                    val.push(col_name.clone(), new_val.clone());
                                 }
                                 // SIGH...
                                 Value::Error { error } => return Err(*error.clone()),
@@ -1664,13 +1625,9 @@ impl Value {
                             }
                         }
                     }
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: v_span,
-                    } => {
-                        for col in cols.iter().zip(vals.iter_mut()) {
-                            if col.0 == col_name {
+                    Value::Record { val, span: v_span } => {
+                        for (col, val) in val.iter_mut() {
+                            if col == col_name {
                                 if cell_path.len() == 1 {
                                     return Err(ShellError::ColumnAlreadyExists {
                                         col_name: col_name.to_string(),
@@ -1678,7 +1635,7 @@ impl Value {
                                         src_span: *v_span,
                                     });
                                 } else {
-                                    return col.1.insert_data_at_cell_path(
+                                    return val.insert_data_at_cell_path(
                                         &cell_path[1..],
                                         new_val,
                                         head_span,
@@ -1687,8 +1644,7 @@ impl Value {
                             }
                         }
 
-                        cols.push(col_name.clone());
-                        vals.push(new_val);
+                        val.push(col_name.clone(), new_val);
                     }
                     Value::LazyRecord { val, span } => {
                         // convert to Record first.
@@ -1747,7 +1703,7 @@ impl Value {
 
     pub fn columns(&self) -> Vec<String> {
         match self {
-            Value::Record { cols, .. } => cols.clone(),
+            Value::Record { val, .. } => val.cols.clone(),
             _ => vec![],
         }
     }
@@ -2173,14 +2129,7 @@ impl PartialOrd for Value {
                 Value::CustomValue { .. } => Some(Ordering::Less),
                 Value::MatchPattern { .. } => Some(Ordering::Less),
             },
-            (
-                Value::Record {
-                    cols: lhs_cols,
-                    vals: lhs_vals,
-                    ..
-                },
-                rhs,
-            ) => match rhs {
+            (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -2189,22 +2138,16 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
-                Value::Record {
-                    cols: rhs_cols,
-                    vals: rhs_vals,
-                    ..
-                } => {
+                Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
                     // the order of cols shouldn't affect the equal property.
-                    let (lhs_cols_ordered, lhs_vals_ordered) =
-                        reorder_record_inner(lhs_cols, lhs_vals);
-                    let (rhs_cols_ordered, rhs_vals_ordered) =
-                        reorder_record_inner(rhs_cols, rhs_vals);
+                    let (lhs_cols, lhs_vals) = reorder_record_inner(lhs);
+                    let (rhs_cols, rhs_vals) = reorder_record_inner(rhs);
 
-                    let result = lhs_cols_ordered.partial_cmp(&rhs_cols_ordered);
+                    let result = lhs_cols.partial_cmp(&rhs_cols);
                     if result == Some(Ordering::Equal) {
-                        lhs_vals_ordered.partial_cmp(&rhs_vals_ordered)
+                        lhs_vals.partial_cmp(&rhs_vals)
                     } else {
                         result
                     }
@@ -3215,10 +3158,12 @@ impl Value {
                 val: rhs.contains(lhs),
                 span,
             }),
-            (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
+            (Value::String { val: lhs, .. }, Value::Record { val: record, .. }) => {
+                Ok(Value::Bool {
+                    val: record.cols.contains(lhs),
+                    span,
+                })
+            }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
                     (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
@@ -3272,10 +3217,12 @@ impl Value {
                 val: !rhs.contains(lhs),
                 span,
             }),
-            (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
+            (Value::String { val: lhs, .. }, Value::Record { val: record, .. }) => {
+                Ok(Value::Bool {
+                    val: !record.cols.contains(lhs),
+                    span,
+                })
+            }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
                     (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
@@ -3673,36 +3620,10 @@ impl Value {
     }
 }
 
-fn reorder_record_inner(cols: &[String], vals: &[Value]) -> (Vec<String>, Vec<Value>) {
-    let mut kv_pairs =
-        iter::zip(cols.to_owned(), vals.to_owned()).collect::<Vec<(String, Value)>>();
-    kv_pairs.sort_by(|a, b| {
-        a.0.partial_cmp(&b.0)
-            .expect("Columns should support compare")
-    });
-    let (mut cols, mut vals) = (vec![], vec![]);
-    for (col, val) in kv_pairs {
-        cols.push(col);
-        vals.push(val);
-    }
-    (cols, vals)
-}
-
-/// Create a Value::Record from a spanned hashmap
-impl From<Spanned<HashMap<String, Value>>> for Value {
-    fn from(input: Spanned<HashMap<String, Value>>) -> Self {
-        let span = input.span;
-        let (cols, vals) = input
-            .item
-            .into_iter()
-            .fold((vec![], vec![]), |mut acc, (k, v)| {
-                acc.0.push(k);
-                acc.1.push(v);
-                acc
-            });
-
-        Value::Record { cols, vals, span }
-    }
+fn reorder_record_inner(record: &Record) -> (Vec<&String>, Vec<&Value>) {
+    let mut kv_pairs = record.iter().collect::<Vec<_>>();
+    kv_pairs.sort_by_key(|(col, _)| *col);
+    kv_pairs.into_iter().unzip()
 }
 
 fn type_compatible(a: Type, b: Type) -> bool {
@@ -3711,23 +3632,6 @@ fn type_compatible(a: Type, b: Type) -> bool {
     }
 
     matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
-}
-
-/// Create a Value::Record from a spanned indexmap
-impl From<Spanned<IndexMap<String, Value>>> for Value {
-    fn from(input: Spanned<IndexMap<String, Value>>) -> Self {
-        let span = input.span;
-        let (cols, vals) = input
-            .item
-            .into_iter()
-            .fold((vec![], vec![]), |mut acc, (k, v)| {
-                acc.0.push(k);
-                acc.1.push(v);
-                acc
-            });
-
-        Value::Record { cols, vals, span }
-    }
 }
 
 /// Is the given year a leap year?
@@ -4033,7 +3937,7 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
 #[cfg(test)]
 mod tests {
 
-    use super::{Span, Value};
+    use super::{Record, Span, Value};
 
     mod is_empty {
         use super::*;
@@ -4062,23 +3966,28 @@ mod tests {
         #[test]
         fn test_record() {
             let no_columns_nor_cell_values = Value::Record {
-                cols: vec![],
-                vals: vec![],
+                val: Box::new(Record::new()),
                 span: Span::unknown(),
             };
             let one_column_and_one_cell_value_with_empty_strings = Value::Record {
-                cols: vec![String::from("")],
-                vals: vec![Value::string("", Span::unknown())],
+                val: Box::new(Record {
+                    cols: vec![String::from("")],
+                    vals: vec![Value::string("", Span::unknown())],
+                }),
                 span: Span::unknown(),
             };
             let one_column_with_a_string_and_one_cell_value_with_empty_string = Value::Record {
-                cols: vec![String::from("column")],
-                vals: vec![Value::string("", Span::unknown())],
+                val: Box::new(Record {
+                    cols: vec![String::from("column")],
+                    vals: vec![Value::string("", Span::unknown())],
+                }),
                 span: Span::unknown(),
             };
             let one_column_with_empty_string_and_one_value_with_a_string = Value::Record {
-                cols: vec![String::from("")],
-                vals: vec![Value::string("text", Span::unknown())],
+                val: Box::new(Record {
+                    cols: vec![String::from("")],
+                    vals: vec![Value::string("text", Span::unknown())],
+                }),
                 span: Span::unknown(),
             };
 
