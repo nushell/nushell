@@ -95,17 +95,9 @@ pub fn eval_hook(
         Value::Record { .. } => {
             let do_run_hook =
                 if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
-                    match condition {
-                        Value::Block {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        }
-                        | Value::Closure {
-                            val: block_id,
-                            span: block_span,
-                            ..
-                        } => {
+                    match condition.block_id() {
+                        Ok(block_id) => {
+                            let block_span = condition.span()?;
                             match run_hook_block(
                                 engine_state,
                                 stack,
@@ -132,11 +124,11 @@ pub fn eval_hook(
                                 }
                             }
                         }
-                        other => {
+                        Err(_) => {
                             return Err(ShellError::UnsupportedConfigValue(
                                 "block".to_string(),
-                                format!("{}", other.get_type()),
-                                other.span()?,
+                                format!("{}", condition.get_type()),
+                                condition.span()?,
                             ));
                         }
                     }
@@ -221,14 +213,14 @@ pub fn eval_hook(
                         )?;
                     }
                     Value::Closure {
-                        val: block_id,
+                        val,
                         span: block_span,
                         ..
                     } => {
                         run_hook_block(
                             engine_state,
                             stack,
-                            block_id,
+                            val.block_id,
                             input,
                             arguments,
                             block_span,
@@ -259,14 +251,14 @@ pub fn eval_hook(
             )?;
         }
         Value::Closure {
-            val: block_id,
+            val,
             span: block_span,
             ..
         } => {
             output = run_hook_block(
                 engine_state,
                 stack,
-                *block_id,
+                val.block_id,
                 input,
                 arguments,
                 *block_span,

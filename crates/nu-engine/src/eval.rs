@@ -5,7 +5,7 @@ use nu_protocol::{
         Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math,
         Operator, PathMember, PipelineElement, Redirection,
     },
-    engine::{EngineState, ProfilingConfig, Stack},
+    engine::{Closure, EngineState, ProfilingConfig, Stack},
     DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
     Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
@@ -568,8 +568,10 @@ pub fn eval_expression(
                 captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
             Ok(Value::Closure {
-                val: *block_id,
-                captures,
+                val: Box::new(Closure {
+                    block_id: *block_id,
+                    captures,
+                }),
                 span: expr.span,
             })
         }

@@ -508,10 +508,7 @@ impl FromValue for (Vec<String>, Vec<Value>) {
 impl FromValue for Closure {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Closure { val, captures, .. } => Ok(Closure {
-                block_id: *val,
-                captures: captures.clone(),
-            }),
+            Value::Closure { val, .. } => Ok(*val.clone()),
             Value::Block { val, .. } => Ok(Closure {
                 block_id: *val,
                 captures: HashMap::new(),
@@ -543,15 +540,8 @@ impl FromValue for Block {
 impl FromValue for Spanned<Closure> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Closure {
-                val,
-                captures,
-                span,
-            } => Ok(Spanned {
-                item: Closure {
-                    block_id: *val,
-                    captures: captures.clone(),
-                },
+            Value::Closure { val, span } => Ok(Spanned {
+                item: *val.clone(),
                 span: *span,
             }),
             v => Err(ShellError::CantConvert {

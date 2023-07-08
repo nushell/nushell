@@ -37,17 +37,6 @@ impl Command for ViewSource {
         let arg_span = arg.span()?;
 
         match arg {
-            Value::Block { val: block_id, .. } | Value::Closure { val: block_id, .. } => {
-                let block = engine_state.get_block(block_id);
-
-                if let Some(span) = block.span {
-                    let contents = engine_state.get_span_contents(&span);
-                    Ok(Value::string(String::from_utf8_lossy(contents), call.head)
-                        .into_pipeline_data())
-                } else {
-                    Ok(Value::string("<internal command>", call.head).into_pipeline_data())
-                }
-            }
             Value::String { val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
@@ -139,13 +128,27 @@ impl Command for ViewSource {
                     ))
                 }
             }
-            _ => Err(ShellError::GenericError(
-                "Cannot view value".to_string(),
-                "this value cannot be viewed".to_string(),
-                Some(arg_span),
-                None,
-                Vec::new(),
-            )),
+            x => {
+                if let Ok(block_id) = x.block_id() {
+                    let block = engine_state.get_block(block_id);
+
+                    if let Some(span) = block.span {
+                        let contents = engine_state.get_span_contents(&span);
+                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                            .into_pipeline_data())
+                    } else {
+                        Ok(Value::string("<internal command>", call.head).into_pipeline_data())
+                    }
+                } else {
+                    Err(ShellError::GenericError(
+                        "Cannot view value".to_string(),
+                        "this value cannot be viewed".to_string(),
+                        Some(arg_span),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            }
         }
     }
 

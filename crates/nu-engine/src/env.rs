@@ -350,12 +350,12 @@ fn get_converted_value(
         ];
 
         if let Ok(Value::Closure {
-            val: block_id,
+            val,
             span: from_span,
             ..
         }) = env_conversions.follow_cell_path_not_from_user_input(path_members, false)
         {
-            let block = engine_state.get_block(block_id);
+            let block = engine_state.get_block(val.block_id);
 
             if let Some(var) = block.signature.get_positional(0) {
                 let mut stack = stack.gather_captures(&block.captures);
