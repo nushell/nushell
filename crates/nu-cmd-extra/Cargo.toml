@@ -21,6 +21,15 @@ nu-utils = { path = "../nu-utils", version = "0.82.1" }
 
 # Potential dependencies for extras
 num-traits = "0.2"
+ahash = "0.8.3"
+nu-ansi-term = "0.48.0"
+fancy-regex = "0.11.0"
+rust-embed = "6.7.0"
+serde = "1.0.164"
+nu-pretty-hex = { version = "0.82.1", path = "../nu-pretty-hex" }
+nu-json = { version = "0.82.1", path = "../nu-json" }
+serde_urlencoded = "0.7.1"
+htmlescape = "0.3.1"
 
 [features]
 extra = ["default"]
@@ -28,4 +37,5 @@ default = []
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.82.1" }
+nu-command = { path = "../nu-command", version = "0.82.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.82.1" }

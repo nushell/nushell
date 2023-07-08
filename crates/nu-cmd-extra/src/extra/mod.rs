@@ -1,5 +1,10 @@
 mod bits;
 mod bytes;
+mod conversions;
+mod filters;
+mod formats;
+mod platform;
+mod strings;
 
 pub use bytes::Bytes;
 pub use bytes::BytesAdd;
@@ -40,6 +45,29 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             };
         }
 
+        bind_command!(conversions::Fmt);
+
+        bind_command!(
+            filters::UpdateCells,
+            filters::EachWhile,
+            filters::Roll,
+            filters::RollDown,
+            filters::RollUp,
+            filters::RollLeft,
+            filters::RollRight,
+            filters::Rotate
+        );
+
+        bind_command!(platform::ansi::Gradient, platform::ansi::Link);
+
+        bind_command!(
+            strings::format::Format,
+            strings::format::FileSize,
+            strings::encode_decode::EncodeHex,
+            strings::encode_decode::DecodeHex
+        );
+
+        bind_command!(formats::ToHtml, formats::FromUrl);
         // Bits
         bind_command! {
             Bits,

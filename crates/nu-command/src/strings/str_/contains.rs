@@ -29,7 +29,10 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str contains")
-            .input_output_types(vec![(Type::String, Type::Bool)])
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the substring to find")
             .rest(

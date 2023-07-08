@@ -39,7 +39,7 @@ impl Command for SubCommand {
             ])
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "For a record or table input, join strings at the given columns",
                 Some('c'),
             )

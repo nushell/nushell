@@ -25,7 +25,7 @@ impl Command for DropDuplicates {
         Signature::build(self.name())
             .optional(
                 "subset",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "subset of columns to drop duplicates",
             )
             .switch("maintain", "maintain order", Some('m'))
