@@ -4272,16 +4272,21 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             let if_span = output[position].span;
             position += 1;
 
-            let maybe_guard = working_set.get_span_contents(output[position].span);
-            if maybe_guard == b"=>" {
-                let err = ParseError::LabeledErrorWithHelp {
-                    error: "Match guard without an expression".into(),
-                    label: "expected an expression".into(),
-                    help: "The `if` keyword must be followed with an expression".into(),
-                    span: if_span,
-                };
+            let mk_err = || ParseError::LabeledErrorWithHelp {
+                error: "Match guard without an expression".into(),
+                label: "expected an expression".into(),
+                help: "The `if` keyword must be followed with an expression".into(),
+                span: if_span,
+            };
 
-                working_set.error(err)
+            let Some(maybe_guard) = output.get(position) else {
+                working_set.error(mk_err());
+                return garbage(span);
+            };
+
+            let maybe_guard = working_set.get_span_contents(maybe_guard.span);
+            if maybe_guard == b"=>" {
+                working_set.error(mk_err());
             } else {
                 let (tokens, found) = if let Some((pos, _)) = output[position..]
                     .iter()
@@ -4297,26 +4302,10 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                     working_set,
                     &tokens.iter().map(|tok| tok.span).collect_vec(),
                     &mut start,
-                    &SyntaxShape::OneOf(vec![
-                        SyntaxShape::Block,
-                        SyntaxShape::Expression,
-                        SyntaxShape::Boolean,
-                    ]),
+                    &SyntaxShape::MathExpression,
                 );
 
-                if guard.as_bool().is_none() {
-                    let err = ParseError::LabeledErrorWithHelp {
-                        error: "Match guard expression not a boolean".into(),
-                        label: "not an boolean expression".into(),
-                        help: "A match guard's expression should evaluate to a boolean".into(),
-                        span: guard.span,
-                    };
-
-                    working_set.error(err);
-                } else {
-                    pattern.guard = Some(guard);
-                }
-
+                pattern.guard = Some(guard);
                 position += if found { start + 1 } else { start };
                 connector = working_set.get_span_contents(output[position].span);
             }
