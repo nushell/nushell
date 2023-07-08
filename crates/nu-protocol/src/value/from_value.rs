@@ -500,10 +500,7 @@ impl FromValue for Record {
 impl FromValue for Closure {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Closure { val, captures, .. } => Ok(Closure {
-                block_id: *val,
-                captures: captures.clone(),
-            }),
+            Value::Closure { val, .. } => Ok(val.clone()),
             Value::Block { val, .. } => Ok(Closure {
                 block_id: *val,
                 captures: HashMap::new(),
@@ -536,11 +533,8 @@ impl FromValue for Spanned<Closure> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let span = v.span();
         match v {
-            Value::Closure { val, captures, .. } => Ok(Spanned {
-                item: Closure {
-                    block_id: *val,
-                    captures: captures.clone(),
-                },
+            Value::Closure { val, .. } => Ok(Spanned {
+                item: val.clone(),
                 span,
             }),
             v => Err(ShellError::CantConvert {

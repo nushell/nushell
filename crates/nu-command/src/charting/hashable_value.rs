@@ -178,7 +178,10 @@ impl PartialEq for HashableValue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::ast::{CellPath, PathMember};
+    use nu_protocol::{
+        ast::{CellPath, PathMember},
+        engine::Closure,
+    };
     use std::collections::{HashMap, HashSet};
 
     #[test]
@@ -237,7 +240,13 @@ mod test {
         let span = Span::test_data();
         let values = [
             Value::list(vec![Value::bool(true, span)], span),
-            Value::closure(0, HashMap::new(), span),
+            Value::closure(
+                Closure {
+                    block_id: 0,
+                    captures: HashMap::new(),
+                },
+                span,
+            ),
             Value::nothing(span),
             Value::error(ShellError::DidYouMean("what?".to_string(), span), span),
             Value::cell_path(

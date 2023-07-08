@@ -9,9 +9,9 @@ mod unit;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, MatchPattern, PathMember};
 use crate::ast::{Math, Operator};
-use crate::engine::EngineState;
+use crate::engine::{Closure, EngineState};
 use crate::ShellError;
-use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type};
 
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
@@ -26,7 +26,6 @@ use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::Write;
 use std::{
     borrow::Cow,
@@ -109,8 +108,7 @@ pub enum Value {
         internal_span: Span,
     },
     Closure {
-        val: BlockId,
-        captures: HashMap<VarId, Value>,
+        val: Closure,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         internal_span: Span,
@@ -202,13 +200,8 @@ impl Clone for Value {
                 val: *val,
                 internal_span: *internal_span,
             },
-            Value::Closure {
-                val,
-                captures,
-                internal_span,
-            } => Value::Closure {
-                val: *val,
-                captures: captures.clone(),
+            Value::Closure { val, internal_span } => Value::Closure {
+                val: val.clone(),
                 internal_span: *internal_span,
             },
             Value::Nothing { internal_span } => Value::Nothing {
@@ -443,7 +436,7 @@ impl Value {
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
-            Value::Closure { val, .. } => Ok(*val),
+            Value::Closure { val, .. } => Ok(val.block_id),
             x => Err(ShellError::CantConvert {
                 to_type: "block".into(),
                 from_type: x.get_type().to_string(),
@@ -453,9 +446,9 @@ impl Value {
         }
     }
 
-    pub fn as_closure(&self) -> Result<(BlockId, &HashMap<VarId, Value>), ShellError> {
+    pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         match self {
-            Value::Closure { val, captures, .. } => Ok((*val, captures)),
+            Value::Closure { val, .. } => Ok(val),
             x => Err(ShellError::CantConvert {
                 to_type: "closure".into(),
                 from_type: x.get_type().to_string(),
@@ -732,7 +725,7 @@ impl Value {
                 collected.into_string(separator, config)
             }
             Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
@@ -787,7 +780,7 @@ impl Value {
                 Err(error) => format!("{error:?}"),
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
@@ -895,7 +888,7 @@ impl Value {
                 Err(error) => format!("{error:?}"),
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
@@ -1836,10 +1829,9 @@ impl Value {
         }
     }
 
-    pub fn closure(val: BlockId, captures: HashMap<VarId, Value>, span: Span) -> Value {
+    pub fn closure(val: Closure, span: Span) -> Value {
         Value::Closure {
             val,
-            captures,
             internal_span: span,
         }
     }
@@ -1961,8 +1953,8 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_closure(val: BlockId, captures: HashMap<VarId, Value>) -> Value {
-        Value::closure(val, captures, Span::test_data())
+    pub fn test_closure(val: Closure) -> Value {
+        Value::closure(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -2288,7 +2280,7 @@ impl PartialOrd for Value {
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
-                Value::Closure { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
