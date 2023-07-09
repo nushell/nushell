@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 struct Arguments {
@@ -82,41 +82,25 @@ impl Command for BytesReplace {
             Example {
                 description: "Find and replace contents",
                 example: "0x[10 AA FF AA FF] | bytes replace 0x[10 AA] 0x[FF]",
-                result: Some(Value::Binary {
-                    val: vec![0xFF, 0xFF, 0xAA, 0xFF],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_binary([0xFF, 0xFF, 0xAA, 0xFF])),
             },
             Example {
                 description: "Find and replace all occurrences of find binary",
                 example: "0x[10 AA 10 BB 10] | bytes replace -a 0x[10] 0x[A0]",
-                result: Some(Value::Binary {
-                    val: vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_binary([0xA0, 0xAA, 0xA0, 0xBB, 0xA0])),
             },
             Example {
                 description: "Find and replace all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace -a 0x[11] 0x[13] ColA ColC",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            Value::Binary {
-                                val: vec![0x13, 0x12, 0x13],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x14, 0x15, 0x16],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x17, 0x18, 0x19],
-                                span: Span::test_data(),
-                            },
+                            Value::test_binary([0x13, 0x12, 0x13]),
+                            Value::test_binary([0x14, 0x15, 0x16]),
+                            Value::test_binary([0x17, 0x18, 0x19]),
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
