@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -35,7 +37,7 @@ impl Command for FromUrl {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
             description: "Convert url encoded string into a record",
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec![
                     "bread".to_string(),
                     "cheese".to_string(),
@@ -48,8 +50,7 @@ impl Command for FromUrl {
                     Value::test_string("ham"),
                     Value::test_string("butter"),
                 ],
-                span: Span::test_data(),
-            }),
+            })),
         }]
     }
 }
@@ -60,23 +61,16 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);
 
     match result {
-        Ok(result) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
-            for (k, v) in result {
-                cols.push(k);
-                vals.push(Value::String { val: v, span: head })
-            }
-
-            Ok(PipelineData::Value(
-                Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                },
-                metadata,
-            ))
-        }
+        Ok(result) => Ok(PipelineData::Value(
+            Value::record(
+                result
+                    .into_iter()
+                    .map(|(k, v)| (k, Value::string(v, head)))
+                    .collect(),
+                head,
+            ),
+            metadata,
+        )),
         _ => Err(ShellError::UnsupportedInput(
             "String not compatible with URL encoding".to_string(),
             "value originates from here".into(),

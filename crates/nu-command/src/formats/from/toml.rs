@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -27,17 +28,16 @@ impl Command for FromToml {
             Example {
                 example: "'a = 1' | from toml",
                 description: "Converts toml formatted string to record",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::test_int(1)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 example: "'a = 1
 b = [1, 2]' | from toml",
                 description: "Converts toml formatted string to record",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
                         Value::test_int(1),
@@ -46,8 +46,7 @@ b = [1, 2]' | from toml",
                             span: Span::test_data(),
                         },
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
@@ -79,17 +78,12 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
         toml::Value::Boolean(b) => Value::Bool { val: *b, span },
         toml::Value::Float(f) => Value::Float { val: *f, span },
         toml::Value::Integer(i) => Value::Int { val: *i, span },
-        toml::Value::Table(k) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
-
-            for item in k {
-                cols.push(item.0.clone());
-                vals.push(convert_toml_to_value(item.1, span));
-            }
-
-            Value::Record { cols, vals, span }
-        }
+        toml::Value::Table(k) => Value::record(
+            k.into_iter()
+                .map(|(k, v)| (k.clone(), convert_toml_to_value(v, span)))
+                .collect(),
+            span,
+        ),
         toml::Value::String(s) => Value::String {
             val: s.clone(),
             span,

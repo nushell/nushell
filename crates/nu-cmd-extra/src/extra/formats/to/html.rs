@@ -306,14 +306,10 @@ fn to_html(
                     n.foreground,
                 ]
                 .into_iter()
-                .map(|val| Value::String { val, span: head })
+                .map(|val| Value::string(val, head))
                 .collect();
 
-                Value::Record {
-                    cols: cols.clone(),
-                    vals,
-                    span: head,
-                }
+                Value::record_from_parts(cols.clone(), vals, head)
             })
             .collect();
         return Ok(Value::List {

@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::io::Cursor;
@@ -208,9 +208,9 @@ fn to_tag_like<W: Write>(
         // Allow tag to have no attributes or content for short hand input
         // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
         // content: null}, {tag: a}. See to_xml_entry for more
-        let (attr_cols, attr_values) = match attrs {
-            Value::Record { cols, vals, .. } => (cols, vals),
-            Value::Nothing { .. } => (Vec::new(), Vec::new()),
+        let record = match attrs {
+            Value::Record { val, .. } => *val,
+            Value::Nothing { .. } => Record::new(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -234,15 +234,7 @@ fn to_tag_like<W: Write>(
             }
         };
 
-        to_tag(
-            entry_span,
-            tag,
-            tag_span,
-            attr_cols,
-            attr_values,
-            content,
-            writer,
-        )
+        to_tag(entry_span, tag, tag_span, record, content, writer)
     }
 }
 
@@ -305,8 +297,7 @@ fn to_tag<W: Write>(
     entry_span: Span,
     tag: String,
     tag_span: Span,
-    attr_cols: Vec<String>,
-    attr_vals: Vec<Value>,
+    record: Record,
     children: Vec<Value>,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
@@ -322,7 +313,7 @@ fn to_tag<W: Write>(
         });
     }
 
-    let attributes = parse_attributes(attr_cols, attr_vals)?;
+    let attributes = parse_attributes(record)?;
     let mut open_tag_event = BytesStart::new(tag.clone());
     add_attributes(&mut open_tag_event, &attributes);
 
@@ -350,12 +341,9 @@ fn to_tag<W: Write>(
         })
 }
 
-fn parse_attributes(
-    cols: Vec<String>,
-    vals: Vec<Value>,
-) -> Result<IndexMap<String, String>, ShellError> {
+fn parse_attributes(record: Record) -> Result<IndexMap<String, String>, ShellError> {
     let mut h = IndexMap::new();
-    for (k, v) in cols.into_iter().zip(vals.into_iter()) {
+    for (k, v) in record {
         if let Value::String { val, .. } = v {
             h.insert(k, val);
         } else {

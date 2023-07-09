@@ -56,11 +56,7 @@ fn from_delimited_string_to_value(
                 });
             }
         }
-        rows.push(Value::Record {
-            cols: headers.clone(),
-            vals: output_row,
-            span,
-        });
+        rows.push(Value::record_from_parts(headers.clone(), output_row, span));
     }
 
     Ok(Value::List { vals: rows, span })

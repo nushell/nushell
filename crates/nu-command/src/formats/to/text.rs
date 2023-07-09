@@ -136,9 +136,8 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .map(|x| local_into_string(x.clone(), ", ", config))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Record { cols, vals, .. } => cols
+        Value::Record { val, .. } => val
             .iter()
-            .zip(vals.iter())
             .map(|(x, y)| format!("{}: {}", x, local_into_string(y.clone(), ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
@@ -151,7 +150,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Nothing { .. } => String::new(),
         Value::Error { error } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
+        Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
         Value::MatchPattern { val, .. } => format!("{:?}", val),
     }

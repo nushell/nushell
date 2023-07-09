@@ -132,10 +132,10 @@ fn from_xlsx(
         sheet_names.retain(|e| sel_sheets.contains(e));
     }
 
-    for sheet_name in &sheet_names {
+    for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
-        if let Some(Ok(current_sheet)) = xlsx.worksheet_range(sheet_name) {
+        if let Some(Ok(current_sheet)) = xlsx.worksheet_range(&sheet_name) {
             for row in current_sheet.rows() {
                 let mut row_output = IndexMap::new();
                 for (i, cell) in row.iter().enumerate() {
@@ -151,22 +151,7 @@ fn from_xlsx(
                     row_output.insert(format!("column{i}"), value);
                 }
 
-                let (cols, vals) =
-                    row_output
-                        .into_iter()
-                        .fold((vec![], vec![]), |mut acc, (k, v)| {
-                            acc.0.push(k);
-                            acc.1.push(v);
-                            acc
-                        });
-
-                let record = Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                };
-
-                sheet_output.push(record);
+                sheet_output.push(Value::record_from_iter(row_output, head));
             }
 
             dict.insert(
@@ -186,19 +171,10 @@ fn from_xlsx(
         }
     }
 
-    let (cols, vals) = dict.into_iter().fold((vec![], vec![]), |mut acc, (k, v)| {
-        acc.0.push(k.clone());
-        acc.1.push(v);
-        acc
-    });
-
-    let record = Value::Record {
-        cols,
-        vals,
-        span: head,
-    };
-
-    Ok(PipelineData::Value(record, None))
+    Ok(PipelineData::Value(
+        Value::record_from_iter(dict, head),
+        None,
+    ))
 }
 
 #[cfg(test)]
