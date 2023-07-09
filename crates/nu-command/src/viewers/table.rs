@@ -2,12 +2,11 @@ use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
 use nu_engine::{env::get_config, env_to_string, CallExt};
-use nu_protocol::Record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_table::{
     BuildConfig, Cell, CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult,

@@ -2,10 +2,9 @@ use indexmap::indexmap;
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::record;
 use nu_protocol::{
-    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::Call, engine::Command, record, Category, Example, IntoInterruptiblePipelineData,
+    IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 

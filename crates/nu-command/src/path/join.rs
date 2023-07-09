@@ -4,10 +4,9 @@ use std::path::{Path, PathBuf};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::Record;
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;

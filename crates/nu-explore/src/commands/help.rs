@@ -2,10 +2,9 @@ use std::collections::HashMap;
 use std::io::{self, Result};
 
 use crossterm::event::KeyEvent;
-use nu_protocol::record;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    record, Value,
 };
 use ratatui::layout::Rect;
 
