@@ -2898,13 +2898,13 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
         }]);
     } else {
         working_set.error(ParseError::UnknownState(
-            "internal error: let or const statements not found in core language".into(),
+            "internal error: let statement not found in core language".into(),
             span(spans),
         ))
     }
 
     working_set.error(ParseError::UnknownState(
-        "internal error: let or const statement unparsable".into(),
+        "internal error: let statement unparsable".into(),
         span(spans),
     ));
 
