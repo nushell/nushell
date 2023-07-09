@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    record, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type,
     Value,
 };
 
@@ -31,50 +31,22 @@ impl Command for Headers {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let columns = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let record = Value::test_record(record! {
+            a => Value::test_string("1"),
+            b => Value::test_string("2"),
+            c => Value::test_string("3")
+        });
+
         vec![
             Example {
                 description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: columns.clone(),
-                        vals: vec![
-                            Value::test_string("1"),
-                            Value::test_string("2"),
-                            Value::test_string("3"),
-                        ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![record.clone()])),
             },
             Example {
                 description: "Columns which don't have data in their first row are removed",
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: columns.clone(),
-                            vals: vec![
-                                Value::test_string("1"),
-                                Value::test_string("2"),
-                                Value::test_string("3"),
-                            ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: columns,
-                            vals: vec![
-                                Value::test_string("1"),
-                                Value::test_string("2"),
-                                Value::test_string("3"),
-                            ],
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![record.clone(), record])),
             },
         ]
     }
@@ -102,19 +74,18 @@ fn replace_headers(
     new_headers: &[String],
 ) -> Result<Value, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
-            let (cols, vals) = cols
+        Value::Record { val, span } => {
+            let record = val
                 .into_iter()
-                .zip(vals)
                 .filter_map(|(col, val)| {
                     old_headers
                         .iter()
                         .position(|c| c == &col)
                         .map(|i| (new_headers[i].clone(), val))
                 })
-                .unzip();
+                .collect();
 
-            Ok(Value::Record { cols, vals, span })
+            Ok(Value::record(record, span))
         }
         Value::List { vals, span } => {
             let vals = vals
@@ -148,8 +119,8 @@ fn extract_headers(
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
     match value {
-        Value::Record { cols, vals, .. } => {
-            for v in vals {
+        Value::Record { val, .. } => {
+            for v in &val.vals {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
                         err_message: "needs compatible type: Null, String, Bool, Float, Int"
@@ -159,8 +130,9 @@ fn extract_headers(
                 }
             }
 
-            let old_headers = cols.to_vec();
-            let new_headers = vals
+            let old_headers = val.cols.clone();
+            let new_headers = val
+                .vals
                 .iter()
                 .enumerate()
                 .map(|(idx, value)| {

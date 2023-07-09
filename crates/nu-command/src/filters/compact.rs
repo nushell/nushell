@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -63,11 +63,10 @@ impl Command for Compact {
                 description: "Filter out all records where 'World' is null (Returns the table)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["Hello".into(), "World".into()],
                         vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },

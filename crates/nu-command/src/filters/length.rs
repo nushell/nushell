@@ -2,8 +2,8 @@ use nu_engine::column::get_columns;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -125,9 +125,7 @@ fn getcol(
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
         PipelineData::Value(..) | PipelineData::ExternalStream { .. } => {
-            let cols = vec![];
-            let vals = vec![];
-            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+            Ok(Value::record(Record::new(), span).into_pipeline_data())
         }
     }
 }

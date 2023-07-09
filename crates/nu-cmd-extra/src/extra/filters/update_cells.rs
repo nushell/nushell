@@ -2,7 +2,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Block, Call};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
@@ -51,30 +51,15 @@ impl Command for UpdateCells {
             $value
           }
     }"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "2021-04-16".into(),
-                            "2021-06-10".into(),
-                            "2021-09-18".into(),
-                            "2021-10-15".into(),
-                            "2021-11-16".into(),
-                            "2021-11-17".into(),
-                            "2021-11-18".into(),
-                        ],
-                        vals: vec![
-                            Value::test_int(37),
-                            Value::test_string(""),
-                            Value::test_string(""),
-                            Value::test_string(""),
-                            Value::test_int(37),
-                            Value::test_string(""),
-                            Value::test_string(""),
-                        ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "2021-04-16" => Value::test_int(37),
+                    "2021-06-10" => Value::test_string(""),
+                    "2021-09-18" => Value::test_string(""),
+                    "2021-10-15" => Value::test_string(""),
+                    "2021-11-16" => Value::test_int(37),
+                    "2021-11-17" => Value::test_string(""),
+                    "2021-11-18" => Value::test_string(""),
+                })])),
             },
             Example {
                 description: "Update the zero value cells to empty strings in 2 last columns.",
@@ -88,30 +73,15 @@ impl Command for UpdateCells {
               $value
             }
     }"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "2021-04-16".into(),
-                            "2021-06-10".into(),
-                            "2021-09-18".into(),
-                            "2021-10-15".into(),
-                            "2021-11-16".into(),
-                            "2021-11-17".into(),
-                            "2021-11-18".into(),
-                        ],
-                        vals: vec![
-                            Value::test_int(37),
-                            Value::test_int(0),
-                            Value::test_int(0),
-                            Value::test_int(0),
-                            Value::test_int(37),
-                            Value::test_string(""),
-                            Value::test_string(""),
-                        ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "2021-04-16" => Value::test_int(37),
+                    "2021-06-10" => Value::test_int(0),
+                    "2021-09-18" => Value::test_int(0),
+                    "2021-10-15" => Value::test_int(0),
+                    "2021-11-16" => Value::test_int(37),
+                    "2021-11-17" => Value::test_string(""),
+                    "2021-11-18" => Value::test_string(""),
+                })])),
             },
         ]
     }
@@ -194,10 +164,11 @@ impl Iterator for UpdateCellIterator {
                 }
 
                 match val {
-                    Value::Record { vals, cols, span } => Some(Value::Record {
-                        vals: cols
+                    Value::Record { val, span } => {
+                        let vals = val
+                            .cols
                             .iter()
-                            .zip(vals.into_iter())
+                            .zip(val.vals)
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(col) => val,
                                 _ => process_cell(
@@ -210,10 +181,10 @@ impl Iterator for UpdateCellIterator {
                                     span,
                                 ),
                             })
-                            .collect(),
-                        cols,
-                        span,
-                    }),
+                            .collect();
+
+                        Some(Value::record_from_parts(val.cols, vals, span))
+                    }
                     val => Some(process_cell(
                         val,
                         &self.engine_state,

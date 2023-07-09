@@ -55,38 +55,22 @@ fn horizontal_rotate_value(
     direction: &HorizontalDirection,
 ) -> Result<Value, ShellError> {
     match value {
-        Value::Record {
-            mut cols,
-            mut vals,
-            span,
-        } => {
-            let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
+        Value::Record { mut val, span } => {
+            let rotations = by.map(|n| n % val.vals.len()).unwrap_or(1);
 
-            let columns = if cells_only {
-                cols
-            } else {
-                let columns = cols.as_mut_slice();
-
+            if !cells_only {
                 match direction {
-                    HorizontalDirection::Right => columns.rotate_right(rotations),
-                    HorizontalDirection::Left => columns.rotate_left(rotations),
+                    HorizontalDirection::Right => val.cols.rotate_right(rotations),
+                    HorizontalDirection::Left => val.cols.rotate_left(rotations),
                 }
-
-                columns.to_owned()
             };
 
-            let values = vals.as_mut_slice();
-
             match direction {
-                HorizontalDirection::Right => values.rotate_right(rotations),
-                HorizontalDirection::Left => values.rotate_left(rotations),
+                HorizontalDirection::Right => val.vals.rotate_right(rotations),
+                HorizontalDirection::Left => val.vals.rotate_left(rotations),
             }
 
-            Ok(Value::Record {
-                cols: columns,
-                vals: values.to_owned(),
-                span,
-            })
+            Ok(Value::record(*val, span))
         }
         Value::List { vals, span } => {
             let values = vals

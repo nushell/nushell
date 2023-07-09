@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -52,33 +52,47 @@ impl Command for Update {
             Example {
                 description: "Update a column value",
                 example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["name".into(), "stars".into()],
                     vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Use in closure form for more involved updating logic",
                 example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["count".into(), "fruit".into()],
                         vals: vec![Value::test_int(5), Value::test_string("apple")],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Alter each value in the 'authors' column to use a single string instead of a list",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
-                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(Record {
+                            cols: vec!["project".into(), "authors".into()],
+                            vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")],
+                        })
+                    ],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "You can also use a simple command to update 'authors' to a single string",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
-                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(Record {
+                            cols: vec!["project".into(), "authors".into()],
+                            vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")],
+                        }),
+                    ],
+                    span: Span::test_data()
+                }),
             }
         ]
     }

@@ -3,8 +3,8 @@ use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError, Signature,
-    Span, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Record,
+    ShellError, Signature, Span, Type, Value,
 };
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
@@ -120,21 +120,16 @@ impl Command for Uniq {
             Example {
                 description: "Return a table containing the distinct input values together with their counts",
                 example: "[1 2 2] | uniq -c",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(1)],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_int(2)],
-                            span: Span::test_data(),
-                        },
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(Record {
+                        cols: vec!["value".to_string(), "count".to_string()],
+                        vals: vec![Value::test_int(1), Value::test_int(1)],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["value".to_string(), "count".to_string()],
+                        vals: vec![Value::test_int(2), Value::test_int(2)],
+                    }),
+                ])),
             },
         ]
     }
@@ -176,7 +171,7 @@ impl ValueCounter {
         ValueCounter {
             val,
             val_to_compare: if flag_ignore_case {
-                clone_to_lowercase(&vals_to_compare.with_span(Span::unknown()))
+                clone_to_lowercase(vals_to_compare.with_span(Span::unknown()))
             } else {
                 vals_to_compare.with_span(Span::unknown())
             },
@@ -186,53 +181,30 @@ impl ValueCounter {
     }
 }
 
-fn clone_to_lowercase(value: &Value) -> Value {
+fn clone_to_lowercase(value: Value) -> Value {
     match value {
-        Value::String { val: s, span } => Value::String {
-            val: s.clone().to_lowercase(),
-            span: *span,
-        },
-        Value::List { vals: vec, span } => Value::List {
-            vals: vec
-                .clone()
-                .into_iter()
-                .map(|v| clone_to_lowercase(&v))
-                .collect(),
-            span: *span,
-        },
-        Value::Record { cols, vals, span } => Value::Record {
-            cols: cols.clone(),
-            vals: vals
-                .clone()
-                .into_iter()
-                .map(|v| clone_to_lowercase(&v))
-                .collect(),
-            span: *span,
-        },
-        other => other.clone(),
+        Value::String { val, span } => Value::string(val.to_lowercase(), span),
+        Value::List { vals, span } => {
+            Value::list(vals.into_iter().map(clone_to_lowercase).collect(), span)
+        }
+        Value::Record { val, span } => Value::record_from_parts(
+            val.cols,
+            val.vals.into_iter().map(clone_to_lowercase).collect(),
+            span,
+        ),
+        other => other,
     }
 }
 
 fn sort_attributes(val: Value) -> Value {
     match val {
-        Value::Record { cols, vals, span } => {
-            let sorted = cols
+        Value::Record { val, span } => {
+            let (cols, vals): (Vec<_>, Vec<_>) = val
                 .into_iter()
-                .zip(vals)
-                .sorted_by(|a, b| a.0.cmp(&b.0))
-                .collect_vec();
-
-            let sorted_cols = sorted.clone().into_iter().map(|a| a.0).collect_vec();
-            let sorted_vals = sorted
-                .into_iter()
-                .map(|a| sort_attributes(a.1))
-                .collect_vec();
-
-            Value::Record {
-                cols: sorted_cols,
-                vals: sorted_vals,
-                span,
-            }
+                .sorted_by(|(c1, _), (c2, _)| c1.cmp(c2))
+                .unzip();
+            let vals = vals.into_iter().map(sort_attributes).collect_vec();
+            Value::record_from_parts(cols, vals, span)
         }
         Value::List { vals, span } => Value::List {
             vals: vals.into_iter().map(sort_attributes).collect_vec(),
@@ -250,10 +222,14 @@ fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
     uniq_values
         .into_iter()
-        .map(|item| Value::Record {
-            cols: vec!["value".to_string(), "count".to_string()],
-            vals: vec![item.val, Value::int(item.count, head)],
-            span: head,
+        .map(|item| {
+            Value::record(
+                record! {
+                    value => item.val,
+                    count => Value::int(item.count, head),
+                },
+                head,
+            )
         })
         .collect()
 }

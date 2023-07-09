@@ -69,7 +69,7 @@ impl Command for UniqBy {
         let metadata = input.metadata();
 
         let vec: Vec<_> = input.into_iter().collect();
-        match validate(vec.clone(), &columns, call.head) {
+        match validate(&vec, &columns, call.head) {
             Ok(_) => {}
             Err(err) => {
                 return Err(err);
@@ -87,15 +87,15 @@ impl Command for UniqBy {
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
             result: Some(Value::List {
                 vals: vec![
-                    Value::test_record(
+                    Value::test_record_from_parts(
                         vec!["fruit", "count"],
                         vec![Value::test_string("apple"), Value::test_int(9)],
                     ),
-                    Value::test_record(
+                    Value::test_record_from_parts(
                         vec!["fruit", "count"],
                         vec![Value::test_string("pear"), Value::test_int(3)],
                     ),
-                    Value::test_record(
+                    Value::test_record_from_parts(
                         vec!["fruit", "count"],
                         vec![Value::test_string("orange"), Value::test_int(7)],
                     ),
@@ -106,10 +106,9 @@ impl Command for UniqBy {
     }
 }
 
-fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
+fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellError> {
     if let Some(Value::Record {
-        cols,
-        vals: _input_vals,
+        val,
         span: val_span,
     }) = vec.first()
     {
@@ -124,7 +123,7 @@ fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), Sh
             ));
         }
 
-        if let Some(nonexistent) = nonexistent_column(columns.clone(), cols.to_vec()) {
+        if let Some(nonexistent) = nonexistent_column(columns, &val.cols) {
             return Err(ShellError::CantFindColumn {
                 col_name: nonexistent,
                 span,

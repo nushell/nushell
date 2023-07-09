@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -44,11 +44,7 @@ impl Command for DropColumn {
         let columns: Option<i64> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 
-        let columns_to_drop = if let Some(quantity) = columns {
-            quantity
-        } else {
-            1
-        };
+        let columns_to_drop = columns.unwrap_or(1);
 
         // Make columns to drop is positive
         if columns_to_drop < 0 {
@@ -64,21 +60,16 @@ impl Command for DropColumn {
         vec![Example {
             description: "Remove the last column of a table",
             example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
-            result: Some(Value::List {
-                vals: vec![
-                    Value::Record {
-                        cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-lib")],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
-                        cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-core")],
-                        span: Span::test_data(),
-                    },
-                ],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_list(vec![
+                Value::test_record(Record {
+                    cols: vec!["lib".into()],
+                    vals: vec![Value::test_string("nu-lib")],
+                }),
+                Value::test_record(Record {
+                    cols: vec!["lib".into()],
+                    vals: vec![Value::test_string("nu-core")],
+                }),
+            ])),
         }]
     }
 }
@@ -105,15 +96,14 @@ fn dropcol(
             keep_columns = get_cellpath_columns(kc, span);
 
             for input_val in input_vals {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
 
                 for path in &keep_columns {
                     let fetcher = input_val.clone().follow_cell_path(&path.members, false)?;
-                    cols.push(path.into_string());
-                    vals.push(fetcher);
+                    record.push(path.to_string(), fetcher);
                 }
-                output.push(Value::Record { cols, vals, span })
+
+                output.push(Value::record(record, span));
             }
 
             Ok(output
@@ -129,15 +119,14 @@ fn dropcol(
             keep_columns = get_cellpath_columns(kc, span);
 
             for input_val in v {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
 
                 for path in &keep_columns {
                     let fetcher = input_val.clone().follow_cell_path(&path.members, false)?;
-                    cols.push(path.into_string());
-                    vals.push(fetcher);
+                    record.push(path.to_string(), fetcher);
                 }
-                output.push(Value::Record { cols, vals, span })
+
+                output.push(Value::record(record, span));
             }
 
             Ok(output
@@ -145,17 +134,14 @@ fn dropcol(
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
         PipelineData::Value(v, ..) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
 
-            for cell_path in &keep_columns {
-                let result = v.clone().follow_cell_path(&cell_path.members, false)?;
-
-                cols.push(cell_path.into_string());
-                vals.push(result);
+            for path in &keep_columns {
+                let fetcher = v.clone().follow_cell_path(&path.members, false)?;
+                record.push(path.to_string(), fetcher);
             }
 
-            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+            Ok(Value::record(record, span).into_pipeline_data())
         }
         x => Ok(x),
     }
@@ -164,7 +150,7 @@ fn dropcol(
 fn get_input_cols(input: Vec<Value>) -> Vec<String> {
     let rec = input.first();
     match rec {
-        Some(Value::Record { cols, vals: _, .. }) => cols.to_vec(),
+        Some(Value::Record { val, .. }) => val.cols.clone(),
         _ => vec!["".to_string()],
     }
 }

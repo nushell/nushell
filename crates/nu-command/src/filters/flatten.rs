@@ -4,7 +4,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -82,28 +82,36 @@ impl Command for Flatten {
             Example {
                 description: "Flatten inner table",
                 example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten d --all",
-                result: Some(Value::List{
+                result: Some(Value::List {
                     vals: vec![
-                        Value::Record{
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(1), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
-                        },
-                        Value::Record{
+                            vals: vec![
+                                Value::test_string("b"),
+                                Value::test_int(1),
+                                Value::test_list(vec![Value::test_int(4), Value::test_int(3)])],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
-                        },
-                        Value::Record{
+                            vals: vec![
+                                Value::test_string("b"),
+                                Value::test_int(2),
+                                Value::test_list(vec![Value::test_int(4), Value::test_int(3)])],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(3), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
-                        },
-                        Value::Record{
+                            vals: vec![
+                                Value::test_string("b"),
+                                Value::test_int(3),
+                                Value::test_list(vec![Value::test_int(4), Value::test_int(3)])],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(4), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
-                            span: Span::test_data()
-                        }
+                            vals: vec![
+                                Value::test_string("b"),
+                                Value::test_int(4),
+                                Value::test_list(vec![Value::test_int(4), Value::test_int(3)])],
+                        }),
                     ],
                     span: Span::test_data(),
                 }),
@@ -157,105 +165,70 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
         Err(e) => return vec![Value::Error { error: Box::new(e) }],
     };
 
-    let res = {
-        if item.as_record().is_ok() {
+    match item {
+        Value::Record { val, span } => {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
-            let records = match item {
-                Value::Record {
-                    cols,
-                    vals,
-                    span: _,
-                } => (cols, vals),
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { .. } => return vec![item.clone()],
-                other => {
-                    return vec![Value::Error {
-                        error: Box::new(ShellError::OnlySupportsThisInputType {
-                            exp_input_type: "record".into(),
-                            wrong_type: other.get_type().to_string(),
-                            dst_span: _name_tag,
-                            src_span: other.expect_span(),
-                        }),
-                    }];
-                }
-            };
-
-            let s = match item.span() {
-                Ok(x) => x,
-                Err(e) => return vec![Value::Error { error: Box::new(e) }],
-            };
-
-            let records_iterator = {
-                let cols = records.0;
-                let vals = records.1;
-
-                let mut pairs = vec![];
-                for i in 0..cols.len() {
-                    pairs.push((cols[i].as_str(), &vals[i]));
-                }
-                pairs
-            };
-
-            for (column_index, (column, value)) in records_iterator.into_iter().enumerate() {
-                let column_requested = columns.iter().find(|c| c.into_string() == *column);
+            for (column_index, (column, value)) in val.iter().enumerate() {
+                let column_requested = columns.iter().find(|c| c.to_string() == *column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
 
                 match value {
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: _,
-                    } => {
+                    Value::Record { val, .. } => {
                         if need_flatten {
-                            cols.iter().enumerate().for_each(|(idx, inner_record_col)| {
-                                if out.contains_key(inner_record_col) {
-                                    out.insert(
-                                        format!("{column}_{inner_record_col}"),
-                                        vals[idx].clone(),
-                                    );
-                                } else {
-                                    out.insert(inner_record_col.to_string(), vals[idx].clone());
-                                }
-                            })
+                            val.cols
+                                .iter()
+                                .enumerate()
+                                .for_each(|(idx, inner_record_col)| {
+                                    if out.contains_key(inner_record_col) {
+                                        out.insert(
+                                            format!("{column}_{inner_record_col}"),
+                                            val.vals[idx].clone(),
+                                        );
+                                    } else {
+                                        out.insert(
+                                            inner_record_col.to_string(),
+                                            val.vals[idx].clone(),
+                                        );
+                                    }
+                                })
                         } else if out.contains_key(column) {
                             out.insert(format!("{column}_{column}"), value.clone());
                         } else {
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List { vals, span }
-                        if all && vals.iter().all(|f| f.as_record().is_ok()) =>
-                    {
+                    Value::List {
+                        vals,
+                        span: list_span,
+                    } if all && vals.iter().all(|f| f.as_record().is_ok()) => {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::Error{ error: Box::new(ShellError::UnsupportedInput(
-                                    "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                    "value originates from here".into(),
-                                    s,
-                                    *span
-                                ))}
-                            ];
+                                "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
+                                "value originates from here".into(),
+                                *span,
+                                *list_span
+                            ))}
+                        ];
                         }
                         // it's a table (a list of record, we can flatten inner record)
-                        let mut cs = vec![];
-                        let mut vs = vec![];
-
-                        for v in vals {
-                            if let Ok(r) = v.as_record() {
-                                cs.push(r.0);
-                                vs.push(r.1)
-                            }
-                        }
 
                         if need_flatten {
-                            let cols = cs.into_iter().map(|f| f.to_vec());
-                            let vals = vs.into_iter().map(|f| f.to_vec());
+                            let (cols, vals) = vals
+                                .iter()
+                                .filter_map(|v| match v {
+                                    Value::Record { val, .. } => {
+                                        Some((val.cols.clone(), val.vals.clone()))
+                                    }
+                                    _ => None,
+                                })
+                                .unzip();
 
                             inner_table = Some(TableInside::FlattenedRows {
-                                columns: cols.collect(),
-                                _span: &s,
-                                values: vals.collect(),
+                                columns: cols,
+                                _span: span,
+                                values: vals,
                                 parent_column_name: column,
                                 parent_column_index: column_index,
                             });
@@ -265,15 +238,18 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List { vals: values, span } => {
+                    Value::List {
+                        vals: values,
+                        span: list_span,
+                    } => {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::Error{ error: Box::new(ShellError::UnsupportedInput(
-                                    "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                    "value originates from here".into(),
-                                    s,
-                                    *span
-                                ))}
-                            ];
+                                "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
+                                "value originates from here".into(),
+                                *span,
+                                *list_span
+                            ))}
+                        ];
                         }
 
                         if !columns.is_empty() {
@@ -286,7 +262,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             if let Some(r) = cell_path {
                                 inner_table = Some(TableInside::Entries(
                                     r,
-                                    &s,
+                                    span,
                                     values.iter().collect::<Vec<_>>(),
                                     column_index,
                                 ));
@@ -296,7 +272,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                         } else {
                             inner_table = Some(TableInside::Entries(
                                 column,
-                                &s,
+                                span,
                                 values.iter().collect::<Vec<_>>(),
                                 column_index,
                             ));
@@ -313,42 +289,35 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                 Some(TableInside::Entries(column, _, entries, parent_column_index)) => {
                     for entry in entries {
                         let base = out.clone();
-                        let (mut record_cols, mut record_vals) = (vec![], vec![]);
+                        let mut record = Record::new();
                         let mut index = 0;
                         for (col, val) in base.into_iter() {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
                             if index == parent_column_index {
-                                record_cols.push(column.to_string());
-                                record_vals.push(entry.clone());
+                                record.push(column, entry.clone());
                             }
-                            record_cols.push(col);
-                            record_vals.push(val);
+                            record.push(col, val);
                             index += 1;
                         }
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
-                            record_cols.push(column.to_string());
-                            record_vals.push(entry.clone());
+                            record.push(column, entry.clone());
                         }
-                        let record = Value::Record {
-                            cols: record_cols,
-                            vals: record_vals,
-                            span: tag,
-                        };
-                        expanded.push(record);
+
+                        expanded.push(Value::record(record, tag));
                     }
                 }
                 Some(TableInside::FlattenedRows {
                     columns,
-                    _span,
                     values,
                     parent_column_name,
                     parent_column_index,
+                    ..
                 }) => {
                     for (inner_cols, inner_vals) in columns.into_iter().zip(values) {
                         let base = out.clone();
-                        let (mut record_cols, mut record_vals) = (vec![], vec![]);
+                        let mut record = Record::new();
                         let mut index = 0;
 
                         for (base_col, base_val) in base.into_iter() {
@@ -356,60 +325,44 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 for (col, val) in inner_cols.iter().zip(inner_vals.iter()) {
-                                    if record_cols.contains(col) {
-                                        record_cols.push(format!("{parent_column_name}_{col}"));
+                                    let col = if record.cols.contains(col) {
+                                        format!("{parent_column_name}_{col}")
                                     } else {
-                                        record_cols.push(col.to_string());
-                                    }
-                                    record_vals.push(val.clone());
+                                        col.to_owned()
+                                    };
+                                    record.push(col, val.clone());
                                 }
                             }
 
-                            record_cols.push(base_col);
-                            record_vals.push(base_val);
+                            record.push(base_col, base_val);
                             index += 1;
                         }
 
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
                             for (col, val) in inner_cols.iter().zip(inner_vals.iter()) {
-                                if record_cols.contains(col) {
-                                    record_cols.push(format!("{parent_column_name}_{col}"));
+                                let col = if record.cols.contains(col) {
+                                    format!("{parent_column_name}_{col}")
                                 } else {
-                                    record_cols.push(col.to_string());
-                                }
-                                record_vals.push(val.clone());
+                                    col.to_string()
+                                };
+
+                                record.push(col, val.clone());
                             }
                         }
-                        let record = Value::Record {
-                            cols: record_cols,
-                            vals: record_vals,
-                            span: tag,
-                        };
-                        expanded.push(record);
+
+                        expanded.push(Value::record(record, tag));
                     }
                 }
                 None => {
-                    let record = Value::Record {
-                        cols: out.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
-                        vals: out.values().cloned().collect(),
-                        span: tag,
-                    };
-                    expanded.push(record);
+                    expanded.push(Value::record_from_iter(out, tag));
                 }
             }
             expanded
-        } else if item.as_list().is_ok() {
-            if let Value::List { vals, span: _ } = item {
-                vals.to_vec()
-            } else {
-                vec![]
-            }
-        } else {
-            vec![item.clone()]
         }
-    };
-    res
+        Value::List { vals, .. } => vals.clone(),
+        value => vec![value.clone()],
+    }
 }
 
 #[cfg(test)]

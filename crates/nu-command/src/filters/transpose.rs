@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -88,16 +88,14 @@ impl Command for Transpose {
                 example: "[[c1 c2]; [1 2]] | transpose",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("c1"), Value::test_int(1)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("c2"), Value::test_int(2)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -107,16 +105,14 @@ impl Command for Transpose {
                 example: "[[c1 c2]; [1 2]] | transpose key val",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["key".to_string(), "val".to_string()],
                             vals: vec![Value::test_string("c1"), Value::test_int(1)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["key".to_string(), "val".to_string()],
                             vals: vec![Value::test_string("c2"), Value::test_int(2)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -127,16 +123,14 @@ impl Command for Transpose {
                 example: "[[c1 c2]; [1 2]] | transpose -i val",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["val".to_string()],
                             vals: vec![Value::test_int(1)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["val".to_string()],
                             vals: vec![Value::test_int(2)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -144,11 +138,10 @@ impl Command for Transpose {
             Example {
                 description: "Transfer back to record with -d flag",
                 example: "{c1: 1, c2: 2} | transpose | transpose -i -r -d",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["c1".to_string(), "c2".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span,
-                }),
+                })),
             },
         ]
     }
@@ -246,24 +239,27 @@ pub fn transpose(
         .into_iter()
         .map(move |desc| {
             let mut column_num: usize = 0;
-            let mut cols = vec![];
-            let mut vals = vec![];
+
+            let mut record = Record::new();
 
             if !args.ignore_titles && !args.header_row {
-                cols.push(headers[column_num].clone());
-                vals.push(Value::string(desc.clone(), name));
-                column_num += 1
+                record.push(
+                    headers[column_num].clone(),
+                    Value::string(desc.clone(), name),
+                );
+                column_num += 1;
             }
 
             for i in input.clone() {
                 match &i.get_data_by_key(&desc) {
                     Some(x) => {
-                        if args.keep_all && cols.contains(&headers[column_num]) {
-                            let index = cols
+                        if args.keep_all && record.cols.contains(&headers[column_num]) {
+                            let index = record
+                                .cols
                                 .iter()
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
-                            let new_val = match &vals[index] {
+                            let new_val = match &record.vals[index] {
                                 Value::List { vals, span } => {
                                     let mut vals = vals.clone();
                                     vals.push(x.clone());
@@ -277,32 +273,31 @@ pub fn transpose(
                                     span: v.expect_span(),
                                 },
                             };
-                            cols.remove(index);
-                            vals.remove(index);
+                            record.cols.remove(index);
+                            record.vals.remove(index);
 
-                            cols.push(headers[column_num].clone());
-                            vals.push(new_val);
-                        } else if args.keep_last && cols.contains(&headers[column_num]) {
-                            let index = cols
+                            record.push(headers[column_num].clone(), new_val);
+                        } else if args.keep_last && record.cols.contains(&headers[column_num]) {
+                            let index = record
+                                .cols
                                 .iter()
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
-                            cols.remove(index);
-                            vals.remove(index);
-                            cols.push(headers[column_num].clone());
-                            vals.push(x.clone());
-                        } else if !cols.contains(&headers[column_num]) {
-                            cols.push(headers[column_num].clone());
-                            vals.push(x.clone());
+                            record.cols.remove(index);
+                            record.vals.remove(index);
+                            record.push(headers[column_num].clone(), x.clone());
+                        } else if !record.cols.contains(&headers[column_num]) {
+                            record.push(headers[column_num].clone(), x.clone());
                         }
                     }
                     _ => {
-                        if args.keep_all && cols.contains(&headers[column_num]) {
-                            let index = cols
+                        if args.keep_all && record.cols.contains(&headers[column_num]) {
+                            let index = record
+                                .cols
                                 .iter()
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
-                            let new_val = match &vals[index] {
+                            let new_val = match &record.vals[index] {
                                 Value::List { vals, span } => {
                                     let mut vals = vals.clone();
                                     vals.push(Value::nothing(name));
@@ -316,34 +311,28 @@ pub fn transpose(
                                     span: v.expect_span(),
                                 },
                             };
-                            cols.remove(index);
-                            vals.remove(index);
+                            record.cols.remove(index);
+                            record.vals.remove(index);
 
-                            cols.push(headers[column_num].clone());
-                            vals.push(new_val);
-                        } else if args.keep_last && cols.contains(&headers[column_num]) {
-                            let index = cols
+                            record.push(headers[column_num].clone(), new_val);
+                        } else if args.keep_last && record.cols.contains(&headers[column_num]) {
+                            let index = record
+                                .cols
                                 .iter()
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
-                            cols.remove(index);
-                            vals.remove(index);
-                            cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
-                        } else if !cols.contains(&headers[column_num]) {
-                            cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
+                            record.cols.remove(index);
+                            record.vals.remove(index);
+                            record.push(headers[column_num].clone(), Value::nothing(name));
+                        } else if !record.cols.contains(&headers[column_num]) {
+                            record.push(headers[column_num].clone(), Value::nothing(name));
                         }
                     }
                 }
                 column_num += 1;
             }
 
-            Value::Record {
-                cols,
-                vals,
-                span: name,
-            }
+            Value::record(record, name)
         })
         .collect::<Vec<Value>>();
     if result_data.len() == 1 && args.as_record {

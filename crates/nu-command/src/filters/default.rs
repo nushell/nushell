@@ -85,30 +85,25 @@ fn default(
     if let Some(column) = column {
         input.map(
             move |item| match item {
-                Value::Record {
-                    mut cols,
-                    mut vals,
-                    span,
-                } => {
+                Value::Record { mut val, span } => {
                     let mut idx = 0;
                     let mut found = false;
 
-                    while idx < cols.len() {
-                        if cols[idx] == column.item {
+                    while idx < val.cols.len() {
+                        if val.cols[idx] == column.item {
                             found = true;
-                            if matches!(vals[idx], Value::Nothing { .. }) {
-                                vals[idx] = value.clone();
+                            if matches!(val.vals[idx], Value::Nothing { .. }) {
+                                val.vals[idx] = value.clone();
                             }
                         }
                         idx += 1;
                     }
 
                     if !found {
-                        cols.push(column.item.clone());
-                        vals.push(value.clone());
+                        val.push(column.item.clone(), value.clone());
                     }
 
-                    Value::Record { cols, vals, span }
+                    Value::Record { val, span }
                 }
                 _ => item,
             },
