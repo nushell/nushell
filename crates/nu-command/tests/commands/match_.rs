@@ -202,12 +202,7 @@ fn match_doesnt_overwrite_variable() {
 fn match_with_guard() {
     let actual = nu!(
         cwd: ".",
-        "
-        match [1 2 3] {
-            [$x, ..$y] if $x mod 2 == 0 => { $x },
-            $x => { $x + 1 }
-        }
-        "
+        "match [1 2 3] { [$x, ..$y] if $x mod 2 == 0 => { $x }, $x => { $x + 1 } }"
     );
 
     assert_eq!(actual.out, "2");
@@ -217,12 +212,7 @@ fn match_with_guard() {
 fn match_with_guard_block_as_guard() {
     let actual = nu!(
         cwd: ".",
-        "
-        match 4 {
-            $x if { $x + 20 > 25 } => { 'good num' }
-            _ => { 'terrible num' }
-        }
-        "
+        "match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }"
     );
 
     assert_eq!(actual.out, "terrible num");
@@ -232,12 +222,7 @@ fn match_with_guard_block_as_guard() {
 fn match_with_guard_parens_expr_as_guard() {
     let actual = nu!(
         cwd: ".",
-        "
-        match 4 {
-            $x if ($x + 20 > 25) => { 'good num' }
-            _ => { 'terrible num' }
-        }
-        "
+        "match 4 { $x if ($x + 20 > 25) => { 'good num' }, _ => { 'terrible num' } }"
     );
 
     assert_eq!(actual.out, "terrible num");
@@ -247,12 +232,7 @@ fn match_with_guard_parens_expr_as_guard() {
 fn match_with_guard_not_bool() {
     let actual = nu!(
         cwd: ".",
-        "
-        match 4 {
-            $x if $x + 1 => { 'err!()' }
-            _ => { 'unreachable!()' }
-        }
-        "
+        "match 4 { $x if $x + 1 => { 'err!()' }, _ => { 'unreachable!()' } }"
     );
 
     assert_eq!(actual.err, "not a boolean expression");
@@ -262,12 +242,7 @@ fn match_with_guard_not_bool() {
 fn match_with_guard_no_expr_after_if() {
     let actual = nu!(
         cwd: ".",
-        "
-        match 4 {
-            $x if  => { 'err!()' }
-            _ => { 'unreachable!()' }
-        }
-        "
+        "match 4 { $x if  => { 'err!()' }, _ => { 'unreachable!()' } }"
     );
 
     assert_eq!(actual.err, "expected an expression");
