@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_protocol::{ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
+use nu_protocol::{
+    ast::PathMember, record, ListStream, PipelineData, PipelineMetadata, RawStream, Record, Value,
+};
 
 use super::NuSpan;
 
@@ -48,57 +50,40 @@ fn collect_external_stream(
     metadata: Option<PipelineMetadata>,
     span: NuSpan,
 ) -> (Vec<String>, Vec<Vec<Value>>) {
-    let mut columns = vec![];
-    let mut data = vec![];
-    if let Some(stdout) = stdout {
-        let value = stdout.into_string().map_or_else(
-            |error| Value::Error {
-                error: Box::new(error),
-            },
-            |string| Value::string(string.item, span),
-        );
+    let mut record = Record::new();
 
-        columns.push(String::from("stdout"));
-        data.push(value);
+    if let Some(stdout) = stdout {
+        let value = stdout
+            .into_string()
+            .map_or_else(Value::error, |string| Value::string(string.item, span));
+
+        record.push("stdout", value);
     }
     if let Some(stderr) = stderr {
-        let value = stderr.into_string().map_or_else(
-            |error| Value::Error {
-                error: Box::new(error),
-            },
-            |string| Value::string(string.item, span),
-        );
+        let value = stderr
+            .into_string()
+            .map_or_else(Value::error, |string| Value::string(string.item, span));
 
-        columns.push(String::from("stderr"));
-        data.push(value);
+        record.push("stderr", value);
     }
     if let Some(exit_code) = exit_code {
-        let list = exit_code.collect::<Vec<_>>();
-        let val = Value::List { vals: list, span };
-
-        columns.push(String::from("exit_code"));
-        data.push(val);
+        record.push("exit_code", Value::list(exit_code.collect(), span));
     }
     if metadata.is_some() {
-        let val = Value::Record {
-            cols: vec![String::from("data_source")],
-            vals: vec![Value::String {
-                val: String::from("ls"),
-                span,
-            }],
-            span,
+        let r = record! {
+            data_source => Value::string("ls", span),
         };
 
-        columns.push(String::from("metadata"));
-        data.push(val);
+        record.push("metadata", Value::record(r, span));
     }
-    (columns, vec![data])
+
+    (record.cols, vec![record.vals])
 }
 
 /// Try to build column names and a table grid.
 pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     match value {
-        Value::Record { cols, vals, .. } => (cols, vec![vals]),
+        Value::Record { val, .. } => (val.cols, vec![val.vals]),
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
@@ -191,30 +176,14 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
 }
 
 pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
-    let (cols, inner_vals) = value.as_record().ok()?;
-
-    let mut hm: HashMap<String, Value> = HashMap::new();
-    for (k, v) in cols.iter().zip(inner_vals) {
-        hm.insert(k.to_string(), v.clone());
-    }
-
-    Some(hm)
+    value
+        .as_record()
+        .ok()
+        .map(|record| record.iter_cloned().collect())
 }
 
 pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
-    let mut columns = Vec::with_capacity(hm.len());
-    let mut values = Vec::with_capacity(hm.len());
-
-    for (key, value) in hm {
-        columns.push(key);
-        values.push(value);
-    }
-
-    Value::Record {
-        cols: columns,
-        vals: values,
-        span: NuSpan::unknown(),
-    }
+    Value::record_from_iter(hm, NuSpan::unknown())
 }
 
 pub fn nu_str<S: AsRef<str>>(s: S) -> Value {

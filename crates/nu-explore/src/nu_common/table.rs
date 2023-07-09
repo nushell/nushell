@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Span, Value};
+use nu_protocol::{Record, Span, Value};
 use nu_table::{value_to_clean_styled_string, value_to_styled_string, BuildConfig, ExpandedTable};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -14,9 +14,7 @@ pub fn try_build_table(
 ) -> String {
     match value {
         Value::List { vals, span } => try_build_list(vals, ctrlc, config, span, style_computer),
-        Value::Record { cols, vals, span } => {
-            try_build_map(cols, vals, span, style_computer, ctrlc, config)
-        }
+        Value::Record { val, span } => try_build_map(*val, span, style_computer, ctrlc, config),
         val if matches!(val, Value::String { .. }) => {
             value_to_clean_styled_string(&val, config, style_computer).0
         }
@@ -25,19 +23,18 @@ pub fn try_build_table(
 }
 
 fn try_build_map(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     span: Span,
     style_computer: &StyleComputer,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &NuConfig,
 ) -> String {
     let opts = BuildConfig::new(ctrlc, config, style_computer, Span::unknown(), usize::MAX);
-    let result = ExpandedTable::new(None, false, String::new()).build_map(&cols, &vals, opts);
+    let result = ExpandedTable::new(None, false, String::new()).build_map(&record, opts);
     match result {
         Ok(Some(result)) => result,
         Ok(None) | Err(_) => {
-            value_to_styled_string(&Value::Record { cols, vals, span }, config, style_computer).0
+            value_to_styled_string(&Value::record(record, span), config, style_computer).0
         }
     }
 }

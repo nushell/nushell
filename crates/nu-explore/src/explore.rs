@@ -243,7 +243,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     {
         let mut hm = config
             .get("status")
-            .and_then(parse_hash_map)
+            .and_then(create_map)
             .unwrap_or_default();
 
         insert_style(&mut hm, "info", STATUS_INFO);
@@ -254,10 +254,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     }
 
     {
-        let mut hm = config
-            .get("table")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
+        let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
 
         insert_style(&mut hm, "split_line", TABLE_SPLIT_LINE);
         insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
@@ -273,10 +270,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     }
 
     {
-        let mut hm = config
-            .get("try")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
+        let mut hm = config.get("try").and_then(create_map).unwrap_or_default();
 
         insert_style(&mut hm, "border_color", TRY_BORDER_COLOR);
 
@@ -286,23 +280,13 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     {
         let mut hm = config
             .get("config")
-            .and_then(parse_hash_map)
+            .and_then(create_map)
             .unwrap_or_default();
 
         insert_style(&mut hm, "cursor_color", CONFIG_CURSOR_COLOR);
 
         config.insert(String::from("config"), map_into_value(hm));
     }
-}
-
-fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
-    value.as_record().ok().map(|(cols, vals)| {
-        cols.iter()
-            .take(vals.len())
-            .zip(vals)
-            .map(|(col, val)| (col.clone(), val.clone()))
-            .collect::<HashMap<_, _>>()
-    })
 }
 
 const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
@@ -347,19 +331,13 @@ fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &Style
     let line_color = lookup_color(style_computer, "separator");
     if line_color != nu_ansi_term::Style::default() {
         {
-            let mut map = config
-                .get("table")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
+            let mut map = config.get("table").and_then(create_map).unwrap_or_default();
             insert_style(&mut map, "split_line", line_color);
             config.insert(String::from("table"), map_into_value(map));
         }
 
         {
-            let mut map = config
-                .get("try")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
+            let mut map = config.get("try").and_then(create_map).unwrap_or_default();
             insert_style(&mut map, "border_color", line_color);
             config.insert(String::from("try"), map_into_value(map));
         }
@@ -367,7 +345,7 @@ fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &Style
         {
             let mut map = config
                 .get("config")
-                .and_then(parse_hash_map)
+                .and_then(create_map)
                 .unwrap_or_default();
 
             insert_style(&mut map, "border_color", line_color);

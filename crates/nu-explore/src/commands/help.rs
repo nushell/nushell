@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{self, Result};
 
 use crossterm::event::KeyEvent;
+use nu_protocol::record;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -169,19 +170,12 @@ fn help_frame_data(
 
             let (cols, mut vals) = help_manual_data(manual, aliases);
             let vals = vals.remove(0);
-            Value::Record {
-                cols,
-                vals,
-                span: NuSpan::unknown(),
-            }
+
+            Value::record_from_parts(cols, vals, NuSpan::unknown())
         })
         .collect();
-    let commands = Value::List {
-        vals: commands,
-        span: NuSpan::unknown(),
-    };
 
-    collect_input(commands)
+    collect_input(Value::list(commands, NuSpan::unknown()))
 }
 
 fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
@@ -192,49 +186,51 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
     let arguments = manual
         .arguments
         .iter()
-        .map(|e| Value::Record {
-            cols: vec![String::from("example"), String::from("description")],
-            vals: vec![nu_str(&e.example), nu_str(&e.description)],
-            span: NuSpan::unknown(),
+        .map(|e| {
+            Value::record(
+                record! {
+                    example => nu_str(&e.example),
+                    description => nu_str(&e.description),
+                },
+                NuSpan::unknown(),
+            )
         })
         .collect();
 
-    let arguments = Value::List {
-        vals: arguments,
-        span: NuSpan::unknown(),
-    };
+    let arguments = Value::list(arguments, NuSpan::unknown());
 
     let examples = manual
         .examples
         .iter()
-        .map(|e| Value::Record {
-            cols: vec![String::from("example"), String::from("description")],
-            vals: vec![nu_str(&e.example), nu_str(&e.description)],
-            span: NuSpan::unknown(),
+        .map(|e| {
+            Value::record(
+                record! {
+                    example => nu_str(&e.example),
+                    description => nu_str(&e.description),
+                },
+                NuSpan::unknown(),
+            )
         })
         .collect();
-    let examples = Value::List {
-        vals: examples,
-        span: NuSpan::unknown(),
-    };
+
+    let examples = Value::list(examples, NuSpan::unknown());
 
     let inputs = manual
         .input
         .iter()
-        .map(|e| Value::Record {
-            cols: vec![
-                String::from("name"),
-                String::from("context"),
-                String::from("description"),
-            ],
-            vals: vec![nu_str(&e.code), nu_str(&e.context), nu_str(&e.description)],
-            span: NuSpan::unknown(),
+        .map(|e| {
+            Value::record(
+                record! {
+                    name => nu_str(&e.code),
+                    context => nu_str(&e.context),
+                    description => nu_str(&e.description),
+                },
+                NuSpan::unknown(),
+            )
         })
         .collect();
-    let inputs = Value::List {
-        vals: inputs,
-        span: NuSpan::unknown(),
-    };
+
+    let inputs = Value::list(inputs, NuSpan::unknown());
 
     let configuration = manual
         .config_options
@@ -243,38 +239,29 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
             let values = o
                 .values
                 .iter()
-                .map(|v| Value::Record {
-                    cols: vec![String::from("example"), String::from("description")],
-                    vals: vec![nu_str(&v.example), nu_str(&v.description)],
-                    span: NuSpan::unknown(),
+                .map(|v| {
+                    Value::record(
+                        record! {
+                            example => nu_str(&v.example),
+                            description => nu_str(&v.description),
+                        },
+                        NuSpan::unknown(),
+                    )
                 })
                 .collect();
-            let values = Value::List {
-                vals: values,
-                span: NuSpan::unknown(),
+
+            let record = record! {
+                name => nu_str(&o.group),
+                context => nu_str(&o.key),
+                description => nu_str(&o.description),
+                values => Value::list(values, NuSpan::unknown()),
             };
 
-            Value::Record {
-                cols: vec![
-                    String::from("name"),
-                    String::from("context"),
-                    String::from("description"),
-                    String::from("values"),
-                ],
-                vals: vec![
-                    nu_str(&o.group),
-                    nu_str(&o.key),
-                    nu_str(&o.description),
-                    values,
-                ],
-                span: NuSpan::unknown(),
-            }
+            Value::record(record, NuSpan::unknown())
         })
         .collect();
-    let configuration = Value::List {
-        vals: configuration,
-        span: NuSpan::unknown(),
-    };
+
+    let configuration = Value::list(configuration, NuSpan::unknown());
 
     let name = nu_str(&manual.name);
     let aliases = nu_str(&aliases.join(", "));
