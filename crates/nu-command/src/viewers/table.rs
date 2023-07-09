@@ -2,6 +2,7 @@ use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
 use nu_engine::{env::get_config, env_to_string, CallExt};
+use nu_protocol::Record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -165,16 +166,14 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -184,16 +183,14 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -203,16 +200,14 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -274,12 +269,11 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+        PipelineData::Value(Value::Record { val, span }, ..) => {
             let term_width = get_width_param(term_width);
 
             handle_record(
-                cols,
-                vals,
+                *val,
                 span,
                 engine_state,
                 stack,
@@ -342,8 +336,7 @@ fn supported_table_modes() -> Vec<Value> {
 
 #[allow(clippy::too_many_arguments)]
 fn handle_record(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -357,11 +350,11 @@ fn handle_record(
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     let ctrlc1 = ctrlc.clone();
 
-    let result = if cols.is_empty() {
+    let result = if record.is_empty() {
         create_empty_placeholder("record", term_width, engine_state, stack)
     } else {
         let opts = BuildConfig::new(ctrlc, config, style_computer, span, term_width);
-        let result = build_table_kv(cols, vals, table_view, opts)?;
+        let result = build_table_kv(record, table_view, opts)?;
         match result {
             Some(output) => maybe_strip_color(output, config),
             None => report_unsuccessful_output(ctrlc1, term_width),
@@ -386,27 +379,18 @@ fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize
     }
 }
 
-fn build_table_kv(
-    cols: Vec<String>,
-    vals: Vec<Value>,
-    table_view: TableView,
-    opts: BuildConfig<'_>,
-) -> StringResult {
+fn build_table_kv(record: Record, table_view: TableView, opts: BuildConfig<'_>) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(&cols, &vals, opts),
+        TableView::General => JustTable::kv_table(&record.cols, &record.vals, opts),
         TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
+            ExpandedTable::new(limit, flatten, sep).build_map(&record, opts)
         }
-        TableView::Collapsed => {
-            let span = opts.span();
-            let value = Value::Record { cols, vals, span };
-            CollapsedTable::build(value, opts)
-        }
+        TableView::Collapsed => CollapsedTable::build(Value::record(record, opts.span()), opts),
     }
 }
 
@@ -458,23 +442,19 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
-                        let mut idx = 0;
-
-                        while idx < cols.len() {
+                    Value::Record { val: record, .. } => {
+                        for (col, val) in record.iter_mut() {
                             // Only the name column gets special colors, for now
-                            if cols[idx] == "name" {
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let val = render_path_name(val, &config, &ls_colors, *span);
-                                    if let Some(val) = val {
-                                        vals[idx] = val;
+                            if col == "name" {
+                                if let Value::String { val: s, span } = val {
+                                    if let Some(new_val) =
+                                        render_path_name(s, &config, &ls_colors, *span)
+                                    {
+                                        *val = new_val;
                                     }
                                 }
                             }
-
-                            idx += 1;
                         }
-
                         x
                     }
                     _ => x,
@@ -490,30 +470,23 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
-                        let mut idx = 0;
+                    Value::Record { val: record, .. } => {
                         // Every column in the HTML theme table except 'name' is colored
-                        while idx < cols.len() {
-                            if cols[idx] != "name" {
+                        for (col, val) in record.iter_mut() {
+                            if col != "name" {
                                 // Simple routine to grab the hex code, convert to a style,
                                 // then place it in a new Value::String.
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let s = match color_from_hex(val) {
-                                        Ok(c) => match c {
-                                            // .normal() just sets the text foreground color.
-                                            Some(c) => c.normal(),
-                                            None => nu_ansi_term::Style::default(),
-                                        },
-                                        Err(_) => nu_ansi_term::Style::default(),
-                                    };
-                                    vals[idx] = Value::String {
-                                        // Apply the style (ANSI codes) to the string
-                                        val: s.paint(val).to_string(),
-                                        span: *span,
-                                    };
+                                if let Value::String { val: s, span } = &*val {
+                                    // .normal() just sets the text foreground color.
+                                    let style = color_from_hex(s)
+                                        .ok()
+                                        .flatten()
+                                        .map_or(nu_ansi_term::Style::default(), |c| c.normal());
+
+                                    // Apply the style (ANSI codes) to the string
+                                    *val = Value::string(style.paint(s).to_string(), *span);
                                 }
                             }
-                            idx += 1;
                         }
                         x
                     }

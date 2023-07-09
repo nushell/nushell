@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,31 +33,22 @@ impl Command for ViewFiles {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut records = vec![];
+        let records = engine_state
+            .files()
+            .map(|(file, start, end)| {
+                Value::record(
+                    record! {
+                        filename => Value::string(file, call.head),
+                        start => Value::int(*start as i64, call.head),
+                        end => Value::int(*end as i64, call.head),
+                        size => Value::int(*end as i64 - *start as i64, call.head),
+                    },
+                    call.head,
+                )
+            })
+            .collect();
 
-        for (file, start, end) in engine_state.files() {
-            records.push(Value::Record {
-                cols: vec![
-                    "filename".to_string(),
-                    "start".to_string(),
-                    "end".to_string(),
-                    "size".to_string(),
-                ],
-                vals: vec![
-                    Value::string(file, call.head),
-                    Value::int(*start as i64, call.head),
-                    Value::int(*end as i64, call.head),
-                    Value::int(*end as i64 - *start as i64, call.head),
-                ],
-                span: call.head,
-            });
-        }
-
-        Ok(Value::List {
-            vals: records,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::list(records, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -112,6 +112,8 @@ impl Command for SubCommand {
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
+        use nu_protocol::Record;
+
         vec![
             Example {
                 description: "Get basename of a path",
@@ -122,11 +124,10 @@ impl Command for SubCommand {
                 description: "Get basename of a path by column",
                 example: "[[name];[/home/joe]] | path basename -c [ name ]",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("joe")],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },

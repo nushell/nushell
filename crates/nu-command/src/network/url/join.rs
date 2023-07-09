@@ -92,16 +92,11 @@ impl Command for SubCommand {
         let output: Result<String, ShellError> = input
             .into_iter()
             .map(move |value| match value {
-                Value::Record {
-                    ref cols,
-                    ref vals,
-                    span,
-                } => {
-                    let url_components = cols
-                        .iter()
-                        .zip(vals.iter())
+                Value::Record { val, span } => {
+                    let url_components = val
+                        .into_iter()
                         .fold(Ok(UrlComponents::new()), |url, (k, v)| {
-                            url?.add_component(k.clone(), v.clone(), span)
+                            url?.add_component(k, v, span)
                         });
 
                     url_components?.to_url(span)
@@ -176,18 +171,10 @@ impl UrlComponents {
 
         if key == "params" {
             return match value {
-                Value::Record {
-                    ref cols,
-                    ref vals,
-                    span,
-                } => {
-                    let mut qs = cols
+                Value::Record { val, span } => {
+                    let mut qs = val
                         .iter()
-                        .zip(vals.iter())
-                        .map(|(k, v)| match v.as_string() {
-                            Ok(val) => Ok(format!("{k}={val}")),
-                            Err(err) => Err(err),
-                        })
+                        .map(|(k, v)| v.as_string().map(|val| format!("{k}={val}")))
                         .collect::<Result<Vec<String>, ShellError>>()?
                         .join("&");
 
@@ -202,7 +189,7 @@ impl UrlComponents {
                             // if query is present it means that also query_span is set.
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("Mismatch, qs from params is: {qs}"),
-                                left_span: value.expect_span(),
+                                left_span: Value::record(*val, span).expect_span(),
                                 right_message: format!("instead query is: {q}"),
                                 right_span: self.query_span.unwrap_or(Span::unknown()),
                             });

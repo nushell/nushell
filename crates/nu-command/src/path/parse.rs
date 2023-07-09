@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::Record;
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Type, Value,
@@ -85,7 +86,7 @@ On Windows, an extra 'prefix' column is added."#
             Example {
                 description: "Parse a single path",
                 example: r"'C:\Users\viking\spam.txt' | path parse",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec![
                         "prefix".into(),
                         "parent".into(),
@@ -98,8 +99,7 @@ On Windows, an extra 'prefix' column is added."#
                         Value::test_string("spam"),
                         Value::test_string("txt"),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Replace a complex extension",
@@ -109,7 +109,7 @@ On Windows, an extra 'prefix' column is added."#
             Example {
                 description: "Ignore the extension",
                 example: r"'C:\Users\viking.d' | path parse -e ''",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec![
                         "prefix".into(),
                         "parent".into(),
@@ -122,8 +122,7 @@ On Windows, an extra 'prefix' column is added."#
                         Value::test_string("viking.d"),
                         Value::test_string(""),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Parse all paths under the 'name' column",
@@ -139,15 +138,14 @@ On Windows, an extra 'prefix' column is added."#
             Example {
                 description: "Parse a path",
                 example: r"'/home/viking/spam.txt' | path parse",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["parent".into(), "stem".into(), "extension".into()],
                     vals: vec![
                         Value::test_string("/home/viking"),
                         Value::test_string("spam"),
                         Value::test_string("txt"),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Replace a complex extension",
@@ -157,15 +155,14 @@ On Windows, an extra 'prefix' column is added."#
             Example {
                 description: "Ignore the extension",
                 example: r"'/etc/conf.d' | path parse -e ''",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["parent".into(), "stem".into(), "extension".into()],
                     vals: vec![
                         Value::test_string("/etc"),
                         Value::test_string("conf.d"),
                         Value::test_string(""),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Parse all paths under the 'name' column",
@@ -237,7 +234,7 @@ fn parse(path: &Path, span: Span, args: &Arguments) -> Value {
         }
     }
 
-    Value::from(Spanned { item: map, span })
+    Value::record_from_iter(map, span)
 }
 
 #[cfg(test)]

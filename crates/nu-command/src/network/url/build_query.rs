@@ -65,16 +65,12 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
     let output: Result<String, ShellError> = input
         .into_iter()
         .map(move |value| match value {
-            Value::Record {
-                ref cols,
-                ref vals,
-                span,
-            } => {
+            Value::Record { val, span } => {
                 let mut row_vec = vec![];
-                for (k, v) in cols.iter().zip(vals.iter()) {
+                for (k, v) in val.iter() {
                     match v.as_string() {
                         Ok(s) => {
-                            row_vec.push((k.clone(), s.to_string()));
+                            row_vec.push((k.clone(), s));
                         }
                         _ => {
                             return Err(ShellError::UnsupportedInput(
@@ -91,7 +87,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                     Ok(s) => Ok(s),
                     _ => Err(ShellError::CantConvert {
                         to_type: "URL".into(),
-                        from_type: value.get_type().to_string(),
+                        from_type: Value::record(*val, span).get_type().to_string(),
                         span: head,
                         help: None,
                     }),

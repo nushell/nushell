@@ -22,7 +22,7 @@ pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
 pub use split::SubCommand as PathSplit;
 
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{Record, ShellError, Span, Value};
 
 #[cfg(windows)]
 const ALLOWED_COLUMNS: [&str; 4] = ["prefix", "parent", "stem", "extension"];
@@ -40,7 +40,7 @@ where
 {
     match v {
         Value::String { val, span } => cmd(StdPath::new(&val), span, args),
-        Value::Record { cols, vals, span } => {
+        Value::Record { val, span } => {
             let col = if let Some(col) = args.get_columns() {
                 col
             } else {
@@ -57,27 +57,22 @@ where
                 };
             }
 
-            let mut output_cols = vec![];
-            let mut output_vals = vec![];
+            let mut record = Record::new();
 
-            for (k, v) in cols.iter().zip(vals) {
-                output_cols.push(k.clone());
-                if col.contains(k) {
-                    let new_val = match v {
+            for (k, v) in *val {
+                let v = if col.contains(&k) {
+                    match v {
                         Value::String { val, span } => cmd(StdPath::new(&val), span, args),
                         _ => return handle_invalid_values(v, name),
-                    };
-                    output_vals.push(new_val);
+                    }
                 } else {
-                    output_vals.push(v);
-                }
+                    v
+                };
+
+                record.push(k, v);
             }
 
-            Value::Record {
-                cols: output_cols,
-                vals: output_vals,
-                span,
-            }
+            Value::record(record, span)
         }
         _ => handle_invalid_values(v, name),
     }

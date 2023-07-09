@@ -7,12 +7,14 @@ use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Record;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -180,10 +182,7 @@ impl Command for Ls {
         Ok(paths_peek
             .filter_map(move |x| match x {
                 Ok(path) => {
-                    let metadata = match std::fs::symlink_metadata(&path) {
-                        Ok(metadata) => Some(metadata),
-                        Err(_) => None,
-                    };
+                    let metadata = std::fs::symlink_metadata(&path).ok();
                     if path_contains_hidden_folder(&path, &hidden_dirs) {
                         return None;
                     }
@@ -431,219 +430,133 @@ pub(crate) fn dir_entry_dict(
         ));
     }
 
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
     let mut file_type = "unknown".to_string();
 
-    cols.push("name".into());
-    vals.push(Value::String {
-        val: display_name.to_string(),
-        span,
-    });
+    record.push("name", Value::string(display_name, span));
 
     if let Some(md) = metadata {
         file_type = get_file_type(md, display_name, use_mime_type);
-        cols.push("type".into());
-        vals.push(Value::String {
-            val: file_type.clone(),
-            span,
-        });
+        record.push("type", Value::string(file_type.clone(), span));
     } else {
-        cols.push("type".into());
-        vals.push(Value::nothing(span));
+        record.push("type", Value::nothing(span));
     }
 
     if long {
-        cols.push("target".into());
         if let Some(md) = metadata {
+            let col = "target";
             if md.file_type().is_symlink() {
                 if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(Value::String {
-                        val: path_to_link.to_string_lossy().to_string(),
-                        span,
-                    });
+                    record.push(col, Value::string(path_to_link.to_string_lossy(), span));
                 } else {
-                    vals.push(Value::String {
-                        val: "Could not obtain target file's path".to_string(),
-                        span,
-                    });
+                    record.push(
+                        col,
+                        Value::string("Could not obtain target file's path", span),
+                    );
                 }
             } else {
-                vals.push(Value::nothing(span));
+                record.push(col, Value::nothing(span));
             }
         }
     }
 
     if long {
         if let Some(md) = metadata {
-            cols.push("readonly".into());
-            vals.push(Value::Bool {
-                val: md.permissions().readonly(),
-                span,
-            });
+            record.push("readonly", Value::bool(md.permissions().readonly(), span));
 
             #[cfg(unix)]
             {
                 use crate::filesystem::util::users;
                 use std::os::unix::fs::MetadataExt;
                 let mode = md.permissions().mode();
-                cols.push("mode".into());
-                vals.push(Value::String {
-                    val: umask::Mode::from(mode).to_string(),
-                    span,
-                });
+                record.push(
+                    "mode",
+                    Value::string(umask::Mode::from(mode).to_string(), span),
+                );
 
                 let nlinks = md.nlink();
-                cols.push("num_links".into());
-                vals.push(Value::Int {
-                    val: nlinks as i64,
-                    span,
-                });
+                record.push("num_links", Value::int(nlinks as i64, span));
 
                 let inode = md.ino();
-                cols.push("inode".into());
-                vals.push(Value::Int {
-                    val: inode as i64,
-                    span,
-                });
+                record.push("inode", Value::int(inode as i64, span));
 
-                cols.push("user".into());
+                let col = "user";
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
-                    vals.push(Value::String {
-                        val: user.name,
-                        span,
-                    });
+                    record.push(col, Value::string(user.name, span));
                 } else {
-                    vals.push(Value::Int {
-                        val: md.uid() as i64,
-                        span,
-                    })
+                    record.push(col, Value::int(md.uid() as i64, span))
                 }
 
-                cols.push("group".into());
+                let col = "group";
                 if let Some(group) = users::get_group_by_gid(md.gid()) {
-                    vals.push(Value::String {
-                        val: group.name,
-                        span,
-                    });
+                    record.push(col, Value::string(group.name, span));
                 } else {
-                    vals.push(Value::Int {
-                        val: md.gid() as i64,
-                        span,
-                    })
+                    record.push(col, Value::int(md.gid() as i64, span))
                 }
             }
         }
     }
 
-    cols.push("size".to_string());
+    let col = "size";
     if let Some(md) = metadata {
-        let zero_sized = file_type == "pipe"
-            || file_type == "socket"
-            || file_type == "char device"
-            || file_type == "block device";
-
         if md.is_dir() {
             if du {
                 let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
                 let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
-
-                vals.push(Value::Filesize {
-                    val: dir_size as i64,
-                    span,
-                });
+                record.push(col, Value::filesize(dir_size as i64, span));
             } else {
                 let dir_size: u64 = md.len();
-
-                vals.push(Value::Filesize {
-                    val: dir_size as i64,
-                    span,
-                });
+                record.push(col, Value::filesize(dir_size as i64, span));
             };
         } else if md.is_file() {
-            vals.push(Value::Filesize {
-                val: md.len() as i64,
-                span,
-            });
+            record.push(col, Value::filesize(md.len() as i64, span));
         } else if md.file_type().is_symlink() {
             if let Ok(symlink_md) = filename.symlink_metadata() {
-                vals.push(Value::Filesize {
-                    val: symlink_md.len() as i64,
-                    span,
-                });
+                record.push(col, Value::filesize(symlink_md.len() as i64, span));
             } else {
-                vals.push(Value::nothing(span));
+                record.push(col, Value::nothing(span));
             }
         } else {
+            let zero_sized = file_type == "pipe"
+                || file_type == "socket"
+                || file_type == "char device"
+                || file_type == "block device";
+
             let value = if zero_sized {
                 Value::Filesize { val: 0, span }
             } else {
                 Value::nothing(span)
             };
-            vals.push(value);
+            record.push(col, value);
         }
     } else {
-        vals.push(Value::nothing(span));
+        record.push(col, Value::nothing(span));
     }
 
     if let Some(md) = metadata {
+        fn system_time_to_date_value(time: io::Result<SystemTime>, span: Span) -> Value {
+            time.ok()
+                .and_then(try_convert_to_local_date_time)
+                .map(|local| Value::date(local.with_timezone(local.offset()), span))
+                .unwrap_or(Value::nothing(span))
+        }
+
         if long {
-            cols.push("created".to_string());
-            {
-                let mut val = Value::nothing(span);
-                if let Ok(c) = md.created() {
-                    if let Some(local) = try_convert_to_local_date_time(c) {
-                        val = Value::Date {
-                            val: local.with_timezone(local.offset()),
-                            span,
-                        };
-                    }
-                }
-                vals.push(val);
-            }
-
-            cols.push("accessed".to_string());
-            {
-                let mut val = Value::nothing(span);
-                if let Ok(a) = md.accessed() {
-                    if let Some(local) = try_convert_to_local_date_time(a) {
-                        val = Value::Date {
-                            val: local.with_timezone(local.offset()),
-                            span,
-                        };
-                    }
-                }
-                vals.push(val);
-            }
+            record.push("created", system_time_to_date_value(md.created(), span));
+            record.push("accessed", system_time_to_date_value(md.accessed(), span))
         }
 
-        cols.push("modified".to_string());
-        {
-            let mut val = Value::nothing(span);
-            if let Ok(m) = md.modified() {
-                if let Some(local) = try_convert_to_local_date_time(m) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
-                }
-            }
-            vals.push(val);
-        }
+        record.push("modified", system_time_to_date_value(md.modified(), span))
     } else {
         if long {
-            cols.push("created".to_string());
-            vals.push(Value::nothing(span));
-
-            cols.push("accessed".to_string());
-            vals.push(Value::nothing(span));
+            record.push("created", Value::nothing(span));
+            record.push("accessed", Value::nothing(span));
         }
 
-        cols.push("modified".to_string());
-        vals.push(Value::nothing(span));
+        record.push("modified", Value::nothing(span));
     }
 
-    Ok(Value::Record { cols, vals, span })
+    Ok(Value::record(record, span))
 }
 
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC

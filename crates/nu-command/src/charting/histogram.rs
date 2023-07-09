@@ -4,11 +4,10 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
-use std::iter;
 
 #[derive(Clone)]
 pub struct Histogram;
@@ -52,7 +51,7 @@ impl Command for Histogram {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
                 result: Some(Value::List {
-                        vals: vec![Value::Record {
+                        vals: vec![Value::test_record(Record {
                             cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
                             vals: vec![
                                 Value::test_int(1),
@@ -61,9 +60,8 @@ impl Command for Histogram {
                                 Value::test_string("66.67%"),
                                 Value::test_string("******************************************************************"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
                             vals: vec![
                                 Value::test_int(2),
@@ -72,8 +70,7 @@ impl Command for Histogram {
                                 Value::test_string("33.33%"),
                                 Value::test_string("*********************************"),
                             ],
-                            span: Span::test_data(),
-                        }],
+                        })],
                         span: Span::test_data(),
                     }
                  ),
@@ -194,8 +191,8 @@ fn run_histogram(
             for v in values {
                 match v {
                     // parse record, and fill valid value to actual input.
-                    Value::Record { cols, vals, .. } => {
-                        for (c, v) in iter::zip(cols, vals) {
+                    Value::Record { val, .. } => {
+                        for (c, v) in *val {
                             if &c == col_name {
                                 if let Ok(v) = HashableValue::from_value(v, head_span) {
                                     inputs.push(v);
@@ -271,23 +268,17 @@ fn histogram_impl(
 
         result.push((
             count, // attach count first for easily sorting.
-            Value::Record {
-                cols: result_cols.clone(),
-                vals: vec![
+            Value::record_from_parts(
+                result_cols.clone(),
+                vec![
                     val.into_value(),
-                    Value::Int { val: count, span },
-                    Value::Float {
-                        val: quantile,
-                        span,
-                    },
-                    Value::String {
-                        val: percentage,
-                        span,
-                    },
-                    Value::String { val: freq, span },
+                    Value::int(count, span),
+                    Value::float(quantile, span),
+                    Value::string(percentage, span),
+                    Value::string(freq, span),
                 ],
                 span,
-            },
+            ),
         ));
     }
     result.sort_by(|a, b| b.0.cmp(&a.0));

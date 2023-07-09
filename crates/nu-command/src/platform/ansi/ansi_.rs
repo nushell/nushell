@@ -760,7 +760,7 @@ Operating system commands:
                 attr: None,
             };
             // Iterate and populate NuStyle with real values
-            for (k, v) in record.0.iter().zip(record.1) {
+            for (k, v) in record {
                 match k.as_str() {
                     "fg" => nu_style.fg = Some(v.as_string()?),
                     "bg" => nu_style.bg = Some(v.as_string()?),
@@ -821,11 +821,7 @@ fn generate_ansi_code_list(
             } else {
                 vec![name, short_name, code]
             };
-            Value::Record {
-                cols,
-                vals,
-                span: call_span,
-            }
+            Value::record_from_parts(cols, vals, call_span)
         })
         .into_pipeline_data(engine_state.ctrlc.clone()));
 }

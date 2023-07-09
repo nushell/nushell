@@ -145,8 +145,8 @@ pub fn highlight_search_in_table(
     let mut matches = vec![];
 
     for record in table {
-        let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
-            (cols, vals, span)
+        let (mut record, record_span) = if let Value::Record { val, span } = record {
+            (val, span)
         } else {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
@@ -155,43 +155,39 @@ pub fn highlight_search_in_table(
             });
         };
 
-        let has_match = cols.iter().zip(vals.iter_mut()).fold(
-            Ok(false),
-            |acc: Result<bool, ShellError>, (col, val)| {
-                if searched_cols.contains(&col.as_str()) {
-                    if let Value::String { val: s, span } = val {
-                        if s.to_lowercase().contains(&search_string) {
-                            *val = Value::String {
-                                val: highlight_search_string(
-                                    s,
-                                    orig_search_string,
-                                    string_style,
-                                    highlight_style,
-                                )?,
-                                span: *span,
-                            };
-                            Ok(true)
+        let has_match =
+            record
+                .iter_mut()
+                .fold(Ok(false), |acc: Result<bool, ShellError>, (col, val)| {
+                    if searched_cols.contains(&col.as_str()) {
+                        if let Value::String { val: s, span } = val {
+                            if s.to_lowercase().contains(&search_string) {
+                                *val = Value::String {
+                                    val: highlight_search_string(
+                                        s,
+                                        orig_search_string,
+                                        string_style,
+                                        highlight_style,
+                                    )?,
+                                    span: *span,
+                                };
+                                Ok(true)
+                            } else {
+                                // column does not contain the searched string
+                                acc
+                            }
                         } else {
-                            // column does not contain the searched string
+                            // ignore non-string values
                             acc
                         }
                     } else {
-                        // ignore non-string values
+                        // don't search this column
                         acc
                     }
-                } else {
-                    // don't search this column
-                    acc
-                }
-            },
-        )?;
+                })?;
 
         if has_match {
-            matches.push(Value::Record {
-                cols,
-                vals,
-                span: record_span,
-            });
+            matches.push(Value::record(*record, record_span));
         }
     }
 

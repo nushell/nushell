@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -57,31 +57,26 @@ impl Command for SubCommand {
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),

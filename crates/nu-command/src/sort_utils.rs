@@ -63,8 +63,7 @@ pub fn sort(
 ) -> Result<(), ShellError> {
     match vec.first() {
         Some(Value::Record {
-            cols,
-            vals: _input_vals,
+            val,
             span: val_span,
         }) => {
             if sort_columns.is_empty() {
@@ -78,7 +77,7 @@ pub fn sort(
                 ));
             }
 
-            if let Some(nonexistent) = nonexistent_column(sort_columns.clone(), cols.to_vec()) {
+            if let Some(nonexistent) = nonexistent_column(&sort_columns, &val.cols) {
                 return Err(ShellError::CantFindColumn {
                     col_name: nonexistent,
                     span,
@@ -233,15 +232,15 @@ pub fn compare(
 fn test_sort_value() {
     let val = Value::List {
         vals: vec![
-            Value::test_record(
+            Value::test_record_from_parts(
                 vec!["fruit", "count"],
                 vec![Value::test_string("pear"), Value::test_int(3)],
             ),
-            Value::test_record(
+            Value::test_record_from_parts(
                 vec!["fruit", "count"],
                 vec![Value::test_string("orange"), Value::test_int(7)],
             ),
-            Value::test_record(
+            Value::test_record_from_parts(
                 vec!["fruit", "count"],
                 vec![Value::test_string("apple"), Value::test_int(9)],
             ),
@@ -255,15 +254,15 @@ fn test_sort_value() {
         sorted_alphabetically,
         Value::List {
             vals: vec![
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("apple"), Value::test_int(9)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("orange"), Value::test_int(7)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("pear"), Value::test_int(3)],
                 ),
@@ -278,15 +277,15 @@ fn test_sort_value() {
         sorted_by_count_desc,
         Value::List {
             vals: vec![
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("apple"), Value::test_int(9)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("orange"), Value::test_int(7)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("pear"), Value::test_int(3)],
                 ),
@@ -300,15 +299,15 @@ fn test_sort_value() {
 fn test_sort_value_in_place() {
     let mut val = Value::List {
         vals: vec![
-            Value::test_record(
+            Value::test_record_from_parts(
                 vec!["fruit", "count"],
                 vec![Value::test_string("pear"), Value::test_int(3)],
             ),
-            Value::test_record(
+            Value::test_record_from_parts(
                 vec!["fruit", "count"],
                 vec![Value::test_string("orange"), Value::test_int(7)],
             ),
-            Value::test_record(
+            Value::test_record_from_parts(
                 vec!["fruit", "count"],
                 vec![Value::test_string("apple"), Value::test_int(9)],
             ),
@@ -321,15 +320,15 @@ fn test_sort_value_in_place() {
         val,
         Value::List {
             vals: vec![
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("apple"), Value::test_int(9)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("orange"), Value::test_int(7)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("pear"), Value::test_int(3)],
                 ),
@@ -343,15 +342,15 @@ fn test_sort_value_in_place() {
         val,
         Value::List {
             vals: vec![
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("apple"), Value::test_int(9)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("orange"), Value::test_int(7)],
                 ),
-                Value::test_record(
+                Value::test_record_from_parts(
                     vec!["fruit", "count"],
                     vec![Value::test_string("pear"), Value::test_int(3)],
                 ),

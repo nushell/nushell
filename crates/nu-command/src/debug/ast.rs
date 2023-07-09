@@ -3,8 +3,8 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -46,10 +46,7 @@ impl Command for Ast {
         let mut working_set = StateWorkingSet::new(engine_state);
         let block_output = parse(&mut working_set, None, pipeline.item.as_bytes(), false);
         let error_output = working_set.parse_errors.first();
-        let block_span = match &block_output.span {
-            Some(span) => span,
-            None => &pipeline.span,
-        };
+        let block_span = block_output.span.unwrap_or(pipeline.span);
         if to_json {
             // Get the block as json
             let serde_block_str = if minify {
@@ -62,7 +59,7 @@ impl Command for Ast {
                 Err(e) => Err(ShellError::CantConvert {
                     to_type: "string".to_string(),
                     from_type: "block".to_string(),
-                    span: *block_span,
+                    span: block_span,
                     help: Some(format!(
                         "Error: {e}\nCan't convert {block_output:?} to string"
                     )),
@@ -80,7 +77,7 @@ impl Command for Ast {
                 Err(e) => Err(ShellError::CantConvert {
                     to_type: "string".to_string(),
                     from_type: "error".to_string(),
-                    span: *block_span,
+                    span: block_span,
                     help: Some(format!(
                         "Error: {e}\nCan't convert {error_output:?} to string"
                     )),
@@ -88,38 +85,34 @@ impl Command for Ast {
             };
 
             // Create a new output record, merging the block and error
-            let output_record = Value::Record {
-                cols: vec!["block".to_string(), "error".to_string()],
-                vals: vec![
-                    Value::string(block_json, *block_span),
-                    Value::string(error_json, Span::test_data()),
-                ],
-                span: pipeline.span,
+
+            let record = record! {
+                block => Value::string(block_json, block_span),
+                error => Value::string(error_json, Span::test_data()),
             };
-            Ok(output_record.into_pipeline_data())
+
+            Ok(Value::record(record, pipeline.span).into_pipeline_data())
         } else {
-            let block_value = Value::String {
-                val: if minify {
-                    format!("{block_output:?}")
-                } else {
-                    format!("{block_output:#?}")
-                },
-                span: pipeline.span,
+            let record = record! {
+                block => Value::string(
+                    if minify {
+                        format!("{block_output:?}")
+                    } else {
+                        format!("{block_output:#?}")
+                    },
+                    pipeline.span,
+                ),
+                error => Value::string(
+                    if minify {
+                        format!("{error_output:?}")
+                    } else {
+                        format!("{error_output:#?}")
+                    },
+                    pipeline.span,
+                ),
             };
-            let error_value = Value::String {
-                val: if minify {
-                    format!("{error_output:?}")
-                } else {
-                    format!("{error_output:#?}")
-                },
-                span: pipeline.span,
-            };
-            let output_record = Value::Record {
-                cols: vec!["block".to_string(), "error".to_string()],
-                vals: vec![block_value, error_value],
-                span: pipeline.span,
-            };
-            Ok(output_record.into_pipeline_data())
+
+            Ok(Value::record(record, pipeline.span).into_pipeline_data())
         }
     }
 

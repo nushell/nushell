@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::Record;
 use nu_protocol::{
     engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Type, Value,
@@ -162,8 +163,8 @@ the output of 'path parse' and 'path split' subcommands."#
 fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     match v {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
-        Value::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
-        Value::List { vals, span } => join_list(&vals, head, span, args),
+        Value::Record { val, span } => join_record(*val, head, span, args),
+        Value::List { vals, span } => join_list(vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
     }
@@ -178,63 +179,43 @@ fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
     Value::string(result.to_string_lossy(), head)
 }
 
-fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
+fn join_list(parts: Vec<Value>, head: Span, span: Span, args: &Arguments) -> Value {
     let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
 
     match path {
         Ok(ref path) => join_single(path, head, args),
         Err(_) => {
-            let records: Result<Vec<_>, ShellError> = parts.iter().map(Value::as_record).collect();
-            match records {
-                Ok(vals) => {
-                    let vals = vals
-                        .iter()
-                        .map(|(k, v)| join_record(k, v, head, span, args))
-                        .collect();
+            let records: Result<Vec<_>, ShellError> =
+                parts.into_iter().map(Value::into_record).collect();
 
-                    Value::List { vals, span }
-                }
-                Err(_) => Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
-                        exp_input_type: "string or record".into(),
-                        dst_span: head,
-                        src_span: span,
-                    }),
-                },
+            match records {
+                Ok(vals) => Value::list(
+                    vals.into_iter()
+                        .map(|record| join_record(record, head, span, args))
+                        .collect(),
+                    span,
+                ),
+                Err(_) => Value::error(ShellError::PipelineMismatch {
+                    exp_input_type: "string or record".into(),
+                    dst_span: head,
+                    src_span: span,
+                }),
             }
         }
     }
 }
 
-fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
+fn join_record(record: Record, head: Span, span: Span, args: &Arguments) -> Value {
     if args.columns.is_some() {
-        super::operate(
-            &join_single,
-            args,
-            Value::Record {
-                cols: cols.to_vec(),
-                vals: vals.to_vec(),
-                span,
-            },
-            span,
-        )
+        super::operate(&join_single, args, Value::record(record, span), span)
     } else {
-        match merge_record(cols, vals, head, span) {
-            Ok(p) => join_single(p.as_path(), head, args),
-            Err(error) => Value::Error {
-                error: Box::new(error),
-            },
-        }
+        merge_record(record, head, span)
+            .map_or_else(Value::error, |p| join_single(p.as_path(), head, args))
     }
 }
 
-fn merge_record(
-    cols: &[String],
-    vals: &[Value],
-    head: Span,
-    span: Span,
-) -> Result<PathBuf, ShellError> {
-    for key in cols {
+fn merge_record(record: Record, head: Span, span: Span) -> Result<PathBuf, ShellError> {
+    for key in &record.cols {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
             return Err(ShellError::UnsupportedInput(
@@ -248,7 +229,11 @@ fn merge_record(
         }
     }
 
-    let entries: HashMap<&str, &Value> = cols.iter().map(String::as_str).zip(vals).collect();
+    let entries = record
+        .iter()
+        .map(|(k, v)| (k.as_str(), v))
+        .collect::<HashMap<_, _>>();
+
     let mut result = PathBuf::new();
 
     #[cfg(windows)]

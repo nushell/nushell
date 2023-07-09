@@ -4,8 +4,8 @@ use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    record, span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 
@@ -124,13 +124,7 @@ pub fn help_commands(
 }
 
 fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
-    let commands = engine_state.get_decls_sorted(false);
-    let mut found_cmds_vec = Vec::new();
-
-    for (name_bytes, decl_id) in commands {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
+    engine_state.get_decls_sorted(false).map(|(name_bytes, decl_id)| {
         let name = String::from_utf8_lossy(&name_bytes).to_string();
         let decl = engine_state.get_decl(decl_id);
         let sig = decl.signature().update_from_command(name, decl.borrow());
@@ -140,41 +134,22 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let usage = sig.usage;
         let search_terms = sig.search_terms;
 
-        cols.push("name".into());
-        vals.push(Value::String { val: key, span });
+        let record = record! {
+            name => Value::string(key, span),
+            category => Value::string(sig.category.to_string(), span),
+            command_type => Value::string(format!("{:?}", decl.command_type()).to_lowercase(), span),
+            usage => Value::string(usage, span),
+            signatures => Value::string(if decl.is_parser_keyword() {
+                    "".to_string()
+                } else {
+                    signatures
+                },
+                span),
+            search_terms => Value::string(search_terms.join(", "), span)
+        };
 
-        cols.push("category".into());
-        vals.push(Value::string(sig.category.to_string(), span));
-
-        cols.push("command_type".into());
-        vals.push(Value::String {
-            val: format!("{:?}", decl.command_type()).to_lowercase(),
-            span,
-        });
-
-        cols.push("usage".into());
-        vals.push(Value::String { val: usage, span });
-
-        cols.push("signatures".into());
-        vals.push(Value::String {
-            val: if decl.is_parser_keyword() {
-                "".to_string()
-            } else {
-                signatures
-            },
-            span,
-        });
-
-        cols.push("search_terms".into());
-        vals.push(Value::String {
-            val: search_terms.join(", "),
-            span,
-        });
-
-        found_cmds_vec.push(Value::Record { cols, vals, span });
-    }
-
-    found_cmds_vec
+        Value::record(record, span)
+    }).collect()
 }
 
 #[cfg(test)]

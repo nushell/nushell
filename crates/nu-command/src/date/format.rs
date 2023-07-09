@@ -418,14 +418,16 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 
     let mut records = specifications
         .iter()
-        .map(|s| Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::string(s.spec, head),
-                Value::string(now.format(s.spec).to_string(), head),
-                Value::string(s.description, head),
-            ],
-            span: head,
+        .map(|s| {
+            Value::record_from_parts(
+                column_names.clone(),
+                vec![
+                    Value::string(s.spec, head),
+                    Value::string(now.format(s.spec).to_string(), head),
+                    Value::string(s.description, head),
+                ],
+                head,
+            )
         })
         .collect::<Vec<Value>>();
 
@@ -439,9 +441,9 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             .unwrap_or("")
             .to_string();
 
-        records.push(Value::Record {
-            cols: column_names,
-            vals: vec![
+        records.push(Value::record_from_parts(
+            column_names,
+            vec![
                 Value::string("%#z", head),
                 Value::String {
                     val: example,
@@ -452,8 +454,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
                     head,
                 ),
             ],
-            span: head,
-        });
+            head,
+        ));
     }
 
     Value::List {

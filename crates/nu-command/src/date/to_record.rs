@@ -2,11 +2,11 @@ use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{record, ShellError, Type};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError::DatetimeParseError, ShellError::PipelineEmpty,
     Signature, Span, Value,
 };
-use nu_protocol::{ShellError, Type};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -50,9 +50,8 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let example_result_1 = || {
-            let span = Span::test_data();
-            let cols = vec![
+        let example_result_1 = {
+            let cols: Vec<String> = vec![
                 "year".into(),
                 "month".into(),
                 "day".into(),
@@ -63,22 +62,16 @@ impl Command for SubCommand {
                 "timezone".into(),
             ];
             let vals = vec![
-                Value::Int { val: 2020, span },
-                Value::Int { val: 4, span },
-                Value::Int { val: 12, span },
-                Value::Int { val: 22, span },
-                Value::Int { val: 10, span },
-                Value::Int { val: 57, span },
-                Value::Int {
-                    val: 123_000_000,
-                    span,
-                },
-                Value::String {
-                    val: "+02:00".to_string(),
-                    span,
-                },
+                Value::test_int(2020),
+                Value::test_int(4),
+                Value::test_int(12),
+                Value::test_int(22),
+                Value::test_int(10),
+                Value::test_int(57),
+                Value::test_int(123_000_000),
+                Value::test_string("+02:00"),
             ];
-            Some(Value::Record { cols, vals, span })
+            Some(Value::test_record_from_parts(cols, vals))
         };
 
         vec![
@@ -95,7 +88,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert a date string into a record.",
                 example: "'2020-04-12T22:10:57.123+02:00' | date to-record",
-                result: example_result_1(),
+                result: example_result_1,
             },
             // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
             // Example {
@@ -107,37 +100,20 @@ impl Command for SubCommand {
     }
 }
 
-fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span) -> Value {
-    let cols = vec![
-        "year".into(),
-        "month".into(),
-        "day".into(),
-        "hour".into(),
-        "minute".into(),
-        "second".into(),
-        "nanosecond".into(),
-        "timezone".into(),
-    ];
-    match date {
-        Ok(x) => {
-            let vals = vec![
-                Value::int(x.year() as i64, head),
-                Value::int(x.month() as i64, head),
-                Value::int(x.day() as i64, head),
-                Value::int(x.hour() as i64, head),
-                Value::int(x.minute() as i64, head),
-                Value::int(x.second() as i64, head),
-                Value::int(x.nanosecond() as i64, head),
-                Value::string(x.offset().to_string(), head),
-            ];
-            Value::Record {
-                cols,
-                vals,
-                span: head,
-            }
-        }
-        Err(e) => e,
-    }
+fn parse_date_into_table(date: DateTime<FixedOffset>, head: Span) -> Value {
+    Value::record(
+        record! {
+            year => Value::int(date.year() as i64, head),
+            month => Value::int(date.month() as i64, head),
+            day => Value::int(date.day() as i64, head),
+            hour => Value::int(date.hour() as i64, head),
+            minute => Value::int(date.minute() as i64, head),
+            second => Value::int(date.second() as i64, head),
+            nanoecond => Value::int(date.nanosecond() as i64, head),
+            timezone => Value::string(date.offset().to_string(), head),
+        },
+        head,
+    )
 }
 
 fn helper(val: Value, head: Span) -> Value {
@@ -145,16 +121,16 @@ fn helper(val: Value, head: Span) -> Value {
         Value::String {
             val,
             span: val_span,
-        } => {
-            let date = parse_date_from_string(&val, val_span);
-            parse_date_into_table(date, head)
-        }
+        } => match parse_date_from_string(&val, val_span) {
+            Ok(date) => parse_date_into_table(date, head),
+            Err(e) => e,
+        },
         Value::Nothing { span: _ } => {
             let now = Local::now();
             let n = now.with_timezone(now.offset());
-            parse_date_into_table(Ok(n), head)
+            parse_date_into_table(n, head)
         }
-        Value::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
+        Value::Date { val, span: _ } => parse_date_into_table(val, head),
         _ => Value::Error {
             error: Box::new(DatetimeParseError(val.debug_value(), head)),
         },

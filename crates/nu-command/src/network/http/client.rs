@@ -5,7 +5,7 @@ use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
@@ -154,10 +154,9 @@ pub fn send_request(
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_url = request.url().to_string();
-    if body.is_none() {
+    let Some(body) = body else {
         return send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c);
-    }
-    let body = body.expect("Should never be none.");
+    };
 
     let body_type = match content_type {
         Some(it) if it == "application/json" => BodyType::Json,
@@ -183,10 +182,10 @@ pub fn send_request(
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
-            let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
+        Value::Record { val, .. } if body_type == BodyType::Form => {
+            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in cols.iter().zip(vals.iter()) {
+            for (col, val) in *val {
                 let val_string = val.as_string()?;
                 data.push((col.clone(), val_string))
             }
@@ -197,8 +196,10 @@ pub fn send_request(
                     .iter()
                     .map(|(a, b)| (a.as_str(), b.as_str()))
                     .collect::<Vec<(&str, &str)>>();
+
                 request.send_form(&data)
             };
+
             send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
         Value::List { vals, .. } if body_type == BodyType::Form => {
@@ -300,9 +301,9 @@ pub fn request_add_custom_headers(
                 if table.len() == 1 {
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
-                        Value::Record { cols, vals, .. } => {
-                            for (k, v) in cols.iter().zip(vals.iter()) {
-                                custom_headers.insert(k.to_string(), v.clone());
+                        Value::Record { val, .. } => {
+                            for (k, v) in val.iter() {
+                                custom_headers.insert(k.clone(), v.clone());
                             }
                         }
 
@@ -481,24 +482,12 @@ fn request_handle_response_content(
         None => Ok(response_to_buffer(resp, engine_state, span)),
     };
     if flags.full {
-        let full_response = Value::Record {
-            cols: vec![
-                "headers".to_string(),
-                "body".to_string(),
-                "status".to_string(),
-            ],
-            vals: vec![
-                match response_headers {
-                    Some(headers) => headers.into_value(span),
-                    None => Value::nothing(span),
-                },
-                formatted_content?.into_value(span),
-                Value::int(response_status as i64, span),
-            ],
-            span,
-        }
-        .into_pipeline_data();
-        Ok(full_response)
+        let record = record! {
+            headers => response_headers.map_or(Value::nothing(span), |headers| headers.into_value(span)),
+            body => formatted_content?.into_value(span),
+            status => Value::int(response_status as i64, span),
+        };
+        Ok(Value::record(record, span).into_pipeline_data())
     } else {
         Ok(formatted_content?)
     }
@@ -551,10 +540,10 @@ pub fn request_handle_response_headers_raw(
 
     for name in &header_names {
         let is_duplicate = vals.iter().any(|val| {
-            if let Value::Record { vals, .. } = val {
+            if let Value::Record { val, .. } = val {
                 if let Some(Value::String {
                     val: header_name, ..
-                }) = vals.get(0)
+                }) = val.vals.get(0)
                 {
                     return name == header_name;
                 }
@@ -566,7 +555,7 @@ pub fn request_handle_response_headers_raw(
             // This interface is why we needed to check if we've already parsed this header name.
             for str_value in response.all(name) {
                 let header = vec![Value::string(name, span), Value::string(str_value, span)];
-                vals.push(Value::record(cols.clone(), header, span));
+                vals.push(Value::record_from_parts(cols.clone(), header, span));
             }
         }
     }

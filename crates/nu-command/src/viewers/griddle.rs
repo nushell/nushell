@@ -110,13 +110,13 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
-                let mut items = vec![];
-
-                for (i, (c, v)) in cols.into_iter().zip(vals.into_iter()).enumerate() {
-                    items.push((i, c, v.into_string(", ", config)))
-                }
+                let items = val
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, (c, v))| (i, c, v.into_string(", ", config)))
+                    .collect();
 
                 Ok(create_grid_output(
                     items,

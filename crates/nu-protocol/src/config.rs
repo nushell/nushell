@@ -1007,10 +1007,8 @@ impl Value {
                         } else {
                             invalid!(record.vals[index].span().ok(), "should be a record");
                             // Reconstruct
-                            record.vals[index] = Value::record(
-                                Record::from_iter(
-                                    config.explore.iter().map(|(k, v)| (k.clone(), v.clone())),
-                                ),
+                            record.vals[index] = Value::record_from_iter(
+                                config.explore.iter().map(|(k, v)| (k.clone(), v.clone())),
                                 *span,
                             );
                         }
@@ -1022,10 +1020,8 @@ impl Value {
                         } else {
                             invalid!(record.vals[index].span().ok(), "should be a record");
                             // Reconstruct
-                            record.vals[index] = Value::record(
-                                Record::from_iter(
-                                    config.explore.iter().map(|(k, v)| (k.clone(), v.clone())),
-                                ),
+                            record.vals[index] = Value::record_from_iter(
+                                config.explore.iter().map(|(k, v)| (k.clone(), v.clone())),
                                 *span,
                             );
                         }

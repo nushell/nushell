@@ -14,12 +14,8 @@ pub fn eval_env_change_hook(
 ) -> Result<(), ShellError> {
     if let Some(hook) = env_change_hook {
         match hook {
-            Value::Record {
-                cols: env_names,
-                vals: hook_values,
-                ..
-            } => {
-                for (env_name, hook_value) in env_names.iter().zip(hook_values.iter()) {
+            Value::Record { val, .. } => {
+                for (env_name, hook_value) in val.iter() {
                     let before = engine_state
                         .previous_env_vars
                         .get(env_name)
@@ -198,33 +194,11 @@ pub fn eval_hook(
                             stack.remove_var(*var_id);
                         }
                     }
-                    Value::Block {
-                        val: block_id,
-                        span: block_span,
-                        ..
-                    } => {
-                        run_hook_block(
-                            engine_state,
-                            stack,
-                            block_id,
-                            input,
-                            arguments,
-                            block_span,
-                        )?;
+                    Value::Block { val, span } => {
+                        run_hook_block(engine_state, stack, val, input, arguments, span)?;
                     }
-                    Value::Closure {
-                        val,
-                        span: block_span,
-                        ..
-                    } => {
-                        run_hook_block(
-                            engine_state,
-                            stack,
-                            val.block_id,
-                            input,
-                            arguments,
-                            block_span,
-                        )?;
+                    Value::Closure { val, span } => {
+                        run_hook_block(engine_state, stack, val.block_id, input, arguments, span)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedConfigValue(
@@ -236,33 +210,11 @@ pub fn eval_hook(
                 }
             }
         }
-        Value::Block {
-            val: block_id,
-            span: block_span,
-            ..
-        } => {
-            output = run_hook_block(
-                engine_state,
-                stack,
-                *block_id,
-                input,
-                arguments,
-                *block_span,
-            )?;
+        Value::Block { val, span } => {
+            output = run_hook_block(engine_state, stack, *val, input, arguments, *span)?;
         }
-        Value::Closure {
-            val,
-            span: block_span,
-            ..
-        } => {
-            output = run_hook_block(
-                engine_state,
-                stack,
-                val.block_id,
-                input,
-                arguments,
-                *block_span,
-            )?;
+        Value::Closure { val, span } => {
+            output = run_hook_block(engine_state, stack, val.block_id, input, arguments, *span)?;
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
