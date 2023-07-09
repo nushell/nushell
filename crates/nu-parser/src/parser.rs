@@ -4289,7 +4289,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 .iter()
                 .find_position(|t| working_set.get_span_contents(t.span) == b"=>")
             {
-                if pos == position {
+                if position + pos == position {
                     working_set.error(mk_err());
                     return garbage(span);
                 }
