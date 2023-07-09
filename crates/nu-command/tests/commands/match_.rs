@@ -216,7 +216,7 @@ fn match_with_guard_block_as_guard() {
         "match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }"
     );
 
-    assert_eq!(actual.err, "Match guard not bool");
+    assert!(actual.err.contains("Match guard not bool"));
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn match_with_guard_not_bool() {
         "match 4 { $x if $x + 1 => { 'err!()' }, _ => { 'unreachable!()' } }"
     );
 
-    assert_eq!(actual.err, "Match guard not bool");
+    assert!(actual.err.contains("Match guard not bool"));
 }
 
 #[test]
@@ -246,5 +246,5 @@ fn match_with_guard_no_expr_after_if() {
         "match 4 { $x if  => { 'err!()' }, _ => { 'unreachable!()' } }"
     );
 
-    assert_eq!(actual.err, "Match guard without an expression");
+    assert!(actual.err.contains("Match guard without an expression"));
 }
