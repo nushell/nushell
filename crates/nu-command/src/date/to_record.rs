@@ -109,7 +109,7 @@ fn parse_date_into_table(date: DateTime<FixedOffset>, head: Span) -> Value {
             hour => Value::int(date.hour() as i64, head),
             minute => Value::int(date.minute() as i64, head),
             second => Value::int(date.second() as i64, head),
-            nanoecond => Value::int(date.nanosecond() as i64, head),
+            nanosecond => Value::int(date.nanosecond() as i64, head),
             timezone => Value::string(date.offset().to_string(), head),
         },
         head,

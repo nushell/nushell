@@ -120,15 +120,15 @@ fn registry_query(
         let mut reg_values = vec![];
         for (name, val) in reg_key.enum_values().flatten() {
             let (nu_value, reg_type) = reg_value_to_nu_value(val, call_span);
-            reg_values.push(Value::Record {
-                cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
-                vals: vec![
+            reg_values.push(Value::record_from_parts(
+                vec!["name".to_string(), "value".to_string(), "type".to_string()],
+                vec![
                     Value::string(name, call_span),
                     nu_value,
                     Value::string(format!("{:?}", reg_type), call_span),
                 ],
-                span: *registry_key_span,
-            })
+                *registry_key_span,
+            ))
         }
         Ok(reg_values.into_pipeline_data(engine_state.ctrlc.clone()))
     } else {
@@ -138,15 +138,15 @@ fn registry_query(
                 match reg_value {
                     Ok(val) => {
                         let (nu_value, reg_type) = reg_value_to_nu_value(val, call_span);
-                        Ok(Value::Record {
-                            cols: vec!["name".to_string(), "value".to_string(), "type".to_string()],
-                            vals: vec![
+                        Ok(Value::record_from_parts(
+                            vec!["name".to_string(), "value".to_string(), "type".to_string()],
+                            vec![
                                 Value::string(value.item, call_span),
                                 nu_value,
                                 Value::string(format!("{:?}", reg_type), call_span),
                             ],
-                            span: value.span,
-                        }
+                            value.span,
+                        )
                         .into_pipeline_data())
                     }
                     Err(_) => Err(ShellError::GenericError(

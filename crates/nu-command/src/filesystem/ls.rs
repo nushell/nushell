@@ -7,10 +7,9 @@ use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Record;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
@@ -615,14 +614,9 @@ mod windows_helper {
         span: Span,
         long: bool,
     ) -> Value {
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
 
-        cols.push("name".into());
-        vals.push(Value::String {
-            val: display_name.to_string(),
-            span,
-        });
+        record.push("name", Value::string(display_name, span));
 
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
@@ -635,51 +629,43 @@ mod windows_helper {
                     filename.to_string_lossy()
                 );
                 log::error!("{e}");
-                return Value::Record { cols, vals, span };
+                return Value::record(record, span);
             }
         };
 
-        cols.push("type".into());
-        vals.push(Value::String {
-            val: get_file_type_windows_fallback(&find_data),
-            span,
-        });
+        record.push(
+            "type",
+            Value::string(get_file_type_windows_fallback(&find_data), span),
+        );
 
         if long {
-            cols.push("target".into());
-            if is_symlink(&find_data) {
-                if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(Value::String {
-                        val: path_to_link.to_string_lossy().to_string(),
-                        span,
-                    });
+            record.push(
+                "target",
+                if is_symlink(&find_data) {
+                    if let Ok(path_to_link) = filename.read_link() {
+                        Value::string(path_to_link.to_string_lossy(), span)
+                    } else {
+                        Value::string("Could not obtain target file's path", span)
+                    }
                 } else {
-                    vals.push(Value::String {
-                        val: "Could not obtain target file's path".to_string(),
-                        span,
-                    });
-                }
-            } else {
-                vals.push(Value::nothing(span));
-            }
+                    Value::nothing(span)
+                },
+            );
 
-            cols.push("readonly".into());
-            vals.push(Value::Bool {
-                val: (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0),
-                span,
-            });
+            record.push(
+                "readonly",
+                Value::bool(
+                    find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0,
+                    span,
+                ),
+            );
         }
 
-        cols.push("size".to_string());
         let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
-        vals.push(Value::Filesize {
-            val: file_size as i64,
-            span,
-        });
+        record.push("size", Value::filesize(file_size as i64, span));
 
         if long {
-            cols.push("created".to_string());
-            {
+            record.push("created", {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
@@ -688,11 +674,10 @@ mod windows_helper {
                         span,
                     };
                 }
-                vals.push(val);
-            }
+                val
+            });
 
-            cols.push("accessed".to_string());
-            {
+            record.push("accessed", {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
@@ -701,12 +686,11 @@ mod windows_helper {
                         span,
                     };
                 }
-                vals.push(val);
-            }
+                val
+            });
         }
 
-        cols.push("modified".to_string());
-        {
+        record.push("modified", {
             let mut val = Value::nothing(span);
             let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
             if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
@@ -715,10 +699,10 @@ mod windows_helper {
                     span,
                 };
             }
-            vals.push(val);
-        }
+            val
+        });
 
-        Value::Record { cols, vals, span }
+        Value::record(record, span)
     }
 
     fn unix_time_from_filetime(ft: &FILETIME) -> i64 {

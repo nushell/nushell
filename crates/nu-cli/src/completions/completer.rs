@@ -134,10 +134,8 @@ impl NuCompleter {
                         let mut spans: Vec<String> = vec![];
 
                         for (flat_idx, flat) in flattened.iter().enumerate() {
-                            let is_passthrough_command = spans
-                                .first()
-                                .filter(|content| *content == &String::from("sudo"))
-                                .is_some();
+                            let is_passthrough_command =
+                                spans.first().filter(|content| *content == "sudo").is_some();
                             // Read the current spam to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);

@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -94,11 +94,10 @@ impl Command for SubCommand {
                 description: "Get basename of a path in a column",
                 example: "[[name];[C:\\Users\\Joe]] | path basename -c [ name ]",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("Joe")],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -112,8 +111,6 @@ impl Command for SubCommand {
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::Record;
-
         vec![
             Example {
                 description: "Get basename of a path",
