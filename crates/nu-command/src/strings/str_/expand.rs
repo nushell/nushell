@@ -32,33 +32,33 @@ impl Command for SubCommand {
             Example {
                 description: "Define a range inside braces to produce a list of string.",
                 example: "\"{3..5}\" | str expand",
-                result: Some(Value::List{
+                result: Some(Value::List {
                     vals: vec![
                         Value::test_string("3"),
                         Value::test_string("4"),
                         Value::test_string("5")
                     ],
                     span: Span::test_data()
-                },)
+                })
             },
 
             Example {
                 description: "Export comma separated values inside braces (`{}`) to a string list.",
                 example: "\"{apple,banana,cherry}\" | str expand",
-                result: Some(Value::List{
+                result: Some(Value::List {
                     vals: vec![
                         Value::test_string("apple"),
                         Value::test_string("banana"),
                         Value::test_string("cherry")
                     ],
                     span: Span::test_data()
-                },)
+                })
             },
 
             Example {
                 description: "Brace expressions can be used one after another.",
                 example: "\"A{b,c}D{e,f}G\" | str expand",
-                result: Some(Value::List{
+                result: Some(Value::List {
                     vals: vec![
                         Value::test_string("AbDeG"),
                         Value::test_string("AbDfG"),
@@ -66,13 +66,13 @@ impl Command for SubCommand {
                         Value::test_string("AcDfG"),
                     ],
                     span: Span::test_data()
-                },)
+                })
             },
 
             Example {
                 description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files:",
                 example: "\"A{B{1,3},C{2,5}}D\" | str expand",
-                result: Some(Value::List{
+                result: Some(Value::List {
                     vals: vec![
                         Value::test_string("AB1D"),
                         Value::test_string("AB3D"),
@@ -80,7 +80,7 @@ impl Command for SubCommand {
                         Value::test_string("AC5D"),
                     ],
                     span: Span::test_data()
-                },)
+                })
             }
         ]
     }

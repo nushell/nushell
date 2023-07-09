@@ -4,6 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
+use nu_protocol::Record;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
@@ -87,11 +88,10 @@ impl Command for SubCommand {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains 'e' ColA",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -99,11 +99,10 @@ impl Command for SubCommand {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -111,11 +110,10 @@ impl Command for SubCommand {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_bool(true), Value::test_bool(true)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },

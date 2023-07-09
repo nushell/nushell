@@ -170,14 +170,10 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => match mode {
             ActionMode::Global => match other {
-                Value::Record { cols, vals, span } => {
-                    let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
+                Value::Record { val, span } => {
+                    let new_vals = val.vals.iter().map(|v| action(v, arg, head)).collect();
 
-                    Value::Record {
-                        cols: cols.to_vec(),
-                        vals: new_vals,
-                        span: *span,
-                    }
+                    Value::record_from_parts(val.cols.clone(), new_vals, *span)
                 }
                 Value::List { vals, span } => {
                     let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
@@ -239,14 +235,10 @@ mod tests {
     }
 
     fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> Value {
-        Value::Record {
-            cols: cols.iter().map(|x| x.to_string()).collect(),
-            vals: vals
-                .iter()
-                .map(|x| Value::test_string(x.to_string()))
-                .collect(),
-            span: Span::test_data(),
-        }
+        Value::test_record_from_parts(
+            cols.into_iter().map(str::to_owned).collect(),
+            vals.into_iter().map(Value::test_string).collect(),
+        )
     }
 
     fn make_list(vals: Vec<&str>) -> Value {

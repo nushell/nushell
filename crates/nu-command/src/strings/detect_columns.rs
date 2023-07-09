@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -64,7 +64,7 @@ impl Command for DetectColumns {
                 description: "Splits string across multiple columns",
                 example: "'a b c' | detect columns -n",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec![
                             "column0".to_string(),
                             "column1".to_string(),
@@ -75,8 +75,7 @@ impl Command for DetectColumns {
                             Value::test_string("b"),
                             Value::test_string("c"),
                         ],
-                        span,
-                    }],
+                    })],
                     span,
                 }),
             },
@@ -238,17 +237,9 @@ fn detect_columns(
                 let part3 = &vals.clone()[end_index + 1..];
                 let new_vals = [part1, &[binding], part3].concat();
 
-                Value::Record {
-                    cols: renum_cols,
-                    vals: new_vals,
-                    span: name_span,
-                }
+                Value::record_from_parts(renum_cols, new_vals, name_span)
             } else {
-                Value::Record {
-                    cols,
-                    vals,
-                    span: name_span,
-                }
+                Value::record_from_parts(cols, vals, name_span)
             }
         })
         .into_pipeline_data(ctrlc))

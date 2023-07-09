@@ -2,6 +2,7 @@ use indexmap::indexmap;
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -228,7 +229,6 @@ impl Command for Char {
             return Ok(CHAR_MAP
                 .iter()
                 .map(move |(name, s)| {
-                    let cols = vec!["name".into(), "character".into(), "unicode".into()];
                     let name: Value = Value::string(String::from(*name), call_span);
                     let character = Value::string(s, call_span);
                     let unicode = Value::string(
@@ -238,12 +238,7 @@ impl Command for Char {
                             .join(" "),
                         call_span,
                     );
-                    let vals = vec![name, character, unicode];
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: call_span,
-                    }
+                    Value::record(record! { name, character, unicode }, call_span)
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone()));
         }
@@ -262,7 +257,7 @@ impl Command for Char {
                     .positional_nth(i)
                     .expect("Unexpected missing argument")
                     .span;
-                multi_byte.push(integer_to_unicode_char(arg, &span)?)
+                multi_byte.push(integer_to_unicode_char(arg, span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else if call.has_flag("unicode") {
@@ -279,7 +274,7 @@ impl Command for Char {
                     .positional_nth(i)
                     .expect("Unexpected missing argument")
                     .span;
-                multi_byte.push(string_to_unicode_char(arg, &span)?)
+                multi_byte.push(string_to_unicode_char(arg, span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else {
@@ -306,7 +301,7 @@ impl Command for Char {
     }
 }
 
-fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
+fn integer_to_unicode_char(value: i64, span: Span) -> Result<char, ShellError> {
     let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
@@ -314,12 +309,12 @@ fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "not a valid Unicode codepoint".into(),
-            span: *t,
+            span,
         })
     }
 }
 
-fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
+fn string_to_unicode_char(s: &str, span: Span) -> Result<char, ShellError> {
     let decoded_char = u32::from_str_radix(s, 16)
         .ok()
         .and_then(std::char::from_u32);
@@ -329,7 +324,7 @@ fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error decoding Unicode character".into(),
-            span: *t,
+            span,
         })
     }
 }
