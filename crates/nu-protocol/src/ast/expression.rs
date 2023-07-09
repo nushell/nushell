@@ -114,13 +114,6 @@ impl Expression {
         }
     }
 
-    pub fn as_bool(&self) -> Option<bool> {
-        match &self.expr {
-            Expr::Bool(bool) => Some(*bool),
-            _ => None,
-        }
-    }
-
     pub fn as_import_pattern(&self) -> Option<ImportPattern> {
         match &self.expr {
             Expr::ImportPattern(pattern) => Some(pattern.clone()),
