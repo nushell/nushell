@@ -202,7 +202,7 @@ fn match_doesnt_overwrite_variable() {
 fn match_with_guard() {
     let actual = nu!(
         cwd: ".",
-        "match [1 2 3] { [$x, ..] if $x mod 2 == 0 => { $x }, $x => { [2] } }"
+        "match [1 2 3] { [$x, ..] if $x mod 2 == 0 => { $x }, $x => { 2 } }"
     );
 
     assert_eq!(actual.out, "2");
