@@ -177,3 +177,19 @@ fn mut_records_update_properly() {
     let actual = nu!(pipeline("mut a = {}; $a.b.c = 100; $a.b.c"));
     assert_eq!(actual.out, "100");
 }
+
+#[test]
+fn mut_takes_pipeline() {
+    let actual = nu!(r#"mut x = "hello world" | str length; print $x"#);
+
+    assert_eq!(actual.out, "11");
+}
+
+#[test]
+fn mut_pipeline_allows_in() {
+    let actual = nu!(r#"
+        def foo [] { mut x = $in | str length; print ($x + 10) }; "hello world" | foo
+    "#);
+
+    assert_eq!(actual.out, "21");
+}
