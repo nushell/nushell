@@ -4269,14 +4269,18 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             }
         // A match guard
         } else if connector == b"if" {
-            let if_span = output[position].span;
+            let if_end = {
+                let end = output[position].span.end;
+                Span::new(end, end)
+            };
+
             position += 1;
 
             let mk_err = || ParseError::LabeledErrorWithHelp {
                 error: "Match guard without an expression".into(),
                 label: "expected an expression".into(),
                 help: "The `if` keyword must be followed with an expression".into(),
-                span: if_span,
+                span: if_end,
             };
 
             let Some(maybe_guard) = output.get(position) else {
