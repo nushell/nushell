@@ -52,9 +52,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn summation(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
+pub fn summation(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let sum_func = reducer_for(Reduce::Summation);
-    sum_func(Value::nothing(*head), values.to_vec(), span, *head)
+    sum_func(Value::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]

@@ -65,8 +65,8 @@ impl Command for SubCommand {
     }
 }
 
-pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, &Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: Span, head: &Span| {
+pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, head: Span| {
         let variance = variance(sample)(values, span, head);
         match variance {
             Ok(Value::Float { val, span }) => Ok(Value::Float {
