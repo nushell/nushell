@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::super::values::NuDataFrame;
@@ -34,21 +34,18 @@ impl Command for ToNu {
 
     fn examples(&self) -> Vec<Example> {
         let cols = vec!["index".into(), "a".into(), "b".into()];
-        let rec_1 = Value::Record {
+        let rec_1 = Value::test_record(Record {
             cols: cols.clone(),
             vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-            span: Span::test_data(),
-        };
-        let rec_2 = Value::Record {
+        });
+        let rec_2 = Value::test_record(Record {
             cols: cols.clone(),
             vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
-            span: Span::test_data(),
-        };
-        let rec_3 = Value::Record {
+        });
+        let rec_3 = Value::test_record(Record {
             cols,
             vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
-            span: Span::test_data(),
-        };
+        });
 
         vec![
             Example {

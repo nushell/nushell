@@ -3,7 +3,7 @@ use super::super::values::NuExpression;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -28,11 +28,10 @@ impl Command for ExprAsNu {
         vec![Example {
             description: "Convert a col expression into a nushell value",
             example: "dfr col a | dfr into-nu",
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![Value::test_string("column"), Value::test_string("a")],
-                span: Span::test_data(),
-            }),
+            })),
         }]
     }
 

@@ -1,5 +1,5 @@
 use super::NuLazyFrame;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{record, CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuLazyFrame {
@@ -29,22 +29,16 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let cols = vec!["plan".into(), "optimized_plan".into()];
-        let vals = vec![
-            Value::String {
-                val: self.as_ref().describe_plan(),
-                span,
-            },
-            Value::String {
-                val: self
+        Ok(Value::record(
+            record! {
+                plan => Value::string(self.as_ref().describe_plan(), span),
+                optimized_plan => Value::string(self
                     .as_ref()
                     .describe_optimized_plan()
-                    .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string()),
-                span,
+                    .unwrap_or_else(|_| "<NOT AVAILABLE>".to_owned()), span),
             },
-        ];
-
-        Ok(Value::Record { cols, vals, span })
+            span,
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

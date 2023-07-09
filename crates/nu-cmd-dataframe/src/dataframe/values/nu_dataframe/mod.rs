@@ -7,7 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
@@ -158,15 +158,14 @@ impl NuDataFrame {
             match value {
                 Value::CustomValue { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
-                    let cols = (0..vals.len())
-                        .map(|i| format!("{i}"))
-                        .collect::<Vec<String>>();
+                    let record = Record {
+                        cols: (0..vals.len()).map(|i| i.to_string()).collect(),
+                        vals,
+                    };
 
-                    conversion::insert_record(&mut column_values, &cols, &vals)?
+                    conversion::insert_record(&mut column_values, record)?
                 }
-                Value::Record { cols, vals, .. } => {
-                    conversion::insert_record(&mut column_values, &cols, &vals)?
-                }
+                Value::Record { val, .. } => conversion::insert_record(&mut column_values, *val)?,
                 _ => {
                     let key = "0".to_string();
                     conversion::insert_value(value, key, &mut column_values)?
@@ -427,25 +426,14 @@ impl NuDataFrame {
 
         let values = (0..size)
             .map(|i| {
-                let mut cols = vec![];
-                let mut vals = vec![];
-
-                cols.push("index".into());
-                vals.push(Value::Int {
-                    val: (i + from_row) as i64,
-                    span,
-                });
+                let mut record = Record::new();
+                record.push("index", Value::int((i + from_row) as i64, span));
 
                 for (name, col) in &mut iterators {
-                    cols.push(name.clone());
-
-                    match col.next() {
-                        Some(v) => vals.push(v),
-                        None => vals.push(Value::Nothing { span }),
-                    };
+                    record.push(name.clone(), col.next().unwrap_or(Value::nothing(span)));
                 }
 
-                Value::Record { cols, vals, span }
+                Value::record(record, span)
             })
             .collect::<Vec<Value>>();
 

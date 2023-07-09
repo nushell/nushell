@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
 };
 
 use crate::dataframe::values::NuDataFrame;
@@ -52,30 +52,16 @@ impl Command for ListDF {
         let vals = vals
             .into_iter()
             .filter_map(|(name, value)| {
-                NuDataFrame::try_from_value(value).ok().map(|df| (name, df))
-            })
-            .map(|(name, df)| {
-                let name = Value::String {
-                    val: name,
-                    span: call.head,
-                };
-
-                let columns = Value::int(df.as_ref().width() as i64, call.head);
-
-                let rows = Value::int(df.as_ref().height() as i64, call.head);
-
-                let cols = vec![
-                    "name".to_string(),
-                    "columns".to_string(),
-                    "rows".to_string(),
-                ];
-                let vals = vec![name, columns, rows];
-
-                Value::Record {
-                    cols,
-                    vals,
-                    span: call.head,
-                }
+                NuDataFrame::try_from_value(value).ok().map(|df| {
+                    Value::record(
+                        record! {
+                            name => Value::string(name, call.head),
+                            columns => Value::int(df.as_ref().width() as i64, call.head),
+                            rows => Value::int(df.as_ref().height() as i64, call.head)
+                        },
+                        call.head,
+                    )
+                })
             })
             .collect::<Vec<Value>>();
 
