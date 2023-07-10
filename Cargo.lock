@@ -688,8 +688,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e959d788268e3bf9d35ace83e81b124190378e4c91c9067524675e33394b8ba"
 dependencies = [
  "crossterm",
- "strum",
- "strum_macros",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "unicode-width",
 ]
 
@@ -2953,8 +2953,8 @@ dependencies = [
  "num-format",
  "serde",
  "serde_json",
- "strum",
- "strum_macros",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "thiserror",
  "typetag",
 ]
@@ -4244,7 +4244,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.21.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#2142c5c8e98aac8ce09d443b17a94f589b75afde"
+source = "git+https://github.com/nushell/reedline.git?branch=main#cf841beb92affc7cb5cdc16bddefdebcd001f8c9"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4255,8 +4255,8 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum",
- "strum_macros",
+ "strum 0.25.0",
+ "strum_macros 0.25.1",
  "thiserror",
  "unicode-segmentation",
  "unicode-width",
@@ -4945,6 +4945,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 
 [[package]]
+name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+
+[[package]]
 name = "strum_macros"
 version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4955,6 +4961,19 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6069ca09d878a33f883cc06aaa9718ede171841d3832450354410b718b097232"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.23",
 ]
 
 [[package]]
