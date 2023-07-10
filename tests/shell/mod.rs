@@ -205,11 +205,11 @@ fn run_script_that_looks_like_module() {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
         let inp_lines = &[
             r#"module spam { export def eggs [] { 'eggs' } }"#,
-            r#"export use spam eggs"#,
+            "export use spam eggs",
             r#"export def foo [] { eggs }"#,
             r#"export alias bar = foo"#,
             r#"export def-env baz [] { bar }"#,
-            r#"baz"#,
+            "baz",
         ];
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
@@ -221,7 +221,7 @@ fn run_script_that_looks_like_module() {
 #[test]
 fn run_export_extern() {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
-        let inp_lines = &[r#"export extern foo []"#, r#"help foo"#];
+        let inp_lines = &[r#"export extern foo []"#, "help foo"];
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
 
