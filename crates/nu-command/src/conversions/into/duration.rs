@@ -413,9 +413,8 @@ fn convert_str_from_unit_to_unit(
 
 fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
     let mut accum_ns: i64 = 0;
-    let mut phrase_iter = s.split_whitespace();
 
-    while let Some(phrase) = phrase_iter.next() {
+    for phrase in s.split_whitespace() {
         accum_ns += phrase_to_duration(phrase, span, value_span)?;
     }
     Ok(accum_ns)
