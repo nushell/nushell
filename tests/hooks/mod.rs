@@ -116,7 +116,7 @@ fn env_change_define_command() {
         "foo",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "got foo!");
@@ -130,7 +130,7 @@ fn env_change_define_variable() {
         "$x",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -144,7 +144,7 @@ fn env_change_define_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -158,7 +158,7 @@ fn env_change_define_alias() {
         "spam",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -172,7 +172,7 @@ fn env_change_simple_block_preserve_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -192,7 +192,7 @@ fn env_change_simple_block_list_shadow_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -206,7 +206,7 @@ fn env_change_block_preserve_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -219,7 +219,7 @@ fn pre_prompt_define_command() {
         "foo",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "got foo!");
@@ -229,7 +229,7 @@ fn pre_prompt_define_command() {
 fn pre_prompt_simple_block_preserve_env_var() {
     let inp = &[&pre_prompt_hook(r#"{|| $env.SPAM = "spam" }"#), "$env.SPAM"];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -247,7 +247,7 @@ fn pre_prompt_simple_block_list_shadow_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -260,7 +260,7 @@ fn pre_prompt_block_preserve_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -273,7 +273,7 @@ fn pre_execution_define_command() {
         "foo",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "got foo!");
@@ -286,7 +286,7 @@ fn pre_execution_simple_block_preserve_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -304,7 +304,7 @@ fn pre_execution_simple_block_list_shadow_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -317,7 +317,7 @@ fn pre_execution_block_preserve_env_var() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
@@ -330,7 +330,7 @@ fn pre_execution_commandline() {
         "$env.repl_commandline",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "$env.repl_commandline");
@@ -350,7 +350,7 @@ fn env_change_shadow_command() {
         "foo",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "got foo!");
@@ -364,7 +364,7 @@ fn env_change_block_dont_preserve_command() {
         "foo",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     #[cfg(windows)]
     assert_ne!(actual_repl.out, "foo");
@@ -404,7 +404,7 @@ fn env_change_block_condition_correct_args() {
         "$env.SPAM",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "true");
@@ -418,7 +418,7 @@ fn env_change_dont_panic_with_many_args() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.err.contains("incompatible_parameters"));
     assert_eq!(actual_repl.out, "");
@@ -438,7 +438,7 @@ fn err_hook_wrong_env_type_1() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
     dbg!(&actual_repl.err);
 
     assert!(actual_repl.err.contains("unsupported_config_value"));
@@ -456,7 +456,7 @@ fn err_hook_wrong_env_type_2() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.err.contains("type_mismatch"));
     assert_eq!(actual_repl.out, "");
@@ -478,7 +478,7 @@ fn err_hook_wrong_env_type_3() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
@@ -501,7 +501,7 @@ fn err_hook_non_boolean_condition_output() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
@@ -524,7 +524,7 @@ fn err_hook_non_condition_not_a_block() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
@@ -546,7 +546,7 @@ fn err_hook_parse_error() {
         "",
     ];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
@@ -556,7 +556,7 @@ fn err_hook_parse_error() {
 fn err_hook_dont_allow_string() {
     let inp = &[&pre_prompt_hook(r#"'def foo [] { "got foo!" }'"#), "foo"];
 
-    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+    let actual_repl = nu!(nu_repl_code(inp));
 
     assert!(actual_repl.out.is_empty());
     assert!(actual_repl.err.contains("unsupported_config_value"));
