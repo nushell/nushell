@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -23,9 +23,9 @@ fn module_private_import_decl() {
                 "#,
             )]);
 
-        let inp = &[r#"use main.nu foo"#, r#"foo"#];
+        let inp = &[r#"use main.nu foo"#, "foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -50,9 +50,9 @@ fn module_private_import_alias() {
                 "#,
             )]);
 
-        let inp = &[r#"use main.nu foo"#, r#"foo"#];
+        let inp = &[r#"use main.nu foo"#, "foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -76,9 +76,9 @@ fn module_private_import_decl_not_public() {
                 "#,
             )]);
 
-        let inp = &[r#"use main.nu foo"#, r#"foo-helper"#];
+        let inp = &[r#"use main.nu foo"#, "foo-helper"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(!actual.err.is_empty());
     })
@@ -102,9 +102,9 @@ fn module_public_import_decl() {
                 "#,
             )]);
 
-        let inp = &[r#"use main.nu foo"#, r#"foo"#];
+        let inp = &[r#"use main.nu foo"#, "foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -127,9 +127,9 @@ fn module_public_import_alias() {
                 "#,
             )]);
 
-        let inp = &[r#"use main.nu foo"#, r#"foo"#];
+        let inp = &[r#"use main.nu foo"#, "foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -165,13 +165,13 @@ fn module_nested_imports() {
                 "#,
             )]);
 
-        let inp1 = &[r#"use main.nu foo"#, r#"foo"#];
-        let inp2 = &[r#"use main.nu bar"#, r#"bar"#];
+        let inp1 = &[r#"use main.nu foo"#, "foo"];
+        let inp2 = &[r#"use main.nu bar"#, "bar"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp1.join("; "));
         assert_eq!(actual.out, "foo");
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp2.join("; "));
         assert_eq!(actual.out, "bar");
     })
 }
@@ -209,13 +209,13 @@ fn module_nested_imports_in_dirs() {
                 "#,
             )]);
 
-        let inp1 = &[r#"use main.nu foo"#, r#"foo"#];
-        let inp2 = &[r#"use main.nu bar"#, r#"bar"#];
+        let inp1 = &[r#"use main.nu foo"#, "foo"];
+        let inp2 = &[r#"use main.nu bar"#, "bar"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp1.join("; "));
         assert_eq!(actual.out, "foo");
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp2.join("; "));
         assert_eq!(actual.out, "bar");
     })
 }
@@ -238,9 +238,9 @@ fn module_public_import_decl_prefixed() {
                 "#,
             )]);
 
-        let inp = &[r#"use main.nu"#, r#"main spam foo"#];
+        let inp = &[r#"use main.nu"#, "main spam foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -280,13 +280,13 @@ fn module_nested_imports_in_dirs_prefixed() {
                 "#,
             )]);
 
-        let inp1 = &[r#"use main.nu"#, r#"main spam2 foo"#];
-        let inp2 = &[r#"use main.nu "spam2 spam3 bar""#, r#"spam2 spam3 bar"#];
+        let inp1 = &[r#"use main.nu"#, "main spam2 foo"];
+        let inp2 = &[r#"use main.nu "spam2 spam3 bar""#, "spam2 spam3 bar"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp1.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp1.join("; "));
         assert_eq!(actual.out, "foo");
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp2.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp2.join("; "));
         assert_eq!(actual.out, "bar");
     })
 }
@@ -310,9 +310,9 @@ fn module_import_env_1() {
                 "#,
             )]);
 
-        let inp = &[r#"source-env main.nu"#, r#"use main.nu foo"#, r#"foo"#];
+        let inp = &[r#"source-env main.nu"#, r#"use main.nu foo"#, "foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -337,7 +337,7 @@ fn module_import_env_2() {
 
         let inp = &[r#"source-env main.nu"#, r#"$env.FOO"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -355,7 +355,7 @@ fn module_cyclical_imports_0() {
 
         let inp = &[r#"module eggs { use spam.nu }"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("module not found"));
     })
@@ -373,7 +373,7 @@ fn module_cyclical_imports_1() {
 
         let inp = &[r#"use spam.nu"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("cyclical"));
     })
@@ -398,7 +398,7 @@ fn module_cyclical_imports_2() {
 
         let inp = &[r#"use spam.nu"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("cyclical"));
     })
@@ -429,7 +429,7 @@ fn module_cyclical_imports_3() {
 
         let inp = &[r#"use spam.nu"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("cyclical"));
     })
@@ -445,9 +445,9 @@ fn module_import_const_file() {
             "#,
         )]);
 
-        let inp = &[r#"const file = 'spam.nu'"#, r#"use $file foo"#, r#"foo"#];
+        let inp = &[r#"const file = 'spam.nu'"#, r#"use $file foo"#, "foo"];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -467,10 +467,10 @@ fn module_import_const_module_name() {
             r#"module spam { export def foo [] { "foo" } }"#,
             r#"const mod = 'spam'"#,
             r#"use $mod foo"#,
-            r#"foo"#,
+            "foo",
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -480,7 +480,7 @@ fn module_import_const_module_name() {
 fn module_valid_def_name() {
     let inp = &[r#"module spam { def spam [] { "spam" } }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "");
 }
@@ -489,7 +489,7 @@ fn module_valid_def_name() {
 fn module_invalid_def_name() {
     let inp = &[r#"module spam { export def spam [] { "spam" } }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("named_as_module"));
 }
@@ -498,7 +498,7 @@ fn module_invalid_def_name() {
 fn module_valid_alias_name_1() {
     let inp = &[r#"module spam { alias spam = echo "spam" }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "");
 }
@@ -507,7 +507,7 @@ fn module_valid_alias_name_1() {
 fn module_valid_alias_name_2() {
     let inp = &[r#"module spam { alias main = echo "spam" }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "");
 }
@@ -516,7 +516,7 @@ fn module_valid_alias_name_2() {
 fn module_invalid_alias_name() {
     let inp = &[r#"module spam { export alias spam = echo "spam" }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("named_as_module"));
 }
@@ -525,7 +525,7 @@ fn module_invalid_alias_name() {
 fn module_main_alias_not_allowed() {
     let inp = &[r#"module spam { export alias main = echo 'spam' }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("export_main_alias_not_allowed"));
 }
@@ -534,7 +534,7 @@ fn module_main_alias_not_allowed() {
 fn module_valid_known_external_name() {
     let inp = &[r#"module spam { extern spam [] }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "");
 }
@@ -543,7 +543,7 @@ fn module_valid_known_external_name() {
 fn module_invalid_known_external_name() {
     let inp = &[r#"module spam { export extern spam [] }"#];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("named_as_module"));
 }
@@ -559,7 +559,7 @@ fn main_inside_module_is_main() {
         "foo",
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "foo");
 }
@@ -568,7 +568,7 @@ fn main_inside_module_is_main() {
 fn module_as_file() {
     let inp = &[r#"module samples/spam.nu"#, "use spam foo", "foo"];
 
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
 
     assert_eq!(actual.out, "foo");
 }
@@ -577,7 +577,7 @@ fn module_as_file() {
 fn export_module_as_file() {
     let inp = &[r#"export module samples/spam.nu"#, "use spam foo", "foo"];
 
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
 
     assert_eq!(actual.out, "foo");
 }
@@ -596,19 +596,19 @@ fn deep_import_patterns() {
     "#;
 
     let inp = &[module_decl, "use spam", "spam eggs beans foo"];
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "foo");
 
     let inp = &[module_decl, "use spam eggs", "eggs beans foo"];
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "foo");
 
     let inp = &[module_decl, "use spam eggs beans", "beans foo"];
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "foo");
 
     let inp = &[module_decl, "use spam eggs beans foo", "foo"];
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "foo");
 }
 
@@ -617,27 +617,27 @@ fn module_dir() {
     let import = "use samples/spam";
 
     let inp = &[import, "spam"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "spam");
 
     let inp = &[import, "spam foo"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "foo");
 
     let inp = &[import, "spam bar"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "bar");
 
     let inp = &[import, "spam foo baz"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "foobaz");
 
     let inp = &[import, "spam bar baz"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "barbaz");
 
     let inp = &[import, "spam baz"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "spambaz");
 }
 
@@ -646,19 +646,19 @@ fn module_dir_deep() {
     let import = "use samples/spam";
 
     let inp = &[import, "spam bacon"];
-    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual_repl.out, "bacon");
 
     let inp = &[import, "spam bacon foo"];
-    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual_repl.out, "bacon foo");
 
     let inp = &[import, "spam bacon beans"];
-    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual_repl.out, "beans");
 
     let inp = &[import, "spam bacon beans foo"];
-    let actual_repl = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual_repl.out, "beans foo");
 }
 
@@ -673,28 +673,28 @@ fn module_dir_import_twice_no_panic() {
 #[test]
 fn not_allowed_submodule_file() {
     let inp = &["use samples/not_allowed"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("invalid_module_file_name"));
 }
 
 #[test]
 fn module_dir_missing_mod_nu() {
     let inp = &["use samples/missing_mod_nu"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("module_missing_mod_nu_file"));
 }
 
 #[test]
 fn allowed_local_module() {
     let inp = &["module spam { module spam {} }"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn not_allowed_submodule() {
     let inp = &["module spam { export module spam {} }"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("named_as_module"));
 }
 
@@ -705,7 +705,7 @@ fn module_self_name() {
         "use spam",
         "spam",
     ];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert_eq!(actual.out, "spam");
 }
 
@@ -722,7 +722,7 @@ fn module_self_name_main_not_allowed() {
         "use spam",
         "spam",
     ];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("module_double_main"));
 
     let inp = &[
@@ -736,17 +736,17 @@ fn module_self_name_main_not_allowed() {
         "use spam",
         "spam",
     ];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("module_double_main"));
 }
 
 #[test]
 fn module_main_not_found() {
     let inp = &["module spam {}", "use spam main"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("export_not_found"));
 
     let inp = &["module spam {}", "use spam [ main ]"];
-    let actual = nu!(cwd: "tests/modules", pipeline(&inp.join("; ")));
+    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
     assert!(actual.err.contains("export_not_found"));
 }
