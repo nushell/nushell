@@ -43,10 +43,6 @@ impl Command for SubCommand {
         "Convert value to duration."
     }
 
-    fn extra_usage(&self) -> &str {
-        "This command does not take leap years into account, and every month is assumed to have 30 days."
-    }
-
     fn search_terms(&self) -> Vec<&str> {
         vec!["convert", "time", "period"]
     }
@@ -119,6 +115,14 @@ impl Command for SubCommand {
                 example: "'7min' | into duration",
                 result: Some(Value::Duration {
                     val: 7 * 60 * 1000 * 1000 * 1000,
+                    span,
+                }),
+            },
+            Example {
+                description: "Convert compound duration string to duration value",
+                example: "'9day 184min' | into duration",
+                result: Some(Value::Duration {
+                    val: ((9 * 24 * 60) + 184) * 60 * 1_000_000_000,
                     span,
                 }),
             },
@@ -408,6 +412,16 @@ fn convert_str_from_unit_to_unit(
 }
 
 fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
+    let mut accum_ns: i64 = 0;
+    let mut phrase_iter = s.split_whitespace();
+
+    while let Some(phrase) = phrase_iter.next() {
+        accum_ns += phrase_to_duration(phrase, span, value_span)?;
+    }
+    Ok(accum_ns)
+}
+
+fn phrase_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -436,10 +450,7 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,
-        help: Some(
-            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                .to_string(),
-        ),
+        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, wk".to_string()),
     })
 }
 
@@ -477,10 +488,7 @@ fn string_to_unit_duration(
         details: s.to_string(),
         dst_span: span,
         src_span: value_span,
-        help: Some(
-            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                .to_string(),
-        ),
+        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, wk".to_string()),
     })
 }
 
@@ -533,6 +541,7 @@ fn action(
             val,
             span: value_span,
         } => {
+            //do_phrase(val, value_span)
             if let Some(to_unit) = convert_to_unit {
                 if let Ok(dur) = string_to_unit_duration(val, span, *value_span) {
                     let from_unit = dur.0;
@@ -599,6 +608,7 @@ fn action(
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn test_examples() {
@@ -607,140 +617,53 @@ mod test {
         test_examples(SubCommand {})
     }
 
-    #[test]
-    fn turns_ns_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("3ns");
-        let expected = Value::Duration { val: 3, span };
-        let convert_duration = None;
+    const NS_PER_SEC: i64 = 1_000_000_000;
 
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
+    #[rstest]
+    #[case("3ns", 3)]
+    #[case("4us", 4*1000)]
+    #[case("4\u{00B5}s", 4*1000)] // micro sign
+    #[case("4\u{03BC}s", 4*1000)] // mu symbol
+    #[case("5ms", 5 * 1000 * 1000)]
+    #[case("1sec", 1 * NS_PER_SEC)]
+    #[case("7min", 7 * 60 * NS_PER_SEC)]
+    #[case("42hr", 42 * 60 * 60 * NS_PER_SEC)]
+    #[case("123day", 123 * 24 * 60 * 60 * NS_PER_SEC)]
+    #[case("3wk", 3 * 7 * 24 * 60 * 60 * NS_PER_SEC)]
+    #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
+    #[case("14ns 3hr 17sec", 14 + 3 * 3600 * NS_PER_SEC + 17 * NS_PER_SEC)] // compound string with units in random order
+
+    fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
+        let actual = action(
+            &Value::test_string(phrase),
+            &None,
+            2,
+            Span::new(0, phrase.len()),
+        );
+        match actual {
+            Value::Duration {
+                val: observed_val, ..
+            } => {
+                assert_eq!(expected_duration_val, observed_val, "expected != observed")
+            }
+            other => {
+                panic!("Expected Value::Duration, observed {other:?}");
+            }
+        }
     }
 
     #[test]
-    fn turns_us_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("4us");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_micro_sign_s_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("4\u{00B5}s");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_mu_s_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("4\u{03BC}s");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_ms_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("5ms");
-        let expected = Value::Duration {
-            val: 5 * 1000 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_sec_to_duration() {
-        let span = Span::new(0, 3);
-        let word = Value::test_string("1sec");
-        let expected = Value::Duration {
-            val: 1000 * 1000 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_min_to_duration() {
-        let span = Span::new(0, 3);
-        let word = Value::test_string("7min");
-        let expected = Value::Duration {
-            val: 7 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_hr_to_duration() {
-        let span = Span::new(0, 3);
-        let word = Value::test_string("42hr");
-        let expected = Value::Duration {
-            val: 42 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_day_to_duration() {
-        let span = Span::new(0, 5);
-        let word = Value::test_string("123day");
-        let expected = Value::Duration {
-            val: 123 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_wk_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("3wk");
-        let expected = Value::Duration {
-            val: 3 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-        let convert_duration = None;
-
-        let actual = action(&word, &convert_duration, 2, span);
-        assert_eq!(actual, expected);
+    #[ignore = "foo"]
+    fn playground() {
+        let instr = "   abc def ";
+        instr
+            .match_indices(|c: char| !c.is_whitespace())
+            .for_each(|(start_index, s)| {
+                println!(
+                    "substring {s} starts at {} and ends at {}",
+                    start_index,
+                    start_index + s.len() - 1
+                );
+            });
     }
 }
