@@ -12,7 +12,7 @@ version = "0.82.1"
 nu-plugin = { path = "../nu-plugin", version = "0.82.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.82.1", features = ["plugin"] }
 
-indexmap = { version = "1.7", features = ["serde-1"] }
+indexmap = "2.0"
 eml-parser = "0.1"
 ical = "0.8"
 rust-ini = "0.19.0"
