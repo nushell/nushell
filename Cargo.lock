@@ -2953,7 +2953,7 @@ dependencies = [
  "num-format",
  "serde",
  "serde_json",
- "strum 0.24.1",
+ "strum 0.25.0",
  "strum_macros 0.24.3",
  "thiserror",
  "typetag",
