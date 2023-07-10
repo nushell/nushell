@@ -1833,6 +1833,7 @@ checksum = "d5477fe2230a79769d8dc68e0eabf5437907c0457a5614a9e8dddb67f65eb65d"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.0",
+ "serde",
 ]
 
 [[package]]
@@ -2677,7 +2678,7 @@ dependencies = [
 name = "nu-cmd-base"
 version = "0.82.1"
 dependencies = [
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "nu-engine",
  "nu-path",
  "nu-protocol",
@@ -2689,7 +2690,7 @@ version = "0.82.1"
 dependencies = [
  "chrono",
  "fancy-regex",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
@@ -2779,7 +2780,7 @@ dependencies = [
  "filetime",
  "fs_extra",
  "htmlescape",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "indicatif",
  "is-root",
  "itertools",
@@ -2954,7 +2955,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "fancy-regex",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "lru",
  "miette",
  "nu-test-support",
@@ -3065,7 +3066,7 @@ version = "0.82.1"
 dependencies = [
  "eml-parser",
  "ical",
- "indexmap 1.9.3",
+ "indexmap 2.0.0",
  "nu-plugin",
  "nu-protocol",
  "rust-ini",
