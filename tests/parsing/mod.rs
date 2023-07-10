@@ -210,8 +210,7 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
 
 #[test]
 fn parse_export_env_in_module() {
-    let actual = nu!(
-        r#"
+    let actual = nu!(r#"
             module spam { export-env { } }
         "#);
 
@@ -220,8 +219,7 @@ fn parse_export_env_in_module() {
 
 #[test]
 fn parse_export_env_missing_block() {
-    let actual = nu!(
-        r#"
+    let actual = nu!(r#"
             module spam { export-env }
         "#);
 
@@ -230,8 +228,7 @@ fn parse_export_env_missing_block() {
 
 #[test]
 fn call_command_with_non_ascii_argument() {
-    let actual = nu!(
-        r#"
+    let actual = nu!(r#"
             def nu-arg [--umlaut(-ö): int] {}
             nu-arg -ö 42
         "#);
@@ -241,8 +238,7 @@ fn call_command_with_non_ascii_argument() {
 
 #[test]
 fn parse_long_duration() {
-    let actual = nu!(
-        r#"
+    let actual = nu!(r#"
             "78.797877879789789sec" | into duration
         "#);
 
