@@ -31,7 +31,23 @@ impl Assignment {
 
 fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
     let spans = &asg.tokens;
-    let (name, var_id) = {
+    let decl_id = {
+        let kw = asg.kind.0.to_bytes();
+        let Some(id) = working_set.find_decl(kw, &Type::Nothing) else {
+            let span = mk_span(spans);
+            let kw = asg.kind.0.to_string();
+            working_set.error(ParseError::UnknownState(
+                format!("internal error: {kw} statement not found in core language"),
+                span,
+            ));
+
+            return garbage_pipeline(spans);
+        };
+
+        id
+    };
+
+    let mk_var = |working_set: &mut StateWorkingSet<'_>| -> (Argument, usize) {
         let mutable = asg.kind.0.is_mutable();
         let (name, span) = (asg.name.0.as_bytes(), asg.name.1);
         let ty = asg.typ.clone().unwrap_or(Type::Any);
@@ -45,7 +61,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
         (Argument::Positional(expr), id)
     };
 
-    let val = {
+    let (name, val) = {
         let val_spans = &spans[asg.val_start..];
         let chk_ty = |lhs, rhs, span| -> Option<ParseError> {
             if type_compatible(lhs, rhs) {
@@ -65,6 +81,8 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
                     &SyntaxShape::MathExpression,
                 );
 
+                let (name, var_id) = mk_var(working_set);
+
                 if asg.typ.is_none() {
                     working_set.set_variable_type(var_id, val.ty.clone());
                 }
@@ -78,7 +96,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
                     Err(err) => working_set.error(err),
                 }
 
-                Argument::Positional(val)
+                (name, Argument::Positional(val))
             }
 
             _ => {
@@ -90,6 +108,8 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
                 }
 
                 let block = parse_block(working_set, &tokens, span, false, true);
+
+                let (name, var_id) = mk_var(working_set);
 
                 if asg.typ.is_none() {
                     working_set.set_variable_type(var_id, block.output_type());
@@ -109,25 +129,9 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
                     custom_completion: None,
                 };
 
-                Argument::Positional(val)
+                (name, Argument::Positional(val))
             }
         }
-    };
-
-    let decl_id = {
-        let kw = asg.kind.0.to_bytes();
-        let Some(id) = working_set.find_decl(kw, &Type::Nothing) else {
-            let span = mk_span(spans);
-            let kw = asg.kind.0.to_string();
-            working_set.error(ParseError::UnknownState(
-                format!("internal error: {kw} statement not found in core language"),
-                span,
-            ));
-
-            return garbage_pipeline(spans);
-        };
-
-        id
     };
 
     let call = Box::new(Call {
