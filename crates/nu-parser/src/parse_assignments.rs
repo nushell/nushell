@@ -32,7 +32,7 @@ impl Assignment {
 fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
     let spans = &asg.tokens;
     let decl_id = {
-        let kw = asg.kind.item.to_bytes();
+        let kw = asg.kind.item.as_bytes();
         let Some(id) = working_set.find_decl(kw, &Type::Nothing) else {
             let span = mk_span(spans);
             let kw = asg.kind.item.to_string();
@@ -268,7 +268,7 @@ impl Kind {
         matches!(self, Kind::Mut)
     }
 
-    const fn to_bytes<'kind>(&self) -> &'kind [u8] {
+    const fn as_bytes<'kind>(&self) -> &'kind [u8] {
         match self {
             Kind::Let => b"let",
             Kind::Mut => b"mut",
