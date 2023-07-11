@@ -159,11 +159,7 @@ pub fn lex_item(
             // We encountered an opening `[` delimiter.
             block_level.push(BlockKind::SquareBracket);
         } else if c == b'<' && in_signature {
-            if let Some(ch) = input.get(*curr_offset - 1) {
-                if ![b' ', b'\n'].contains(ch) {
-                    block_level.push(BlockKind::AngleBracket);
-                }
-            }
+            block_level.push(BlockKind::AngleBracket);
         } else if c == b'>' && in_signature {
             if let Some(BlockKind::AngleBracket) = block_level.last() {
                 let _ = block_level.pop();
