@@ -57,7 +57,7 @@ fn let_with_no_spaces_1() {
         pipeline("let x=4; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn let_with_no_spaces_2() {
         pipeline("let x =4; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn let_with_no_spaces_3() {
         pipeline("let x= 4; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn let_with_no_spaces_4() {
         pipeline("let x: int= 4; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn let_with_no_spaces_5() {
         pipeline("let x:int= 4; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn let_with_no_spaces_6() {
         pipeline("let x : int = 4; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[test]
