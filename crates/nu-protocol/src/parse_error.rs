@@ -178,8 +178,14 @@ pub enum ParseError {
     EnvVarNotVar(String, #[label = "use $env.{0} instead of ${0}"] Span),
 
     #[error("Variable name not supported.")]
-    #[diagnostic(code(nu::parser::variable_not_valid))]
-    VariableNotValid(#[label = "variable name can't contain spaces or quotes"] Span),
+    #[diagnostic(
+        code(nu::parser::variable_not_valid),
+        help(
+            "Variable names cannot contain these spaces or these characters\n\
+.  [  (  {  +  -  *  ^  /  =  !  <  >  &  |"
+        )
+    )]
+    VariableNotValid(#[label = "invalid name"] Span),
 
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
