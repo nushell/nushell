@@ -31,6 +31,18 @@ pub use bits::BitsShl;
 pub use bits::BitsShr;
 pub use bits::BitsXor;
 
+pub use math::MathCos;
+pub use math::MathCosH;
+pub use math::MathSin;
+pub use math::MathSinH;
+pub use math::MathTan;
+pub use math::MathTanH;
+
+pub use math::MathEulerGamma;
+pub use math::MathPhi;
+pub use math::MathPi;
+pub use math::MathTau;
+
 pub use math::MathArcCos;
 pub use math::MathArcCosH;
 pub use math::MathArcSin;
@@ -113,7 +125,15 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             MathArcTan,
             MathArcSinH,
             MathArcCosH,
-            MathArcTanH
+            MathArcTanH,
+            MathSin,
+            MathCos,
+            MathTan,
+            MathSinH,
+            MathCosH,
+            MathTanH,
+            MathPi,
+            MathTau
         };
 
         working_set.render()
