@@ -457,7 +457,9 @@ pub enum ParseError {
     #[error("Variable not a constant.")]
     #[diagnostic(
         code(nu::parser::not_a_constant),
-        help("This command expects a constant variable. Which are defined using the `const` command")
+        help(
+            "This command expects a constant variable. Which are defined using the `const` command"
+        )
     )]
     NotAConstantValue(#[label = "variable is not a parse-time constant"] Span),
 
