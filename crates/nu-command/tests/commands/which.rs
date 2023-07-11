@@ -4,7 +4,7 @@ use nu_test_support::nu;
 fn which_ls() {
     let actual = nu!("which ls | get type.0");
 
-    assert_eq!(actual.out, "alias");
+    assert_eq!(actual.out, "built-in");
 }
 
 #[ignore = "TODO: Can't have alias recursion"]
