@@ -137,7 +137,7 @@ fn comment_skipping_2() -> TestResult {
 
 #[test]
 fn bad_var_name() -> TestResult {
-    fail_test(r#"let $"foo bar" = 4"#, "can't contain")
+    fail_test(r#"let $"foo bar" = 4"#, "valid variable")
 }
 
 #[test]
