@@ -117,7 +117,7 @@ fn let_with_complex_type() {
         pipeline("let x: record<name: string> = { name: 'nushell' }; $x")
     );
 
-    assert_eq!(actual.out, 4);
+    assert_eq!(actual.out, "4");
 }
 
 #[ignore]
