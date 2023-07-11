@@ -4,7 +4,6 @@ use crate::{
     parser::{garbage_pipeline, is_variable, parse_multispan_value, parse_shape_name},
     type_check::type_compatible,
 };
-use itertools::Itertools;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, Pipeline},
     engine::StateWorkingSet,
