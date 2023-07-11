@@ -5312,10 +5312,11 @@ pub fn parse_pipeline(
     pipeline_index: usize,
 ) -> Pipeline {
     if pipeline.commands.len() > 1 {
-        // Special case: allow `let` to consume the whole pipeline, eg) `let abc = "foo" | str length`
+        // Special case: allow `let`/`mut` to consume the whole pipeline, eg) `let abc = "foo" | str length`
         match &pipeline.commands[0] {
             LiteElement::Command(_, command) if !command.parts.is_empty() => {
-                if working_set.get_span_contents(command.parts[0]) == b"let" {
+                let kw = working_set.get_span_contents(command.parts[0]);
+                if matches!(kw, b"let" | b"mut") {
                     let mut new_command = LiteCommand {
                         comments: vec![],
                         parts: command.parts.clone(),
@@ -5333,7 +5334,7 @@ pub fn parse_pipeline(
                         }
                     }
 
-                    // if the 'let' is complete enough, use it, if not, fall through for now
+                    // if the 'let'/'mut' is complete enough, use it, if not, fall through for now
                     if new_command.parts.len() > 3 {
                         let rhs_span = nu_protocol::span(&new_command.parts[3..]);
 
