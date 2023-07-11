@@ -177,3 +177,17 @@ fn mut_records_update_properly() {
     let actual = nu!(pipeline("mut a = {}; $a.b.c = 100; $a.b.c"));
     assert_eq!(actual.out, "100");
 }
+
+#[test]
+fn mut_value_with_if() {
+    let actual = nu!(pipeline("mut a = 3; $a = if 3 == 3 { 10 }; echo $a"));
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn mut_value_with_match() {
+    let actual = nu!(pipeline(
+        "mut a = 3; $a = match 3 { 1 => { 'yes!' }, _ => { 'no!' } }; echo $a"
+    ));
+    assert_eq!(actual.out, "no!");
+}
