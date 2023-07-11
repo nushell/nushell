@@ -50,6 +50,76 @@ fn let_pipeline_allows_in() {
     assert_eq!(actual.out, "21");
 }
 
+#[test]
+fn let_with_no_spaces_1() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x=4; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
+#[test]
+fn let_with_no_spaces_2() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x =4; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
+#[test]
+fn let_with_no_spaces_3() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x= 4; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
+#[test]
+fn let_with_no_spaces_4() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x: int= 4; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
+#[test]
+fn let_with_no_spaces_5() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x:int= 4; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
+#[test]
+fn let_with_no_spaces_6() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x : int = 4; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
+#[test]
+fn let_with_complex_type() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x: record<name: string> = { name: 'nushell' }; $x")
+    );
+
+    assert_eq!(actual.out, 4);
+}
+
 #[ignore]
 #[test]
 fn let_with_external_failed() {
