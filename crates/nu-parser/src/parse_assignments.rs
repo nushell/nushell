@@ -161,15 +161,15 @@ fn try_parse(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Assign
     let (tokens, error) = lex_signature(input, span.start, &[], &[b':', b'='], false);
     if let Some(error) = error {
         // only add the error if it appears in the lhs of the statement
-        if let ParseError::UnexpectedEof(delim, span) = &error {
+        if let ParseError::UnexpectedEof(_, span) = &error {
             let eq = spans
                 .iter()
                 .find_position(|s| working_set.get_span_contents(**s) == b"=")
                 .map(|x| x.0)
                 .unwrap_or(spans.len() - 1);
 
-            let val_span = mk_span(&spans[eq..]);
-            if !(val_span.start..val_span.end).contains(&span.start) && delim == ">" {
+            let err_in_rhs = tokens[eq..].iter().map(|x| x.span).contains(span);
+            if !err_in_rhs {
                 working_set.error(error);
             }
         } else {
