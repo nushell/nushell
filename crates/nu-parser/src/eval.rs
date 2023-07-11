@@ -4,13 +4,38 @@ use nu_protocol::{
     ParseError, Span, Value,
 };
 
-/// Evaluate a constant value at parse time
-///
-/// Based off eval_expression() in the engine
+/// Evaluate a constant assignment value
+pub fn eval_constant_assignment(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+) -> Result<Value, ParseError> {
+    eval(working_set, expr, true)
+}
+
+/// Evaluate a constant expression
 pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ParseError> {
+    eval(working_set, expr, false)
+}
+
+/// Evaluate a constant value at parse time
+///
+/// Based off eval_expression() in the engine
+fn eval(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    assignment: bool,
+) -> Result<Value, ParseError> {
+    let mk_err = |span| {
+        Err(if assignment {
+            ParseError::NotAConstant(span)
+        } else {
+            ParseError::NotAConstantValue(span)
+        })
+    };
+
     match &expr.expr {
         Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
@@ -25,14 +50,14 @@ pub fn eval_constant(
         }),
         Expr::Var(var_id) => match working_set.find_constant(*var_id) {
             Some(val) => Ok(val.clone()),
-            None => Err(ParseError::NotAConstant(expr.span)),
+            None => mk_err(expr.span),
         },
         Expr::CellPath(cell_path) => Ok(Value::CellPath {
             val: cell_path.clone(),
             span: expr.span,
         }),
         Expr::FullCellPath(cell_path) => {
-            let value = eval_constant(working_set, &cell_path.head)?;
+            let value = eval(working_set, &cell_path.head, assignment)?;
 
             match value.follow_cell_path(&cell_path.tail, false) {
                 Ok(val) => Ok(val),
@@ -51,7 +76,7 @@ pub fn eval_constant(
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
-                output.push(eval_constant(working_set, expr)?);
+                output.push(eval(working_set, expr, assignment)?);
             }
             Ok(Value::List {
                 vals: output,
@@ -63,15 +88,15 @@ pub fn eval_constant(
             let mut vals = vec![];
             for (col, val) in fields {
                 // avoid duplicate cols.
-                let col_name = value_as_string(eval_constant(working_set, col)?, expr.span)?;
+                let col_name = value_as_string(eval(working_set, col, assignment)?, expr.span)?;
                 let pos = cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
-                        vals[index] = eval_constant(working_set, val)?;
+                        vals[index] = eval(working_set, val, assignment)?;
                     }
                     None => {
                         cols.push(col_name);
-                        vals.push(eval_constant(working_set, val)?);
+                        vals.push(eval(working_set, val, assignment)?);
                     }
                 }
             }
@@ -86,7 +111,7 @@ pub fn eval_constant(
             let mut output_headers = vec![];
             for expr in headers {
                 output_headers.push(value_as_string(
-                    eval_constant(working_set, expr)?,
+                    eval(working_set, expr, assignment)?,
                     expr.span,
                 )?);
             }
@@ -95,7 +120,7 @@ pub fn eval_constant(
             for val in vals {
                 let mut row = vec![];
                 for expr in val {
-                    row.push(eval_constant(working_set, expr)?);
+                    row.push(eval(working_set, expr, assignment)?);
                 }
                 output_rows.push(Value::Record {
                     cols: output_headers.clone(),
@@ -108,20 +133,20 @@ pub fn eval_constant(
                 span: expr.span,
             })
         }
-        Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
+        Expr::Keyword(_, _, expr) => eval(working_set, expr, assignment),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,
         }),
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
         Expr::ValueWithUnit(expr, unit) => {
-            if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
+            if let Ok(Value::Int { val, .. }) = eval(working_set, expr, assignment) {
                 Ok(unit.item.to_value(val, unit.span))
             } else {
-                Err(ParseError::NotAConstant(expr.span))
+                mk_err(expr.span)
             }
         }
-        _ => Err(ParseError::NotAConstant(expr.span)),
+        _ => mk_err(expr.span),
     }
 }
 

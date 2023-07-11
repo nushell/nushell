@@ -1,4 +1,4 @@
-use nu_engine::eval_expression_with_input;
+use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
@@ -54,25 +54,22 @@ impl Command for Mut {
             .as_var()
             .expect("internal error: missing variable");
 
-        let keyword_expr = call
+        let block_id = call
             .positional_nth(1)
             .expect("checked through parser")
-            .as_keyword()
-            .expect("internal error: missing keyword");
+            .as_block()
+            .expect("internal error: missing right hand side");
 
-        let rhs = eval_expression_with_input(
+        let block = engine_state.get_block(block_id);
+        let pipeline_data = eval_block(
             engine_state,
             stack,
-            keyword_expr,
+            block,
             input,
             call.redirect_stdout,
             call.redirect_stderr,
-        )?
-        .0;
-
-        //println!("Adding: {:?} to {}", rhs, var_id);
-
-        stack.add_var(var_id, rhs.into_value(call.head));
+        )?;
+        stack.add_var(var_id, pipeline_data.into_value(call.head));
         Ok(PipelineData::empty())
     }
 

@@ -2,7 +2,6 @@ use crate::{
     eval::{eval_constant, value_as_string},
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
-    parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
     type_check::{math_result_type, type_compatible},
     Token, TokenContents,
@@ -21,10 +20,10 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    find_dirs_var, is_unaliasable_parser_keyword, parse_alias, parse_const, parse_def,
-    parse_def_predecl, parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword,
-    parse_let, parse_module, parse_overlay_hide, parse_overlay_new, parse_overlay_use,
-    parse_source, parse_use, parse_where, parse_where_expr, LIB_DIRS_VAR,
+    find_dirs_var, is_unaliasable_parser_keyword, parse_alias, parse_def, parse_def_predecl,
+    parse_export_in_block, parse_extern, parse_for, parse_hide, parse_keyword, parse_module,
+    parse_overlay_hide, parse_overlay_new, parse_overlay_use, parse_source, parse_use, parse_where,
+    parse_where_expr, LIB_DIRS_VAR,
 };
 
 use itertools::Itertools;
@@ -5200,9 +5199,14 @@ pub fn parse_builtin_commands(
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command, None),
         b"extern" => parse_extern(working_set, lite_command, None),
-        b"let" => parse_let(working_set, &lite_command.parts),
-        b"const" => parse_const(working_set, &lite_command.parts),
-        b"mut" => parse_mut(working_set, &lite_command.parts),
+        b"let" | b"mut" | b"const" => {
+            use crate::parse_assignments::Assignment;
+            let Some(asg) = Assignment::try_parse(working_set, &lite_command.parts) else {
+                return garbage_pipeline(&lite_command.parts);
+            };
+
+            asg.process(working_set)
+        }
         b"for" => {
             let expr = parse_for(working_set, &lite_command.parts);
             Pipeline::from_vec(vec![expr])
