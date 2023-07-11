@@ -155,9 +155,9 @@ pub fn highlight_search_in_table(
             });
         };
 
-        let has_match = cols.iter().zip(vals.iter_mut()).fold(
-            Ok(false),
-            |acc: Result<bool, ShellError>, (col, val)| {
+        let has_match = cols.iter().zip(vals.iter_mut()).try_fold(
+            false,
+            |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if searched_cols.contains(&col.as_str()) {
                     if let Value::String { val: s, span } = val {
                         if s.to_lowercase().contains(&search_string) {
@@ -173,15 +173,15 @@ pub fn highlight_search_in_table(
                             Ok(true)
                         } else {
                             // column does not contain the searched string
-                            acc
+                            Ok(acc)
                         }
                     } else {
                         // ignore non-string values
-                        acc
+                        Ok(acc)
                     }
                 } else {
                     // don't search this column
-                    acc
+                    Ok(acc)
                 }
             },
         )?;

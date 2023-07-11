@@ -207,7 +207,7 @@ impl Completer for CommandCompletion {
 
         subcommands
             .into_iter()
-            .chain(commands.into_iter())
+            .chain(commands)
             .collect::<Vec<_>>()
     }
 

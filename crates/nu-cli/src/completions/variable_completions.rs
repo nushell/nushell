@@ -294,7 +294,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 vals,
                 span: _,
             } => {
-                for item in cols.into_iter().zip(vals.into_iter()) {
+                for item in cols.into_iter().zip(vals) {
                     // Check if index matches with sublevel
                     if item.0.as_bytes().to_vec() == next_sublevel {
                         // If matches try to fetch recursively the next

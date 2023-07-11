@@ -67,7 +67,7 @@ impl RawStream {
             leftover: self
                 .leftover
                 .into_iter()
-                .chain(stream.leftover.into_iter())
+                .chain(stream.leftover)
                 .collect(),
             ctrlc: self.ctrlc,
             is_binary: self.is_binary,
