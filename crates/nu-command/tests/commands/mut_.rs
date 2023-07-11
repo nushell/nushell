@@ -161,6 +161,30 @@ fn mut_path_upsert_list() {
 }
 
 #[test]
+fn mut_takes_pipeline() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        mut x = "hello world" | str length; print $x
+        "#
+    ));
+
+    assert_eq!(actual.out, "11");
+}
+
+#[test]
+fn mut_pipeline_allows_in() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def foo [] { mut x = $in | str length; print ($x + 10) }; "hello world" | foo
+        "#
+    ));
+
+    assert_eq!(actual.out, "21");
+}
+
+#[test]
 fn mut_path_operator_assign() {
     let actual = nu!(
         cwd: ".", pipeline(

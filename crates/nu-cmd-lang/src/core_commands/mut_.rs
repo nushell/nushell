@@ -69,6 +69,7 @@ impl Command for Mut {
             call.redirect_stdout,
             call.redirect_stderr,
         )?;
+
         stack.add_var(var_id, pipeline_data.into_value(call.head));
         Ok(PipelineData::empty())
     }
