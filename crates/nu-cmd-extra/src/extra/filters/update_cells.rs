@@ -150,7 +150,7 @@ impl Command for UpdateCells {
                     .iter()
                     .map(|val| val.as_string())
                     .collect::<Result<Vec<String>, ShellError>>()?;
-                Some(HashSet::from_iter(cols.into_iter()))
+                Some(HashSet::from_iter(cols))
             }
             None => None,
         };
@@ -197,7 +197,7 @@ impl Iterator for UpdateCellIterator {
                     Value::Record { vals, cols, span } => Some(Value::Record {
                         vals: cols
                             .iter()
-                            .zip(vals.into_iter())
+                            .zip(vals)
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(col) => val,
                                 _ => process_cell(

@@ -150,7 +150,7 @@ impl SQLContext {
             let agg_df = df.groupby(group_by).agg(agg_projection);
             let mut final_proj_pos = groupby_pos
                 .into_iter()
-                .chain(agg_proj_pos.into_iter())
+                .chain(agg_proj_pos)
                 .collect::<Vec<_>>();
 
             final_proj_pos.sort_by(|(proj_pa, _), (proj_pb, _)| proj_pa.cmp(proj_pb));

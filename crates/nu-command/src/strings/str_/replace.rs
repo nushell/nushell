@@ -128,12 +128,12 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Find and replace contents without using the replace parameter as a regular expression",
-                example: r#"'dogs_$1_cats' | str replace '\$1' '$2' -n"#,
+                example: r"'dogs_$1_cats' | str replace '\$1' '$2' -n",
                 result: Some(Value::test_string("dogs_$2_cats")),
             },
             Example {
                 description: "Find and replace the first occurrence using string replacement *not* regular expressions",
-                example: r#"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s"#,
+                example: r"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s",
                 result: Some(Value::test_string("~\\path")),
             },
             Example {
@@ -148,7 +148,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Find and replace with fancy-regex",
-                example: r#"'a successful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'"#,
+                example: r"'a successful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'",
                 result: Some(Value::test_string("a successful b")),
             },
             Example {
