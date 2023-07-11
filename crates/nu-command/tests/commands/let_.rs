@@ -104,6 +104,16 @@ fn let_with_no_spaces_5() {
 fn let_with_no_spaces_6() {
     let actual = nu!(
         cwd: ".",
+        pipeline("let x:int=4; $x")
+    );
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn let_with_no_spaces_6() {
+    let actual = nu!(
+        cwd: ".",
         pipeline("let x : int = 4; $x")
     );
 
@@ -111,13 +121,33 @@ fn let_with_no_spaces_6() {
 }
 
 #[test]
+fn let_with_if() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x=if true { 1 } else { 0 }; $x")
+    );
+
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn let_with_match() {
+    let actual = nu!(
+        cwd: ".",
+        pipeline("let x =match 4 { 5 => 1, _ => 0 }; $x")
+    );
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
 fn let_with_complex_type() {
     let actual = nu!(
         cwd: ".",
-        pipeline("let x: record<name: string> = { name: 'nushell' }; $x")
+        pipeline("let x: record<name: string> = { name: 'nushell' }; $x.name")
     );
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "nushell");
 }
 
 #[ignore]
