@@ -63,6 +63,16 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
 
     let (name, val) = {
         let val_spans = &spans[asg.val_start..];
+        let span = mk_span(val_spans);
+        let val_tokens = {
+            let bytes = working_set.get_span_contents(span);
+            let (tokens, err) = lex(bytes, span.start, &[], &[], true);
+            if let Some(err) = err {
+                working_set.error(err);
+            }
+            tokens
+        };
+
         let chk_ty = |lhs, rhs, span| -> Option<ParseError> {
             if type_compatible(lhs, rhs) {
                 None
@@ -76,7 +86,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
             Kind::Const => {
                 let val = parse_multispan_value(
                     working_set,
-                    val_spans,
+                    &val_tokens.iter().map(|x| x.span).collect::<Vec<_>>(),
                     &mut 0,
                     &SyntaxShape::MathExpression,
                 );
@@ -100,14 +110,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
             }
 
             _ => {
-                let span = mk_span(val_spans);
-                let input = working_set.get_span_contents(span);
-                let (tokens, err) = lex(input, span.start, &[], &[], true);
-                if let Some(err) = err {
-                    working_set.error(err);
-                }
-
-                let block = parse_block(working_set, &tokens, span, false, true);
+                let block = parse_block(working_set, &val_tokens, span, false, true);
 
                 let (name, var_id) = mk_var(working_set);
 
