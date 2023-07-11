@@ -7,14 +7,14 @@ use crate::{
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, Pipeline},
     engine::StateWorkingSet,
-    span as mk_span, ParseError, Span, SyntaxShape, Type,
+    span as mk_span, ParseError, Span, Spanned, SyntaxShape, Type,
 };
 
 #[derive(Debug)]
 pub struct Assignment {
     tokens: Vec<Span>,
-    name: (String, Span),
-    kind: (Kind, Span),
+    name: Spanned<String>,
+    kind: Spanned<Kind>,
     typ: Option<Type>,
     val_start: usize,
 }
@@ -32,10 +32,10 @@ impl Assignment {
 fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
     let spans = &asg.tokens;
     let decl_id = {
-        let kw = asg.kind.0.to_bytes();
+        let kw = asg.kind.item.to_bytes();
         let Some(id) = working_set.find_decl(kw, &Type::Nothing) else {
             let span = mk_span(spans);
-            let kw = asg.kind.0.to_string();
+            let kw = asg.kind.item.to_string();
             working_set.error(ParseError::UnknownState(
                 format!("internal error: {kw} statement not found in core language"),
                 span,
@@ -48,8 +48,8 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
     };
 
     let mk_var = |working_set: &mut StateWorkingSet<'_>| -> (Argument, usize) {
-        let mutable = asg.kind.0.is_mutable();
-        let (name, span) = (asg.name.0.as_bytes(), asg.name.1);
+        let mutable = asg.kind.item.is_mutable();
+        let (name, span) = (asg.name.item.as_bytes(), asg.name.span);
         let ty = asg.typ.clone().unwrap_or(Type::Any);
         let id = working_set.add_variable(name.to_vec(), span, ty, mutable);
         let expr = Expression {
@@ -82,7 +82,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
             }
         };
 
-        match asg.kind.0 {
+        match asg.kind.item {
             Kind::Const => {
                 let val = parse_multispan_value(
                     working_set,
@@ -139,7 +139,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
 
     let call = Box::new(Call {
         decl_id,
-        head: asg.kind.1,
+        head: asg.kind.span,
         arguments: vec![name, val],
         redirect_stdout: true,
         redirect_stderr: false,
@@ -242,15 +242,21 @@ fn try_parse(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Assign
     } else {
         Some(Assignment {
             tokens: tokens.iter().map(|x| x.span).collect(),
-            name: (name, name_token.span),
-            kind: (kind, kw_token.span),
+            name: Spanned {
+                item: name,
+                span: name_token.span,
+            },
+            kind: Spanned {
+                item: kind,
+                span: kw_token.span,
+            },
             typ: shape.map(|s| s.to_type()),
             val_start,
         })
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum Kind {
     Let,
     Mut,
