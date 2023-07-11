@@ -137,12 +137,12 @@ fn comment_skipping_2() -> TestResult {
 
 #[test]
 fn bad_var_name() -> TestResult {
-    fail_test(r#"let $"foo bar" = 4"#, "valid variable")
+    fail_test(r#"let $"foo bar" = 4"#, "invalid name")
 }
 
 #[test]
 fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")
+    fail_test(r#"let $foo-bar = 4"#, "invalid name")
 }
 
 #[test]
