@@ -451,15 +451,15 @@ pub enum ParseError {
         code(nu::parser::not_a_constant),
         help("Only a subset of expressions are allowed constants during parsing. Try using the `let` command or typing the value literally.")
     )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+    NotAConstant(#[label = "value is not a parse-time constant"] Span),
 
     /// Tried using a non constant variable where a constant value is expected
     #[error("Variable not a constant.")]
     #[diagnostic(
         code(nu::parser::not_a_constant),
-        help("This command expects a constant variable. Which are be defined using the `const` command")
+        help("This command expects a constant variable. Which are defined using the `const` command")
     )]
-    NotAConstantValue(#[label = "Variable is not a parse-time constant"] Span),
+    NotAConstantValue(#[label = "variable is not a parse-time constant"] Span),
 
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]

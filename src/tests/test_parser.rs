@@ -510,7 +510,7 @@ fn register_with_string_variable() -> TestResult {
 let file = 'nu-plugin-math'
 register $file
 ";
-    fail_test(input, "Value is not a parse-time constant")
+    fail_test(input, "variable is not a parse-time constant")
 }
 
 #[test]
