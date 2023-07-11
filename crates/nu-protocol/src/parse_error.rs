@@ -182,7 +182,7 @@ pub enum ParseError {
         code(nu::parser::variable_not_valid),
         help(
             "Variable names cannot contain these spaces or these characters\n\
-.  [  (  {  +  -  *  ^  /  =  !  <  >  &  |"
+.  [  (  {{  +  -  *  ^  /  =  !  <  >  &  |"
         )
     )]
     VariableNotValid(#[label = "invalid name"] Span),
