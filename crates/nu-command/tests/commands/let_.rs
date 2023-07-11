@@ -111,7 +111,7 @@ fn let_with_no_spaces_6() {
 }
 
 #[test]
-fn let_with_no_spaces_6() {
+fn let_with_no_spaces_7() {
     let actual = nu!(
         cwd: ".",
         pipeline("let x : int = 4; $x")
