@@ -64,11 +64,7 @@ impl RawStream {
     pub fn chain(self, stream: RawStream) -> RawStream {
         RawStream {
             stream: Box::new(self.stream.chain(stream.stream)),
-            leftover: self
-                .leftover
-                .into_iter()
-                .chain(stream.leftover)
-                .collect(),
+            leftover: self.leftover.into_iter().chain(stream.leftover).collect(),
             ctrlc: self.ctrlc,
             is_binary: self.is_binary,
             span: self.span,
