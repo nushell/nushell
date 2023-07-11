@@ -4956,7 +4956,6 @@ pub fn parse_math_expression(
         });
     }
 
-    log::warn!("final stack: {expr_stack:?}, {}", expr_stack.len());
     expr_stack
         .pop()
         .expect("internal error: expression stack empty")
