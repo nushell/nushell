@@ -134,11 +134,19 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
             }
             _ => {
                 let record = Value::Record {
-                    cols: vec!["code".into(), "modifier".into(), "flags".into()],
+                    cols: vec![
+                        "code".into(),
+                        "modifier".into(),
+                        "flags".into(),
+                        "kind".into(),
+                        "state".into(),
+                    ],
                     vals: vec![
                         Value::string(format!("{code:?}"), Span::unknown()),
                         Value::string(format!("{modifiers:?}"), Span::unknown()),
                         Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                        Value::string(format!("{kind:?}"), Span::unknown()),
+                        Value::string(format!("{state:?}"), Span::unknown()),
                     ],
                     span: Span::unknown(),
                 };
