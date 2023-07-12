@@ -83,45 +83,37 @@ impl View for Preview {
             }
             KeyCode::Up => {
                 self.cursor.prev_row_i();
-
-                if self.cursor.row_starts_at() == 0 {
-                    info.status = Some(Report::info("TOP"));
-                } else {
-                    info.status = Some(Report::default());
-                }
+                set_status_top(self, info);
 
                 Some(Transition::Ok)
             }
             KeyCode::Down => {
-                if self.cursor.row() + self.cursor.row_window_size() < self.cursor.row_limit() {
-                    self.cursor.next_row_i();
-
-                    info.status = Some(Report::info("END"));
-                } else {
-                    info.status = Some(Report::default());
-                }
+                self.cursor.next_row_i();
+                set_status_end(self, info);
 
                 Some(Transition::Ok)
             }
             KeyCode::PageUp => {
                 self.cursor.prev_row_page();
-
-                if self.cursor.row_starts_at() == 0 {
-                    info.status = Some(Report::info("TOP"));
-                } else {
-                    info.status = Some(Report::default());
-                }
+                set_status_top(self, info);
 
                 Some(Transition::Ok)
             }
             KeyCode::PageDown => {
                 self.cursor.next_row_page();
+                set_status_end(self, info);
 
-                if self.cursor.row() + 1 == self.cursor.row_limit() {
-                    info.status = Some(Report::info("END"));
-                } else {
-                    info.status = Some(Report::default());
-                }
+                Some(Transition::Ok)
+            }
+            KeyCode::Home => {
+                self.cursor.row_move_to_start();
+                set_status_top(self, info);
+
+                Some(Transition::Ok)
+            }
+            KeyCode::End => {
+                self.cursor.row_move_to_end();
+                set_status_end(self, info);
 
                 Some(Transition::Ok)
             }
@@ -154,5 +146,21 @@ impl View for Preview {
                 Some(Value::string(text, NuSpan::unknown()))
             }
         }
+    }
+}
+
+fn set_status_end(view: &Preview, info: &mut ViewInfo) {
+    if view.cursor.row() + 1 == view.cursor.row_limit() {
+        info.status = Some(Report::info("END"));
+    } else {
+        info.status = Some(Report::default());
+    }
+}
+
+fn set_status_top(view: &Preview, info: &mut ViewInfo) {
+    if view.cursor.row_starts_at() == 0 {
+        info.status = Some(Report::info("TOP"));
+    } else {
+        info.status = Some(Report::default());
     }
 }

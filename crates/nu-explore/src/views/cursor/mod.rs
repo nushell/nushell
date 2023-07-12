@@ -16,7 +16,7 @@ impl Cursor {
     }
 
     #[allow(dead_code)]
-    pub fn index(&self) -> usize {
+    pub fn get_index(&self) -> usize {
         self.index
     }
 
