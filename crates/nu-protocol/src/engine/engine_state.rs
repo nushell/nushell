@@ -138,7 +138,7 @@ pub struct EngineState {
     pub is_interactive: bool,
     pub is_login: bool,
     startup_time: i64,
-    // is ingore error when run `do -i {...}`
+    // is ignore error when run `do -i {...}`
     ignore_err: Arc<AtomicBool>,
 }
 
