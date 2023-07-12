@@ -554,6 +554,16 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
 
             Some(Transition::Ok)
         }
+        KeyCode::Home => {
+            view.get_layer_last_mut().cursor.row_move_to_start();
+
+            Some(Transition::Ok)
+        }
+        KeyCode::End => {
+            view.get_layer_last_mut().cursor.row_move_to_end();
+
+            Some(Transition::Ok)
+        }
         KeyCode::Enter => {
             let value = view.get_current_value();
             let is_record = matches!(value, Value::Record { .. });
