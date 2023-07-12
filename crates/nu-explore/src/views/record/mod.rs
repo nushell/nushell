@@ -503,6 +503,16 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
 
             Some(Transition::Ok)
         }
+        KeyCode::Home => {
+            view.get_layer_last_mut().cursor.row_move_to_start();
+
+            Some(Transition::Ok)
+        }
+        KeyCode::End => {
+            view.get_layer_last_mut().cursor.row_move_to_end();
+
+            Some(Transition::Ok)
+        }
         _ => None,
     }
 }

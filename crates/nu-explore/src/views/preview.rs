@@ -93,9 +93,9 @@ impl View for Preview {
                 Some(Transition::Ok)
             }
             KeyCode::Down => {
-                if self.cursor.row() + self.cursor.row_window_size() < self.cursor.row_limit() {
-                    self.cursor.next_row_i();
+                self.cursor.next_row_i();
 
+                if self.cursor.row() + 1 == self.cursor.row_limit() {
                     info.status = Some(Report::info("END"));
                 } else {
                     info.status = Some(Report::default());
@@ -116,6 +116,28 @@ impl View for Preview {
             }
             KeyCode::PageDown => {
                 self.cursor.next_row_page();
+
+                if self.cursor.row() + 1 == self.cursor.row_limit() {
+                    info.status = Some(Report::info("END"));
+                } else {
+                    info.status = Some(Report::default());
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::Home => {
+                self.cursor.row_move_to_start();
+
+                if self.cursor.row_starts_at() == 0 {
+                    info.status = Some(Report::info("TOP"));
+                } else {
+                    info.status = Some(Report::default());
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::End => {
+                self.cursor.row_move_to_end();
 
                 if self.cursor.row() + 1 == self.cursor.row_limit() {
                     info.status = Some(Report::info("END"));

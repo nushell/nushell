@@ -292,6 +292,30 @@ impl View for ConfigurationView {
 
                 Some(Transition::Ok)
             }
+            KeyCode::Home => {
+                match &mut self.peeked_cursor {
+                    Some(cursor) => cursor.prev(cursor.index()),
+                    None => self.cursor.prev(self.cursor.index()),
+                };
+
+                if let Some((group, opt)) = self.peek_current() {
+                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
+                }
+
+                Some(Transition::Ok)
+            }
+            KeyCode::End => {
+                match &mut self.peeked_cursor {
+                    Some(cursor) => cursor.next(cursor.cap()),
+                    None => self.cursor.next(self.cursor.cap()),
+                };
+
+                if let Some((group, opt)) = self.peek_current() {
+                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
+                }
+
+                Some(Transition::Ok)
+            }
             KeyCode::Enter => {
                 if self.peeked_cursor.is_some() {
                     return Some(Transition::Ok);
