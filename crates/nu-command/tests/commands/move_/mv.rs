@@ -487,8 +487,7 @@ fn mv_with_update_flag() {
 
         // when destination doesn't exist
         sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
-        let actual =
-            nu!(cwd: sandbox.cwd(), "mv -f newest_valid.txt des_missing.txt; open des_missing.txt");
+        let actual = nu!(cwd: sandbox.cwd(), "mv -uf newest_valid.txt des_missing.txt; open des_missing.txt");
         assert_eq!(actual.out, "newest_body");
     });
 }
