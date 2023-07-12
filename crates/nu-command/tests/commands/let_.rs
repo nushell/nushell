@@ -2,12 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn let_name_builtin_var() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        let in = 3
-        "#
-    ));
+    let actual = nu!("let in = 3");
 
     assert!(actual
         .err
@@ -16,60 +11,37 @@ fn let_name_builtin_var() {
 
 #[test]
 fn let_doesnt_mutate() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        let i = 3; $i = 4
-        "#
-    ));
+    let actual = nu!("let i = 3; $i = 4");
 
     assert!(actual.err.contains("immutable"));
 }
 
 #[test]
 fn let_takes_pipeline() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        let x = "hello world" | str length; print $x
-        "#
-    ));
+    let actual = nu!(r#"let x = "hello world" | str length; print $x"#);
 
     assert_eq!(actual.out, "11");
 }
 
 #[test]
 fn let_pipeline_allows_in() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        def foo [] { let x = $in | str length; print ($x + 10) }; "hello world" | foo
-        "#
-    ));
+    let actual =
+        nu!(r#"def foo [] { let x = $in | str length; print ($x + 10) }; "hello world" | foo"#);
 
     assert_eq!(actual.out, "21");
 }
 
 #[test]
 fn mut_takes_pipeline() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        mut x = "hello world" | str length; print $x
-        "#
-    ));
+    let actual = nu!(r#"mut x = "hello world" | str length; print $x"#);
 
     assert_eq!(actual.out, "11");
 }
 
 #[test]
 fn mut_pipeline_allows_in() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        def foo [] { mut x = $in | str length; print ($x + 10) }; "hello world" | foo
-        "#
-    ));
+    let actual =
+        nu!(r#"def foo [] { mut x = $in | str length; print ($x + 10) }; "hello world" | foo"#);
 
     assert_eq!(actual.out, "21");
 }
@@ -79,10 +51,7 @@ fn mut_pipeline_allows_in() {
 fn let_with_external_failed() {
     // FIXME: this test hasn't run successfully for a long time. We should
     // bring it back to life at some point.
-    let actual = nu!(
-        cwd: ".",
-        pipeline(r#"let x = nu --testbin outcome_err "aa"; echo fail"#)
-    );
+    let actual = nu!(r#"let x = nu --testbin outcome_err "aa"; echo fail"#);
 
     assert!(!actual.out.contains("fail"));
 }
