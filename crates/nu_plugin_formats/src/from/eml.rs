@@ -100,8 +100,8 @@ fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
 
     Value::record(
         record! {
-            Name => n,
-            Address => a,
+            "Name" => n,
+            "Address" => a,
         },
         span,
     )

@@ -68,9 +68,9 @@ repeating this process with row 1, and so on."#
                 example: "{a: 1, b: 2} | merge {c: 3}",
                 description: "Merge two records",
                 result: Some(Value::test_record(record! {
-                    a => Value::test_int(1),
-                    b => Value::test_int(2),
-                    c => Value::test_int(3),
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                    "c" => Value::test_int(3),
                 })),
             },
             Example {

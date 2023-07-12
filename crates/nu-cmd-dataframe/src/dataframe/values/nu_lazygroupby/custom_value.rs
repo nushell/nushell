@@ -31,7 +31,7 @@ impl CustomValue for NuLazyGroupBy {
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         Ok(Value::record(
             record! {
-                LazyGroupBy => Value::string("apply aggregation to complete execution plan", span)
+                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", span)
             },
             span,
         ))

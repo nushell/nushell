@@ -32,9 +32,9 @@ impl Command for Headers {
 
     fn examples(&self) -> Vec<Example> {
         let record = Value::test_record(record! {
-            a => Value::test_string("1"),
-            b => Value::test_string("2"),
-            c => Value::test_string("3")
+            "a" => Value::test_string("1"),
+            "b" => Value::test_string("2"),
+            "c" => Value::test_string("3")
         });
 
         vec![

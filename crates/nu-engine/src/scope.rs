@@ -77,9 +77,9 @@ impl<'e, 's> ScopeData<'e, 's> {
 
             vars.push(Value::record(
                 record! {
-                    name => var_name,
-                    type => var_type,
-                    value => var_value,
+                    "name" => var_name,
+                    "type" => var_type,
+                    "value" => var_value,
                 },
                 span,
             ))

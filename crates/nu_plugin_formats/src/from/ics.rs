@@ -97,8 +97,8 @@ fn events_to_value(events: Vec<IcalEvent>, span: Span) -> Value {
             .map(|event| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(event.properties, span),
-                        alarms => alarms_to_value(event.alarms, span),
+                        "properties" => properties_to_value(event.properties, span),
+                        "alarms" => alarms_to_value(event.alarms, span),
                     },
                     span,
                 )
@@ -115,7 +115,7 @@ fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> Value {
             .map(|alarm| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(alarm.properties, span)
+                        "properties" => properties_to_value(alarm.properties, span)
                     },
                     span,
                 )
@@ -132,8 +132,8 @@ fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> Value {
             .map(|todo| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(todo.properties, span),
-                        alarms => alarms_to_value(todo.alarms, span),
+                        "properties" => properties_to_value(todo.properties, span),
+                        "alarms" => alarms_to_value(todo.alarms, span),
                     },
                     span,
                 )
@@ -150,7 +150,7 @@ fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> Value {
             .map(|journal| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(journal.properties, span)
+                        "properties" => properties_to_value(journal.properties, span)
                     },
                     span,
                 )
@@ -167,7 +167,7 @@ fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> Value {
             .map(|free_busy| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(free_busy.properties, span)
+                        "properties" => properties_to_value(free_busy.properties, span)
                     },
                     span,
                 )
@@ -184,8 +184,8 @@ fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> Value {
             .map(|timezone| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(timezone.properties, span),
-                        transitions => timezone_transitions_to_value(timezone.transitions, span),
+                        "properties" => properties_to_value(timezone.properties, span),
+                        "transitions" => timezone_transitions_to_value(timezone.transitions, span),
                     },
                     span,
                 )
@@ -202,7 +202,7 @@ fn timezone_transitions_to_value(transitions: Vec<IcalTimeZoneTransition>, span:
             .map(|transition| {
                 Value::record(
                     record! {
-                        properties => properties_to_value(transition.properties, span),
+                        "properties" => properties_to_value(transition.properties, span),
                     },
                     span,
                 )

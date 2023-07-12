@@ -161,8 +161,8 @@ fn create_default_value() -> Value {
     let record = |i: usize| {
         Value::record(
             record! {
-                key => nu_str(format!("key-{i}")),
-                value => nu_str(format!("{i}")),
+                "key" => nu_str(format!("key-{i}")),
+                "value" => nu_str(format!("{i}")),
             },
             span,
         )

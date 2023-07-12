@@ -62,9 +62,9 @@ impl Command for SkipWhile {
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(record! { a => Value::test_int(0) }),
-                        Value::test_record(record! { a => Value::test_int(2) }),
-                        Value::test_record(record! { a => Value::test_int(-1) }),
+                        Value::test_record(record! { "a" => Value::test_int(0) }),
+                        Value::test_record(record! { "a" => Value::test_int(2) }),
+                        Value::test_record(record! { "a" => Value::test_int(-1) }),
                     ],
                     span: Span::test_data(),
                 }),

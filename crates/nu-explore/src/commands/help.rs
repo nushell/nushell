@@ -188,8 +188,8 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         .map(|e| {
             Value::record(
                 record! {
-                    example => nu_str(&e.example),
-                    description => nu_str(&e.description),
+                    "example" => nu_str(&e.example),
+                    "description" => nu_str(&e.description),
                 },
                 NuSpan::unknown(),
             )
@@ -204,8 +204,8 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         .map(|e| {
             Value::record(
                 record! {
-                    example => nu_str(&e.example),
-                    description => nu_str(&e.description),
+                    "example" => nu_str(&e.example),
+                    "description" => nu_str(&e.description),
                 },
                 NuSpan::unknown(),
             )
@@ -220,9 +220,9 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         .map(|e| {
             Value::record(
                 record! {
-                    name => nu_str(&e.code),
-                    context => nu_str(&e.context),
-                    description => nu_str(&e.description),
+                    "name" => nu_str(&e.code),
+                    "context" => nu_str(&e.context),
+                    "description" => nu_str(&e.description),
                 },
                 NuSpan::unknown(),
             )
@@ -241,8 +241,8 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
                 .map(|v| {
                     Value::record(
                         record! {
-                            example => nu_str(&v.example),
-                            description => nu_str(&v.description),
+                            "example" => nu_str(&v.example),
+                            "description" => nu_str(&v.description),
                         },
                         NuSpan::unknown(),
                     )

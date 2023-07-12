@@ -96,7 +96,7 @@ END:VCARD' | from vcf"
 fn contact_to_value(contact: VcardContact, span: Span) -> Value {
     Value::record(
         record! {
-            properties => properties_to_value(contact.properties, span)
+            "properties" => properties_to_value(contact.properties, span)
         },
         span,
     )

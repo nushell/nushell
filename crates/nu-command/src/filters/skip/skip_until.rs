@@ -62,8 +62,8 @@ impl Command for SkipUntil {
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip until {|x| $x.a > 0 }",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(record! { a => Value::test_int(2) }),
-                        Value::test_record(record! { a => Value::test_int(-1) }),
+                        Value::test_record(record! { "a" => Value::test_int(2) }),
+                        Value::test_record(record! { "a" => Value::test_int(-1) }),
                     ],
                     span: Span::test_data(),
                 }),
