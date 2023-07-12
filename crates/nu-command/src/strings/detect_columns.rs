@@ -82,7 +82,7 @@ impl Command for DetectColumns {
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns",
+                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
@@ -106,7 +106,7 @@ impl Command for DetectColumns {
             },
             Example {
                 description: "",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 0..1",
+                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns -c 0..1",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
@@ -128,7 +128,7 @@ impl Command for DetectColumns {
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c -2..-1",
+                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns -c -2..-1",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec![
@@ -150,7 +150,7 @@ impl Command for DetectColumns {
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 2..",
+                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns -c 2..",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["c1".to_string(), "c2".to_string(), "c3".to_string()],
