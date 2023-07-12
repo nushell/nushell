@@ -313,7 +313,7 @@ fn move_file(
         }
     }
 
-    if update_mode && super::util::is_older(&from, &to) {
+    if update_mode && super::util::is_older(&from, &to).unwrap_or(false) {
         Ok(false)
     } else {
         match move_item(&from, from_span, &to) {
