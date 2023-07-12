@@ -279,17 +279,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "atty"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi 0.1.19",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -668,17 +657,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b0e9222c0cdf2c6ac27d73f664f9520266fa911c3106329d359f8861cb8bde9"
 dependencies = [
  "encoding_rs",
-]
-
-[[package]]
-name = "colored"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2674ec482fbc38012cf31e6c42ba0177b431a0cb6f15fe40efa5aab1bda516f6"
-dependencies = [
- "is-terminal",
- "lazy_static",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1651,15 +1629,6 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "hermit-abi"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "443144c8cdadd93ebf52ddb4056d257f5b52c04d3c804e657d19eb73fc33668b"
@@ -1880,7 +1849,7 @@ version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eae7b9aee968036d54dce06cebaefd919e4472e753296daccd6d344e3e2df0c2"
 dependencies = [
- "hermit-abi 0.3.2",
+ "hermit-abi",
  "libc",
  "windows-sys 0.48.0",
 ]
@@ -1910,7 +1879,7 @@ version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24fddda5af7e54bf7da53067d6e802dbcc381d0a8eef629df528e3ebf68755cb"
 dependencies = [
- "hermit-abi 0.3.2",
+ "hermit-abi",
  "rustix 0.38.3",
  "windows-sys 0.48.0",
 ]
@@ -2425,7 +2394,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09c762b6267c4593555bb38f1df19e9318985bc4de60b5e8462890856a9a5b4c"
 dependencies = [
  "assert-json-diff",
- "colored",
  "futures",
  "hyper",
  "lazy_static",
@@ -2572,10 +2540,10 @@ name = "nu"
 version = "0.82.1"
 dependencies = [
  "assert_cmd",
- "atty",
  "criterion",
  "crossterm",
  "ctrlc",
+ "is-terminal",
  "log",
  "miette",
  "mimalloc",
@@ -2637,11 +2605,11 @@ dependencies = [
 name = "nu-cli"
 version = "0.82.1"
 dependencies = [
- "atty",
  "chrono",
  "crossterm",
  "fancy-regex",
  "fuzzy-matcher",
+ "is-terminal",
  "is_executable",
  "log",
  "miette",
@@ -2749,7 +2717,6 @@ version = "0.82.1"
 dependencies = [
  "Inflector",
  "alphanumeric-sort",
- "atty",
  "base64",
  "bracoxide",
  "byteorder",
@@ -2773,6 +2740,7 @@ dependencies = [
  "indexmap 2.0.0",
  "indicatif",
  "is-root",
+ "is-terminal",
  "itertools",
  "libc",
  "log",
@@ -2973,8 +2941,8 @@ dependencies = [
 name = "nu-system"
 version = "0.82.1"
 dependencies = [
- "atty",
  "chrono",
+ "is-terminal",
  "libc",
  "libproc",
  "log",
@@ -3233,7 +3201,7 @@ version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
 dependencies = [
- "hermit-abi 0.3.2",
+ "hermit-abi",
  "libc",
 ]
 

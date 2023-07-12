@@ -6,6 +6,7 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
+use is_terminal::IsTerminal;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
@@ -56,7 +57,7 @@ pub fn evaluate_repl(
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
-    if !atty::is(atty::Stream::Stdin) {
+    if !std::io::stdin().is_terminal() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
