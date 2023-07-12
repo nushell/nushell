@@ -14,7 +14,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU32},
+    atomic::{AtomicBool, AtomicU32, Ordering},
     Arc, Mutex,
 };
 
@@ -138,6 +138,8 @@ pub struct EngineState {
     pub is_interactive: bool,
     pub is_login: bool,
     startup_time: i64,
+    // is ingore error when run `do -i {...}`
+    ignore_err: Arc<AtomicBool>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -196,6 +198,7 @@ impl EngineState {
             is_interactive: false,
             is_login: false,
             startup_time: -1,
+            ignore_err: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -941,6 +944,15 @@ impl EngineState {
 
     pub fn set_startup_time(&mut self, startup_time: i64) {
         self.startup_time = startup_time;
+    }
+
+    pub fn get_ignore_err(&self, ordering: Option<Ordering>) -> bool {
+        self.ignore_err.load(ordering.unwrap_or(Ordering::SeqCst))
+    }
+
+    pub fn set_ignore_err(&self, is_ignore_err: bool, ordering: Option<Ordering>) {
+        self.ignore_err
+            .store(is_ignore_err, ordering.unwrap_or(Ordering::SeqCst))
     }
 }
 

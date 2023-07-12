@@ -754,6 +754,10 @@ impl PipelineData {
             return print_if_stream(stream, stderr_stream, to_stderr, exit_code);
         }
 
+        if engine_state.get_ignore_err(None) {
+            return Ok(0);
+        }
+
         if let Some(decl_id) = engine_state.table_decl_id {
             let command = engine_state.get_decl(decl_id);
             if command.get_block_id().is_some() {
@@ -792,9 +796,11 @@ impl PipelineData {
         } = self
         {
             print_if_stream(stream, stderr_stream, to_stderr, exit_code)
-        } else {
+        } else if !engine_state.get_ignore_err(None) {
             let config = engine_state.get_config();
             self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
+        } else {
+            Ok(0)
         }
     }
 
