@@ -225,8 +225,8 @@ fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Ve
         .map(|item| {
             Value::record(
                 record! {
-                    value => item.val,
-                    count => Value::int(item.count, head),
+                    "value" => item.val,
+                    "count" => Value::int(item.count, head),
                 },
                 head,
             )

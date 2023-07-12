@@ -250,10 +250,10 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
                 .collect();
 
             let record = record! {
-                name => nu_str(&o.group),
-                context => nu_str(&o.key),
-                description => nu_str(&o.description),
-                values => Value::list(values, NuSpan::unknown()),
+                "name" => nu_str(&o.group),
+                "context" => nu_str(&o.key),
+                "description" => nu_str(&o.description),
+                "values" => Value::list(values, NuSpan::unknown()),
             };
 
             Value::record(record, NuSpan::unknown())

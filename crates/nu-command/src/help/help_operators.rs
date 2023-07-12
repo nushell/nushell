@@ -38,11 +38,11 @@ impl Command for HelpOperators {
             .map(move |op| {
                 Value::record(
                     record! {
-                        type => Value::string(op.op_type, head),
-                        operator => Value::string(op.operator, head),
-                        name => Value::string(op.name, head),
-                        description => Value::string(op.description, head),
-                        precedence => Value::int(op.precedence, head),
+                        "type" => Value::string(op.op_type, head),
+                        "operator" => Value::string(op.operator, head),
+                        "name" => Value::string(op.name, head),
+                        "description" => Value::string(op.description, head),
+                        "precedence" => Value::int(op.precedence, head),
                     },
                     head,
                 )

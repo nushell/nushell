@@ -139,9 +139,9 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
 fn err_to_record(error: ShellError, head: Span) -> Value {
     Value::record(
         record! {
-            msg => Value::string(error.to_string(), head),
-            debug => Value::string(format!("{error:?}"), head),
-            raw => Value::error(error),
+            "msg" => Value::string(error.to_string(), head),
+            "debug" => Value::string(format!("{error:?}"), head),
+            "raw" => Value::error(error),
         },
         head,
     )

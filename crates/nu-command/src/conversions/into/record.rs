@@ -171,13 +171,13 @@ fn into_record(
 fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {
     Value::record(
         record! {
-            year => Value::int(date.year() as i64, span),
-            month => Value::int(date.month() as i64, span),
-            day => Value::int(date.day() as i64, span),
-            hour => Value::int(date.hour() as i64, span),
-            minute => Value::int(date.minute() as i64, span),
-            second => Value::int(date.second() as i64, span),
-            timezone => Value::string(date.offset().to_string(), span),
+            "year" => Value::int(date.year() as i64, span),
+            "month" => Value::int(date.month() as i64, span),
+            "day" => Value::int(date.day() as i64, span),
+            "hour" => Value::int(date.hour() as i64, span),
+            "minute" => Value::int(date.minute() as i64, span),
+            "second" => Value::int(date.second() as i64, span),
+            "timezone" => Value::string(date.offset().to_string(), span),
         },
         span,
     )

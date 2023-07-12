@@ -95,8 +95,8 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
         .map(|edit| {
             Value::record(
                 record! {
-                    type => Value::string(entry_type, span),
-                    name => Value::string(edit, span),
+                    "type" => Value::string(entry_type, span),
+                    "name" => Value::string(edit, span),
                 },
                 span,
             )

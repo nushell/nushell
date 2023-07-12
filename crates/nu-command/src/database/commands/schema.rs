@@ -65,10 +65,10 @@ impl Command for SchemaDb {
             let index_info = get_table_indexes(&sqlite_db, &conn, &table, span)?;
 
             let record = record! {
-                columns => Value::list(column_info, span),
-                constraints => Value::list(constraint_info, span),
-                foreign_keys => Value::list(foreign_key_info, span),
-                indexes => Value::list(index_info, span),
+                "columns" => Value::list(column_info, span),
+                "constraints" => Value::list(constraint_info, span),
+                "foreign_keys" => Value::list(foreign_key_info, span),
+                "indexes" => Value::list(index_info, span),
             };
 
             top_record.push(table.name, Value::record(record, span))
@@ -79,7 +79,7 @@ impl Command for SchemaDb {
         Ok(PipelineData::Value(
             Value::record(
                 record! {
-                    table => Value::record(top_record, span)
+                    "table" => Value::record(top_record, span)
                 },
                 span,
             ),

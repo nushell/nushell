@@ -483,9 +483,9 @@ fn request_handle_response_content(
     };
     if flags.full {
         let record = record! {
-            headers => response_headers.map_or(Value::nothing(span), |headers| headers.into_value(span)),
-            body => formatted_content?.into_value(span),
-            status => Value::int(response_status as i64, span),
+            "headers" => response_headers.map_or(Value::nothing(span), |headers| headers.into_value(span)),
+            "body" => formatted_content?.into_value(span),
+            "status" => Value::int(response_status as i64, span),
         };
         Ok(Value::record(record, span).into_pipeline_data())
     } else {

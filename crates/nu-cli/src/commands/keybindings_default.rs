@@ -42,10 +42,10 @@ impl Command for KeybindingsDefault {
             .into_iter()
             .map(|(mode, modifier, code, event)| {
                 let record = record! {
-                    mode => Value::string(mode, call.head),
-                    modifier => Value::string(modifier, call.head),
-                    code => Value::string(code, call.head),
-                    event => Value::string(event, call.head),
+                    "mode" => Value::string(mode, call.head),
+                    "modifier" => Value::string(modifier, call.head),
+                    "code" => Value::string(code, call.head),
+                    "event" => Value::string(event, call.head),
                 };
 
                 Value::record(record, call.head)

@@ -87,14 +87,14 @@ impl Command for Ast {
             // Create a new output record, merging the block and error
 
             let record = record! {
-                block => Value::string(block_json, block_span),
-                error => Value::string(error_json, Span::test_data()),
+                "block" => Value::string(block_json, block_span),
+                "error" => Value::string(error_json, Span::test_data()),
             };
 
             Ok(Value::record(record, pipeline.span).into_pipeline_data())
         } else {
             let record = record! {
-                block => Value::string(
+                "block" => Value::string(
                     if minify {
                         format!("{block_output:?}")
                     } else {
@@ -102,7 +102,7 @@ impl Command for Ast {
                     },
                     pipeline.span,
                 ),
-                error => Value::string(
+                "error" => Value::string(
                     if minify {
                         format!("{error_output:?}")
                     } else {

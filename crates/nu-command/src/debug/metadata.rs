@@ -119,8 +119,8 @@ fn build_metadata_record(
             "span",
             Value::record(
                 record! {
-                    start => Value::int(span.start as i64, span),
-                    end => Value::int(span.end as i64, span),
+                    "start" => Value::int(span.start as i64, span),
+                    "end" => Value::int(span.end as i64, span),
                 },
                 span,
             ),

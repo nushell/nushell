@@ -107,14 +107,14 @@ impl Command for SubCommand {
 
 fn parse_date_into_table(date: DateTime<FixedOffset>, head: Span) -> Value {
     let record = record! {
-        year => Value::int(date.year() as i64, head),
-        month => Value::int(date.month() as i64, head),
-        day => Value::int(date.day() as i64, head),
-        hour => Value::int(date.hour() as i64, head),
-        minute => Value::int(date.minute() as i64, head),
-        second => Value::int(date.second() as i64, head),
-        nanosecond => Value::int(date.nanosecond() as i64, head),
-        timezone => Value::string(date.offset().to_string(), head),
+        "year" => Value::int(date.year() as i64, head),
+        "month" => Value::int(date.month() as i64, head),
+        "day" => Value::int(date.day() as i64, head),
+        "hour" => Value::int(date.hour() as i64, head),
+        "minute" => Value::int(date.minute() as i64, head),
+        "second" => Value::int(date.second() as i64, head),
+        "nanosecond" => Value::int(date.nanosecond() as i64, head),
+        "timezone" => Value::string(date.offset().to_string(), head),
     };
 
     Value::list(vec![Value::record(record, head)], head)

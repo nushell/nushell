@@ -201,11 +201,11 @@ impl From<DirInfo> for Value {
 
         Value::record(
             record! {
-                path => Value::string(d.path.display().to_string(), d.tag),
-                apparent => Value::filesize(d.size as i64, d.tag),
-                physical => Value::filesize(d.blocks as i64, d.tag),
-                directories => value_from_vec(d.dirs, d.tag),
-                files => value_from_vec(d.files, d.tag)
+                "path" => Value::string(d.path.display().to_string(), d.tag),
+                "apparent" => Value::filesize(d.size as i64, d.tag),
+                "physical" => Value::filesize(d.blocks as i64, d.tag),
+                "directories" => value_from_vec(d.dirs, d.tag),
+                "files" => value_from_vec(d.files, d.tag)
             },
             d.tag,
         )
@@ -219,11 +219,11 @@ impl From<FileInfo> for Value {
 
         Value::record(
             record! {
-                path => Value::string(f.path.display().to_string(), f.tag),
-                apparent => Value::filesize(f.size as i64, f.tag),
-                physical => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
-                directories => Value::nothing(Span::unknown()),
-                files => Value::nothing(Span::unknown()),
+                "path" => Value::string(f.path.display().to_string(), f.tag),
+                "apparent" => Value::filesize(f.size as i64, f.tag),
+                "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
+                "directories" => Value::nothing(Span::unknown()),
+                "files" => Value::nothing(Span::unknown()),
             },
             f.tag,
         )

@@ -38,10 +38,10 @@ impl Command for ViewFiles {
             .map(|(file, start, end)| {
                 Value::record(
                     record! {
-                        filename => Value::string(file, call.head),
-                        start => Value::int(*start as i64, call.head),
-                        end => Value::int(*end as i64, call.head),
-                        size => Value::int(*end as i64 - *start as i64, call.head),
+                        "filename" => Value::string(file, call.head),
+                        "start" => Value::int(*start as i64, call.head),
+                        "end" => Value::int(*end as i64, call.head),
+                        "size" => Value::int(*end as i64 - *start as i64, call.head),
                     },
                     call.head,
                 )

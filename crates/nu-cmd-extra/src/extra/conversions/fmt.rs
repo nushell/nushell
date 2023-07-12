@@ -100,14 +100,14 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
 fn fmt_it(num: i64, span: Span) -> Value {
     Value::record(
         record! {
-            binary => Value::string(format!("{num:#b}"), span),
-            debug => Value::string(format!("{num:#?}"), span),
-            display => Value::string(format!("{num}"), span),
-            lowerexp => Value::string(format!("{num:#e}"), span),
-            lowerhex => Value::string(format!("{num:#x}"), span),
-            octal => Value::string(format!("{num:#o}"), span),
-            upperexp => Value::string(format!("{num:#E}"), span),
-            upperhex => Value::string(format!("{num:#X}"), span),
+            "binary" => Value::string(format!("{num:#b}"), span),
+            "debug" => Value::string(format!("{num:#?}"), span),
+            "display" => Value::string(format!("{num}"), span),
+            "lowerexp" => Value::string(format!("{num:#e}"), span),
+            "lowerhex" => Value::string(format!("{num:#x}"), span),
+            "octal" => Value::string(format!("{num:#o}"), span),
+            "upperexp" => Value::string(format!("{num:#E}"), span),
+            "upperhex" => Value::string(format!("{num:#X}"), span),
         },
         span,
     )
@@ -116,14 +116,14 @@ fn fmt_it(num: i64, span: Span) -> Value {
 fn fmt_it_64(num: f64, span: Span) -> Value {
     Value::record(
         record! {
-            binary => Value::string(format!("{:b}", num.to_bits()), span),
-            debug => Value::string(format!("{num:#?}"), span),
-            display => Value::string(format!("{num}"), span),
-            lowerexp => Value::string(format!("{num:#e}"), span),
-            lowerhex => Value::string(format!("{:0x}", num.to_bits()), span),
-            octal => Value::string(format!("{:0o}", num.to_bits()), span),
-            upperexp => Value::string(format!("{num:#E}"), span),
-            upperhex => Value::string(format!("{:0X}", num.to_bits()), span),
+            "binary" => Value::string(format!("{:b}", num.to_bits()), span),
+            "debug" => Value::string(format!("{num:#?}"), span),
+            "display" => Value::string(format!("{num}"), span),
+            "lowerexp" => Value::string(format!("{num:#e}"), span),
+            "lowerhex" => Value::string(format!("{:0x}", num.to_bits()), span),
+            "octal" => Value::string(format!("{:0o}", num.to_bits()), span),
+            "upperexp" => Value::string(format!("{num:#E}"), span),
+            "upperhex" => Value::string(format!("{:0X}", num.to_bits()), span),
         },
         span,
     )

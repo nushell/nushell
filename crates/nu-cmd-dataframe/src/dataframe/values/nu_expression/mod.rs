@@ -168,22 +168,22 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
     match expr {
         Expr::Alias(expr, alias) => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                alias => Value::string(alias.as_ref(), span)
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "alias" => Value::string(alias.as_ref(), span)
             },
             span,
         ),
         Expr::Column(name) => Value::record(
             record! {
-                expr => Value::string("column", span),
-                value => Value::string(name.as_ref(), span),
+                "expr" => Value::string("column", span),
+                "value" => Value::string(name.as_ref(), span),
             },
             span,
         ),
         Expr::Columns(columns) => Value::record(
             record! {
-                expr => Value::string("column", span),
-                value => Value::list(
+                "expr" => Value::string("column", span),
+                "value" => Value::list(
                     columns
                         .iter()
                         .map(|col| Value::string(col, span))
@@ -195,16 +195,16 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         ),
         Expr::Literal(literal) => Value::record(
             record! {
-                expr => Value::string("literal", span),
-                value => Value::string(format!("{literal:?}"), span),
+                "expr" => Value::string("literal", span),
+                "value" => Value::string(format!("{literal:?}"), span),
             },
             span,
         ),
         Expr::BinaryExpr { left, op, right } => Value::record(
             record! {
-                left => expr_to_value(left, span),
-                op => Value::string(format!("{op:?}"), span),
-                right => expr_to_value(right, span),
+                "left" => expr_to_value(left, span),
+                "op" => Value::string(format!("{op:?}"), span),
+                "right" => expr_to_value(right, span),
             },
             span,
         ),
@@ -214,9 +214,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             falsy,
         } => Value::record(
             record! {
-                predicate => expr_to_value(predicate.as_ref(), span),
-                truthy => expr_to_value(truthy.as_ref(), span),
-                falsy => expr_to_value(falsy.as_ref(), span),
+                "predicate" => expr_to_value(predicate.as_ref(), span),
+                "truthy" => expr_to_value(truthy.as_ref(), span),
+                "falsy" => expr_to_value(falsy.as_ref(), span),
             },
             span,
         ),
@@ -241,9 +241,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                     interpol,
                 } => Value::record(
                     record! {
-                        expr => expr_to_value(expr.as_ref(), span),
-                        quantile => expr_to_value(quantile.as_ref(), span),
-                        interpol => Value::string(format!("{interpol:?}"), span),
+                        "expr" => expr_to_value(expr.as_ref(), span),
+                        "quantile" => expr_to_value(quantile.as_ref(), span),
+                        "interpol" => Value::string(format!("{interpol:?}"), span),
                     },
                     span,
                 ),
@@ -251,39 +251,39 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
 
             Value::record(
                 record! {
-                    expr => Value::string("agg", span),
-                    value => value,
+                    "expr" => Value::string("agg", span),
+                    "value" => value,
                 },
                 span,
             )
         }
         Expr::Count => Value::record(
             record! {
-                expr => Value::string("count", span),
+                "expr" => Value::string("count", span),
             },
             span,
         ),
         Expr::Wildcard => Value::record(
             record! {
-                expr => Value::string("wildcard", span),
+                "expr" => Value::string("wildcard", span),
             },
             span,
         ),
         Expr::Explode(expr) => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span)
+                "expr" => expr_to_value(expr.as_ref(), span)
             },
             span,
         ),
         Expr::KeepName(expr) => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span)
+                "expr" => expr_to_value(expr.as_ref(), span)
             },
             span,
         ),
         Expr::Nth(i) => Value::record(
             record! {
-                expr => Value::int(*i, span)
+                "expr" => Value::int(*i, span)
             },
             span,
         ),
@@ -296,8 +296,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         ),
         Expr::Sort { expr, options } => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                options => Value::string(format!("{options:?}"), span),
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "options" => Value::string(format!("{options:?}"), span),
             },
             span,
         ),
@@ -307,16 +307,16 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             strict,
         } => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                dtype => Value::string(format!("{data_type:?}"), span),
-                strict => Value::bool(*strict, span),
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "dtype" => Value::string(format!("{data_type:?}"), span),
+                "strict" => Value::bool(*strict, span),
             },
             span,
         ),
         Expr::Take { expr, idx } => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                idx => expr_to_value(idx.as_ref(), span),
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "idx" => expr_to_value(idx.as_ref(), span),
             },
             span,
         ),
@@ -326,16 +326,16 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             descending,
         } => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                by => Value::list(by.iter().map(|b| expr_to_value(b, span)).collect(), span),
-                descending => Value::list(descending.iter().map(|&r| Value::bool(r, span)).collect(), span),
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "by" => Value::list(by.iter().map(|b| expr_to_value(b, span)).collect(), span),
+                "descending" => Value::list(descending.iter().map(|&r| Value::bool(r, span)).collect(), span),
             },
             span,
         ),
         Expr::Filter { input, by } => Value::record(
             record! {
-                input => expr_to_value(input.as_ref(), span),
-                by => expr_to_value(by.as_ref(), span),
+                "input" => expr_to_value(input.as_ref(), span),
+                "by" => expr_to_value(by.as_ref(), span),
             },
             span,
         ),
@@ -345,16 +345,16 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             length,
         } => Value::record(
             record! {
-                input => expr_to_value(input.as_ref(), span),
-                offset => expr_to_value(offset.as_ref(), span),
-                length => expr_to_value(length.as_ref(), span),
+                "input" => expr_to_value(input.as_ref(), span),
+                "offset" => expr_to_value(offset.as_ref(), span),
+                "length" => expr_to_value(length.as_ref(), span),
             },
             span,
         ),
         Expr::Exclude(expr, excluded) => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                excluded => Value::list(
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "excluded" => Value::list(
                     excluded
                         .iter()
                         .map(|e| Value::string(format!("{e:?}"), span))
@@ -365,8 +365,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
         ),
         Expr::RenameAlias { expr, function } => Value::record(
             record! {
-                expr => expr_to_value(expr.as_ref(), span),
-                function => Value::string(format!("{function:?}"), span),
+                "expr" => expr_to_value(expr.as_ref(), span),
+                "function" => Value::string(format!("{function:?}"), span),
             },
             span,
         ),
@@ -377,10 +377,10 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             options,
         } => Value::record(
             record! {
-                input => Value::list(input.iter().map(|e| expr_to_value(e, span)).collect(), span),
-                function => Value::string(format!("{function:?}"), span),
-                output_type => Value::string(format!("{output_type:?}"), span),
-                options => Value::string(format!("{options:?}"), span),
+                "input" => Value::list(input.iter().map(|e| expr_to_value(e, span)).collect(), span),
+                "function" => Value::string(format!("{function:?}"), span),
+                "output_type" => Value::string(format!("{output_type:?}"), span),
+                "options" => Value::string(format!("{options:?}"), span),
             },
             span,
         ),
@@ -390,16 +390,16 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             options,
         } => Value::record(
             record! {
-                input => Value::list(input.iter().map(|e| expr_to_value(e, span)).collect(), span),
-                function => Value::string(format!("{function:?}"), span),
-                options => Value::string(format!("{options:?}"), span),
+                "input" => Value::list(input.iter().map(|e| expr_to_value(e, span)).collect(), span),
+                "function" => Value::string(format!("{function:?}"), span),
+                "options" => Value::string(format!("{options:?}"), span),
             },
             span,
         ),
         Expr::Cache { input, id } => Value::record(
             record! {
-                input => expr_to_value(input.as_ref(), span),
-                id => Value::string(format!("{id:?}"), span)
+                "input" => expr_to_value(input.as_ref(), span),
+                "id" => Value::string(format!("{id:?}"), span)
             },
             span,
         ),
@@ -410,19 +410,19 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             options,
         } => Value::record(
             record! {
-                function => expr_to_value(function, span),
-                partition_by => Value::list(
+                "function" => expr_to_value(function, span),
+                "partition_by" => Value::list(
                     partition_by
                         .iter()
                         .map(|e| expr_to_value(e, span))
                         .collect(),
                     span,
                 ),
-                order_by => order_by
+                "order_by" => order_by
                     .as_ref()
                     .map(|e| expr_to_value(e.as_ref(), span))
                     .unwrap_or(Value::nothing(span)),
-                options => Value::string(format!("{options:?}"), span),
+                "options" => Value::string(format!("{options:?}"), span),
             },
             span,
         ),

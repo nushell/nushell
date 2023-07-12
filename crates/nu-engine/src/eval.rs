@@ -1339,10 +1339,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
         let ver = sys.kernel_version().unwrap_or_else(|| "unknown".into());
         Value::record(
             record! {
-                name => Value::string(std::env::consts::OS, span),
-                arch => Value::string(std::env::consts::ARCH, span),
-                family => Value::string(std::env::consts::FAMILY, span),
-                kernel_version => Value::string(ver, span),
+                "name" => Value::string(std::env::consts::OS, span),
+                "arch" => Value::string(std::env::consts::ARCH, span),
+                "family" => Value::string(std::env::consts::FAMILY, span),
+                "kernel_version" => Value::string(ver, span),
             },
             span,
         )
@@ -1413,13 +1413,13 @@ fn collect_profiling_metadata(
     let time_ns = (end_time - start_time).as_nanos() as i64;
 
     let mut record = record! {
-        pipeline_idx => Value::int(pipeline_idx as i64, element_span),
-        element_idx => Value::int(element_idx as i64, element_span),
-        depth => Value::int(profiling_config.depth, element_span),
-        span => Value::record(
+        "pipeline_idx" => Value::int(pipeline_idx as i64, element_span),
+        "element_idx" => Value::int(element_idx as i64, element_span),
+        "depth" => Value::int(profiling_config.depth, element_span),
+        "span" => Value::record(
             record! {
-                start => Value::int(element_span.start as i64, element_span),
-                end => Value::int(element_span.end as i64, element_span),
+                "start" => Value::int(element_span.start as i64, element_span),
+                "end" => Value::int(element_span.end as i64, element_span),
             },
             element_span,
         ),

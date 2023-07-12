@@ -98,8 +98,8 @@ impl Command for History {
                             entries.into_iter().enumerate().map(move |(idx, entry)| {
                                 Value::record(
                                     record! {
-                                        command => Value::string(entry.command_line, head),
-                                        index => Value::int(idx as i64, head),
+                                        "command" => Value::string(entry.command_line, head),
+                                        "index" => Value::int(idx as i64, head),
                                     },
                                     head,
                                 )

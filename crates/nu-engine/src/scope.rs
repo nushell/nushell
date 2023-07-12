@@ -17,11 +17,11 @@ pub fn create_scope(
 
     Ok(Value::record(
         record! {
-            vars => Value::list(scope_data.collect_vars(span), span),
-            commands => Value::list(scope_data.collect_commands(span), span),
-            aliases => Value::list(scope_data.collect_aliases(span), span),
-            modules => Value::list(scope_data.collect_modules(span), span),
-            engine_state => scope_data.collect_engine_state(span),
+            "vars" => Value::list(scope_data.collect_vars(span), span),
+            "commands" => Value::list(scope_data.collect_commands(span), span),
+            "aliases" => Value::list(scope_data.collect_aliases(span), span),
+            "modules" => Value::list(scope_data.collect_modules(span), span),
+            "engine_state" => scope_data.collect_engine_state(span),
         },
         span,
     ))
@@ -111,34 +111,34 @@ impl<'e, 's> ScopeData<'e, 's> {
                     let signature = decl.signature();
 
                     let record = record! {
-                        name => Value::string(String::from_utf8_lossy(command_name), span),
-                        module_name => Value::string(module_commands.join(", "), span),
-                        category => Value::string(signature.category.to_string(), span),
-                        signatures => self.collect_signatures(&signature, span),
-                        usage => Value::string(decl.usage(), span),
-                        examples => Value::list(decl
+                        "name" => Value::string(String::from_utf8_lossy(command_name), span),
+                        "module_name" => Value::string(module_commands.join(", "), span),
+                        "category" => Value::string(signature.category.to_string(), span),
+                        "signatures" => self.collect_signatures(&signature, span),
+                        "usage" => Value::string(decl.usage(), span),
+                        "examples" => Value::list(decl
                             .examples()
                             .into_iter()
                             .map(|x| {
                                 Value::record(
                                     record! {
-                                        description => Value::string(x.description, span),
-                                        example => Value::string(x.example, span),
-                                        result => x.result.unwrap_or(Value::nothing(span))
+                                        "description" => Value::string(x.description, span),
+                                        "example" => Value::string(x.example, span),
+                                        "result" => x.result.unwrap_or(Value::nothing(span))
                                     },
                                     span,
                                 )
                             })
                             .collect(), span),
-                        is_builtin => Value::bool(!decl.is_custom_command(), span),
-                        is_sub => Value::bool(!decl.is_sub(), span),
-                        is_plugin => Value::bool(decl.is_plugin().is_some(), span),
-                        is_custom => Value::bool(decl.is_custom_command(), span),
-                        is_keyword => Value::bool(decl.is_parser_keyword(), span),
-                        is_extern => Value::bool(decl.is_known_external(), span),
-                        creates_scope => Value::bool(signature.creates_scope, span),
-                        extra_usage => Value::string(decl.extra_usage(), span),
-                        search_terms => Value::string(decl.search_terms().join(", "), span),
+                        "is_builtin" => Value::bool(!decl.is_custom_command(), span),
+                        "is_sub" => Value::bool(!decl.is_sub(), span),
+                        "is_plugin" => Value::bool(decl.is_plugin().is_some(), span),
+                        "is_custom" => Value::bool(decl.is_custom_command(), span),
+                        "is_keyword" => Value::bool(decl.is_parser_keyword(), span),
+                        "is_extern" => Value::bool(decl.is_known_external(), span),
+                        "creates_scope" => Value::bool(signature.creates_scope, span),
+                        "extra_usage" => Value::string(decl.extra_usage(), span),
+                        "search_terms" => Value::string(decl.search_terms().join(", "), span),
                     };
 
                     Some(Value::record(record, span))
@@ -391,9 +391,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                 }
 
                 let record = record! {
-                    name => Value::string(String::from_utf8_lossy(command_name), span),
-                    module_name => Value::string(module_commands.join(", "), span),
-                    usage => Value::string(decl.usage(), span)
+                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
+                    "module_name" => Value::string(module_commands.join(", "), span),
+                    "usage" => Value::string(decl.usage(), span)
                 };
 
                 externals.push(Value::record(record, span))
@@ -417,9 +417,9 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                     aliases.push(Value::record(
                         record! {
-                            name => Value::string(sig.name, span),
-                            expansion => Value::string(expansion, span),
-                            usage => Value::string(alias.signature().usage, span),
+                            "name" => Value::string(sig.name, span),
+                            "expansion" => Value::string(expansion, span),
+                            "usage" => Value::string(alias.signature().usage, span),
                         },
                         span,
                     ));
@@ -473,11 +473,11 @@ impl<'e, 's> ScopeData<'e, 's> {
 
             modules.push(Value::record(
                 record! {
-                    name => Value::string(String::from_utf8_lossy(module_name), span),
-                    commands => Value::list(export_commands, span),
-                    aliases => Value::list(export_aliases, span),
-                    env_block => export_env_block,
-                    usage => Value::string(module_usage, span)
+                    "name" => Value::string(String::from_utf8_lossy(module_name), span),
+                    "commands" => Value::list(export_commands, span),
+                    "aliases" => Value::list(export_aliases, span),
+                    "env_block" => export_env_block,
+                    "usage" => Value::string(module_usage, span)
                 },
                 span,
             ));
@@ -489,12 +489,12 @@ impl<'e, 's> ScopeData<'e, 's> {
     pub fn collect_engine_state(&self, span: Span) -> Value {
         Value::record(
             record! {
-                source_bytes => Value::int(self.engine_state.next_span_start() as i64, span),
-                num_vars => Value::int(self.engine_state.num_vars() as i64, span),
-                num_decls => Value::int(self.engine_state.num_decls() as i64, span),
-                num_blocks => Value::int(self.engine_state.num_blocks() as i64, span),
-                num_modules => Value::int(self.engine_state.num_modules() as i64, span),
-                num_env_vars => Value::int(
+                "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
+                "num_vars" => Value::int(self.engine_state.num_vars() as i64, span),
+                "num_decls" => Value::int(self.engine_state.num_decls() as i64, span),
+                "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
+                "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
+                "num_env_vars" => Value::int(
                     self.engine_state
                         .env_vars
                         .values()

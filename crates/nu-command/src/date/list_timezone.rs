@@ -42,7 +42,7 @@ impl Command for SubCommand {
             .map(move |x| {
                 Value::record(
                     record! {
-                        timezone => Value::string(x.name(), span),
+                        "timezone" => Value::string(x.name(), span),
                     },
                     span,
                 )

@@ -71,7 +71,7 @@ fn collect_external_stream(
     }
     if metadata.is_some() {
         let r = record! {
-            data_source => Value::string("ls", span),
+            "data_source" => Value::string("ls", span),
         };
 
         record.push("metadata", Value::record(r, span));

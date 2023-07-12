@@ -125,8 +125,8 @@ impl Command for Take {
                 example: "[[editions]; [2015] [2018] [2021]] | take 2",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(record! { editions => Value::test_int(2015) }),
-                        Value::test_record(record! { editions => Value::test_int(2018) }),
+                        Value::test_record(record! { "editions" => Value::test_int(2015) }),
+                        Value::test_record(record! { "editions" => Value::test_int(2018) }),
                     ],
                     span: Span::test_data(),
                 }),

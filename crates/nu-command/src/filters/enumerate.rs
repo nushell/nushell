@@ -68,8 +68,8 @@ impl Command for Enumerate {
             .map(move |(idx, x)| {
                 Value::record(
                     record! {
-                        index => Value::int(idx as i64, span),
-                        item => x,
+                        "index" => Value::int(idx as i64, span),
+                        "item" => x,
                     },
                     span,
                 )

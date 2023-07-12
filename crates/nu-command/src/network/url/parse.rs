@@ -119,15 +119,15 @@ fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<Pipelin
             };
 
             let record = record! {
-                scheme => Value::string(url.scheme(), head),
-                username => Value::string(url.username(), head),
-                password => Value::string(url.password().unwrap_or(""), head),
-                host => Value::string(url.host_str().unwrap_or(""), head),
-                port => Value::string(url.port().map(|p| p.to_string()).unwrap_or_default(), head),
-                path => Value::string(url.path(), head),
-                query => Value::string(url.query().unwrap_or(""), head),
-                fragment => Value::string(url.fragment().unwrap_or(""), head),
-                params => Value::record(params, head),
+                "scheme" => Value::string(url.scheme(), head),
+                "username" => Value::string(url.username(), head),
+                "password" => Value::string(url.password().unwrap_or(""), head),
+                "host" => Value::string(url.host_str().unwrap_or(""), head),
+                "port" => Value::string(url.port().map(|p| p.to_string()).unwrap_or_default(), head),
+                "path" => Value::string(url.path(), head),
+                "query" => Value::string(url.query().unwrap_or(""), head),
+                "fragment" => Value::string(url.fragment().unwrap_or(""), head),
+                "params" => Value::record(params, head),
             };
 
             Ok(PipelineData::Value(Value::record(record, span), None))

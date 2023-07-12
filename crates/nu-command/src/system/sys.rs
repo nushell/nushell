@@ -121,13 +121,13 @@ pub fn disks(span: Span) -> Value {
         .iter()
         .map(|disk| {
             let record = record! {
-                device => Value::string(trim_cstyle_null(disk.name().to_string_lossy().to_string()), span),
-                type => Value::string(trim_cstyle_null(String::from_utf8_lossy(disk.file_system()).to_string()), span),
-                mount => Value::string(disk.mount_point().to_string_lossy().to_string(), span),
-                total => Value::filesize(disk.total_space() as i64, span),
-                free => Value::filesize(disk.available_space() as i64, span),
-                removable => Value::bool(disk.is_removable(), span),
-                kind => Value::string(format!("{:?}", disk.kind()), span),
+                "device" => Value::string(trim_cstyle_null(disk.name().to_string_lossy().to_string()), span),
+                "type" => Value::string(trim_cstyle_null(String::from_utf8_lossy(disk.file_system()).to_string()), span),
+                "mount" => Value::string(disk.mount_point().to_string_lossy().to_string(), span),
+                "total" => Value::filesize(disk.total_space() as i64, span),
+                "free" => Value::filesize(disk.available_space() as i64, span),
+                "removable" => Value::bool(disk.is_removable(), span),
+                "kind" => Value::string(format!("{:?}", disk.kind()), span),
             };
 
             Value::record(record, span)
@@ -147,9 +147,9 @@ pub fn net(span: Span) -> Value {
         .into_iter()
         .map(|(iface, data)| {
             let record = record! {
-                name => Value::string(trim_cstyle_null(iface.to_string()), span),
-                sent => Value::filesize(data.total_transmitted() as i64, span),
-                recv => Value::filesize(data.total_received() as i64, span),
+                "name" => Value::string(trim_cstyle_null(iface.to_string()), span),
+                "sent" => Value::filesize(data.total_transmitted() as i64, span),
+                "recv" => Value::filesize(data.total_received() as i64, span),
             };
 
             Value::record(record, span)
@@ -178,16 +178,16 @@ pub fn cpu(span: Span) -> Value {
             let load_avg = sys.load_average();
 
             let record = record! {
-                name => Value::string(trim_cstyle_null(cpu.name().to_string()), span),
-                brand => Value::string(trim_cstyle_null(cpu.brand().to_string()), span),
-                freq => Value::int(cpu.frequency() as i64, span),
-                cpu_usage => Value::float(rounded_usage as f64, span),
-                load_average => Value::string(trim_cstyle_null(format!(
+                "name" => Value::string(trim_cstyle_null(cpu.name().to_string()), span),
+                "brand" => Value::string(trim_cstyle_null(cpu.brand().to_string()), span),
+                "freq" => Value::int(cpu.frequency() as i64, span),
+                "cpu_usage" => Value::float(rounded_usage as f64, span),
+                "load_average" => Value::string(trim_cstyle_null(format!(
                         "{:.2}, {:.2}, {:.2}",
                         load_avg.one, load_avg.five, load_avg.fifteen
                     )),
                     span),
-                vendor_id => Value::string(trim_cstyle_null(cpu.vendor_id().to_string()), span),
+                "vendor_id" => Value::string(trim_cstyle_null(cpu.vendor_id().to_string()), span),
             };
 
             Value::record(record, span)
@@ -271,8 +271,8 @@ pub fn host(span: Span) -> Value {
                 .collect();
 
             let record = record! {
-                name => Value::string(trim_cstyle_null(user.name().to_string()), span),
-                groups => Value::list(groups, span),
+                "name" => Value::string(trim_cstyle_null(user.name().to_string()), span),
+                "groups" => Value::list(groups, span),
             };
 
             Value::record(record, span)
@@ -296,9 +296,9 @@ pub fn temp(span: Span) -> Value {
         .iter()
         .map(|component| {
             let mut record = record! {
-                unit => Value::string(component.label().to_string(), span),
-                temp => Value::float(component.temperature() as f64, span),
-                high => Value::float(component.max() as f64, span),
+                "unit" => Value::string(component.label().to_string(), span),
+                "temp" => Value::float(component.temperature() as f64, span),
+                "high" => Value::float(component.max() as f64, span),
             };
 
             if let Some(critical) = component.critical() {

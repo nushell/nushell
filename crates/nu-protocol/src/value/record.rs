@@ -91,13 +91,6 @@ impl<'a> IntoIterator for &'a Record {
 
 #[macro_export]
 macro_rules! record {
-    {$($col:ident => $val:expr),+ $(,)?} => {
-        $crate::Record {
-            cols: vec![$(stringify!($col).to_string(),)+],
-            vals: vec![$($val,)+]
-        }
-
-    };
     {$($col:expr => $val:expr),+ $(,)?} => {
         $crate::Record {
             cols: vec![$($col.into(),)+],

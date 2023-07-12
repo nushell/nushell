@@ -106,22 +106,22 @@ fn print_events_helper(event: Event) -> Record {
     {
         match code {
             KeyCode::Char(c) => record! {
-                char => Value::string(format!("{c}"), Span::unknown()),
-                code => Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                modifier => Value::string(format!("{modifiers:?}"), Span::unknown()),
-                flags => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                kind => Value::string(format!("{kind:?}"), Span::unknown()),
-                state => Value::string(format!("{state:?}"), Span::unknown()),
+                "char" => Value::string(format!("{c}"), Span::unknown()),
+                "code" => Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
+                "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
+                "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
+                "state" => Value::string(format!("{state:?}"), Span::unknown()),
             },
             _ => record! {
-                code => Value::string(format!("{code:?}"), Span::unknown()),
-                modifier => Value::string(format!("{modifiers:?}"), Span::unknown()),
-                flags => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                "code" => Value::string(format!("{code:?}"), Span::unknown()),
+                "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
+                "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
             },
         }
     } else {
         record! {
-            event => Value::string(format!("{event:?}"), Span::unknown()),
+            "event" => Value::string(format!("{event:?}"), Span::unknown()),
         }
     }
 }

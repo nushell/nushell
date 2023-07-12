@@ -150,11 +150,11 @@ fn counter(contents: &str, span: Span) -> Value {
     }
 
     let record = record! {
-        lines => Value::int(get_count(&counts, Counter::Lines), span),
-        words => Value::int(get_count(&counts, Counter::Words), span),
-        bytes => Value::int(get_count(&counts, Counter::Bytes), span),
-        chars => Value::int(get_count(&counts, Counter::CodePoints), span),
-        graphemes => Value::int(get_count(&counts, Counter::GraphemeClusters), span),
+        "lines" => Value::int(get_count(&counts, Counter::Lines), span),
+        "words" => Value::int(get_count(&counts, Counter::Words), span),
+        "bytes" => Value::int(get_count(&counts, Counter::Bytes), span),
+        "chars" => Value::int(get_count(&counts, Counter::CodePoints), span),
+        "graphemes" => Value::int(get_count(&counts, Counter::GraphemeClusters), span),
     };
 
     Value::record(record, span)

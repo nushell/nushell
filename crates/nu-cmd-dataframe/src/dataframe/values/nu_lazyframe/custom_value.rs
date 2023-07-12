@@ -31,8 +31,8 @@ impl CustomValue for NuLazyFrame {
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         Ok(Value::record(
             record! {
-                plan => Value::string(self.as_ref().describe_plan(), span),
-                optimized_plan => Value::string(self
+                "plan" => Value::string(self.as_ref().describe_plan(), span),
+                "optimized_plan" => Value::string(self
                     .as_ref()
                     .describe_optimized_plan()
                     .unwrap_or_else(|_| "<NOT AVAILABLE>".to_owned()), span),

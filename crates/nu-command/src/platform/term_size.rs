@@ -64,8 +64,8 @@ impl Command for TermSize {
         };
 
         let record = record! {
-            columns => Value::int(cols.0 as i64, head),
-            rows => Value::int(rows.0 as i64, head),
+            "columns" => Value::int(cols.0 as i64, head),
+            "rows" => Value::int(rows.0 as i64, head),
         };
 
         Ok(Value::record(record, head).into_pipeline_data())

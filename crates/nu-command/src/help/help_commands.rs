@@ -135,17 +135,17 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let search_terms = sig.search_terms;
 
         let record = record! {
-            name => Value::string(key, span),
-            category => Value::string(sig.category.to_string(), span),
-            command_type => Value::string(format!("{:?}", decl.command_type()).to_lowercase(), span),
-            usage => Value::string(usage, span),
-            signatures => Value::string(if decl.is_parser_keyword() {
+            "name" => Value::string(key, span),
+            "category" => Value::string(sig.category.to_string(), span),
+            "command_type" => Value::string(format!("{:?}", decl.command_type()).to_lowercase(), span),
+            "usage" => Value::string(usage, span),
+            "signatures" => Value::string(if decl.is_parser_keyword() {
                     "".to_string()
                 } else {
                     signatures
                 },
                 span),
-            search_terms => Value::string(search_terms.join(", "), span)
+            "search_terms" => Value::string(search_terms.join(", "), span)
         };
 
         Value::record(record, span)

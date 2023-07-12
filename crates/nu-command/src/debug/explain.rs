@@ -92,12 +92,12 @@ pub fn get_pipeline_elements(
             let command_name = command_name;
 
             let record = record! {
-                cmd_index => Value::string(index, span),
-                cmd_name => Value::string(command_name, value_span),
-                type => Value::string(value_type.to_string(), span),
-                cmd_args => Value::list(command_args_value, value_span),
-                span_start => Value::int(value_span_start, span),
-                span_end => Value::int(value_span_end, span),
+                "cmd_index" => Value::string(index, span),
+                "cmd_name" => Value::string(command_name, value_span),
+                "type" => Value::string(value_type.to_string(), span),
+                "cmd_args" => Value::list(command_args_value, value_span),
+                "span_start" => Value::int(value_span_start, span),
+                "span_end" => Value::int(value_span_end, span),
             };
 
             element_values.push(Value::record(record, value_span));
@@ -121,11 +121,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_end = name.span.end as i64;
 
                 let record = record! {
-                    arg_type => Value::string(arg_type, span),
-                    name => Value::string(arg_value_name, name.span),
-                    type => Value::string("string", span),
-                    span_start => Value::int(arg_value_name_span_start, span),
-                    span_end => Value::int(arg_value_name_span_end, span),
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, name.span),
+                    "type" => Value::string("string", span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
                 };
 
                 arg_value.push(Value::record(record, name.span));
@@ -137,11 +137,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_value_name_span_end = shortcut.span.end as i64;
 
                     let record = record! {
-                        arg_type => Value::string(arg_type, span),
-                        name => Value::string(arg_value_name, shortcut.span),
-                        type => Value::string("string", span),
-                        span_start => Value::int(arg_value_name_span_start, span),
-                        span_end => Value::int(arg_value_name_span_end, span),
+                        "arg_type" => Value::string(arg_type, span),
+                        "name" => Value::string(arg_value_name, shortcut.span),
+                        "type" => Value::string("string", span),
+                        "span_start" => Value::int(arg_value_name_span_start, span),
+                        "span_end" => Value::int(arg_value_name_span_end, span),
                     };
 
                     arg_value.push(Value::record(record, name.span));
@@ -158,11 +158,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_value_name_span_end = evaled_span.end as i64;
 
                     let record = record! {
-                        arg_type => Value::string(arg_type, span),
-                        name => Value::string(arg_value_name, expression.span),
-                        type => Value::string(arg_value_type, span),
-                        span_start => Value::int(arg_value_name_span_start, span),
-                        span_end => Value::int(arg_value_name_span_end, span),
+                        "arg_type" => Value::string(arg_type, span),
+                        "name" => Value::string(arg_value_name, expression.span),
+                        "type" => Value::string(arg_value_type, span),
+                        "span_start" => Value::int(arg_value_name_span_start, span),
+                        "span_end" => Value::int(arg_value_name_span_end, span),
                     };
 
                     arg_value.push(Value::record(record, expression.span));
@@ -178,11 +178,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_end = evaled_span.end as i64;
 
                 let record = record! {
-                    arg_type => Value::string(arg_type, span),
-                    name => Value::string(arg_value_name, inner_expr.span),
-                    type => Value::string(arg_value_type, span),
-                    span_start => Value::int(arg_value_name_span_start, span),
-                    span_end => Value::int(arg_value_name_span_end, span),
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
                 };
 
                 arg_value.push(Value::record(record, inner_expr.span));
@@ -197,11 +197,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_end = evaled_span.end as i64;
 
                 let record = record! {
-                    arg_type => Value::string(arg_type, span),
-                    name => Value::string(arg_value_name, inner_expr.span),
-                    type => Value::string(arg_value_type, span),
-                    span_start => Value::int(arg_value_name_span_start, span),
-                    span_end => Value::int(arg_value_name_span_end, span),
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
                 };
 
                 arg_value.push(Value::record(record, inner_expr.span));

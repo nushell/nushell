@@ -273,8 +273,8 @@ fn create_focus_event(
 ) -> Option<Value> {
     if filter.listen_focus {
         let record = record! {
-            type => Value::string("focus", head),
-            event => Value::string(event_type.string(), head),
+            "type" => Value::string("focus", head),
+            "event" => Value::string(event_type.string(), head),
         };
 
         Some(Value::record(record, head))
@@ -308,10 +308,10 @@ fn create_key_event(
 
         let (key, code) = get_keycode_name(head, raw_code);
         let mut record = record! {
-            type => Value::string("key", head),
-            key_type => key,
-            code => code,
-            modifiers => parse_modifiers(head, raw_modifiers),
+            "type" => Value::string("key", head),
+            "key_type" => key,
+            "code" => code,
+            "modifiers" => parse_modifiers(head, raw_modifiers),
         };
 
         if add_raw {
@@ -378,11 +378,11 @@ fn create_mouse_event(
         };
 
         let mut record = record! {
-            type => Value::string("mouse", head),
-            col => Value::int(event.column as i64, head),
-            row => Value::int(event.row as i64, head),
-            kind => Value::string(kind, head),
-            modifiers => parse_modifiers(head, &event.modifiers),
+            "type" => Value::string("mouse", head),
+            "col" => Value::int(event.column as i64, head),
+            "row" => Value::int(event.row as i64, head),
+            "kind" => Value::string(kind, head),
+            "modifiers" => parse_modifiers(head, &event.modifiers),
         };
 
         if add_raw {
@@ -401,8 +401,8 @@ fn create_mouse_event(
 fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Option<Value> {
     if filter.listen_paste {
         let record = record! {
-            type => Value::string("paste", head),
-            content => Value::string(content, head),
+            "type" => Value::string("paste", head),
+            "content" => Value::string(content, head),
         };
 
         Some(Value::record(record, head))
@@ -419,9 +419,9 @@ fn create_resize_event(
 ) -> Option<Value> {
     if filter.listen_resize {
         let record = record! {
-            type => Value::string("resize", head),
-            col => Value::int(columns as i64, head),
-            row => Value::int(rows as i64, head),
+            "type" => Value::string("resize", head),
+            "col" => Value::int(columns as i64, head),
+            "row" => Value::int(rows as i64, head),
         };
 
         Some(Value::record(record, head))

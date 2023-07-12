@@ -55,9 +55,9 @@ impl Command for ListDF {
                 NuDataFrame::try_from_value(value).ok().map(|df| {
                     Value::record(
                         record! {
-                            name => Value::string(name, call.head),
-                            columns => Value::int(df.as_ref().width() as i64, call.head),
-                            rows => Value::int(df.as_ref().height() as i64, call.head)
+                            "name" => Value::string(name, call.head),
+                            "columns" => Value::int(df.as_ref().width() as i64, call.head),
+                            "rows" => Value::int(df.as_ref().height() as i64, call.head)
                         },
                         call.head,
                     )

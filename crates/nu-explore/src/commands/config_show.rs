@@ -172,9 +172,9 @@ fn convert_style_from_string(s: &str) -> Option<Value> {
         .map(|style| {
             Value::record(
                 record! {
-                    bg => Value::string(style.bg.unwrap_or_default(), NuSpan::unknown()),
-                    fg => Value::string(style.fg.unwrap_or_default(), NuSpan::unknown()),
-                    attr => Value::string(style.attr.unwrap_or_default(), NuSpan::unknown()),
+                    "bg" => Value::string(style.bg.unwrap_or_default(), NuSpan::unknown()),
+                    "fg" => Value::string(style.fg.unwrap_or_default(), NuSpan::unknown()),
+                    "attr" => Value::string(style.attr.unwrap_or_default(), NuSpan::unknown()),
                 },
                 NuSpan::unknown(),
             )

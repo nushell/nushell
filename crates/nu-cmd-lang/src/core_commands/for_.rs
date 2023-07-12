@@ -94,8 +94,8 @@ impl Command for For {
                         if numbered {
                             Value::record(
                                 record! {
-                                    index => Value::int(idx as i64, head),
-                                    item => x,
+                                    "index" => Value::int(idx as i64, head),
+                                    "item" => x,
                                 },
                                 head,
                             )
@@ -140,8 +140,8 @@ impl Command for For {
                         if numbered {
                             Value::record(
                                 record! {
-                                    index => Value::int(idx as i64, head),
-                                    item => x,
+                                    "index" => Value::int(idx as i64, head),
+                                    "item" => x,
                                 },
                                 head,
                             )
