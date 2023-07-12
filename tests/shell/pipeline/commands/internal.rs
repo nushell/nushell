@@ -8,23 +8,23 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
     Playground::setup("internal_to_external_pipe_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "nu_times.csv",
-            r#"
+            "
                 name,rusty_luck,origin
                 Jason,1,Canada
                 JT,1,New Zealand
                 Andrés,1,Ecuador
                 AndKitKatz,1,Estados Unidos
-            "#,
+            ",
         )]);
 
         let actual = nu!(
         cwd: dirs.test(), pipeline(
-        r#"
+        "
             open nu_times.csv
             | get origin
             | each { |it| nu --testbin cococo $it | nu --testbin chop }
             | get 2
-            "#
+            "
         ));
 
         // chop will remove the last escaped double quote from \"Estados Unidos\"
@@ -37,21 +37,21 @@ fn treats_dot_dot_as_path_not_range() {
     Playground::setup("dot_dot_dir", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "nu_times.csv",
-            r#"
+            "
                 name,rusty_luck,origin
                 Jason,1,Canada
-            "#,
+            ",
         )]);
 
         let actual = nu!(
         cwd: dirs.test(), pipeline(
-        r#"
+        "
             mkdir temp;
             cd temp;
             print (open ../nu_times.csv).name.0 | table;
             cd ..;
             rmdir temp
-            "#
+            "
         ));
 
         // chop will remove the last escaped double quote from \"Estados Unidos\"
@@ -79,9 +79,9 @@ fn argument_subexpression() {
 
 #[test]
 fn for_loop() {
-    let actual = nu!(r#"
+    let actual = nu!("
             for i in 1..3 { print $i }
-        "#);
+        ");
 
     assert_eq!(actual.out, "123");
 }
@@ -91,23 +91,23 @@ fn subexpression_handles_dot() {
     Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "nu_times.csv",
-            r#"
+            "
                 name,rusty_luck,origin
                 Jason,1,Canada
                 JT,1,New Zealand
                 Andrés,1,Ecuador
                 AndKitKatz,1,Estados Unidos
-            "#,
+            ",
         )]);
 
         let actual = nu!(
         cwd: dirs.test(), pipeline(
-        r#"
+        "
             echo (open nu_times.csv)
             | get name
             | each { |it| nu --testbin chop $it }
             | get 3
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "AndKitKat");
@@ -164,9 +164,9 @@ fn string_interpolation_with_unicode() {
 
 #[test]
 fn run_custom_command() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def add-me [x y] { $x + $y}; add-me 10 5
-        "#);
+        ");
 
     assert_eq!(actual.out, "15");
 }
@@ -200,18 +200,18 @@ fn run_custom_subcommand() {
 
 #[test]
 fn run_inner_custom_command() {
-    let actual = nu!(r#"
+    let actual = nu!("
           def outer [x] { def inner [y] { echo $y }; inner $x }; outer 10
-        "#);
+        ");
 
     assert_eq!(actual.out, "10");
 }
 
 #[test]
 fn run_broken_inner_custom_command() {
-    let actual = nu!(r#"
+    let actual = nu!("
         def outer [x] { def inner [y] { echo $y }; inner $x }; inner 10
-        "#);
+        ");
 
     assert!(!actual.err.is_empty());
 }
@@ -245,9 +245,9 @@ fn run_custom_command_with_rest_and_flag() {
 
 #[test]
 fn run_custom_command_with_empty_rest() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | is-empty
-        "#);
+        ");
 
     assert_eq!(actual.out, "true");
     assert_eq!(actual.err, "");
@@ -267,35 +267,35 @@ fn run_custom_command_with_rest_other_name() {
             say-hello Salutations E D C A B
         "#);
 
-    assert_eq!(actual.out, r#"Salutations, ABCDE"#);
+    assert_eq!(actual.out, "Salutations, ABCDE");
     assert_eq!(actual.err, "");
 }
 
 #[test]
 fn alias_a_load_env() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def activate-helper [] { {BOB: SAM} }; alias activate = load-env (activate-helper); activate; $env.BOB
-        "#);
+        ");
 
     assert_eq!(actual.out, "SAM");
 }
 
 #[test]
 fn let_variable() {
-    let actual = nu!(r#"
+    let actual = nu!("
             let x = 5
             let y = 12
             $x + $y
-        "#);
+        ");
 
     assert_eq!(actual.out, "17");
 }
 
 #[test]
 fn let_doesnt_leak() {
-    let actual = nu!(r#"
+    let actual = nu!("
         do { let x = 5 }; echo $x
-        "#);
+        ");
 
     assert!(actual.err.contains("variable not found"));
 }
@@ -352,9 +352,9 @@ fn unlet_env_variable() {
 #[test]
 #[ignore]
 fn unlet_nonexistent_variable() {
-    let actual = nu!(r#"
+    let actual = nu!("
             hide-env NONEXISTENT_VARIABLE
-        "#);
+        ");
 
     assert!(actual.err.contains("did not find"));
 }
@@ -465,23 +465,23 @@ fn load_env_can_hide_var_envs_in_parent_scope() {
 
 #[test]
 fn proper_shadow_let_aliases() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; print $DEBUG
-        "#);
+        ");
     assert_eq!(actual.out, "falsetruefalse");
 }
 
 #[test]
 fn block_params_override() {
-    let actual = nu!(r#"
+    let actual = nu!("
         [1, 2, 3] | each { |a| echo $it }
-        "#);
+        ");
     assert!(actual.err.contains("variable not found"));
 }
 
 #[test]
 fn alias_reuse() {
-    let actual = nu!(r#"alias foo = echo bob; foo; foo"#);
+    let actual = nu!("alias foo = echo bob; foo; foo");
 
     assert!(actual.out.contains("bob"));
     assert!(actual.err.is_empty());
@@ -489,9 +489,9 @@ fn alias_reuse() {
 
 #[test]
 fn block_params_override_correct() {
-    let actual = nu!(r#"
+    let actual = nu!("
         [1, 2, 3] | each { |a| echo $a } | to json --raw
-        "#);
+        ");
     assert_eq!(actual.out, "[1,2,3]");
 }
 
@@ -544,27 +544,27 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
 
 #[test]
 fn bad_operator() {
-    let actual = nu!(r#"
+    let actual = nu!("
             2 $ 2
-        "#);
+        ");
 
     assert!(actual.err.contains("operator"));
 }
 
 #[test]
 fn index_out_of_bounds() {
-    let actual = nu!(r#"
+    let actual = nu!("
             let foo = [1, 2, 3]; echo $foo.5
-        "#);
+        ");
 
     assert!(actual.err.contains("too large"));
 }
 
 #[test]
 fn negative_decimal_start() {
-    let actual = nu!(r#"
+    let actual = nu!("
             -1.3 + 4
-        "#);
+        ");
 
     assert_eq!(actual.out, "2.7");
 }
@@ -589,162 +589,162 @@ fn string_not_inside_of() {
 
 #[test]
 fn index_row() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let foo = [[name]; [joe] [bob]]; echo $foo.1 | to json --raw
-        "#);
+        ");
 
     assert_eq!(actual.out, r#"{"name": "bob"}"#);
 }
 
 #[test]
 fn index_cell() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let foo = [[name]; [joe] [bob]]; echo $foo.name.1
-        "#);
+        ");
 
     assert_eq!(actual.out, "bob");
 }
 
 #[test]
 fn index_cell_alt() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let foo = [[name]; [joe] [bob]]; echo $foo.1.name
-        "#);
+        ");
 
     assert_eq!(actual.out, "bob");
 }
 
 #[test]
 fn not_echoing_ranges_without_numbers() {
-    let actual = nu!(r#"
+    let actual = nu!("
             echo ..
-        "#);
+        ");
 
     assert_eq!(actual.out, "..");
 }
 
 #[test]
 fn not_echoing_exclusive_ranges_without_numbers() {
-    let actual = nu!(r#"
+    let actual = nu!("
             echo ..<
-        "#);
+        ");
 
     assert_eq!(actual.out, "..<");
 }
 
 #[test]
 fn echoing_ranges() {
-    let actual = nu!(r#"
+    let actual = nu!("
             echo 1..3 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "6");
 }
 
 #[test]
 fn echoing_exclusive_ranges() {
-    let actual = nu!(r#"
+    let actual = nu!("
             echo 1..<4 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "6");
 }
 
 #[test]
 fn table_literals1() {
-    let actual = nu!(r#"
+    let actual = nu!("
             echo [[name age]; [foo 13]] | get age.0
-        "#);
+        ");
 
     assert_eq!(actual.out, "13");
 }
 
 #[test]
 fn table_literals2() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo [[name age] ; [bob 13] [sally 20]] | get age | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "33");
 }
 
 #[test]
 fn list_with_commas() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo [1, 2, 3] | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "6");
 }
 
 #[test]
 fn range_with_left_var() {
-    let actual = nu!(r#"
+    let actual = nu!("
         ({ size: 3}.size)..10 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "52");
 }
 
 #[test]
 fn range_with_right_var() {
-    let actual = nu!(r#"
+    let actual = nu!("
         4..({ size: 30}.size) | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "459");
 }
 
 #[test]
 fn range_with_open_left() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo ..30 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "465");
 }
 
 #[test]
 fn exclusive_range_with_open_left() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo ..<31 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "465");
 }
 
 #[test]
 fn range_with_open_right() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo 5.. | first 10 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "95");
 }
 
 #[test]
 fn exclusive_range_with_open_right() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo 5..< | first 10 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "95");
 }
 
 #[test]
 fn range_with_mixed_types() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo 1..10.5 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "55");
 }
 
 #[test]
 fn filesize_math() {
-    let actual = nu!(r#"
+    let actual = nu!("
         100 * 10kib
-        "#);
+        ");
 
     assert_eq!(actual.out, "1000.0 KiB");
     // why 1000.0 KB instead of 1.0 MB?
@@ -753,71 +753,71 @@ fn filesize_math() {
 
 #[test]
 fn filesize_math2() {
-    let actual = nu!(r#"
+    let actual = nu!("
         100 / 10kb
-        "#);
+        ");
 
     assert!(actual.err.contains("doesn't support"));
 }
 
 #[test]
 fn filesize_math3() {
-    let actual = nu!(r#"
+    let actual = nu!("
         100kib / 10
-        "#);
+        ");
 
     assert_eq!(actual.out, "10.0 KiB");
 }
 #[test]
 fn filesize_math4() {
-    let actual = nu!(r#"
+    let actual = nu!("
         100kib * 5
-        "#);
+        ");
 
     assert_eq!(actual.out, "500.0 KiB");
 }
 
 #[test]
 fn filesize_math5() {
-    let actual = nu!(r#"
+    let actual = nu!("
         1000 * 1kib
-        "#);
+        ");
 
     assert_eq!(actual.out, "1000.0 KiB");
 }
 
 #[test]
 fn filesize_math6() {
-    let actual = nu!(r#"
+    let actual = nu!("
         1000 * 1mib
-        "#);
+        ");
 
     assert_eq!(actual.out, "1000.0 MiB");
 }
 
 #[test]
 fn filesize_math7() {
-    let actual = nu!(r#"
+    let actual = nu!("
         1000 * 1gib
-        "#);
+        ");
 
     assert_eq!(actual.out, "1000.0 GiB");
 }
 
 #[test]
 fn exclusive_range_with_mixed_types() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo 1..<10.5 | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "55");
 }
 
 #[test]
 fn table_with_commas() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo [[name, age, height]; [JT, 42, 185] [Unknown, 99, 99]] | get age | math sum
-        "#);
+        ");
 
     assert_eq!(actual.out, "141");
 }
@@ -825,9 +825,9 @@ fn table_with_commas() {
 #[test]
 fn duration_overflow() {
     let actual = nu!(pipeline(
-        r#"
+        "
         ls | get modified | each { |it| $it + 10000000000000000day }
-        "#
+        "
     ));
 
     assert!(actual.err.contains("duration too large"));
@@ -836,9 +836,9 @@ fn duration_overflow() {
 #[test]
 fn date_and_duration_overflow() {
     let actual = nu!(pipeline(
-        r#"
+        "
         ls | get modified | each { |it| $it + 1000000000day }
-        "#
+        "
     ));
 
     // assert_eq!(actual.err, "overflow");
@@ -848,9 +848,9 @@ fn date_and_duration_overflow() {
 #[test]
 fn pipeline_params_simple() {
     let actual = nu!(pipeline(
-        r#"
+        "
         echo 1 2 3 | $in.1 * $in.2
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "6");
@@ -859,9 +859,9 @@ fn pipeline_params_simple() {
 #[test]
 fn pipeline_params_inner() {
     let actual = nu!(pipeline(
-        r#"
+        "
         echo 1 2 3 | (echo $in.2 6 7 | $in.0 * $in.1 * $in.2)
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "126");
@@ -870,7 +870,7 @@ fn pipeline_params_inner() {
 #[test]
 fn better_table_lex() {
     let actual = nu!(pipeline(
-        r#"
+        "
         let table = [
             [name, size];
             [small, 7]
@@ -878,7 +878,7 @@ fn better_table_lex() {
             [large, 12]
         ];
         $table.1.size
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "10");
@@ -887,10 +887,10 @@ fn better_table_lex() {
 #[test]
 fn better_subexpr_lex() {
     let actual = nu!(pipeline(
-        r#"
+        "
         (echo boo
         sam | str length | math sum)
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "6");
@@ -932,7 +932,7 @@ fn nothing_string_1() {
 #[test]
 fn hide_alias_shadowing() {
     let actual = nu!(pipeline(
-        r#"
+        "
         def test-shadowing [] {
             alias greet = echo hello;
             let xyz = {|| greet };
@@ -940,7 +940,7 @@ fn hide_alias_shadowing() {
             do $xyz
         };
         test-shadowing
-        "#
+        "
     ));
     assert_eq!(actual.out, "hello");
 }
@@ -950,14 +950,14 @@ fn hide_alias_shadowing() {
 #[test]
 fn hide_alias_does_not_escape_scope() {
     let actual = nu!(pipeline(
-        r#"
+        "
         def test-alias [] {
             alias greet = echo hello;
             (hide greet);
             greet
         };
         test-alias
-        "#
+        "
     ));
     assert_eq!(actual.out, "hello");
 }
@@ -965,14 +965,14 @@ fn hide_alias_does_not_escape_scope() {
 #[test]
 fn hide_alias_hides_alias() {
     let actual = nu!(pipeline(
-        r#"
+        "
         def test-alias [] {
             alias ll = ls -l;
             hide ll;
             ll
         };
         test-alias
-        "#
+        "
     ));
 
     assert!(actual.err.contains("did you mean 'all'?"));
@@ -1031,9 +1031,9 @@ mod tilde_expansion {
     #[test]
     #[should_panic]
     fn as_home_directory_when_passed_as_argument_and_begins_with_tilde() {
-        let actual = nu!(r#"
+        let actual = nu!("
             echo ~
-        "#);
+        ");
 
         assert!(!actual.out.contains('~'),);
     }
@@ -1070,8 +1070,8 @@ mod variable_scoping {
     #[test]
     fn access_variables_in_scopes() {
         test_variable_scope!(
-            r#" def test [input] { echo [0 1 2] | do { do { echo $input } } }
-                test ZZZ "#
+            " def test [input] { echo [0 1 2] | do { do { echo $input } } }
+                test ZZZ "
                 == "ZZZ"
         );
         test_variable_scope!(
@@ -1085,28 +1085,28 @@ mod variable_scoping {
                 == "ZZZ"
         );
         test_variable_scope!(
-            r#" def test [input] { echo [0 1 2] | do { echo $input } }
-                test ZZZ "#
+            " def test [input] { echo [0 1 2] | do { echo $input } }
+                test ZZZ "
                 == "ZZZ"
         );
         test_variable_scope!(
-            r#" def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { echo $input } } }
-                test ZZZ "#
+            " def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { echo $input } } }
+                test ZZZ "
                 == "ZZZ"
         );
         test_variable_scope_list!(
-            r#" def test [input] { echo [0 1 2] | each { |_| echo $input } }
-                test ZZZ "#
+            " def test [input] { echo [0 1 2] | each { |_| echo $input } }
+                test ZZZ "
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
         test_variable_scope_list!(
-            r#" def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo $input}} }
-                test ZZZ "#
+            " def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo $input}} }
+                test ZZZ "
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
         test_variable_scope_list!(
-            r#" def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else {echo $input}} }
-                test ZZZ "#
+            " def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else {echo $input}} }
+                test ZZZ "
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
     }

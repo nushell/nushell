@@ -11,7 +11,7 @@ fn env_change_hook_code_list(name: &str, code_list: &[&str]) -> String {
     }
 
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 env_change: {{
                     {name} : [
@@ -19,25 +19,25 @@ fn env_change_hook_code_list(name: &str, code_list: &[&str]) -> String {
                     ]
                 }}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn env_change_hook(name: &str, code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 env_change: {{
                     {name} : {code}
                 }}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn env_change_hook_code(name: &str, code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 env_change: {{
                     {name} : {{
@@ -45,13 +45,13 @@ fn env_change_hook_code(name: &str, code: &str) -> String {
                     }}
                 }}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn env_change_hook_code_condition(name: &str, condition: &str, code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 env_change: {{
                     {name} : {{
@@ -60,51 +60,51 @@ fn env_change_hook_code_condition(name: &str, condition: &str, code: &str) -> St
                     }}
                 }}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn pre_prompt_hook(code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 pre_prompt: {code}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn pre_prompt_hook_code(code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 pre_prompt: {{
                     code: {code}
                 }}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn pre_execution_hook(code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 pre_execution: {code}
             }}
-        }}"#
+        }}"
     )
 }
 
 fn pre_execution_hook_code(code: &str) -> String {
     format!(
-        r#"$env.config = {{
+        "$env.config = {{
             hooks: {{
                 pre_execution: {{
                     code: {code}
                 }}
             }}
-        }}"#
+        }}"
     )
 }
 
@@ -326,7 +326,7 @@ fn pre_execution_block_preserve_env_var() {
 #[test]
 fn pre_execution_commandline() {
     let inp = &[
-        &pre_execution_hook_code(r#"{|| $env.repl_commandline = (commandline) }"#),
+        &pre_execution_hook_code("{|| $env.repl_commandline = (commandline) }"),
         "$env.repl_commandline",
     ];
 
@@ -377,8 +377,8 @@ fn env_change_block_condition_pwd() {
     let inp = &[
         &env_change_hook_code_condition(
             "PWD",
-            r#"{|before, after| ($after | path basename) == samples }"#,
-            r#"'source-env .nu-env'"#,
+            "{|before, after| ($after | path basename) == samples }",
+            "'source-env .nu-env'",
         ),
         "cd samples",
         "$env.SPAM",
@@ -393,14 +393,14 @@ fn env_change_block_condition_pwd() {
 #[test]
 fn env_change_block_condition_correct_args() {
     let inp = &[
-        r#"$env.FOO = 1"#,
+        "$env.FOO = 1",
         &env_change_hook_code_condition(
             "FOO",
-            r#"{|before, after| $before == 1 and $after == 2}"#,
-            r#"{|before, after| $env.SPAM = ($before == 1 and $after == 2) }"#,
+            "{|before, after| $before == 1 and $after == 2}",
+            "{|before, after| $env.SPAM = ($before == 1 and $after == 2) }",
         ),
         "",
-        r#"$env.FOO = 2"#,
+        "$env.FOO = 2",
         "$env.SPAM",
     ];
 
@@ -413,7 +413,7 @@ fn env_change_block_condition_correct_args() {
 #[test]
 fn env_change_dont_panic_with_many_args() {
     let inp = &[
-        &env_change_hook_code("FOO", r#"{ |a, b, c| $env.SPAM = 'spam' }"#),
+        &env_change_hook_code("FOO", "{ |a, b, c| $env.SPAM = 'spam' }"),
         "$env.FOO = 1",
         "",
     ];
@@ -427,13 +427,13 @@ fn env_change_dont_panic_with_many_args() {
 #[test]
 fn err_hook_wrong_env_type_1() {
     let inp = &[
-        r#"$env.config = {
+        "$env.config = {
             hooks: {
                 env_change: {
                     FOO : 1
                 }
             }
-        }"#,
+        }",
         "$env.FOO = 1",
         "",
     ];
@@ -465,7 +465,7 @@ fn err_hook_wrong_env_type_2() {
 #[test]
 fn err_hook_wrong_env_type_3() {
     let inp = &[
-        r#"$env.config = {
+        "$env.config = {
             hooks: {
                 env_change: {
                     FOO : {
@@ -473,7 +473,7 @@ fn err_hook_wrong_env_type_3() {
                     }
                 }
             }
-        }"#,
+        }",
         "$env.FOO = 1",
         "",
     ];
