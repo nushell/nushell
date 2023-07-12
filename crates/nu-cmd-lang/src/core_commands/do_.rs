@@ -8,6 +8,32 @@ use nu_protocol::{
     Type, Value,
 };
 
+#[derive(Default)]
+struct IgnoreErr<'a> {
+    old_state: Option<bool>,
+    engine_state: Option<&'a EngineState>,
+}
+
+impl<'a> IgnoreErr<'a> {
+    fn new(engine_state: &'a EngineState) -> Self {
+        let old_state = engine_state.get_ignore_err(None);
+        engine_state.set_ignore_err(true, None);
+
+        Self {
+            old_state: Some(old_state),
+            engine_state: Some(engine_state),
+        }
+    }
+}
+
+impl<'a> Drop for IgnoreErr<'a> {
+    fn drop(&mut self) {
+        if let (Some(s), Some(engine_state)) = (self.old_state, self.engine_state) {
+            engine_state.set_ignore_err(s, None);
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Do;
 
@@ -65,6 +91,12 @@ impl Command for Do {
         let ignore_shell_errors = ignore_all_errors || call.has_flag("ignore-shell-errors");
         let ignore_program_errors = ignore_all_errors || call.has_flag("ignore-program-errors");
         let capture_errors = call.has_flag("capture-errors");
+
+        let _ignore_err = if ignore_all_errors {
+            IgnoreErr::new(engine_state)
+        } else {
+            IgnoreErr::default()
+        };
 
         let mut stack = stack.captures_to_stack(&block.captures);
         let block = engine_state.get_block(block.block_id);
