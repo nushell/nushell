@@ -57,9 +57,7 @@ impl Command for Const {
             });
         };
 
-        if let Some(constval) = engine_state.find_constant(var_id, &[]) {
-            // Instead of creating a second copy of the value in the stack, we could change
-            // stack.get_var() to check engine_state.find_constant().
+        if let Some(constval) = &engine_state.get_var(var_id).const_val {
             stack.add_var(var_id, constval.clone());
 
             Ok(PipelineData::empty())
