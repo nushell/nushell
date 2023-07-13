@@ -132,10 +132,10 @@ impl Default for Config {
 
             explore: HashMap::new(),
 
-            max_history_size: i64::MAX,
+            max_history_size: 100_000,
             sync_history_on_enter: true,
             history_file_format: HistoryFileFormat::PlainText,
-            history_isolation: false,
+            history_isolation: true,
 
             case_sensitive_completions: false,
             quick_completions: true,
@@ -153,9 +153,9 @@ impl Default for Config {
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
 
             color_config: HashMap::new(),
-            use_grid_icons: false,
+            use_grid_icons: true,
             footer_mode: FooterMode::RowCount(25),
-            float_precision: 4,
+            float_precision: 2,
             buffer_editor: String::new(),
             use_ansi_coloring: true,
             bracketed_paste: true,
