@@ -47,11 +47,15 @@ impl Command for Const {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let var_id = call
-            .positional_nth(0)
-            .expect("checked through parser")
-            .as_var()
-            .expect("internal error: missing variable");
+        let var_id = if let Some(id) = call.positional_nth(0).and_then(|pos| pos.as_var()) {
+            id
+        } else {
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "Could not get variable".to_string(),
+                label: "variable not added by the parser".to_string(),
+                span: call.head,
+            });
+        };
 
         if let Some(constval) = engine_state.find_constant(var_id, &[]) {
             // Instead of creating a second copy of the value in the stack, we could change
