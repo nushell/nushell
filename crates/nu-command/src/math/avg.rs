@@ -15,6 +15,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math avg")
             .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 

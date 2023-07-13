@@ -27,7 +27,28 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::List(c), Type::Table(_)) => matches!(**c, Type::Any),
+        (Type::List(c), Type::Table(table_fields)) => {
+            if matches!(**c, Type::Any) {
+                return true;
+            }
+
+            if let Type::Record(fields) = &**c {
+                is_compatible(fields, table_fields)
+            } else {
+                false
+            }
+        }
+        (Type::Table(table_fields), Type::List(c)) => {
+            if matches!(**c, Type::Any) {
+                return true;
+            }
+
+            if let Type::Record(fields) = &**c {
+                is_compatible(table_fields, fields)
+            } else {
+                false
+            }
+        }
         (Type::Number, Type::Int) => true,
         (Type::Int, Type::Number) => true,
         (Type::Number, Type::Float) => true,

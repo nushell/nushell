@@ -20,7 +20,15 @@ impl Command for SubCommand {
                 SyntaxShape::Number,
                 "Base for which the logarithm should be computed",
             )
-            .input_output_types(vec![(Type::Number, Type::Float)])
+            .input_output_types(vec![
+                (Type::Number, Type::Float),
+                (Type::Number, Type::Int),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Number)),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .vectorizes_over_list(true)
             .category(Category::Math)
     }
