@@ -86,6 +86,18 @@ fn env_assignment() {
 }
 
 #[test]
+fn env_assignment_with_if() {
+    let actual = nu!(r#"$env.FOOBAR = if 3 == 4 { "bar" } else { "baz" }; $env.FOOBAR"#);
+    assert_eq!(actual.out, "baz");
+}
+
+#[test]
+fn env_assignment_with_match() {
+    let actual = nu!(r#"$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR"#);
+    assert_eq!(actual.out, "yes!");
+}
+
+#[test]
 fn mutate_env_file_pwd_env_var_fails() {
     let actual = nu!("$env.FILE_PWD = 'foo'");
 

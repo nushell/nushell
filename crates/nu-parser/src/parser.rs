@@ -4870,6 +4870,14 @@ pub fn parse_math_expression(
             break;
         }
 
+        let content = working_set.get_span_contents(spans[idx]);
+        // allow `if` to be a special value for assignment.
+        if content == b"if" || content == b"match" {
+            let rhs = parse_call(working_set, &spans[idx..], spans[0], false);
+            expr_stack.push(op);
+            expr_stack.push(rhs);
+            break;
+        }
         let rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
 
         while op_prec <= last_prec && expr_stack.len() > 1 {
