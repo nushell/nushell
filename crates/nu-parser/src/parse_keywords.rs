@@ -235,7 +235,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"for", &Type::Nothing) {
+    let (call, call_span) = match working_set.find_decl(b"for") {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: for declaration not found".into(),
@@ -359,7 +359,7 @@ pub fn parse_def(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&def_call, &Type::Nothing) {
+    let (call, call_span) = match working_set.find_decl(&def_call) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
@@ -548,7 +548,7 @@ pub fn parse_extern(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&extern_call, &Type::Nothing) {
+    let (call, call_span) = match working_set.find_decl(&extern_call) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
@@ -739,7 +739,7 @@ pub fn parse_alias(
         return Pipeline::from_vec(vec![garbage(*span)]);
     }
 
-    if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Nothing) {
+    if let Some(decl_id) = working_set.find_decl(b"alias") {
         let (command_spans, rest_spans) = spans.split_at(split_id);
 
         let original_starting_error_count = working_set.parse_errors.len();
@@ -941,7 +941,7 @@ pub fn parse_export_in_block(
         b"export".to_vec()
     };
 
-    if let Some(decl_id) = working_set.find_decl(&full_name, &Type::Nothing) {
+    if let Some(decl_id) = working_set.find_decl(&full_name) {
         let ParsedInternalCall { call, output, .. } = parse_internal_call(
             working_set,
             if full_name == b"export" {
@@ -1035,7 +1035,7 @@ pub fn parse_export_in_module(
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let export_decl_id = if let Some(id) = working_set.find_decl(b"export", &Type::Nothing) {
+    let export_decl_id = if let Some(id) = working_set.find_decl(b"export") {
         id
     } else {
         working_set.error(ParseError::InternalError(
@@ -1064,16 +1064,15 @@ pub fn parse_export_in_module(
                 };
                 let pipeline = parse_def(working_set, &lite_command, Some(module_name));
 
-                let export_def_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export def", &Type::Nothing) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export def' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def") {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export def' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1101,7 +1100,7 @@ pub fn parse_export_in_module(
                     let decl_name = working_set.get_span_contents(*decl_name_span);
                     let decl_name = trim_quotes(decl_name);
 
-                    if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Nothing) {
+                    if let Some(decl_id) = working_set.find_decl(decl_name) {
                         result.push(Exportable::Decl {
                             name: decl_name.to_vec(),
                             id: decl_id,
@@ -1123,16 +1122,16 @@ pub fn parse_export_in_module(
                 };
                 let pipeline = parse_def(working_set, &lite_command, Some(module_name));
 
-                let export_def_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export def-env", &Type::Nothing) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export def-env' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def-env")
+                {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export def-env' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1162,7 +1161,7 @@ pub fn parse_export_in_module(
                 };
                 let decl_name = trim_quotes(decl_name);
 
-                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Nothing) {
+                if let Some(decl_id) = working_set.find_decl(decl_name) {
                     result.push(Exportable::Decl {
                         name: decl_name.to_vec(),
                         id: decl_id,
@@ -1183,16 +1182,15 @@ pub fn parse_export_in_module(
                 };
                 let pipeline = parse_extern(working_set, &lite_command, Some(module_name));
 
-                let export_def_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export extern", &Type::Nothing) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export extern' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export extern") {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export extern' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1222,7 +1220,7 @@ pub fn parse_export_in_module(
                 };
                 let decl_name = trim_quotes(decl_name);
 
-                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Nothing) {
+                if let Some(decl_id) = working_set.find_decl(decl_name) {
                     result.push(Exportable::Decl {
                         name: decl_name.to_vec(),
                         id: decl_id,
@@ -1243,16 +1241,16 @@ pub fn parse_export_in_module(
                 };
                 let pipeline = parse_alias(working_set, &lite_command, Some(module_name));
 
-                let export_alias_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export alias", &Type::Nothing) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export alias' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_alias_decl_id = if let Some(id) = working_set.find_decl(b"export alias")
+                {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export alias' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1282,7 +1280,7 @@ pub fn parse_export_in_module(
                 };
                 let alias_name = trim_quotes(alias_name);
 
-                if let Some(alias_id) = working_set.find_decl(alias_name, &Type::Nothing) {
+                if let Some(alias_id) = working_set.find_decl(alias_name) {
                     result.push(Exportable::Decl {
                         name: alias_name.to_vec(),
                         id: alias_id,
@@ -1303,16 +1301,15 @@ pub fn parse_export_in_module(
                 };
                 let (pipeline, exportables) = parse_use(working_set, &lite_command.parts);
 
-                let export_use_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export use", &Type::Nothing) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export use' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export use' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1341,7 +1338,7 @@ pub fn parse_export_in_module(
                     parse_module(working_set, lite_command, Some(module_name));
 
                 let export_module_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export module", &Type::Nothing) {
+                    if let Some(id) = working_set.find_decl(b"export module") {
                         id
                     } else {
                         working_set.error(ParseError::InternalError(
@@ -1446,7 +1443,7 @@ pub fn parse_export_env(
         return (garbage_pipeline(spans), None);
     }
 
-    let call = match working_set.find_decl(b"export-env", &Type::Nothing) {
+    let call = match working_set.find_decl(b"export-env") {
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &[spans[1]], decl_id);
@@ -1958,7 +1955,7 @@ pub fn parse_module(
         1
     };
 
-    let (call, call_span) = match working_set.find_decl(b"module", &Type::Nothing) {
+    let (call, call_span) = match working_set.find_decl(b"module") {
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
@@ -2099,7 +2096,7 @@ pub fn parse_module(
     };
 
     let module_decl_id = working_set
-        .find_decl(b"module", &Type::Nothing)
+        .find_decl(b"module")
         .expect("internal error: missing module command");
 
     let call = Box::new(Call {
@@ -2150,7 +2147,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         return (garbage_pipeline(spans), vec![]);
     }
 
-    let (call, call_span, args_spans) = match working_set.find_decl(b"use", &Type::Nothing) {
+    let (call, call_span, args_spans) = match working_set.find_decl(b"use") {
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
@@ -2306,7 +2303,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
         return garbage_pipeline(spans);
     }
 
-    let (call, args_spans) = match working_set.find_decl(b"hide", &Type::Nothing) {
+    let (call, args_spans) = match working_set.find_decl(b"hide") {
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -2365,7 +2362,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
                 (true, working_set.get_module(module_id).clone())
             } else if import_pattern.members.is_empty() {
                 // The pattern head can be:
-                if let Some(id) = working_set.find_decl(&import_pattern.head.name, &Type::Nothing) {
+                if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
                     // a custom command,
                     let mut module = Module::new(b"tmp".to_vec());
                     module.add_decl(import_pattern.head.name.clone(), id);
@@ -2803,7 +2800,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
-    if let Some(decl_id) = working_set.find_decl(b"let", &Type::Nothing) {
+    if let Some(decl_id) = working_set.find_decl(b"let") {
         if spans.len() >= 4 {
             // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
             // so that the var-id created by the variable isn't visible in the expression that init it
@@ -2919,7 +2916,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
-    if let Some(decl_id) = working_set.find_decl(b"const", &Type::Nothing) {
+    if let Some(decl_id) = working_set.find_decl(b"const") {
         let cmd = working_set.get_decl(decl_id);
         let call_signature = cmd.signature().call_signature();
 
@@ -3041,7 +3038,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
-    if let Some(decl_id) = working_set.find_decl(b"mut", &Type::Nothing) {
+    if let Some(decl_id) = working_set.find_decl(b"mut") {
         if spans.len() >= 4 {
             // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
             // so that the var-id created by the variable isn't visible in the expression that init it
@@ -3155,7 +3152,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
     if name == b"source" || name == b"source-env" {
         let scoped = name == b"source-env";
 
-        if let Some(decl_id) = working_set.find_decl(name, &Type::Nothing) {
+        if let Some(decl_id) = working_set.find_decl(name) {
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -3286,7 +3283,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         return garbage(span(spans));
     }
 
-    let call = match working_set.find_decl(b"where", &Type::List(Box::new(Type::Any))) {
+    let call = match working_set.find_decl(b"where") {
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -3349,7 +3346,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"register", &Type::Nothing) {
+    let (call, call_span) = match working_set.find_decl(b"register") {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: Register declaration not found".into(),
