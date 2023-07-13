@@ -88,7 +88,8 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
                     &SyntaxShape::MathExpression,
                 );
 
-                if let Some(err) = chk_ty(&asg.typ.unwrap_or(Type::Any), &val.ty, val.span) {
+                if let Some(err) = chk_ty(&asg.typ.clone().unwrap_or(Type::Any), &val.ty, val.span)
+                {
                     working_set.error(err);
                 }
 
@@ -105,8 +106,11 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
             _ => {
                 let block = parse_block(working_set, &val_tokens, span, false, true);
 
-                if let Some(err) = chk_ty(&asg.typ.unwrap_or(Type::Any), &block.output_type(), span)
-                {
+                if let Some(err) = chk_ty(
+                    &asg.typ.clone().unwrap_or(Type::Any),
+                    &block.output_type(),
+                    span,
+                ) {
                     working_set.error(err);
                 }
 
