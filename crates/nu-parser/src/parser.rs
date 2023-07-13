@@ -1052,8 +1052,7 @@ pub fn parse_call(
         pos += 1;
     }
 
-    let input = working_set.type_scope.get_previous();
-    let mut maybe_decl_id = working_set.find_decl(&name, input);
+    let mut maybe_decl_id = working_set.find_decl(&name);
 
     while maybe_decl_id.is_none() {
         // Find the longest command match
@@ -1075,7 +1074,7 @@ pub fn parse_call(
                 name.extend(name_part);
             }
         }
-        maybe_decl_id = working_set.find_decl(&name, input);
+        maybe_decl_id = working_set.find_decl(&name);
     }
 
     if let Some(decl_id) = maybe_decl_id {
@@ -1096,7 +1095,7 @@ pub fn parse_call(
         }
 
         // TODO: Try to remove the clone
-        let decl = working_set.get_decl(decl_id).clone();
+        let decl = working_set.get_decl(decl_id);
 
         let parsed_call = if let Some(alias) = decl.as_alias() {
             if let Expression {
@@ -1104,7 +1103,7 @@ pub fn parse_call(
                 span: _,
                 ty,
                 custom_completion,
-            } = &alias.wrapped_call
+            } = &alias.clone().wrapped_call
             {
                 trace!("parsing: alias of external call");
 
@@ -2742,7 +2741,7 @@ pub fn parse_shape_name(
                     return SyntaxShape::Any;
                 }
 
-                let decl_id = working_set.find_decl(command_name, &Type::Any);
+                let decl_id = working_set.find_decl(command_name);
 
                 if let Some(decl_id) = decl_id {
                     return SyntaxShape::Custom(Box::new(shape), decl_id);
@@ -5088,7 +5087,7 @@ pub fn parse_expression(
         }
     };
 
-    let with_env = working_set.find_decl(b"with-env", &Type::Any);
+    let with_env = working_set.find_decl(b"with-env");
 
     if !shorthand.is_empty() {
         if let Some(decl_id) = with_env {
@@ -5172,7 +5171,7 @@ pub fn parse_builtin_commands(
     {
         trace!("parsing: not math expression or unaliasable parser keyword");
         let name = working_set.get_span_contents(lite_command.parts[0]);
-        if let Some(decl_id) = working_set.find_decl(name, &Type::Nothing) {
+        if let Some(decl_id) = working_set.find_decl(name) {
             let cmd = working_set.get_decl(decl_id);
             if cmd.is_alias() {
                 // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
@@ -5350,8 +5349,8 @@ pub fn parse_pipeline(
                             parse_builtin_commands(working_set, &new_command, is_subexpression);
 
                         if pipeline_index == 0 {
-                            let let_decl_id = working_set.find_decl(b"let", &Type::Nothing);
-                            let mut_decl_id = working_set.find_decl(b"mut", &Type::Nothing);
+                            let let_decl_id = working_set.find_decl(b"let");
+                            let mut_decl_id = working_set.find_decl(b"mut");
                             for element in pipeline.elements.iter_mut() {
                                 if let PipelineElement::Expression(
                                     _,
@@ -5487,8 +5486,8 @@ pub fn parse_pipeline(
             } => {
                 let mut pipeline = parse_builtin_commands(working_set, command, is_subexpression);
 
-                let let_decl_id = working_set.find_decl(b"let", &Type::Nothing);
-                let mut_decl_id = working_set.find_decl(b"mut", &Type::Nothing);
+                let let_decl_id = working_set.find_decl(b"let");
+                let mut_decl_id = working_set.find_decl(b"mut");
 
                 if pipeline_index == 0 {
                     for element in pipeline.elements.iter_mut() {
@@ -6008,7 +6007,7 @@ fn wrap_element_with_collect(
 fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
     let span = expr.span;
 
-    if let Some(decl_id) = working_set.find_decl(b"collect", &Type::List(Box::new(Type::Any))) {
+    if let Some(decl_id) = working_set.find_decl(b"collect") {
         let mut output = vec![];
 
         let var_id = IN_VARIABLE_ID;

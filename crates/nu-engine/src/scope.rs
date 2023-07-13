@@ -52,7 +52,7 @@ pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
     stack: &'s Stack,
     vars_map: HashMap<&'e Vec<u8>, &'e usize>,
-    decls_map: HashMap<&'e (Vec<u8>, Type), &'e usize>,
+    decls_map: HashMap<&'e Vec<u8>, &'e usize>,
     modules_map: HashMap<&'e Vec<u8>, &'e usize>,
     visibility: Visibility,
 }
@@ -108,7 +108,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
-        for ((command_name, _), decl_id) in &self.decls_map {
+        for (command_name, decl_id) in &self.decls_map {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(**decl_id).is_alias()
             {
@@ -488,7 +488,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
-        for ((command_name, _), decl_id) in &self.decls_map {
+        for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
             if decl.is_known_external() {
