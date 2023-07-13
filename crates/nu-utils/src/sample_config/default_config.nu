@@ -219,45 +219,32 @@ $env.config = {
   }
 
   explore: {
-    help_banner: true
-    exit_esc: true
-    command_bar_text: '#C4C9C6'
-    command_bar: {fg: '#C4C9C6' bg: '#223311' }
-    status_bar_background: {fg: '#1D1F21' bg: '#C4C9C6' }
-    status_bar_text: {fg: '#C4C9C6' bg: '#223311' }
-    highlight: {bg: 'yellow' fg: 'black' }
-    status: {
-      warn: {bg: 'yellow', fg: 'blue'}
-      error: {bg: 'yellow', fg: 'blue'}
-      info: {bg: 'yellow', fg: 'blue'}
-    }
     try: {
-      border_color: 'red'
-      highlighted_color: 'blue'
-      reactive: false
-    }
+        border_color: {fg: "white"} # $env.config.color_config.separator
+    },
+    status_bar_background: {fg: "#1D1F21", bg: "#C4C9C6"},
+    command_bar_text: {fg: "#C4C9C6"},
+    highlight: {fg: "black", bg: "yellow"},
+    status: {
+        error: {fg: "white", bg: "red"},
+        warn: {}
+        info: {}
+    },
     table: {
-      split_line: '#404040'
-      cursor: true
-      line_index: true
-      line_shift: true
-      line_head_top: true
-      line_head_bottom: true
-      show_head: true
-      show_index: true
-      selected_cell: {fg: 'white', bg: '#777777'}
-      selected_row: {fg: 'yellow', bg: '#C1C2A3'}
-      selected_column: blue
-      padding_column_right: 2
-      padding_column_left: 2
-      padding_index_left: 2
-      padding_index_right: 1
-    }
+        split_line: {fg: "#404040"},
+        selected_cell: {},
+        selected_row: {},
+        selected_column: {},
+        cursor: true,
+        line_head_top: true,
+        line_head_bottom: true,
+        line_shift: true,
+        line_index: true,
+    },
     config: {
-      cursor_color: {bg: 'yellow' fg: 'black' }
-      border_color: white
-      list_color: green
-    }
+        border_color: {fg: "white"} # $env.config.color_config.separator
+        cursor_color: {fg: "black", bg: "light_yellow"}
+    },
   }
 
   history: {
