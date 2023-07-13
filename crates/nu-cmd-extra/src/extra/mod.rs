@@ -38,7 +38,10 @@ pub use math::MathSinH;
 pub use math::MathTan;
 pub use math::MathTanH;
 
+pub use math::MathEuler;
 pub use math::MathEulerGamma;
+pub use math::MathExp;
+pub use math::MathLn;
 pub use math::MathPhi;
 pub use math::MathPi;
 pub use math::MathTau;
@@ -133,7 +136,10 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             MathCosH,
             MathTanH,
             MathPi,
-            MathTau
+            MathTau,
+            MathEuler,
+            MathExp,
+            MathLn
         };
 
         working_set.render()
