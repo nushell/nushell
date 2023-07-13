@@ -327,9 +327,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
-            MathEuler,
-            MathExp,
-            MathLn,
             MathLog,
         };
 

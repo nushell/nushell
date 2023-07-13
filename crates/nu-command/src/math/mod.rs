@@ -1,10 +1,7 @@
 mod abs;
 mod avg;
 mod ceil;
-mod euler;
-mod exp;
 mod floor;
-mod ln;
 mod log;
 pub mod math_;
 mod max;
@@ -36,8 +33,4 @@ pub use stddev::SubCommand as MathStddev;
 pub use sum::SubCommand as MathSum;
 pub use variance::SubCommand as MathVariance;
 
-pub use euler::SubCommand as MathEuler;
-
 pub use self::log::SubCommand as MathLog;
-pub use exp::SubCommand as MathExp;
-pub use ln::SubCommand as MathLn;
