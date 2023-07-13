@@ -233,9 +233,6 @@ impl EngineState {
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.vars.insert(item.0, item.1);
                 }
-                for item in delta_overlay.constants.into_iter() {
-                    existing_overlay.constants.insert(item.0, item.1);
-                }
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
                 }
@@ -725,16 +722,6 @@ impl EngineState {
         }
 
         output
-    }
-
-    pub fn find_constant(&self, var_id: VarId, removed_overlays: &[Vec<u8>]) -> Option<&Value> {
-        for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            if let Some(val) = overlay_frame.constants.get(&var_id) {
-                return Some(val);
-            }
-        }
-
-        None
     }
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
@@ -1639,23 +1626,13 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn add_constant(&mut self, var_id: VarId, val: Value) {
-        self.last_overlay_mut().constants.insert(var_id, val);
-    }
-
-    pub fn find_constant(&self, var_id: VarId) -> Option<&Value> {
-        let mut removed_overlays = vec![];
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                if let Some(val) = overlay_frame.constants.get(&var_id) {
-                    return Some(val);
-                }
-            }
+    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
+        let num_permanent_vars = self.permanent_state.num_vars();
+        if var_id < num_permanent_vars {
+            panic!("Internal error: attempted to set into permanent state from working set")
+        } else {
+            self.delta.vars[var_id - num_permanent_vars].const_val = Some(val);
         }
-
-        self.permanent_state
-            .find_constant(var_id, &removed_overlays)
     }
 
     pub fn get_variable(&self, var_id: VarId) -> &Variable {

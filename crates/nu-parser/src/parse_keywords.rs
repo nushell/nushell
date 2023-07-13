@@ -2958,6 +2958,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                             .trim_start_matches('$')
                             .to_string();
 
+                    // TODO: Remove the hard-coded variables, too error-prone
                     if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
                         working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                     }
@@ -2982,7 +2983,25 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                         match eval_constant(working_set, &rvalue) {
                             Ok(val) => {
-                                working_set.add_constant(var_id, val);
+                                // In case rhs is parsed as 'any' but is evaluated to a concrete
+                                // type:
+                                let const_type = val.get_type();
+
+                                if let Some(explicit_type) = &explicit_type {
+                                    if !type_compatible(explicit_type, &const_type) {
+                                        working_set.error(ParseError::TypeMismatch(
+                                            explicit_type.clone(),
+                                            const_type.clone(),
+                                            nu_protocol::span(&spans[(span.0 + 1)..]),
+                                        ));
+                                    }
+                                }
+
+                                working_set.set_variable_type(var_id, const_type);
+
+                                // Assign the constant value to the variable
+                                working_set.set_variable_const_val(var_id, val);
+                                // working_set.add_constant(var_id, val);
                             }
                             Err(err) => working_set.error(err),
                         }
@@ -3527,7 +3546,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
     working_set
         .find_variable(format!("${}", var_name).as_bytes())
-        .filter(|var_id| working_set.find_constant(*var_id).is_some())
+        .filter(|var_id| working_set.get_variable(*var_id).const_val.is_some())
 }
 
 /// This helper function is used to find files during parsing
@@ -3595,7 +3614,9 @@ pub fn find_in_dirs(
 
         // Look up relative path from NU_LIB_DIRS
         working_set
-            .find_constant(find_dirs_var(working_set, dirs_var_name)?)?
+            .get_variable(find_dirs_var(working_set, dirs_var_name)?)
+            .const_val
+            .as_ref()?
             .as_list()
             .ok()?
             .iter()

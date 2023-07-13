@@ -102,3 +102,12 @@ fn const_unsupported() {
 
     assert!(actual.err.contains("not_a_constant"));
 }
+
+#[test]
+fn const_in_scope() {
+    let inp = &["do { const x = 'x'; $x }"];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert_eq!(actual.out, "x");
+}
