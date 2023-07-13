@@ -34,11 +34,9 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
     let decl_id = {
         let kw = asg.kind.item.as_bytes();
         let Some(id) = working_set.find_decl(kw, &Type::Nothing) else {
-            let span = mk_span(spans);
-            let kw = asg.kind.item.to_string();
             working_set.error(ParseError::UnknownState(
-                format!("internal error: {kw} statement not found in core language"),
-                span,
+                format!("internal error: {} statement not found in core language", asg.kind.item),
+                mk_span(spans),
             ));
 
             return garbage_pipeline(spans);
@@ -47,15 +45,15 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
         id
     };
 
-    let mk_var = |working_set: &mut StateWorkingSet<'_>| -> (Argument, usize) {
+    let mk_var = |working_set: &mut StateWorkingSet<'_>, ty: Type| -> (Argument, usize) {
         let mutable = asg.kind.item.is_mutable();
         let (name, span) = (asg.name.item.as_bytes(), asg.name.span);
-        let ty = asg.typ.clone().unwrap_or(Type::Any);
-        let id = working_set.add_variable(name.to_vec(), span, ty, mutable);
+        let ty = asg.typ.clone().unwrap_or(ty);
+        let id = working_set.add_variable(name.to_vec(), span, ty.clone(), mutable);
         let expr = Expression {
             expr: Expr::VarDecl(id),
             span,
-            ty: asg.typ.clone().unwrap_or(Type::Any),
+            ty,
             custom_completion: None,
         };
         (Argument::Positional(expr), id)
@@ -77,8 +75,7 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
             if type_compatible(lhs, rhs) {
                 None
             } else {
-                let err = ParseError::TypeMismatch(lhs.clone(), rhs.clone(), span);
-                Some(err)
+                Some(ParseError::TypeMismatch(lhs.clone(), rhs.clone(), span))
             }
         };
 
@@ -91,15 +88,11 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
                     &SyntaxShape::MathExpression,
                 );
 
-                let (name, var_id) = mk_var(working_set);
-
-                if asg.typ.is_none() {
-                    working_set.set_variable_type(var_id, val.ty.clone());
-                }
-
                 if let Some(err) = chk_ty(&asg.typ.unwrap_or(Type::Any), &val.ty, val.span) {
                     working_set.error(err);
                 }
+
+                let (name, var_id) = mk_var(working_set, val.ty.clone());
 
                 match eval_constant_assignment(working_set, &val) {
                     Ok(val) => working_set.add_constant(var_id, val),
@@ -112,16 +105,12 @@ fn process(working_set: &mut StateWorkingSet, asg: Assignment) -> Pipeline {
             _ => {
                 let block = parse_block(working_set, &val_tokens, span, false, true);
 
-                let (name, var_id) = mk_var(working_set);
-
-                if asg.typ.is_none() {
-                    working_set.set_variable_type(var_id, block.output_type());
-                }
-
                 if let Some(err) = chk_ty(&asg.typ.unwrap_or(Type::Any), &block.output_type(), span)
                 {
                     working_set.error(err);
                 }
+
+                let (name, _) = mk_var(working_set, block.output_type());
 
                 let ty = block.output_type();
                 let id = working_set.add_block(block);
