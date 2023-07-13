@@ -815,8 +815,6 @@ pub fn parse_internal_call(
         }
     }
 
-    working_set.type_scope.add_type(output.clone());
-
     if signature.creates_scope {
         working_set.enter_scope();
     }
@@ -2003,9 +2001,6 @@ pub fn parse_full_cell_path(
             // Creating a Type scope to parse the new block. This will keep track of
             // the previous input type found in that block
             let output = parse_block(working_set, &output, span, true, true);
-            working_set
-                .type_scope
-                .add_type(working_set.type_scope.get_last_output());
 
             let ty = output.output_type();
 
@@ -5145,14 +5140,7 @@ pub fn parse_variable(working_set: &mut StateWorkingSet, span: Span) -> Option<V
     let bytes = working_set.get_span_contents(span);
 
     if is_variable(bytes) {
-        if let Some(var_id) = working_set.find_variable(bytes) {
-            let input = working_set.get_variable(var_id).ty.clone();
-            working_set.type_scope.add_type(input);
-
-            Some(var_id)
-        } else {
-            None
-        }
+        working_set.find_variable(bytes)
     } else {
         working_set.error(ParseError::Expected("valid variable name", span));
 
@@ -5415,15 +5403,12 @@ pub fn parse_pipeline(
                 LiteElement::Command(span, command) => {
                     trace!("parsing: pipeline element: command");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
-                    working_set.type_scope.add_type(expr.ty.clone());
 
                     PipelineElement::Expression(*span, expr)
                 }
                 LiteElement::Redirection(span, redirection, command) => {
                     trace!("parsing: pipeline element: redirection");
                     let expr = parse_string(working_set, command.parts[0]);
-
-                    working_set.type_scope.add_type(expr.ty.clone());
 
                     PipelineElement::Redirection(*span, redirection.clone(), expr)
                 }
@@ -5434,11 +5419,7 @@ pub fn parse_pipeline(
                     trace!("parsing: pipeline element: separate redirection");
                     let out_expr = parse_string(working_set, out_command.parts[0]);
 
-                    working_set.type_scope.add_type(out_expr.ty.clone());
-
                     let err_expr = parse_string(working_set, err_command.parts[0]);
-
-                    working_set.type_scope.add_type(err_expr.ty.clone());
 
                     PipelineElement::SeparateRedirection {
                         out: (*out_span, out_expr),
@@ -5451,9 +5432,7 @@ pub fn parse_pipeline(
                 } => {
                     trace!("parsing: pipeline element: same target redirection");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
-                    working_set.type_scope.add_type(expr.ty.clone());
                     let redirect_expr = parse_string(working_set, redirect_command.parts[0]);
-                    working_set.type_scope.add_type(redirect_expr.ty.clone());
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
                         redirection: (*redirect_span, redirect_expr),
@@ -5541,11 +5520,8 @@ pub fn parse_pipeline(
             } => {
                 trace!("parsing: pipeline element: same target redirection");
                 let expr = parse_expression(working_set, &command.parts, is_subexpression);
-                working_set.type_scope.add_type(expr.ty.clone());
 
                 let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
-
-                working_set.type_scope.add_type(redirect_expr.ty.clone());
 
                 Pipeline {
                     elements: vec![PipelineElement::SameTargetRedirection {
@@ -5575,7 +5551,6 @@ pub fn parse_block(
     if scoped {
         working_set.enter_scope();
     }
-    working_set.type_scope.enter_scope();
 
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
@@ -5604,7 +5579,6 @@ pub fn parse_block(
     if scoped {
         working_set.exit_scope();
     }
-    working_set.type_scope.exit_scope();
 
     block.span = Some(span);
 

@@ -953,7 +953,6 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
-    pub type_scope: TypeScope,
     /// Current working directory relative to the file being parsed right now
     pub currently_parsed_cwd: Option<PathBuf>,
     /// All previously parsed module files. Used to protect against circular imports.
@@ -961,54 +960,6 @@ pub struct StateWorkingSet<'a> {
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
-}
-
-/// A temporary placeholder for expression types. It is used to keep track of the input types
-/// for each expression in a pipeline
-pub struct TypeScope {
-    /// Layers that map the type inputs that are found in each parsed block
-    outputs: Vec<Vec<Type>>,
-    /// The last know output from a parsed block
-    last_output: Type,
-}
-
-impl Default for TypeScope {
-    fn default() -> Self {
-        Self {
-            outputs: Vec::new(),
-            last_output: Type::Any,
-        }
-    }
-}
-
-impl TypeScope {
-    pub fn get_previous(&self) -> &Type {
-        match self.outputs.last().and_then(|v| v.last()) {
-            Some(input) => input,
-            None => &Type::Nothing,
-        }
-    }
-
-    pub fn get_last_output(&self) -> Type {
-        self.last_output.clone()
-    }
-
-    pub fn add_type(&mut self, input: Type) {
-        if let Some(v) = self.outputs.last_mut() {
-            v.push(input)
-        } else {
-            self.outputs.push(vec![input])
-        }
-    }
-
-    pub fn enter_scope(&mut self) {
-        self.outputs.push(Vec::new())
-    }
-
-    pub fn exit_scope(&mut self) -> Option<Vec<Type>> {
-        self.last_output = self.get_previous().clone();
-        self.outputs.pop()
-    }
 }
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
@@ -1141,7 +1092,6 @@ impl<'a> StateWorkingSet<'a> {
             delta: StateDelta::new(permanent_state),
             permanent_state,
             external_commands: vec![],
-            type_scope: TypeScope::default(),
             currently_parsed_cwd: permanent_state.currently_parsed_cwd.clone(),
             parsed_module_files: vec![],
             search_predecls: true,
