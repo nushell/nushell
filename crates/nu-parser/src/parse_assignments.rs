@@ -163,12 +163,21 @@ fn try_parse(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Assign
     let kind = Kind::from(working_set.get_span_contents(kw_token.span));
 
     let Some(name_token) = tokens.get(1) else {
-        let err = ParseError::Expected("a variable name", Span::new(kw_token.span.end, kw_token.span.end));
+        let end = kw_token.span.end - 1;
+        let err = ParseError::Expected("a variable name", Span::new(end, end));
         working_set.error(err);
         return None;
     };
 
     let name_bytes = working_set.get_span_contents(name_token.span);
+
+    if name_bytes == b"=" {
+        let end = kw_token.span.end - 1;
+        let err = ParseError::Expected("a variable name", Span::new(end, end));
+        working_set.error(err);
+        return None;
+    }
+
     if name_bytes.contains(&b' ')
         || name_bytes.contains(&b'"')
         || name_bytes.contains(&b'\'')
@@ -189,14 +198,16 @@ fn try_parse(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Assign
     }
 
     let Some(colon_or_eq) = tokens.get(2) else {
-        let span = Span::new(name_token.span.end, name_token.span.end);
+        let end = name_token.span.end - 1;
+        let span = Span::new(end, end);
         working_set.error(ParseError::Expected("expected `:` or `=` after the name", span));
         return None;
     };
 
     let shape = if working_set.get_span_contents(colon_or_eq.span) == b":" {
         let Some(ty_token) = tokens.get(3) else {
-            let span = Span::new(colon_or_eq.span.end, colon_or_eq.span.end);
+            let end = colon_or_eq.span.end - 1;
+            let span = Span::new(end, end);
             working_set.error(ParseError::Expected("expected a type after the colon", span));
             return None;
         };
@@ -208,11 +219,13 @@ fn try_parse(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Assign
     };
 
     let (eq_token_pos, eq_error) = if shape.is_some() {
-        let span = Span::new(tokens[3].span.end, tokens[3].span.end);
+        let end = tokens[3].span.end - 1;
+        let span = Span::new(end, end);
         let err = ParseError::Expected("expected an `=` after the type", span);
         (4, err)
     } else {
-        let span = Span::new(name_token.span.end, name_token.span.end);
+        let end = name_token.span.end - 1;
+        let span = Span::new(end, end);
         let err = ParseError::Expected("expected an `=` after the name", span);
         (2, err)
     };
@@ -229,7 +242,8 @@ fn try_parse(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Assign
 
     let val_start = eq_token_pos + 1;
     if tokens.get(val_start).is_none() {
-        let span = Span::new(eq_token.span.end, eq_token.span.end);
+        let end = eq_token.span.end - 1;
+        let span = Span::new(end, end);
         working_set.error(ParseError::Expected("a value after `=`", span));
         None
     } else {
