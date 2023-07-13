@@ -1,8 +1,9 @@
 #[cfg(unix)]
 pub(crate) fn acquire_terminal(interactive: bool) {
+    use is_terminal::IsTerminal;
     use nix::sys::signal::{signal, SigHandler, Signal};
 
-    if !atty::is(atty::Stream::Stdin) {
+    if !std::io::stdin().is_terminal() {
         return;
     }
 

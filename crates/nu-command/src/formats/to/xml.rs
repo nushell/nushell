@@ -355,7 +355,7 @@ fn parse_attributes(
     vals: Vec<Value>,
 ) -> Result<IndexMap<String, String>, ShellError> {
     let mut h = IndexMap::new();
-    for (k, v) in cols.into_iter().zip(vals.into_iter()) {
+    for (k, v) in cols.into_iter().zip(vals) {
         if let Value::String { val, .. } = v {
             h.insert(k, val);
         } else {

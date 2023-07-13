@@ -4022,7 +4022,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
 
     let ty = if working_set.parse_errors.len() == errors {
         let (ty, errs) = table_type(&head, &rows);
-        working_set.parse_errors.extend(errs.into_iter());
+        working_set.parse_errors.extend(errs);
         ty
     } else {
         Type::Table(vec![])
@@ -4869,6 +4869,14 @@ pub fn parse_math_expression(
             break;
         }
 
+        let content = working_set.get_span_contents(spans[idx]);
+        // allow `if` to be a special value for assignment.
+        if content == b"if" || content == b"match" {
+            let rhs = parse_call(working_set, &spans[idx..], spans[0], false);
+            expr_stack.push(op);
+            expr_stack.push(rhs);
+            break;
+        }
         let rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
 
         while op_prec <= last_prec && expr_stack.len() > 1 {
@@ -5038,7 +5046,7 @@ pub fn parse_expression(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
                     String::from_utf8_lossy(match spans.len() {
-                        1 | 2 | 3 => b"value",
+                        1..=3 => b"value",
                         _ => working_set.get_span_contents(spans[3]),
                     })
                     .to_string(),
