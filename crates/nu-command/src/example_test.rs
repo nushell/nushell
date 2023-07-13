@@ -9,8 +9,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Enumerate, Flatten, From, Get, Into, IntoString, Math, MathEuler, MathRound,
-        ParEach, Path, PathParse, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str, StrJoin,
+        Ansi, Date, Enumerate, Flatten, From, Get, Into, IntoString, Math, MathRound, ParEach,
+        Path, PathParse, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str, StrJoin,
         StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
@@ -79,7 +79,6 @@ mod test_examples {
             working_set.add_decl(Box::new(IntoString));
             working_set.add_decl(Box::new(Let));
             working_set.add_decl(Box::new(Math));
-            working_set.add_decl(Box::new(MathEuler));
             working_set.add_decl(Box::new(MathRound));
             working_set.add_decl(Box::new(Mut));
             working_set.add_decl(Box::new(Path));
