@@ -1,5 +1,8 @@
 use nu_protocol::{
-    ast::{Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
+    ast::{
+        Bits, Block, Boolean, Comparison, Expr, Expression, Math, Operator, Pipeline,
+        PipelineElement,
+    },
     engine::StateWorkingSet,
     ParseError, Type,
 };
@@ -918,6 +921,91 @@ pub fn math_result_type(
                 Type::Any,
                 Some(ParseError::IncompleteMathExpression(op.span)),
             )
+        }
+    }
+}
+
+pub fn check_pipeline_type(
+    working_set: &mut StateWorkingSet,
+    pipeline: &Pipeline,
+    input_type: Type,
+) -> Type {
+    let mut current_type = input_type;
+
+    'elem: for elem in &pipeline.elements {
+        match elem {
+            PipelineElement::Expression(
+                _,
+                Expression {
+                    expr: Expr::Call(call),
+                    ..
+                },
+            ) => {
+                let decl = working_set.get_decl(call.decl_id);
+
+                for (call_input, call_output) in decl.signature().input_output_types {
+                    if type_compatible(&call_input, &current_type)
+                        || call_input == Type::Any
+                        || current_type == Type::Any
+                    {
+                        current_type = call_output.clone();
+                        continue 'elem;
+                    }
+                }
+
+                if !decl.signature().input_output_types.is_empty() {
+                    working_set.error(ParseError::InputMismatch(current_type, call.head))
+                }
+                current_type = Type::Any;
+            }
+            PipelineElement::Expression(_, Expression { ty, .. }) => {
+                current_type = ty.clone();
+            }
+            _ => {
+                current_type = Type::Any;
+            }
+        }
+    }
+
+    current_type
+}
+
+pub fn check_block_input_output(working_set: &mut StateWorkingSet, block: &Block) {
+    // let inputs = block.input_types();
+
+    for (input_type, output_type) in &block.signature.input_output_types {
+        let mut current_type = input_type.clone();
+        let mut current_output_type = Type::Nothing;
+
+        for pipeline in &block.pipelines {
+            current_output_type = check_pipeline_type(working_set, pipeline, current_type);
+            current_type = Type::Nothing;
+        }
+
+        if !type_compatible(output_type, &current_output_type)
+            && output_type != &Type::Any
+            && current_output_type != Type::Any
+        {
+            working_set.error(ParseError::OutputMismatch(
+                output_type.clone(),
+                block
+                    .pipelines
+                    .last()
+                    .expect("internal error: we should have pipelines")
+                    .elements
+                    .last()
+                    .expect("internal error: we should have elements")
+                    .span(),
+            ))
+        }
+    }
+
+    if block.signature.input_output_types.is_empty() {
+        let mut current_type = Type::Any;
+
+        for pipeline in &block.pipelines {
+            let _ = check_pipeline_type(working_set, pipeline, current_type);
+            current_type = Type::Nothing;
         }
     }
 }
