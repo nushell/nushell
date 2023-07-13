@@ -105,70 +105,49 @@ fn const_unsupported() {
 
 #[test]
 fn const_with_no_spaces_1() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x=4; $x")
-    );
+    let actual = nu!("const x=4; $x");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn const_with_no_spaces_2() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x =4; $x")
-    );
+    let actual = nu!("const x =4; $x");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn const_with_no_spaces_3() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x= 4; $x")
-    );
+    let actual = nu!("const x= 4; $x");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn const_with_no_spaces_4() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x: int= 4; $x")
-    );
+    let actual = nu!("const x: int= 4; $x");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn const_with_no_spaces_5() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x:int= 4; $x")
-    );
+    let actual = nu!("const x:int= 4; $x");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn const_with_no_spaces_6() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x:int=4; $x")
-    );
+    let actual = nu!("const x:int=4; $x");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn const_with_no_spaces_7() {
-    let actual = nu!(
-        cwd: ".",
-        pipeline("const x : int = 4; $x")
-    );
+    let actual = nu!("const x : int = 4; $x");
 
     assert_eq!(actual.out, "4");
 }
