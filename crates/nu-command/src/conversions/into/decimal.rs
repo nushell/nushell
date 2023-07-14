@@ -17,6 +17,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into decimal")
             .input_output_types(vec![
+                (Type::Int, Type::Number),
                 (Type::String, Type::Number),
                 (Type::Bool, Type::Number),
                 (Type::Table(vec![]), Type::Table(vec![])),

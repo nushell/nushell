@@ -36,6 +36,7 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Int),
                 // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
+                (Type::Duration, Type::Int),
                 // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
                 (Type::Table(vec![]), Type::Table(vec![])),

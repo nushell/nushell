@@ -5582,6 +5582,8 @@ pub fn parse_block(
 
     block.span = Some(span);
 
+    type_check::check_block_input_output(working_set, &block);
+
     block
 }
 
@@ -6134,8 +6136,6 @@ pub fn parse(
             block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();
         }
     }
-
-    type_check::check_block_input_output(working_set, &output);
 
     output
 }
