@@ -949,11 +949,13 @@ pub fn math_result_type(
 }
 
 pub fn check_pipeline_type(
-    working_set: &mut StateWorkingSet,
+    working_set: &StateWorkingSet,
     pipeline: &Pipeline,
     input_type: Type,
-) -> Type {
+) -> (Type, Option<Vec<ParseError>>) {
     let mut current_type = input_type;
+
+    let mut output_errors: Option<Vec<ParseError>> = None;
 
     'elem: for elem in &pipeline.elements {
         match elem {
@@ -997,7 +999,12 @@ pub fn check_pipeline_type(
                 }
 
                 if !decl.signature().input_output_types.is_empty() {
-                    working_set.error(ParseError::InputMismatch(current_type, call.head))
+                    if let Some(output_errors) = &mut output_errors {
+                        output_errors.push(ParseError::InputMismatch(current_type, call.head))
+                    } else {
+                        output_errors =
+                            Some(vec![ParseError::InputMismatch(current_type, call.head)]);
+                    }
                 }
                 current_type = Type::Any;
             }
@@ -1010,27 +1017,38 @@ pub fn check_pipeline_type(
         }
     }
 
-    current_type
+    (current_type, output_errors)
 }
 
-pub fn check_block_input_output(working_set: &mut StateWorkingSet, block: &Block) {
+pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) -> Vec<ParseError> {
     // let inputs = block.input_types();
+    let mut output_errors = vec![];
 
     for (input_type, output_type) in &block.signature.input_output_types {
         let mut current_type = input_type.clone();
         let mut current_output_type = Type::Nothing;
 
         for pipeline in &block.pipelines {
-            current_output_type = check_pipeline_type(working_set, pipeline, current_type);
+            let (checked_output_type, err) =
+                check_pipeline_type(working_set, pipeline, current_type);
+            current_output_type = checked_output_type;
             current_type = Type::Nothing;
+            if let Some(err) = err {
+                output_errors.extend_from_slice(&err);
+            }
         }
 
         if !type_compatible(output_type, &current_output_type)
             && output_type != &Type::Any
             && current_output_type != Type::Any
         {
-            working_set.error(ParseError::OutputMismatch(
-                output_type.clone(),
+            let span = if block.pipelines.is_empty() {
+                if let Some(span) = block.span {
+                    span
+                } else {
+                    continue;
+                }
+            } else {
                 block
                     .pipelines
                     .last()
@@ -1038,8 +1056,10 @@ pub fn check_block_input_output(working_set: &mut StateWorkingSet, block: &Block
                     .elements
                     .last()
                     .expect("internal error: we should have elements")
-                    .span(),
-            ))
+                    .span()
+            };
+
+            output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))
         }
     }
 
@@ -1047,8 +1067,14 @@ pub fn check_block_input_output(working_set: &mut StateWorkingSet, block: &Block
         let mut current_type = Type::Any;
 
         for pipeline in &block.pipelines {
-            let _ = check_pipeline_type(working_set, pipeline, current_type);
+            let (_, err) = check_pipeline_type(working_set, pipeline, current_type);
             current_type = Type::Nothing;
+
+            if let Some(err) = err {
+                output_errors.extend_from_slice(&err);
+            }
         }
     }
+
+    output_errors
 }
