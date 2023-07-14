@@ -75,6 +75,12 @@ impl Command for Reduce {
                     "Add ascending numbers to each of the filenames, and join with semicolons.",
                 result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
+            Example {
+                example: r#"let s = "Str"; 0..2 | reduce -f '' {|it, acc| $acc + $s}"#,
+                description:
+                    "Concatenate a string with itself, using a range to determine the number of times.",
+                result: Some(Value::test_string("StrStrStr")),
+            },
         ]
     }
 

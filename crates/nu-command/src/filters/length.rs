@@ -23,7 +23,6 @@ impl Command for Length {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::Int),
                 (Type::Table(vec![]), Type::Int),
-                (Type::String, Type::Int),
             ])
             .switch("column", "Show the number of columns in a table", Some('c'))
             .category(Category::Filters)

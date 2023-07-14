@@ -189,6 +189,39 @@ impl Command for SubCommand {
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
+            Example {
+                description: "Convert list of timestamps to datetimes",
+                example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Date {
+                            val: DateTime::parse_from_str(
+                                "2023-03-30 10:10:07 -05:00",
+                                "%Y-%m-%d %H:%M:%S %z",
+                            )
+                            .expect("date calculation should not fail in test"),
+                            span: Span::test_data(),
+                        },
+                        Value::Date {
+                            val: DateTime::parse_from_str(
+                                "2023-05-05 13:43:49 -05:00",
+                                "%Y-%m-%d %H:%M:%S %z",
+                            )
+                            .expect("date calculation should not fail in test"),
+                            span: Span::test_data(),
+                        },
+                        Value::Date {
+                            val: DateTime::parse_from_str(
+                                "2023-06-05 01:37:42 -05:00",
+                                "%Y-%m-%d %H:%M:%S %z",
+                            )
+                            .expect("date calculation should not fail in test"),
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
