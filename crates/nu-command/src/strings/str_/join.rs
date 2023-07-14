@@ -16,7 +16,7 @@ impl Command for StrJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("str join")
-            .input_output_types(vec![(Type::List(Box::new(Type::String)), Type::String)])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::String)])
             .optional(
                 "separator",
                 SyntaxShape::String,

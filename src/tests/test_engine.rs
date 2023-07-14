@@ -55,7 +55,7 @@ fn in_and_if_else() -> TestResult {
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
     // `each while` is part of the *extra* feature and adds 3 lines
-    let expected_length = if cfg!(feature = "extra") { "65" } else { "63" };
+    let expected_length = if cfg!(feature = "extra") { "66" } else { "63" };
     run_test(r#"each --help | lines | length"#, expected_length)
 }
 
