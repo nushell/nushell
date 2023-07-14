@@ -29,7 +29,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path split")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
+                ),
+            ])
             .named(
                 "columns",
                 SyntaxShape::Table(vec![]),

@@ -32,7 +32,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path relative-to")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .required(
                 "path",
                 SyntaxShape::String,

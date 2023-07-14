@@ -31,7 +31,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path exists")
-            .input_output_types(vec![(Type::String, Type::Bool)])
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (
+                    Type::List(Box::new(Type::Bool)),
+                    Type::List(Box::new(Type::Bool)),
+                ),
+            ])
             .named(
                 "columns",
                 SyntaxShape::Table(vec![]),

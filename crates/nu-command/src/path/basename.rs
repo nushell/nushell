@@ -33,8 +33,10 @@ impl Command for SubCommand {
         Signature::build("path basename")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                // TODO: Why do these commands not use CellPaths in a standard way?
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .named(
                 "columns",

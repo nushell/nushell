@@ -34,7 +34,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path expand")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .switch(
                 "strict",
                 "Throw an error if the path could not be expanded",

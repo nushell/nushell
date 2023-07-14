@@ -35,6 +35,7 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::String),
+                (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
             .named(
