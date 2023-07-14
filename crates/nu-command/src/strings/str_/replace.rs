@@ -34,7 +34,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str replace")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement string")
@@ -59,6 +66,7 @@ impl Command for SubCommand {
                 "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 

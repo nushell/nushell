@@ -127,6 +127,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
             },
             Example {
+
                 description: "Join a list of parts into a path",
                 example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
                 result: Some(Value::test_string(r"/home/viking/spam.txt")),

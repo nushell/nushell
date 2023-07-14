@@ -15,7 +15,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math round")
-            .input_output_types(vec![(Type::Number, Type::Number)])
+            .input_output_types(vec![
+                (Type::Number, Type::Number),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Number)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .named(
                 "precision",

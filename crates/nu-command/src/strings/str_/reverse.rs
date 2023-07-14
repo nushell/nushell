@@ -16,7 +16,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str reverse")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .rest(
                 "rest",
