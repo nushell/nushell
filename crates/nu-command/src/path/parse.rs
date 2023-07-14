@@ -12,15 +12,10 @@ use nu_protocol::{
 use super::PathSubcommandArguments;
 
 struct Arguments {
-    columns: Option<Vec<String>>,
     extension: Option<Spanned<String>>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -36,12 +31,6 @@ impl Command for SubCommand {
                 (Type::String, Type::Record(vec![])),
                 (Type::List(Box::new(Type::String)), Type::Table(vec![])),
             ])
-            .named(
-                "columns",
-                SyntaxShape::Table(vec![]),
-                "For a record or table input, convert strings at the given columns",
-                Some('c'),
-            )
             .named(
                 "extension",
                 SyntaxShape::String,
@@ -68,7 +57,6 @@ On Windows, an extra 'prefix' column is added."#
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
             extension: call.get_flag(engine_state, stack, "extension")?,
         };
 
@@ -164,11 +152,6 @@ On Windows, an extra 'prefix' column is added."#
                     },
                 ])),
             },
-            Example {
-                description: "Parse all paths under the 'name' column",
-                example: r"ls | path parse -c [ name ]",
-                result: None,
-            },
         ]
     }
 
@@ -229,11 +212,6 @@ On Windows, an extra 'prefix' column is added."#
                         span: Span::test_data(),
                     },
                 ])),
-            },
-            Example {
-                description: "Parse all paths under the 'name' column",
-                example: r"ls | path parse -c [ name ]",
-                result: None,
             },
         ]
     }

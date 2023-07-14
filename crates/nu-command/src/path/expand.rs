@@ -1,28 +1,22 @@
 use std::path::Path;
 
 use nu_engine::env::current_dir_str;
-use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
 
 struct Arguments {
     strict: bool,
-    columns: Option<Vec<String>>,
     cwd: String,
     not_follow_symlink: bool,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -47,12 +41,6 @@ impl Command for SubCommand {
                 Some('s'),
             )
             .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
-            .named(
-                "columns",
-                SyntaxShape::Table(vec![]),
-                "For a record or table input, expand strings at the given columns",
-                Some('c'),
-            )
     }
 
     fn usage(&self) -> &str {
@@ -69,7 +57,6 @@ impl Command for SubCommand {
         let head = call.head;
         let args = Arguments {
             strict: call.has_flag("strict"),
-            columns: call.get_flag(engine_state, stack, "columns")?,
             cwd: current_dir_str(engine_state, stack)?,
             not_follow_symlink: call.has_flag("no-symlink"),
         };
@@ -97,11 +84,6 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Expand a path in a column",
-                example: "ls | path expand -c [ name ]",
-                result: None,
-            },
-            Example {
                 description: "Expand a list of paths",
                 example: r"[ C:\foo\..\bar, C:\foo\..\baz ] | path expand",
                 result: Some(Value::test_list(vec![
@@ -123,11 +105,6 @@ impl Command for SubCommand {
             Example {
                 description: "Expand a relative path",
                 example: "'foo/../bar' | path expand",
-                result: None,
-            },
-            Example {
-                description: "Expand a path in a column",
-                example: "ls | path expand -c [ name ]",
                 result: None,
             },
             Example {

@@ -12,15 +12,10 @@ use nu_protocol::{
 use super::PathSubcommandArguments;
 
 struct Arguments {
-    columns: Option<Vec<String>>,
     append: Vec<Spanned<String>>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -38,12 +33,6 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
-            .named(
-                "columns",
-                SyntaxShape::Table(vec![]),
-                "For a record or table input, join strings at the given columns",
-                Some('c'),
-            )
             .rest("append", SyntaxShape::String, "Path to append to the input")
     }
 
@@ -65,7 +54,6 @@ the output of 'path parse' and 'path split' subcommands."#
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
             append: call.rest(engine_state, stack, 0)?,
         };
 
@@ -105,11 +93,6 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"C:\Users\viking\spams\this_spam.txt")),
             },
             Example {
-                description: "Append a filename to a path inside a column",
-                example: r"ls | path join spam.txt -c [ name ]",
-                result: None,
-            },
-            Example {
                 description: "Join a list of parts into a path",
                 example: r"[ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
                 result: Some(Value::test_string(r"C:\Users\viking\spam.txt")),
@@ -142,11 +125,6 @@ the output of 'path parse' and 'path split' subcommands."#
                 description: "Append a filename to a path",
                 example: r"'/home/viking' | path join spams this_spam.txt",
                 result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
-            },
-            Example {
-                description: "Append a filename to a path inside a column",
-                example: r"ls | path join spam.txt -c [ name ]",
-                result: None,
             },
             Example {
                 description: "Join a list of parts into a path",
@@ -218,24 +196,11 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
 }
 
 fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
-    if args.columns.is_some() {
-        super::operate(
-            &join_single,
-            args,
-            Value::Record {
-                cols: cols.to_vec(),
-                vals: vals.to_vec(),
-                span,
-            },
-            span,
-        )
-    } else {
-        match merge_record(cols, vals, head, span) {
-            Ok(p) => join_single(p.as_path(), head, args),
-            Err(error) => Value::Error {
-                error: Box::new(error),
-            },
-        }
+    match merge_record(cols, vals, head, span) {
+        Ok(p) => join_single(p.as_path(), head, args),
+        Err(error) => Value::Error {
+            error: Box::new(error),
+        },
     }
 }
 

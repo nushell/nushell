@@ -11,16 +11,11 @@ use nu_protocol::{
 use super::PathSubcommandArguments;
 
 struct Arguments {
-    columns: Option<Vec<String>>,
     replace: Option<Spanned<String>>,
     num_levels: Option<i64>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -39,12 +34,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .named(
-                "columns",
-                SyntaxShape::Table(vec![]),
-                "For a record or table input, convert strings at the given columns to their dirname",
-                Some('c'),
-            )
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -72,7 +61,6 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
             replace: call.get_flag(engine_state, stack, "replace")?,
             num_levels: call.get_flag(engine_state, stack, "num-levels")?,
         };
@@ -94,11 +82,6 @@ impl Command for SubCommand {
                 description: "Get dirname of a path",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname",
                 result: Some(Value::test_string("C:\\Users\\joe\\code")),
-            },
-            Example {
-                description: "Get dirname of a path in a column",
-                example: "ls ('.' | path expand) | path dirname -c [ name ]",
-                result: None,
             },
             Example {
                 description: "Get dirname of a list of paths",
@@ -129,11 +112,6 @@ impl Command for SubCommand {
                 description: "Get dirname of a path",
                 example: "'/home/joe/code/test.txt' | path dirname",
                 result: Some(Value::test_string("/home/joe/code")),
-            },
-            Example {
-                description: "Get dirname of a path in a column",
-                example: "ls ('.' | path expand) | path dirname -c [ name ]",
-                result: None,
             },
             Example {
                 description: "Get dirname of a list of paths",

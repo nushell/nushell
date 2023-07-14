@@ -13,14 +13,9 @@ use super::PathSubcommandArguments;
 
 struct Arguments {
     path: Spanned<String>,
-    columns: Option<Vec<String>>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -44,12 +39,6 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "Parent shared with the input path",
             )
-            .named(
-                "columns",
-                SyntaxShape::Table(vec![]),
-                "For a record or table input, convert strings at the given columns",
-                Some('c'),
-            )
     }
 
     fn usage(&self) -> &str {
@@ -72,7 +61,6 @@ path."#
         let head = call.head;
         let args = Arguments {
             path: call.req(engine_state, stack, 0)?,
-            columns: call.get_flag(engine_state, stack, "columns")?,
         };
 
         // This doesn't match explicit nulls
@@ -102,11 +90,6 @@ path."#
                 ])),
             },
             Example {
-                description: "Find a relative path from two absolute paths in a column",
-                example: "ls ~ | path relative-to ~ -c [ name ]",
-                result: None,
-            },
-            Example {
                 description: "Find a relative path from two relative paths",
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
                 result: Some(Value::test_string(r"spam")),
@@ -129,11 +112,6 @@ path."#
                     Value::test_string("viking"),
                     Value::test_string("spam"),
                 ])),
-            },
-            Example {
-                description: "Find a relative path from two absolute paths in a column",
-                example: "ls ~ | path relative-to ~ -c [ name ]",
-                result: None,
             },
             Example {
                 description: "Find a relative path from two relative paths",

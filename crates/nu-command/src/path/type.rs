@@ -1,23 +1,16 @@
 use std::path::Path;
 
-use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
 
-struct Arguments {
-    columns: Option<Vec<String>>,
-}
+struct Arguments;
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -36,12 +29,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .named(
-                "columns",
-                SyntaxShape::Table(vec![]),
-                "For a record or table input, check strings at the given columns, and replace with result",
-                Some('c'),
-            )
             .allow_variants_without_examples(true)
     }
 
@@ -57,14 +44,12 @@ If nothing is found, an empty string will be returned."#
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
-        };
+        let args = Arguments;
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -82,11 +67,6 @@ If nothing is found, an empty string will be returned."#
                 description: "Show type of a filepath",
                 example: "'.' | path type",
                 result: Some(Value::test_string("dir")),
-            },
-            Example {
-                description: "Show type of a filepath in a column",
-                example: "ls | path type -c [ name ]",
-                result: None,
             },
             Example {
                 description: "Show type of a filepaths in a list",
