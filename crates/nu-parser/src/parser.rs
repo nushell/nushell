@@ -682,6 +682,14 @@ pub fn parse_multispan_value(
 
             arg
         }
+        SyntaxShape::Signature => {
+            trace!("parsing: signature");
+
+            let sig = parse_full_signature(working_set, &spans[*spans_idx..]);
+            *spans_idx = spans.len() - 1;
+
+            sig
+        }
         SyntaxShape::Keyword(keyword, arg) => {
             trace!(
                 "parsing: keyword({}) {:?}",
@@ -2932,36 +2940,7 @@ fn prepare_inner_span(
 }
 
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
-    match bytes {
-        b"binary" => Type::Binary,
-        b"block" => {
-            working_set.error(ParseError::LabeledErrorWithHelp {
-                error: "Blocks are not support as first-class values".into(),
-                label: "blocks are not supported as values".into(),
-                help: "Use 'closure' instead of 'block'".into(),
-                span,
-            });
-
-            Type::Any
-        }
-        b"bool" => Type::Bool,
-        b"cellpath" => Type::CellPath,
-        b"closure" => Type::Closure,
-        b"date" => Type::Date,
-        b"duration" => Type::Duration,
-        b"error" => Type::Error,
-        b"filesize" => Type::Filesize,
-        b"float" | b"decimal" => Type::Float,
-        b"int" => Type::Int,
-        b"list" => Type::List(Box::new(Type::Any)),
-        b"number" => Type::Number,
-        b"range" => Type::Range,
-        b"record" => Type::Record(vec![]),
-        b"string" => Type::String,
-        b"table" => Type::Table(vec![]), //FIXME
-
-        _ => Type::Any,
-    }
+    parse_shape_name(working_set, bytes, span).to_type()
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
@@ -3196,6 +3175,95 @@ pub fn expand_to_cell_path(
         let new_expression = parse_full_cell_path(working_set, Some(var_id), *span);
 
         *expression = new_expression;
+    }
+}
+
+pub fn parse_input_output_types(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> Vec<(Type, Type)> {
+    let mut full_span = span(spans);
+
+    let mut bytes = working_set.get_span_contents(full_span);
+
+    if bytes.starts_with(b"[") {
+        bytes = &bytes[1..];
+        full_span.start += 1;
+    }
+
+    if bytes.ends_with(b"]") {
+        bytes = &bytes[..(bytes.len() - 1)];
+        full_span.end -= 1;
+    }
+
+    let (tokens, parse_error) = lex(bytes, full_span.start, &[b','], &[], true);
+
+    if let Some(parse_error) = parse_error {
+        working_set.parse_errors.push(parse_error);
+    }
+
+    let mut output = vec![];
+
+    let mut idx = 0;
+    while idx < tokens.len() {
+        let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+        let input_type = parse_type(working_set, &type_bytes, tokens[idx].span);
+
+        idx += 1;
+        if idx >= tokens.len() {
+            working_set.error(ParseError::Expected(
+                "arrow (->)",
+                Span::new(tokens[idx - 1].span.end, tokens[idx - 1].span.end),
+            ));
+            break;
+        }
+
+        let arrow = working_set.get_span_contents(tokens[idx].span);
+        if arrow != b"->" {
+            working_set.error(ParseError::Expected("arrow (->)", tokens[idx].span));
+        }
+
+        idx += 1;
+        if idx >= tokens.len() {
+            working_set.error(ParseError::MissingType(Span::new(
+                tokens[idx - 1].span.end,
+                tokens[idx - 1].span.end,
+            )));
+            break;
+        }
+
+        let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+        let output_type = parse_type(working_set, &type_bytes, tokens[idx].span);
+
+        output.push((input_type, output_type));
+
+        idx += 1;
+    }
+
+    output
+}
+
+pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
+    let arg_signature = working_set.get_span_contents(spans[0]);
+
+    if arg_signature.ends_with(b":") {
+        let mut arg_signature =
+            parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1));
+
+        let input_output_types = parse_input_output_types(working_set, &spans[1..]);
+
+        if let Expression {
+            expr: Expr::Signature(sig),
+            span: expr_span,
+            ..
+        } = &mut arg_signature
+        {
+            sig.input_output_types = input_output_types;
+            expr_span.end = span(&spans[1..]).end;
+        }
+        arg_signature
+    } else {
+        parse_signature(working_set, spans[0])
     }
 }
 
@@ -5582,7 +5650,10 @@ pub fn parse_block(
 
     block.span = Some(span);
 
-    type_check::check_block_input_output(working_set, &block);
+    let errors = type_check::check_block_input_output(working_set, &block);
+    if !errors.is_empty() {
+        working_set.parse_errors.extend_from_slice(&errors);
+    }
 
     block
 }

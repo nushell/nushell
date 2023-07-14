@@ -1,4 +1,8 @@
-use crate::{parse_block, parser_path::ParserPath, type_check::type_compatible};
+use crate::{
+    parse_block,
+    parser_path::ParserPath,
+    type_check::{check_block_input_output, type_compatible},
+};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -485,19 +489,20 @@ pub fn parse_def(
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
 
-            // Sadly we can't use this here as the inference would have to happen before
-            // all the definitions had been fully parsed.
+            if block.signature.input_output_types.is_empty() {
+                block
+                    .signature
+                    .input_output_types
+                    .push((Type::Any, Type::Any));
+            }
 
-            // infer the return type based on the output of the block
-            // let block = working_set.get_block(block_id);
+            let block = working_set.get_block(block_id);
 
-            // let input_type = block.input_type(working_set);
-            // let output_type = block.output_type();
-            // block.signature.input_output_types = vec![(input_type, output_type)];
-            block
-                .signature
-                .input_output_types
-                .push((Type::Any, Type::Any));
+            let typecheck_errors = check_block_input_output(working_set, block);
+
+            working_set
+                .parse_errors
+                .extend_from_slice(&typecheck_errors);
         } else {
             working_set.error(ParseError::InternalError(
                 "Predeclaration failed to add declaration".into(),
