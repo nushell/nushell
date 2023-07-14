@@ -66,6 +66,7 @@ impl Command for SubCommand {
                 "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 

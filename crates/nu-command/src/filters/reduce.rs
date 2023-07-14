@@ -36,6 +36,7 @@ impl Command for Reduce {
                 ])),
                 "reducing function",
             )
+            .allow_variants_without_examples(true)
     }
 
     fn usage(&self) -> &str {
