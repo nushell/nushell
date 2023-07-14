@@ -17,7 +17,6 @@ fn can_average_numbers() {
 #[test]
 fn can_average_bytes() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats",
         "[100kb, 10b, 100mib] | math avg | to json -r"
     );
 

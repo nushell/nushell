@@ -3,7 +3,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn record_map_to_toml() {
     let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    pipeline(
         r#"
             {a: 1 b: 2 c: 'qwe'} 
             | to toml
@@ -18,7 +18,7 @@ fn record_map_to_toml() {
 #[test]
 fn nested_records_to_toml() {
     let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    pipeline(
         r#"
             {a: {a: a b: b} c: 1} 
             | to toml
@@ -33,7 +33,7 @@ fn nested_records_to_toml() {
 #[test]
 fn records_with_tables_to_toml() {
     let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    pipeline(
         r#"
             {a: [[a b]; [1 2] [3 4]] b: [[c d e]; [1 2 3]]}
             | to toml
@@ -48,7 +48,7 @@ fn records_with_tables_to_toml() {
 #[test]
 fn nested_tables_to_toml() {
     let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    pipeline(
         r#"
             {c: [[f g]; [[[h k]; [1 2] [3 4]] 1]]}
             | to toml
@@ -64,7 +64,7 @@ fn nested_tables_to_toml() {
 fn table_to_toml_fails() {
     // Tables can't be represented in toml
     let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    pipeline(
         r#"
         try { [[a b]; [1 2] [5 6]] | to toml | false } catch { true }
         "#
@@ -77,7 +77,7 @@ fn table_to_toml_fails() {
 fn string_to_toml_fails() {
     // Strings are not a top-level toml structure
     let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
+    pipeline(
         r#"
         try { 'not a valid toml' | to toml | false } catch { true }
         "#
