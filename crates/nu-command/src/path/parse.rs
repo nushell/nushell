@@ -147,7 +147,7 @@ On Windows, an extra 'prefix' column is added."#
                         ],
                         span: Span::test_data(),
                     },
-                    Value::test_record {
+                    Value::Record {
                         cols: vec![
                             "prefix".into(),
                             "parent".into(),
