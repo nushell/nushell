@@ -14,8 +14,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str upcase")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

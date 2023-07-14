@@ -34,7 +34,10 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str replace")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .vectorizes_over_list(true)
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement string")

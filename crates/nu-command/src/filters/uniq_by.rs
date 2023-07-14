@@ -17,7 +17,13 @@ impl Command for UniqBy {
 
     fn signature(&self) -> Signature {
         Signature::build("uniq-by")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .rest("columns", SyntaxShape::Any, "the column(s) to filter by")
             .switch(
                 "count",
@@ -39,6 +45,7 @@ impl Command for UniqBy {
                 "Return the input values that occur once only",
                 Some('u'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

@@ -83,7 +83,7 @@ fn errors_if_no_columns_present() {
                 "#
         ));
 
-        assert!(actual.err.contains("only record input data is supported"));
+        assert!(actual.err.contains("command doesn't support"));
     })
 }
 

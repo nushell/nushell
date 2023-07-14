@@ -16,7 +16,13 @@ impl Command for BytesLen {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes length")
-            .input_output_types(vec![(Type::Binary, Type::Int)])
+            .input_output_types(vec![
+                (Type::Binary, Type::Int),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .rest(
                 "rest",

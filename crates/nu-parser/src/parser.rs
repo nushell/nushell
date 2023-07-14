@@ -4,7 +4,7 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
-    type_check::{math_result_type, type_compatible},
+    type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
 };
 
@@ -5581,6 +5581,8 @@ pub fn parse_block(
     }
 
     block.span = Some(span);
+
+    type_check::check_block_input_output(working_set, &block);
 
     block
 }

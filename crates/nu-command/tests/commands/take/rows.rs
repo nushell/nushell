@@ -51,7 +51,7 @@ fn fails_on_string() {
             "#
     ));
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }
 
 #[test]

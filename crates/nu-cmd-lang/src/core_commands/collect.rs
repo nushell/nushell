@@ -16,7 +16,7 @@ impl Command for Collect {
 
     fn signature(&self) -> Signature {
         Signature::build("collect")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
