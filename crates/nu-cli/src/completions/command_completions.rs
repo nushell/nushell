@@ -205,10 +205,7 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        subcommands
-            .into_iter()
-            .chain(commands.into_iter())
-            .collect::<Vec<_>>()
+        subcommands.into_iter().chain(commands).collect::<Vec<_>>()
     }
 
     fn get_sort_by(&self) -> SortBy {

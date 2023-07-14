@@ -48,6 +48,14 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
+    #[error("Command does not support {0} input.")]
+    #[diagnostic(code(nu::parser::input_type_mismatch))]
+    InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
+
+    #[error("Command output doesn't match {0}.")]
+    #[diagnostic(code(nu::parser::output_type_mismatch))]
+    OutputMismatch(Type, #[label("command doesn't output {0}")] Span),
+
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
@@ -526,6 +534,8 @@ impl ParseError {
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
             ParseError::TypeMismatch(_, _, s) => *s,
+            ParseError::InputMismatch(_, s) => *s,
+            ParseError::OutputMismatch(_, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
             ParseError::IncompleteMathExpression(s) => *s,
             ParseError::UnknownState(_, s) => *s,

@@ -1,5 +1,5 @@
-use crate::formats::to::delimited::merge_descriptors;
 use indexmap::map::IndexMap;
+use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{

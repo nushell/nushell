@@ -294,9 +294,7 @@ pub fn find_in_dirs_env(
             .flatten()
     };
 
-    let lib_dirs = dirs_var
-        .and_then(|dirs_var| engine_state.find_constant(dirs_var, &[]))
-        .cloned();
+    let lib_dirs = dirs_var.and_then(|var_id| engine_state.get_var(var_id).const_val.clone());
     // TODO: remove (see #8310)
     let lib_dirs_fallback = stack.get_env_var(engine_state, "NU_LIB_DIRS");
 

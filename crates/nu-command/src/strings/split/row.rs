@@ -16,8 +16,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split row")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::String)), Type::Table(vec![])),
+            ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .required(
                 "separator",
                 SyntaxShape::String,

@@ -70,7 +70,7 @@ fn table_to_toml_fails() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert!(actual.err.contains("command doesn't support"));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn string_to_toml_fails() {
         "#
     ));
 
-    assert_eq!(actual.out, "true");
+    assert!(actual.err.contains("command doesn't support"));
 }
 
 #[test]

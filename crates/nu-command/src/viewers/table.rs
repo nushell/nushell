@@ -1,3 +1,4 @@
+use is_terminal::IsTerminal;
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
@@ -848,8 +849,8 @@ enum TableView {
 
 #[allow(clippy::manual_filter)]
 fn maybe_strip_color(output: String, config: &Config) -> String {
-    // the atty is for when people do ls from vim, there should be no coloring there
-    if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
+    // the terminal is for when people do ls from vim, there should be no coloring there
+    if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)
     } else {

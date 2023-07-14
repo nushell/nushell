@@ -9,7 +9,7 @@ use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, ShellError, Span, Type, Value,
+    Config, PipelineData, ShellError, Span, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
 
@@ -102,7 +102,7 @@ pub fn evaluate_file(
     trace!("parsing file: {}", file_path_str);
     let _ = parse(&mut working_set, Some(file_path_str), &file, false);
 
-    if working_set.find_decl(b"main", &Type::Any).is_some() {
+    if working_set.find_decl(b"main").is_some() {
         let args = format!("main {}", args.join(" "));
 
         if !eval_source(

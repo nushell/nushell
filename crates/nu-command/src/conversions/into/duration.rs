@@ -23,6 +23,7 @@ impl Command for SubCommand {
                 // TODO: --convert option should be implemented as `format duration`
                 (Type::String, Type::String),
                 (Type::Duration, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .named(
                 "convert",

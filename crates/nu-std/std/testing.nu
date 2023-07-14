@@ -1,5 +1,8 @@
 use log.nu
 
+def "nu-complete threads" [] {
+    seq 1 (sys|get cpu|length)
+}
 
 # Here we store the map of annotations internal names and the annotation actually used during test creation
 # The reason we do that is to allow annotations to be easily renamed without modifying rest of the code
@@ -30,7 +33,7 @@ def get-annotated [
     let raw_file = (open $file)
 
     let ast = (
-        ^$nu.current-exe --ide-ast $file
+        ^$nu.current-exe --no-config-file --no-std-lib --ide-ast $file
         | from json
         | enumerate
         | flatten
@@ -184,7 +187,7 @@ export def ($test_function_name) [] {
     | save $rendered_module_path
 
     let result = (
-        ^$nu.current-exe -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
+        ^$nu.current-exe --no-config-file -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
         | complete
     )
 
@@ -202,6 +205,7 @@ export def ($test_function_name) [] {
 # * result - test execution result
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
+    threads: int
 ] {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
@@ -255,7 +259,7 @@ def run-tests-for-module [
                 ''
             }
         }
-        | each {|test|
+        | par-each  --threads $threads {|test|
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
@@ -298,11 +302,27 @@ def run-tests-for-module [
 # * after-each  - function to run after every test case. Receives the context record just like the test cases
 # * after-all   - function to run after all test cases have been executed. Receives the global context record
 export def run-tests [
-    --path: path,      # Path to look for tests. Default: current directory.
-    --module: string,  # Test module to run. Default: all test modules found.
-    --test: string,    # Individual test to run. Default: all test command found in the files.
-    --list,            # list the selected tests without running them.
+    --path: path,                         # Path to look for tests. Default: current directory.
+    --module: string,                     # Test module to run. Default: all test modules found.
+    --test: string,                       # Pattern to use to include tests. Default: all tests found in the files.
+    --exclude: string,                    # Pattern to use to exclude tests. Default: no tests are excluded
+    --exclude-module: string,             # Pattern to use to exclude test modules. Default: No modules are excluded
+    --list,                               # list the selected tests without running them.
+    --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
 ] {
+
+    let available_threads = (sys | get cpu | length)
+
+    # Can't use pattern matching here due to https://github.com/nushell/nushell/issues/9198
+    let threads = (if $threads == null {
+        $available_threads
+    } else if $threads < 1 {
+        1
+    } else if $threads <= $available_threads {
+        $threads
+    } else {
+        $available_threads
+    })
 
     let module_search_pattern = ('**' | path join ({
         stem: ($module | default "*")
@@ -334,7 +354,7 @@ export def run-tests [
 
     let modules = (
         ls ($path | path join $module_search_pattern)
-        | each {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
+        | par-each --threads $threads {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
         | insert commands {|module|
             get-annotated $module.file
         }
@@ -345,15 +365,13 @@ export def run-tests [
         }
         | flatten
         | filter {|x| ($x.test|length) > 0}
-        | filter {|x| if ($test|is-empty) {true} else {$test in $x.test}}
+        | filter {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
+        | filter {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
         | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | if ($test|is-empty) {
-                $in
-            } else {
-                where $it == $test
-            }
+            | filter {|y| if ($test|is-empty) {true} else {$y =~ $test}}
+            | filter {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
         }
     )
     if $list {
@@ -366,8 +384,8 @@ export def run-tests [
 
     let results = (
         $modules
-        | each {|module|
-            run-tests-for-module $module
+        | par-each  --threads $threads {|module|
+            run-tests-for-module $module $threads
         }
         | flatten
     )
@@ -375,7 +393,7 @@ export def run-tests [
         let text = ([
             $"(ansi purple)some tests did not pass (char lparen)see complete errors below(char rparen):(ansi reset)"
             ""
-            ($results | each {|test| ($test | show-pretty-test 4)} | str join "\n")
+            ($results | par-each   --threads $threads {|test| ($test | show-pretty-test 4)} | str join "\n")
             ""
         ] | str join "\n")
 

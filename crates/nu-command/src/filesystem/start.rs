@@ -67,7 +67,7 @@ impl Command for Start {
             } else {
                 // open crate does not allow opening URL without prefix
                 let path_with_prefix = Path::new("https://").join(&path.item);
-                let common_domains = vec!["com", "net", "org", "edu", "sh"];
+                let common_domains = ["com", "net", "org", "edu", "sh"];
                 if let Some(url) = path_with_prefix.to_str() {
                     let url = url::Url::parse(url).map_err(|_| {
                         ShellError::GenericError(

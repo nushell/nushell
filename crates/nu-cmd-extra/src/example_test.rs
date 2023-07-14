@@ -15,6 +15,8 @@ mod test_examples {
         check_example_input_and_output_types_match_command_signature,
     };
 
+    use crate::MathEuler;
+    use crate::MathPi;
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type,
@@ -60,6 +62,13 @@ mod test_examples {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(nu_command::Enumerate));
+            working_set.add_decl(Box::new(nu_cmd_lang::If));
+            // math commands
+            working_set.add_decl(Box::new(MathEuler));
+            working_set.add_decl(Box::new(MathPi));
+            working_set.add_decl(Box::new(nu_command::MathRound));
 
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);

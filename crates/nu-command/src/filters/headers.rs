@@ -89,28 +89,38 @@ impl Command for Headers {
         let config = engine_state.get_config();
         let metadata = input.metadata();
         let value = input.into_value(call.head);
-        let headers = extract_headers(&value, config)?;
-        let new_headers = replace_headers(value, &headers)?;
+        let (old_headers, new_headers) = extract_headers(&value, config)?;
+        let new_headers = replace_headers(value, &old_headers, &new_headers)?;
 
         Ok(new_headers.into_pipeline_data().set_metadata(metadata))
     }
 }
 
-fn replace_headers(value: Value, headers: &[String]) -> Result<Value, ShellError> {
+fn replace_headers(
+    value: Value,
+    old_headers: &[String],
+    new_headers: &[String],
+) -> Result<Value, ShellError> {
     match value {
-        Value::Record { vals, span, .. } => {
-            let vals = vals.into_iter().take(headers.len()).collect();
-            Ok(Value::Record {
-                cols: headers.to_owned(),
-                vals,
-                span,
-            })
+        Value::Record { cols, vals, span } => {
+            let (cols, vals) = cols
+                .into_iter()
+                .zip(vals)
+                .filter_map(|(col, val)| {
+                    old_headers
+                        .iter()
+                        .position(|c| c == &col)
+                        .map(|i| (new_headers[i].clone(), val))
+                })
+                .unzip();
+
+            Ok(Value::Record { cols, vals, span })
         }
         Value::List { vals, span } => {
             let vals = vals
                 .into_iter()
                 .skip(1)
-                .map(|value| replace_headers(value, headers))
+                .map(|value| replace_headers(value, old_headers, new_headers))
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
             Ok(Value::List { vals, span })
@@ -133,9 +143,12 @@ fn is_valid_header(value: &Value) -> bool {
     )
 }
 
-fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellError> {
+fn extract_headers(
+    value: &Value,
+    config: &Config,
+) -> Result<(Vec<String>, Vec<String>), ShellError> {
     match value {
-        Value::Record { vals, .. } => {
+        Value::Record { cols, vals, .. } => {
             for v in vals {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
@@ -146,7 +159,8 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
                 }
             }
 
-            Ok(vals
+            let old_headers = cols.to_vec();
+            let new_headers = vals
                 .iter()
                 .enumerate()
                 .map(|(idx, value)| {
@@ -157,7 +171,9 @@ fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellE
                         col
                     }
                 })
-                .collect::<Vec<String>>())
+                .collect::<Vec<String>>();
+
+            Ok((old_headers, new_headers))
         }
         Value::List { vals, span } => vals
             .iter()

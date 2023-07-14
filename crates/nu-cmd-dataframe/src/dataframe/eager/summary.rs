@@ -35,7 +35,7 @@ impl Command for Summary {
             )
             .named(
                 "quantiles",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "provide optional quantiles",
                 Some('q'),
             )

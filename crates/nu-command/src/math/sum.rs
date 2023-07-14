@@ -14,7 +14,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math sum")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Range, Type::Number),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 

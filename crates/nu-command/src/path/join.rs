@@ -35,14 +35,16 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::String),
+                (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
             .named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "For a record or table input, join strings at the given columns",
                 Some('c'),
             )
+            .allow_variants_without_examples(true)
             .rest("append", SyntaxShape::String, "Path to append to the input")
     }
 

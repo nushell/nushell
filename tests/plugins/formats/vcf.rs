@@ -8,7 +8,7 @@ fn infers_types() {
     Playground::setup("filter_from_vcf_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "contacts.vcf",
-            r#"
+            r"
                 BEGIN:VCARD
                 VERSION:3.0
                 FN:John Doe
@@ -29,7 +29,7 @@ fn infers_types() {
                 TEL;TYPE=CELL:(890) 123-4567
                 CATEGORIES:Band,myContacts
                 END:VCARD
-            "#,
+            ",
         )]);
 
         let cwd = dirs.test();
@@ -48,7 +48,7 @@ fn from_vcf_text_to_table() {
     Playground::setup("filter_from_vcf_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "contacts.txt",
-            r#"
+            r"
                 BEGIN:VCARD
                 VERSION:3.0
                 FN:John Doe
@@ -62,7 +62,7 @@ fn from_vcf_text_to_table() {
                 NOTE:Facebook: john.doe.3\nWebsite: \nHometown: Cleveland\, Ohio
                 CATEGORIES:myContacts
                 END:VCARD
-            "#,
+            ",
         )]);
 
         let cwd = dirs.test();
