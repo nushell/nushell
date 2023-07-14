@@ -591,9 +591,25 @@ fn def_with_input_output_2() -> TestResult {
 }
 
 #[test]
+fn def_with_input_output_3() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; "bob" | foo"#,
+        "3",
+    )
+}
+
+#[test]
 fn def_with_input_output_mismatch_1() -> TestResult {
     fail_test(
         r#"def foo []: [int -> int, string -> int] { 3 }; foo"#,
+        "command doesn't support",
+    )
+}
+
+#[test]
+fn def_with_input_output_mismatch_1() -> TestResult {
+    fail_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; {x: 2} | foo"#,
         "command doesn't support",
     )
 }
