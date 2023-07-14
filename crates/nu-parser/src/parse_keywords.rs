@@ -47,6 +47,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export def",
     b"for",
     b"extern",
+    b"extern-wrapped",
     b"export extern",
     b"alias",
     b"export alias",
@@ -185,7 +186,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if decl_name == b"extern" && spans.len() >= 3 {
+    } else if (decl_name == b"extern" || decl_name == b"extern-wrapped") && spans.len() >= 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -534,15 +535,17 @@ pub fn parse_extern(
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
 
-    let (name_span, split_id) =
-        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
-            (spans[1], 2)
-        } else {
-            (spans[0], 1)
-        };
+    let (name_span, split_id) = if spans.len() > 1
+        && (working_set.get_span_contents(spans[0]) == b"export"
+            || working_set.get_span_contents(spans[0]) == b"export-wrapped")
+    {
+        (spans[1], 2)
+    } else {
+        (spans[0], 1)
+    };
 
     let extern_call = working_set.get_span_contents(name_span).to_vec();
-    if extern_call != b"extern" {
+    if extern_call != b"extern" && extern_call != b"extern-wrapped" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for extern function".into(),
             span(spans),
@@ -937,7 +940,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" | b"module" => {
+            b"alias" | b"def" | b"def-env" | b"extern" | b"extern-wrapped" | b"use" | b"module" => {
                 [b"export ", sub].concat()
             }
             _ => b"export".to_vec(),
@@ -1180,7 +1183,7 @@ pub fn parse_export_in_module(
 
                 result
             }
-            b"extern" => {
+            b"extern" | b"extern-wrapped" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
@@ -1586,9 +1589,11 @@ pub fn parse_module_block(
                                 None, // using commands named as the module locally is OK
                             ))
                         }
-                        b"extern" => block
-                            .pipelines
-                            .push(parse_extern(working_set, command, None)),
+                        b"extern" | b"extern-wrapped" => {
+                            block
+                                .pipelines
+                                .push(parse_extern(working_set, command, None))
+                        }
                         b"alias" => {
                             block.pipelines.push(parse_alias(
                                 working_set,

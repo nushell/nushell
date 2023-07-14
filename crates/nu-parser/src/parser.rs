@@ -5094,8 +5094,8 @@ pub fn parse_expression(
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"hide" => {
+            b"def" | b"extern" | b"extern-wrapped" | b"for" | b"module" | b"use" | b"source"
+            | b"alias" | b"export" | b"hide" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
@@ -5262,7 +5262,7 @@ pub fn parse_builtin_commands(
 
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command, None),
-        b"extern" => parse_extern(working_set, lite_command, None),
+        b"extern" | b"extern-wrapped" => parse_extern(working_set, lite_command, None),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"const" => parse_const(working_set, &lite_command.parts),
         b"mut" => parse_mut(working_set, &lite_command.parts),
