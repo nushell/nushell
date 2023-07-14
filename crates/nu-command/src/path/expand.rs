@@ -92,19 +92,22 @@ impl Command for SubCommand {
                 result: Some(Value::test_string(r"C:\Users\joe\bar")),
             },
             Example {
-                description: "Expand a path in a column",
-                example: "ls | path expand -c [ name ]",
-                result: None,
-            },
-            Example {
                 description: "Expand a relative path",
                 example: r"'foo\..\bar' | path expand",
                 result: None,
             },
             Example {
-                description: "Expand an absolute path without following symlink",
-                example: r"'foo\..\bar' | path expand -n",
+                description: "Expand a path in a column",
+                example: "ls | path expand -c [ name ]",
                 result: None,
+            },
+            Example {
+                description: "Expand a list of paths",
+                example: r"[ C:\foo\..\bar, C:\foo\..\baz ] | path expand",
+                result: Some(Value::test_list(vec![
+                    Value::test_string(r"C:\bar"),
+                    Value::test_string(r"C:\baz"),
+                ])),
             },
         ]
     }
@@ -118,14 +121,22 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("/home/joe/bar")),
             },
             Example {
+                description: "Expand a relative path",
+                example: "'foo/../bar' | path expand",
+                result: None,
+            },
+            Example {
                 description: "Expand a path in a column",
                 example: "ls | path expand -c [ name ]",
                 result: None,
             },
             Example {
-                description: "Expand a relative path",
-                example: "'foo/../bar' | path expand",
-                result: None,
+                description: "Expand a list of paths",
+                example: "[ /foo/../bar, /foo/../baz ] | path expand",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("/bar"),
+                    Value::test_string("/baz"),
+                ])),
             },
         ]
     }

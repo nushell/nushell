@@ -94,6 +94,14 @@ path."#
                 result: Some(Value::test_string(r"viking")),
             },
             Example {
+                description: "Find a relative path from absolute paths in list",
+                example: r"[ C:\Users\viking, C:\Users\spam ] | path relative-to C:\Users",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("viking"),
+                    Value::test_string("spam"),
+                ])),
+            },
+            Example {
                 description: "Find a relative path from two absolute paths in a column",
                 example: "ls ~ | path relative-to ~ -c [ name ]",
                 result: None,
@@ -113,6 +121,14 @@ path."#
                 description: "Find a relative path from two absolute paths",
                 example: r"'/home/viking' | path relative-to '/home'",
                 result: Some(Value::test_string(r"viking")),
+            },
+            Example {
+                description: "Find a relative path from absolute paths in list",
+                example: r"[ /home/viking, /home/spam ] | path relative-to '/home'",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("viking"),
+                    Value::test_string("spam"),
+                ])),
             },
             Example {
                 description: "Find a relative path from two absolute paths in a column",

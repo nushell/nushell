@@ -129,6 +129,42 @@ On Windows, an extra 'prefix' column is added."#
                 }),
             },
             Example {
+                description: "Parse all paths in a list",
+                example: r"[ C:\Users\viking.d C:\Users\spam.txt ] | path parse",
+                result: Some(Value::test_list(vec![
+                    Value::Record {
+                        cols: vec![
+                            "prefix".into(),
+                            "parent".into(),
+                            "stem".into(),
+                            "extension".into(),
+                        ],
+                        vals: vec![
+                            Value::test_string("C:"),
+                            Value::test_string(r"C:\Users"),
+                            Value::test_string("viking"),
+                            Value::test_string("d"),
+                        ],
+                        span: Span::test_data(),
+                    },
+                    Value::test_record {
+                        cols: vec![
+                            "prefix".into(),
+                            "parent".into(),
+                            "stem".into(),
+                            "extension".into(),
+                        ],
+                        vals: vec![
+                            Value::test_string("C:"),
+                            Value::test_string(r"C:\Users"),
+                            Value::test_string("spam"),
+                            Value::test_string("txt"),
+                        ],
+                        span: Span::test_data(),
+                    },
+                ])),
+            },
+            Example {
                 description: "Parse all paths under the 'name' column",
                 example: r"ls | path parse -c [ name ]",
                 result: None,
@@ -169,6 +205,30 @@ On Windows, an extra 'prefix' column is added."#
                     ],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                description: "Parse all paths in a list",
+                example: r"[ /home/viking.d /home/spam.txt ] | path parse",
+                result: Some(Value::test_list(vec![
+                    Value::Record {
+                        cols: vec!["parent".into(), "stem".into(), "extension".into()],
+                        vals: vec![
+                            Value::test_string("/home"),
+                            Value::test_string("viking"),
+                            Value::test_string("d"),
+                        ],
+                        span: Span::test_data(),
+                    },
+                    Value::Record {
+                        cols: vec!["parent".into(), "stem".into(), "extension".into()],
+                        vals: vec![
+                            Value::test_string("/home"),
+                            Value::test_string("spam"),
+                            Value::test_string("txt"),
+                        ],
+                        span: Span::test_data(),
+                    },
+                ])),
             },
             Example {
                 description: "Parse all paths under the 'name' column",

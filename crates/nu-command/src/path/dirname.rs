@@ -101,6 +101,14 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
+                description: "Get dirname of a list of paths",
+                example: r"[ C:\Users\joe\test.txt, \home\doe\test.txt ] | path dirname",
+                result: Some(Value::test_list(vec![
+                    Value::test_string(r"C:\Users\home\joe"),
+                    Value::test_string(r"C:\Users\home\doe"),
+                ])),
+            },
+            Example {
                 description: "Walk up two levels",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
                 result: Some(Value::test_string("C:\\Users\\joe")),
@@ -126,6 +134,14 @@ impl Command for SubCommand {
                 description: "Get dirname of a path in a column",
                 example: "ls ('.' | path expand) | path dirname -c [ name ]",
                 result: None,
+            },
+            Example {
+                description: "Get dirname of a list of paths",
+                example: "[ /home/joe/test.txt, /home/doe/test.txt ] | path dirname",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("/home/joe"),
+                    Value::test_string("/home/doe"),
+                ])),
             },
             Example {
                 description: "Walk up two levels",

@@ -42,6 +42,7 @@ impl Command for SubCommand {
                 "For a record or table input, check strings at the given columns, and replace with result",
                 Some('c'),
             )
+            .allow_variants_without_examples(true)
     }
 
     fn usage(&self) -> &str {
@@ -85,6 +86,11 @@ If nothing is found, an empty string will be returned."#
             Example {
                 description: "Show type of a filepath in a column",
                 example: "ls | path type -c [ name ]",
+                result: None,
+            },
+            Example {
+                description: "Show type of a filepaths in a list",
+                example: "ls | get name | path type",
                 result: None,
             },
         ]

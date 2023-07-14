@@ -34,7 +34,7 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Bool),
                 (
-                    Type::List(Box::new(Type::Bool)),
+                    Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Bool)),
                 ),
             ])
@@ -90,6 +90,14 @@ If you need to distinguish dirs and files, please use `path type`."#
                 example: "ls | path exists -c [ name ]",
                 result: None,
             },
+            Example {
+                description: "Check if files in list exist",
+                example: r"[ C:\joe\todo.txt, C:\Users\doe\todo.txt ] | path exists",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(false),
+                ])),
+            },
         ]
     }
 
@@ -105,6 +113,14 @@ If you need to distinguish dirs and files, please use `path type`."#
                 description: "Check if a file exists in a column",
                 example: "ls | path exists -c [ name ]",
                 result: None,
+            },
+            Example {
+                description: "Check if files in list exist",
+                example: "[ /home/joe/todo.txt, /home/doe/todo.txt ] | path exists",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(false),
+                ])),
             },
         ]
     }

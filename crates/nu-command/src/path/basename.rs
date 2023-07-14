@@ -37,6 +37,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
                 ),
+                (Type::Table(vec![]), Type::Table(vec![]))
             ])
             .named(
                 "columns",
@@ -93,16 +94,12 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Get basename of a path in a column",
-                example: "[[name];[C:\\Users\\Joe]] | path basename -c [ name ]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("Joe")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                description: "Get basename of a list of paths",
+                example: r"[ C:\Users\joe, C:\Users\doe ] | path basename",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("joe"),
+                    Value::test_string("doe"),
+                ])),
             },
             Example {
                 description: "Replace basename of a path",
@@ -131,6 +128,14 @@ impl Command for SubCommand {
                     }],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                description: "Get basename of a list of paths",
+                example: "[ /home/joe, /home/doe ] | path basename",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("joe"),
+                    Value::test_string("doe"),
+                ])),
             },
             Example {
                 description: "Replace basename of a path",

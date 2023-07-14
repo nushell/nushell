@@ -87,6 +87,27 @@ impl Command for SubCommand {
                 }),
             },
             Example {
+                description: "Split paths in list into parts",
+                example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_list(vec![
+                            Value::test_string(r"C:\"),
+                            Value::test_string("Users"),
+                            Value::test_string("viking"),
+                            Value::test_string("spam.txt"),
+                        ]),
+                        Value::test_list(vec![
+                            Value::test_string(r"C:\"),
+                            Value::test_string("Users"),
+                            Value::test_string("viking"),
+                            Value::test_string("eggs.txt"),
+                        ]),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Split all paths under the 'name' column",
                 example: r"ls ('.' | path expand) | path split -c [ name ]",
                 result: None,
@@ -106,6 +127,27 @@ impl Command for SubCommand {
                         Value::test_string("home"),
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Split paths in list into parts",
+                example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_list(vec![
+                            Value::test_string("/"),
+                            Value::test_string("home"),
+                            Value::test_string("viking"),
+                            Value::test_string("spam.txt"),
+                        ]),
+                        Value::test_list(vec![
+                            Value::test_string("/"),
+                            Value::test_string("home"),
+                            Value::test_string("viking"),
+                            Value::test_string("eggs.txt"),
+                        ]),
                     ],
                     span: Span::test_data(),
                 }),
