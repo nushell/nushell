@@ -48,7 +48,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
 
-    #[error("Command input does not support {0}.")]
+    #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
     InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
 
