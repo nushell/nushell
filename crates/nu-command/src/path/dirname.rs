@@ -85,10 +85,10 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get dirname of a list of paths",
-                example: r"[ C:\Users\joe\test.txt, \home\doe\test.txt ] | path dirname",
+                example: r"[ C:\Users\joe\test.txt, C:\Users\doe\test.txt ] | path dirname",
                 result: Some(Value::test_list(vec![
-                    Value::test_string(r"C:\Users\home\joe"),
-                    Value::test_string(r"C:\Users\home\doe"),
+                    Value::test_string(r"C:\Users\joe"),
+                    Value::test_string(r"C:\Users\doe"),
                 ])),
             },
             Example {
