@@ -19,6 +19,7 @@ impl Command for Reduce {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Table(vec![]), Type::Any),
+                (Type::Range, Type::Any),
             ])
             .named(
                 "fold",
@@ -35,6 +36,7 @@ impl Command for Reduce {
                 ])),
                 "reducing function",
             )
+            .allow_variants_without_examples(true)
     }
 
     fn usage(&self) -> &str {
@@ -73,6 +75,12 @@ impl Command for Reduce {
                 description:
                     "Add ascending numbers to each of the filenames, and join with semicolons.",
                 result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
+            },
+            Example {
+                example: r#"let s = "Str"; 0..2 | reduce -f '' {|it, acc| $acc + $s}"#,
+                description:
+                    "Concatenate a string with itself, using a range to determine the number of times.",
+                result: Some(Value::test_string("StrStrStr")),
             },
         ]
     }
