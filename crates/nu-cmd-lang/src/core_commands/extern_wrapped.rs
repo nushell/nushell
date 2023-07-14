@@ -3,11 +3,11 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
-pub struct Extern;
+pub struct ExternWrapped;
 
-impl Command for Extern {
+impl Command for ExternWrapped {
     fn name(&self) -> &str {
-        "extern"
+        "extern-wrapped"
     }
 
     fn usage(&self) -> &str {
@@ -15,10 +15,11 @@ impl Command for Extern {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("extern")
+        Signature::build("extern-wrapped")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
+            .required("body", SyntaxShape::Block, "wrapper function block")
             .category(Category::Core)
     }
 
@@ -44,7 +45,7 @@ impl Command for Extern {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Write a signature for an external command",
-            example: r#"extern echo [text: string]"#,
+            example: r#"extern-wrapped echo [text: string] { print $text }"#,
             result: None,
         }]
     }
