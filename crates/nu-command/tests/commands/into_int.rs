@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone};
 use rstest::rstest;
 
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn into_int_filesize() {
