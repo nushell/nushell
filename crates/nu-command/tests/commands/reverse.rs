@@ -12,7 +12,7 @@ fn can_get_reverse_first() {
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(cwd: ".", pipeline("1 | reverse"));
+    let actual = nu!("1 | reverse");
 
     assert!(actual.err.contains("command doesn't support"));
 }

@@ -558,12 +558,7 @@ fn list_ignores_ansi() {
 
 #[test]
 fn list_unknown_flag() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-                ls -r
-            "#
-    ));
+    let actual = nu!("ls -r");
 
     assert!(actual
         .err
