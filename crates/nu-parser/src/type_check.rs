@@ -27,6 +27,8 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
+        (Type::ListStream, Type::List(_)) => true,
+        (Type::List(_), Type::ListStream) => true,
         (Type::List(c), Type::Table(table_fields)) => {
             if matches!(**c, Type::Any) {
                 return true;
@@ -964,13 +966,33 @@ pub fn check_pipeline_type(
             ) => {
                 let decl = working_set.get_decl(call.decl_id);
 
-                for (call_input, call_output) in decl.signature().input_output_types {
-                    if type_compatible(&call_input, &current_type)
-                        || call_input == Type::Any
-                        || current_type == Type::Any
-                    {
-                        current_type = call_output.clone();
-                        continue 'elem;
+                if current_type == Type::Any {
+                    let mut new_current_type = None;
+                    for (_, call_output) in decl.signature().input_output_types {
+                        if let Some(inner_current_type) = &new_current_type {
+                            if inner_current_type == &Type::Any {
+                                break;
+                            } else if inner_current_type != &call_output {
+                                // Union unequal types to Any for now
+                                new_current_type = Some(Type::Any)
+                            }
+                        } else {
+                            new_current_type = Some(call_output.clone())
+                        }
+                    }
+
+                    if let Some(new_current_type) = new_current_type {
+                        current_type = new_current_type
+                    } else {
+                        current_type = Type::Any;
+                    }
+                    continue 'elem;
+                } else {
+                    for (call_input, call_output) in decl.signature().input_output_types {
+                        if type_compatible(&call_input, &current_type) {
+                            current_type = call_output.clone();
+                            continue 'elem;
+                        }
                     }
                 }
 

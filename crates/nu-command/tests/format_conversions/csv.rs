@@ -405,5 +405,5 @@ fn string_to_csv_error() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert"))
+    assert!(actual.err.contains("command doesn't support"))
 }
