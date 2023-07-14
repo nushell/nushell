@@ -100,21 +100,6 @@ fn parses_ignoring_extension_gets_stem() {
 }
 
 #[test]
-fn parses_column_path_extension() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo [[home, barn]; ['home/viking/spam.txt', 'barn/cow/moo.png']]
-            | path parse -c [ home barn ]
-            | get barn
-            | get extension.0
-        "#
-    ));
-
-    assert_eq!(actual.out, "png");
-}
-
-#[test]
 fn parses_into_correct_number_of_columns() {
     let actual = nu!(
         cwd: "tests", pipeline(
