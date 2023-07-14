@@ -176,8 +176,6 @@ let light_theme = {
     shape_vardecl: purple
 }
 
-$env.config.color_config = $dark_theme # if you want a light theme, replace `$dark_theme` to `$light_theme`
-
 # External completer example
 # let carapace_completer = {|spans|
 #     carapace $spans.0 nushell $spans | from json
@@ -222,7 +220,7 @@ $env.config = {
 
   explore: {
     try: {
-        border_color: ($env.config?.color_config?.separator? | default "gray")
+        border_color: {fg: "white"}
     },
     status_bar_background: {fg: "#1D1F21", bg: "#C4C9C6"},
     command_bar_text: {fg: "#C4C9C6"},
@@ -244,7 +242,7 @@ $env.config = {
         line_index: true,
     },
     config: {
-        border_color: ($env.config?.color_config?.separator? | default "gray")
+        border_color: {fg: "white"}
         cursor_color: {fg: "black", bg: "light_yellow"}
     },
   }
@@ -279,6 +277,7 @@ $env.config = {
     vi_normal: underscore # block, underscore, line, blink_block, blink_underscore, blink_line (underscore is the default)
   }
 
+  color_config: $dark_theme # if you want a light theme, replace `$dark_theme` to `$light_theme`
   use_grid_icons: true
   footer_mode: "25" # always, never, number_of_rows, auto
   float_precision: 2 # the precision for displaying floats in tables
