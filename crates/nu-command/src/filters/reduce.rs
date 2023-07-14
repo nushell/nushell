@@ -19,6 +19,7 @@ impl Command for Reduce {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Table(vec![]), Type::Any),
+                (Type::Range, Type::Any),
             ])
             .named(
                 "fold",
