@@ -118,8 +118,7 @@ fn camelcases() {
 
 #[test]
 fn converts_to_int() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo '[{number_as_string: "1"}]'
             | from json
@@ -136,8 +135,7 @@ fn converts_to_int() {
 
 #[test]
 fn converts_to_decimal() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo "3.1, 0.0415"
             | split row ","

@@ -16,9 +16,7 @@ fn can_average_numbers() {
 
 #[test]
 fn can_average_bytes() {
-    let actual = nu!(
-        "[100kb, 10b, 100mib] | math avg | to json -r"
-    );
+    let actual = nu!("[100kb, 10b, 100mib] | math avg | to json -r");
 
     assert_eq!(actual.out, "34985870");
 }

@@ -182,9 +182,7 @@ fn errors_fetching_by_accessing_empty_list() {
 
 #[test]
 fn quoted_column_access() {
-    let actual = nu!(
-        r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
-    );
+    let actual = nu!(r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#);
 
     assert_eq!(actual.out, "4");
 }

@@ -8,8 +8,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn one_arg() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1
         "#
@@ -20,8 +19,7 @@ fn one_arg() {
 
 #[test]
 fn add() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 + 1
         "#
@@ -32,8 +30,7 @@ fn add() {
 
 #[test]
 fn add_compound() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 + 2 + 2
         "#
@@ -44,8 +41,7 @@ fn add_compound() {
 
 #[test]
 fn precedence_of_operators() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 + 2 * 2
         "#
@@ -56,8 +52,7 @@ fn precedence_of_operators() {
 
 #[test]
 fn precedence_of_operators2() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 + 2 * 2 + 1
         "#
@@ -68,8 +63,7 @@ fn precedence_of_operators2() {
 
 #[test]
 fn precedence_of_operators3() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             5 - 5 * 10 + 5
         "#
@@ -80,8 +74,7 @@ fn precedence_of_operators3() {
 
 #[test]
 fn precedence_of_operators4() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             5 - (5 * 10) + 5
         "#
@@ -92,8 +85,7 @@ fn precedence_of_operators4() {
 
 #[test]
 fn division_of_ints() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             4 / 2
         "#
@@ -104,8 +96,7 @@ fn division_of_ints() {
 
 #[test]
 fn division_of_ints2() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 / 4
         "#
@@ -116,8 +107,7 @@ fn division_of_ints2() {
 
 #[test]
 fn error_zero_division_int_int() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 / 0
         "#
@@ -128,8 +118,7 @@ fn error_zero_division_int_int() {
 
 #[test]
 fn error_zero_division_decimal_int() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1.0 / 0
         "#
@@ -140,8 +129,7 @@ fn error_zero_division_decimal_int() {
 
 #[test]
 fn error_zero_division_int_decimal() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 / 0.0
         "#
@@ -152,8 +140,7 @@ fn error_zero_division_int_decimal() {
 
 #[test]
 fn error_zero_division_decimal_decimal() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1.0 / 0.0
         "#
@@ -164,8 +151,7 @@ fn error_zero_division_decimal_decimal() {
 
 #[test]
 fn floor_division_of_ints() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             5 // 2
         "#
@@ -176,8 +162,7 @@ fn floor_division_of_ints() {
 
 #[test]
 fn floor_division_of_ints2() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             -3 // 2
         "#
@@ -188,8 +173,7 @@ fn floor_division_of_ints2() {
 
 #[test]
 fn floor_division_of_floats() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             -3.0 // 2.0
         "#
@@ -200,8 +184,7 @@ fn floor_division_of_floats() {
 
 #[test]
 fn error_zero_floor_division_int_int() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 // 0
         "#
@@ -212,8 +195,7 @@ fn error_zero_floor_division_int_int() {
 
 #[test]
 fn error_zero_floor_division_decimal_int() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1.0 // 0
         "#
@@ -224,8 +206,7 @@ fn error_zero_floor_division_decimal_int() {
 
 #[test]
 fn error_zero_floor_division_int_decimal() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 // 0.0
         "#
@@ -236,8 +217,7 @@ fn error_zero_floor_division_int_decimal() {
 
 #[test]
 fn error_zero_floor_division_decimal_decimal() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1.0 // 0.0
         "#
@@ -247,8 +227,7 @@ fn error_zero_floor_division_decimal_decimal() {
 }
 #[test]
 fn proper_precedence_history() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             2 / 2 / 2 + 1
         "#
@@ -259,8 +238,7 @@ fn proper_precedence_history() {
 
 #[test]
 fn parens_precedence() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             4 * (6 - 3)
         "#
@@ -271,8 +249,7 @@ fn parens_precedence() {
 
 #[test]
 fn modulo() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             9 mod 2
         "#
@@ -283,8 +260,7 @@ fn modulo() {
 
 #[test]
 fn unit_multiplication_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1mb * 2
         "#
@@ -295,8 +271,7 @@ fn unit_multiplication_math() {
 
 #[test]
 fn unit_multiplication_float_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1mb * 1.2
         "#
@@ -307,8 +282,7 @@ fn unit_multiplication_float_math() {
 
 #[test]
 fn unit_float_floor_division_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1mb // 3.0
         "#
@@ -319,8 +293,7 @@ fn unit_float_floor_division_math() {
 
 #[test]
 fn unit_division_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1mb / 4
         "#
@@ -331,8 +304,7 @@ fn unit_division_math() {
 
 #[test]
 fn unit_float_division_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1mb / 3.1
         "#
@@ -343,8 +315,7 @@ fn unit_float_division_math() {
 
 #[test]
 fn duration_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1wk + 1day
         "#
@@ -355,8 +326,7 @@ fn duration_math() {
 
 #[test]
 fn duration_decimal_math() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             5.5day + 0.5day
         "#
@@ -367,8 +337,7 @@ fn duration_decimal_math() {
 
 #[test]
 fn duration_math_with_nanoseconds() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1wk + 10ns
         "#
@@ -379,8 +348,7 @@ fn duration_math_with_nanoseconds() {
 
 #[test]
 fn duration_decimal_math_with_nanoseconds() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1.5wk + 10ns
         "#
@@ -391,8 +359,7 @@ fn duration_decimal_math_with_nanoseconds() {
 
 #[test]
 fn duration_decimal_math_with_all_units() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
         "#
@@ -403,8 +370,7 @@ fn duration_decimal_math_with_all_units() {
 
 #[test]
 fn duration_decimal_dans_test() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             3.14sec
         "#
@@ -415,8 +381,7 @@ fn duration_decimal_dans_test() {
 
 #[test]
 fn duration_math_with_negative() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1day - 1wk
         "#
@@ -427,8 +392,7 @@ fn duration_math_with_negative() {
 
 #[test]
 fn compound_comparison() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             4 > 3 and 2 > 1
         "#
@@ -439,8 +403,7 @@ fn compound_comparison() {
 
 #[test]
 fn compound_comparison2() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             4 < 3 or 2 > 1
         "#
@@ -451,8 +414,7 @@ fn compound_comparison2() {
 
 #[test]
 fn compound_where() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 and b == 1 | to json -r
         "#
@@ -463,8 +425,7 @@ fn compound_where() {
 
 #[test]
 fn compound_where_paren() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 and $it.b == 1) or $it.b == 2 | to json -r
         "#
@@ -477,8 +438,7 @@ fn compound_where_paren() {
 
 #[test]
 fn adding_lists() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             [1 3] ++ [5 6] | to nuon
         "#
@@ -489,8 +449,7 @@ fn adding_lists() {
 
 #[test]
 fn adding_list_and_value() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             [1 3] ++ 5 | to nuon
         "#
@@ -501,8 +460,7 @@ fn adding_list_and_value() {
 
 #[test]
 fn adding_value_and_list() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             1 ++ [3 5] | to nuon
         "#
@@ -513,8 +471,7 @@ fn adding_value_and_list() {
 
 #[test]
 fn adding_tables() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
         "#
@@ -524,8 +481,7 @@ fn adding_tables() {
 
 #[test]
 fn append_strings() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             "foo" ++ "bar"
         "#
@@ -535,8 +491,7 @@ fn append_strings() {
 
 #[test]
 fn append_binary_values() {
-    let actual = nu!(
-        pipeline(
+    let actual = nu!(pipeline(
         r#"
             0x[01 02] ++ 0x[03 04] | to nuon
         "#
@@ -546,28 +501,16 @@ fn append_binary_values() {
 
 #[test]
 fn int_multiple_string() {
-    let actual = nu!(
-        pipeline(
-        r#"3 * "ab""#
-    ));
+    let actual = nu!(pipeline(r#"3 * "ab""#));
     assert_eq!(actual.out, "ababab");
-    let actual = nu!(
-        pipeline(
-        r#""ab" * 3"#
-    ));
+    let actual = nu!(pipeline(r#""ab" * 3"#));
     assert_eq!(actual.out, "ababab");
 }
 
 #[test]
 fn int_multiple_list() {
-    let actual = nu!(
-        pipeline(
-        r#"3 * [1 2] | to nuon"#
-    ));
+    let actual = nu!(pipeline(r#"3 * [1 2] | to nuon"#));
     assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
-    let actual = nu!(
-        pipeline(
-        r#"[1 2] * 3 | to nuon"#
-    ));
+    let actual = nu!(pipeline(r#"[1 2] * 3 | to nuon"#));
     assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
 }
