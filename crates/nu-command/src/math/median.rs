@@ -20,6 +20,7 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Number)), Type::Number),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 

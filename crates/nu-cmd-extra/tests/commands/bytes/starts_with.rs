@@ -21,7 +21,7 @@ fn basic_string_fails() {
         "#
     );
 
-    assert!(actual.err.contains("Input type not supported"));
+    assert!(actual.err.contains("command doesn't support"));
     assert_eq!(actual.out, "");
 }
 

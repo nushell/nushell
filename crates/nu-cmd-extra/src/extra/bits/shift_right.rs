@@ -18,7 +18,13 @@ impl Command for BitsShr {
 
     fn signature(&self) -> Signature {
         Signature::build("bits shr")
-            .input_output_types(vec![(Type::Int, Type::Int)])
+            .input_output_types(vec![
+                (Type::Int, Type::Int),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .required("bits", SyntaxShape::Int, "number of bits to shift right")
             .switch(

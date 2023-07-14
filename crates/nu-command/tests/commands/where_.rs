@@ -180,7 +180,7 @@ fn contains_operator() {
 fn fail_on_non_iterator() {
     let actual = nu!(cwd: ".", pipeline(r#"{"name": "foo", "size": 3} | where name == "foo""#));
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }
 
 // Test that filtering on columns that might be missing/null works
