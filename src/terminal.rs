@@ -4,6 +4,8 @@ pub(crate) fn acquire_terminal(interactive: bool) {
     use nix::sys::signal::{signal, SigHandler, Signal};
 
     if interactive && std::io::stdin().is_terminal() {
+        // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
+
         take_control();
 
         unsafe {
