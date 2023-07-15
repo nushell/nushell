@@ -182,9 +182,9 @@ mod fg_process_setup {
 
 #[cfg(any(not(target_family = "unix"), target_os = "macos"))]
 mod fg_process_setup {
-    pub(super) fn prepare_to_foreground(_: &mut std::process::Command, _: u32) {}
+    pub(super) fn prepare_to_foreground(_: &mut std::process::Command, _: u32, _: bool) {}
 
-    pub(super) fn set_foreground(_: &std::process::Child, _: u32) {}
+    pub(super) fn set_foreground(_: &std::process::Child, _: u32, _: bool) {}
 
     pub(super) fn reset_foreground_id() {}
 }
