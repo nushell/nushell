@@ -3,17 +3,15 @@ pub(crate) fn acquire_terminal(interactive: bool) {
     use is_terminal::IsTerminal;
     use nix::sys::signal::{signal, SigHandler, Signal};
 
-    if !std::io::stdin().is_terminal() {
-        return;
-    }
+    if interactive && std::io::stdin().is_terminal() {
+        take_control();
 
-    take_control(interactive);
-
-    unsafe {
-        // SIGINT and SIGQUIT have special handling above
-        signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
-        signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
-        signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
+        unsafe {
+            // SIGINT and SIGQUIT have special handling above
+            signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
+            signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
+            signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
+        }
     }
 }
 
@@ -22,7 +20,7 @@ pub(crate) fn acquire_terminal(_: bool) {}
 
 // Inspired by fish's acquire_tty_or_exit
 #[cfg(unix)]
-fn take_control(interactive: bool) {
+fn take_control() {
     use nix::{
         errno::Errno,
         sys::signal::{self, SaFlags, SigAction, SigHandler, SigSet, Signal},
@@ -70,20 +68,12 @@ fn take_control(interactive: bool) {
                 let _ = unistd::tcsetpgrp(nix::libc::STDIN_FILENO, shell_pgid);
             }
             Err(Errno::ENOTTY) => {
-                if !interactive {
-                    // that's fine
-                    return;
-                }
                 eprintln!("ERROR: no TTY for interactive shell");
                 std::process::exit(1);
             }
             _ => {
                 // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
                 if signal::killpg(shell_pgid, Signal::SIGTTIN).is_err() {
-                    if !interactive {
-                        // that's fine
-                        return;
-                    }
                     eprintln!("ERROR: failed to SIGTTIN ourselves");
                     std::process::exit(1);
                 }
@@ -91,8 +81,6 @@ fn take_control(interactive: bool) {
         }
     }
 
-    if interactive {
-        eprintln!("ERROR: failed take control of the terminal, we might be orphaned");
-        std::process::exit(1);
-    }
+    eprintln!("ERROR: failed take control of the terminal, we might be orphaned");
+    std::process::exit(1);
 }
