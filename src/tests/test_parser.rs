@@ -623,3 +623,35 @@ fn def_with_input_output_broken_1() -> TestResult {
 fn def_with_input_output_broken_2() -> TestResult {
     fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
 }
+
+#[test]
+fn def_with_in_var_let_1() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#,
+        "4",
+    )
+}
+
+#[test]
+fn def_with_in_var_let_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_in_var_mut_1() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#,
+        "4",
+    )
+}
+
+#[test]
+fn def_with_in_var_mut_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#,
+        "3",
+    )
+}
