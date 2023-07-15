@@ -373,10 +373,36 @@ $env.config = {
     }
     {
       name: help_menu
-      modifier: control
-      keycode: char_h
+      modifier: none
+      keycode: f1
       mode: [emacs, vi_insert, vi_normal]
       event: { send: menu name: help_menu }
+    }
+    {
+      name: completion_previous_menu
+      modifier: shift
+      keycode: backtab
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: menuprevious }
+    }
+    {
+      name: next_page_menu
+      modifier: control
+      keycode: char_x
+      mode: emacs
+      event: { send: menupagenext }
+    }
+    {
+      name: undo_or_previous_page_menu
+      modifier: control
+      keycode: char_z
+      mode: emacs
+      event: {
+        until: [
+          { send: menupageprevious }
+          { edit: undo }
+        ]
+       }
     }
   ]
 }
