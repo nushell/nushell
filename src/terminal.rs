@@ -59,11 +59,12 @@ fn take_control(interactive: bool) {
         }
     }
 
+    let mut success = false;
     for _ in 0..4096 {
         match unistd::tcgetpgrp(nix::libc::STDIN_FILENO) {
             Ok(owner_pgid) if owner_pgid == shell_pgid => {
-                // success
-                return;
+                success = true;
+                break;
             }
             Ok(owner_pgid) if owner_pgid == Pid::from_raw(0) => {
                 // Zero basically means something like "not owned" and we can just take it
@@ -79,7 +80,7 @@ fn take_control(interactive: bool) {
             }
             _ => {
                 // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
-                if signal::killpg(shell_pgid, Signal::SIGTTIN).is_err() {
+                if signal::killpg(Pid::from_raw(-shell_pgid.as_raw()), Signal::SIGTTIN).is_err() {
                     if !interactive {
                         // that's fine
                         return;
@@ -90,8 +91,7 @@ fn take_control(interactive: bool) {
             }
         }
     }
-
-    if interactive {
+    if !success && interactive {
         eprintln!("ERROR: failed take control of the terminal, we might be orphaned");
         std::process::exit(1);
     }
