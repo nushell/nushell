@@ -38,14 +38,14 @@ impl ForegroundProcess {
         }
     }
 
-    pub fn spawn(&mut self) -> std::io::Result<ForegroundChild> {
+    pub fn spawn(&mut self, interactive: bool) -> std::io::Result<ForegroundChild> {
         let (ref pgrp, ref pcnt) = *self.pipeline_state;
         let existing_pgrp = pgrp.load(Ordering::SeqCst);
-        fg_process_setup::prepare_to_foreground(&mut self.inner, existing_pgrp);
+        fg_process_setup::prepare_to_foreground(&mut self.inner, existing_pgrp, interactive);
         self.inner
             .spawn()
             .map(|child| {
-                fg_process_setup::set_foreground(&child, existing_pgrp);
+                fg_process_setup::set_foreground(&child, existing_pgrp, interactive);
                 let _ = pcnt.fetch_add(1, Ordering::SeqCst);
                 if existing_pgrp == 0 {
                     pgrp.store(child.id(), Ordering::SeqCst);
@@ -101,8 +101,10 @@ mod fg_process_setup {
     pub(super) fn prepare_to_foreground(
         external_command: &mut std::process::Command,
         existing_pgrp: u32,
+        interactive: bool,
     ) {
         let tty = TtyHandle(unistd::dup(nix::libc::STDIN_FILENO).expect("dup"));
+        let interactive = std::io::stdin().is_terminal() && interactive;
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -124,7 +126,9 @@ mod fg_process_setup {
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
                 // This has to be done *both* in the parent and here in the child due to race conditions.
-                set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
+                if interactive {
+                    set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
+                }
 
                 // Now let the child process have all the signals by resetting with SIG_SETMASK.
                 let mut sigset = signal::SigSet::empty();
@@ -137,9 +141,13 @@ mod fg_process_setup {
         }
     }
 
-    pub(super) fn set_foreground(process: &std::process::Child, existing_pgrp: u32) {
+    pub(super) fn set_foreground(
+        process: &std::process::Child,
+        existing_pgrp: u32,
+        interactive: bool,
+    ) {
         // called from the parent shell process - do the stdin tty check here
-        if std::io::stdin().is_terminal() {
+        if std::io::stdin().is_terminal() && interactive {
             set_foreground_pid(
                 Pid::from_raw(process.id() as i32),
                 existing_pgrp,

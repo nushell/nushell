@@ -213,7 +213,7 @@ impl ExternalCommand {
             // fails to be run as a normal executable:
             // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
             // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-            match fg_process.spawn() {
+            match fg_process.spawn(engine_state.is_interactive) {
                 Err(err) => {
                     // set the default value, maybe we'll override it later
                     child = Err(err);
@@ -286,7 +286,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = fg_process.spawn()
+            child = fg_process.spawn(engine_state.is_interactive)
         }
 
         match child {
