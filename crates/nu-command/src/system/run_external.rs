@@ -235,7 +235,7 @@ impl ExternalCommand {
                             cmd,
                             engine_state.pipeline_externals_state.clone(),
                         );
-                        child = cmd_process.spawn();
+                        child = cmd_process.spawn(engine_state.is_interactive);
                     } else {
                         #[cfg(feature = "which-support")]
                         {
@@ -269,7 +269,8 @@ impl ExternalCommand {
                                                     cmd,
                                                     engine_state.pipeline_externals_state.clone(),
                                                 );
-                                                child = cmd_process.spawn();
+                                                child =
+                                                    cmd_process.spawn(engine_state.is_interactive);
                                             }
                                         }
                                     }
