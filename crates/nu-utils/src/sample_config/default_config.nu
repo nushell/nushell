@@ -406,42 +406,42 @@ $env.config = {
     }
 
     {
-      name: common_control_binding
+      name: escape
       modifier: none
       keycode: escape
       mode: [emacs, vi_normal, vi_insert]
       event: { send: esc }  # NOTE: does not appear to work
     }
     {
-      name: common_control_binding
+      name: cancel_command
       modifier: control
       keycode: char_c
       mode: [emacs, vi_normal, vi_insert]
       event: { send: ctrlc }
     }
     {
-      name: common_control_binding
+      name: quit_shell
       modifier: control
       keycode: char_d
       mode: [emacs, vi_normal, vi_insert]
       event: { send: ctrld }
     }
     {
-      name: common_control_binding
+      name: clear_screen
       modifier: control
       keycode: char_l
       mode: [emacs, vi_normal, vi_insert]
       event: { send: clearscreen }
     }
     {
-      name: common_control_binding
+      name: search_history
       modifier: control
       keycode: char_r
       mode: [emacs, vi_normal, vi_insert]
       event: { send: searchhistory }
     }
     {
-      name: common_control_binding
+      name: open_command_editor
       modifier: control
       keycode: char_o
       mode: [emacs, vi_normal, vi_insert]
@@ -449,7 +449,7 @@ $env.config = {
     }
 
     {
-      name: common_navigation_binding
+      name: move_up
       modifier: none
       keycode: up
       mode: [emacs, vi_normal, vi_insert]
@@ -461,7 +461,7 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_down
       modifier: none
       keycode: down
       mode: [emacs, vi_normal, vi_insert]
@@ -473,7 +473,7 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_left
       modifier: none
       keycode: left
       mode: [emacs, vi_normal, vi_insert]
@@ -485,7 +485,7 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_right_or_take_history_hint
       modifier: none
       keycode: right
       mode: [emacs, vi_normal, vi_insert]
@@ -498,14 +498,14 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_one_word_left
       modifier: control
       keycode: left
       mode: [emacs, vi_normal, vi_insert]
       event: {edit: movewordleft}
     }
     {
-      name: common_navigation_binding
+      name: move_one_word_right_or_take_history_hint
       modifier: control
       keycode: right
       mode: [emacs, vi_normal, vi_insert]
@@ -517,21 +517,21 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_to_line_start
       modifier: none
       keycode: home
       mode: [emacs, vi_normal, vi_insert]
       event: {edit: movetolinestart}
     }
     {
-      name: common_navigation_binding
+      name: move_to_line_start
       modifier: control
       keycode: char_a
       mode: [emacs, vi_normal, vi_insert]
       event: {edit: movetolinestart}
     }
     {
-      name: common_navigation_binding
+      name: move_to_line_end_or_take_history_hint
       modifier: none
       keycode: end
       mode: [emacs, vi_normal, vi_insert]
@@ -543,7 +543,7 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_to_line_end_or_take_history_hint
       modifier: control
       keycode: char_e
       mode: [emacs, vi_normal, vi_insert]
@@ -555,21 +555,21 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_to_line_start
       modifier: control
       keycode: home
       mode: [emacs, vi_normal, vi_insert]
       event: {edit: movetolinestart}
     }
     {
-      name: common_navigation_binding
+      name: move_to_line_end
       modifier: control
       keycode: end
       mode: [emacs, vi_normal, vi_insert]
       event: {edit: movetolineend}
     }
     {
-      name: common_navigation_binding
+      name: move_up
       modifier: control
       keycode: char_p
       mode: [emacs, vi_normal, vi_insert]
@@ -581,7 +581,7 @@ $env.config = {
       }
     }
     {
-      name: common_navigation_binding
+      name: move_down
       modifier: control
       keycode: char_t
       mode: [emacs, vi_normal, vi_insert]
@@ -594,64 +594,65 @@ $env.config = {
     }
 
     {
-        name: edition_binding
+        name: delete_one_character_backward
         modifier: none
         keycode: backspace
         mode: [emacs, vi_insert]
         event: {edit: backspace}
     }
     {
-        name: edition_binding
+        name: delete_one_word_backward
         modifier: control
         keycode: backspace
         mode: [emacs, vi_insert]
         event: {edit: backspaceword}
     }
     {
-        name: edition_binding
+        name: delete_one_character_forward
         modifier: none
         keycode: delete
         mode: [emacs, vi_insert]
         event: {edit: delete}
     }
     {
-        name: edition_binding
+        name: delete_one_character_forward
         modifier: control
         keycode: delete
         mode: [emacs, vi_insert]
         event: {edit: delete}
     }
     {
-        name: edition_binding
+        name: delete_one_character_forward
         modifier: control
         keycode: char_h
         mode: [emacs, vi_insert]
         event: {edit: backspace}
     }
     {
-        name: edition_binding
+        name: delete_one_word_backward
         modifier: control
         keycode: char_w
         mode: [emacs, vi_insert]
         event: {edit: backspaceword}
     }
+
     {
-        name: edition_binding
+        name: move_left
         modifier: none
         keycode: backspace
         mode: vi_normal
         event: {edit: moveleft}
     }
+
     {
-        name: edition_binding
+        name: newline_or_run_command
         modifier: none
         keycode: enter
         mode: emacs
         event: {send: enter}
     }
-
     {
-        name: emacs_binding
+        name: move_left
         modifier: control
         keycode: char_b
         mode: emacs
@@ -663,7 +664,7 @@ $env.config = {
         }
     }
     {
-        name: emacs_binding
+        name: move_right_or_take_history_hint
         modifier: control
         keycode: char_f
         mode: emacs
@@ -676,63 +677,63 @@ $env.config = {
         }
     }
     {
-        name: emacs_binding
+        name: redo_change
         modifier: control
         keycode: char_g
         mode: emacs
         event: {edit: redo}
     }
     {
-        name: emacs_binding
+        name: undo_change
         modifier: control
         keycode: char_z
         mode: emacs
         event: {edit: undo}
     }
     {
-        name: emacs_binding
+        name: paste_before
         modifier: control
         keycode: char_y
         mode: emacs
         event: {edit: pastecutbufferbefore}
     }
     {
-        name: emacs_binding
+        name: cut_word_left
         modifier: control
         keycode: char_w
         mode: emacs
         event: {edit: cutwordleft}
     }
     {
-        name: emacs_binding
+        name: cut_line_to_end
         modifier: control
         keycode: char_k
         mode: emacs
         event: {edit: cuttoend}
     }
     {
-        name: emacs_binding
+        name: cut_line_from_start
         modifier: control
         keycode: char_u
         mode: emacs
         event: {edit: cutfromstart}
     }
     {
-        name: emacs_binding
+        name: swap_graphemes
         modifier: control
         keycode: char_t
         mode: emacs
         event: {edit: swapgraphemes}
     }
     {
-        name: emacs_binding
+        name: move_one_word_left
         modifier: alt
         keycode: left
         mode: emacs
         event: {edit: movewordleft}
     }
     {
-        name: emacs_binding
+        name: move_one_word_right_or_take_history_hint
         modifier: alt
         keycode: right
         mode: emacs
@@ -744,14 +745,14 @@ $env.config = {
         }
     }
     {
-        name: emacs_binding
+        name: move_one_word_left
         modifier: alt
         keycode: char_b
         mode: emacs
         event: {edit: movewordleft}
     }
     {
-        name: emacs_binding
+        name: move_one_word_right_or_take_history_hint
         modifier: alt
         keycode: char_f
         mode: emacs
@@ -763,49 +764,49 @@ $env.config = {
         }
     }
     {
-        name: emacs_binding
+        name: delete_one_word_forward
         modifier: alt
         keycode: delete
         mode: emacs
         event: {edit: deleteword}
     }
     {
-        name: emacs_binding
+        name: delete_one_word_backward
         modifier: alt
         keycode: backspace
         mode: emacs
         event: {edit: backspaceword}
     }
     {
-        name: emacs_binding
+        name: delete_one_word_backward
         modifier: alt
         keycode: char_m
         mode: emacs
         event: {edit: backspaceword}
     }
     {
-        name: emacs_binding
+        name: cut_word_to_right
         modifier: alt
         keycode: char_d
         mode: emacs
         event: {edit: cutwordright}
     }
     {
-        name: emacs_binding
+        name: upper_case_word
         modifier: alt
         keycode: char_u
         mode: emacs
         event: {edit: uppercaseword}
     }
     {
-        name: emacs_binding
+        name: lower_case_word
         modifier: alt
         keycode: char_l
         mode: emacs
         event: {edit: lowercaseword}
     }
     {
-        name: emacs_binding
+        name: capitalize_char
         modifier: alt
         keycode: char_c
         mode: emacs
