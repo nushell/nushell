@@ -22,3 +22,10 @@ fn return_works_in_script_without_def_main() {
 
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn return_with_type_annotation() {
+    let actual = nu!("def f [x: int]: any -> int { return (2 * $x) }; f 10");
+
+    assert_eq!(actual.out, "20");
+}
