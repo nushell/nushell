@@ -404,5 +404,412 @@ $env.config = {
         ]
        }
     }
+
+    {
+      name: common_control_binding
+      modifier: none
+      keycode: escape
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: esc }  # NOTE: does not appear to work
+    }
+    {
+      name: common_control_binding
+      modifier: control
+      keycode: char_c
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: ctrlc }
+    }
+    {
+      name: common_control_binding
+      modifier: control
+      keycode: char_d
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: ctrld }
+    }
+    {
+      name: common_control_binding
+      modifier: control
+      keycode: char_l
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: clearscreen }
+    }
+    {
+      name: common_control_binding
+      modifier: control
+      keycode: char_r
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: searchhistory }
+    }
+    {
+      name: common_control_binding
+      modifier: control
+      keycode: char_o
+      mode: [emacs, vi_normal, vi_insert]
+      event: { send: openeditor }
+    }
+
+    {
+      name: common_navigation_binding
+      modifier: none
+      keycode: up
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {send: menuup}
+          {send: up}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: none
+      keycode: down
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {send: menudown}
+          {send: down}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: none
+      keycode: left
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {send: menuleft}
+          {send: left}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: none
+      keycode: right
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+          {send: historyhintcomplete}
+          {send: menuright}
+          {send: right}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: left
+      mode: [emacs, vi_normal, vi_insert]
+      event: {edit: movewordleft}
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: right
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+            {send: historyhintwordcomplete}
+            {edit: movewordright}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: none
+      keycode: home
+      mode: [emacs, vi_normal, vi_insert]
+      event: {edit: movetolinestart}
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: char_a
+      mode: [emacs, vi_normal, vi_insert]
+      event: {edit: movetolinestart}
+    }
+    {
+      name: common_navigation_binding
+      modifier: none
+      keycode: end
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+            {send: historyhintcomplete}
+            {edit: movetolineend}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: char_e
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+            {send: historyhintcomplete}
+            {edit: movetolineend}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: home
+      mode: [emacs, vi_normal, vi_insert]
+      event: {edit: movetolinestart}
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: end
+      mode: [emacs, vi_normal, vi_insert]
+      event: {edit: movetolineend}
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: char_p
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+            {send: menuup}
+            {send: up}
+        ]
+      }
+    }
+    {
+      name: common_navigation_binding
+      modifier: control
+      keycode: char_t
+      mode: [emacs, vi_normal, vi_insert]
+      event: {
+        until: [
+            {send: menudown}
+            {send: down}
+        ]
+      }
+    }
+
+    {
+        name: edition_binding
+        modifier: none
+        keycode: backspace
+        mode: [emacs, vi_insert]
+        event: {edit: backspace}
+    }
+    {
+        name: edition_binding
+        modifier: control
+        keycode: backspace
+        mode: [emacs, vi_insert]
+        event: {edit: backspaceword}
+    }
+    {
+        name: edition_binding
+        modifier: none
+        keycode: delete
+        mode: [emacs, vi_insert]
+        event: {edit: delete}
+    }
+    {
+        name: edition_binding
+        modifier: control
+        keycode: delete
+        mode: [emacs, vi_insert]
+        event: {edit: delete}
+    }
+    {
+        name: edition_binding
+        modifier: control
+        keycode: char_h
+        mode: [emacs, vi_insert]
+        event: {edit: backspace}
+    }
+    {
+        name: edition_binding
+        modifier: control
+        keycode: char_w
+        mode: [emacs, vi_insert]
+        event: {edit: backspaceword}
+    }
+    {
+        name: edition_binding
+        modifier: none
+        keycode: backspace
+        mode: vi_normal
+        event: {edit: moveleft}
+    }
+    {
+        name: edition_binding
+        modifier: none
+        keycode: enter
+        mode: emacs
+        event: {send: enter}
+    }
+
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_b
+        mode: emacs
+        event: {
+            until: [
+                {send: menuleft}
+                {send: left}
+            ]
+        }
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_f
+        mode: emacs
+        event: {
+            until: [
+                {send: historyhintcomplete}
+                {send: menuright}
+                {send: right}
+            ]
+        }
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_g
+        mode: emacs
+        event: {edit: redo}
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_z
+        mode: emacs
+        event: {edit: undo}
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_y
+        mode: emacs
+        event: {edit: pastecutbufferbefore}
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_w
+        mode: emacs
+        event: {edit: cutwordleft}
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_k
+        mode: emacs
+        event: {edit: cuttoend}
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_u
+        mode: emacs
+        event: {edit: cutfromstart}
+    }
+    {
+        name: emacs_binding
+        modifier: control
+        keycode: char_t
+        mode: emacs
+        event: {edit: swapgraphemes}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: left
+        mode: emacs
+        event: {edit: movewordleft}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: right
+        mode: emacs
+        event: {
+            until: [
+                {send: historyhintwordcomplete}
+                {send: movewordright}
+            ]
+        }
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_b
+        mode: emacs
+        event: {edit: movewordleft}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_f
+        mode: emacs
+        event: {
+            until: [
+                {send: historyhintwordcomplete}
+                {send: movewordright}
+            ]
+        }
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: delete
+        mode: emacs
+        event: {edit: deleteword}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: backspace
+        mode: emacs
+        event: {edit: backspaceword}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_m
+        mode: emacs
+        event: {edit: backspaceword}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_d
+        mode: emacs
+        event: {edit: cutwordright}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_u
+        mode: emacs
+        event: {edit: uppercaseword}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_l
+        mode: emacs
+        event: {edit: lowercaseword}
+    }
+    {
+        name: emacs_binding
+        modifier: alt
+        keycode: char_c
+        mode: emacs
+        event: {edit: capitalizechar}
+    }
   ]
 }
