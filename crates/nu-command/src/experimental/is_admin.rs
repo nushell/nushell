@@ -61,18 +61,18 @@ fn is_root_impl() -> bool {
 #[cfg(windows)]
 fn is_root_impl() -> bool {
     use windows::Win32::{
-        Foundation::{CloseHandle, FALSE, INVALID_HANDLE_VALUE},
+        Foundation::{CloseHandle, HANDLE},
         Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY},
         System::Threading::{GetCurrentProcess, OpenProcessToken},
     };
 
-    let mut handle = INVALID_HANDLE_VALUE;
+    let mut handle = HANDLE::default();
     let mut elevated = false;
 
     unsafe {
         // Opens the access token associated with the current process.
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle) != FALSE {
-            let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle).as_bool() {
+            let mut elevation = TOKEN_ELEVATION::default();
             let mut size = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
 
             // Retrieves elevation token information about the access token associated with the current process.
@@ -82,13 +82,15 @@ fn is_root_impl() -> bool {
                 Some(&mut elevation as *mut TOKEN_ELEVATION as *mut _),
                 size,
                 &mut size,
-            ) != FALSE
+            )
+            .as_bool()
             {
+                // Whether the token has elevated privileges.
                 elevated = elevation.TokenIsElevated != 0;
             }
         }
 
-        if handle != INVALID_HANDLE_VALUE {
+        if !handle.is_invalid() {
             // Closes the object handle.
             CloseHandle(handle);
         }
