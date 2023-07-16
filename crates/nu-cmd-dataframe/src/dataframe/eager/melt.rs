@@ -26,13 +26,13 @@ impl Command for MeltDF {
         Signature::build(self.name())
             .required_named(
                 "columns",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "column names for melting",
                 Some('c'),
             )
             .required_named(
                 "values",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "column names used as value columns",
                 Some('v'),
             )
@@ -48,8 +48,10 @@ impl Command for MeltDF {
                 "optional name for value column",
                 Some('l'),
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

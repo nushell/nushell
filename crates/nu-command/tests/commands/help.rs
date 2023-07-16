@@ -20,13 +20,11 @@ fn help_commands_length() {
 #[test]
 fn help_shows_signature() {
     let actual = nu!("help str distance");
-    assert!(actual
-        .out
-        .contains("<string> | str distance <string> -> <int>"));
+    assert!(actual.out.contains("Input/output types"));
 
     // don't show signature for parser keyword
     let actual = nu!("help alias");
-    assert!(!actual.out.contains("Signatures"));
+    assert!(!actual.out.contains("Input/output types"));
 }
 
 #[ignore = "TODO: Need to decide how to do help messages of new aliases"]

@@ -118,6 +118,10 @@ impl ConfigurationView {
 
         Some(&mut self.options[i].options[j])
     }
+
+    fn get_cursor_mut(&mut self) -> &mut WindowCursor {
+        self.peeked_cursor.as_mut().unwrap_or(&mut self.cursor)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -245,52 +249,40 @@ impl View for ConfigurationView {
                 }
             }
             KeyCode::Up => {
-                match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.prev(1),
-                    None => self.cursor.prev(1),
-                };
+                let cursor = self.get_cursor_mut();
+                cursor.prev(1);
 
-                if let Some((group, opt)) = self.peek_current() {
-                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
-                }
-
-                Some(Transition::Ok)
+                Some(transition_tweak_if(self))
             }
             KeyCode::Down => {
-                match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.next(1),
-                    None => self.cursor.next(1),
-                };
+                let cursor = self.get_cursor_mut();
+                cursor.next(1);
 
-                if let Some((group, opt)) = self.peek_current() {
-                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
-                }
-
-                Some(Transition::Ok)
+                Some(transition_tweak_if(self))
             }
             KeyCode::PageUp => {
-                match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.prev_window(),
-                    None => self.cursor.prev_window(),
-                };
+                let cursor = self.get_cursor_mut();
+                cursor.prev_window();
 
-                if let Some((group, opt)) = self.peek_current() {
-                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
-                }
-
-                Some(Transition::Ok)
+                Some(transition_tweak_if(self))
             }
             KeyCode::PageDown => {
-                match &mut self.peeked_cursor {
-                    Some(cursor) => cursor.next_window(),
-                    None => self.cursor.next_window(),
-                };
+                let cursor = self.get_cursor_mut();
+                cursor.next_window();
 
-                if let Some((group, opt)) = self.peek_current() {
-                    return Some(Transition::Cmd(build_tweak_cmd(group, opt)));
-                }
+                Some(transition_tweak_if(self))
+            }
+            KeyCode::Home => {
+                let cursor = self.get_cursor_mut();
+                cursor.prev(cursor.index());
 
-                Some(Transition::Ok)
+                Some(transition_tweak_if(self))
+            }
+            KeyCode::End => {
+                let cursor = self.get_cursor_mut();
+                cursor.next(cursor.cap());
+
+                Some(transition_tweak_if(self))
             }
             KeyCode::Enter => {
                 if self.peeked_cursor.is_some() {
@@ -299,7 +291,6 @@ impl View for ConfigurationView {
 
                 self.peeked_cursor = Some(WindowCursor::default());
                 let length = self.peek_current().expect("...").0.options.len();
-
                 self.peeked_cursor = WindowCursor::new(length, length);
 
                 let (group, opt) = self.peek_current().expect("...");
@@ -427,4 +418,10 @@ fn render_list(
 
         layout.push(&name, area.x, area.y, area.width, 1);
     }
+}
+
+fn transition_tweak_if(view: &ConfigurationView) -> Transition {
+    view.peek_current().map_or(Transition::Ok, |(group, opt)| {
+        Transition::Cmd(build_tweak_cmd(group, opt))
+    })
 }

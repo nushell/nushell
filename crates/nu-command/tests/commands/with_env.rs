@@ -70,7 +70,7 @@ fn with_env_hides_variables_in_parent_scope() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         r#"
-        let-env FOO = "1"
+        $env.FOO = "1"
         print $env.FOO
         with-env [FOO null] {
             echo $env.FOO
@@ -87,7 +87,7 @@ fn with_env_shorthand_can_not_hide_variables() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         r#"
-        let-env FOO = "1"
+        $env.FOO = "1"
         print $env.FOO
         FOO=null print $env.FOO
         print $env.FOO

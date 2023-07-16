@@ -54,7 +54,9 @@ fn in_and_if_else() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "65")
+    // `each while` is part of the *extra* feature and adds 3 lines
+    let expected_length = if cfg!(feature = "extra") { "70" } else { "67" };
+    run_test(r#"each --help | lines | length"#, expected_length)
 }
 
 #[test]
@@ -187,20 +189,20 @@ fn let_sees_in_variable2() -> TestResult {
 #[test]
 fn def_env() -> TestResult {
     run_test(
-        r#"def-env bob [] { let-env BAR = "BAZ" }; bob; $env.BAR"#,
+        r#"def-env bob [] { $env.BAR = "BAZ" }; bob; $env.BAR"#,
         "BAZ",
     )
 }
 
 #[test]
 fn not_def_env() -> TestResult {
-    fail_test(r#"def bob [] { let-env BAR = "BAZ" }; bob; $env.BAR"#, "")
+    fail_test(r#"def bob [] { $env.BAR = "BAZ" }; bob; $env.BAR"#, "")
 }
 
 #[test]
 fn def_env_hiding_something() -> TestResult {
     fail_test(
-        r#"let-env FOO = "foo"; def-env bob [] { hide-env FOO }; bob; $env.FOO"#,
+        r#"$env.FOO = "foo"; def-env bob [] { hide-env FOO }; bob; $env.FOO"#,
         "",
     )
 }
@@ -208,7 +210,7 @@ fn def_env_hiding_something() -> TestResult {
 #[test]
 fn def_env_then_hide() -> TestResult {
     fail_test(
-        r#"def-env bob [] { let-env BOB = "bob" }; def-env un-bob [] { hide-env BOB }; bob; un-bob; $env.BOB"#,
+        r#"def-env bob [] { $env.BOB = "bob" }; def-env un-bob [] { hide-env BOB }; bob; un-bob; $env.BOB"#,
         "",
     )
 }
@@ -216,14 +218,14 @@ fn def_env_then_hide() -> TestResult {
 #[test]
 fn export_def_env() -> TestResult {
     run_test(
-        r#"module foo { export def-env bob [] { let-env BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
+        r#"module foo { export def-env bob [] { $env.BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
         "BAZ",
     )
 }
 
 #[test]
-fn dynamic_let_env() -> TestResult {
-    run_test(r#"let x = "FOO"; let-env $x = "BAZ"; $env.FOO"#, "BAZ")
+fn dynamic_load_env() -> TestResult {
+    run_test(r#"let x = "FOO"; load-env {$x: "BAZ"}; $env.FOO"#, "BAZ")
 }
 
 #[test]

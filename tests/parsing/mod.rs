@@ -5,9 +5,9 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn source_file_relative_to_file() {
-    let actual = nu!(cwd: "tests/parsing/samples", r#"
+    let actual = nu!(cwd: "tests/parsing/samples", "
         nu source_file_relative.nu
-        "#);
+        ");
 
     assert_eq!(actual.out, "5");
 }
@@ -15,55 +15,55 @@ fn source_file_relative_to_file() {
 #[test]
 fn source_const_file() {
     let actual = nu!(cwd: "tests/parsing/samples",
-    r#"
+    "
         const file = 'single_line.nu'
         source $file
-    "#);
+    ");
 
     assert_eq!(actual.out, "5");
 }
 
 #[test]
 fn run_nu_script_single_line() {
-    let actual = nu!(cwd: "tests/parsing/samples", r#"
+    let actual = nu!(cwd: "tests/parsing/samples", "
         nu single_line.nu
-        "#);
+        ");
 
     assert_eq!(actual.out, "5");
 }
 
 #[test]
 fn run_nu_script_multiline_start_pipe() {
-    let actual = nu!(cwd: "tests/parsing/samples", r#"
+    let actual = nu!(cwd: "tests/parsing/samples", "
         nu multiline_start_pipe.nu
-        "#);
+        ");
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn run_nu_script_multiline_start_pipe_win() {
-    let actual = nu!(cwd: "tests/parsing/samples", r#"
+    let actual = nu!(cwd: "tests/parsing/samples", "
         nu multiline_start_pipe_win.nu
-        "#);
+        ");
 
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn run_nu_script_multiline_end_pipe() {
-    let actual = nu!(cwd: "tests/parsing/samples", r#"
+    let actual = nu!(cwd: "tests/parsing/samples", "
         nu multiline_end_pipe.nu
-        "#);
+        ");
 
     assert_eq!(actual.out, "2");
 }
 
 #[test]
 fn run_nu_script_multiline_end_pipe_win() {
-    let actual = nu!(cwd: "tests/parsing/samples", r#"
+    let actual = nu!(cwd: "tests/parsing/samples", "
         nu multiline_end_pipe_win.nu
-        "#);
+        ");
 
     assert_eq!(actual.out, "3");
 }
@@ -76,11 +76,11 @@ fn parse_file_relative_to_parsed_file_simple() {
             .mkdir("lol/lol")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol/lol.nu",
-                r#"
+                "
                     use ../lol_shell.nu
 
-                    let-env LOL = (lol_shell ls)
-                "#,
+                    $env.LOL = (lol_shell ls)
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol_shell.nu",
@@ -91,10 +91,10 @@ fn parse_file_relative_to_parsed_file_simple() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 source-env lol/lol/lol.nu;
                 $env.LOL
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "lol");
@@ -110,13 +110,13 @@ fn parse_file_relative_to_parsed_file() {
             .mkdir("lol/lol")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol/lol.nu",
-                r#"
+                "
                     source-env ../../foo.nu
                     use ../lol_shell.nu
                     overlay use ../../lol/lol_shell.nu
 
-                    let-env LOL = $'($env.FOO) (lol_shell ls) (ls)'
-                "#,
+                    $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol_shell.nu",
@@ -126,17 +126,17 @@ fn parse_file_relative_to_parsed_file() {
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
-                r#"
-                    let-env FOO = 'foo'
-                "#,
+                "
+                    $env.FOO = 'foo'
+                ",
             )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 source-env lol/lol/lol.nu;
                 $env.LOL
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "foo lol lol");
@@ -150,29 +150,29 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
             .mkdir("lol")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
-                r#"
+                "
                     source-env foo.nu
-                "#,
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/foo.nu",
-                r#"
-                    let-env FOO = 'good'
-                "#,
+                "
+                    $env.FOO = 'good'
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
-                r#"
-                    let-env FOO = 'bad'
-                "#,
+                "
+                    $env.FOO = 'bad'
+                ",
             )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 source-env lol/lol.nu;
                 $env.FOO
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "good");
@@ -186,22 +186,22 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
             .mkdir("lol")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
-                r#"
+                "
                     source-env foo.nu
-                "#,
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
-                r#"
-                    let-env FOO = 'bad'
-                "#,
+                "
+                    $env.FOO = 'bad'
+                ",
             )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 source-env lol/lol.nu
-            "#
+            "
         ));
 
         assert!(actual.err.contains("File not found"));
@@ -210,39 +210,35 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
 
 #[test]
 fn parse_export_env_in_module() {
-    let actual = nu!(cwd: "tests/parsing/samples",
-        r#"
+    let actual = nu!("
             module spam { export-env { } }
-        "#);
+        ");
 
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn parse_export_env_missing_block() {
-    let actual = nu!(cwd: "tests/parsing/samples",
-        r#"
+    let actual = nu!("
             module spam { export-env }
-        "#);
+        ");
 
     assert!(actual.err.contains("missing block"));
 }
 
 #[test]
 fn call_command_with_non_ascii_argument() {
-    let actual = nu!(cwd: "tests/parsing/samples",
-        r#"
+    let actual = nu!("
             def nu-arg [--umlaut(-ö): int] {}
             nu-arg -ö 42
-        "#);
+        ");
 
     assert_eq!(actual.err.len(), 0);
 }
 
 #[test]
 fn parse_long_duration() {
-    let actual = nu!(cwd: "tests/parsing/samples",
-        r#"
+    let actual = nu!(r#"
             "78.797877879789789sec" | into duration
         "#);
 

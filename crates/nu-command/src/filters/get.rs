@@ -34,6 +34,7 @@ If multiple cell paths are given, this will produce a list of values."#
                     Type::Any,
                 ),
                 (Type::Table(vec![]), Type::Any),
+                (Type::Record(vec![]), Type::Any),
             ])
             .required(
                 "cell_path",
@@ -51,6 +52,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 "get path in a case sensitive manner",
                 Some('s'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

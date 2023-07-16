@@ -72,7 +72,7 @@ impl Command for HideEnv {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Hide an environment variable",
-            example: r#"let-env HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
+            example: r#"$env.HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
             result: Some(Value::test_bool(false)),
         }]
     }

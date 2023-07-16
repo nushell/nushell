@@ -82,6 +82,7 @@ impl Drop for ForegroundChild {
 // Note: we exclude macos because the techniques below seem to have issues in macos 13 currently.
 #[cfg(all(target_family = "unix", not(target_os = "macos")))]
 mod fg_process_setup {
+    use is_terminal::IsTerminal;
     use nix::{
         sys::signal,
         unistd::{self, Pid},
@@ -138,7 +139,7 @@ mod fg_process_setup {
 
     pub(super) fn set_foreground(process: &std::process::Child, existing_pgrp: u32) {
         // called from the parent shell process - do the stdin tty check here
-        if atty::is(atty::Stream::Stdin) {
+        if std::io::stdin().is_terminal() {
             set_foreground_pid(
                 Pid::from_raw(process.id() as i32),
                 existing_pgrp,
@@ -163,7 +164,7 @@ mod fg_process_setup {
 
     /// Reset the foreground process group to the shell
     pub(super) fn reset_foreground_id() {
-        if atty::is(atty::Stream::Stdin) {
+        if std::io::stdin().is_terminal() {
             if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
                 println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
             }

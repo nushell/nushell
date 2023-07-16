@@ -30,7 +30,10 @@ impl Command for BytesReplace {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes replace")
-            .input_output_types(vec![(Type::Binary, Type::Binary)])
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .required("find", SyntaxShape::Binary, "the pattern to find")
             .required("replace", SyntaxShape::Binary, "the replacement pattern")
             .rest(

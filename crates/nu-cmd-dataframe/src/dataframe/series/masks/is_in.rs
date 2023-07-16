@@ -23,8 +23,10 @@ impl Command for IsIn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "right series")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

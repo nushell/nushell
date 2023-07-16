@@ -31,7 +31,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         nu.within("lib/my_library").with_files(vec![FileWithContent(
             "main.nu",
             r#"
-                let-env hello = "hello nu"
+                $env.hello = "hello nu"
             "#,
         )]);
 
@@ -163,7 +163,7 @@ fn source_env_eval_export_env() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                export-env { let-env FOO = 'foo' }
+                export-env { $env.FOO = 'foo' }
             "#,
         )]);
 
@@ -186,7 +186,7 @@ fn source_env_eval_export_env_hide() {
         )]);
 
         let inp = &[
-            r#"let-env FOO = 'foo'"#,
+            r#"$env.FOO = 'foo'"#,
             r#"source-env spam.nu"#,
             r#"$env.FOO"#,
         ];
@@ -299,7 +299,7 @@ fn source_env_const_file() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                let-env FOO = 'foo'
+                $env.FOO = 'foo'
             "#,
         )]);
 

@@ -22,9 +22,10 @@ pub use table::try_build_table;
 pub use value::{collect_input, collect_pipeline, create_map, map_into_value, nu_str};
 
 pub fn has_simple_value(data: &[Vec<Value>]) -> Option<&Value> {
-    let has_single_value = data.len() == 1 && data[0].len() == 1;
-    let is_complex_type = matches!(&data[0][0], Value::List { .. } | Value::Record { .. });
-    if has_single_value && !is_complex_type {
+    if data.len() == 1
+        && data[0].len() == 1
+        && !matches!(&data[0][0], Value::List { .. } | Value::Record { .. })
+    {
         Some(&data[0][0])
     } else {
         None

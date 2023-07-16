@@ -25,8 +25,7 @@ impl Command for ExprLit {
                 SyntaxShape::Any,
                 "literal to construct the expression",
             )
-            .input_type(Type::Any)
-            .output_type(Type::Custom("expression".into()))
+            .input_output_type(Type::Any, Type::Custom("expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

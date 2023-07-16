@@ -54,5 +54,5 @@ fn condition_is_met() {
 fn fail_on_non_iterator() {
     let actual = nu!(cwd: ".", pipeline("1 | skip until {|row| $row == 2}"));
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }

@@ -42,47 +42,57 @@ def "assert message short" [
     assert str contains $output "test message"
 }
 
-def test_critical [] {
+#[test]
+def critical [] {
     assert no message 99 critical
     assert message CRITICAL critical CRT
 }
 
-def test_critical_short [] {
+#[test]
+def critical_short [] {
     assert message short CRITICAL critical C
 }
 
-def test_error [] {
+#[test]
+def error [] {
     assert no message CRITICAL error
     assert message ERROR error ERR
 }
 
-def test_error_short [] {
+#[test]
+def error_short [] {
     assert message short ERROR error E
 }
 
-def test_warning [] {
+#[test]
+def warning [] {
     assert no message ERROR warning
     assert message WARNING warning WRN
 }
 
-def test_warning_short [] {
+#[test]
+def warning_short [] {
     assert message short WARNING warning W
 }
 
-def test_info [] {
+#[test]
+def info [] {
     assert no message WARNING info
     assert message INFO info "INF" # INF has to be quoted, otherwise it is the `inf` float
 }
 
-def test_info_short [] {
+#[test]
+def info_short [] {
     assert message short INFO info I
 }
 
-def test_debug [] {
+#[test]
+def debug [] {
     assert no message INFO debug
     assert message DEBUG debug DBG
 }
 
-def test_debug_short [] {
+#[test]
+def debug_short [] {
     assert message short DEBUG debug D
 }

@@ -164,7 +164,7 @@ def build-module-page [module: record] {
 #     >     export def baz [] { "foo::baz" }
 #     >
 #     >     export-env {
-#     >         let-env FOO = "foo::FOO"
+#     >         $env.FOO = "foo::FOO"
 #     >     }
 #     > }
 #     >
@@ -174,7 +174,7 @@ def build-module-page [module: record] {
 #     >     export def baz [] { "bar::baz" }
 #     >
 #     >     export-env {
-#     >         let-env BAR = "bar::BAR"
+#     >         $env.BAR = "bar::BAR"
 #     >     }
 #     > }
 #     >
@@ -184,7 +184,7 @@ def build-module-page [module: record] {
 #     >     export def bar [] { "baz::bar" }
 #     >
 #     >     export-env {
-#     >         let-env BAZ = "baz::BAZ"
+#     >         $env.BAZ = "baz::BAZ"
 #     >     }
 #     > }
 #     > ```
@@ -223,7 +223,7 @@ def build-module-page [module: record] {
 #
 #     This module exports environment.
 #     {
-#             let-env FOO = "foo::FOO"
+#             $env.FOO = "foo::FOO"
 #         }
 #
 #     search for a module that does not exist

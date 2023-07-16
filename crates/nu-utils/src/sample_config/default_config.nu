@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = 0.81.1
+# version = 0.82.1
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -183,7 +183,7 @@ let light_theme = {
 
 
 # The default config record. This is where much of your global configuration is setup.
-let-env config = {
+$env.config = {
   # true or false to enable or disable the welcome banner at startup
   show_banner: true
   ls: {
@@ -307,7 +307,7 @@ let-env config = {
   use_ansi_coloring: true
   bracketed_paste: true # enable bracketed paste, currently useless on windows
   edit_mode: emacs # emacs, vi
-  shell_integration: true # enables terminal markers and a workaround to arrow keys stop working issue
+  shell_integration: false # enables terminal shell integration. Off by default, as some terminals have issues with this.
   render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
 
   hooks: {

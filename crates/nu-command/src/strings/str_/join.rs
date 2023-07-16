@@ -16,12 +16,16 @@ impl Command for StrJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("str join")
-            .input_output_types(vec![(Type::List(Box::new(Type::String)), Type::String)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::String),
+                (Type::String, Type::String),
+            ])
             .optional(
                 "separator",
                 SyntaxShape::String,
                 "optional separator to use when creating string",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 

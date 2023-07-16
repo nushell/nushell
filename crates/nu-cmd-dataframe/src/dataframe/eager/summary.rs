@@ -29,11 +29,13 @@ impl Command for Summary {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Custom("dataframe".into()))
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .named(
                 "quantiles",
-                SyntaxShape::Table,
+                SyntaxShape::Table(vec![]),
                 "provide optional quantiles",
                 Some('q'),
             )

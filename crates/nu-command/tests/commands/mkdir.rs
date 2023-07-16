@@ -70,7 +70,6 @@ fn print_created_paths() {
          pipeline(
              r#"
                  mkdir -v dir_1 dir_2 dir_3
-                 | length
              "#
         ));
 

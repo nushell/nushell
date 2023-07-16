@@ -12,8 +12,7 @@ mod pipeline;
 #[ignore]
 #[test]
 fn plugins_are_declared_with_wix() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             open Cargo.toml
             | get bin.name
@@ -68,14 +67,14 @@ fn nu_lib_dirs_repl() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source-env foo.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
+            "source-env foo.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -93,20 +92,20 @@ fn nu_lib_dirs_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     source-env foo.nu
-                "#,
+                ",
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source-env main.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
+            "source-env main.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -124,14 +123,14 @@ fn nu_lib_dirs_relative_repl() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source-env foo.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ 'scripts' ]",
+            "source-env foo.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -150,16 +149,16 @@ fn const_nu_lib_dirs_relative() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     const NU_LIB_DIRS = [ 'scripts' ]
                     source-env foo.nu
                     $env.FOO
-                "#,
+                ",
             )]);
 
         let outcome = nu!(cwd: dirs.test(), "source main.nu");
@@ -176,21 +175,21 @@ fn nu_lib_dirs_relative_script() {
             .mkdir("scripts")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/main.nu",
-                r#"
+                "
                     source-env ../foo.nu
-                "#,
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source-env scripts/main.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ 'scripts' ]",
+            "source-env scripts/main.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -204,12 +203,12 @@ fn nu_lib_dirs_relative_script() {
 fn run_script_that_looks_like_module() {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
         let inp_lines = &[
-            r#"module spam { export def eggs [] { 'eggs' } }"#,
-            r#"export use spam eggs"#,
-            r#"export def foo [] { eggs }"#,
-            r#"export alias bar = foo"#,
-            r#"export def-env baz [] { bar }"#,
-            r#"baz"#,
+            "module spam { export def eggs [] { 'eggs' } }",
+            "export use spam eggs",
+            "export def foo [] { eggs }",
+            "export alias bar = foo",
+            "export def-env baz [] { bar }",
+            "baz",
         ];
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
@@ -221,7 +220,7 @@ fn run_script_that_looks_like_module() {
 #[test]
 fn run_export_extern() {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
-        let inp_lines = &[r#"export extern foo []"#, r#"help foo"#];
+        let inp_lines = &["export extern foo []", "help foo"];
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
 

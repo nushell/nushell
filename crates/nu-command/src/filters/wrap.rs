@@ -23,8 +23,10 @@ impl Command for Wrap {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
                 (Type::Range, Type::Table(vec![])),
+                (Type::Any, Type::Record(vec![])),
             ])
             .required("name", SyntaxShape::String, "the name of the column")
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

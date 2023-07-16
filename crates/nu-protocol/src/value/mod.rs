@@ -11,8 +11,9 @@ use crate::ast::{Math, Operator};
 use crate::engine::EngineState;
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+
 use byte_unit::ByteUnit;
-use chrono::{DateTime, Duration, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
 use fancy_regex::Regex;
@@ -536,10 +537,19 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
             Value::Duration { val, .. } => format_duration(*val),
+
             Value::Date { val, .. } => match &config.datetime_normal_format {
                 Some(format) => self.format_datetime(val, format),
                 None => {
-                    format!("{} ({})", val.to_rfc2822(), HumanTime::from(*val))
+                    format!(
+                        "{} ({})",
+                        if val.year() >= 0 {
+                            val.to_rfc2822()
+                        } else {
+                            val.to_rfc3339()
+                        },
+                        HumanTime::from(*val),
+                    )
                 }
             },
             Value::Range { val, .. } => {
@@ -1726,6 +1736,15 @@ impl Value {
             cols: cols.into_iter().map(|s| s.into()).collect(),
             vals,
 
+            span: Span::test_data(),
+        }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_list(vals: Vec<Value>) -> Value {
+        Value::List {
+            vals,
             span: Span::test_data(),
         }
     }
@@ -3887,6 +3906,46 @@ mod tests {
                 list_of_ints_and_floats.get_type(),
                 Type::List(Box::new(Type::Number))
             );
+        }
+    }
+
+    mod into_string {
+        use chrono::{DateTime, FixedOffset, NaiveDateTime};
+
+        use super::*;
+
+        #[test]
+        fn test_datetime() {
+            let string = Value::Date {
+                val: DateTime::from_utc(
+                    NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
+                    FixedOffset::east_opt(0).unwrap(),
+                ),
+                span: Span::unknown(),
+            }
+            .into_string("", &Default::default());
+
+            // We need to cut the humanized part off for tests to work, because
+            // it is relative to current time.
+            let formatted = string.split('(').next().unwrap();
+            assert_eq!("Tue, 30 Dec 1969 13:42:23 +0000 ", formatted);
+        }
+
+        #[test]
+        fn test_negative_year_datetime() {
+            let string = Value::Date {
+                val: DateTime::from_utc(
+                    NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
+                    FixedOffset::east_opt(0).unwrap(),
+                ),
+                span: Span::unknown(),
+            }
+            .into_string("", &Default::default());
+
+            // We need to cut the humanized part off for tests to work, because
+            // it is relative to current time.
+            let formatted = string.split(' ').next().unwrap();
+            assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
         }
     }
 }

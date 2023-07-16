@@ -34,8 +34,10 @@ impl Command for Replace {
                 "replacing string",
                 Some('r'),
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

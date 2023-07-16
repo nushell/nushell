@@ -1,5 +1,5 @@
 use super::Pipeline;
-use crate::{Signature, Span, VarId};
+use crate::{ast::PipelineElement, Signature, Span, Type, VarId};
 use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
@@ -63,6 +63,25 @@ impl Block {
             redirect_env: false,
             span: None,
             recursive: None,
+        }
+    }
+
+    pub fn output_type(&self) -> Type {
+        if let Some(last) = self.pipelines.last() {
+            if let Some(last) = last.elements.last() {
+                match last {
+                    PipelineElement::Expression(_, expr) => expr.ty.clone(),
+                    PipelineElement::Redirection(_, _, _) => Type::Any,
+                    PipelineElement::SeparateRedirection { .. } => Type::Any,
+                    PipelineElement::SameTargetRedirection { .. } => Type::Any,
+                    PipelineElement::And(_, expr) => expr.ty.clone(),
+                    PipelineElement::Or(_, expr) => expr.ty.clone(),
+                }
+            } else {
+                Type::Nothing
+            }
+        } else {
+            Type::Nothing
         }
     }
 }

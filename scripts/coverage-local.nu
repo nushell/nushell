@@ -45,7 +45,7 @@ let start = (date now)
 # Some of the internal tests rely on the exact cargo profile
 # (This is somewhat criminal itself)
 # but we have to signal to the tests that we use the `ci` `--profile`
-let-env NUSHELL_CARGO_TARGET = "ci"
+$env.NUSHELL_CARGO_TARGET = "ci"
 
 # Manual gathering of coverage to catch invocation of the `nu` binary.
 # This is relevant for tests using the `nu!` macro from `nu-test-support`
