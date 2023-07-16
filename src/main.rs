@@ -143,7 +143,10 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // keep this condition in sync with the branches below
-    acquire_terminal(parsed_nu_cli_args.commands.is_none() && script_name.is_empty());
+    acquire_terminal(
+        engine_state.is_interactive
+            || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty()),
+    );
     perf(
         "acquire_terminal",
         start_time,
