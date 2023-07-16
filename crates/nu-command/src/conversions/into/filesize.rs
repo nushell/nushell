@@ -21,6 +21,7 @@ impl Command for SubCommand {
                 (Type::Number, Type::Filesize),
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .rest(
                 "rest",
