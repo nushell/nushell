@@ -119,6 +119,7 @@ fn const_command_unsupported() {
     let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("not_a_const_command"));
+}
 
 #[test]
 fn const_in_scope() {
