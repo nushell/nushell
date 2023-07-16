@@ -13,9 +13,6 @@ let test_lines = [
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'"
 ]
 
-def make-error [] {
-}
-
 def main [] {
     let orig_python_interpreter = (python -c 'import sys; print(sys.executable)')
 
