@@ -1,7 +1,11 @@
 #[cfg(unix)]
 pub(crate) fn acquire_terminal(interactive: bool) {
     use is_terminal::IsTerminal;
-    use nix::sys::signal::{signal, SigHandler, Signal};
+    use nix::{
+        errno::Errno,
+        sys::signal::{signal, SigHandler, Signal},
+        unistd,
+    };
 
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
@@ -14,6 +18,21 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
         }
+
+        // Put ourselves in our own process group and take control of terminal, if not already
+        let shell_pgid = unistd::getpid();
+        match unistd::setpgid(shell_pgid, shell_pgid) {
+            // setpgid returns EPERM if we are the session leader (e.g., as a login shell).
+            // The other cases that return EPERM cannot happen, since we gave our own pid.
+            // See: setpgid(2)
+            // Therefore, it is safe to ignore EPERM.
+            Ok(()) | Err(Errno::EPERM) => (),
+            Err(_) => {
+                eprintln!("ERROR: failed to put nushell in its own process group");
+                std::process::exit(1);
+            }
+        }
+        let _ = unistd::tcsetpgrp(nix::libc::STDIN_FILENO, shell_pgid);
     }
 }
 
