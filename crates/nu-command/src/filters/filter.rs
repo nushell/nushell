@@ -32,6 +32,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Range, Type::List(Box::new(Type::Any))),
             ])
             .required(
                 "closure",
@@ -221,6 +222,14 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         vals: vec![Value::test_int(2)],
                         span: Span::test_data(),
                     }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Filter items of a range according to a condition",
+                example: "9..13 | filter {|el| $el mod 2 != 0}",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(9), Value::test_int(11), Value::test_int(13)],
                     span: Span::test_data(),
                 }),
             },
