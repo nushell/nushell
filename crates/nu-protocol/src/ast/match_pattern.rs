@@ -1,12 +1,11 @@
-use serde::{Deserialize, Serialize};
-
-use crate::{Span, VarId};
-
 use super::Expression;
+use crate::{Span, VarId};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
+    pub guard: Option<Expression>,
     pub span: Span,
 }
 

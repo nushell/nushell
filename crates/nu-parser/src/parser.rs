@@ -4270,8 +4270,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             break;
         }
 
-        // Multiple patterns connected by '|'
         let mut connector = working_set.get_span_contents(output[position].span);
+
+        // Multiple patterns connected by '|'
         if connector == b"|" && position < output.len() {
             let mut or_pattern = vec![pattern];
 
@@ -4322,10 +4323,56 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
             pattern = MatchPattern {
                 pattern: Pattern::Or(or_pattern),
+                guard: None,
                 span: Span::new(start, end),
             }
-        }
+        // A match guard
+        } else if connector == b"if" {
+            let if_end = {
+                let end = output[position].span.end;
+                Span::new(end, end)
+            };
 
+            position += 1;
+
+            let mk_err = || ParseError::LabeledErrorWithHelp {
+                error: "Match guard without an expression".into(),
+                label: "expected an expression".into(),
+                help: "The `if` keyword must be followed with an expression".into(),
+                span: if_end,
+            };
+
+            if output.get(position).is_none() {
+                working_set.error(mk_err());
+                return garbage(span);
+            };
+
+            let (tokens, found) = if let Some((pos, _)) = output[position..]
+                .iter()
+                .find_position(|t| working_set.get_span_contents(t.span) == b"=>")
+            {
+                if position + pos == position {
+                    working_set.error(mk_err());
+                    return garbage(span);
+                }
+
+                (&output[position..position + pos], true)
+            } else {
+                (&output[position..], false)
+            };
+
+            let mut start = 0;
+            let guard = parse_multispan_value(
+                working_set,
+                &tokens.iter().map(|tok| tok.span).collect_vec(),
+                &mut start,
+                &SyntaxShape::MathExpression,
+            );
+
+            pattern.guard = Some(guard);
+            position += if found { start + 1 } else { start };
+            connector = working_set.get_span_contents(output[position].span);
+        }
         // Then the `=>` arrow
         if connector != b"=>" {
             working_set.error(ParseError::Mismatch(
