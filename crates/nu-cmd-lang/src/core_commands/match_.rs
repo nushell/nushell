@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, eval_expression_with_input, CallExt};
+use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Matcher, Stack};
 use nu_protocol::{
@@ -52,26 +52,38 @@ impl Command for Match {
                         stack.add_var(match_variable.0, match_variable.1);
                     }
 
-                    if let Some(block_id) = match_.1.as_block() {
-                        let block = engine_state.get_block(block_id);
-                        return eval_block(
-                            engine_state,
-                            stack,
-                            block,
-                            input,
-                            call.redirect_stdout,
-                            call.redirect_stderr,
-                        );
+                    let guard_matches = if let Some(guard) = &match_.0.guard {
+                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)? else {
+                            return Err(ShellError::MatchGuardNotBool { span: guard.span});
+                        };
+
+                        val
                     } else {
-                        return eval_expression_with_input(
-                            engine_state,
-                            stack,
-                            &match_.1,
-                            input,
-                            call.redirect_stdout,
-                            call.redirect_stderr,
-                        )
-                        .map(|x| x.0);
+                        true
+                    };
+
+                    if guard_matches {
+                        return if let Some(block_id) = match_.1.as_block() {
+                            let block = engine_state.get_block(block_id);
+                            eval_block(
+                                engine_state,
+                                stack,
+                                block,
+                                input,
+                                call.redirect_stdout,
+                                call.redirect_stderr,
+                            )
+                        } else {
+                            eval_expression_with_input(
+                                engine_state,
+                                stack,
+                                &match_.1,
+                                input,
+                                call.redirect_stdout,
+                                call.redirect_stderr,
+                            )
+                            .map(|x| x.0)
+                        };
                     }
                 }
             }
@@ -106,6 +118,16 @@ impl Command for Match {
                 description: "Match against pipeline input",
                 example: "{a: {b: 3}} | match $in {{a: { $b }} => ($b + 10) }",
                 result: Some(Value::test_int(13)),
+            },
+            Example {
+                description: "Match with a guard",
+                example: "
+                    match [1 2 3] {
+                        [$x, ..$y] if $x == 1 => { 'good list' },
+                        _ => { 'not a very good list' }
+                    }
+                    ",
+                result: Some(Value::test_string("good list")),
             },
         ]
     }
