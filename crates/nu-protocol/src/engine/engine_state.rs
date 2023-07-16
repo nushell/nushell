@@ -1086,6 +1086,10 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn permanent(&self) -> &EngineState {
+        self.permanent_state
+    }
+
     pub fn error(&mut self, parse_error: ParseError) {
         self.parse_errors.push(parse_error)
     }

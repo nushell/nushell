@@ -1,6 +1,7 @@
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, Stack},
+    engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::eval_constant,
     FromValue, ShellError,
 };
 
@@ -18,6 +19,12 @@ pub trait CallExt {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<T>, ShellError>;
+
+    fn rest_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError>;
 
@@ -68,6 +75,21 @@ impl CallExt for Call {
 
         for expr in self.positional_iter().skip(starting_pos) {
             let result = eval_expression(engine_state, stack, expr)?;
+            output.push(FromValue::from_value(&result)?);
+        }
+
+        Ok(output)
+    }
+
+    fn rest_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        starting_pos: usize,
+    ) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+
+        for expr in self.positional_iter().skip(starting_pos) {
+            let result = eval_constant(working_set, expr)?;
             output.push(FromValue::from_value(&result)?);
         }
 

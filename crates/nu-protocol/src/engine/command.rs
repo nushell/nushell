@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
-use super::{EngineState, Stack};
+use super::{EngineState, Stack, StateWorkingSet};
 
 #[derive(Debug)]
 pub enum CommandType {
@@ -33,6 +33,19 @@ pub trait Command: Send + Sync + CommandClone {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError>;
+
+    /// Used by the parser to run command at parse time
+    ///
+    /// If a command has `is_const()` set to true, it must also implement this method.
+    #[allow(unused_variables)]
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Err(ShellError::MissingConstEvalImpl { span: call.head })
+    }
 
     fn examples(&self) -> Vec<Example> {
         Vec::new()
