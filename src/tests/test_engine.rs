@@ -353,10 +353,7 @@ fn default_value_constant2() -> TestResult {
 
 #[test]
 fn default_value_constant3() -> TestResult {
-    fail_test(
-        r#"def foo [x = ("foo" | str length)] { $x }; foo"#,
-        "expected a constant",
-    )
+    run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
 }
 
 #[test]
