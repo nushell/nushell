@@ -64,31 +64,31 @@ impl Command for SubCommand {
                             vals: vec![
                                 Value::String {
                                     val: "/dev/sda1".to_string(),
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                                 Value::Filesize {
                                     val: 200,
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                             ],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
                                 Value::String {
                                     val: "/dev/sda2".to_string(),
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                                 Value::Filesize {
                                     val: 50,
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                             ],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
