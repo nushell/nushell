@@ -26,8 +26,10 @@ impl Command for ToLazyGroupBy {
                 SyntaxShape::Any,
                 "Expression(s) that define the lazy group-by",
             )
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("lazyframe".into()))
     }
 

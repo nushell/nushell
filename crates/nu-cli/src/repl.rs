@@ -6,11 +6,12 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
+use is_terminal::IsTerminal;
 use log::{trace, warn};
-use miette::{IntoDiagnostic, Result};
+use miette::{ErrReport, IntoDiagnostic, Result};
+use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_color_config::StyleComputer;
 use nu_command::hook::eval_hook;
-use nu_command::util::get_guaranteed_cwd;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -20,9 +21,13 @@ use nu_protocol::{
     Value,
 };
 use nu_utils::utils::perf;
-use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
+use reedline::{
+    CursorConfig, DefaultHinter, EditCommand, Emacs, FileBackedHistory, HistorySessionId, Reedline,
+    SqliteBackedHistory, Vi,
+};
 use std::{
     io::{self, Write},
+    path::Path,
     sync::atomic::Ordering,
     time::Instant,
 };
@@ -47,12 +52,12 @@ pub fn evaluate_repl(
     entire_start_time: Instant,
 ) -> Result<()> {
     use nu_command::hook;
-    use reedline::{FileBackedHistory, Reedline, Signal};
+    use reedline::Signal;
     let use_color = engine_state.get_config().use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
-    if !atty::is(atty::Stream::Stdin) {
+    if !std::io::stdin().is_terminal() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
@@ -91,11 +96,7 @@ pub fn evaluate_repl(
     let mut line_editor = Reedline::create();
 
     // Now that reedline is created, get the history session id and store it in engine_state
-    let hist_sesh = line_editor
-        .get_history_session_id()
-        .map(i64::from)
-        .unwrap_or(0);
-    engine_state.history_session_id = hist_sesh;
+    store_history_id_in_engine(engine_state, &line_editor);
     perf(
         "setup reedline",
         start_time,
@@ -127,22 +128,8 @@ pub fn evaluate_repl(
         engine_state.config.history_file_format,
     );
     if let Some(history_path) = history_path.as_deref() {
-        let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
-            HistoryFileFormat::PlainText => Box::new(
-                FileBackedHistory::with_file(
-                    config.max_history_size as usize,
-                    history_path.to_path_buf(),
-                )
-                .into_diagnostic()?,
-            ),
-            HistoryFileFormat::Sqlite => Box::new(
-                SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?,
-            ),
-        };
-        line_editor = line_editor
-            .with_history_session_id(history_session_id)
-            .with_history_exclusion_prefix(Some(" ".into()))
-            .with_history(history);
+        line_editor =
+            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)?
     };
     perf(
         "setup history",
@@ -597,11 +584,6 @@ pub fn evaluate_repl(
                         }
                     }
 
-                    // should disable bracketed_paste to avoid strange pasting behavior
-                    // while running commands.
-                    #[cfg(not(target_os = "windows"))]
-                    let _ = line_editor.disable_bracketed_paste();
-
                     eval_source(
                         engine_state,
                         stack,
@@ -734,6 +716,44 @@ pub fn evaluate_repl(
     Ok(())
 }
 
+fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
+    let session_id = line_editor
+        .get_history_session_id()
+        .map(i64::from)
+        .unwrap_or(0);
+
+    engine_state.history_session_id = session_id;
+}
+
+fn update_line_editor_history(
+    engine_state: &mut EngineState,
+    history_path: &Path,
+    line_editor: Reedline,
+    history_session_id: Option<HistorySessionId>,
+) -> Result<Reedline, ErrReport> {
+    let config = engine_state.get_config();
+    let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
+        HistoryFileFormat::PlainText => Box::new(
+            FileBackedHistory::with_file(
+                config.max_history_size as usize,
+                history_path.to_path_buf(),
+            )
+            .into_diagnostic()?,
+        ),
+        HistoryFileFormat::Sqlite => {
+            Box::new(SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?)
+        }
+    };
+    let line_editor = line_editor
+        .with_history_session_id(history_session_id)
+        .with_history_exclusion_prefix(Some(" ".into()))
+        .with_history(history);
+
+    store_history_id_in_engine(engine_state, &line_editor);
+
+    Ok(line_editor)
+}
+
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
     match shape {
         NuCursorShape::Block => SetCursorStyle::SteadyBlock,
@@ -804,4 +824,21 @@ fn looks_like_path_windows_drive_path_works() {
     assert_eq!(looks_like_path("E:/"), on_windows);
     assert_eq!(looks_like_path("F:\\some_dir"), on_windows);
     assert_eq!(looks_like_path("G:/some_dir"), on_windows);
+}
+
+#[test]
+fn are_session_ids_in_sync() {
+    let engine_state = &mut EngineState::new();
+    let history_path_o =
+        crate::config_files::get_history_path("nushell", engine_state.config.history_file_format);
+    assert!(history_path_o.is_some());
+    let history_path = history_path_o.as_deref().unwrap();
+    let line_editor = reedline::Reedline::create();
+    let history_session_id = reedline::Reedline::create_history_session_id();
+    let line_editor =
+        update_line_editor_history(engine_state, history_path, line_editor, history_session_id);
+    assert_eq!(
+        i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
+        engine_state.history_session_id
+    );
 }

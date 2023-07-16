@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -40,6 +40,10 @@ impl Command for SubCommand {
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(

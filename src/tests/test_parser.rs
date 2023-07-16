@@ -154,11 +154,6 @@ fn long_flag() -> TestResult {
 }
 
 #[test]
-fn let_not_statement() -> TestResult {
-    fail_test(r#"let x = "hello" | str length"#, "used in pipeline")
-}
-
-#[test]
 fn for_in_missing_var_name() -> TestResult {
     fail_test("for in", "missing")
 }
@@ -222,10 +217,10 @@ fn equals_separates_long_flag() -> TestResult {
 }
 
 #[test]
-fn let_env_expressions() -> TestResult {
+fn assign_expressions() -> TestResult {
     let env = HashMap::from([("VENV_OLD_PATH", "Foobar"), ("Path", "Quux")]);
     run_test_with_env(
-        r#"let-env Path = if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
+        r#"$env.Path = (if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }); echo $env.Path"#,
         "Foobar",
         &env,
     )
@@ -575,4 +570,88 @@ fn filesize_with_underscores_3() -> TestResult {
 #[test]
 fn filesize_is_not_hex() -> TestResult {
     run_test("0x42b", "1067")
+}
+
+#[test]
+fn let_variable_type_mismatch() -> TestResult {
+    fail_test(r#"let x: int = "foo""#, "expected int, found string")
+}
+
+#[test]
+fn def_with_input_output_1() -> TestResult {
+    run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
+}
+
+#[test]
+fn def_with_input_output_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; 10 | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_input_output_3() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; "bob" | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_input_output_mismatch_1() -> TestResult {
+    fail_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; foo"#,
+        "command doesn't support",
+    )
+}
+
+#[test]
+fn def_with_input_output_mismatch_2() -> TestResult {
+    fail_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; {x: 2} | foo"#,
+        "command doesn't support",
+    )
+}
+
+#[test]
+fn def_with_input_output_broken_1() -> TestResult {
+    fail_test(r#"def foo []: int { 3 }"#, "expected arrow")
+}
+
+#[test]
+fn def_with_input_output_broken_2() -> TestResult {
+    fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
+}
+
+#[test]
+fn def_with_in_var_let_1() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#,
+        "4",
+    )
+}
+
+#[test]
+fn def_with_in_var_let_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_in_var_mut_1() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#,
+        "4",
+    )
+}
+
+#[test]
+fn def_with_in_var_mut_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#,
+        "3",
+    )
 }

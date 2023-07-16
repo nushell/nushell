@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -17,7 +17,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("url encode")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![(Type::String, Type::String), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String)))])
             .vectorizes_over_list(true)
             .switch(
             "all",

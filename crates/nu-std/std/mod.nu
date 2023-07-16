@@ -68,12 +68,12 @@ export def-env "path add" [
         }}
     }
 
-    let-env $path_name = (
-            $env
-            | get $path_name
-            | if $append { append $paths }
-            else { prepend $paths }
-    )
+    load-env {$path_name: (
+        $env
+        | get $path_name
+        | if $append { append $paths }
+        else { prepend $paths }
+    )}
 
     if $ret {
         $env | get $path_name
@@ -285,4 +285,9 @@ It's been this long since (ansi green)Nushell(ansi reset)'s first commit:
 
 Startup Time: ($nu.startup-time)
 "
+}
+
+# Return the current working directory
+export def pwd [] {
+    $env.PWD
 }

@@ -32,12 +32,14 @@ not supported."#
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Range, Type::Any),
             ])
             .required(
                 "row_condition",
                 SyntaxShape::RowCondition,
                 "Filter condition",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

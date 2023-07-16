@@ -126,5 +126,5 @@ fn no_column_specified_fails() {
 fn fail_on_non_iterator() {
     let actual = nu!("1 | sort-by");
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }

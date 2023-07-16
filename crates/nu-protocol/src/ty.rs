@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use strum_macros::EnumIter;
 
 use std::fmt::Display;
 
 use crate::SyntaxShape;
 
-#[derive(Clone, Debug, Default, EnumIter, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
     Any,
     Binary,
@@ -39,12 +41,16 @@ impl Type {
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
             if this.is_empty() || that.is_empty() {
                 true
-            } else if this.len() != that.len() {
+            } else if this.len() > that.len() {
                 false
             } else {
-                this.iter()
-                    .zip(that.iter())
-                    .all(|(lhs, rhs)| lhs.0 == rhs.0 && lhs.1.is_subtype(&rhs.1))
+                this.iter().all(|(col_x, ty_x)| {
+                    if let Some((_, ty_y)) = that.iter().find(|(col_y, _)| col_x == col_y) {
+                        ty_x.is_subtype(ty_y)
+                    } else {
+                        false
+                    }
+                })
             }
         };
 
@@ -75,6 +81,12 @@ impl Type {
     }
 
     pub fn to_shape(&self) -> SyntaxShape {
+        let mk_shape = |tys: &[(String, Type)]| {
+            tys.iter()
+                .map(|(key, val)| (key.clone(), val.to_shape()))
+                .collect()
+        };
+
         match self {
             Type::Int => SyntaxShape::Int,
             Type::Float => SyntaxShape::Number,
@@ -90,14 +102,8 @@ impl Type {
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(entries) => {
-                let entries = entries
-                    .iter()
-                    .map(|(key, val)| (key.clone(), val.to_shape()))
-                    .collect();
-                SyntaxShape::Record(entries)
-            }
-            Type::Table(_) => SyntaxShape::Table,
+            Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
+            Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,

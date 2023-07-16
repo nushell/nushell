@@ -188,7 +188,7 @@ impl Command for OverlayUse {
             },
             Example {
                 description: "Create an overlay from a file",
-                example: r#"'export-env { let-env FOO = "foo" }' | save spam.nu
+                example: r#"'export-env { $env.FOO = "foo" }' | save spam.nu
     overlay use spam.nu
     $env.FOO"#,
                 result: None,

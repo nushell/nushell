@@ -59,7 +59,7 @@ impl Command for KeybindingsList {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let records = if call.named_len() == 0 {
-            let all_options = vec!["modifiers", "keycodes", "edits", "modes", "events"];
+            let all_options = ["modifiers", "keycodes", "edits", "modes", "events"];
             all_options
                 .iter()
                 .flat_map(|argument| get_records(argument, &call.head))

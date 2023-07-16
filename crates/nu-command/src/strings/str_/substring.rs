@@ -1,5 +1,6 @@
-use crate::input_handler::{operate, CmdArgument};
-use crate::{grapheme_flags, util};
+use crate::grapheme_flags;
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -41,8 +42,9 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str substring")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![(Type::String, Type::String), (Type::Table(vec![]), Type::Table(vec![]))])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
                 "count indexes and split using grapheme clusters (all visible chars have length 1)",

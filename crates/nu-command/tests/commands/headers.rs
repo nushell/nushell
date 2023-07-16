@@ -31,6 +31,19 @@ fn headers_adds_missing_column_name() {
 }
 
 #[test]
+fn headers_handles_missing_values() {
+    let actual = nu!(pipeline(
+        r#"
+            [{x: a, y: b}, {x: 1, y: 2}, {x: 1, z: 3}]
+            | headers
+            | to nuon --raw
+        "#
+    ));
+
+    assert_eq!(actual.out, "[{a: 1, b: 2}, {a: 1}]")
+}
+
+#[test]
 fn headers_invalid_column_type_empty_record() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(

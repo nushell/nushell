@@ -1,6 +1,6 @@
 use chrono::{FixedOffset, TimeZone};
 
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -36,10 +36,17 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Int),
                 // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
+                (Type::Duration, Type::Int),
                 // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Int)),
+                ),
             ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .switch("little-endian", "use little-endian byte decoding", None)
             .rest(

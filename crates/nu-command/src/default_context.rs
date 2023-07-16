@@ -41,7 +41,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             DropColumn,
             DropNth,
             Each,
-            EachWhile,
             Empty,
             Enumerate,
             Every,
@@ -72,12 +71,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Reject,
             Rename,
             Reverse,
-            Roll,
-            RollDown,
-            RollUp,
-            RollLeft,
-            RollRight,
-            Rotate,
             Select,
             Shuffle,
             Skip,
@@ -91,7 +84,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             UniqBy,
             Upsert,
             Update,
-            UpdateCells,
             Values,
             Where,
             Window,
@@ -176,11 +168,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Encode,
             DecodeBase64,
             EncodeBase64,
-            DecodeHex,
-            EncodeHex,
             DetectColumns,
-            Format,
-            FileSize,
             Parse,
             Size,
             Split,
@@ -195,6 +183,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrDistance,
             StrDowncase,
             StrEndswith,
+            StrExpand,
             StrJoin,
             StrReplace,
             StrIndexOf,
@@ -210,22 +199,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrTitleCase,
             StrUpcase
         };
-
-        // Bytes
-        bind_command! {
-            Bytes,
-            BytesLen,
-            BytesStartsWith,
-            BytesEndsWith,
-            BytesReverse,
-            BytesReplace,
-            BytesAdd,
-            BytesAt,
-            BytesIndexOf,
-            BytesCollect,
-            BytesRemove,
-            BytesBuild,
-        }
 
         // FileSystem
         bind_command! {
@@ -246,13 +219,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         bind_command! {
             Ansi,
-            AnsiGradient,
             AnsiStrip,
-            AnsiLink,
             Clear,
             Du,
             Input,
             InputList,
+            InputListen,
             Kill,
             Sleep,
             TermSize,
@@ -285,14 +257,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FromSsv,
             FromToml,
             FromTsv,
-            FromUrl,
             FromXlsx,
             FromXml,
             FromYaml,
             FromYml,
             To,
             ToCsv,
-            ToHtml,
             ToJson,
             ToMd,
             ToNuon,
@@ -315,7 +285,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Conversions
         bind_command! {
             Fill,
-            Fmt,
             Into,
             IntoBool,
             IntoBinary,
@@ -330,8 +299,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Env
         bind_command! {
+            LetEnvDeprecated,
             ExportEnv,
-            LetEnv,
             LoadEnv,
             SourceEnv,
             WithEnv,
@@ -358,23 +327,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
-            MathSin,
-            MathCos,
-            MathTan,
-            MathSinH,
-            MathCosH,
-            MathTanH,
-            MathArcSin,
-            MathArcCos,
-            MathArcTan,
-            MathArcSinH,
-            MathArcCosH,
-            MathArcTanH,
-            MathPi,
-            MathTau,
-            MathEuler,
-            MathExp,
-            MathLn,
             MathLog,
         };
 

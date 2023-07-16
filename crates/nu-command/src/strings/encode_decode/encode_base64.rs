@@ -31,7 +31,6 @@ impl Command for EncodeBase64 {
                 SyntaxShape::CellPath,
                 "For a data structure input, encode data at the given cell paths",
             )
-            .output_type(Type::String)
             .category(Category::Hash)
     }
 

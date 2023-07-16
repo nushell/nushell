@@ -220,6 +220,8 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    use crate::filesystem::util::users;
+
     match dir.as_ref().metadata() {
         Ok(metadata) => {
             use std::os::unix::fs::MetadataExt;
@@ -274,26 +276,11 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
-    users::get_current_username()
-        .map(|name| {
-            users::get_user_groups(&name, current_user_gid)
-                .map(|mut groups| {
-                    // Fixes https://github.com/ogham/rust-users/issues/44
-                    // If a user isn't in more than one group then this fix won't work,
-                    // However its common for a user to be in more than one group, so this should work for most.
-                    if groups.len() == 2 && groups[1].gid() == 0 {
-                        // We have no way of knowing if this is due to the issue or the user is actually in the root group
-                        // So we will assume they are in the root group and leave it.
-                        // It's not the end of the world if we are wrong, they will just get a permission denied error once inside.
-                    } else {
-                        groups.pop();
-                    }
+    use crate::filesystem::util::users;
 
-                    groups
-                })
-                .unwrap_or_default()
-        })
+    users::get_current_username()
+        .and_then(|name| users::get_user_groups(&name, current_user_gid))
         .unwrap_or_default()
         .into_iter()
-        .any(|group| group.gid() == owner_group)
+        .any(|gid| gid.as_raw() == owner_group)
 }

@@ -1361,8 +1361,7 @@ mod input_types {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .input_type(Type::Any)
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Any, Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1393,8 +1392,7 @@ mod input_types {
             Signature::build(self.name())
                 .required("column", SyntaxShape::String, "column name")
                 .required("other", SyntaxShape::String, "other value")
-                .input_type(Type::Custom("custom".into()))
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1424,7 +1422,7 @@ mod input_types {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
                 .required("operation", SyntaxShape::String, "operation")
-                .input_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1481,8 +1479,7 @@ mod input_types {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
                 .rest("operation", SyntaxShape::Any, "operation")
-                .input_type(Type::Custom("custom".into()))
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1511,8 +1508,7 @@ mod input_types {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .input_type(Type::Custom("custom".into()))
-                .output_type(Type::Custom("custom".into()))
+                .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
 
@@ -1595,177 +1591,6 @@ mod input_types {
     }
 
     #[test]
-    fn call_types_test() {
-        let mut engine_state = EngineState::new();
-        add_declarations(&mut engine_state);
-
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        let input = r#"ls | to-custom | group-by name other"#;
-
-        let block = parse(&mut working_set, None, input.as_bytes(), true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 1);
-
-        let expressions = &block[0];
-        assert_eq!(expressions.len(), 3);
-
-        match &expressions[0] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set
-                    .find_decl(b"ls", &Type::Any)
-                    .expect("Error merging delta");
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-
-        match &expressions[1] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-
-        match &expressions[2] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set
-                    .find_decl(b"group-by", &Type::Custom("custom".into()))
-                    .unwrap();
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-    }
-
-    #[test]
-    fn storing_variable_test() {
-        let mut engine_state = EngineState::new();
-        add_declarations(&mut engine_state);
-
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        let input =
-            r#"let a = (ls | to-custom | group-by name other); let b = (1+3); $a | agg sum"#;
-
-        let block = parse(&mut working_set, None, input.as_bytes(), true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 3);
-
-        let expressions = &block[2];
-        match &expressions[1] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set
-                    .find_decl(b"agg", &Type::Custom("custom".into()))
-                    .unwrap();
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-    }
-
-    #[test]
-    fn stored_variable_operation_test() {
-        let mut engine_state = EngineState::new();
-        add_declarations(&mut engine_state);
-
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        let input = r#"let a = (ls | to-custom | group-by name other); ($a + $a) | agg sum"#;
-
-        let block = parse(&mut working_set, None, input.as_bytes(), true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 2);
-
-        let expressions = &block[1];
-        match &expressions[1] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set
-                    .find_decl(b"agg", &Type::Custom("custom".into()))
-                    .unwrap();
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-    }
-
-    #[test]
-    fn multiple_stored_variable_test() {
-        let mut engine_state = EngineState::new();
-        add_declarations(&mut engine_state);
-
-        let mut working_set = StateWorkingSet::new(&engine_state);
-        let input = r#"
-        let a = (ls | to-custom | group-by name other); [1 2 3] | to-custom; [1 2 3] | to-custom"#;
-
-        let block = parse(&mut working_set, None, input.as_bytes(), true);
-
-        assert!(working_set.parse_errors.is_empty());
-        assert_eq!(block.len(), 3);
-
-        let expressions = &block[1];
-        match &expressions[1] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-
-        let expressions = &block[2];
-        match &expressions[1] {
-            PipelineElement::Expression(
-                _,
-                Expression {
-                    expr: Expr::Call(call),
-                    ..
-                },
-            ) => {
-                let expected_id = working_set.find_decl(b"to-custom", &Type::Any).unwrap();
-                assert_eq!(call.decl_id, expected_id)
-            }
-            _ => panic!("Expected expression Call not found"),
-        }
-    }
-
-    #[test]
     fn call_non_custom_types_test() {
         let mut engine_state = EngineState::new();
         add_declarations(&mut engine_state);
@@ -1789,7 +1614,7 @@ mod input_types {
                     ..
                 },
             ) => {
-                let expected_id = working_set.find_decl(b"ls", &Type::Any).unwrap();
+                let expected_id = working_set.find_decl(b"ls").unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -1803,7 +1628,7 @@ mod input_types {
                     ..
                 },
             ) => {
-                let expected_id = working_set.find_decl(b"group-by", &Type::Any).unwrap();
+                let expected_id = working_set.find_decl(b"group-by").unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -1853,8 +1678,7 @@ mod input_types {
                                         },
                                     ) => {
                                         let working_set = StateWorkingSet::new(&engine_state);
-                                        let expected_id =
-                                            working_set.find_decl(b"min", &Type::Any).unwrap();
+                                        let expected_id = working_set.find_decl(b"min").unwrap();
                                         assert_eq!(call.decl_id, expected_id)
                                     }
                                     _ => panic!("Expected expression Call not found"),
@@ -1893,9 +1717,7 @@ mod input_types {
                     ..
                 },
             ) => {
-                let expected_id = working_set
-                    .find_decl(b"with-column", &Type::Custom("custom".into()))
-                    .unwrap();
+                let expected_id = working_set.find_decl(b"with-column").unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),
@@ -1909,9 +1731,7 @@ mod input_types {
                     ..
                 },
             ) => {
-                let expected_id = working_set
-                    .find_decl(b"collect", &Type::Custom("custom".into()))
-                    .unwrap();
+                let expected_id = working_set.find_decl(b"collect").unwrap();
                 assert_eq!(call.decl_id, expected_id)
             }
             _ => panic!("Expected expression Call not found"),

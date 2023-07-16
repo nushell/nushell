@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -21,7 +21,9 @@ impl Command for SubCommand {
                 (Type::Number, Type::Filesize),
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -54,8 +56,40 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert string to filesize in table",
-                example: "[[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize bytes",
-                result: None,
+                example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["device".to_string(), "size".to_string()],
+                            vals: vec![
+                                Value::String {
+                                    val: "/dev/sda1".to_string(),
+                                    span: Span::test_data(),
+                                },
+                                Value::Filesize {
+                                    val: 200,
+                                    span: Span::test_data(),
+                                },
+                            ],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: vec!["device".to_string(), "size".to_string()],
+                            vals: vec![
+                                Value::String {
+                                    val: "/dev/loop0".to_string(),
+                                    span: Span::test_data(),
+                                },
+                                Value::Filesize {
+                                    val: 50,
+                                    span: Span::test_data(),
+                                },
+                            ],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
             },
             Example {
                 description: "Convert string to filesize",

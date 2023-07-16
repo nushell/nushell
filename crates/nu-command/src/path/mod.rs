@@ -29,9 +29,7 @@ const ALLOWED_COLUMNS: [&str; 4] = ["prefix", "parent", "stem", "extension"];
 #[cfg(not(windows))]
 const ALLOWED_COLUMNS: [&str; 3] = ["parent", "stem", "extension"];
 
-trait PathSubcommandArguments {
-    fn get_columns(&self) -> Option<Vec<String>>;
-}
+trait PathSubcommandArguments {}
 
 fn operate<F, A>(cmd: &F, args: &A, v: Value, name: Span) -> Value
 where
@@ -40,45 +38,6 @@ where
 {
     match v {
         Value::String { val, span } => cmd(StdPath::new(&val), span, args),
-        Value::Record { cols, vals, span } => {
-            let col = if let Some(col) = args.get_columns() {
-                col
-            } else {
-                vec![]
-            };
-            if col.is_empty() {
-                return Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        String::from("when the input is a table, you must specify the columns"),
-                        "value originates from here".into(),
-                        name,
-                        span,
-                    )),
-                };
-            }
-
-            let mut output_cols = vec![];
-            let mut output_vals = vec![];
-
-            for (k, v) in cols.iter().zip(vals) {
-                output_cols.push(k.clone());
-                if col.contains(k) {
-                    let new_val = match v {
-                        Value::String { val, span } => cmd(StdPath::new(&val), span, args),
-                        _ => return handle_invalid_values(v, name),
-                    };
-                    output_vals.push(new_val);
-                } else {
-                    output_vals.push(v);
-                }
-            }
-
-            Value::Record {
-                cols: output_cols,
-                vals: output_vals,
-                span,
-            }
-        }
         _ => handle_invalid_values(v, name),
     }
 }

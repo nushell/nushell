@@ -28,8 +28,10 @@ impl Command for QueryDf {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("sql", SyntaxShape::String, "sql query")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

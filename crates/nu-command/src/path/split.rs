@@ -1,23 +1,16 @@
 use std::path::{Component, Path};
 
-use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
 
-struct Arguments {
-    columns: Option<Vec<String>>,
-}
+struct Arguments;
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -28,14 +21,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path split")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
-            .named(
-                "columns",
-                SyntaxShape::Table,
-                "For a record or table input, split strings at the given columns",
-                Some('c'),
-            )
+        Signature::build("path split").input_output_types(vec![
+            (Type::String, Type::List(Box::new(Type::String))),
+            (
+                Type::List(Box::new(Type::String)),
+                Type::List(Box::new(Type::List(Box::new(Type::String)))),
+            ),
+        ])
     }
 
     fn usage(&self) -> &str {
@@ -49,14 +41,12 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
-        };
+        let args = Arguments;
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -85,9 +75,25 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Split all paths under the 'name' column",
-                example: r"ls ('.' | path expand) | path split -c [ name ]",
-                result: None,
+                description: "Split paths in list into parts",
+                example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_list(vec![
+                            Value::test_string(r"C:\"),
+                            Value::test_string("Users"),
+                            Value::test_string("viking"),
+                            Value::test_string("spam.txt"),
+                        ]),
+                        Value::test_list(vec![
+                            Value::test_string(r"C:\"),
+                            Value::test_string("Users"),
+                            Value::test_string("viking"),
+                            Value::test_string("eggs.txt"),
+                        ]),
+                    ],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }
@@ -109,9 +115,25 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "Split all paths under the 'name' column",
-                example: r"ls ('.' | path expand) | path split -c [ name ]",
-                result: None,
+                description: "Split paths in list into parts",
+                example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_list(vec![
+                            Value::test_string("/"),
+                            Value::test_string("home"),
+                            Value::test_string("viking"),
+                            Value::test_string("spam.txt"),
+                        ]),
+                        Value::test_list(vec![
+                            Value::test_string("/"),
+                            Value::test_string("home"),
+                            Value::test_string("viking"),
+                            Value::test_string("eggs.txt"),
+                        ]),
+                    ],
+                    span: Span::test_data(),
+                }),
             },
         ]
     }

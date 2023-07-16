@@ -1,5 +1,5 @@
 use crate::grapheme_flags;
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -29,7 +29,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str length")
-            .input_output_types(vec![(Type::String, Type::Int)])
+            .input_output_types(vec![(Type::String, Type::Int), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int)))])
             .vectorizes_over_list(true)
             .switch(
                 "grapheme-clusters",

@@ -23,8 +23,10 @@ impl Command for DropDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest("rest", SyntaxShape::Any, "column names to be dropped")
-            .input_type(Type::Custom("dataframe".into()))
-            .output_type(Type::Custom("dataframe".into()))
+            .input_output_type(
+                Type::Custom("dataframe".into()),
+                Type::Custom("dataframe".into()),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 

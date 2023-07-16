@@ -38,7 +38,7 @@ fn table_collapse_0() {
 #[test]
 fn table_collapse_basic() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: basic };",
+        "$env.config = { table: { mode: basic }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -60,7 +60,7 @@ fn table_collapse_basic() {
 #[test]
 fn table_collapse_heavy() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: heavy };",
+        "$env.config = { table: { mode: heavy }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -82,7 +82,7 @@ fn table_collapse_heavy() {
 #[test]
 fn table_collapse_compact() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: compact };",
+        "$env.config = { table: { mode: compact }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -104,7 +104,7 @@ fn table_collapse_compact() {
 #[test]
 fn table_collapse_compact_double() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: compact_double };",
+        "$env.config = { table: { mode: compact_double }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -126,7 +126,7 @@ fn table_collapse_compact_double() {
 #[test]
 fn table_collapse_compact_light() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: light };",
+        "$env.config = { table: { mode: light }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -148,7 +148,7 @@ fn table_collapse_compact_light() {
 #[test]
 fn table_collapse_none() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: none };",
+        "$env.config = { table: { mode: none }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -166,7 +166,7 @@ fn table_collapse_none() {
 #[test]
 fn table_collapse_compact_reinforced() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: reinforced };",
+        "$env.config = { table: { mode: reinforced }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -188,7 +188,7 @@ fn table_collapse_compact_reinforced() {
 #[test]
 fn table_collapse_compact_thin() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: thin };",
+        "$env.config = { table: { mode: thin }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -210,7 +210,7 @@ fn table_collapse_compact_thin() {
 #[test]
 fn table_collapse_hearts() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: with_love };",
+        "$env.config = { table: { mode: with_love }};",
         "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
     ]));
     assert_eq!(
@@ -1832,16 +1832,16 @@ fn test_collapse_big_0() {
             repository = "https://github.com/nushell/nushell"
             rust-version = "1.60"
             version = "0.74.1"
-            
+
             # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-            
+
             [package.metadata.binstall]
             pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
             pkg-fmt = "tgz"
-            
+
             [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
             pkg-fmt = "zip"
-            
+
             [workspace]
             members = [
                 "crates/nu-cli",
@@ -1858,7 +1858,7 @@ fn test_collapse_big_0() {
                 "crates/nu_plugin_custom_values",
                 "crates/nu-utils",
             ]
-            
+
             [dependencies]
             chrono = { version = "0.4.23", features = ["serde"] }
             crossterm = "0.24.0"
@@ -1869,25 +1869,25 @@ fn test_collapse_big_0() {
             nu-cli = { path = "./crates/nu-cli", version = "0.74.1" }
             nu-engine = { path = "./crates/nu-engine", version = "0.74.1" }
             reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
-            
+
             rayon = "1.6.1"
             is_executable = "1.0.1"
             simplelog = "0.12.0"
             time = "0.3.12"
-            
+
             [target.'cfg(not(target_os = "windows"))'.dependencies]
             # Our dependencies don't use OpenSSL on Windows
             openssl = { version = "0.10.38", features = ["vendored"], optional = true }
             signal-hook = { version = "0.3.14", default-features = false }
-            
-            
+
+
             [target.'cfg(windows)'.build-dependencies]
             winres = "0.1"
-            
+
             [target.'cfg(target_family = "unix")'.dependencies]
             nix = { version = "0.25", default-features = false, features = ["signal", "process", "fs", "term"] }
             atty = "0.2"
-            
+
             [dev-dependencies]
             nu-test-support = { path = "./crates/nu-test-support", version = "0.74.1" }
             tempfile = "3.2.0"
@@ -1898,7 +1898,7 @@ fn test_collapse_big_0() {
             hamcrest2 = "0.3.0"
             rstest = { version = "0.15.0", default-features = false }
             itertools = "0.10.3"
-            
+
             [features]
             plugin = [
                 "nu-plugin",
@@ -1913,10 +1913,10 @@ fn test_collapse_big_0() {
             default = ["plugin", "which-support", "trash-support", "sqlite"]
             stable = ["default"]
             wasi = []
-            
+
             # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
             static-link-openssl = ["dep:openssl"]
-            
+
             # Stable (Default)
             which-support = ["nu-command/which-support"]
             trash-support = ["nu-command/trash-support"]
@@ -1925,12 +1925,12 @@ fn test_collapse_big_0() {
             [[bin]]
             name = "nu"
             path = "src/main.rs"
-            
+
             # To use a development version of a dependency please use a global override here
             # changing versions in each sub-crate of the workspace is tedious
             [patch.crates-io]
             reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
-            
+
             # Criterion benchmarking setup
             # Run all benchmarks with `cargo bench`
             # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`

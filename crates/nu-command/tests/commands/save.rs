@@ -91,8 +91,8 @@ fn save_stderr_and_stdout_to_afame_file() {
         let actual = nu!(
             cwd: dirs.root(),
             r#"
-            let-env FOO = "bar";
-            let-env BAZ = "ZZZ";
+            $env.FOO = "bar";
+            $env.BAZ = "ZZZ";
             do -c {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
             "#,
         );
@@ -113,8 +113,8 @@ fn save_stderr_and_stdout_to_diff_file() {
         nu!(
             cwd: dirs.root(),
             r#"
-            let-env FOO = "bar";
-            let-env BAZ = "ZZZ";
+            $env.FOO = "bar";
+            $env.BAZ = "ZZZ";
             do -c {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_6/log.txt --stderr save_test_6/err.txt
             "#,
         );
@@ -206,8 +206,8 @@ fn save_append_works_on_stderr() {
         nu!(
             cwd: dirs.root(),
             r#"
-            let-env FOO = " New";
-            let-env BAZ = " New Err";
+            $env.FOO = " New";
+            $env.BAZ = " New Err";
             do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_11/log.txt --stderr save_test_11/err.txt"#,
         );
 
@@ -227,8 +227,8 @@ fn save_not_overrides_err_by_default() {
         let actual = nu!(
             cwd: dirs.root(),
             r#"
-            let-env FOO = " New";
-            let-env BAZ = " New Err";
+            $env.FOO = " New";
+            $env.BAZ = " New Err";
             do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_12/log.txt --stderr save_test_12/err.txt"#,
         );
 
@@ -250,8 +250,8 @@ fn save_override_works_stderr() {
         nu!(
             cwd: dirs.root(),
             r#"
-            let-env FOO = "New";
-            let-env BAZ = "New Err";
+            $env.FOO = "New";
+            $env.BAZ = "New Err";
             do -i {nu -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -f -r save_test_13/log.txt --stderr save_test_13/err.txt"#,
         );
 

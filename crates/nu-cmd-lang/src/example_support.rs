@@ -188,8 +188,7 @@ pub fn check_all_signature_input_output_types_entries_have_examples(
     signature: Signature,
     witnessed_type_transformations: HashSet<(Type, Type)>,
 ) {
-    let declared_type_transformations =
-        HashSet::from_iter(signature.input_output_types.into_iter());
+    let declared_type_transformations = HashSet::from_iter(signature.input_output_types);
     assert!(
         witnessed_type_transformations.is_subset(&declared_type_transformations),
         "This should not be possible (bug in test): the type transformations \

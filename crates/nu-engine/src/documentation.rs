@@ -3,7 +3,9 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
+
+use crate::eval_call;
 
 pub fn get_full_help(
     sig: &Signature,
@@ -129,17 +131,6 @@ fn get_documentation(
         }))
     }
 
-    if !is_parser_keyword && !sig.input_output_types.is_empty() {
-        if sig.operates_on_cell_paths() {
-            let _ = writeln!(
-                long_desc,
-                "\n{G}Signatures(Cell paths are supported){RESET}:\n{sig}"
-            );
-        } else {
-            let _ = writeln!(long_desc, "\n{G}Signatures{RESET}:\n{sig}");
-        }
-    }
-
     if !sig.required_positional.is_empty()
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
@@ -210,6 +201,46 @@ fn get_documentation(
                 rest_positional.desc
             );
             let _ = writeln!(long_desc, "{text}");
+        }
+    }
+
+    if !is_parser_keyword && !sig.input_output_types.is_empty() {
+        if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
+            // FIXME: we may want to make this the span of the help command in the future
+            let span = Span::unknown();
+            let mut vals = vec![];
+            for (input, output) in &sig.input_output_types {
+                vals.push(Value::Record {
+                    cols: vec!["input".into(), "output".into()],
+                    vals: vec![
+                        Value::string(input.to_string(), span),
+                        Value::string(output.to_string(), span),
+                    ],
+                    span,
+                });
+            }
+
+            let mut caller_stack = Stack::new();
+            if let Ok(result) = eval_call(
+                engine_state,
+                &mut caller_stack,
+                &Call {
+                    decl_id,
+                    head: span,
+                    arguments: vec![],
+                    redirect_stdout: true,
+                    redirect_stderr: true,
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::Value(Value::List { vals, span }, None),
+            ) {
+                if let Ok((str, ..)) = result.collect_string_strict(span) {
+                    let _ = writeln!(long_desc, "\n{G}Input/output types{RESET}:");
+                    for line in str.lines() {
+                        let _ = writeln!(long_desc, "  {line}");
+                    }
+                }
+            }
         }
     }
 

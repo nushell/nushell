@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -29,7 +29,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str contains")
-            .input_output_types(vec![(Type::String, Type::Bool)])
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
+            ])
             .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the substring to find")
             .rest(

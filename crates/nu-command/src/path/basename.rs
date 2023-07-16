@@ -11,15 +11,10 @@ use nu_protocol::{
 use super::PathSubcommandArguments;
 
 struct Arguments {
-    columns: Option<Vec<String>>,
     replace: Option<Spanned<String>>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -33,15 +28,11 @@ impl Command for SubCommand {
         Signature::build("path basename")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                // TODO: Why do these commands not use CellPaths in a standard way?
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
-            .named(
-                "columns",
-                SyntaxShape::Table,
-                "For a record or table input, convert strings in the given columns to their basename",
-                Some('c'),
-            )
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -67,7 +58,6 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
             replace: call.get_flag(engine_state, stack, "replace")?,
         };
 
@@ -90,21 +80,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("test.txt")),
             },
             Example {
-                description: "Get basename of a path in a column",
-                example: "ls .. | path basename -c [ name ]",
-                result: None,
-            },
-            Example {
-                description: "Get basename of a path in a column",
-                example: "[[name];[C:\\Users\\Joe]] | path basename -c [ name ]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("Joe")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                description: "Get basename of a list of paths",
+                example: r"[ C:\Users\joe, C:\Users\doe ] | path basename",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("joe"),
+                    Value::test_string("doe"),
+                ])),
             },
             Example {
                 description: "Replace basename of a path",
@@ -123,16 +104,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("test.txt")),
             },
             Example {
-                description: "Get basename of a path by column",
-                example: "[[name];[/home/joe]] | path basename -c [ name ]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("joe")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                description: "Get basename of a list of paths",
+                example: "[ /home/joe, /home/doe ] | path basename",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("joe"),
+                    Value::test_string("doe"),
+                ])),
             },
             Example {
                 description: "Replace basename of a path",
