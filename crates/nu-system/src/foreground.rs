@@ -28,6 +28,7 @@ pub struct ForegroundProcess {
 pub struct ForegroundChild {
     inner: Child,
     pipeline_state: Arc<(AtomicU32, AtomicU32)>,
+    interactive: bool,
 }
 
 impl ForegroundProcess {
@@ -53,10 +54,11 @@ impl ForegroundProcess {
                 ForegroundChild {
                     inner: child,
                     pipeline_state: self.pipeline_state.clone(),
+                    interactive,
                 }
             })
             .map_err(|e| {
-                fg_process_setup::reset_foreground_id();
+                fg_process_setup::reset_foreground_id(interactive);
                 e
             })
     }
@@ -73,7 +75,7 @@ impl Drop for ForegroundChild {
         let (ref pgrp, ref pcnt) = *self.pipeline_state;
         if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
             pgrp.store(0, Ordering::SeqCst);
-            fg_process_setup::reset_foreground_id()
+            fg_process_setup::reset_foreground_id(self.interactive)
         }
     }
 }
@@ -171,8 +173,8 @@ mod fg_process_setup {
     }
 
     /// Reset the foreground process group to the shell
-    pub(super) fn reset_foreground_id() {
-        if std::io::stdin().is_terminal() {
+    pub(super) fn reset_foreground_id(interactive: bool) {
+        if std::io::stdin().is_terminal() && interactive {
             if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
                 println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
             }
@@ -186,5 +188,5 @@ mod fg_process_setup {
 
     pub(super) fn set_foreground(_: &std::process::Child, _: u32, _: bool) {}
 
-    pub(super) fn reset_foreground_id() {}
+    pub(super) fn reset_foreground_id(_: bool) {}
 }
