@@ -23,6 +23,7 @@ impl Command for SubCommand {
                 (Type::Filesize, Type::Filesize),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
