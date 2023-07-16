@@ -56,7 +56,43 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to filesize in table",
                 example: "[[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize bytes",
-                result: None,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: vec!["bytes".to_string()],
+                            vals: vec![Value::Filesize {
+                                val: 5,
+                                span: Span::unknown(),
+                            }],
+                            span: Span::unknown(),
+                        },
+                        Value::Record {
+                            cols: vec!["bytes".to_string()],
+                            vals: vec![Value::Filesize {
+                                val: 3,
+                                span: Span::unknown(),
+                            }],
+                            span: Span::unknown(),
+                        },
+                        Value::Record {
+                            cols: vec!["bytes".to_string()],
+                            vals: vec![Value::Filesize {
+                                val: 4,
+                                span: Span::unknown(),
+                            }],
+                            span: Span::unknown(),
+                        },
+                        Value::Record {
+                            cols: vec!["bytes".to_string()],
+                            vals: vec![Value::Filesize {
+                                val: 2000,
+                                span: Span::unknown(),
+                            }],
+                            span: Span::unknown(),
+                        },
+                    ],
+                    span: Span::unknown(),
+                }),
             },
             Example {
                 description: "Convert string to filesize",
