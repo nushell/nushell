@@ -22,7 +22,6 @@ impl Command for SubCommand {
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
                 (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
             ])
             .vectorizes_over_list(true)
             .rest(
@@ -57,39 +56,35 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert string to filesize in table",
-                example: "[[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize bytes",
+                example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["bytes".to_string()],
-                            vals: vec![Value::Filesize {
-                                val: 5,
-                                span: Span::unknown(),
-                            }],
+                            cols: vec!["device".to_string(), "size".to_string()],
+                            vals: vec![
+                                Value::String {
+                                    val: "/dev/sda1".to_string(),
+                                    span: Span::unknown(),
+                                },
+                                Value::Filesize {
+                                    val: 200,
+                                    span: Span::unknown(),
+                                },
+                            ],
                             span: Span::unknown(),
                         },
                         Value::Record {
-                            cols: vec!["bytes".to_string()],
-                            vals: vec![Value::Filesize {
-                                val: 3,
-                                span: Span::unknown(),
-                            }],
-                            span: Span::unknown(),
-                        },
-                        Value::Record {
-                            cols: vec!["bytes".to_string()],
-                            vals: vec![Value::Filesize {
-                                val: 4,
-                                span: Span::unknown(),
-                            }],
-                            span: Span::unknown(),
-                        },
-                        Value::Record {
-                            cols: vec!["bytes".to_string()],
-                            vals: vec![Value::Filesize {
-                                val: 2000,
-                                span: Span::unknown(),
-                            }],
+                            cols: vec!["device".to_string(), "size".to_string()],
+                            vals: vec![
+                                Value::String {
+                                    val: "/dev/sda2".to_string(),
+                                    span: Span::unknown(),
+                                },
+                                Value::Filesize {
+                                    val: 50,
+                                    span: Span::unknown(),
+                                },
+                            ],
                             span: Span::unknown(),
                         },
                     ],
