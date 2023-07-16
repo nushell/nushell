@@ -22,6 +22,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
             ])
             .vectorizes_over_list(true)
             .rest(
