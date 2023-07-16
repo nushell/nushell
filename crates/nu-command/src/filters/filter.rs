@@ -225,6 +225,14 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Filter items of a range according to a condition",
+                example: "9..13 | filter {|el| $el mod 2 != 0}",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(9), Value::test_int(11), Value::test_int(13)],
+                    span: Span::test_data(),
+                }),
+            },
             // TODO: This should work but does not. (Note that `Let` must be present in the working_set in `example_test.rs`).
             // See https://github.com/nushell/nushell/issues/7034
             // Example {
