@@ -77,7 +77,7 @@ impl Command for SubCommand {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
                                 Value::String {
-                                    val: "/dev/sda2".to_string(),
+                                    val: "/dev/loop0".to_string(),
                                     span: Span::test_data(),
                                 },
                                 Value::Filesize {
