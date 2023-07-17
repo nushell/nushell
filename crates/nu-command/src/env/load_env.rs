@@ -22,6 +22,7 @@ impl Command for LoadEnv {
             .input_output_types(vec![
                 (Type::Record(vec![]), Type::Nothing),
                 (Type::Nothing, Type::Nothing),
+                (Type::Table(vec![]), Type::Nothing),
             ])
             .allow_variants_without_examples(true)
             .optional(
