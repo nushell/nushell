@@ -24,7 +24,10 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
                         sections.push(section_name.to_owned());
                     }
                     None => {
-                        sections.push(String::new());
+                        // Section (None) allows for key value pairs without a section
+                        if !properties.is_empty() {
+                            sections.push(String::new());
+                        }
                     }
                 }
 
@@ -38,11 +41,14 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
                 }
 
                 // section with its key value pairs
-                sections_key_value_pairs.push(Value::Record {
-                    cols: keys_for_section,
-                    vals: values_for_section,
-                    span,
-                });
+                // Only add section if contains key,value pair
+                if !properties.is_empty() {
+                    sections_key_value_pairs.push(Value::Record {
+                        cols: keys_for_section,
+                        vals: values_for_section,
+                        span,
+                    });
+                }
             }
 
             // all sections with all its key value pairs
