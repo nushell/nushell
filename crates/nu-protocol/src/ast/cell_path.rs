@@ -56,7 +56,7 @@ pub struct CellPath {
 
 impl CellPath {
     pub fn into_string(&self) -> String {
-        let mut output = String::new();
+        let mut output = String::from("$.");
 
         for (idx, elem) in self.members.iter().enumerate() {
             if idx > 0 {
