@@ -19,26 +19,34 @@ mod rows {
 
     #[test]
     fn can_roll_down() {
-        let actual = nu!(
-        cwd: ".",
-        format!("{} | {}", table(), pipeline(r#"
+        let actual = nu!(format!(
+            "{} | {}",
+            table(),
+            pipeline(
+                r#"
             roll down
             | first
             | get status
-        "#)));
+        "#
+            )
+        ));
 
         assert_eq!(actual.out, "HERE");
     }
 
     #[test]
     fn can_roll_up() {
-        let actual = nu!(
-        cwd: ".",
-        format!("{} | {}", table(), pipeline(r#"
+        let actual = nu!(format!(
+            "{} | {}",
+            table(),
+            pipeline(
+                r#"
             roll up --by 3
             | first
             | get status
-        "#)));
+        "#
+            )
+        ));
 
         assert_eq!(actual.out, "HERE");
     }
@@ -64,26 +72,34 @@ mod columns {
 
     #[test]
     fn can_roll_left() {
-        let actual = nu!(
-        cwd: ".",
-        format!("{} | {}", table(), pipeline(r#"
+        let actual = nu!(format!(
+            "{} | {}",
+            table(),
+            pipeline(
+                r#"
             roll left
             | columns
             | str join "-"
-        "#)));
+        "#
+            )
+        ));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
 
     #[test]
     fn can_roll_right() {
-        let actual = nu!(
-        cwd: ".",
-        format!("{} | {}", table(), pipeline(r#"
+        let actual = nu!(format!(
+            "{} | {}",
+            table(),
+            pipeline(
+                r#"
             roll right --by 2
             | columns
             | str join "-"
-        "#)));
+        "#
+            )
+        ));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
@@ -95,10 +111,9 @@ mod columns {
         let four_bitstring = bitstring_to_nu_row_pipeline("00000100");
         let expected_value = ThirtyTwo(32, "bit1-bit2-bit3-bit4-bit5-bit6-bit7-bit8");
 
-        let actual = nu!(
-            cwd: ".",
-            format!("{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' ")
-        );
+        let actual = nu!(format!(
+            "{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' "
+        ));
 
         assert_eq!(actual.out, expected_value.1);
     }
@@ -146,7 +161,6 @@ mod columns {
             "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
         nu!(
-            cwd: ".",
             format!("{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}")
         ).out
     }
