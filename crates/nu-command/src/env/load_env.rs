@@ -104,6 +104,17 @@ impl Command for LoadEnv {
                 example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME"#,
                 result: Some(Value::test_string("ABE")),
             },
+            Example {
+                description: "Start an SSH agent to store connection keys",
+                example: r#"ssh-agent -c
+        | lines
+        | first 2
+        | parse "setenv {name} {value};"
+        | transpose --header-row
+        | into record
+        | load-env"#,
+                result: None,
+            },
         ]
     }
 }
