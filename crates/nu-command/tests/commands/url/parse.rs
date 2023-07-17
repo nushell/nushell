@@ -2,9 +2,8 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn url_parse_simple() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 ("https://www.abc.com"
                 | url parse)
                 == {
@@ -25,9 +24,8 @@ fn url_parse_simple() {
 
 #[test]
 fn url_parse_with_port() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 ("https://www.abc.com:8011"
                 | url parse)
                 == {
@@ -49,9 +47,8 @@ fn url_parse_with_port() {
 
 #[test]
 fn url_parse_with_path() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 ("http://www.abc.com:8811/def/ghj"
                 | url parse)
                 == {
@@ -73,9 +70,8 @@ fn url_parse_with_path() {
 
 #[test]
 fn url_parse_with_params() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 ("http://www.abc.com:8811/def/ghj?param1=11&param2="
                 | url parse)
                 == {
@@ -97,9 +93,8 @@ fn url_parse_with_params() {
 
 #[test]
 fn url_parse_with_fragment() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 ("http://www.abc.com:8811/def/ghj?param1=11&param2=#hello-fragment"
                 | url parse)
                 == {
@@ -121,9 +116,8 @@ fn url_parse_with_fragment() {
 
 #[test]
 fn url_parse_with_username_and_password() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 ("http://user123:password567@www.abc.com:8811/def/ghj?param1=11&param2=#hello-fragment"
                 | url parse)
                 == {
@@ -145,13 +139,7 @@ fn url_parse_with_username_and_password() {
 
 #[test]
 fn url_parse_error_empty_url() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
-                ""
-                | url parse
-            "#
-    ));
+    let actual = nu!(r#""" | url parse"#);
 
     assert!(actual.err.contains(
         "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"

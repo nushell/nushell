@@ -2,10 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn which_ls() {
-    let actual = nu!(
-        cwd: ".",
-        "which ls | get path.0 | str trim"
-    );
+    let actual = nu!("which ls | get path.0 | str trim");
 
     assert_eq!(actual.out, "Nushell built-in command");
 }
@@ -13,20 +10,14 @@ fn which_ls() {
 #[ignore = "TODO: Can't have alias recursion"]
 #[test]
 fn which_alias_ls() {
-    let actual = nu!(
-        cwd: ".",
-        "alias ls = ls -a; which ls | get path.0 | str trim"
-    );
+    let actual = nu!("alias ls = ls -a; which ls | get path.0 | str trim");
 
     assert_eq!(actual.out, "Nushell alias: ls -a");
 }
 
 #[test]
 fn which_custom_alias() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias foo = print "foo!"; which foo | to nuon"#
-    );
+    let actual = nu!(r#"alias foo = print "foo!"; which foo | to nuon"#);
 
     assert_eq!(
         actual.out,
@@ -36,10 +27,7 @@ fn which_custom_alias() {
 
 #[test]
 fn which_def_ls() {
-    let actual = nu!(
-        cwd: ".",
-        "def ls [] {echo def}; which ls | get path.0 | str trim"
-    );
+    let actual = nu!("def ls [] {echo def}; which ls | get path.0 | str trim");
 
     assert_eq!(actual.out, "Nushell custom command");
 }
@@ -47,10 +35,8 @@ fn which_def_ls() {
 #[ignore = "TODO: Can't have alias with the same name as command"]
 #[test]
 fn correct_precedence_alias_def_custom() {
-    let actual = nu!(
-        cwd: ".",
-        "def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim"
-    );
+    let actual =
+        nu!("def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim");
 
     assert_eq!(actual.out, "Nushell alias: echo alias");
 }
@@ -58,10 +44,7 @@ fn correct_precedence_alias_def_custom() {
 #[ignore = "TODO: Can't have alias with the same name as command"]
 #[test]
 fn multiple_reports_for_alias_def_custom() {
-    let actual = nu!(
-        cwd: ".",
-        "def ls [] {echo def}; alias ls = echo alias; which -a ls | length"
-    );
+    let actual = nu!("def ls [] {echo def}; alias ls = echo alias; which -a ls | length");
 
     let length: i32 = actual.out.parse().unwrap();
     assert!(length >= 2);
@@ -75,30 +58,24 @@ fn multiple_reports_for_alias_def_custom() {
 #[ignore]
 #[test]
 fn correctly_report_of_shadowed_alias() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias xaz = echo alias1
+    let actual = nu!(r#"alias xaz = echo alias1
         def helper [] {
             alias xaz = echo alias2
             which -a xaz
         }
-        helper | get path | str contains alias2"#
-    );
+        helper | get path | str contains alias2"#);
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn one_report_of_multiple_defs() {
-    let actual = nu!(
-        cwd: ".",
-        r#"def xaz [] { echo def1 }
+    let actual = nu!(r#"def xaz [] { echo def1 }
         def helper [] {
             def xaz [] { echo def2 }
             which -a xaz
         }
-        helper | length"#
-    );
+        helper | length"#);
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 1);
@@ -106,10 +83,7 @@ fn one_report_of_multiple_defs() {
 
 #[test]
 fn def_only_seen_once() {
-    let actual = nu!(
-        cwd: ".",
-        "def xaz [] {echo def1}; which -a xaz | length"
-    );
+    let actual = nu!("def xaz [] {echo def1}; which -a xaz | length");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 1);
@@ -117,12 +91,9 @@ fn def_only_seen_once() {
 
 #[test]
 fn do_not_show_hidden_aliases() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias foo = echo foo
+    let actual = nu!(r#"alias foo = echo foo
         hide foo
-        which foo | length"#
-    );
+        which foo | length"#);
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);
@@ -130,12 +101,9 @@ fn do_not_show_hidden_aliases() {
 
 #[test]
 fn do_not_show_hidden_commands() {
-    let actual = nu!(
-        cwd: ".",
-        r#"def foo [] { echo foo }
+    let actual = nu!(r#"def foo [] { echo foo }
         hide foo
-        which foo | length"#
-    );
+        which foo | length"#);
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);

@@ -121,8 +121,7 @@ fn count() {
 
 #[test]
 fn count_with_normalize_percentage() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1]]
             | histogram bit --percentage-type normalize
