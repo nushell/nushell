@@ -53,7 +53,7 @@ features = [
 	"to_dummies",
 ]
 optional = true
-version = "0.30.0"
+version = "0.31.1"
 
 [features]
 dataframe = ["default"]
