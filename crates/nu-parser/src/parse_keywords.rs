@@ -1589,6 +1589,9 @@ pub fn parse_module_block(
                                 None, // using commands named as the module locally is OK
                             ))
                         }
+                        b"const" => block
+                            .pipelines
+                            .push(parse_const(working_set, &command.parts)),
                         b"extern" | b"extern-wrapped" => {
                             block
                                 .pipelines
@@ -1730,7 +1733,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def, def-env, extern, alias, use, module, export or export-env keyword".into(),
+                                "def, const, def-env, extern, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 
@@ -2096,6 +2099,7 @@ pub fn parse_module(
     let block_id = working_set.add_block(block);
 
     module_comments.extend(inner_comments);
+    log::warn!("module info: {module:?}");
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     let block_expr = Expression {
