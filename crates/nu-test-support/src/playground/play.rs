@@ -49,7 +49,7 @@ impl Dirs {
     pub fn root(&self) -> &PathBuf {
         &self.root
     }
-    
+
     pub fn test(&self) -> &PathBuf {
         &self.test
     }
