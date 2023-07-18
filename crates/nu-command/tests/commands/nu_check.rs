@@ -177,52 +177,6 @@ fn file_not_exist() {
 }
 
 #[test]
-fn parse_unsupported_file() {
-    Playground::setup("nu_check_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "foo.txt",
-            r#"
-                # foo.nu
-
-                export def hello [name: string {
-                    $"hello ($name)!"
-                }
-
-                export def hi [where: string] {
-                    $"hi ($where)!"
-                }
-            "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                nu-check --as-module foo.txt
-            "#
-        ));
-
-        assert!(actual
-            .err
-            .contains("File extension must be the type of .nu"));
-    })
-}
-#[test]
-fn parse_dir_failure() {
-    Playground::setup("nu_check_test_9", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                nu-check --as-module ~
-            "#
-        ));
-
-        assert!(actual
-            .err
-            .contains("File extension must be the type of .nu"));
-    })
-}
-
-#[test]
 fn parse_module_success_2() {
     Playground::setup("nu_check_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
