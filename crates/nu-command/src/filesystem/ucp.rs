@@ -6,7 +6,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::ffi::OsString;
-use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Ucp;
@@ -159,144 +158,153 @@ impl Command for Ucp {
         args.push(dest_input.into());
 
         // Pass uucore::Args to app.uumain
-        let hidden_options = true;
+        // let hidden_options = true;
 
         // If hidden_options is set to true, this means just call the uumain function
-        if hidden_options {
-            uu_cp::uumain(args.into_iter());
-        } else {
-            use uucore::mods::backup_control::BackupMode;
-            use uucore::mods::update_control::UpdateMode;
+        // if hidden_options {
+        uu_cp::uumain(args.into_iter());
+        //
+        // If you want to try this else block, you'll need to make some changes to
+        // the uu_cp source code. If you uncomment the block, you'll get errors
+        // saying that the functions and structs are private. You'll need to make
+        // them public.
+        // You'll also need to change the Cargo.toml file to point to your local
+        // uu_cp source code.
 
-            // static EXIT_ERR: i32 = 1;
+        // } else {
+        //     use uucore::mods::backup_control::BackupMode;
+        //     use uucore::mods::update_control::UpdateMode;
+        //     use std::path::PathBuf;
 
-            // If hidden_options is set to false, this means we need to parse the args
-            // ourselves and throw ShellErrors if bad things happen. We don't have spans yet though.
-            // Also, changes have to be made to uucore and uu_cp to make this work. These
-            // changes are really just making some enums, structs, and functions public.
-            let attrs = uu_cp::Attributes::default();
-            let _options = uu_cp::Options {
-                attributes_only: false,
-                backup: BackupMode::SimpleBackup,
-                copy_contents: true,
-                cli_dereference: true,
-                copy_mode: uu_cp::CopyMode::Copy,
-                dereference: true,
-                no_target_dir: false,
-                one_file_system: false,
-                overwrite: uu_cp::OverwriteMode::NoClobber,
-                parents: false,
-                sparse_mode: uu_cp::SparseMode::Auto,
-                strip_trailing_slashes: true,
-                reflink_mode: uu_cp::ReflinkMode::Auto,
-                attributes: attrs,
-                recursive,
-                backup_suffix: "bak".to_string(),
-                target_dir: Some(destination),
-                update: UpdateMode::ReplaceIfOlder,
-                debug: true,
-                verbose,
-                progress_bar: progress,
-            };
+        //     // static EXIT_ERR: i32 = 1;
 
-            // Try to use uu error handling but make the errors ShellError
-            // I think this is the only way to catch errors from uu and
-            // turn them in to ShellError.
-            //
-            // We'd have to iterat through uu_app().try_get_matches_from(args)
-            // and when there are errors, create a ShellError. However, for
-            // this to work, it seems like we need a special mode for nushell
-            // to pass parameters through without checking them.
-            //
-            // Once we pass that hurdle, we'll need some things in uu to be
-            // pub like uu_cp::Options (any_uu_cmd::Options) will probably
-            // need to be public to go this route.
-            //
-            // After options, we'll need the commands themselves to be public
-            // such as uu_cp::copy() and uu_cp::parse_path_args()
+        //     // If hidden_options is set to false, this means we need to parse the args
+        //     // ourselves and throw ShellErrors if bad things happen. We don't have spans yet though.
+        //     // Also, changes have to be made to uucore and uu_cp to make this work. These
+        //     // changes are really just making some enums, structs, and functions public.
+        //     let attrs = uu_cp::Attributes::default();
+        //     let _options = uu_cp::Options {
+        //         attributes_only: false,
+        //         backup: BackupMode::SimpleBackup,
+        //         copy_contents: true,
+        //         cli_dereference: true,
+        //         copy_mode: uu_cp::CopyMode::Copy,
+        //         dereference: true,
+        //         no_target_dir: false,
+        //         one_file_system: false,
+        //         overwrite: uu_cp::OverwriteMode::NoClobber,
+        //         parents: false,
+        //         sparse_mode: uu_cp::SparseMode::Auto,
+        //         strip_trailing_slashes: true,
+        //         reflink_mode: uu_cp::ReflinkMode::Auto,
+        //         attributes: attrs,
+        //         recursive,
+        //         backup_suffix: "bak".to_string(),
+        //         target_dir: Some(destination),
+        //         update: UpdateMode::ReplaceIfOlder,
+        //         debug: true,
+        //         verbose,
+        //         progress_bar: progress,
+        //     };
 
-            let matches = uu_cp::uu_app().try_get_matches_from(args);
-            // eprint!("Result<ArgMatches>: {:#?}\n\n", matches);
+        //     // Try to use uu error handling but make the errors ShellError
+        //     // I think this is the only way to catch errors from uu and
+        //     // turn them in to ShellError.
+        //     //
+        //     // We'd have to iterat through uu_app().try_get_matches_from(args)
+        //     // and when there are errors, create a ShellError. However, for
+        //     // this to work, it seems like we need a special mode for nushell
+        //     // to pass parameters through without checking them.
+        //     //
+        //     // Once we pass that hurdle, we'll need some things in uu to be
+        //     // pub like uu_cp::Options (any_uu_cmd::Options) will probably
+        //     // need to be public to go this route.
+        //     //
+        //     // After options, we'll need the commands themselves to be public
+        //     // such as uu_cp::copy() and uu_cp::parse_path_args()
 
-            // The error is parsed here because we do not want version or help being printed to stderr.
-            if let Err(_e) = matches {
-                // We don't get here because nushell pukes on bad params.
-                // We do need to figure out how to support all the syntax that cp/mv support
-                // like mv [a b c d] test <-- this doesn't work yet
-                let mut app = uu_cp::uu_app();
-                app.print_help()?;
-            } else if let Ok(mut matches) = matches {
-                if let Ok(options) = uu_cp::Options::from_matches(&matches) {
-                    eprintln!("{:#?}\n\n", options);
-                    // eprint!("ArgMatches: {:#?}\n\n", matches);
+        //     let matches = uu_cp::uu_app().try_get_matches_from(args);
+        //     // eprint!("Result<ArgMatches>: {:#?}\n\n", matches);
 
-                    if let Some(c) = matches.get_one::<bool>("recursive") {
-                        println!("Value for recursive(-r): {c}");
-                    }
-                    if let Some(c) = matches.get_one::<bool>("progress") {
-                        println!("Value for progress(-g): {c}");
-                    }
-                    if let Some(c) = matches.get_one::<bool>("verbose") {
-                        println!("Value for verbose(-v): {c}");
-                    }
-                    if let Some(c) = matches.get_one::<bool>("force") {
-                        println!("Value for force(-f): {c}");
-                    }
-                    if let Some(c) = matches.get_one::<bool>("interactive") {
-                        println!("Value for interactive(-i): {c}");
-                    }
+        //     // The error is parsed here because we do not want version or help being printed to stderr.
+        //     if let Err(_e) = matches {
+        //         // We don't get here because nushell pukes on bad params.
+        //         // We do need to figure out how to support all the syntax that cp/mv support
+        //         // like mv [a b c d] test <-- this doesn't work yet
+        //         let mut app = uu_cp::uu_app();
+        //         app.print_help()?;
+        //     } else if let Ok(mut matches) = matches {
+        //         if let Ok(options) = uu_cp::Options::from_matches(&matches) {
+        //             eprintln!("{:#?}\n\n", options);
+        //             // eprint!("ArgMatches: {:#?}\n\n", matches);
 
-                    if options.overwrite == uu_cp::OverwriteMode::NoClobber
-                        && options.backup != BackupMode::NoBackup
-                    {
-                        return Err(ShellError::IncompatibleParametersSingle {
-                            msg: "options --backup and --no-clobber are mutually exclusive"
-                                .to_string(),
-                            span: call.head,
-                        });
-                    }
+        //             if let Some(c) = matches.get_one::<bool>("recursive") {
+        //                 println!("Value for recursive(-r): {c}");
+        //             }
+        //             if let Some(c) = matches.get_one::<bool>("progress") {
+        //                 println!("Value for progress(-g): {c}");
+        //             }
+        //             if let Some(c) = matches.get_one::<bool>("verbose") {
+        //                 println!("Value for verbose(-v): {c}");
+        //             }
+        //             if let Some(c) = matches.get_one::<bool>("force") {
+        //                 println!("Value for force(-f): {c}");
+        //             }
+        //             if let Some(c) = matches.get_one::<bool>("interactive") {
+        //                 println!("Value for interactive(-i): {c}");
+        //             }
 
-                    let paths: Vec<PathBuf> = matches
-                        .remove_many::<PathBuf>(uu_cp::options::PATHS)
-                        .map(|v| v.collect())
-                        .unwrap_or_default();
+        //             if options.overwrite == uu_cp::OverwriteMode::NoClobber
+        //                 && options.backup != BackupMode::NoBackup
+        //             {
+        //                 return Err(ShellError::IncompatibleParametersSingle {
+        //                     msg: "options --backup and --no-clobber are mutually exclusive"
+        //                         .to_string(),
+        //                     span: call.head,
+        //                 });
+        //             }
 
-                    eprintln!("paths: {:?}", paths);
+        //             let paths: Vec<PathBuf> = matches
+        //                 .remove_many::<PathBuf>(uu_cp::options::PATHS)
+        //                 .map(|v| v.collect())
+        //                 .unwrap_or_default();
 
-                    let (sources, target) =
-                        uu_cp::parse_path_args(paths, &options).map_err(|error| {
-                            ShellError::GenericError(
-                                format!("{}", error),
-                                format!("{}", error),
-                                None,
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
+        //             eprintln!("paths: {:?}", paths);
 
-                    if let Err(error) = uu_cp::copy(&sources, &target, &options) {
-                        match error {
-                            // Error::NotAllFilesCopied is non-fatal, but the error
-                            // code should still be EXIT_ERR as does GNU cp
-                            // Error::NotAllFilesCopied => {}
-                            // Else we caught a fatal bubbled-up error, log it to stderr
-                            // ShellError
-                            // _ => uucore::macros::show_error!("{}", error),
-                            _ => {
-                                return Err(ShellError::GenericError(
-                                    format!("{}", error),
-                                    format!("{}", error),
-                                    None,
-                                    None,
-                                    Vec::new(),
-                                ))
-                            }
-                        };
-                        // uucore::error::set_exit_code(EXIT_ERR);
-                    }
-                }
-            }
-        }
+        //             let (sources, target) =
+        //                 uu_cp::parse_path_args(paths, &options).map_err(|error| {
+        //                     ShellError::GenericError(
+        //                         format!("{}", error),
+        //                         format!("{}", error),
+        //                         None,
+        //                         None,
+        //                         Vec::new(),
+        //                     )
+        //                 })?;
+
+        //             if let Err(error) = uu_cp::copy(&sources, &target, &options) {
+        //                 match error {
+        //                     // Error::NotAllFilesCopied is non-fatal, but the error
+        //                     // code should still be EXIT_ERR as does GNU cp
+        //                     // Error::NotAllFilesCopied => {}
+        //                     // Else we caught a fatal bubbled-up error, log it to stderr
+        //                     // ShellError
+        //                     // _ => uucore::macros::show_error!("{}", error),
+        //                     _ => {
+        //                         return Err(ShellError::GenericError(
+        //                             format!("{}", error),
+        //                             format!("{}", error),
+        //                             None,
+        //                             None,
+        //                             Vec::new(),
+        //                         ))
+        //                     }
+        //                 };
+        //                 // uucore::error::set_exit_code(EXIT_ERR);
+        //             }
+        //         }
+        //     }
+        // }
         Ok(PipelineData::empty())
     }
 }
