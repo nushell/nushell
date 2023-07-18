@@ -81,7 +81,10 @@ fn main() -> Result<()> {
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
 
-    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some();
+    // keep this condition in sync with the branches at the end
+    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
+        || (parsed_nu_cli_args.commands.is_none() && script_name.is_empty());
+
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
@@ -142,8 +145,7 @@ fn main() -> Result<()> {
     );
 
     start_time = std::time::Instant::now();
-    // keep this condition in sync with the branches below
-    acquire_terminal(parsed_nu_cli_args.commands.is_none() && script_name.is_empty());
+    acquire_terminal(engine_state.is_interactive);
     perf(
         "acquire_terminal",
         start_time,
@@ -289,7 +291,6 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        engine_state.is_interactive = true;
         run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

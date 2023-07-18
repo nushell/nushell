@@ -22,10 +22,7 @@ fn filters_with_nothing_comparison() {
 
 #[test]
 fn where_inside_block_works() {
-    let actual = nu!(
-        cwd: ".",
-        "{|x| ls | where $it =~ 'foo' } | describe"
-    );
+    let actual = nu!("{|x| ls | where $it =~ 'foo' } | describe");
 
     assert_eq!(actual.out, "closure");
 }
@@ -178,7 +175,7 @@ fn contains_operator() {
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(cwd: ".", pipeline(r#"{"name": "foo", "size": 3} | where name == "foo""#));
+    let actual = nu!(r#"{"name": "foo", "size": 3} | where name == "foo""#);
 
     assert!(actual.err.contains("command doesn't support"));
 }

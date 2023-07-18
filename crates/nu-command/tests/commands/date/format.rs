@@ -2,26 +2,18 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn formatter_not_valid() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         date now | date format '%N'
-        "#
-        )
-    );
+        "#);
 
     assert!(actual.err.contains("invalid format"));
 }
 
 #[test]
 fn fails_without_input() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         date format "%c"
-        "#
-        )
-    );
+        "#);
 
     assert!(actual.err.contains("Pipeline empty"));
 }

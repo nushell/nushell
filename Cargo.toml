@@ -74,7 +74,7 @@ mimalloc = { version = "0.1.37", default-features = false, optional = true}
 crossterm = "0.26"
 ctrlc = "3.4"
 log = "0.4"
-miette = { version = "5.9", features = ["fancy-no-backtrace"] }
+miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"

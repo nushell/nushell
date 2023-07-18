@@ -37,6 +37,10 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .vectorizes_over_list(true)
             .required("find", SyntaxShape::String, "the pattern to find")
@@ -62,6 +66,7 @@ impl Command for SubCommand {
                 "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
