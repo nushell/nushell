@@ -340,7 +340,7 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
         return;
     }
 
-    map.insert(String::from(key), Value::boolean(value, Span::unknown()));
+    map.insert(String::from(key), Value::bool(value, Span::unknown()));
 }
 
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {

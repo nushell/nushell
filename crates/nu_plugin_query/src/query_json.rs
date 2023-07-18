@@ -82,7 +82,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
             Value::List { vals, span: *span }
         }
         gjson::Kind::Null => Value::nothing(*span),
-        gjson::Kind::False => Value::boolean(false, *span),
+        gjson::Kind::False => Value::bool(false, *span),
         gjson::Kind::Number => {
             let str_value = v.str();
             if str_value.contains('.') {
@@ -92,7 +92,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
             }
         }
         gjson::Kind::String => Value::string(v.str(), *span),
-        gjson::Kind::True => Value::boolean(true, *span),
+        gjson::Kind::True => Value::bool(true, *span),
         gjson::Kind::Object => {
             let mut cols = vec![];
             let mut vals = vec![];

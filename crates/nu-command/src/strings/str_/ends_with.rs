@@ -94,7 +94,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             } else {
                 s.ends_with(&args.substring)
             };
-            Value::boolean(ends_with, head)
+            Value::bool(ends_with, head)
         }
         Value::Error { .. } => input.clone(),
         _ => Value::Error {

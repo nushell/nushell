@@ -125,7 +125,7 @@ pub enum Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::boolean(*val, *span),
+            Value::Bool { val, span } => Value::bool(*val, *span),
             Value::Int { val, span } => Value::int(*val, *span),
             Value::Filesize { val, span } => Value::Filesize {
                 val: *val,
@@ -1738,7 +1738,7 @@ impl Value {
         }
     }
 
-    pub fn boolean(val: bool, span: Span) -> Value {
+    pub fn bool(val: bool, span: Span) -> Value {
         Value::Bool { val, span }
     }
 
@@ -1846,7 +1846,7 @@ impl Value {
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_bool(val: bool) -> Value {
-        Value::boolean(val, Span::test_data())
+        Value::bool(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -4089,7 +4089,7 @@ mod tests {
                 vals: vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
-                    Value::boolean(false, Span::unknown()),
+                    Value::bool(false, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };

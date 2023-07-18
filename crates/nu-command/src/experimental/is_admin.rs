@@ -35,7 +35,7 @@ impl Command for IsAdmin {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::boolean(is_root(), call.head).into_pipeline_data())
+        Ok(Value::bool(is_root(), call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

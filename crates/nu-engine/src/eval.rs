@@ -121,7 +121,7 @@ pub fn eval_call(
                             } else if let Some(value) = &named.default_value {
                                 callee_stack.add_var(var_id, value.to_owned());
                             } else {
-                                callee_stack.add_var(var_id, Value::boolean(true, call.head))
+                                callee_stack.add_var(var_id, Value::bool(true, call.head))
                             }
                             found = true;
                         }
@@ -133,7 +133,7 @@ pub fn eval_call(
                         } else if let Some(value) = &named.default_value {
                             callee_stack.add_var(var_id, value.to_owned());
                         } else {
-                            callee_stack.add_var(var_id, Value::boolean(true, call.head))
+                            callee_stack.add_var(var_id, Value::bool(true, call.head))
                         }
                         found = true;
                     }
@@ -141,7 +141,7 @@ pub fn eval_call(
 
                 if !found {
                     if named.arg.is_none() {
-                        callee_stack.add_var(var_id, Value::boolean(false, call.head))
+                        callee_stack.add_var(var_id, Value::bool(false, call.head))
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);
                     } else {
@@ -275,7 +275,7 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
+        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {
@@ -367,7 +367,7 @@ pub fn eval_expression(
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
-                Value::Bool { val, .. } => Ok(Value::boolean(!val, expr.span)),
+                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                 _ => Err(ShellError::TypeMismatch {
                     err_message: "bool".to_string(),
                     span: expr.span,
@@ -384,7 +384,7 @@ pub fn eval_expression(
                     match boolean {
                         Boolean::And => {
                             if lhs.is_false() {
-                                Ok(Value::boolean(false, expr.span))
+                                Ok(Value::bool(false, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.and(op_span, &rhs, expr.span)
@@ -392,7 +392,7 @@ pub fn eval_expression(
                         }
                         Boolean::Or => {
                             if lhs.is_true() {
-                                Ok(Value::boolean(true, expr.span))
+                                Ok(Value::bool(true, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.or(op_span, &rhs, expr.span)

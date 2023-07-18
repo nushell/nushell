@@ -255,7 +255,7 @@ impl Value {
                 } else {
                     invalid!(Some(*$span), "should be a bool");
                     // Reconstruct
-                    $vals[$index] = Value::boolean(config.$setting, *$span);
+                    $vals[$index] = Value::bool(config.$setting, *$span);
                 }
             };
         }
@@ -336,8 +336,8 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["use_ls_colors".into(), "clickable_links".into()],
                                 vec![
-                                    Value::boolean(config.use_ls_colors, *span),
-                                    Value::boolean(config.show_clickable_links_in_ls, *span),
+                                    Value::bool(config.use_ls_colors, *span),
+                                    Value::bool(config.show_clickable_links_in_ls, *span),
                                 ],
                                 *span,
                             );
@@ -369,8 +369,8 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["use_ls_colors".into(), "clickable_links".into()],
                                 vec![
-                                    Value::boolean(config.use_ls_colors, *span),
-                                    Value::boolean(config.show_clickable_links_in_ls, *span),
+                                    Value::bool(config.use_ls_colors, *span),
+                                    Value::bool(config.show_clickable_links_in_ls, *span),
                                 ],
                                 *span,
                             );
@@ -401,7 +401,7 @@ impl Value {
                             // Reconstruct
                             vals[index] = Value::record(
                                 vec!["always_trash".into()],
-                                vec![Value::boolean(config.rm_always_trash, *span)],
+                                vec![Value::bool(config.rm_always_trash, *span)],
                                 *span,
                             );
                         }
@@ -481,10 +481,10 @@ impl Value {
                                     "isolation".into(),
                                 ],
                                 vec![
-                                    Value::boolean(config.sync_history_on_enter, *span),
+                                    Value::bool(config.sync_history_on_enter, *span),
                                     Value::int(config.max_history_size, *span),
                                     reconstruct_history_file_format!(span),
-                                    Value::boolean(config.history_isolation, *span),
+                                    Value::bool(config.history_isolation, *span),
                                 ],
                                 *span,
                             );
@@ -510,7 +510,7 @@ impl Value {
                                     vec![
                                         Value::int(config.max_external_completion_results, *$span),
                                         reconstruct_external_completer!($span),
-                                        Value::boolean(config.enable_external_completion, *$span),
+                                        Value::bool(config.enable_external_completion, *$span),
                                     ],
                                     *$span,
                                 )
@@ -648,10 +648,10 @@ impl Value {
                                     "external".into(),
                                 ],
                                 vec![
-                                    Value::boolean(config.quick_completions, *span),
-                                    Value::boolean(config.partial_completions, *span),
+                                    Value::bool(config.quick_completions, *span),
+                                    Value::bool(config.partial_completions, *span),
                                     Value::string(config.completion_algorithm.clone(), *span),
-                                    Value::boolean(config.case_sensitive_completions, *span),
+                                    Value::bool(config.case_sensitive_completions, *span),
                                     reconstruct_external!(span),
                                 ],
                                 *span,
@@ -870,7 +870,7 @@ impl Value {
                                         ],
                                         vec![
                                             Value::string("wrapping", *$span),
-                                            Value::boolean(*try_to_keep_words, *$span),
+                                            Value::bool(*try_to_keep_words, *$span),
                                         ],
                                         *$span,
                                     ),
@@ -968,7 +968,7 @@ impl Value {
                                     Value::string(config.table_mode.clone(), *span),
                                     reconstruct_index_mode!(span),
                                     reconstruct_trim_strategy!(span),
-                                    Value::boolean(config.table_show_empty, *span),
+                                    Value::bool(config.table_show_empty, *span),
                                 ],
                                 *span,
                             )
@@ -1012,7 +1012,7 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["metric".into(), "format".into()],
                                 vec![
-                                    Value::boolean(config.filesize_metric, *span),
+                                    Value::bool(config.filesize_metric, *span),
                                     Value::string(config.filesize_format.clone(), *span),
                                 ],
                                 *span,
@@ -1256,7 +1256,7 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["metric".into(), "format".into()],
                                 vec![
-                                    Value::boolean(config.filesize_metric, *span),
+                                    Value::bool(config.filesize_metric, *span),
                                     Value::string(config.filesize_format.clone(), *span),
                                 ],
                                 *span,
