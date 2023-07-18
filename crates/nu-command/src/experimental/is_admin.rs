@@ -69,6 +69,7 @@ fn is_root_impl() -> bool {
     let mut handle = HANDLE::default();
     let mut elevated = false;
 
+    // Checks whether the access token associated with the current process has elevated privileges.
     unsafe {
         // Opens the access token associated with the current process.
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle).as_bool() {
