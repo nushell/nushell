@@ -80,6 +80,8 @@ fn is_root_impl() -> bool {
             let mut size = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
 
             // Retrieves elevation token information about the access token associated with the current process.
+            // Call available since XP
+            // https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation
             if GetTokenInformation(
                 handle,
                 TokenElevation,
