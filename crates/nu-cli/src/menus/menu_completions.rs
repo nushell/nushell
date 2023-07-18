@@ -94,10 +94,10 @@ fn convert_to_suggestions(
                 Some(span @ Value::Record { .. }) => {
                     let start = span
                         .get_data_by_key("start")
-                        .and_then(|val| val.as_integer().ok());
+                        .and_then(|val| val.as_int().ok());
                     let end = span
                         .get_data_by_key("end")
-                        .and_then(|val| val.as_integer().ok());
+                        .and_then(|val| val.as_int().ok());
                     match (start, end) {
                         (Some(start), Some(end)) => {
                             let start = start.min(end);

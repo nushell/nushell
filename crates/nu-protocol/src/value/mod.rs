@@ -205,7 +205,7 @@ impl Value {
         }
     }
 
-    pub fn as_integer(&self) -> Result<i64, ShellError> {
+    pub fn as_int(&self) -> Result<i64, ShellError> {
         match self {
             Value::Int { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {

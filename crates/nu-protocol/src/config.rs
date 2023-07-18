@@ -261,7 +261,7 @@ impl Value {
         }
         macro_rules! try_int {
             ($cols:ident, $vals:ident, $index:ident, $span:expr, $setting:ident) => {
-                if let Ok(b) = &$vals[$index].as_integer() {
+                if let Ok(b) = &$vals[$index].as_int() {
                     config.$setting = *b;
                 } else {
                     invalid!(Some(*$span), "should be an int");
