@@ -125,17 +125,6 @@ impl Command for NuCheck {
                     // get the expanded path as a string
                     let path_str = path.to_string_lossy().to_string();
 
-                    let ext: Vec<_> = path_str.rsplitn(2, '.').collect();
-                    if ext[0] != "nu" {
-                        return Err(ShellError::GenericError(
-                            "Cannot parse input".to_string(),
-                            "File extension must be the type of .nu".to_string(),
-                            Some(call.head),
-                            None,
-                            Vec::new(),
-                        ));
-                    }
-
                     // Change currently parsed directory
                     let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
                         let prev = working_set.currently_parsed_cwd.clone();
