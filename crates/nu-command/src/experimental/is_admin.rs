@@ -92,7 +92,7 @@ fn is_root_impl() -> bool {
             .as_bool()
             {
                 // Whether the token has elevated privileges.
-                // Safe to read as `GetTokenInformation` will not write outside `elevation` and it succeeeded
+                // Safe to read as `GetTokenInformation` will not write outside `elevation` and it succeeded
                 // See: https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation#parameters
                 elevated = elevation.TokenIsElevated != 0;
             }
