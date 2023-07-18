@@ -70,6 +70,9 @@ fn is_root_impl() -> bool {
     let mut elevated = false;
 
     // Checks whether the access token associated with the current process has elevated privileges.
+    // SAFETY: `elevated` only touched by safe code.
+    // `handle` lives long enough, initialized, mutated as out param, used, closed with validity check.
+    // `elevation` only read on success and passed with correct `size`.
     unsafe {
         // Opens the access token associated with the current process.
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle).as_bool() {
