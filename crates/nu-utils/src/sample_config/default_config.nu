@@ -7,108 +7,23 @@
 # And here is the theme collection
 # https://github.com/nushell/nu_scripts/tree/main/themes
 let dark_theme = {
-    # color for nushell primitives
-    separator: white
-    leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
-    header: green_bold
-    empty: blue
-    # Closures can be used to choose colors for specific values.
-    # The value (in this case, a bool) is piped into the closure.
-    bool: {|| if $in { 'light_cyan' } else { 'light_gray' } }
-    int: white
-    filesize: {|e|
-      if $e == 0b {
-        'white'
-      } else if $e < 1mb {
-        'cyan'
-      } else { 'blue' }
-    }
-    duration: white
-    date: {|| (date now) - $in |
-      if $in < 1hr {
-        'purple'
-      } else if $in < 6hr {
-        'red'
-      } else if $in < 1day {
-        'yellow'
-      } else if $in < 3day {
-        'green'
-      } else if $in < 1wk {
-        'light_green'
-      } else if $in < 6wk {
-        'cyan'
-      } else if $in < 52wk {
-        'blue'
-      } else { 'dark_gray' }
-    }
-    range: white
-    float: white
-    string: white
-    nothing: white
-    binary: white
-    cellpath: white
-    row_index: green_bold
-    record: white
-    list: white
-    block: white
-    hints: dark_gray
-    search_result: {bg: red fg: white}
-
-    shape_and: purple_bold
-    shape_binary: purple_bold
-    shape_block: blue_bold
-    shape_bool: light_cyan
-    shape_closure: green_bold
-    shape_custom: green
-    shape_datetime: cyan_bold
-    shape_directory: cyan
-    shape_external: cyan
-    shape_externalarg: green_bold
-    shape_filepath: cyan
-    shape_flag: blue_bold
-    shape_float: purple_bold
-    # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: white bg: red attr: b}
-    shape_globpattern: cyan_bold
-    shape_int: purple_bold
-    shape_internalcall: cyan_bold
-    shape_list: cyan_bold
-    shape_literal: blue
-    shape_match_pattern: green
-    shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
-    shape_operator: yellow
-    shape_or: purple_bold
-    shape_pipe: purple_bold
-    shape_range: yellow_bold
-    shape_record: cyan_bold
-    shape_redirection: purple_bold
-    shape_signature: green_bold
-    shape_string: green
-    shape_string_interpolation: cyan_bold
-    shape_table: blue_bold
-    shape_variable: purple
-    shape_vardecl: purple
-}
-
-let light_theme = {
-    # color for nushell primitives
-    separator: dark_gray
-    leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
-    header: green_bold
-    empty: blue
-    # Closures can be used to choose colors for specific values.
-    # The value (in this case, a bool) is piped into the closure.
-    bool: {|| if $in { 'dark_cyan' } else { 'dark_gray' } }
-    int: dark_gray
-    filesize: {|e|
-      if $e == 0b {
-        'dark_gray'
-      } else if $e < 1mb {
-        'cyan_bold'
-      } else { 'blue_bold' }
-    }
-    duration: dark_gray
+  # color for nushell primitives
+  separator: white
+  leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
+  header: green_bold
+  empty: blue
+  # Closures can be used to choose colors for specific values.
+  # The value (in this case, a bool) is piped into the closure.
+  bool: {|| if $in { 'light_cyan' } else { 'light_gray' } }
+  int: white
+  filesize: {|e|
+    if $e == 0b {
+      'white'
+    } else if $e < 1mb {
+      'cyan'
+    } else { 'blue' }
+  }
+  duration: white
   date: {|| (date now) - $in |
     if $in < 1hr {
       'purple'
@@ -126,54 +41,137 @@ let light_theme = {
       'blue'
     } else { 'dark_gray' }
   }
-    range: dark_gray
-    float: dark_gray
-    string: dark_gray
-    nothing: dark_gray
-    binary: dark_gray
-    cellpath: dark_gray
-    row_index: green_bold
-    record: white
-    list: white
-    block: white
-    hints: dark_gray
-    search_result: {fg: white bg: red}
+  range: white
+  float: white
+  string: white
+  nothing: white
+  binary: white
+  cellpath: white
+  row_index: green_bold
+  record: white
+  list: white
+  block: white
+  hints: dark_gray
+  search_result: {bg: red fg: white}  
+  shape_and: purple_bold
+  shape_binary: purple_bold
+  shape_block: blue_bold
+  shape_bool: light_cyan
+  shape_closure: green_bold
+  shape_custom: green
+  shape_datetime: cyan_bold
+  shape_directory: cyan
+  shape_external: cyan
+  shape_externalarg: green_bold
+  shape_filepath: cyan
+  shape_flag: blue_bold
+  shape_float: purple_bold
+  # shapes are used to change the cli syntax highlighting
+  shape_garbage: { fg: white bg: red attr: b}
+  shape_globpattern: cyan_bold
+  shape_int: purple_bold
+  shape_internalcall: cyan_bold
+  shape_list: cyan_bold
+  shape_literal: blue
+  shape_match_pattern: green
+  shape_matching_brackets: { attr: u }
+  shape_nothing: light_cyan
+  shape_operator: yellow
+  shape_or: purple_bold
+  shape_pipe: purple_bold
+  shape_range: yellow_bold
+  shape_record: cyan_bold
+  shape_redirection: purple_bold
+  shape_signature: green_bold
+  shape_string: green
+  shape_string_interpolation: cyan_bold
+  shape_table: blue_bold
+  shape_variable: purple
+  shape_vardecl: purple
+}
 
-    shape_and: purple_bold
-    shape_binary: purple_bold
-    shape_block: blue_bold
-    shape_bool: light_cyan
-    shape_closure: green_bold
-    shape_custom: green
-    shape_datetime: cyan_bold
-    shape_directory: cyan
-    shape_external: cyan
-    shape_externalarg: green_bold
-    shape_filepath: cyan
-    shape_flag: blue_bold
-    shape_float: purple_bold
-    # shapes are used to change the cli syntax highlighting
-    shape_garbage: { fg: white bg: red attr: b}
-    shape_globpattern: cyan_bold
-    shape_int: purple_bold
-    shape_internalcall: cyan_bold
-    shape_list: cyan_bold
-    shape_literal: blue
-    shape_match_pattern: green
-    shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
-    shape_operator: yellow
-    shape_or: purple_bold
-    shape_pipe: purple_bold
-    shape_range: yellow_bold
-    shape_record: cyan_bold
-    shape_redirection: purple_bold
-    shape_signature: green_bold
-    shape_string: green
-    shape_string_interpolation: cyan_bold
-    shape_table: blue_bold
-    shape_variable: purple
-    shape_vardecl: purple
+let light_theme = {
+  # color for nushell primitives
+  separator: dark_gray
+  leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
+  header: green_bold
+  empty: blue
+  # Closures can be used to choose colors for specific values.
+  # The value (in this case, a bool) is piped into the closure.
+  bool: {|| if $in { 'dark_cyan' } else { 'dark_gray' } }
+  int: dark_gray
+  filesize: {|e|
+    if $e == 0b {
+      'dark_gray'
+    } else if $e < 1mb {
+      'cyan_bold'
+    } else { 'blue_bold' }
+  }
+  duration: dark_gray
+  date: {|| (date now) - $in |
+    if $in < 1hr {
+      'purple'
+    } else if $in < 6hr {
+      'red'
+    } else if $in < 1day {
+      'yellow'
+    } else if $in < 3day {
+      'green'
+    } else if $in < 1wk {
+      'light_green'
+    } else if $in < 6wk {
+      'cyan'
+    } else if $in < 52wk {
+      'blue'
+    } else { 'dark_gray' }
+  }
+  range: dark_gray
+  float: dark_gray
+  string: dark_gray
+  nothing: dark_gray
+  binary: dark_gray
+  cellpath: dark_gray
+  row_index: green_bold
+  record: white
+  list: white
+  block: white
+  hints: dark_gray
+  search_result: {fg: white bg: red}  
+  shape_and: purple_bold
+  shape_binary: purple_bold
+  shape_block: blue_bold
+  shape_bool: light_cyan
+  shape_closure: green_bold
+  shape_custom: green
+  shape_datetime: cyan_bold
+  shape_directory: cyan
+  shape_external: cyan
+  shape_externalarg: green_bold
+  shape_filepath: cyan
+  shape_flag: blue_bold
+  shape_float: purple_bold
+  # shapes are used to change the cli syntax highlighting
+  shape_garbage: { fg: white bg: red attr: b}
+  shape_globpattern: cyan_bold
+  shape_int: purple_bold
+  shape_internalcall: cyan_bold
+  shape_list: cyan_bold
+  shape_literal: blue
+  shape_match_pattern: green
+  shape_matching_brackets: { attr: u }
+  shape_nothing: light_cyan
+  shape_operator: yellow
+  shape_or: purple_bold
+  shape_pipe: purple_bold
+  shape_range: yellow_bold
+  shape_record: cyan_bold
+  shape_redirection: purple_bold
+  shape_signature: green_bold
+  shape_string: green
+  shape_string_interpolation: cyan_bold
+  shape_table: blue_bold
+  shape_variable: purple
+  shape_vardecl: purple
 }
 
 # External completer example
@@ -220,30 +218,30 @@ $env.config = {
 
   explore: {
     try: {
-        border_color: {fg: "white"}
+      border_color: {fg: "white"}
     },
     status_bar_background: {fg: "#1D1F21", bg: "#C4C9C6"},
     command_bar_text: {fg: "#C4C9C6"},
     highlight: {fg: "black", bg: "yellow"},
     status: {
-        error: {fg: "white", bg: "red"},
-        warn: {}
-        info: {}
+      error: {fg: "white", bg: "red"},
+      warn: {}
+      info: {}
     },
     table: {
-        split_line: {fg: "#404040"},
-        selected_cell: {},
-        selected_row: {},
-        selected_column: {},
-        cursor: true,
-        line_head_top: true,
-        line_head_bottom: true,
-        line_shift: true,
-        line_index: true,
+      split_line: {fg: "#404040"},
+      selected_cell: {},
+      selected_row: {},
+      selected_column: {},
+      cursor: true,
+      line_head_top: true,
+      line_head_bottom: true,
+      line_shift: true,
+      line_index: true,
     },
     config: {
-        border_color: {fg: "white"}
-        cursor_color: {fg: "black", bg: "light_yellow"}
+      border_color: {fg: "white"}
+      cursor_color: {fg: "black", bg: "light_yellow"}
     },
   }
 
@@ -299,56 +297,56 @@ $env.config = {
   }
 
   menus: [
-      # Configuration for default nushell menus
-      # Note the lack of source parameter
-      {
-        name: completion_menu
-        only_buffer_difference: false
-        marker: "| "
-        type: {
-            layout: columnar
-            columns: 4
-            col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
-            col_padding: 2
-        }
-        style: {
-            text: green
-            selected_text: green_reverse
-            description_text: yellow
-        }
+    # Configuration for default nushell menus
+    # Note the lack of source parameter
+    {
+      name: completion_menu
+      only_buffer_difference: false
+      marker: "| "
+      type: {
+        layout: columnar
+        columns: 4
+        col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
+        col_padding: 2
       }
-      {
-        name: history_menu
-        only_buffer_difference: true
-        marker: "? "
-        type: {
-            layout: list
-            page_size: 10
-        }
-        style: {
-            text: green
-            selected_text: green_reverse
-            description_text: yellow
-        }
+      style: {
+        text: green
+        selected_text: green_reverse
+        description_text: yellow
       }
-      {
-        name: help_menu
-        only_buffer_difference: true
-        marker: "? "
-        type: {
-            layout: description
-            columns: 4
-            col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
-            col_padding: 2
-            selection_rows: 4
-            description_rows: 10
-        }
-        style: {
-            text: green
-            selected_text: green_reverse
-            description_text: yellow
-        }
+    }
+    {
+      name: history_menu
+      only_buffer_difference: true
+      marker: "? "
+      type: {
+        layout: list
+        page_size: 10
       }
+      style: {
+        text: green
+        selected_text: green_reverse
+        description_text: yellow
+      }
+    }
+    {
+      name: help_menu
+      only_buffer_difference: true
+      marker: "? "
+      type: {
+        layout: description
+        columns: 4
+        col_width: 20   # Optional value. If missing all the screen width is used to calculate column width
+        col_padding: 2
+        selection_rows: 4
+        description_rows: 10
+      }
+      style: {
+        text: green
+        selected_text: green_reverse
+        description_text: yellow
+      }
+    }
   ]
 
   keybindings: [
@@ -402,9 +400,8 @@ $env.config = {
           { send: menupageprevious }
           { edit: undo }
         ]
-       }
+      }
     }
-
     {
       name: escape
       modifier: none
@@ -447,7 +444,6 @@ $env.config = {
       mode: [emacs, vi_normal, vi_insert]
       event: { send: openeditor }
     }
-
     {
       name: move_up
       modifier: none
@@ -511,8 +507,8 @@ $env.config = {
       mode: [emacs, vi_normal, vi_insert]
       event: {
         until: [
-            {send: historyhintwordcomplete}
-            {edit: movewordright}
+          {send: historyhintwordcomplete}
+          {edit: movewordright}
         ]
       }
     }
@@ -537,8 +533,8 @@ $env.config = {
       mode: [emacs, vi_normal, vi_insert]
       event: {
         until: [
-            {send: historyhintcomplete}
-            {edit: movetolineend}
+          {send: historyhintcomplete}
+          {edit: movetolineend}
         ]
       }
     }
@@ -549,8 +545,8 @@ $env.config = {
       mode: [emacs, vi_normal, vi_insert]
       event: {
         until: [
-            {send: historyhintcomplete}
-            {edit: movetolineend}
+          {send: historyhintcomplete}
+          {edit: movetolineend}
         ]
       }
     }
@@ -575,8 +571,8 @@ $env.config = {
       mode: [emacs, vi_normal, vi_insert]
       event: {
         until: [
-            {send: menuup}
-            {send: up}
+          {send: menuup}
+          {send: up}
         ]
       }
     }
@@ -587,230 +583,227 @@ $env.config = {
       mode: [emacs, vi_normal, vi_insert]
       event: {
         until: [
-            {send: menudown}
-            {send: down}
+          {send: menudown}
+          {send: down}
         ]
       }
     }
-
     {
-        name: delete_one_character_backward
-        modifier: none
-        keycode: backspace
-        mode: [emacs, vi_insert]
-        event: {edit: backspace}
+      name: delete_one_character_backward
+      modifier: none
+      keycode: backspace
+      mode: [emacs, vi_insert]
+      event: {edit: backspace}
     }
     {
-        name: delete_one_word_backward
-        modifier: control
-        keycode: backspace
-        mode: [emacs, vi_insert]
-        event: {edit: backspaceword}
+      name: delete_one_word_backward
+      modifier: control
+      keycode: backspace
+      mode: [emacs, vi_insert]
+      event: {edit: backspaceword}
     }
     {
-        name: delete_one_character_forward
-        modifier: none
-        keycode: delete
-        mode: [emacs, vi_insert]
-        event: {edit: delete}
+      name: delete_one_character_forward
+      modifier: none
+      keycode: delete
+      mode: [emacs, vi_insert]
+      event: {edit: delete}
     }
     {
-        name: delete_one_character_forward
-        modifier: control
-        keycode: delete
-        mode: [emacs, vi_insert]
-        event: {edit: delete}
+      name: delete_one_character_forward
+      modifier: control
+      keycode: delete
+      mode: [emacs, vi_insert]
+      event: {edit: delete}
     }
     {
-        name: delete_one_character_forward
-        modifier: control
-        keycode: char_h
-        mode: [emacs, vi_insert]
-        event: {edit: backspace}
+      name: delete_one_character_forward
+      modifier: control
+      keycode: char_h
+      mode: [emacs, vi_insert]
+      event: {edit: backspace}
     }
     {
-        name: delete_one_word_backward
-        modifier: control
-        keycode: char_w
-        mode: [emacs, vi_insert]
-        event: {edit: backspaceword}
-    }
-
-    {
-        name: move_left
-        modifier: none
-        keycode: backspace
-        mode: vi_normal
-        event: {edit: moveleft}
-    }
-
-    {
-        name: newline_or_run_command
-        modifier: none
-        keycode: enter
-        mode: emacs
-        event: {send: enter}
+      name: delete_one_word_backward
+      modifier: control
+      keycode: char_w
+      mode: [emacs, vi_insert]
+      event: {edit: backspaceword}
     }
     {
-        name: move_left
-        modifier: control
-        keycode: char_b
-        mode: emacs
-        event: {
-            until: [
-                {send: menuleft}
-                {send: left}
-            ]
-        }
+      name: move_left
+      modifier: none
+      keycode: backspace
+      mode: vi_normal
+      event: {edit: moveleft}
     }
     {
-        name: move_right_or_take_history_hint
-        modifier: control
-        keycode: char_f
-        mode: emacs
-        event: {
-            until: [
-                {send: historyhintcomplete}
-                {send: menuright}
-                {send: right}
-            ]
-        }
+      name: newline_or_run_command
+      modifier: none
+      keycode: enter
+      mode: emacs
+      event: {send: enter}
     }
     {
-        name: redo_change
-        modifier: control
-        keycode: char_g
-        mode: emacs
-        event: {edit: redo}
+      name: move_left
+      modifier: control
+      keycode: char_b
+      mode: emacs
+      event: {
+        until: [
+          {send: menuleft}
+          {send: left}
+        ]
+      }
     }
     {
-        name: undo_change
-        modifier: control
-        keycode: char_z
-        mode: emacs
-        event: {edit: undo}
+      name: move_right_or_take_history_hint
+      modifier: control
+      keycode: char_f
+      mode: emacs
+      event: {
+        until: [
+          {send: historyhintcomplete}
+          {send: menuright}
+          {send: right}
+        ]
+      }
     }
     {
-        name: paste_before
-        modifier: control
-        keycode: char_y
-        mode: emacs
-        event: {edit: pastecutbufferbefore}
+      name: redo_change
+      modifier: control
+      keycode: char_g
+      mode: emacs
+      event: {edit: redo}
     }
     {
-        name: cut_word_left
-        modifier: control
-        keycode: char_w
-        mode: emacs
-        event: {edit: cutwordleft}
+      name: undo_change
+      modifier: control
+      keycode: char_z
+      mode: emacs
+      event: {edit: undo}
     }
     {
-        name: cut_line_to_end
-        modifier: control
-        keycode: char_k
-        mode: emacs
-        event: {edit: cuttoend}
+      name: paste_before
+      modifier: control
+      keycode: char_y
+      mode: emacs
+      event: {edit: pastecutbufferbefore}
     }
     {
-        name: cut_line_from_start
-        modifier: control
-        keycode: char_u
-        mode: emacs
-        event: {edit: cutfromstart}
+      name: cut_word_left
+      modifier: control
+      keycode: char_w
+      mode: emacs
+      event: {edit: cutwordleft}
     }
     {
-        name: swap_graphemes
-        modifier: control
-        keycode: char_t
-        mode: emacs
-        event: {edit: swapgraphemes}
+      name: cut_line_to_end
+      modifier: control
+      keycode: char_k
+      mode: emacs
+      event: {edit: cuttoend}
     }
     {
-        name: move_one_word_left
-        modifier: alt
-        keycode: left
-        mode: emacs
-        event: {edit: movewordleft}
+      name: cut_line_from_start
+      modifier: control
+      keycode: char_u
+      mode: emacs
+      event: {edit: cutfromstart}
     }
     {
-        name: move_one_word_right_or_take_history_hint
-        modifier: alt
-        keycode: right
-        mode: emacs
-        event: {
-            until: [
-                {send: historyhintwordcomplete}
-                {send: movewordright}
-            ]
-        }
+      name: swap_graphemes
+      modifier: control
+      keycode: char_t
+      mode: emacs
+      event: {edit: swapgraphemes}
     }
     {
-        name: move_one_word_left
-        modifier: alt
-        keycode: char_b
-        mode: emacs
-        event: {edit: movewordleft}
+      name: move_one_word_left
+      modifier: alt
+      keycode: left
+      mode: emacs
+      event: {edit: movewordleft}
     }
     {
-        name: move_one_word_right_or_take_history_hint
-        modifier: alt
-        keycode: char_f
-        mode: emacs
-        event: {
-            until: [
-                {send: historyhintwordcomplete}
-                {send: movewordright}
-            ]
-        }
+      name: move_one_word_right_or_take_history_hint
+      modifier: alt
+      keycode: right
+      mode: emacs
+      event: {
+        until: [
+          {send: historyhintwordcomplete}
+          {send: movewordright}
+        ]
+      }
     }
     {
-        name: delete_one_word_forward
-        modifier: alt
-        keycode: delete
-        mode: emacs
-        event: {edit: deleteword}
+      name: move_one_word_left
+      modifier: alt
+      keycode: char_b
+      mode: emacs
+      event: {edit: movewordleft}
     }
     {
-        name: delete_one_word_backward
-        modifier: alt
-        keycode: backspace
-        mode: emacs
-        event: {edit: backspaceword}
+      name: move_one_word_right_or_take_history_hint
+      modifier: alt
+      keycode: char_f
+      mode: emacs
+      event: {
+        until: [
+          {send: historyhintwordcomplete}
+          {send: movewordright}
+        ]
+      }
     }
     {
-        name: delete_one_word_backward
-        modifier: alt
-        keycode: char_m
-        mode: emacs
-        event: {edit: backspaceword}
+      name: delete_one_word_forward
+      modifier: alt
+      keycode: delete
+      mode: emacs
+      event: {edit: deleteword}
     }
     {
-        name: cut_word_to_right
-        modifier: alt
-        keycode: char_d
-        mode: emacs
-        event: {edit: cutwordright}
+      name: delete_one_word_backward
+      modifier: alt
+      keycode: backspace
+      mode: emacs
+      event: {edit: backspaceword}
     }
     {
-        name: upper_case_word
-        modifier: alt
-        keycode: char_u
-        mode: emacs
-        event: {edit: uppercaseword}
+      name: delete_one_word_backward
+      modifier: alt
+      keycode: char_m
+      mode: emacs
+      event: {edit: backspaceword}
     }
     {
-        name: lower_case_word
-        modifier: alt
-        keycode: char_l
-        mode: emacs
-        event: {edit: lowercaseword}
+      name: cut_word_to_right
+      modifier: alt
+      keycode: char_d
+      mode: emacs
+      event: {edit: cutwordright}
     }
     {
-        name: capitalize_char
-        modifier: alt
-        keycode: char_c
-        mode: emacs
-        event: {edit: capitalizechar}
+      name: upper_case_word
+      modifier: alt
+      keycode: char_u
+      mode: emacs
+      event: {edit: uppercaseword}
+    }
+    {
+      name: lower_case_word
+      modifier: alt
+      keycode: char_l
+      mode: emacs
+      event: {edit: lowercaseword}
+    }
+    {
+      name: capitalize_char
+      modifier: alt
+      keycode: char_c
+      mode: emacs
+      event: {edit: capitalizechar}
     }
   ]
 }
