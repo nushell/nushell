@@ -50,7 +50,6 @@ fs_extra = "1.3"
 htmlescape = "0.3"
 indexmap = "2.0"
 indicatif = "0.17"
-is-root = "0.1"
 is-terminal = "0.4.8"
 itertools = "0.10"
 log = "0.4"
@@ -110,7 +109,13 @@ optional = true
 version = "3.0"
 
 [target.'cfg(windows)'.dependencies.windows]
-features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
+features = [
+	"Win32_Foundation",
+	"Win32_Storage_FileSystem",
+	"Win32_System_SystemServices",
+	"Win32_Security",
+	"Win32_System_Threading"
+]
 version = "0.48"
 
 [features]
