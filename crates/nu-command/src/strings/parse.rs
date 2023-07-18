@@ -30,8 +30,12 @@ impl Command for Parse {
                 SyntaxShape::String,
                 "the pattern to match. Eg) \"{foo}: {bar}\"",
             )
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::String, Type::Table(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+            ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 

@@ -41,6 +41,7 @@ with 'transpose' first."#
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::Any, Type::Any),
             ])
             .required(
                 "closure",
@@ -48,6 +49,7 @@ with 'transpose' first."#
                 "the closure to run",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

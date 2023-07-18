@@ -1,5 +1,5 @@
-use crate::formats::to::delimited::merge_descriptors;
 use fancy_regex::Regex;
+use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};

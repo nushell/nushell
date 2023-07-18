@@ -155,34 +155,30 @@ pub fn highlight_search_in_table(
             });
         };
 
-        let has_match = cols.iter().zip(vals.iter_mut()).fold(
-            Ok(false),
-            |acc: Result<bool, ShellError>, (col, val)| {
-                if searched_cols.contains(&col.as_str()) {
-                    if let Value::String { val: s, span } = val {
-                        if s.to_lowercase().contains(&search_string) {
-                            *val = Value::String {
-                                val: highlight_search_string(
-                                    s,
-                                    orig_search_string,
-                                    string_style,
-                                    highlight_style,
-                                )?,
-                                span: *span,
-                            };
-                            Ok(true)
-                        } else {
-                            // column does not contain the searched string
-                            acc
-                        }
-                    } else {
-                        // ignore non-string values
-                        acc
-                    }
-                } else {
+        let has_match = cols.iter().zip(vals.iter_mut()).try_fold(
+            false,
+            |acc: bool, (col, val)| -> Result<bool, ShellError> {
+                if !searched_cols.contains(&col.as_str()) {
                     // don't search this column
-                    acc
+                    return Ok(acc);
                 }
+                if let Value::String { val: s, span } = val {
+                    if s.to_lowercase().contains(&search_string) {
+                        *val = Value::String {
+                            val: highlight_search_string(
+                                s,
+                                orig_search_string,
+                                string_style,
+                                highlight_style,
+                            )?,
+                            span: *span,
+                        };
+                        return Ok(true);
+                    }
+                }
+                // column does not contain the searched string
+                // ignore non-string values
+                Ok(acc)
             },
         )?;
 

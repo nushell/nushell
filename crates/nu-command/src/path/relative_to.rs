@@ -13,14 +13,9 @@ use super::PathSubcommandArguments;
 
 struct Arguments {
     path: Spanned<String>,
-    columns: Option<Vec<String>>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -32,17 +27,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path relative-to")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .required(
                 "path",
                 SyntaxShape::String,
                 "Parent shared with the input path",
-            )
-            .named(
-                "columns",
-                SyntaxShape::Table,
-                "For a record or table input, convert strings at the given columns",
-                Some('c'),
             )
     }
 
@@ -66,7 +61,6 @@ path."#
         let head = call.head;
         let args = Arguments {
             path: call.req(engine_state, stack, 0)?,
-            columns: call.get_flag(engine_state, stack, "columns")?,
         };
 
         // This doesn't match explicit nulls
@@ -88,9 +82,12 @@ path."#
                 result: Some(Value::test_string(r"viking")),
             },
             Example {
-                description: "Find a relative path from two absolute paths in a column",
-                example: "ls ~ | path relative-to ~ -c [ name ]",
-                result: None,
+                description: "Find a relative path from absolute paths in list",
+                example: r"[ C:\Users\viking, C:\Users\spam ] | path relative-to C:\Users",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("viking"),
+                    Value::test_string("spam"),
+                ])),
             },
             Example {
                 description: "Find a relative path from two relative paths",
@@ -109,9 +106,12 @@ path."#
                 result: Some(Value::test_string(r"viking")),
             },
             Example {
-                description: "Find a relative path from two absolute paths in a column",
-                example: "ls ~ | path relative-to ~ -c [ name ]",
-                result: None,
+                description: "Find a relative path from absolute paths in list",
+                example: r"[ /home/viking, /home/spam ] | path relative-to '/home'",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("viking"),
+                    Value::test_string("spam"),
+                ])),
             },
             Example {
                 description: "Find a relative path from two relative paths",

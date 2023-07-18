@@ -3,21 +3,6 @@ use nu_test_support::{nu, pipeline};
 use super::join_path_sep;
 
 #[test]
-fn returns_path_joined_with_column_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo [ [name]; [eggs] ]
-            | path join spam.txt -c [ name ]
-            | get name.0
-        "#
-    ));
-
-    let expected = join_path_sep(&["eggs", "spam.txt"]);
-    assert_eq!(actual.out, expected);
-}
-
-#[test]
 fn returns_path_joined_from_list() {
     let actual = nu!(
         cwd: "tests", pipeline(

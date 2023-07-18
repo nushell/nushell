@@ -184,7 +184,7 @@ impl Command for Cp {
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
 
                         // ignore when source file is not newer than target file
-                        if update_mode && super::util::is_older(&src, &dst) {
+                        if update_mode && super::util::is_older(&src, &dst).unwrap_or(false) {
                             continue;
                         }
 

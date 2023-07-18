@@ -4,12 +4,9 @@ use pretty_assertions::assert_eq;
 #[ignore = "TODO: This shows old-style aliases. New aliases are under commands"]
 #[test]
 fn scope_shows_alias() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias xaz = echo alias1
+    let actual = nu!("alias xaz = echo alias1
         scope aliases | find xaz | length
-        "#
-    );
+        ");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 1);
@@ -17,12 +14,9 @@ fn scope_shows_alias() {
 
 #[test]
 fn scope_shows_command() {
-    let actual = nu!(
-        cwd: ".",
-        r#"def xaz [] { echo xaz }
+    let actual = nu!("def xaz [] { echo xaz }
         scope commands | find xaz | length
-        "#
-    );
+        ");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 1);
@@ -30,15 +24,12 @@ fn scope_shows_command() {
 
 #[test]
 fn scope_doesnt_show_scoped_hidden_alias() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias xaz = echo alias1
+    let actual = nu!("alias xaz = echo alias1
         do {
             hide xaz
             scope aliases | find xaz | length
         }
-        "#
-    );
+        ");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);
@@ -46,13 +37,10 @@ fn scope_doesnt_show_scoped_hidden_alias() {
 
 #[test]
 fn scope_doesnt_show_hidden_alias() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias xaz = echo alias1
+    let actual = nu!("alias xaz = echo alias1
         hide xaz
         scope aliases | find xaz | length
-        "#
-    );
+        ");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);
@@ -60,15 +48,12 @@ fn scope_doesnt_show_hidden_alias() {
 
 #[test]
 fn scope_doesnt_show_scoped_hidden_command() {
-    let actual = nu!(
-        cwd: ".",
-        r#"def xaz [] { echo xaz }
+    let actual = nu!("def xaz [] { echo xaz }
         do {
             hide xaz
             scope commands | find xaz | length
         }
-        "#
-    );
+        ");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);
@@ -76,13 +61,10 @@ fn scope_doesnt_show_scoped_hidden_command() {
 
 #[test]
 fn scope_doesnt_show_hidden_command() {
-    let actual = nu!(
-        cwd: ".",
-        r#"def xaz [] { echo xaz }
+    let actual = nu!("def xaz [] { echo xaz }
         hide xaz
         scope commands | find xaz | length
-        "#
-    );
+        ");
 
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);
@@ -92,15 +74,12 @@ fn scope_doesnt_show_hidden_command() {
 #[ignore]
 #[test]
 fn correctly_report_of_shadowed_alias() {
-    let actual = nu!(
-        cwd: ".",
-        r#"alias xaz = echo alias1
+    let actual = nu!("alias xaz = echo alias1
         def helper [] {
             alias xaz = echo alias2
             scope aliases
         }
-        helper | where alias == xaz | get expansion.0"#
-    );
+        helper | where alias == xaz | get expansion.0");
 
     assert_eq!(actual.out, "echo alias2");
 }

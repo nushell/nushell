@@ -16,7 +16,13 @@ impl Command for SortBy {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort-by")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
+            ])
             .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
@@ -29,6 +35,7 @@ impl Command for SortBy {
                 "Sort alphanumeric string-based columns naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

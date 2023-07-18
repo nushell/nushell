@@ -89,7 +89,7 @@ impl CommandCompletion {
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 
         let mut results = working_set
-            .find_commands_by_predicate(filter_predicate)
+            .find_commands_by_predicate(filter_predicate, true)
             .into_iter()
             .map(move |x| Suggestion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
@@ -205,10 +205,7 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        subcommands
-            .into_iter()
-            .chain(commands.into_iter())
-            .collect::<Vec<_>>()
+        subcommands.into_iter().chain(commands).collect::<Vec<_>>()
     }
 
     fn get_sort_by(&self) -> SortBy {

@@ -607,6 +607,10 @@ fn copy_file_with_update_flag_impl(progress: bool) {
         sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
         let actual = nu!(cwd: sandbox.cwd(), "cp {} -u newest_valid.txt valid.txt; open valid.txt", progress_flag);
         assert_eq!(actual.out, "newest_body");
+
+        // when destination doesn't exist
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} -u newest_valid.txt des_missing.txt; open des_missing.txt", progress_flag);
+        assert_eq!(actual.out, "newest_body");
     });
 }
 
