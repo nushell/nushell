@@ -10,10 +10,13 @@ fn parses_ini() {
     let actual = nu_with_plugins!(
         cwd: TEST_CWD,
         plugin: ("nu_plugin_formats"),
-        "open sample.ini | get SectionOne.integer"
+        "open sample.ini | to nuon -r"
     );
 
-    assert_eq!(actual.out, "1234")
+    assert_eq!(
+        actual.out,
+        r#"{SectionOne: {key: value, integer: "1234", real: "3.14", "string1": "Case 1", "string2": "Case 2"}, SectionTwo: {key: "new value", integer: "5678", real: "3.14", "string1": "Case 1", "string2": "Case 2", "string3": "Case 3"}}"#
+    )
 }
 
 #[test]
