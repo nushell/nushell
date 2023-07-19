@@ -1,5 +1,6 @@
 use crossterm::QueueableCommand;
 use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
+use crossterm::execute;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -69,6 +70,30 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 
     stdout().flush()?;
     terminal::enable_raw_mode()?;
+
+    if config.use_kitty_protocol {
+        if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
+            println!("WARN: The terminal doesn't support use_kitty_protocol config.");
+        }
+
+        // enable kitty protocol
+        //
+        // Note that, currently, only the following support this protocol:
+        // * [kitty terminal](https://sw.kovidgoyal.net/kitty/)
+        // * [foot terminal](https://codeberg.org/dnkl/foot/issues/319)
+        // * [WezTerm terminal](https://wezfurlong.org/wezterm/config/lua/config/enable_kitty_keyboard.html)
+        // * [notcurses library](https://github.com/dankamongmen/notcurses/issues/2131)
+        // * [neovim text editor](https://github.com/neovim/neovim/pull/18181)
+        // * [kakoune text editor](https://github.com/mawww/kakoune/issues/4103)
+        // * [dte text editor](https://gitlab.com/craigbarnes/dte/-/issues/138)
+        //
+        // Refer to https://sw.kovidgoyal.net/kitty/keyboard-protocol/ if you're curious.
+        let _ = execute!(
+            stdout(),
+            crossterm::event::PushKeyboardEnhancementFlags(crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        );
+    }
+
     let mut stdout = std::io::BufWriter::new(std::io::stderr());
 
     loop {
@@ -95,6 +120,11 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         stdout.queue(crossterm::style::Print("\r\n"))?;
         stdout.flush()?;
     }
+
+    if config.use_kitty_protocol {
+        let _ = execute!(std::io::stdout(), crossterm::event::PopKeyboardEnhancementFlags);
+    }
+
     terminal::disable_raw_mode()?;
 
     Ok(Value::nothing(Span::unknown()))
