@@ -480,25 +480,25 @@ impl Value {
     /// Get the span for the current value
     pub fn span(&self) -> Result<Span, ShellError> {
         match self {
+            Value::Bool { span, .. }
+            | Value::Int { span, .. }
+            | Value::Float { span, .. }
+            | Value::Filesize { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Date { span, .. }
+            | Value::Range { span, .. }
+            | Value::String { span, .. }
+            | Value::Record { span, .. }
+            | Value::List { span, .. }
+            | Value::Block { span, .. }
+            | Value::Closure { span, .. }
+            | Value::Nothing { span, .. }
+            | Value::Binary { span, .. }
+            | Value::CellPath { span, .. }
+            | Value::CustomValue { span, .. }
+            | Value::LazyRecord { span, .. }
+            | Value::MatchPattern { span, .. } => Ok(*span),
             Value::Error { error } => Err(*error.clone()),
-            Value::Bool { span, .. } => Ok(*span),
-            Value::Int { span, .. } => Ok(*span),
-            Value::Float { span, .. } => Ok(*span),
-            Value::Filesize { span, .. } => Ok(*span),
-            Value::Duration { span, .. } => Ok(*span),
-            Value::Date { span, .. } => Ok(*span),
-            Value::Range { span, .. } => Ok(*span),
-            Value::String { span, .. } => Ok(*span),
-            Value::Record { span, .. } => Ok(*span),
-            Value::List { span, .. } => Ok(*span),
-            Value::Block { span, .. } => Ok(*span),
-            Value::Closure { span, .. } => Ok(*span),
-            Value::Nothing { span, .. } => Ok(*span),
-            Value::Binary { span, .. } => Ok(*span),
-            Value::CellPath { span, .. } => Ok(*span),
-            Value::CustomValue { span, .. } => Ok(*span),
-            Value::LazyRecord { span, .. } => Ok(*span),
-            Value::MatchPattern { span, .. } => Ok(*span),
         }
     }
 
@@ -512,25 +512,25 @@ impl Value {
     /// Update the value with a new span
     pub fn with_span(mut self, new_span: Span) -> Value {
         match &mut self {
-            Value::Bool { span, .. } => *span = new_span,
-            Value::Int { span, .. } => *span = new_span,
-            Value::Float { span, .. } => *span = new_span,
-            Value::Filesize { span, .. } => *span = new_span,
-            Value::Duration { span, .. } => *span = new_span,
-            Value::Date { span, .. } => *span = new_span,
-            Value::Range { span, .. } => *span = new_span,
-            Value::String { span, .. } => *span = new_span,
-            Value::Record { span, .. } => *span = new_span,
-            Value::LazyRecord { span, .. } => *span = new_span,
-            Value::List { span, .. } => *span = new_span,
-            Value::Closure { span, .. } => *span = new_span,
-            Value::Block { span, .. } => *span = new_span,
-            Value::Nothing { span, .. } => *span = new_span,
-            Value::Error { .. } => {}
-            Value::Binary { span, .. } => *span = new_span,
-            Value::CellPath { span, .. } => *span = new_span,
-            Value::CustomValue { span, .. } => *span = new_span,
-            Value::MatchPattern { span, .. } => *span = new_span,
+            Value::Bool { span, .. }
+            | Value::Int { span, .. }
+            | Value::Float { span, .. }
+            | Value::Filesize { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Date { span, .. }
+            | Value::Range { span, .. }
+            | Value::String { span, .. }
+            | Value::Record { span, .. }
+            | Value::LazyRecord { span, .. }
+            | Value::List { span, .. }
+            | Value::Closure { span, .. }
+            | Value::Block { span, .. }
+            | Value::Nothing { span, .. }
+            | Value::Binary { span, .. }
+            | Value::CellPath { span, .. }
+            | Value::CustomValue { span, .. }
+            | Value::MatchPattern { span, .. } => *span = new_span,
+            Value::Error { .. } => (),
         }
 
         self
