@@ -41,7 +41,29 @@ impl Command for SubCommand {
                 (Type::Filesize, Type::Int),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (
-                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Bool)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                // Unix timestamp in nanoseconds
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
+                (
+                    Type::List(Box::new(Type::Filesize)),
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
