@@ -24,6 +24,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
+            .allow_variants_without_examples(true)
             .switch("grapheme-clusters", "split on grapheme clusters", Some('g'))
             .switch(
                 "code-points",

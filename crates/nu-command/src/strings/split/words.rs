@@ -23,6 +23,7 @@ impl Command for SubCommand {
                 // Warning: this flatmaps
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
             // .switch(
             //     "ignore-hyphenated",
