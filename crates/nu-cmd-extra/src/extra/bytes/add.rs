@@ -38,6 +38,7 @@ impl Command for BytesAdd {
                 ),
             ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .required("data", SyntaxShape::Binary, "the binary to add")
             .named(
                 "index",
