@@ -3,6 +3,7 @@ mod bytes;
 mod conversions;
 mod filters;
 mod formats;
+mod math;
 mod platform;
 mod strings;
 
@@ -29,6 +30,28 @@ pub use bits::BitsRor;
 pub use bits::BitsShl;
 pub use bits::BitsShr;
 pub use bits::BitsXor;
+
+pub use math::MathCos;
+pub use math::MathCosH;
+pub use math::MathSin;
+pub use math::MathSinH;
+pub use math::MathTan;
+pub use math::MathTanH;
+
+pub use math::MathEuler;
+pub use math::MathEulerGamma;
+pub use math::MathExp;
+pub use math::MathLn;
+pub use math::MathPhi;
+pub use math::MathPi;
+pub use math::MathTau;
+
+pub use math::MathArcCos;
+pub use math::MathArcCosH;
+pub use math::MathArcSin;
+pub use math::MathArcSinH;
+pub use math::MathArcTan;
+pub use math::MathArcTanH;
 
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
@@ -97,6 +120,27 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             BytesRemove,
             BytesBuild
         }
+
+        // Math
+        bind_command! {
+            MathArcSin,
+            MathArcCos,
+            MathArcTan,
+            MathArcSinH,
+            MathArcCosH,
+            MathArcTanH,
+            MathSin,
+            MathCos,
+            MathTan,
+            MathSinH,
+            MathCosH,
+            MathTanH,
+            MathPi,
+            MathTau,
+            MathEuler,
+            MathExp,
+            MathLn
+        };
 
         working_set.render()
     };

@@ -291,12 +291,9 @@ fn open_ignore_ansi() {
 
 #[test]
 fn open_no_parameter() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        r#"
+    let actual = nu!(r#"
             open
-        "#
-    );
+        "#);
 
     assert!(actual.err.contains("needs filename"));
 }

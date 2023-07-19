@@ -14,7 +14,7 @@ fn counter_clockwise() {
     "#,
     );
 
-    let expected = nu!(cwd: ".", pipeline(
+    let expected = nu!(pipeline(
         r#"
         echo [
             [  column0, column1, column2, column3];
@@ -29,14 +29,18 @@ fn counter_clockwise() {
         "#,
     ));
 
-    let actual = nu!(
-        cwd: ".",
-        format!("{} | {}", table, pipeline(r#"
+    let actual = nu!(format!(
+        "{} | {}",
+        table,
+        pipeline(
+            r#"
             rotate --ccw
             | where column0 == EXPECTED
             | get column1 column2 column3
             | str join "-"
-        "#)));
+        "#
+        )
+    ));
 
     assert_eq!(actual.out, expected.out);
 }
@@ -55,7 +59,7 @@ fn clockwise() {
     "#,
     );
 
-    let expected = nu!(cwd: ".", pipeline(
+    let expected = nu!(pipeline(
         r#"
         echo [
             [ column0, column1, column2,  column3];
@@ -70,14 +74,18 @@ fn clockwise() {
         "#,
     ));
 
-    let actual = nu!(
-        cwd: ".",
-        format!("{} | {}", table, pipeline(r#"
+    let actual = nu!(format!(
+        "{} | {}",
+        table,
+        pipeline(
+            r#"
             rotate
             | where column3 == EXPECTED
             | get column0 column1 column2
             | str join "-"
-        "#)));
+        "#
+        )
+    ));
 
     assert_eq!(actual.out, expected.out);
 }

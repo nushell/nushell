@@ -35,6 +35,7 @@ pub fn create_default_context() -> EngineState {
             ExportUse,
             ExportModule,
             Extern,
+            ExternWrapped,
             For,
             Hide,
             HideEnv,

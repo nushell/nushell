@@ -13,4 +13,4 @@ version = "0.82.1"
 nu-engine = { path = "../nu-engine", version = "0.82.1" }
 nu-path = { path = "../nu-path", version = "0.82.1" }
 nu-protocol = { version = "0.82.1", path = "../nu-protocol" }
-indexmap = { version = "1.7", features = ["serde-1"] }
+indexmap = { version = "2.0" }

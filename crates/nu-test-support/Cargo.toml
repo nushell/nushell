@@ -18,6 +18,5 @@ nu-utils = { path="../nu-utils", version = "0.82.1"  }
 
 num-format = "0.4"
 which = "4.3"
-getset = "0.1"
 tempfile = "3.2"
 hamcrest2 = "0.3"

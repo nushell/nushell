@@ -4,12 +4,7 @@ use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
 fn help_commands_length() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-        r#"
-        help commands | length
-        "#
-    ));
+    let actual = nu!("help commands | length");
 
     let output = actual.out;
     let output_int: i32 = output.parse().unwrap();
@@ -20,13 +15,11 @@ fn help_commands_length() {
 #[test]
 fn help_shows_signature() {
     let actual = nu!("help str distance");
-    assert!(actual
-        .out
-        .contains("<string> | str distance <string> -> <int>"));
+    assert!(actual.out.contains("Input/output types"));
 
     // don't show signature for parser keyword
     let actual = nu!("help alias");
-    assert!(!actual.out.contains("Signatures"));
+    assert!(!actual.out.contains("Input/output types"));
 }
 
 #[ignore = "TODO: Need to decide how to do help messages of new aliases"]
@@ -70,7 +63,7 @@ fn help_alias_usage_2() {
         "alias SPAM = print 'spam'  # line2",
         "help aliases | where name == SPAM | get 0.usage",
     ];
-    let actual = nu!(cwd: ".", nu_repl_code(code));
+    let actual = nu!(nu_repl_code(code));
 
     assert_eq!(actual.out, "line2");
 }
@@ -370,7 +363,7 @@ fn help_modules_main_2() {
         "help modules | where name == spam | get 0.commands.0",
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(pipeline(&inp.join("; ")));
 
     assert_eq!(actual.out, "spam");
 }
@@ -383,7 +376,7 @@ fn help_alias_before_command() {
         "def SPAM [] { 'spam' }",
         "help SPAM",
     ];
-    let actual = nu!(cwd: ".", nu_repl_code(code));
+    let actual = nu!(nu_repl_code(code));
 
     assert!(actual.out.contains("Alias"));
 }

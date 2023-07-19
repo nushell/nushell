@@ -15,7 +15,13 @@ impl Command for BitsXor {
 
     fn signature(&self) -> Signature {
         Signature::build("bits xor")
-            .input_output_types(vec![(Type::Int, Type::Int)])
+            .input_output_types(vec![
+                (Type::Int, Type::Int),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .required(
                 "target",

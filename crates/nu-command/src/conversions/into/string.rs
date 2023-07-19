@@ -41,6 +41,10 @@ impl Command for SubCommand {
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
                 (Type::Duration, Type::String),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(
