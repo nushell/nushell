@@ -3,43 +3,43 @@
 # version = 0.82.1
 
 def create_left_prompt [] {
-  mut home = ""
-  try {
-    if $nu.os-info.name == "windows" {
-      $home = $env.USERPROFILE
-    } else {
-      $home = $env.HOME
+    mut home = ""
+    try {
+        if $nu.os-info.name == "windows" {
+            $home = $env.USERPROFILE
+        } else {
+            $home = $env.HOME
+        }
     }
-  }
 
-  let dir = ([
-    ($env.PWD | str substring 0..($home | str length) | str replace --string $home "~"),
-    ($env.PWD | str substring ($home | str length)..)
-  ] | str join)
+    let dir = ([
+        ($env.PWD | str substring 0..($home | str length) | str replace --string $home "~"),
+        ($env.PWD | str substring ($home | str length)..)
+    ] | str join)
 
-  let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
-  let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
-  let path_segment = $"($path_color)($dir)"
+    let path_color = (if (is-admin) { ansi red_bold } else { ansi green_bold })
+    let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
+    let path_segment = $"($path_color)($dir)"
 
-  $path_segment | str replace --all --string (char path_sep) $"($separator_color)/($path_color)"
+    $path_segment | str replace --all --string (char path_sep) $"($separator_color)/($path_color)"
 }
 
 def create_right_prompt [] {
-  # create a right prompt in magenta with green separators and am/pm underlined
-  let time_segment = ([
-    (ansi reset)
-    (ansi magenta)
-    (date now | date format '%Y/%m/%d %r')
-  ] | str join | str replace --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
-    str replace --all "([AP]M)" $"(ansi magenta_underline)${1}")
+    # create a right prompt in magenta with green separators and am/pm underlined
+    let time_segment = ([
+        (ansi reset)
+        (ansi magenta)
+        (date now | date format '%Y/%m/%d %r')
+    ] | str join | str replace --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
+        str replace --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
-  let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
-    (ansi rb)
-    ($env.LAST_EXIT_CODE)
-  ] | str join)
-  } else { "" }
+    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+        (ansi rb)
+        ($env.LAST_EXIT_CODE)
+    ] | str join)
+    } else { "" }
 
-  ([$last_exit_code, (char space), $time_segment] | str join)
+    ([$last_exit_code, (char space), $time_segment] | str join)
 }
 
 # Use nushell functions to define your right and left prompt
@@ -58,14 +58,14 @@ $env.PROMPT_MULTILINE_INDICATOR = {|| "::: " }
 # - converted from a value back to a string when running external commands (to_string)
 # Note: The conversions happen *after* config.nu is loaded
 $env.ENV_CONVERSIONS = {
-  "PATH": {
-    from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-    to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
-  }
-  "Path": {
-    from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-    to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
-  }
+    "PATH": {
+        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+        to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
+    }
+    "Path": {
+        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+        to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
+    }
 }
 
 # Directories to search for scripts when calling source or use
