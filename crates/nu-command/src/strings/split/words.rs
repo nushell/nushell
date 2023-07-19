@@ -18,8 +18,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split words")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                // Warning: this flatmaps
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+            ])
             .category(Category::Strings)
             // .switch(
             //     "ignore-hyphenated",

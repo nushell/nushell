@@ -16,14 +16,20 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split chars")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    // This concats into one list through flat_map!
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .switch("grapheme-clusters", "split on grapheme clusters", Some('g'))
             .switch(
                 "code-points",
                 "split on code points (default; splits combined characters)",
                 Some('c'),
             )
-            .vectorizes_over_list(true)
             .category(Category::Strings)
     }
 
