@@ -30,7 +30,13 @@ impl Command for BytesAdd {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes add")
-            .input_output_types(vec![(Type::Binary, Type::Binary)])
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .required("data", SyntaxShape::Binary, "the binary to add")
             .named(
