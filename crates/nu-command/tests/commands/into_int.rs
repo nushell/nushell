@@ -1,52 +1,40 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone};
 use rstest::rstest;
 
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn into_int_filesize() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo 1kb | into int | each { |it| $it / 1000 }
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains('1'));
 }
 
 #[test]
 fn into_int_filesize2() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo 1kib | into int | each { |it| $it / 1024 }
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains('1'));
 }
 
 #[test]
 fn into_int_int() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo 1024 | into int | each { |it| $it / 1024 }
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains('1'));
 }
 
 #[test]
 fn into_int_binary() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo 0x[01010101] | into int
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains("16843009"));
 }
@@ -80,9 +68,8 @@ fn into_int_datetime1() {
 #[case("2052-04-13T12:09:14.123456789-05:00", "2596640954123456789")] // future date > 2038 epoch
 #[case("1902-04-13T12:09:14.123456789-05:00", "-2137042245876543211")] // past date < 1970
 fn into_int_datetime(#[case] time_in: &str, #[case] int_out: &str) {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        &format!(r#""{time_in}" | into datetime --format "%+" | into int"#)
+    let actual = nu!(&format!(
+        r#""{time_in}" | into datetime --format "%+" | into int"#
     ));
 
     assert_eq!(int_out, actual.out);

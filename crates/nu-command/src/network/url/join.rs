@@ -100,8 +100,8 @@ impl Command for SubCommand {
                     let url_components = cols
                         .iter()
                         .zip(vals.iter())
-                        .fold(Ok(UrlComponents::new()), |url, (k, v)| {
-                            url?.add_component(k.clone(), v.clone(), span)
+                        .try_fold(UrlComponents::new(), |url, (k, v)| {
+                            url.add_component(k.clone(), v.clone(), span)
                         });
 
                     url_components?.to_url(span)

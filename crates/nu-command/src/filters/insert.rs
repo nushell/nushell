@@ -19,6 +19,10 @@ impl Command for Insert {
             .input_output_types(vec![
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Any)),
+                ),
             ])
             .required(
                 "field",
@@ -30,6 +34,7 @@ impl Command for Insert {
                 SyntaxShape::Any,
                 "the new value to give the cell(s)",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

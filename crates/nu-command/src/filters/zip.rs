@@ -98,7 +98,7 @@ impl Command for Zip {
 
         Ok(input
             .into_iter()
-            .zip(other.into_pipeline_data().into_iter())
+            .zip(other.into_pipeline_data())
             .map(move |(x, y)| Value::List {
                 vals: vec![x, y],
                 span: head,

@@ -1742,6 +1742,15 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
+    pub fn test_list(vals: Vec<Value>) -> Value {
+        Value::List {
+            vals,
+            span: Span::test_data(),
+        }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
         Value::Date {
             val,

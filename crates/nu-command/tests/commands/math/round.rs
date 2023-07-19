@@ -32,5 +32,5 @@ fn can_round_float_with_negative_precision() {
 fn fails_with_wrong_input_type() {
     let actual = nu!("\"not_a_number\" | math round");
 
-    assert!(actual.err.contains("Input type not supported"))
+    assert!(actual.err.contains("command doesn't support"))
 }

@@ -45,6 +45,7 @@ impl Command for SubCommand {
                 ),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 

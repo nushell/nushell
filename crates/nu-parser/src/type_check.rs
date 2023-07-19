@@ -1,5 +1,8 @@
 use nu_protocol::{
-    ast::{Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
+    ast::{
+        Bits, Block, Boolean, Comparison, Expr, Expression, Math, Operator, Pipeline,
+        PipelineElement,
+    },
     engine::StateWorkingSet,
     ParseError, Type,
 };
@@ -24,7 +27,30 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::List(c), Type::Table(_)) => matches!(**c, Type::Any),
+        (Type::ListStream, Type::List(_)) => true,
+        (Type::List(_), Type::ListStream) => true,
+        (Type::List(c), Type::Table(table_fields)) => {
+            if matches!(**c, Type::Any) {
+                return true;
+            }
+
+            if let Type::Record(fields) = &**c {
+                is_compatible(fields, table_fields)
+            } else {
+                false
+            }
+        }
+        (Type::Table(table_fields), Type::List(c)) => {
+            if matches!(**c, Type::Any) {
+                return true;
+            }
+
+            if let Type::Record(fields) = &**c {
+                is_compatible(table_fields, fields)
+            } else {
+                false
+            }
+        }
         (Type::Number, Type::Int) => true,
         (Type::Int, Type::Number) => true,
         (Type::Number, Type::Float) => true,
@@ -920,4 +946,135 @@ pub fn math_result_type(
             )
         }
     }
+}
+
+pub fn check_pipeline_type(
+    working_set: &StateWorkingSet,
+    pipeline: &Pipeline,
+    input_type: Type,
+) -> (Type, Option<Vec<ParseError>>) {
+    let mut current_type = input_type;
+
+    let mut output_errors: Option<Vec<ParseError>> = None;
+
+    'elem: for elem in &pipeline.elements {
+        match elem {
+            PipelineElement::Expression(
+                _,
+                Expression {
+                    expr: Expr::Call(call),
+                    ..
+                },
+            ) => {
+                let decl = working_set.get_decl(call.decl_id);
+
+                if current_type == Type::Any {
+                    let mut new_current_type = None;
+                    for (_, call_output) in decl.signature().input_output_types {
+                        if let Some(inner_current_type) = &new_current_type {
+                            if inner_current_type == &Type::Any {
+                                break;
+                            } else if inner_current_type != &call_output {
+                                // Union unequal types to Any for now
+                                new_current_type = Some(Type::Any)
+                            }
+                        } else {
+                            new_current_type = Some(call_output.clone())
+                        }
+                    }
+
+                    if let Some(new_current_type) = new_current_type {
+                        current_type = new_current_type
+                    } else {
+                        current_type = Type::Any;
+                    }
+                    continue 'elem;
+                } else {
+                    for (call_input, call_output) in decl.signature().input_output_types {
+                        if type_compatible(&call_input, &current_type) {
+                            current_type = call_output.clone();
+                            continue 'elem;
+                        }
+                    }
+                }
+
+                if !decl.signature().input_output_types.is_empty() {
+                    if let Some(output_errors) = &mut output_errors {
+                        output_errors.push(ParseError::InputMismatch(current_type, call.head))
+                    } else {
+                        output_errors =
+                            Some(vec![ParseError::InputMismatch(current_type, call.head)]);
+                    }
+                }
+                current_type = Type::Any;
+            }
+            PipelineElement::Expression(_, Expression { ty, .. }) => {
+                current_type = ty.clone();
+            }
+            _ => {
+                current_type = Type::Any;
+            }
+        }
+    }
+
+    (current_type, output_errors)
+}
+
+pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) -> Vec<ParseError> {
+    // let inputs = block.input_types();
+    let mut output_errors = vec![];
+
+    for (input_type, output_type) in &block.signature.input_output_types {
+        let mut current_type = input_type.clone();
+        let mut current_output_type = Type::Nothing;
+
+        for pipeline in &block.pipelines {
+            let (checked_output_type, err) =
+                check_pipeline_type(working_set, pipeline, current_type);
+            current_output_type = checked_output_type;
+            current_type = Type::Nothing;
+            if let Some(err) = err {
+                output_errors.extend_from_slice(&err);
+            }
+        }
+
+        if !type_compatible(output_type, &current_output_type)
+            && output_type != &Type::Any
+            && current_output_type != Type::Any
+        {
+            let span = if block.pipelines.is_empty() {
+                if let Some(span) = block.span {
+                    span
+                } else {
+                    continue;
+                }
+            } else {
+                block
+                    .pipelines
+                    .last()
+                    .expect("internal error: we should have pipelines")
+                    .elements
+                    .last()
+                    .expect("internal error: we should have elements")
+                    .span()
+            };
+
+            output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))
+        }
+    }
+
+    if block.signature.input_output_types.is_empty() {
+        let mut current_type = Type::Any;
+
+        for pipeline in &block.pipelines {
+            let (_, err) = check_pipeline_type(working_set, pipeline, current_type);
+            current_type = Type::Nothing;
+
+            if let Some(err) = err {
+                output_errors.extend_from_slice(&err);
+            }
+        }
+    }
+
+    output_errors
 }

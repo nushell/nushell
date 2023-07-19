@@ -46,7 +46,7 @@ fn bits_xor_negative() -> TestResult {
 #[test]
 fn bits_xor_list() -> TestResult {
     run_test(
-        "[1 2 3 8 9 10] | bits xor 2 | str join '.'",
+        "[1 2 3 8 9 10] | bits xor 2 | into string | str join '.'",
         "3.0.1.10.11.8",
     )
 }

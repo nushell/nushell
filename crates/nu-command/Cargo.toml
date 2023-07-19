@@ -30,7 +30,6 @@ nu-utils = { path = "../nu-utils", version = "0.82.1" }
 
 Inflector = "0.11"
 alphanumeric-sort = "1.5"
-atty = "0.2"
 base64 = "0.21"
 byteorder = "1.4"
 bytesize = "1.2"
@@ -51,12 +50,12 @@ fs_extra = "1.3"
 htmlescape = "0.3"
 indexmap = "2.0"
 indicatif = "0.17"
-is-root = "0.1"
+is-terminal = "0.4.8"
 itertools = "0.10"
 log = "0.4"
 lscolors = { version = "0.14", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
-miette = { version = "5.9", features = ["fancy-no-backtrace"] }
+miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
@@ -110,7 +109,13 @@ optional = true
 version = "3.0"
 
 [target.'cfg(windows)'.dependencies.windows]
-features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemServices"]
+features = [
+	"Win32_Foundation",
+	"Win32_Storage_FileSystem",
+	"Win32_System_SystemServices",
+	"Win32_Security",
+	"Win32_System_Threading"
+]
 version = "0.48"
 
 [features]
@@ -124,7 +129,7 @@ nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.82.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.82.1" }
 
 dirs-next = "2.0"
-mockito = "1.1"
+mockito = { version = "1.1", default-features = false }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rstest = { version = "0.17", default-features = false }

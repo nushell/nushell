@@ -91,5 +91,5 @@ fn nth_missing_first_argument() {
 fn fail_on_non_iterator() {
     let actual = nu!("1 | drop 50");
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }

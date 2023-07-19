@@ -22,10 +22,8 @@ fn zips_two_tables() {
             &format!("{ZIP_POWERED_TEST_ASSERTION_SCRIPT}\n"),
         )]);
 
-        let actual = nu!(
-            cwd: ".", pipeline(
-            &format!(
-                r#"
+        let actual = nu!(pipeline(&format!(
+            r#"
                 use {} expect ;
 
                 let contributors = ([
@@ -38,9 +36,8 @@ fn zips_two_tables() {
 
                 expect $actual --to-eq [[name, commits]; [andres, 20] [jt, 30]]
                 "#,
-                dirs.test().join("zip_test.nu").display()
-            )
-        ));
+            dirs.test().join("zip_test.nu").display()
+        )));
 
         assert_eq!(actual.out, "true");
     })
@@ -48,12 +45,9 @@ fn zips_two_tables() {
 
 #[test]
 fn zips_two_lists() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
             echo [0 2 4 6 8] | zip [1 3 5 7 9] | flatten | into string | str join '-'
-        "#
-    ));
+        "#);
 
     assert_eq!(actual.out, "0-1-2-3-4-5-6-7-8-9");
 }
