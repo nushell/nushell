@@ -115,6 +115,7 @@ pub struct Config {
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
     pub error_style: String,
+    pub use_kitty_protocol: bool,
 }
 
 impl Default for Config {
@@ -180,6 +181,8 @@ impl Default for Config {
             keybindings: Vec::new(),
 
             error_style: "fancy".into(),
+
+            use_kitty_protocol: false,
         }
     }
 }
@@ -1199,6 +1202,9 @@ impl Value {
                     }
                     "bracketed_paste" => {
                         try_bool!(cols, vals, index, span, bracketed_paste);
+                    }
+                    "use_kitty_protocol" => {
+                        try_bool!(cols, vals, index, span, use_kitty_protocol);
                     }
                     // Menus
                     "menus" => match create_menus(value) {
