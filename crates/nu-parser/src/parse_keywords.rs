@@ -940,9 +940,8 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"extern-wrapped" | b"use" | b"module" => {
-                [b"export ", sub].concat()
-            }
+            b"alias" | b"def" | b"def-env" | b"extern" | b"extern-wrapped" | b"use" | b"module"
+            | b"const" => [b"export ", sub].concat(),
             _ => b"export".to_vec(),
         }
     } else {
@@ -1000,6 +999,7 @@ pub fn parse_export_in_block(
     match full_name.as_slice() {
         b"export alias" => parse_alias(working_set, lite_command, None),
         b"export def" | b"export def-env" => parse_def(working_set, lite_command, None),
+        b"export const" => parse_const(working_set, &lite_command.parts[1..]),
         b"export use" => {
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
             pipeline
@@ -1400,6 +1400,59 @@ pub fn parse_export_in_module(
 
                 result
             }
+            b"const" => {
+                let pipeline = parse_const(working_set, &spans[1..]);
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export const") {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export const' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
+
+                // Trying to warp the 'const' call into the 'export const' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    },
+                )) = pipeline.elements.get(0)
+                {
+                    call = def_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_def_decl_id;
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "unexpected output from parsing a definition".into(),
+                        span(&spans[1..]),
+                    ));
+                };
+
+                let mut result = vec![];
+
+                if let Some(decl_name_span) = spans.get(2) {
+                    let decl_name = working_set.get_span_contents(*decl_name_span);
+                    let decl_name = trim_quotes(decl_name);
+
+                    if let Some(decl_id) = working_set.find_variable(decl_name) {
+                        result.push(Exportable::VarDecl {
+                            name: decl_name.to_vec(),
+                            id: decl_id,
+                        });
+                    } else {
+                        working_set.error(ParseError::InternalError(
+                            "failed to find added variable".into(),
+                            span(&spans[1..]),
+                        ));
+                    }
+                }
+
+                result
+            }
             _ => {
                 working_set.error(ParseError::Expected(
                     "def, def-env, alias, use, module, or extern keyword",
@@ -1715,6 +1768,9 @@ pub fn parse_module_block(
                                         } else {
                                             module.add_submodule(name, id);
                                         }
+                                    }
+                                    Exportable::VarDecl { name, id } => {
+                                        module.add_variable(name, id);
                                     }
                                 }
                             }
@@ -2280,11 +2336,22 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                     id: *module_id,
                 }),
         )
+        .chain(
+            definitions
+                .variables
+                .iter()
+                .map(|(name, variable_id)| Exportable::VarDecl {
+                    name: name.clone(),
+                    id: *variable_id,
+                }),
+        )
         .collect();
 
     // Extend the current scope with the module's exportables
+    log::warn!("debug variables: {:?}", definitions.variables);
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
+    working_set.use_variables(definitions.variables);
 
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
@@ -2707,7 +2774,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             )
         }
     } else {
-        (ResolvedImportPattern::new(vec![], vec![]), vec![])
+        (ResolvedImportPattern::new(vec![], vec![], vec![]), vec![])
     };
 
     if errors.is_empty() {

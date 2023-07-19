@@ -29,6 +29,7 @@ pub fn create_default_context() -> EngineState {
             ErrorMake,
             ExportAlias,
             ExportCommand,
+            ExportConst,
             ExportDef,
             ExportDefEnv,
             ExportExtern,
