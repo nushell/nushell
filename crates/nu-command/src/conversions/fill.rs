@@ -47,6 +47,10 @@ impl Command for Fill {
                 (Type::Float, Type::String),
                 (Type::String, Type::String),
                 (Type::Filesize, Type::String),
+                (Type::List(Box::new(Type::Int)), Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::Float)), Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::Filesize)), Type::List(Box::new(Type::String))),
                 ])
             .vectorizes_over_list(true)
             .named(

@@ -18,6 +18,14 @@ impl Command for EncodeBase64 {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::Binary, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .vectorizes_over_list(true)
             .named(
