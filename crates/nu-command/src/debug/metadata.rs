@@ -20,7 +20,10 @@ impl Command for Metadata {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata")
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Record(vec![])),
+                (Type::Any, Type::Record(vec![])),
+            ])
             .allow_variants_without_examples(true)
             .optional(
                 "expression",
