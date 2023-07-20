@@ -5550,7 +5550,6 @@ pub fn parse_pipeline(
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
                     let redirect_expr =
                         parse_value(working_set, redirect_command.parts[0], &SyntaxShape::Any);
-                    log::warn!("redirect expr: {redirect_expr:?}");
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
                         redirection: (*redirect_span, redirect_expr),
