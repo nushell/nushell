@@ -71,7 +71,7 @@ impl Command for SubCommand {
 
             Example {
                 description: "Collection may include an empty item. It can be put at the start of the list.",
-                example: "\"A{,B,C}\" | str example",
+                example: "\"A{,B,C}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("A"),
@@ -84,7 +84,7 @@ impl Command for SubCommand {
 
             Example {
                 description: "Empty item can be at the end of the collection.",
-                example: "\"A{B,C,}\" | str example",
+                example: "\"A{B,C,}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("AB"),
@@ -97,7 +97,7 @@ impl Command for SubCommand {
 
             Example {
                 description: "Empty item can be in the middle of the collection.",
-                example: "\"A{B,,C}\" | str example",
+                example: "\"A{B,,C}\" | str expand",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("AB"),
