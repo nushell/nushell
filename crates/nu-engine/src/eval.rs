@@ -795,7 +795,7 @@ pub fn eval_element_with_input(
             redirect_stderr,
         ),
         PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
-            Expr::String(_) => {
+            Expr::String(_) | Expr::FullCellPath(_) => {
                 let exit_code = match &mut input {
                     PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                     _ => None,
@@ -880,7 +880,7 @@ pub fn eval_element_with_input(
             out: (out_span, out_expr),
             err: (err_span, err_expr),
         } => match (&out_expr.expr, &err_expr.expr) {
-            (Expr::String(_), Expr::String(_)) => {
+            (Expr::String(_) | Expr::FullCellPath(_), Expr::String(_) | Expr::FullCellPath(_)) => {
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                     let exit_code = match &mut input {
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),

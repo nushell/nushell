@@ -5522,8 +5522,7 @@ pub fn parse_pipeline(
                     PipelineElement::Expression(*span, expr)
                 }
                 LiteElement::Redirection(span, redirection, command) => {
-                    trace!("parsing: pipeline element: redirection");
-                    let expr = parse_string(working_set, command.parts[0]);
+                    let expr = parse_value(working_set, command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::Redirection(*span, redirection.clone(), expr)
                 }
@@ -5532,9 +5531,11 @@ pub fn parse_pipeline(
                     err: (err_span, err_command),
                 } => {
                     trace!("parsing: pipeline element: separate redirection");
-                    let out_expr = parse_string(working_set, out_command.parts[0]);
+                    let out_expr =
+                        parse_value(working_set, out_command.parts[0], &SyntaxShape::Any);
 
-                    let err_expr = parse_string(working_set, err_command.parts[0]);
+                    let err_expr =
+                        parse_value(working_set, err_command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::SeparateRedirection {
                         out: (*out_span, out_expr),
@@ -5547,7 +5548,9 @@ pub fn parse_pipeline(
                 } => {
                     trace!("parsing: pipeline element: same target redirection");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
-                    let redirect_expr = parse_string(working_set, redirect_command.parts[0]);
+                    let redirect_expr =
+                        parse_value(working_set, redirect_command.parts[0], &SyntaxShape::Any);
+                    log::warn!("redirect expr: {redirect_expr:?}");
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
                         redirection: (*redirect_span, redirect_expr),
@@ -5636,7 +5639,8 @@ pub fn parse_pipeline(
                 trace!("parsing: pipeline element: same target redirection");
                 let expr = parse_expression(working_set, &command.parts, is_subexpression);
 
-                let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
+                let redirect_expr =
+                    parse_value(working_set, redirect_cmd.parts[0], &SyntaxShape::Any);
 
                 Pipeline {
                     elements: vec![PipelineElement::SameTargetRedirection {
