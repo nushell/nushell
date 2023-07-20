@@ -352,6 +352,29 @@ fn remove_ignores_ansi() {
     });
 }
 
+#[test]
+fn removes_symlink() {
+    let symlink_target = "symlink_target";
+    let symlink = "symlink";
+    Playground::setup("rm_test_symlink", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile(symlink_target)]);
+
+        #[cfg(not(windows))]
+        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
+            .unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(
+            dirs.test().join(symlink_target),
+            dirs.test().join(symlink),
+        )
+        .unwrap();
+
+        let _ = nu!(cwd: sandbox.cwd(), "rm symlink");
+
+        assert!(!dirs.test().join(symlink).exists());
+    });
+}
+
 struct Cleanup<'a> {
     dir_to_clean: &'a PathBuf,
 }
