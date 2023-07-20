@@ -205,3 +205,62 @@ fn redirection_with_pipeline_works() {
         },
     )
 }
+
+#[test]
+fn redirect_support_variable() {
+    Playground::setup("redirect_out_support_variable", |dirs, _sandbox| {
+        let output = nu!(
+            cwd: dirs.test(),
+            "let x = 'tmp_file'; echo 'hello' out> $x; open tmp_file"
+        );
+
+        assert!(output.out.contains("hello"));
+
+        let output = nu!(
+            cwd: dirs.test(),
+            "let x = 'tmp_file'; echo 'hello' out+err> $x; open tmp_file"
+        );
+
+        assert!(output.out.contains("hello"));
+    })
+}
+
+#[test]
+fn separate_redirection_support_variable() {
+    Playground::setup(
+        "external with both stdout and stderr messages, to different file",
+        |dirs, sandbox| {
+            let script_body = r#"
+        echo message
+        echo message 1>&2
+        "#;
+            let expect_body = "message";
+
+            #[cfg(not(windows))]
+            {
+                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"let o_f = "out.txt"; let e_f = "err.txt"; bash test.sh out> $o_f err> $e_f"#
+                );
+            }
+            #[cfg(windows)]
+            {
+                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"let o_f = "out.txt"; let e_f = "err.txt"; cmd /D /c test.bat out> $o_f err> $e_f"#
+                );
+            }
+            // check for stdout redirection file.
+            let expected_out_file = dirs.test().join("out.txt");
+            let actual = file_contents(expected_out_file);
+            assert!(actual.contains(expect_body));
+
+            // check for stderr redirection file.
+            let expected_err_file = dirs.test().join("err.txt");
+            let actual = file_contents(expected_err_file);
+            assert!(actual.contains(expect_body));
+        },
+    )
+}
