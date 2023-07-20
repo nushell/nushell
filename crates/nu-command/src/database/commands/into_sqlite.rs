@@ -157,7 +157,7 @@ fn action(
 
             // create a string for sql table creation
             let create_statement =
-                format!("CREATE TABLE IF NOT EXISTS {table_name} ({table_columns_creation})");
+                format!("CREATE TABLE IF NOT EXISTS [{table_name}] ({table_columns_creation})");
 
             // prepare the string as a sqlite statement
             let mut stmt = conn.prepare(&create_statement).map_err(|e| {
@@ -189,7 +189,7 @@ fn action(
             // ('dd', 'ee', 'ff')
 
             // create the string for inserting data into the table
-            let insert_statement = format!("INSERT INTO {table_name} VALUES {table_values}");
+            let insert_statement = format!("INSERT INTO [{table_name}] VALUES {table_values}");
 
             // prepare the string as a sqlite statement
             let mut stmt = conn.prepare(&insert_statement).map_err(|e| {
