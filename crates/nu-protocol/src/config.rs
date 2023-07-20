@@ -113,47 +113,61 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            filesize_metric: false,
-            table_mode: "rounded".into(),
-            table_show_empty: true,
-            external_completer: None,
+            show_banner: true,
+
             use_ls_colors: true,
-            color_config: HashMap::new(),
-            use_grid_icons: false,
-            footer_mode: FooterMode::RowCount(25),
-            float_precision: 4,
-            max_external_completion_results: 100,
-            filesize_format: "auto".into(),
-            use_ansi_coloring: true,
+            show_clickable_links_in_ls: true,
+
+            rm_always_trash: false,
+
+            cd_with_abbreviations: false,
+
+            table_mode: "rounded".into(),
+            table_index_mode: TableIndexMode::Always,
+            table_show_empty: true,
+            trim_strategy: TRIM_STRATEGY_DEFAULT,
+
+            datetime_normal_format: None,
+            datetime_table_format: None,
+
+            explore: HashMap::new(),
+
+            max_history_size: 100_000,
+            sync_history_on_enter: true,
+            history_file_format: HistoryFileFormat::PlainText,
+            history_isolation: true,
+
+            case_sensitive_completions: false,
             quick_completions: true,
             partial_completions: true,
             completion_algorithm: "prefix".into(),
-            edit_mode: "emacs".into(),
-            max_history_size: i64::MAX,
-            sync_history_on_enter: true,
-            history_file_format: HistoryFileFormat::PlainText,
-            history_isolation: false,
-            keybindings: Vec::new(),
-            menus: Vec::new(),
-            hooks: Hooks::new(),
-            rm_always_trash: false,
-            shell_integration: false,
-            buffer_editor: String::new(),
-            table_index_mode: TableIndexMode::Always,
-            cd_with_abbreviations: false,
-            case_sensitive_completions: false,
             enable_external_completion: true,
-            trim_strategy: TRIM_STRATEGY_DEFAULT,
-            show_banner: true,
-            bracketed_paste: true,
-            show_clickable_links_in_ls: true,
-            render_right_prompt_on_last_line: false,
-            explore: HashMap::new(),
+            max_external_completion_results: 100,
+            external_completer: None,
+
+            filesize_metric: false,
+            filesize_format: "auto".into(),
+
+            cursor_shape_emacs: NuCursorShape::Line,
             cursor_shape_vi_insert: NuCursorShape::Block,
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
-            cursor_shape_emacs: NuCursorShape::Line,
-            datetime_normal_format: None,
-            datetime_table_format: None,
+
+            color_config: HashMap::new(),
+            use_grid_icons: true,
+            footer_mode: FooterMode::RowCount(25),
+            float_precision: 2,
+            buffer_editor: String::new(),
+            use_ansi_coloring: true,
+            bracketed_paste: true,
+            edit_mode: "emacs".into(),
+            shell_integration: false,
+            render_right_prompt_on_last_line: false,
+
+            hooks: Hooks::new(),
+
+            menus: Vec::new(),
+
+            keybindings: Vec::new(),
         }
     }
 }

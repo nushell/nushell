@@ -1,4 +1,8 @@
-use crate::{parse_block, parser_path::ParserPath, type_check::type_compatible};
+use crate::{
+    parse_block,
+    parser_path::ParserPath,
+    type_check::{check_block_input_output, type_compatible},
+};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -43,6 +47,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export def",
     b"for",
     b"extern",
+    b"extern-wrapped",
     b"export extern",
     b"alias",
     b"export alias",
@@ -181,7 +186,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 working_set.error(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
-    } else if decl_name == b"extern" && spans.len() >= 3 {
+    } else if (decl_name == b"extern" || decl_name == b"extern-wrapped") && spans.len() >= 3 {
         let name_expr = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -485,19 +490,20 @@ pub fn parse_def(
             block.signature = signature;
             block.redirect_env = def_call == b"def-env";
 
-            // Sadly we can't use this here as the inference would have to happen before
-            // all the definitions had been fully parsed.
+            if block.signature.input_output_types.is_empty() {
+                block
+                    .signature
+                    .input_output_types
+                    .push((Type::Any, Type::Any));
+            }
 
-            // infer the return type based on the output of the block
-            // let block = working_set.get_block(block_id);
+            let block = working_set.get_block(block_id);
 
-            // let input_type = block.input_type(working_set);
-            // let output_type = block.output_type();
-            // block.signature.input_output_types = vec![(input_type, output_type)];
-            block
-                .signature
-                .input_output_types
-                .push((Type::Any, Type::Any));
+            let typecheck_errors = check_block_input_output(working_set, block);
+
+            working_set
+                .parse_errors
+                .extend_from_slice(&typecheck_errors);
         } else {
             working_set.error(ParseError::InternalError(
                 "Predeclaration failed to add declaration".into(),
@@ -529,15 +535,17 @@ pub fn parse_extern(
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
 
-    let (name_span, split_id) =
-        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
-            (spans[1], 2)
-        } else {
-            (spans[0], 1)
-        };
+    let (name_span, split_id) = if spans.len() > 1
+        && (working_set.get_span_contents(spans[0]) == b"export"
+            || working_set.get_span_contents(spans[0]) == b"export-wrapped")
+    {
+        (spans[1], 2)
+    } else {
+        (spans[0], 1)
+    };
 
     let extern_call = working_set.get_span_contents(name_span).to_vec();
-    if extern_call != b"extern" {
+    if extern_call != b"extern" && extern_call != b"extern-wrapped" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for extern function".into(),
             span(spans),
@@ -932,7 +940,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" | b"module" => {
+            b"alias" | b"def" | b"def-env" | b"extern" | b"extern-wrapped" | b"use" | b"module" => {
                 [b"export ", sub].concat()
             }
             _ => b"export".to_vec(),
@@ -1175,7 +1183,7 @@ pub fn parse_export_in_module(
 
                 result
             }
-            b"extern" => {
+            b"extern" | b"extern-wrapped" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
@@ -1581,9 +1589,11 @@ pub fn parse_module_block(
                                 None, // using commands named as the module locally is OK
                             ))
                         }
-                        b"extern" => block
-                            .pipelines
-                            .push(parse_extern(working_set, command, None)),
+                        b"extern" | b"extern-wrapped" => {
+                            block
+                                .pipelines
+                                .push(parse_extern(working_set, command, None))
+                        }
                         b"alias" => {
                             block.pipelines.push(parse_alias(
                                 working_set,

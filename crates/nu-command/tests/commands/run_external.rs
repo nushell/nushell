@@ -312,7 +312,7 @@ fn can_run_batch_files_without_bat_extension() {
 #[test]
 fn quotes_trimmed_when_shelling_out() {
     // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             ^echo "foo"
         "#
