@@ -393,7 +393,11 @@ fn rm(
                             trash::delete(&f).map_err(|e: trash::Error| {
                                 Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
                             })
-                        } else if metadata.is_file() || is_socket || is_fifo {
+                        } else if metadata.is_file()
+                            || is_socket
+                            || is_fifo
+                            || metadata.file_type().is_symlink()
+                        {
                             std::fs::remove_file(&f)
                         } else {
                             std::fs::remove_dir_all(&f)
@@ -411,7 +415,11 @@ fn rm(
                             Err(e)
                         } else if interactive && !confirmed {
                             Ok(())
-                        } else if metadata.is_file() || is_socket || is_fifo {
+                        } else if metadata.is_file()
+                            || is_socket
+                            || is_fifo
+                            || metadata.file_type().is_symlink()
+                        {
                             std::fs::remove_file(&f)
                         } else {
                             std::fs::remove_dir_all(&f)

@@ -5895,25 +5895,44 @@ pub fn discover_captures_in_expr(
             if let Some(block_id) = decl.get_block_id() {
                 match seen_blocks.get(&block_id) {
                     Some(capture_list) => {
-                        output.extend(capture_list);
+                        // Push captures onto the outer closure that aren't created by that outer closure
+                        for capture in capture_list {
+                            if !seen.contains(&capture.0) {
+                                output.push(*capture);
+                            }
+                        }
                     }
                     None => {
                         let block = working_set.get_block(block_id);
                         if !block.captures.is_empty() {
-                            output.extend(block.captures.iter().map(|var_id| (*var_id, call.head)));
+                            for capture in &block.captures {
+                                if !seen.contains(capture) {
+                                    output.push((*capture, call.head));
+                                }
+                            }
                         } else {
-                            let mut seen = vec![];
-                            seen_blocks.insert(block_id, output.clone());
+                            let result = {
+                                let mut seen = vec![];
+                                seen_blocks.insert(block_id, output.clone());
 
-                            let mut result = vec![];
-                            discover_captures_in_closure(
-                                working_set,
-                                block,
-                                &mut seen,
-                                seen_blocks,
-                                &mut result,
-                            )?;
-                            output.extend(&result);
+                                let mut result = vec![];
+                                discover_captures_in_closure(
+                                    working_set,
+                                    block,
+                                    &mut seen,
+                                    seen_blocks,
+                                    &mut result,
+                                )?;
+
+                                result
+                            };
+                            // Push captures onto the outer closure that aren't created by that outer closure
+                            for capture in &result {
+                                if !seen.contains(&capture.0) {
+                                    output.push(*capture);
+                                }
+                            }
+
                             seen_blocks.insert(block_id, result);
                         }
                     }
