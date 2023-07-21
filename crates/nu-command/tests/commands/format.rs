@@ -66,12 +66,12 @@ fn format_filesize_works() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | format filesize KB size
                 | get size
                 | first
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "0.0 KB");

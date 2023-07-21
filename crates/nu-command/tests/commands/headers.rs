@@ -4,12 +4,12 @@ use nu_test_support::{nu, pipeline};
 fn headers_uses_first_row_as_header() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample_headers.xlsx
             | get Sheet1
             | headers
             | get header0
-            | to json --raw"#
+            | to json --raw"
     ));
 
     assert_eq!(actual.out, r#"["r1c0","r2c0"]"#)
@@ -19,12 +19,12 @@ fn headers_uses_first_row_as_header() {
 fn headers_adds_missing_column_name() {
     let actual = nu!(
     cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample_headers.xlsx
             | get Sheet1
             | headers
             | get column1
-            | to json --raw"#
+            | to json --raw"
     ));
 
     assert_eq!(actual.out, r#"["r1c1","r2c1"]"#)
@@ -33,11 +33,11 @@ fn headers_adds_missing_column_name() {
 #[test]
 fn headers_handles_missing_values() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [{x: a, y: b}, {x: 1, y: 2}, {x: 1, z: 3}]
             | headers
             | to nuon --raw
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "[{a: 1, b: 2}, {a: 1}]")
@@ -46,9 +46,9 @@ fn headers_handles_missing_values() {
 #[test]
 fn headers_invalid_column_type_empty_record() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[a b]; [{}, 2], [3,4] ]
-            | headers"#
+            | headers"
     ));
 
     assert!(actual
@@ -59,9 +59,9 @@ fn headers_invalid_column_type_empty_record() {
 #[test]
 fn headers_invalid_column_type_record() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[a b]; [1 (scope aliases)] [2 2]]
-            | headers"#
+            | headers"
     ));
 
     assert!(actual
@@ -72,9 +72,9 @@ fn headers_invalid_column_type_record() {
 #[test]
 fn headers_invalid_column_type_array() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[a b]; [[f,g], 2], [3,4] ]
-            | headers"#
+            | headers"
     ));
 
     assert!(actual
@@ -85,9 +85,9 @@ fn headers_invalid_column_type_array() {
 #[test]
 fn headers_invalid_column_type_range() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[a b]; [(1..5), 2], [3,4] ]
-            | headers"#
+            | headers"
     ));
 
     assert!(actual
@@ -98,9 +98,9 @@ fn headers_invalid_column_type_range() {
 #[test]
 fn headers_invalid_column_type_duration() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[a b]; [((date now) - (date now)), 2], [3,4] ]
-            | headers"#
+            | headers"
     ));
 
     assert!(actual
