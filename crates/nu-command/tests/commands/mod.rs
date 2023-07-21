@@ -12,6 +12,7 @@ mod cp;
 mod date;
 mod def;
 mod default;
+mod detect_columns;
 mod do_;
 mod drop;
 mod each;
