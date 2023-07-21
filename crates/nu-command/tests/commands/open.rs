@@ -113,11 +113,11 @@ fn parses_more_bson_complexity() {
 fn parses_sqlite() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample.db
             | columns
             | length
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "3");
@@ -128,11 +128,11 @@ fn parses_sqlite() {
 fn parses_sqlite_get_column_name() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample.db
             | get strings
             | get x.0
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "hello");
@@ -152,11 +152,11 @@ fn parses_toml() {
 fn parses_tsv() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open caco3_plastics.tsv
             | first
             | get origin
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "SPAIN")
@@ -166,10 +166,10 @@ fn parses_tsv() {
 fn parses_json() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sgml_description.json
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "markup")
@@ -179,7 +179,7 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        pipeline(r#"
+        pipeline("
             open jt.xml
             | get content
             | where tag == channel
@@ -190,7 +190,7 @@ fn parses_xml() {
             | flatten
             | where tag == guid
             | get content.0.content.0
-        "#)
+        ")
     );
 
     assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
@@ -201,12 +201,12 @@ fn parses_xml() {
 fn parses_arrow_ipc() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             dfr open caco3_plastics.arrow
             | dfr into-nu
             | first
             | get origin
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "SPAIN")
@@ -236,9 +236,9 @@ fn errors_if_file_not_found() {
 fn open_wildcard() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open *.nu | where $it =~ echo | length
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "3")
@@ -248,9 +248,9 @@ fn open_wildcard() {
 fn open_multiple_files() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
         open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "58309279992")
@@ -280,9 +280,9 @@ fn open_ignore_ansi() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls | find nu.zion | get 0 | get name | open $in
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -291,9 +291,7 @@ fn open_ignore_ansi() {
 
 #[test]
 fn open_no_parameter() {
-    let actual = nu!(r#"
-            open
-        "#);
+    let actual = nu!("open");
 
     assert!(actual.err.contains("needs filename"));
 }

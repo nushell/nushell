@@ -16,7 +16,7 @@ fn insert_the_column() {
 
 #[test]
 fn doesnt_convert_record_to_table() {
-    let actual = nu!(r#"{a:1} | insert b 2 | to nuon"#);
+    let actual = nu!("{a:1} | insert b 2 | to nuon");
 
     assert_eq!(actual.out, "{a: 1, b: 2}");
 }
@@ -38,36 +38,28 @@ fn insert_the_column_conflict() {
 
 #[test]
 fn insert_into_list() {
-    let actual = nu!(r#"
-            [1, 2, 3] | insert 1 abc | to json -r
-        "#);
+    let actual = nu!("[1, 2, 3] | insert 1 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,"abc",2,3]"#);
 }
 
 #[test]
 fn insert_into_list_begin() {
-    let actual = nu!(r#"
-            [1, 2, 3] | insert 0 abc | to json -r
-        "#);
+    let actual = nu!("[1, 2, 3] | insert 0 abc | to json -r");
 
     assert_eq!(actual.out, r#"["abc",1,2,3]"#);
 }
 
 #[test]
 fn insert_into_list_end() {
-    let actual = nu!(r#"
-            [1, 2, 3] | insert 3 abc | to json -r
-        "#);
+    let actual = nu!("[1, 2, 3] | insert 3 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
 }
 
 #[test]
 fn insert_past_end_list() {
-    let actual = nu!(r#"
-            [1, 2, 3] | insert 5 abc | to json -r
-        "#);
+    let actual = nu!("[1, 2, 3] | insert 5 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,null,null,"abc"]"#);
 }
@@ -75,7 +67,7 @@ fn insert_past_end_list() {
 #[test]
 fn insert_uses_enumerate_index() {
     let actual = nu!(
-        r#"[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+        "[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
     );
 
     assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");

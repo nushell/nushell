@@ -20,13 +20,13 @@ fn use_module_file_within_block() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-                r#"
+                "
                     def bar [] {
                         use spam.nu foo;
                         foo
                     };
                     bar
-                "#
+                "
             )
         );
 
@@ -53,10 +53,10 @@ fn use_keeps_doc_comments() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-                r#"
+                "
                     use spam.nu foo;
                     help foo
-                "#
+                "
             )
         );
 
