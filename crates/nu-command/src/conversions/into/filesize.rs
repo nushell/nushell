@@ -39,6 +39,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Filesize)),
                 ),
             ])
+            .allow_variants_without_examples(true)
             .vectorizes_over_list(true)
             .rest(
                 "rest",

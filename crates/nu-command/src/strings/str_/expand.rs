@@ -30,6 +30,7 @@ impl Command for SubCommand {
                 ),
             ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 

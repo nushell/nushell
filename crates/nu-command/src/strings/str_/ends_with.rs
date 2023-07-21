@@ -76,9 +76,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if string ends with '.txt'",
-                example: "'my_library.rb' | str ends-with '.txt'",
-                result: Some(Value::test_bool(false)),
+                description: "Checks if strings end with '.txt'",
+                example: "['my_library.rb', 'README.txt'] | str ends-with '.txt'",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(true),
+                ])),
             },
             Example {
                 description: "Checks if string ends with '.RB', case-insensitive",

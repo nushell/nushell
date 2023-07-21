@@ -32,6 +32,7 @@ impl Command for SubCommand {
         Signature::build("str starts-with")
             .input_output_types(vec![(Type::String, Type::Bool),(Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",

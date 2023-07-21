@@ -53,6 +53,7 @@ impl Command for Fill {
                 (Type::List(Box::new(Type::Filesize)), Type::List(Box::new(Type::String))),
                 ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .named(
                 "width",
                 SyntaxShape::Int,
