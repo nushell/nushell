@@ -19,11 +19,11 @@ fn removes_duplicate_rows() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_caballeros.csv
                 | uniq
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
@@ -47,12 +47,12 @@ fn uniq_values() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_caballeros.csv
                 | select type
                 | uniq
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "2");
@@ -119,11 +119,11 @@ fn nested_json_structures() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open nested_json_structures.json
                 | uniq
                 | length
-            "#
+            "
         ));
         assert_eq!(actual.out, "3");
     })
@@ -195,10 +195,10 @@ fn uniq_simple_vals_strs() {
 #[test]
 fn table() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
             | uniq
-        "#
+        "
     ));
 
     let expected = nu!("[[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]");

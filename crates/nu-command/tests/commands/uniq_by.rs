@@ -18,11 +18,11 @@ fn removes_duplicate_rows() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_caballeros.csv
                 | uniq-by last_name
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
@@ -69,12 +69,12 @@ fn uniq_counting() {
 #[test]
 fn uniq_unique() {
     let actual = nu!(pipeline(
-        r#"
+        "
             echo [1 2 3 4 1 5]
             | wrap item
             | uniq-by item --unique
             | get item
-        "#
+        "
     ));
     let expected = nu!("[2 3 4 5]");
     assert_eq!(actual.out, expected.out);
@@ -83,16 +83,16 @@ fn uniq_unique() {
 #[test]
 fn table() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
             | uniq-by fruit
-        "#
+        "
     ));
 
     let expected = nu!(pipeline(
-        r#"
+        "
         echo [[fruit day]; [apple monday] [Apple friday] [pear monday] [orange tuesday]]
-        "#
+        "
     ));
     print!("{}", actual.out);
     print!("{}", expected.out);
@@ -109,16 +109,16 @@ fn uniq_by_empty() {
 #[test]
 fn uniq_by_multiple_columns() {
     let actual = nu!(pipeline(
-        r#"
+        "
             [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
             | uniq-by fruit day
-        "#
+        "
     ));
 
     let expected = nu!(pipeline(
-        r#"
+        "
         echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
-        "#
+        "
     ));
     assert_eq!(actual.out, expected.out);
 }

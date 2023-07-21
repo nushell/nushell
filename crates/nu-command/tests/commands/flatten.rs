@@ -35,9 +35,7 @@ fn flatten_nested_tables_that_have_many_columns() {
 #[test]
 fn flatten_nested_tables() {
     let actual = nu!(pipeline(
-        r#"
-            echo [[Andrés, Nicolás, Robalino]] | flatten | get 1
-        "#
+        "echo [[Andrés, Nicolás, Robalino]] | flatten | get 1"
     ));
 
     assert_eq!(actual.out, "Nicolás");

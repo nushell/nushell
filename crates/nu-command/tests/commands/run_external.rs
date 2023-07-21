@@ -7,9 +7,9 @@ use nu_test_support::{nu, pipeline};
 fn better_empty_redirection() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             ls | each { |it| nu --testbin cococo $it.name } | ignore
-        "#
+        "
     ));
 
     eprintln!("out: {}", actual.out);
@@ -50,9 +50,9 @@ fn bare_word_expand_path_glob() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ^ls *.txt
-            "#
+            "
         ));
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
@@ -130,9 +130,9 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ^ls *.abc; echo done
-            "#
+            "
         ));
 
         assert!(!actual.out.contains("done"));
@@ -228,7 +228,7 @@ fn external_command_expand_tilde_with_back_quotes() {
 fn external_command_receives_raw_binary_data() {
     Playground::setup("external command receives raw binary data", |dirs, _| {
         let actual =
-            nu!(cwd: dirs.test(), pipeline(r#"0x[deadbeef] | nu --testbin input_bytes_length"#));
+            nu!(cwd: dirs.test(), pipeline("0x[deadbeef] | nu --testbin input_bytes_length"));
         assert_eq!(actual.out, r#"4"#);
     })
 }
@@ -239,9 +239,9 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ^cargo asdf; echo done
-            "#
+            "
         ));
 
         assert!(!actual.out.contains("done"));
