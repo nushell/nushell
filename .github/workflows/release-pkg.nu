@@ -191,15 +191,15 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 def 'cargo-build-nu' [ options: string ] {
     if ($options | str trim | is-empty) {
         if $os == 'windows-latest' {
-            cargo build --release --all --target $target
+            cargo build --release --all --target $target --features=extra
         } else {
-            cargo build --release --all --target $target --features=static-link-openssl
+            cargo build --release --all --target $target --features=static-link-openssl,extra
         }
     } else {
         if $os == 'windows-latest' {
-            cargo build --release --all --target $target $options
+            cargo build --release --all --target $target --features=extra $options
         } else {
-            cargo build --release --all --target $target --features=static-link-openssl $options
+            cargo build --release --all --target $target --features=static-link-openssl,extra $options
         }
     }
 }
