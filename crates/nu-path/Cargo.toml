@@ -12,7 +12,8 @@ exclude = ["/fuzz"]
 bench = false
 
 [dependencies]
-dirs-next = "2.0"
+etcetera = "0.8"
+once_cell = "1.18"
 
 [target.'cfg(windows)'.dependencies]
 omnipath = "0.1"

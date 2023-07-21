@@ -2,6 +2,8 @@
 use pwd::Passwd;
 use std::path::{Path, PathBuf};
 
+use crate::helpers;
+
 #[cfg(target_os = "macos")]
 const FALLBACK_USER_HOME_BASE_DIR: &str = "/Users";
 
@@ -77,7 +79,7 @@ fn user_home_dir(username: &str) -> PathBuf {
 fn user_home_dir(username: &str) -> PathBuf {
     use std::path::Component;
 
-    match dirs_next::home_dir() {
+    match helpers::home_dir() {
         None => {
             // Termux always has the same home directory
             #[cfg(target_os = "android")]
@@ -105,6 +107,35 @@ fn user_home_dir(username: &str) -> PathBuf {
                 expected_path
             } else {
                 fallback_home_dir(username)
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn user_home_dir(username: &str) -> PathBuf {
+    match helpers::home_dir() {
+        None => {
+            let mut expected_path = String::from("C:\\Users\\");
+            expected_path.push_str(username);
+            let path = Path::new(&expected_path);
+            let mut home = PathBuf::new();
+            home.push(path);
+            home
+        }
+        Some(user) => {
+            let mut expected_path = user;
+            expected_path.pop();
+            expected_path.push(Path::new(username));
+            if expected_path.is_dir() {
+                expected_path
+            } else {
+                let mut expected_path_as_string = String::from("C:\\Users\\");
+                expected_path_as_string.push_str(username);
+                let path = Path::new(&expected_path_as_string);
+                let mut home = PathBuf::new();
+                home.push(path);
+                home
             }
         }
     }
@@ -145,7 +176,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
 /// Expand tilde ("~") into a home directory if it is the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     // TODO: Extend this to work with "~user" style of home paths
-    expand_tilde_with_home(path, dirs_next::home_dir())
+    expand_tilde_with_home(path, helpers::home_dir())
 }
 
 #[cfg(test)]
