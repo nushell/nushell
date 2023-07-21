@@ -2,6 +2,8 @@
 use pwd::Passwd;
 use std::path::{Path, PathBuf};
 
+use crate::helpers;
+
 fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
 
@@ -62,7 +64,7 @@ fn user_home_dir(username: &str) -> PathBuf {
 
 #[cfg(target_os = "macos")]
 fn user_home_dir(username: &str) -> PathBuf {
-    match dirs_next::home_dir() {
+    match helpers::home_dir() {
         None => {
             let mut expected_path = String::from("/Users/");
             expected_path.push_str(username);
@@ -91,7 +93,7 @@ fn user_home_dir(username: &str) -> PathBuf {
 
 #[cfg(target_os = "windows")]
 fn user_home_dir(username: &str) -> PathBuf {
-    match dirs_next::home_dir() {
+    match helpers::home_dir() {
         None => {
             let mut expected_path = String::from("C:\\Users\\");
             expected_path.push_str(username);
@@ -146,7 +148,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
 /// Expand tilde ("~") into a home directory if it is the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     // TODO: Extend this to work with "~user" style of home paths
-    expand_tilde_with_home(path, dirs_next::home_dir())
+    expand_tilde_with_home(path, helpers::home_dir())
 }
 
 #[cfg(test)]
