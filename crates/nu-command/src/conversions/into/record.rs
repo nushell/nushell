@@ -52,7 +52,7 @@ impl Command for SubCommand {
                 example: "[[value]; [false]] | into record",
                 result: Some(Value::Record {
                     cols: vec!["value".to_string()],
-                    vals: vec![Value::boolean(false, span)],
+                    vals: vec![Value::bool(false, span)],
                     span,
                 }),
             },
