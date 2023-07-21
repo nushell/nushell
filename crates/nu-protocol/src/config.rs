@@ -135,7 +135,7 @@ impl Default for Config {
             max_history_size: 100_000,
             sync_history_on_enter: true,
             history_file_format: HistoryFileFormat::PlainText,
-            history_isolation: true,
+            history_isolation: false,
 
             case_sensitive_completions: false,
             quick_completions: true,
