@@ -22,7 +22,6 @@ impl Command for Append {
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::Record(vec![]), Type::Table(vec![])),
-                (Type::String, Type::String),
             ])
             .required("row", SyntaxShape::Any, "the row, list, or table to append")
             .allow_variants_without_examples(true)
