@@ -421,8 +421,7 @@ fn table_expand_record_0() {
 
 #[test]
 fn table_expand_record_1() {
-    let actual =
-        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --expand");
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --expand");
 
     assert_eq!(
         actual.out,

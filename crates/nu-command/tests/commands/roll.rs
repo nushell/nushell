@@ -23,12 +23,13 @@ mod rows {
             "{} | {}",
             table(),
             pipeline(
-            "
+                "
                 roll down
                 | first
                 | get status
             "
-        )));
+            )
+        ));
 
         assert_eq!(actual.out, "HERE");
     }
@@ -39,12 +40,13 @@ mod rows {
             "{} | {}",
             table(),
             pipeline(
-            "
+                "
                 roll up --by 3
                 | first
                 | get status
             "
-        )));
+            )
+        ));
 
         assert_eq!(actual.out, "HERE");
     }

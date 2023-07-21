@@ -112,9 +112,7 @@ fn error_reduce_fold_type_mismatch() {
 
 #[test]
 fn error_reduce_empty() {
-    let actual = nu!(pipeline(
-        "reduce { |it, acc| $acc + $it }"
-    ));
+    let actual = nu!(pipeline("reduce { |it, acc| $acc + $it }"));
 
     assert!(actual.err.contains("needs input"));
 }
