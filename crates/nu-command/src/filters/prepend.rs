@@ -29,7 +29,7 @@ impl Command for Prepend {
     }
 
     fn usage(&self) -> &str {
-        "Prepend any number of rows to a table."
+        "Prepend any number of rows to a list, record or table."
     }
 
     fn extra_usage(&self) -> &str {
@@ -46,7 +46,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[1,2,3,4] | prepend 0",
+                example: "[1, 2, 3, 4] | prepend 0",
                 description: "Prepend one Int item",
                 result: Some(Value::List {
                     vals: vec![
@@ -60,7 +60,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 }),
             },
             Example {
-                example: "[2,3,4] | prepend [0,1]",
+                example: "[2, 3, 4] | prepend [0,1]",
                 description: "Prepend two Int items",
                 result: Some(Value::List {
                     vals: vec![
@@ -74,7 +74,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 }),
             },
             Example {
-                example: "[2,nu,4,shell] | prepend [0,1,rocks]",
+                example: "[2, nu, 4, shell] | prepend [0, 1, rocks]",
                 description: "Prepend Ints and Strings",
                 result: Some(Value::List {
                     vals: vec![
