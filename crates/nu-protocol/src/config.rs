@@ -99,7 +99,6 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
-    pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -158,7 +157,6 @@ impl Default for Config {
             float_precision: 2,
             buffer_editor: String::new(),
             use_ansi_coloring: true,
-            bracketed_paste: true,
             edit_mode: "emacs".into(),
             shell_integration: false,
             render_right_prompt_on_last_line: false,
@@ -1111,9 +1109,6 @@ impl Value {
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);
-                    }
-                    "bracketed_paste" => {
-                        try_bool!(cols, vals, index, span, bracketed_paste);
                     }
                     // Menus
                     "menus" => match create_menus(value) {
