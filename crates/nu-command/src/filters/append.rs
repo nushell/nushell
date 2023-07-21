@@ -29,7 +29,7 @@ impl Command for Append {
     }
 
     fn usage(&self) -> &str {
-        "Append any number of rows to a table."
+        "Append any number of rows to a list, record or table."
     }
 
     fn extra_usage(&self) -> &str {
