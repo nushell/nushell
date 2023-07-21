@@ -12,7 +12,7 @@ echo ""
 
 echo "Install nushell from local..."
 echo "----------------------------------------------"
-cargo install --force --path "$REPO_ROOT" --features=dataframe
+cargo install --force --path "$REPO_ROOT" --features=dataframe,extra
 
 NU_PLUGINS=(
     'nu_plugin_inc'

@@ -21,7 +21,7 @@ NU_PLUGINS=(
 echo "Building nushell"
 (
     cd $REPO_ROOT
-    cargo build --features=dataframe
+    cargo build --features=dataframe,extra
 )
 
 for plugin in "${NU_PLUGINS[@]}"
