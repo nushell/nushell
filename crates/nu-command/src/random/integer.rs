@@ -77,9 +77,9 @@ fn integer(
 
     let (min, max) = if let Some(r) = range {
         if r.is_end_inclusive() {
-            (r.from.as_integer()?, r.to.as_integer()?)
-        } else if r.to.as_integer()? > 0 {
-            (r.from.as_integer()?, r.to.as_integer()? - 1)
+            (r.from.as_int()?, r.to.as_int()?)
+        } else if r.to.as_int()? > 0 {
+            (r.from.as_int()?, r.to.as_int()? - 1)
         } else {
             (0, 0)
         }

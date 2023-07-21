@@ -105,11 +105,11 @@ impl Range {
     }
 
     pub fn from(&self) -> Result<i64, ShellError> {
-        self.from.as_integer()
+        self.from.as_int()
     }
 
     pub fn to(&self) -> Result<i64, ShellError> {
-        let to = self.to.as_integer()?;
+        let to = self.to.as_int()?;
         if self.is_end_inclusive() {
             Ok(to)
         } else {

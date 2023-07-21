@@ -98,16 +98,16 @@ impl Command for BytesStartsWith {
                         i += max;
 
                         if i >= arg.pattern.len() {
-                            return Ok(Value::boolean(true, span).into_pipeline_data());
+                            return Ok(Value::bool(true, span).into_pipeline_data());
                         }
                     } else {
-                        return Ok(Value::boolean(false, span).into_pipeline_data());
+                        return Ok(Value::bool(false, span).into_pipeline_data());
                     }
                 }
 
                 // We reached the end of the stream and never returned,
                 // the pattern wasn't exhausted so it probably doesn't match
-                Ok(Value::boolean(false, span).into_pipeline_data())
+                Ok(Value::bool(false, span).into_pipeline_data())
             }
             _ => operate(
                 starts_with,
@@ -145,7 +145,7 @@ fn starts_with(val: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary {
             val,
             span: val_span,
-        } => Value::boolean(val.starts_with(&args.pattern), *val_span),
+        } => Value::bool(val.starts_with(&args.pattern), *val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {

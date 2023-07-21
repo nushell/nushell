@@ -59,27 +59,27 @@ impl Command for SubCommand {
                     vals: vec![
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::boolean(false, span)],
+                            vals: vec![Value::bool(false, span)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::boolean(true, span)],
+                            vals: vec![Value::bool(true, span)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::boolean(false, span)],
+                            vals: vec![Value::bool(false, span)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::boolean(true, span)],
+                            vals: vec![Value::bool(true, span)],
                             span,
                         },
                         Value::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::boolean(true, span)],
+                            vals: vec![Value::bool(true, span)],
                             span,
                         },
                     ],
@@ -89,27 +89,27 @@ impl Command for SubCommand {
             Example {
                 description: "Convert bool to boolean",
                 example: "true | into bool",
-                result: Some(Value::boolean(true, span)),
+                result: Some(Value::bool(true, span)),
             },
             Example {
                 description: "convert integer to boolean",
                 example: "1 | into bool",
-                result: Some(Value::boolean(true, span)),
+                result: Some(Value::bool(true, span)),
             },
             Example {
                 description: "convert decimal to boolean",
                 example: "0.3 | into bool",
-                result: Some(Value::boolean(true, span)),
+                result: Some(Value::bool(true, span)),
             },
             Example {
                 description: "convert decimal string to boolean",
                 example: "'0.0' | into bool",
-                result: Some(Value::boolean(false, span)),
+                result: Some(Value::bool(false, span)),
             },
             Example {
                 description: "convert string to boolean",
                 example: "'true' | into bool",
-                result: Some(Value::boolean(true, span)),
+                result: Some(Value::bool(true, span)),
             },
         ]
     }

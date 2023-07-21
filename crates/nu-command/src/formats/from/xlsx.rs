@@ -144,7 +144,7 @@ fn from_xlsx(
                         DataType::String(s) => Value::string(s, head),
                         DataType::Float(f) => Value::float(*f, head),
                         DataType::Int(i) => Value::int(*i, head),
-                        DataType::Bool(b) => Value::boolean(*b, head),
+                        DataType::Bool(b) => Value::bool(*b, head),
                         _ => Value::nothing(head),
                     };
 

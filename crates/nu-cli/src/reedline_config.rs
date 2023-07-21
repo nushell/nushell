@@ -183,7 +183,7 @@ pub(crate) fn add_columnar_menu(
     if let Value::Record { cols, vals, span } = &menu.menu_type {
         columnar_menu = match extract_value("columns", cols, vals, span) {
             Ok(columns) => {
-                let columns = columns.as_integer()?;
+                let columns = columns.as_int()?;
                 columnar_menu.with_columns(columns as u16)
             }
             Err(_) => columnar_menu,
@@ -191,7 +191,7 @@ pub(crate) fn add_columnar_menu(
 
         columnar_menu = match extract_value("col_width", cols, vals, span) {
             Ok(col_width) => {
-                let col_width = col_width.as_integer()?;
+                let col_width = col_width.as_int()?;
                 columnar_menu.with_column_width(Some(col_width as usize))
             }
             Err(_) => columnar_menu.with_column_width(None),
@@ -199,7 +199,7 @@ pub(crate) fn add_columnar_menu(
 
         columnar_menu = match extract_value("col_padding", cols, vals, span) {
             Ok(col_padding) => {
-                let col_padding = col_padding.as_integer()?;
+                let col_padding = col_padding.as_int()?;
                 columnar_menu.with_column_padding(col_padding as usize)
             }
             Err(_) => columnar_menu,
@@ -285,7 +285,7 @@ pub(crate) fn add_list_menu(
     if let Value::Record { cols, vals, span } = &menu.menu_type {
         list_menu = match extract_value("page_size", cols, vals, span) {
             Ok(page_size) => {
-                let page_size = page_size.as_integer()?;
+                let page_size = page_size.as_int()?;
                 list_menu.with_page_size(page_size as usize)
             }
             Err(_) => list_menu,
@@ -371,7 +371,7 @@ pub(crate) fn add_description_menu(
     if let Value::Record { cols, vals, span } = &menu.menu_type {
         description_menu = match extract_value("columns", cols, vals, span) {
             Ok(columns) => {
-                let columns = columns.as_integer()?;
+                let columns = columns.as_int()?;
                 description_menu.with_columns(columns as u16)
             }
             Err(_) => description_menu,
@@ -379,7 +379,7 @@ pub(crate) fn add_description_menu(
 
         description_menu = match extract_value("col_width", cols, vals, span) {
             Ok(col_width) => {
-                let col_width = col_width.as_integer()?;
+                let col_width = col_width.as_int()?;
                 description_menu.with_column_width(Some(col_width as usize))
             }
             Err(_) => description_menu.with_column_width(None),
@@ -387,7 +387,7 @@ pub(crate) fn add_description_menu(
 
         description_menu = match extract_value("col_padding", cols, vals, span) {
             Ok(col_padding) => {
-                let col_padding = col_padding.as_integer()?;
+                let col_padding = col_padding.as_int()?;
                 description_menu.with_column_padding(col_padding as usize)
             }
             Err(_) => description_menu,
@@ -395,7 +395,7 @@ pub(crate) fn add_description_menu(
 
         description_menu = match extract_value("selection_rows", cols, vals, span) {
             Ok(selection_rows) => {
-                let selection_rows = selection_rows.as_integer()?;
+                let selection_rows = selection_rows.as_int()?;
                 description_menu.with_selection_rows(selection_rows as u16)
             }
             Err(_) => description_menu,
@@ -403,7 +403,7 @@ pub(crate) fn add_description_menu(
 
         description_menu = match extract_value("description_rows", cols, vals, span) {
             Ok(description_rows) => {
-                let description_rows = description_rows.as_integer()?;
+                let description_rows = description_rows.as_int()?;
                 description_menu.with_description_rows(description_rows as usize)
             }
             Err(_) => description_menu,
@@ -884,7 +884,7 @@ fn edit_from_record(
         "movebigwordrightstart" => EditCommand::MoveBigWordRightStart,
         "movetoposition" => {
             let value = extract_value("value", cols, vals, span)?;
-            EditCommand::MoveToPosition(value.as_integer()? as usize)
+            EditCommand::MoveToPosition(value.as_int()? as usize)
         }
         "insertchar" => {
             let value = extract_value("value", cols, vals, span)?;

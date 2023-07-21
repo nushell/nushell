@@ -85,8 +85,8 @@ impl SimpleCommand for TweakCmd {
 
 fn parse_value(value: &str) -> Value {
     match value {
-        "true" => Value::boolean(true, NuSpan::unknown()),
-        "false" => Value::boolean(false, NuSpan::unknown()),
+        "true" => Value::bool(true, NuSpan::unknown()),
+        "false" => Value::bool(false, NuSpan::unknown()),
         s => Value::string(s.to_owned(), NuSpan::unknown()),
     }
 }
