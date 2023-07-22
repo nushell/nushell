@@ -23,7 +23,7 @@ fn zips_two_tables() {
         )]);
 
         let actual = nu!(pipeline(&format!(
-            r#"
+            "
                 use {} expect ;
 
                 let contributors = ([
@@ -35,7 +35,7 @@ fn zips_two_tables() {
                 let actual = ($contributors | upsert commits {{ |i| ($i.commits + 10) }});
 
                 expect $actual --to-eq [[name, commits]; [andres, 20] [jt, 30]]
-                "#,
+                ",
             dirs.test().join("zip_test.nu").display()
         )));
 

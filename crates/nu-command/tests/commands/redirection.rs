@@ -104,7 +104,7 @@ fn separate_redirection() {
                 sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
                 nu!(
                     cwd: dirs.test(),
-                    r#"bash test.sh out> out.txt err> err.txt"#
+                    "bash test.sh out> out.txt err> err.txt"
                 );
             }
             #[cfg(windows)]
@@ -112,7 +112,7 @@ fn separate_redirection() {
                 sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
                 nu!(
                     cwd: dirs.test(),
-                    r#"cmd /D /c test.bat out> out.txt err> err.txt"#
+                    "cmd /D /c test.bat out> out.txt err> err.txt"
                 );
             }
             // check for stdout redirection file.
@@ -142,10 +142,10 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
         nu!(
             cwd: dirs.test(), pipeline(
-                r#"
+                "
                 $env.LARGE = (open --raw a_large_file.txt);
                 nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt
-                "#
+                "
             ),
         );
 
@@ -166,7 +166,7 @@ fn redirection_keep_exit_codes() {
                 sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
                 nu!(
                     cwd: dirs.test(),
-                    r#"bash test.sh out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"#
+                    "bash test.sh out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"
                 )
             };
             #[cfg(windows)]
@@ -174,7 +174,7 @@ fn redirection_keep_exit_codes() {
                 sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
                 nu!(
                     cwd: dirs.test(),
-                    r#"cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"#
+                    "cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"
                 )
             };
             assert_eq!(output.out, "10")
@@ -196,7 +196,7 @@ fn redirection_with_pipeline_works() {
 
             nu!(
                 cwd: dirs.test(),
-                r#"bash test.sh out> out.txt | describe"#
+                "bash test.sh out> out.txt | describe"
             );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");

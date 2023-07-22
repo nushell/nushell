@@ -54,12 +54,12 @@ fn sort_by_empty() {
 fn ls_sort_by_name_sensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample-ls-output.json
             | sort-by name
             | select name
             | to json --raw
-        "#
+        "
     ));
 
     let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
@@ -71,12 +71,12 @@ fn ls_sort_by_name_sensitive() {
 fn ls_sort_by_name_insensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample-ls-output.json
             | sort-by -i name
             | select name
             | to json --raw
-        "#
+        "
     ));
 
     let json_output = r#"[{"name": "a.txt"},{"name": "B.txt"},{"name": "C"}]"#;
@@ -87,12 +87,12 @@ fn ls_sort_by_name_insensitive() {
 fn ls_sort_by_type_name_sensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample-ls-output.json
             | sort-by type name
             | select name type
             | to json --raw
-        "#
+        "
     ));
 
     let json_output = r#"[{"name": "C","type": "Dir"},{"name": "B.txt","type": "File"},{"name": "a.txt","type": "File"}]"#;
@@ -103,12 +103,12 @@ fn ls_sort_by_type_name_sensitive() {
 fn ls_sort_by_type_name_insensitive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample-ls-output.json
             | sort-by -i type name
             | select name type
             | to json --raw
-        "#
+        "
     ));
 
     let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;

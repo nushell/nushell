@@ -118,8 +118,8 @@ impl Command for DropNth {
                 rows
             }
             Either::Right(row_range) => {
-                let from = row_range.from.as_integer()?; // as usize;
-                let to = row_range.to.as_integer()?; // as usize;
+                let from = row_range.from.as_int()?; // as usize;
+                let to = row_range.to.as_int()?; // as usize;
 
                 // check for negative range inputs, e.g., (2..-5)
                 if from.is_negative() || to.is_negative() {
@@ -187,7 +187,7 @@ fn extract_int_or_range(
 ) -> Result<Either<i64, Range>, ShellError> {
     let value = call.req::<Value>(engine_state, stack, 0)?;
 
-    let int_opt = value.as_integer().map(Either::Left).ok();
+    let int_opt = value.as_int().map(Either::Left).ok();
     let range_opt: Result<nu_protocol::Range, ShellError> = FromValue::from_value(&value);
 
     let range_opt = range_opt.map(Either::Right).ok();

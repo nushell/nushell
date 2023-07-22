@@ -313,7 +313,7 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm .*"#
+            "rm .*"
         );
 
         assert!(files_exist_at(vec!["foo"], dirs.test()));

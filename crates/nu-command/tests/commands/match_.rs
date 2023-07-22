@@ -18,7 +18,7 @@ fn match_for_range_unmatched() {
 
 #[test]
 fn match_for_record() {
-    let actual = nu!(r#"match {a: 11} { {a: $b} => { print $b }}"#);
+    let actual = nu!("match {a: 11} { {a: $b} => { print $b }}");
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore
     assert_eq!(actual.out, "11");
@@ -26,7 +26,7 @@ fn match_for_record() {
 
 #[test]
 fn match_for_record_shorthand() {
-    let actual = nu!(r#"match {a: 12} { {$a} => { print $a }}"#);
+    let actual = nu!("match {a: 12} { {$a} => { print $a }}");
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore
     assert_eq!(actual.out, "12");
@@ -164,7 +164,7 @@ fn match_or_pattern_overlap_2() {
 
 #[test]
 fn match_doesnt_overwrite_variable() {
-    let actual = nu!(r#"let b = 100; match 55 { $b => {} }; print $b"#);
+    let actual = nu!("let b = 100; match 55 { $b => {} }; print $b");
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore
     assert_eq!(actual.out, "100");

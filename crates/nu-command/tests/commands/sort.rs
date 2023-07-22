@@ -20,14 +20,14 @@ fn by_invalid_types() {
 fn sort_primitive_values() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open cargo_sample.toml --raw
             | lines
             | skip 1
             | first 6
             | sort
             | first
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "authors = [\"The Nushell Project Developers\"]");
