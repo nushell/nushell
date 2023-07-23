@@ -21,6 +21,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
