@@ -19,9 +19,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::List(Box::new(Type::String))),
                 (
-                    // This concats into one list through flat_map!
                     Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
                 ),
             ])
             .allow_variants_without_examples(true)
@@ -70,6 +69,26 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Split multiple strings into lists of characters",
+                example: "['hello', 'world'] | split chars",
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![
+                        Value::test_string("h"),
+                        Value::test_string("e"),
+                        Value::test_string("l"),
+                        Value::test_string("l"),
+                        Value::test_string("o"),
+                    ]),
+                    Value::test_list(vec![
+                        Value::test_string("w"),
+                        Value::test_string("o"),
+                        Value::test_string("r"),
+                        Value::test_string("l"),
+                        Value::test_string("d"),
+                    ]),
+                ])),
+            },
         ]
     }
 
@@ -92,42 +111,45 @@ fn split_chars(
     let span = call.head;
 
     let graphemes = grapheme_flags(call)?;
-    input.flat_map(
+    input.map(
         move |x| split_chars_helper(&x, span, graphemes),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Vec<Value> {
+fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                if graphemes {
-                    s.graphemes(true)
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(move |x| Value::string(x, v_span))
-                        .collect()
-                } else {
-                    s.chars()
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(move |x| Value::string(x, v_span))
-                        .collect()
+                Value::List {
+                    vals: if graphemes {
+                        s.graphemes(true)
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .map(move |x| Value::string(x, v_span))
+                            .collect()
+                    } else {
+                        s.chars()
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .map(move |x| Value::string(x, v_span))
+                            .collect()
+                    },
+                    span: v_span,
                 }
             } else {
-                vec![Value::Error {
+                Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: name,
                         src_span: v_span,
                     }),
-                }]
+                }
             }
         }
-        Err(error) => vec![Value::Error {
+        Err(error) => Value::Error {
             error: Box::new(error),
-        }],
+        },
     }
 }
 
