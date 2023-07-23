@@ -51,6 +51,8 @@ impl Command for Fill {
                 (Type::List(Box::new(Type::Float)), Type::List(Box::new(Type::String))),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
                 (Type::List(Box::new(Type::Filesize)), Type::List(Box::new(Type::String))),
+                // General case for heterogeneous lists
+                (Type::List(Box::new(Type::Any)), Type::List(Box::new(Type::String))),
                 ])
             .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
