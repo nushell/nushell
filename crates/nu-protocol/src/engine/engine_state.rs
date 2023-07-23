@@ -1541,8 +1541,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
-        // QUESTION: do we need this, or adjust at upper level?
-        // How can we expose module const?
         let mut name = name.to_vec();
         if !name.starts_with(b"$") {
             name.insert(0, b'$');

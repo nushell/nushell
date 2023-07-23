@@ -2155,7 +2155,6 @@ pub fn parse_module(
     let block_id = working_set.add_block(block);
 
     module_comments.extend(inner_comments);
-    log::warn!("module info: {module:?}");
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     let block_expr = Expression {
