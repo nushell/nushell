@@ -2347,7 +2347,6 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         .collect();
 
     // Extend the current scope with the module's exportables
-    log::warn!("debug variables: {:?}", definitions.variables);
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
     working_set.use_variables(definitions.variables);
