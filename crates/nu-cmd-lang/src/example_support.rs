@@ -45,20 +45,22 @@ pub fn check_example_input_and_output_types_match_command_signature(
                        // TODO: This is too permissive; it should make use of the signature.input_output_types at least.
                        && example_output_type.to_shape() == example_input_type.to_shape();
 
-            if !(example_matches_signature
-                || example_matches_signature_via_cell_path_operation)
-            {
+            if !(example_matches_signature || example_matches_signature_via_cell_path_operation) {
                 panic!(
-                       "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
+                    "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
                        However, this does not match the declared signature: {:?}.{} \
                        For this command `operates_on_cell_paths()` is {}.",
-                       example.example,
-                       example_input_type,
-                       example_output_type,
-                       signature_input_output_types,
-                       if signature_input_output_types.is_empty() { " (Did you forget to declare the input and output types for the command?)" } else { "" },
-                       signature_operates_on_cell_paths
-                   );
+                    example.example,
+                    example_input_type,
+                    example_output_type,
+                    signature_input_output_types,
+                    if signature_input_output_types.is_empty() {
+                        " (Did you forget to declare the input and output types for the command?)"
+                    } else {
+                        ""
+                    },
+                    signature_operates_on_cell_paths
+                );
             };
         };
     }
