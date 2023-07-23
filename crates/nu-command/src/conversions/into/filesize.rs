@@ -22,7 +22,29 @@ impl Command for SubCommand {
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                // Catch all for heterogeneous lists.
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
             ])
+            .allow_variants_without_examples(true)
             .vectorizes_over_list(true)
             .rest(
                 "rest",
