@@ -24,6 +24,7 @@ impl Command for BitsNot {
                 ),
             ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .switch(
                 "signed",
                 "always treat input number as a signed number",
