@@ -22,6 +22,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Bool),
                 (Type::Bool, Type::Bool),
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .rest(
                 "rest",

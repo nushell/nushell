@@ -22,6 +22,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
                 ),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .vectorizes_over_list(true)
             .rest(

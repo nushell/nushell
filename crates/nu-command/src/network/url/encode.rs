@@ -17,7 +17,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("url encode")
-            .input_output_types(vec![(Type::String, Type::String), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .vectorizes_over_list(true)
             .switch(
             "all",

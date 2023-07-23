@@ -31,6 +31,7 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Bool),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the string to match")
