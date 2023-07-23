@@ -35,7 +35,6 @@ impl Command for SubCommand {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
-            .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the substring to find")
             .rest(
                 "rest",

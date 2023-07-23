@@ -37,7 +37,6 @@ impl Command for BytesAdd {
                     Type::List(Box::new(Type::Binary)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .required("data", SyntaxShape::Binary, "the binary to add")
             .named(

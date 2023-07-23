@@ -45,7 +45,6 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

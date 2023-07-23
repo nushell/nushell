@@ -23,7 +23,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

@@ -23,7 +23,6 @@ impl Command for BytesLen {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

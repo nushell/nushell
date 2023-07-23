@@ -30,7 +30,6 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str length")
             .input_output_types(vec![(Type::String, Type::Int), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int)))])
-            .vectorizes_over_list(true)
             .switch(
                 "grapheme-clusters",
                 "count length using grapheme clusters (all visible chars have length 1)",

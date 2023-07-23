@@ -33,7 +33,6 @@ impl Command for EncodeBase64 {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named(
                 "character-set",

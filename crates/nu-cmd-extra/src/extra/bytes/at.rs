@@ -44,7 +44,6 @@ impl Command for BytesAt {
                     Type::List(Box::new(Type::Binary)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .required("range", SyntaxShape::Range, "the range to get bytes")
             .rest(
                 "rest",

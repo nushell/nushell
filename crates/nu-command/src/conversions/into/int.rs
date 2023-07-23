@@ -69,7 +69,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .switch("little-endian", "use little-endian byte decoding", None)

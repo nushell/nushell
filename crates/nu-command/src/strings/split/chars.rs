@@ -23,7 +23,6 @@ impl Command for SubCommand {
                 "split on code points (default; splits combined characters)",
                 Some('c'),
             )
-            .vectorizes_over_list(true)
             .category(Category::Strings)
     }
 
