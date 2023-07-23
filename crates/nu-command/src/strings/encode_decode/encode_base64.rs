@@ -26,6 +26,12 @@ impl Command for EncodeBase64 {
                     Type::List(Box::new(Type::Binary)),
                     Type::List(Box::new(Type::String)),
                 ),
+                // Relaxed for heterogeneous list.
+                // Should be removed as soon as the type system supports better restrictions
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
             .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
