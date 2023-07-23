@@ -37,8 +37,9 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str index-of")
-            .input_output_types(vec![(Type::String, Type::Int)])
+            .input_output_types(vec![(Type::String, Type::Int),(Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int)))])
             .vectorizes_over_list(true) // TODO: no test coverage
+            .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to find in the input")
             .switch(
                 "grapheme-clusters",
