@@ -2267,7 +2267,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let (import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
+    let (mut import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
         let module = working_set.get_module(module_id).clone();
         (
             ImportPattern {
@@ -2278,6 +2278,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
+                module_name_var_id: None,
             },
             module,
             module_id,
@@ -2298,6 +2299,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
+                module_name_var_id: None,
             },
             module,
             module_id,
@@ -2351,6 +2353,13 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
     working_set.use_modules(definitions.modules);
     working_set.use_variables(definitions.variables);
 
+    let module_name_var_id = working_set.add_variable(
+        module.name(),
+        module.span.unwrap_or(Span::unknown()),
+        Type::Any,
+        false,
+    );
+    import_pattern.module_name_var_id = Some(module_name_var_id);
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
