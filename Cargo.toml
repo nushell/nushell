@@ -113,13 +113,19 @@ plugin = [
 	"nu-protocol/plugin",
 	"nu-engine/plugin",
 ]
-default = ["plugin", "which-support", "trash-support", "sqlite"]
+default = ["plugin", "which-support", "trash-support", "sqlite", "native-tls"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
 
+# Enable either native-tls or rustls, with native-tls in the default set of features
+# native-tls uses SChannel on Windows, Secure Transport on macOS, and OpenSSL on other platforms
+# rustls is a rust native TLS implementation that uses ring for cryptography and webpki for certificate verification
+native-tls = [ "nu-command/native-tls" ]
+rustls = [ "nu-command/rustls" ]
+
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
-static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
+static-link-openssl = ["dep:openssl", "native-tls", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
 
