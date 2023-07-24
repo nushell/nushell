@@ -101,7 +101,7 @@ nu-test-support = { path = "./crates/nu-test-support", version = "0.82.1" }
 tempfile = "3.7"
 assert_cmd = "2.0"
 criterion = "0.5"
-pretty_assertions = "1.0"
+pretty_assertions = "1.4"
 serial_test = "2.0"
 rstest = { version = "0.17", default-features = false }
 
