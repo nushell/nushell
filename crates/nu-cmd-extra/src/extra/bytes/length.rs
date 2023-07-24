@@ -23,6 +23,7 @@ impl Command for BytesLen {
                     Type::List(Box::new(Type::Int)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
             .vectorizes_over_list(true)
