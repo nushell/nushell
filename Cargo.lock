@@ -546,8 +546,9 @@ dependencies = [
 
 [[package]]
 name = "chrono-humanize"
-version = "0.2.2"
-source = "git+https://gitlab.com/adamchalmers/chrono-humanize-rs?branch=achalmers/fix-10#4aedb030692adc1eac9fa36a55283270f24cebab"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "799627e6b4d27827a814e837b9d8a504832086081806d45b1afa34dc982b023b"
 dependencies = [
  "chrono",
 ]
