@@ -13,7 +13,7 @@ impl Command for ExportConst {
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module and export them from this module."
+        "Use parse-time constant from a module and export them from this module."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -51,12 +51,12 @@ impl Command for ExportConst {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Re-export a command from another module",
-            example: r#"module spam { export def foo [] { "foo" } }
+            example: r#"module spam { export const foo = 3; }
     module eggs { export use spam foo }
     use eggs foo
     foo
             "#,
-            result: Some(Value::test_string("foo")),
+            result: Some(Value::test_int(3)),
         }]
     }
 

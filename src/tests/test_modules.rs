@@ -143,3 +143,15 @@ fn cannot_export_private_const() -> TestResult {
         "cannot find column 'b'",
     )
 }
+
+#[test]
+fn test_lexical_binding() -> TestResult {
+    run_test(
+        r#"module spam { const b = 3; export def c [] { $b } }; use spam c; const b = 4; c"#,
+        "3",
+    )?;
+    run_test(
+        r#"const b = 4; module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "3",
+    )
+}
