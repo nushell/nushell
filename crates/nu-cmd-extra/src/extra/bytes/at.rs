@@ -37,7 +37,13 @@ impl Command for BytesAt {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes at")
-            .input_output_types(vec![(Type::Binary, Type::Binary)])
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
+            ])
             .vectorizes_over_list(true)
             .required("range", SyntaxShape::Range, "the range to get bytes")
             .rest(

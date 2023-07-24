@@ -22,8 +22,15 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str expand")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
+                ),
+            ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 

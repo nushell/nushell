@@ -31,6 +31,7 @@ impl Command for SubCommand {
         Signature::build("str contains")
             .input_output_types(vec![
                 (Type::String, Type::Bool),
+                // TODO figure out cell-path type behavior
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])

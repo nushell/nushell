@@ -28,7 +28,10 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str ends-with")
-            .input_output_types(vec![(Type::String, Type::Bool)])
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
+            ])
             .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
@@ -73,9 +76,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if string ends with '.txt'",
-                example: "'my_library.rb' | str ends-with '.txt'",
-                result: Some(Value::test_bool(false)),
+                description: "Checks if strings end with '.txt'",
+                example: "['my_library.rb', 'README.txt'] | str ends-with '.txt'",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(true),
+                ])),
             },
             Example {
                 description: "Checks if string ends with '.RB', case-insensitive",

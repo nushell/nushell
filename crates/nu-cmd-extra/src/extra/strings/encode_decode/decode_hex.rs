@@ -15,7 +15,14 @@ impl Command for DecodeHex {
 
     fn signature(&self) -> Signature {
         Signature::build("decode hex")
-            .input_output_types(vec![(Type::String, Type::Binary)])
+            .input_output_types(vec![
+                (Type::String, Type::Binary),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .vectorizes_over_list(true)
             .rest(
                 "rest",
