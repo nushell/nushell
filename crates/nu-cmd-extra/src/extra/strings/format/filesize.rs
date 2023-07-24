@@ -28,7 +28,11 @@ impl Command for FileSize {
 
     fn signature(&self) -> Signature {
         Signature::build("format filesize")
-            .input_output_types(vec![(Type::Filesize, Type::String)])
+            .input_output_types(vec![
+                (Type::Filesize, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required(
                 "format value",
                 SyntaxShape::String,
