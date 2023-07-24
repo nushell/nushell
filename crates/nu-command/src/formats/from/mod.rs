@@ -7,14 +7,12 @@ mod ods;
 mod ssv;
 mod toml;
 mod tsv;
-mod url;
 mod xlsx;
 mod xml;
 mod yaml;
 
 pub use self::csv::FromCsv;
 pub use self::toml::FromToml;
-pub use self::url::FromUrl;
 pub use command::From;
 pub use json::FromJson;
 pub use nuon::FromNuon;

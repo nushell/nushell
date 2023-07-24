@@ -29,6 +29,7 @@ impl Command for Transpose {
             .input_output_types(vec![
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Table(vec![])),
             ])
             .switch(
                 "header-row",
@@ -55,6 +56,7 @@ impl Command for Transpose {
                 "on repetition of record fields due to `header-row`, keep all the values obtained",
                 Some('a'),
             )
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::String,

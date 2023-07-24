@@ -29,7 +29,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str contains")
-            .input_output_types(vec![(Type::String, Type::Bool)])
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                // TODO figure out cell-path type behavior
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
+            ])
             .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the substring to find")
             .rest(
@@ -160,7 +165,7 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => Value::boolean(
+        Value::String { val, .. } => Value::bool(
             match case_insensitive {
                 true => {
                     if *not_contain {

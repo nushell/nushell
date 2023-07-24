@@ -74,7 +74,7 @@ mimalloc = { version = "0.1.37", default-features = false, optional = true}
 crossterm = "0.26"
 ctrlc = "3.4"
 log = "0.4"
-miette = { version = "5.9", features = ["fancy-no-backtrace"] }
+miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"
@@ -94,14 +94,14 @@ nix = { version = "0.26", default-features = false, features = [
 	"fs",
 	"term",
 ] }
-atty = "0.2"
+is-terminal = "0.4.8"
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.82.1" }
-tempfile = "3.6"
+tempfile = "3.7"
 assert_cmd = "2.0"
 criterion = "0.5"
-pretty_assertions = "1.0"
+pretty_assertions = "1.4"
 serial_test = "2.0"
 rstest = { version = "0.17", default-features = false }
 

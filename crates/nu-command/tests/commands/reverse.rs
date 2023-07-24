@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn can_get_reverse_first() {
@@ -12,7 +12,7 @@ fn can_get_reverse_first() {
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(cwd: ".", pipeline("1 | reverse"));
+    let actual = nu!("1 | reverse");
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }

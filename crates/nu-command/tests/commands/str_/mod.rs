@@ -27,13 +27,11 @@ fn trims() {
 
 #[test]
 fn error_trim_multiple_chars() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
         echo "does it work now?!" | str trim -c "?!"
         "#
-        )
-    );
+    ));
 
     assert!(actual.err.contains("char"));
 }
@@ -120,8 +118,7 @@ fn camelcases() {
 
 #[test]
 fn converts_to_int() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo '[{number_as_string: "1"}]'
             | from json
@@ -138,8 +135,7 @@ fn converts_to_int() {
 
 #[test]
 fn converts_to_decimal() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo "3.1, 0.0415"
             | split row ","
@@ -366,24 +362,18 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
 
 #[test]
 fn str_reverse() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo "nushell" | str reverse
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains("llehsun"));
 }
 
 #[test]
 fn test_redirection_trim() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         let x = (nu --testbin cococo niceone); $x | str trim | str length
-        "#
-    ));
+        "#);
 
     assert_eq!(actual.out, "7");
 }

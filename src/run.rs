@@ -189,7 +189,7 @@ pub(crate) fn run_file(
     let start_time = std::time::Instant::now();
     let last_exit_code = stack.get_env_var(&*engine_state, "LAST_EXIT_CODE");
     if let Some(last_exit_code) = last_exit_code {
-        let value = last_exit_code.as_integer();
+        let value = last_exit_code.as_int();
         if let Ok(value) = value {
             if value != 0 {
                 std::process::exit(value as i32);

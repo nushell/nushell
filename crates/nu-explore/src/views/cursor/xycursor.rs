@@ -67,6 +67,7 @@ impl XYCursor {
         self.x.offset()
     }
 
+    #[allow(dead_code)]
     pub fn row_window_size(&self) -> usize {
         self.y.window()
     }
@@ -86,6 +87,14 @@ impl XYCursor {
 
     pub fn next_row_page(&mut self) -> bool {
         self.y.next_window()
+    }
+
+    pub fn row_move_to_end(&mut self) -> bool {
+        self.y.next(self.y.cap())
+    }
+
+    pub fn row_move_to_start(&mut self) -> bool {
+        self.y.prev(self.y.index())
     }
 
     pub fn prev_row(&mut self) -> bool {

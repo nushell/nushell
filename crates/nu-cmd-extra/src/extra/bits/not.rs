@@ -16,8 +16,15 @@ impl Command for BitsNot {
 
     fn signature(&self) -> Signature {
         Signature::build("bits not")
-            .input_output_types(vec![(Type::Int, Type::Int)])
+            .input_output_types(vec![
+                (Type::Int, Type::Int),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .switch(
                 "signed",
                 "always treat input number as a signed number",

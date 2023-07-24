@@ -22,8 +22,15 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str expand")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
+                ),
+            ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
@@ -64,6 +71,45 @@ impl Command for SubCommand {
                         Value::test_string("AbDfG"),
                         Value::test_string("AcDeG"),
                         Value::test_string("AcDfG"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "Collection may include an empty item. It can be put at the start of the list.",
+                example: "\"A{,B,C}\" | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("A"),
+                        Value::test_string("AB"),
+                        Value::test_string("AC"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "Empty item can be at the end of the collection.",
+                example: "\"A{B,C,}\" | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("AB"),
+                        Value::test_string("AC"),
+                        Value::test_string("A"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "Empty item can be in the middle of the collection.",
+                example: "\"A{B,,C}\" | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("AB"),
+                        Value::test_string("A"),
+                        Value::test_string("AC"),
                     ],
                     span: Span::test_data()
                 },)

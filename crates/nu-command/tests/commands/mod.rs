@@ -12,6 +12,7 @@ mod cp;
 mod date;
 mod def;
 mod default;
+mod detect_columns;
 mod do_;
 mod drop;
 mod each;
@@ -27,6 +28,7 @@ mod find;
 mod first;
 mod flatten;
 mod for_;
+#[cfg(feature = "extra")]
 mod format;
 mod get;
 mod glob;
@@ -37,6 +39,7 @@ mod help;
 mod histogram;
 mod insert;
 mod inspect;
+mod into_datetime;
 mod into_filesize;
 mod into_int;
 mod join;
@@ -72,7 +75,9 @@ mod rename;
 mod return_;
 mod reverse;
 mod rm;
+#[cfg(feature = "extra")]
 mod roll;
+#[cfg(feature = "extra")]
 mod rotate;
 mod run_external;
 mod save;

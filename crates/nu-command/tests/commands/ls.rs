@@ -13,10 +13,10 @@ fn lists_regular_files() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
@@ -35,10 +35,10 @@ fn lists_regular_files_using_asterisk_wildcard() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls *.txt
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
@@ -57,10 +57,10 @@ fn lists_regular_files_using_question_mark_wildcard() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls *.??.txt
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
@@ -82,11 +82,11 @@ fn lists_all_files_in_directories_from_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 echo dir_a dir_b
                 | each { |it| ls $it }
                 | flatten | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "4");
@@ -100,10 +100,10 @@ fn does_not_fail_if_glob_matches_empty_directory() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls dir_a
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "0");
@@ -138,9 +138,9 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
 
         let actual = nu!(
             cwd: dirs.test().join("foo/bar"),
-            r#"
+            "
                 ls ... | length
-            "#
+            "
         );
 
         assert_eq!(actual.out, "5");
@@ -160,10 +160,10 @@ fn lists_hidden_file_when_explicitly_specified() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls .testdotfile
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "1");
@@ -194,10 +194,10 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls **/.*
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "3");
@@ -231,10 +231,10 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls **/*
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "5");
@@ -255,10 +255,10 @@ fn glob_with_hidden_directory() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls **/*
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "");
@@ -267,10 +267,10 @@ fn glob_with_hidden_directory() {
         // will list files if provide `-a` flag.
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls -a **/*
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "4");
@@ -287,16 +287,16 @@ fn fails_with_ls_to_dir_without_permission() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 chmod 000 dir_a; ls dir_a
-            "#
+            "
         ));
 
         let check_not_root = nu!(
             cwd: dirs.test(), pipeline(
-                r#"
+                "
                     id -u
-                "#
+                "
         ));
 
         assert!(
@@ -321,10 +321,10 @@ fn lists_files_including_starting_with_dot() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls -a
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "5");
@@ -426,12 +426,12 @@ fn lists_with_directory_flag_without_argument() {
         // Test if there are some files in the current directory
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 cd dir_files;
                 ls --directory
                 | get name
                 | to text
-            "#
+            "
         ));
         let expected = ".";
         assert_eq!(
@@ -441,12 +441,12 @@ fn lists_with_directory_flag_without_argument() {
         // Test if there is no file in the current directory
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 cd dir_empty;
                 ls -D
                 | get name
                 | to text
-            "#
+            "
         ));
         let expected = ".";
         assert_eq!(
@@ -497,7 +497,7 @@ fn can_list_system_folder() {
 
     let ls_with_filter = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls | where size > 10mb"#
+        "ls | where size > 10mb"
     ));
     assert_eq!(ls_with_filter.err, "");
 }
@@ -547,9 +547,9 @@ fn list_ignores_ansi() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls | find .txt | each {|| ls $in.name } 
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -558,12 +558,7 @@ fn list_ignores_ansi() {
 
 #[test]
 fn list_unknown_flag() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-                ls -r
-            "#
-    ));
+    let actual = nu!("ls -r");
 
     assert!(actual
         .err

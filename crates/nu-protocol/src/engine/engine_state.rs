@@ -6,7 +6,7 @@ use crate::{
     ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
-use crate::{ParseError, Value};
+use crate::{Category, ParseError, Value};
 use core::panic;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
@@ -232,9 +232,6 @@ impl EngineState {
                 }
                 for item in delta_overlay.vars.into_iter() {
                     existing_overlay.vars.insert(item.0, item.1);
-                }
-                for item in delta_overlay.constants.into_iter() {
-                    existing_overlay.constants.insert(item.0, item.1);
                 }
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
@@ -621,7 +618,7 @@ impl EngineState {
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
+            if let Some(decl_id) = overlay_frame.get_decl(name) {
                 if visibility.is_decl_id_visible(&decl_id) {
                     return Some(decl_id);
                 }
@@ -638,7 +635,7 @@ impl EngineState {
             visibility.append(&overlay_frame.visibility);
 
             if visibility.is_decl_id_visible(&decl_id) {
-                for ((name, _), id) in overlay_frame.decls.iter() {
+                for (name, id) in overlay_frame.decls.iter() {
                     if id == &decl_id {
                         return Some(name);
                     }
@@ -708,29 +705,23 @@ impl EngineState {
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
+        ignore_deprecated: bool,
     ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
             for decl in &overlay_frame.decls {
-                if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0) {
+                if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
                     let command = self.get_decl(*decl.1);
-                    output.push((decl.0 .0.clone(), Some(command.usage().to_string())));
+                    if ignore_deprecated && command.signature().category == Category::Deprecated {
+                        continue;
+                    }
+                    output.push((decl.0.clone(), Some(command.usage().to_string())));
                 }
             }
         }
 
         output
-    }
-
-    pub fn find_constant(&self, var_id: VarId, removed_overlays: &[Vec<u8>]) -> Option<&Value> {
-        for overlay_frame in self.active_overlays(removed_overlays).rev() {
-            if let Some(val) = overlay_frame.constants.get(&var_id) {
-                return Some(val);
-            }
-        }
-
-        None
     }
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
@@ -786,7 +777,7 @@ impl EngineState {
         }
 
         let mut decls: Vec<(Vec<u8>, DeclId)> =
-            decls_map.into_iter().map(|(v, k)| (v.0, k)).collect();
+            decls_map.into_iter().map(|(v, k)| (v, k)).collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
         decls.into_iter()
@@ -949,7 +940,6 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
-    pub type_scope: TypeScope,
     /// Current working directory relative to the file being parsed right now
     pub currently_parsed_cwd: Option<PathBuf>,
     /// All previously parsed module files. Used to protect against circular imports.
@@ -957,54 +947,6 @@ pub struct StateWorkingSet<'a> {
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
-}
-
-/// A temporary placeholder for expression types. It is used to keep track of the input types
-/// for each expression in a pipeline
-pub struct TypeScope {
-    /// Layers that map the type inputs that are found in each parsed block
-    outputs: Vec<Vec<Type>>,
-    /// The last know output from a parsed block
-    last_output: Type,
-}
-
-impl Default for TypeScope {
-    fn default() -> Self {
-        Self {
-            outputs: Vec::new(),
-            last_output: Type::Any,
-        }
-    }
-}
-
-impl TypeScope {
-    pub fn get_previous(&self) -> &Type {
-        match self.outputs.last().and_then(|v| v.last()) {
-            Some(input) => input,
-            None => &Type::Nothing,
-        }
-    }
-
-    pub fn get_last_output(&self) -> Type {
-        self.last_output.clone()
-    }
-
-    pub fn add_type(&mut self, input: Type) {
-        if let Some(v) = self.outputs.last_mut() {
-            v.push(input)
-        } else {
-            self.outputs.push(vec![input])
-        }
-    }
-
-    pub fn enter_scope(&mut self) {
-        self.outputs.push(Vec::new())
-    }
-
-    pub fn exit_scope(&mut self) -> Option<Vec<Type>> {
-        self.last_output = self.get_previous().clone();
-        self.outputs.pop()
-    }
 }
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
@@ -1137,7 +1079,6 @@ impl<'a> StateWorkingSet<'a> {
             delta: StateDelta::new(permanent_state),
             permanent_state,
             external_commands: vec![],
-            type_scope: TypeScope::default(),
             currently_parsed_cwd: permanent_state.currently_parsed_cwd.clone(),
             parsed_module_files: vec![],
             search_predecls: true,
@@ -1193,13 +1134,11 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
         let name = decl.name().as_bytes().to_vec();
-        let input_type = decl.signature().get_input_type();
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
 
-        self.last_overlay_mut()
-            .insert_decl(name, input_type, decl_id);
+        self.last_overlay_mut().insert_decl(name, decl_id);
 
         decl_id
     }
@@ -1208,7 +1147,7 @@ impl<'a> StateWorkingSet<'a> {
         let overlay_frame = self.last_overlay_mut();
 
         for (name, decl_id) in decls {
-            overlay_frame.insert_decl(name, Type::Any, decl_id);
+            overlay_frame.insert_decl(name, decl_id);
             overlay_frame.visibility.use_decl_id(&decl_id);
         }
     }
@@ -1245,7 +1184,7 @@ impl<'a> StateWorkingSet<'a> {
         let overlay_frame = self.last_overlay_mut();
 
         if let Some(decl_id) = overlay_frame.predecls.remove(name) {
-            overlay_frame.insert_decl(name.into(), Type::Any, decl_id);
+            overlay_frame.insert_decl(name.into(), decl_id);
 
             return Some(decl_id);
         }
@@ -1275,7 +1214,7 @@ impl<'a> StateWorkingSet<'a> {
 
                 visibility.append(&overlay_frame.visibility);
 
-                if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
+                if let Some(decl_id) = overlay_frame.get_decl(name) {
                     if visibility.is_decl_id_visible(&decl_id) {
                         // Hide decl only if it's not already hidden
                         overlay_frame.visibility.hide_decl_id(&decl_id);
@@ -1294,7 +1233,7 @@ impl<'a> StateWorkingSet<'a> {
         {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name, &Type::Any) {
+            if let Some(decl_id) = overlay_frame.get_decl(name) {
                 if visibility.is_decl_id_visible(&decl_id) {
                     // Hide decl only if it's not already hidden
                     self.last_overlay_mut().visibility.hide_decl_id(&decl_id);
@@ -1463,7 +1402,7 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_decl(&self, name: &[u8], input: &Type) -> Option<DeclId> {
+    pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
 
         let mut visibility: Visibility = Visibility::new();
@@ -1489,7 +1428,7 @@ impl<'a> StateWorkingSet<'a> {
                     }
                 }
 
-                if let Some(decl_id) = overlay_frame.get_decl(name, input) {
+                if let Some(decl_id) = overlay_frame.get_decl(name) {
                     if visibility.is_decl_id_visible(&decl_id) {
                         return Some(decl_id);
                     }
@@ -1505,7 +1444,7 @@ impl<'a> StateWorkingSet<'a> {
         {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name, input) {
+            if let Some(decl_id) = overlay_frame.get_decl(name) {
                 if visibility.is_decl_id_visible(&decl_id) {
                     return Some(decl_id);
                 }
@@ -1545,7 +1484,7 @@ impl<'a> StateWorkingSet<'a> {
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for decl in &overlay_frame.decls {
-                    if decl.0 .0.starts_with(name) {
+                    if decl.0.starts_with(name) {
                         return true;
                     }
                 }
@@ -1558,7 +1497,7 @@ impl<'a> StateWorkingSet<'a> {
             .rev()
         {
             for decl in &overlay_frame.decls {
-                if decl.0 .0.starts_with(name) {
+                if decl.0.starts_with(name) {
                     return true;
                 }
             }
@@ -1687,23 +1626,13 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn add_constant(&mut self, var_id: VarId, val: Value) {
-        self.last_overlay_mut().constants.insert(var_id, val);
-    }
-
-    pub fn find_constant(&self, var_id: VarId) -> Option<&Value> {
-        let mut removed_overlays = vec![];
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                if let Some(val) = overlay_frame.constants.get(&var_id) {
-                    return Some(val);
-                }
-            }
+    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
+        let num_permanent_vars = self.permanent_state.num_vars();
+        if var_id < num_permanent_vars {
+            panic!("Internal error: attempted to set into permanent state from working set")
+        } else {
+            self.delta.vars[var_id - num_permanent_vars].const_val = Some(val);
         }
-
-        self.permanent_state
-            .find_constant(var_id, &removed_overlays)
     }
 
     pub fn get_variable(&self, var_id: VarId) -> &Variable {
@@ -1755,6 +1684,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
+        ignore_deprecated: bool,
     ) -> Vec<(Vec<u8>, Option<String>)> {
         let mut output = vec![];
 
@@ -1763,16 +1693,21 @@ impl<'a> StateWorkingSet<'a> {
                 let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
                 for decl in &overlay_frame.decls {
-                    if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(&decl.0 .0)
-                    {
+                    if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
                         let command = self.get_decl(*decl.1);
-                        output.push((decl.0 .0.clone(), Some(command.usage().to_string())));
+                        if ignore_deprecated && command.signature().category == Category::Deprecated
+                        {
+                            continue;
+                        }
+                        output.push((decl.0.clone(), Some(command.usage().to_string())));
                     }
                 }
             }
         }
 
-        let mut permanent = self.permanent_state.find_commands_by_predicate(predicate);
+        let mut permanent = self
+            .permanent_state
+            .find_commands_by_predicate(predicate, ignore_deprecated);
 
         output.append(&mut permanent);
 
@@ -1897,7 +1832,7 @@ impl<'a> StateWorkingSet<'a> {
             let overlay_frame = self.permanent_state.get_overlay(overlay_id);
 
             for (decl_key, decl_id) in &overlay_frame.decls {
-                result.insert(decl_key.0.to_owned(), *decl_id);
+                result.insert(decl_key.to_owned(), *decl_id);
             }
         }
 
@@ -1906,7 +1841,7 @@ impl<'a> StateWorkingSet<'a> {
                 let overlay_frame = scope_frame.get_overlay(overlay_id);
 
                 for (decl_key, decl_id) in &overlay_frame.decls {
-                    result.insert(decl_key.0.to_owned(), *decl_id);
+                    result.insert(decl_key.to_owned(), *decl_id);
                 }
             }
         }

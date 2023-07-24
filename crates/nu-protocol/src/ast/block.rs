@@ -1,5 +1,5 @@
-use super::{Expr, Expression, Pipeline};
-use crate::{ast::PipelineElement, engine::StateWorkingSet, Signature, Span, Type, VarId};
+use super::Pipeline;
+use crate::{ast::PipelineElement, Signature, Span, Type, VarId};
 use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
@@ -66,37 +66,6 @@ impl Block {
         }
     }
 
-    pub fn input_type(&self, working_set: &StateWorkingSet) -> Type {
-        if let Some(first) = self.pipelines.first() {
-            if let Some(first) = first.elements.first() {
-                match first {
-                    PipelineElement::Expression(
-                        _,
-                        Expression {
-                            expr: Expr::Call(call),
-                            ..
-                        },
-                    ) => {
-                        let decl = working_set.get_decl(call.decl_id);
-
-                        decl.signature().get_input_type()
-                    }
-                    PipelineElement::Expression(
-                        _,
-                        Expression {
-                            expr: Expr::ExternalCall(..),
-                            ..
-                        },
-                    ) => Type::Any,
-                    _ => Type::Nothing,
-                }
-            } else {
-                Type::Nothing
-            }
-        } else {
-            Type::Nothing
-        }
-    }
     pub fn output_type(&self) -> Type {
         if let Some(last) = self.pipelines.last() {
             if let Some(last) = last.elements.last() {

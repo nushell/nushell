@@ -26,6 +26,7 @@ pub fn load_standard_library(
             ("log.nu", include_str!("../std/log.nu")),
             ("assert.nu", include_str!("../std/assert.nu")),
             ("xml.nu", include_str!("../std/xml.nu")),
+            ("input.nu", include_str!("../std/input.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -58,6 +59,7 @@ use std dirs [
     p
     dexit
 ]
+use std pwd
 "#
         );
 

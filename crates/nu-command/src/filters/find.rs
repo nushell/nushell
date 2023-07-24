@@ -29,7 +29,7 @@ impl Command for Find {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::String, Type::String),
+                (Type::String, Type::Any),
                 (
                     // For find -p
                     Type::Table(vec![]),

@@ -19,9 +19,9 @@ byte-unit = "4.0"
 chrono = { version = "0.4", features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = "0.2"
 fancy-regex = "0.11"
-indexmap = { version = "1.7" }
-lru = "0.10"
-miette = { version = "5.9", features = ["fancy-no-backtrace"] }
+indexmap = "2.0"
+lru = "0.11"
+miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 num-format = "0.4"
 serde = { version = "1.0", default-features = false }
 serde_json = { version = "1.0", optional = true }
@@ -33,6 +33,6 @@ plugin = ["serde_json"]
 
 [dev-dependencies]
 serde_json = "1.0"
-strum = "0.24"
-strum_macros = "0.24"
+strum = "0.25"
+strum_macros = "0.25"
 nu-test-support = { path = "../nu-test-support", version = "0.82.1" }

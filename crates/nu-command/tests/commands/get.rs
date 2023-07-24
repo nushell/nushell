@@ -182,17 +182,14 @@ fn errors_fetching_by_accessing_empty_list() {
 
 #[test]
 fn quoted_column_access() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
-    );
+    let actual = nu!(r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#);
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn get_does_not_delve_too_deep_in_nested_lists() {
-    let actual = nu!(r#"[[{foo: bar}]] | get foo"#);
+    let actual = nu!("[[{foo: bar}]] | get foo");
 
     assert!(actual.err.contains("cannot find column"));
 }

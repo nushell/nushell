@@ -66,7 +66,7 @@ pub fn execute_xpath_query(
                 }
                 sxd_xpath::Value::Boolean(b) => {
                     cols.push(key.to_string());
-                    vals.push(Value::boolean(b, call.head));
+                    vals.push(Value::bool(b, call.head));
                 }
                 sxd_xpath::Value::Number(n) => {
                     cols.push(key.to_string());

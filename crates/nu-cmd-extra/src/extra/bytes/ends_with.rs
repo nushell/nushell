@@ -89,7 +89,7 @@ fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary {
             val,
             span: val_span,
-        } => Value::boolean(val.ends_with(&args.pattern), *val_span),
+        } => Value::bool(val.ends_with(&args.pattern), *val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {

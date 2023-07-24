@@ -220,6 +220,8 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    use crate::filesystem::util::users;
+
     match dir.as_ref().metadata() {
         Ok(metadata) => {
             use std::os::unix::fs::MetadataExt;
@@ -272,75 +274,13 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
-// NOTE: it's a re-export of https://github.com/ogham/rust-users crate
-// we need to use it because the upstream pr isn't merged: https://github.com/ogham/rust-users/pull/45
-// once it's merged, we can remove this module
-#[cfg(unix)]
-mod nu_users {
-    use libc::c_int;
-    use std::ffi::{CString, OsStr};
-    use std::os::unix::ffi::OsStrExt;
-    use users::{gid_t, Group};
-    /// Returns groups for a provided user name and primary group id.
-    ///
-    /// # libc functions used
-    ///
-    /// - [`getgrouplist`](https://docs.rs/libc/*/libc/fn.getgrouplist.html)
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use users::get_user_groups;
-    ///
-    /// for group in get_user_groups("stevedore", 1001).expect("Error looking up groups") {
-    ///     println!("User is a member of group #{} ({:?})", group.gid(), group.name());
-    /// }
-    /// ```
-    pub fn get_user_groups<S: AsRef<OsStr> + ?Sized>(
-        username: &S,
-        gid: gid_t,
-    ) -> Option<Vec<Group>> {
-        // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
-        #[cfg(all(unix, target_os = "macos"))]
-        let mut buff: Vec<i32> = vec![0; 1024];
-        #[cfg(all(unix, not(target_os = "macos")))]
-        let mut buff: Vec<gid_t> = vec![0; 1024];
-        let name = CString::new(username.as_ref().as_bytes()).expect("OsStr is guaranteed to be zero-free, which is the condition for CString::new to succeed");
-        let mut count = buff.len() as c_int;
-        // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
-        // SAFETY:
-        // int getgrouplist(const char *user, gid_t group, gid_t *groups, int *ngroups);
-        //
-        // `name` is valid CStr to be `const char*` for `user`
-        // every valid value will be accepted for `group`
-        // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max length/capacity (as we initialize with 0)
-        // Following reads from `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
-        #[cfg(all(unix, target_os = "macos"))]
-        let res =
-            unsafe { libc::getgrouplist(name.as_ptr(), gid as i32, buff.as_mut_ptr(), &mut count) };
-        #[cfg(all(unix, not(target_os = "macos")))]
-        let res = unsafe { libc::getgrouplist(name.as_ptr(), gid, buff.as_mut_ptr(), &mut count) };
-        if res < 0 {
-            None
-        } else {
-            buff.truncate(count as usize);
-            buff.sort_unstable();
-            buff.dedup();
-            // allow trivial cast: on macos i is i32, on linux it's already gid_t
-            #[allow(trivial_numeric_casts)]
-            buff.into_iter()
-                .filter_map(|i| users::get_group_by_gid(i as gid_t))
-                .collect::<Vec<_>>()
-                .into()
-        }
-    }
-}
-
 #[cfg(unix)]
 fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
+    use crate::filesystem::util::users;
+
     users::get_current_username()
-        .map(|name| nu_users::get_user_groups(&name, current_user_gid).unwrap_or_default())
+        .and_then(|name| users::get_user_groups(&name, current_user_gid))
         .unwrap_or_default()
         .into_iter()
-        .any(|group| group.gid() == owner_group)
+        .any(|gid| gid.as_raw() == owner_group)
 }

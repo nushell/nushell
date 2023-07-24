@@ -61,42 +61,42 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         ]);
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
             do {autoenv trust -q foo ; = null }
             foo
-            echo $env.testkey"#
+            echo $env.testkey"
         );
         assert_eq!(actual.out, "testvalue");
         //Assert testkey is gone when leaving foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
             do {autoenv trust -q foo; = null } ;
             foo
             ..
             echo $env.testkey
-            "#
+            "
         );
         assert!(actual.err.contains("Unknown"));
         //Assert testkey is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            "
             do {autoenv trust -q foo; = null } ;
             do {autoenv trust -q foo/bar; = null } ;
             foo/bar
             echo $env.testkey
             echo $env.bar
-            "#
+            "
         );
         assert_eq!(actual.out, "testvaluetrue");
         //Assert bar removed after leaving bar
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo;
+            "autoenv trust -q foo;
                foo/bar
                ../..
-               echo $env.bar"#
+               echo $env.bar"
         );
         assert!(actual.err.contains("Unknown"));
     });
@@ -145,10 +145,10 @@ fn picks_up_env_keys_when_entering_trusted_directory_indirectly() {
         let expected = "0.30.0";
 
         let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test().join("crates"), r#"
+            nu!(cwd: dirs.test().join("crates"), "
                 cd ../../autoenv_test_3
                 echo $env.nu-ver
-            "#)
+            ")
         });
 
         assert_eq!(actual.out, expected);
@@ -324,11 +324,11 @@ fn given_a_hierarchy_of_trusted_directories_when_entering_in_any_nested_ones_sho
         ]);
 
         let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test().parent().unwrap(), r#"
+            nu!(cwd: dirs.test().parent().unwrap(), "
                 do { autoenv trust -q autoenv_test_9/nu_plugin_rb ; = null } # Silence autoenv trust -q message from output
                 cd autoenv_test_9/nu_plugin_rb
                 echo $env.organization
-            "#)
+            ")
         });
 
         assert_eq!(actual.out, "nushell");
@@ -355,11 +355,11 @@ fn given_a_hierarchy_of_trusted_directories_nested_ones_should_overwrite_variabl
         ]);
 
         let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test().parent().unwrap(), r#"
+            nu!(cwd: dirs.test().parent().unwrap(), "
                 do { autoenv trust -q autoenv_test_10/nu_plugin_rb ; = null } # Silence autoenv trust -q message from output
                 cd autoenv_test_10/nu_plugin_rb
                 echo $env.organization
-            "#)
+            ")
         });
 
         assert_eq!(actual.out, "Andrab");
@@ -385,16 +385,16 @@ fn local_config_should_not_be_added_when_running_scripts() {
             ),
             FileWithContent(
                 "script.nu",
-                r#"cd foo
-                echo $env.organization"#,
+                "cd foo
+                echo $env.organization",
             ),
         ]);
 
         let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test(), r#"
+            nu!(cwd: dirs.test(), "
                 do { autoenv trust -q foo } # Silence autoenv trust message from output
                 nu script.nu
-            "#)
+            ")
         });
 
         assert_eq!(actual.out, "nu");
@@ -419,14 +419,14 @@ fn given_a_hierarchy_of_trusted_directories_going_back_restores_overwritten_vari
         ]);
 
         let actual = Trusted::in_path(&dirs, || {
-            nu!(cwd: dirs.test().parent().unwrap(), r#"
+            nu!(cwd: dirs.test().parent().unwrap(), "
                 do { autoenv trust -q autoenv_test_11/nu_plugin_rb } # Silence autoenv trust message from output
                 cd autoenv_test_11
                 cd nu_plugin_rb
                 do { rm ../.nu-env | ignore } # By deleting the root nu-env we have guarantees that the variable gets restored (not by autoenv when re-entering)
                 cd ..
                 echo $env.organization
-            "#)
+            ")
         });
 
         assert_eq!(actual.out, "nushell");
@@ -450,38 +450,38 @@ fn local_config_env_var_present_and_removed_correctly() {
         //Assert testkey is not present before entering directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo;
-               echo $env.testkey"#
+            "autoenv trust -q foo;
+               echo $env.testkey"
         );
         assert!(actual.err.contains("Unknown"));
         //Assert testkey is present in foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; cd foo
-               echo $env.testkey"#
+            "autoenv trust -q foo; cd foo
+               echo $env.testkey"
         );
         assert_eq!(actual.out, "testvalue");
         //Assert testkey is present also in subdirectories
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; cd foo
+            "autoenv trust -q foo; cd foo
                cd bar
-               echo $env.testkey"#
+               echo $env.testkey"
         );
         assert_eq!(actual.out, "testvalue");
         //Assert testkey is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; cd foo/bar
-               echo $env.testkey"#
+            "autoenv trust -q foo; cd foo/bar
+               echo $env.testkey"
         );
         assert_eq!(actual.out, "testvalue");
         //Assert testkey removed after leaving foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; cd foo
+            "autoenv trust -q foo; cd foo
                cd ..
-               echo $env.testkey"#
+               echo $env.testkey"
         );
         assert!(actual.err.contains("Unknown"));
     });
@@ -512,42 +512,42 @@ fn local_config_env_var_gets_overwritten() {
         //Assert overwrite_me is not present before entering directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo;
-               echo $env.overwrite_me"#
+            "autoenv trust -q foo;
+               echo $env.overwrite_me"
         );
         assert!(actual.err.contains("Unknown"));
         //Assert overwrite_me is foo in foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; cd foo
-               echo $env.overwrite_me"#
+            "autoenv trust -q foo; cd foo
+               echo $env.overwrite_me"
         );
         assert_eq!(actual.out, "foo");
         //Assert overwrite_me is bar in bar
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo
+            "autoenv trust -q foo
                autoenv trust -q foo/bar
                cd foo
                cd bar
-               echo $env.overwrite_me"#
+               echo $env.overwrite_me"
         );
         assert_eq!(actual.out, "bar");
         //Assert overwrite_me is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; autoenv trust -q foo/bar; cd foo/bar
+            "autoenv trust -q foo; autoenv trust -q foo/bar; cd foo/bar
                echo $env.overwrite_me
-            "#
+            "
         );
         assert_eq!(actual.out, "bar");
         //Assert overwrite_me removed after leaving bar
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust -q foo; autoenv trust -q foo/bar; cd foo
+            "autoenv trust -q foo; autoenv trust -q foo/bar; cd foo
                cd bar
                cd ..
-               echo $env.overwrite_me"#
+               echo $env.overwrite_me"
         );
         assert_eq!(actual.out, "foo");
     });

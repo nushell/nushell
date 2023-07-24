@@ -36,10 +36,41 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Int),
                 // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
-                // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
+                (Type::Duration, Type::Int),
                 (Type::Filesize, Type::Int),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Bool)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                // Relaxed case to support heterogeneous lists
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Int)),
+                ),
             ])
             .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .switch("little-endian", "use little-endian byte decoding", None)
             .rest(
