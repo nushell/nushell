@@ -86,6 +86,7 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command!(
             strings::format::Format,
             strings::format::FileSize,
+            strings::format::FormatDuration,
             strings::encode_decode::EncodeHex,
             strings::encode_decode::DecodeHex
         );
