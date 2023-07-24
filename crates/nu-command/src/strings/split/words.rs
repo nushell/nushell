@@ -18,7 +18,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split words")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String))))
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
             // .switch(
             //     "ignore-hyphenated",
@@ -132,18 +139,13 @@ fn split_words(
     }
     let graphemes = grapheme_flags(call)?;
 
-    input.flat_map(
+    input.map(
         move |x| split_words_helper(&x, word_length, span, graphemes),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_words_helper(
-    v: &Value,
-    word_length: Option<usize>,
-    span: Span,
-    graphemes: bool,
-) -> Vec<Value> {
+fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphemes: bool) -> Value {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
@@ -159,7 +161,7 @@ fn split_words_helper(
                 // let words: Vec<&str> = s.split_whitespace().collect();
 
                 let replaced_string = regex_replace.replace_all(&s, " ").to_string();
-                replaced_string
+                let words = replaced_string
                     .split(' ')
                     .filter_map(|s| {
                         if s.trim() != "" {
@@ -181,20 +183,24 @@ fn split_words_helper(
                             None
                         }
                     })
-                    .collect::<Vec<Value>>()
+                    .collect::<Vec<Value>>();
+                Value::List {
+                    vals: words,
+                    span: v_span,
+                }
             } else {
-                vec![Value::Error {
+                Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
                         src_span: v_span,
                     }),
-                }]
+                }
             }
         }
-        Err(error) => vec![Value::Error {
+        Err(error) => Value::Error {
             error: Box::new(error),
-        }],
+        },
     }
 }
 

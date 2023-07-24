@@ -22,7 +22,9 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
                 ),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

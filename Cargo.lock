@@ -932,16 +932,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctor"
-version = "0.1.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d2301688392eb071b0bf1a37be05c469d3cc4dbbd95df672fe28ab021e6a096"
-dependencies = [
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "ctrlc"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1207,12 +1197,9 @@ checksum = "95765f67b4b18863968b4a1bd5bb576f732b29a4a28c7cd84c09fa3e2875f33c"
 
 [[package]]
 name = "fastrand"
-version = "1.9.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
-dependencies = [
- "instant",
-]
+checksum = "6999dc1837253364c2ebb0704ba97994bd874e8f195d665c50b7548f6ea92764"
 
 [[package]]
 name = "fd-lock"
@@ -2185,11 +2172,11 @@ dependencies = [
 
 [[package]]
 name = "lscolors"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18a9df1d1fb6d9e92fa043e9eb9a3ecf6892c7b542bae5137cd1e419e40aa8bf"
+checksum = "bf7015a04103ad78abb77e4b79ed151e767922d1cfde5f62640471c629a2320d"
 dependencies = [
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
 ]
 
 [[package]]
@@ -2526,7 +2513,7 @@ dependencies = [
  "miette",
  "mimalloc",
  "nix",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-dataframe",
@@ -2563,18 +2550,9 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.47.0"
+version = "0.49.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df031e117bca634c262e9bd3173776844b6c17a90b3741c9163663b4385af76"
-dependencies = [
- "windows-sys 0.45.0",
-]
-
-[[package]]
-name = "nu-ansi-term"
-version = "0.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8e83967c32f9210ce85ac7e9c4b731048c1f51c4262e08bad01af30097a424"
+checksum = "c073d3c1930d0751774acf49e66653acecb416c3a54c6ec095a9b11caddb5a68"
 dependencies = [
  "windows-sys 0.48.0",
 ]
@@ -2591,7 +2569,7 @@ dependencies = [
  "is_executable",
  "log",
  "miette",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
@@ -2645,7 +2623,7 @@ dependencies = [
  "ahash 0.8.3",
  "fancy-regex",
  "htmlescape",
- "nu-ansi-term 0.48.0",
+ "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-command",
@@ -2668,7 +2646,7 @@ version = "0.82.1"
 dependencies = [
  "fancy-regex",
  "itertools",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -2680,7 +2658,7 @@ dependencies = [
 name = "nu-color-config"
 version = "0.82.1"
 dependencies = [
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-engine",
  "nu-json",
  "nu-protocol",
@@ -2730,7 +2708,7 @@ dependencies = [
  "native-tls",
  "nix",
  "notify-debouncer-full",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
@@ -2807,7 +2785,7 @@ dependencies = [
  "ansi-str",
  "crossterm",
  "lscolors",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-json",
@@ -2878,7 +2856,7 @@ name = "nu-pretty-hex"
 version = "0.82.1"
 dependencies = [
  "heapless",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "rand",
 ]
 
@@ -2935,7 +2913,7 @@ dependencies = [
 name = "nu-table"
 version = "0.82.1"
 dependencies = [
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-protocol",
@@ -3315,15 +3293,6 @@ checksum = "0ae859aa07428ca9a929b936690f8b12dc5f11dd8c6992a18ca93919f28bc177"
 dependencies = [
  "libc",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "output_vt100"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "628223faebab4e3e40667ee0b2336d34a5b960ff60ea743ddfdbcf7770bcfb66"
-dependencies = [
- "winapi",
 ]
 
 [[package]]
@@ -3936,13 +3905,11 @@ dependencies = [
 
 [[package]]
 name = "pretty_assertions"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a25e9bcb20aa780fd0bb16b72403a9064d6b3f22f026946029acb941a50af755"
+checksum = "af7cee1a6c8a5b9208b3cb1061f10c0cb689087b3d8ce85fb9d2dd7a29b6ba66"
 dependencies = [
- "ctor",
  "diff",
- "output_vt100",
  "yansi",
 ]
 
@@ -4164,13 +4131,13 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.21.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#cf841beb92affc7cb5cdc16bddefdebcd001f8c9"
+source = "git+https://github.com/nushell/reedline.git?branch=main#f15f0fb413f57fa9da86d656cf8c2eb761b3cfdf"
 dependencies = [
  "chrono",
  "crossterm",
  "fd-lock",
  "itertools",
- "nu-ansi-term 0.47.0",
+ "nu-ansi-term",
  "rusqlite",
  "serde",
  "serde_json",
@@ -5012,15 +4979,14 @@ checksum = "06f6b473c37f9add4cf1df5b4d66a8ef58ab6c895f1a3b3f949cf3e21230140e"
 
 [[package]]
 name = "tempfile"
-version = "3.6.0"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31c0432476357e58790aaa47a8efb0c5138f137343f3b5f23bd36a27e3b0a6d6"
+checksum = "5486094ee78b2e5038a6382ed7645bc084dc2ec433426ca4c3cb61e2007b8998"
 dependencies = [
- "autocfg",
  "cfg-if",
  "fastrand",
  "redox_syscall 0.3.5",
- "rustix 0.37.23",
+ "rustix 0.38.3",
  "windows-sys 0.48.0",
 ]
 

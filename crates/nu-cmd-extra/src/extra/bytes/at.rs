@@ -43,6 +43,7 @@ impl Command for BytesAt {
                     Type::List(Box::new(Type::Binary)),
                     Type::List(Box::new(Type::Binary)),
                 ),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .required("range", SyntaxShape::Range, "the range to get bytes")
             .rest(

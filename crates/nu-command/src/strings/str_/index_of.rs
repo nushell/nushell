@@ -37,7 +37,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str index-of")
-            .input_output_types(vec![(Type::String, Type::Int),(Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int)))])
+            .input_output_types(vec![
+                (Type::String, Type::Int),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
             .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to find in the input")
             .switch(
