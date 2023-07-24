@@ -140,12 +140,14 @@ fn create_table_config(config: &Config, comp: &StyleComputer, out: &TableOutput)
     let footer = with_footer(config, out.with_header, out.table.count_rows());
     let line_style = lookup_separator_color(comp);
     let trim = config.trim_strategy.clone();
+    let move_header = config.table_move_header;
 
     TableConfig::new()
         .theme(theme)
         .with_footer(footer)
         .with_header(out.with_header)
         .with_index(out.with_index)
+        .with_border_header(move_header)
         .line_style(line_style)
         .trim(trim)
 }

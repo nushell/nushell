@@ -12,12 +12,12 @@ use tabled::{
         dimension::CompleteDimensionVecRecords,
         records::{
             vec_records::{CellInfo, VecRecords},
-            ExactRecords, Records,
+            ExactRecords, PeekableRecords, Records, Resizable,
         },
     },
     settings::{
-        formatting::AlignmentStrategy, object::Segment, peaker::Peaker, Color, Modify, Settings,
-        TableOption, Width,
+        formatting::AlignmentStrategy, object::Segment, peaker::Peaker, themes::ColumnNames, Color,
+        Modify, Settings, TableOption, Width,
     },
     Table,
 };
@@ -157,6 +157,7 @@ pub struct TableConfig {
     with_index: bool,
     with_header: bool,
     with_footer: bool,
+    header_on_border: bool,
 }
 
 impl TableConfig {
@@ -169,6 +170,7 @@ impl TableConfig {
             expand: false,
             trim: TrimStrategy::truncate(None),
             split_color: None,
+            header_on_border: false,
         }
     }
 
@@ -199,6 +201,11 @@ impl TableConfig {
 
     pub fn with_index(mut self, on: bool) -> Self {
         self.with_index = on;
+        self
+    }
+
+    pub fn with_border_header(mut self, on: bool) -> Self {
+        self.header_on_border = on;
         self
     }
 
@@ -269,13 +276,15 @@ fn draw_table(
     let data: Vec<Vec<_>> = data.into();
     let mut table = Builder::from(data).build();
 
-    let with_footer = cfg.with_footer;
     let with_index = cfg.with_index;
-    let with_header = cfg.with_header && table.count_rows() > 1;
+    let with_header = cfg.with_header && table.count_rows() > 1 && !cfg.header_on_border;
+    let with_footer = cfg.with_footer && !cfg.header_on_border;
     let sep_color = cfg.split_color;
+    let header_alignment = alignments.header;
 
     load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
+    move_header_on_border(&mut table, &cfg, &styles, header_alignment);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
     let total_width = get_total_width2(&widths, table.get_config());
@@ -298,6 +307,28 @@ fn draw_table(
     } else {
         let content = table.to_string();
         Some(content)
+    }
+}
+
+fn move_header_on_border(
+    table: &mut Table,
+    cfg: &TableConfig,
+    styles: &Styles,
+    alignment: AlignmentHorizontal,
+) {
+    if !cfg.header_on_border || table.count_rows() <= 1 {
+        return;
+    }
+
+    let color = Color::from(styles.header.clone());
+
+    if cfg.with_header {
+        move_row_on_border(table, 0, color.clone(), alignment)
+    }
+
+    if cfg.with_footer {
+        let last_row = table.count_rows() - 1;
+        move_row_on_border(table, last_row, color, alignment)
     }
 }
 
@@ -696,4 +727,35 @@ fn build_width(records: &VecRecords<CellInfo<String>>) -> Vec<usize> {
     }
 
     widths
+}
+
+fn move_row_on_border(table: &mut Table, row: usize, color: Color, alignment: AlignmentHorizontal) {
+    if table.is_empty() {
+        return;
+    }
+
+    let columns = (0..table.get_records().count_columns())
+        .map(|column| table.get_records().get_text((row, column)).to_owned())
+        .collect::<Vec<_>>();
+
+    table.get_records_mut().remove_row(row);
+
+    if table.is_empty() {
+        table.get_records_mut().push_row();
+    }
+
+    let mut line = 0;
+    if row != 0 {
+        line = row;
+    }
+
+    let colors = std::iter::repeat(color)
+        .take(table.count_columns())
+        .collect::<Vec<_>>();
+    let names = ColumnNames::new(columns)
+        .set_line(line)
+        .set_colors(colors)
+        .set_alignment(alignment);
+
+    table.with(names);
 }
