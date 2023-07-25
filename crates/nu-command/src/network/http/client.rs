@@ -7,9 +7,9 @@ use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
-use ureq::{Error, ErrorKind, Request, Response};
 #[cfg(feature = "rustls")]
 use rustls;
+use ureq::{Error, ErrorKind, Request, Response};
 #[cfg(feature = "rustls")]
 use webpki_roots;
 
@@ -60,11 +60,11 @@ cfg_if::cfg_if! {
                         ta.name_constraints,
                     )
                 }));
-                
+
                 let mut config = rustls::ClientConfig::builder()
                     .with_safe_defaults()
                     .with_root_certificates(root_store)
-                    .with_no_client_auth();                
+                    .with_no_client_auth();
                 config.dangerous()
                     .set_certificate_verifier(Arc::new(NoCertificateVerification{}));
                 ureq::builder()
