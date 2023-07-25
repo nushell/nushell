@@ -2751,7 +2751,7 @@ dependencies = [
  "sha2",
  "sqlparser",
  "sysinfo",
- "tabled",
+ "tabled 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "terminal_size 0.2.6",
  "titlecase",
  "toml",
@@ -2918,7 +2918,7 @@ dependencies = [
  "nu-engine",
  "nu-protocol",
  "nu-utils",
- "tabled",
+ "tabled 0.13.0 (git+https://github.com/zhiburt/tabled/?rev=6c51e3eaa362914a71b868ccb78e7addbebd3657)",
 ]
 
 [[package]]
@@ -4964,6 +4964,17 @@ name = "tabled"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d38d39c754ae037a9bc3ca1580a985db7371cd14f1229172d1db9093feb6739"
+dependencies = [
+ "ansi-str",
+ "ansitok",
+ "papergrid",
+ "unicode-width",
+]
+
+[[package]]
+name = "tabled"
+version = "0.13.0"
+source = "git+https://github.com/zhiburt/tabled/?rev=6c51e3eaa362914a71b868ccb78e7addbebd3657#6c51e3eaa362914a71b868ccb78e7addbebd3657"
 dependencies = [
  "ansi-str",
  "ansitok",
