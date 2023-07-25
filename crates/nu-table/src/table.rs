@@ -93,7 +93,7 @@ impl NuTable {
         }
     }
 
-    pub fn set_cell_style(&mut self, pos: Position, style: TextStyle) {
+    pub fn insert_style(&mut self, pos: Position, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = AnsiColor::from(convert_style(style));
             self.styles.data.insert(Entity::Cell(pos.0, pos.1), style);
@@ -210,8 +210,8 @@ fn build_table(
 
 fn draw_table(
     data: NuTableData,
-    alignments: Alignments,
-    styles: Styles,
+    mut alignments: Alignments,
+    mut styles: Styles,
     widths: Vec<usize>,
     cfg: NuTableConfig,
     termwidth: usize,
@@ -223,10 +223,9 @@ fn draw_table(
     let with_header = cfg.with_header && table.count_rows() > 1 && !cfg.header_on_border;
     let with_footer = cfg.with_footer && !cfg.header_on_border;
     let sep_color = cfg.split_color;
-    let header_alignment = alignments.header;
 
     load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
-    move_header_on_border(&mut table, &cfg, &styles, header_alignment);
+    move_header_on_border(&mut table, &mut alignments, &mut styles, &cfg);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
@@ -255,23 +254,45 @@ fn draw_table(
 
 fn move_header_on_border(
     table: &mut Table,
+    alignments: &mut Alignments,
+    styles: &mut Styles,
     cfg: &NuTableConfig,
-    styles: &Styles,
-    alignment: AlignmentHorizontal,
 ) {
     if !cfg.header_on_border || table.count_rows() <= 1 {
         return;
     }
 
     let color = Color::from(styles.header.clone());
-
     if cfg.with_header {
-        move_row_on_border(table, 0, color.clone(), alignment)
+        move_row_on_border(table, 0, color.clone(), alignments.header)
     }
 
     if cfg.with_footer {
         let last_row = table.count_rows() - 1;
-        move_row_on_border(table, last_row, color, alignment)
+        move_row_on_border(table, last_row, color, alignments.header)
+    }
+
+    // because we remove rows we will invalidate the data alignments and colors
+    // so we need to restore it back
+
+    if cfg.with_header {
+        if !alignments.cells.is_empty() {
+            for row in 1..table.count_rows() {
+                for col in 0..table.count_rows() {
+                    let val = alignments.cells.get(&(row, col));
+                    if let Some(val) = val {
+                        alignments.cells.insert((row - 1, col), *val);
+                    }
+                }
+            }
+        }
+
+        for row in 1..table.count_rows() {
+            for col in 0..table.count_rows() {
+                let val = styles.data.get(Entity::Cell(row, col)).clone();
+                styles.data.insert(Entity::Cell(row - 1, col), val);
+            }
+        }
     }
 }
 

@@ -861,7 +861,7 @@ fn create_empty_placeholder(
     let cell = NuTableCell::new(format!("empty {}", value_type_name));
     let data = vec![vec![cell]];
     let mut table = NuTable::from(data);
-    table.set_cell_style((0, 0), TextStyle::default().dimmed());
+    table.set_data_style(TextStyle::default().dimmed());
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);

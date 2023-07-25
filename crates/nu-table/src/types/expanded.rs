@@ -576,7 +576,7 @@ fn maybe_expand_table(out: TableOutput, term_width: usize, opts: &TableOpts<'_>)
 
 fn set_data_styles(table: &mut NuTable, styles: HashMap<Position, TextStyle>) {
     for (pos, style) in styles {
-        table.set_cell_style(pos, style);
+        table.insert_style(pos, style);
     }
 }
 

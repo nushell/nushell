@@ -135,7 +135,7 @@ fn to_table_with_header(
             let (text, style) = get_string_value_with_header(item, header, &opts);
 
             table.insert((row + 1, col), text);
-            table.set_cell_style((row + 1, col), style);
+            table.insert_style((row + 1, col), style);
         }
     }
 
@@ -169,7 +169,7 @@ fn to_table_with_no_header(
 
         let pos = (row, with_index as usize);
         table.insert(pos, text);
-        table.set_cell_style(pos, style);
+        table.insert_style(pos, style);
     }
 
     Ok(Some(table))
