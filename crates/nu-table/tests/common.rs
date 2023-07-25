@@ -1,16 +1,16 @@
 #![allow(dead_code)]
 
-use nu_table::{string_width, NuTable, TableConfig};
+use nu_table::{string_width, NuTable, NuTableConfig};
 use tabled::grid::records::vec_records::CellInfo;
 
 pub struct TestCase {
-    cfg: TableConfig,
+    cfg: NuTableConfig,
     termwidth: usize,
     expected: Option<String>,
 }
 
 impl TestCase {
-    pub fn new(cfg: TableConfig, termwidth: usize, expected: Option<String>) -> Self {
+    pub fn new(cfg: NuTableConfig, termwidth: usize, expected: Option<String>) -> Self {
         Self {
             cfg,
             termwidth,
@@ -37,7 +37,7 @@ pub fn test_table<I: IntoIterator<Item = TestCase>>(data: Data, tests: I) {
     }
 }
 
-pub fn create_table(data: Data, config: TableConfig, termwidth: usize) -> Option<String> {
+pub fn create_table(data: Data, config: NuTableConfig, termwidth: usize) -> Option<String> {
     let table = NuTable::from(data);
     table.draw(config, termwidth)
 }

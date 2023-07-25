@@ -3,16 +3,17 @@ use nu_protocol::{Config, Span, Value};
 
 use crate::UnstructuredTable;
 
-use super::{
-    clean_charset, general::BuildConfig, get_index_style, load_theme_from_config,
-    value_to_styled_string, StringResult,
+use crate::common::nu_value_to_string_clean;
+use crate::{
+    common::{get_index_style, load_theme_from_config},
+    StringResult, TableOpts,
 };
 
 pub struct CollapsedTable;
 
 impl CollapsedTable {
-    pub fn build(value: Value, opts: BuildConfig<'_>) -> StringResult {
-        collapsed_table(value, opts.config, opts.term_width, opts.style_computer)
+    pub fn build(value: Value, opts: TableOpts<'_>) -> StringResult {
+        collapsed_table(value, opts.config, opts.width, opts.style_computer)
     }
 }
 
@@ -56,20 +57,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             }
         }
         value => {
-            let (text, style) = value_to_styled_string(value, config, style_computer);
-
-            let is_string = matches!(value, Value::String { .. });
-            if is_string {
-                let mut text = clean_charset(&text);
-                if let Some(color) = style.color_style {
-                    text = color.paint(text).to_string();
-                }
-
-                let span = value.span().unwrap_or(Span::unknown());
-                *value = Value::string(text, span);
-                return;
-            }
-
+            let (text, style) = nu_value_to_string_clean(value, config, style_computer);
             if let Some(color) = style.color_style {
                 let text = color.paint(text).to_string();
                 let span = value.span().unwrap_or(Span::unknown());

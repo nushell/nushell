@@ -6,12 +6,13 @@ use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream, PipelineData,
+    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
     PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_table::common::create_nu_table_config;
 use nu_table::{
-    BuildConfig, Cell, CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult,
-    TableConfig, TableOutput, TableTheme,
+    CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
+    TableOutput,
 };
 use nu_utils::get_ls_colors;
 use std::sync::Arc;
@@ -361,8 +362,8 @@ fn handle_record(
     let result = if cols.is_empty() {
         create_empty_placeholder("record", term_width, engine_state, stack)
     } else {
-        let opts = BuildConfig::new(ctrlc, config, style_computer, span, term_width);
-        let result = build_table_kv(cols, vals, table_view, opts)?;
+        let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width);
+        let result = build_table_kv(cols, vals, table_view, opts, span)?;
         match result {
             Some(output) => maybe_strip_color(output, config),
             None => report_unsuccessful_output(ctrlc1, term_width),
@@ -391,7 +392,8 @@ fn build_table_kv(
     cols: Vec<String>,
     vals: Vec<Value>,
     table_view: TableView,
-    opts: BuildConfig<'_>,
+    opts: TableOpts<'_>,
+    span: Span,
 ) -> StringResult {
     match table_view {
         TableView::General => JustTable::kv_table(&cols, &vals, opts),
@@ -404,7 +406,6 @@ fn build_table_kv(
             ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
         }
         TableView::Collapsed => {
-            let span = opts.span();
             let value = Value::Record { cols, vals, span };
             CollapsedTable::build(value, opts)
         }
@@ -414,21 +415,20 @@ fn build_table_kv(
 fn build_table_batch(
     vals: Vec<Value>,
     table_view: TableView,
-    row_offset: usize,
-    opts: BuildConfig<'_>,
+    opts: TableOpts<'_>,
+    span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::table(&vals, row_offset, opts),
+        TableView::General => JustTable::table(&vals, opts),
         TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts, row_offset)
+            ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
         }
         TableView::Collapsed => {
-            let span = opts.span();
             let value = Value::List { vals, span };
             CollapsedTable::build(value, opts)
         }
@@ -647,20 +647,16 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let config = get_config(&self.engine_state, &self.stack);
-        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let term_width = get_width_param(self.width_param);
-
-        let ctrlc = self.ctrlc.clone();
-        let span = self.head;
-        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
+        let cfg = get_config(&self.engine_state, &self.stack);
+        let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let opts = self.create_table_opts(&cfg, &style_comp);
         let view = TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         };
 
-        build_table_batch(batch, view, self.row_offset, opts)
+        build_table_batch(batch, view, opts, self.head)
     }
 
     fn build_collapsed(&mut self, batch: Vec<Value>) -> StringResult {
@@ -668,26 +664,34 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let config = get_config(&self.engine_state, &self.stack);
-        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let term_width = get_width_param(self.width_param);
-        let ctrlc = self.ctrlc.clone();
-        let span = self.head;
-        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
+        let cfg = get_config(&self.engine_state, &self.stack);
+        let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let opts = self.create_table_opts(&cfg, &style_comp);
 
-        build_table_batch(batch, TableView::Collapsed, self.row_offset, opts)
+        build_table_batch(batch, TableView::Collapsed, opts, self.head)
     }
 
     fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
-        let term_width = get_width_param(self.width_param);
-        let config = get_config(&self.engine_state, &self.stack);
-        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let ctrlc = self.ctrlc.clone();
-        let span = self.head;
-        let row_offset = self.row_offset;
-        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
+        let cfg = get_config(&self.engine_state, &self.stack);
+        let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let opts = self.create_table_opts(&cfg, &style_comp);
 
-        build_table_batch(batch, TableView::General, row_offset, opts)
+        build_table_batch(batch, TableView::General, opts, self.head)
+    }
+
+    fn create_table_opts<'a>(
+        &self,
+        cfg: &'a Config,
+        style_comp: &'a StyleComputer<'a>,
+    ) -> TableOpts<'a> {
+        TableOpts::new(
+            cfg,
+            style_comp,
+            self.ctrlc.clone(),
+            self.head,
+            self.row_offset,
+            get_width_param(self.width_param),
+        )
     }
 }
 
@@ -780,22 +784,6 @@ impl Iterator for PagingTableCreator {
     }
 }
 
-fn load_theme_from_config(config: &Config) -> TableTheme {
-    match config.table_mode.as_str() {
-        "basic" => TableTheme::basic(),
-        "thin" => TableTheme::thin(),
-        "light" => TableTheme::light(),
-        "compact" => TableTheme::compact(),
-        "with_love" => TableTheme::with_love(),
-        "compact_double" => TableTheme::compact_double(),
-        "rounded" => TableTheme::rounded(),
-        "reinforced" => TableTheme::reinforced(),
-        "heavy" => TableTheme::heavy(),
-        "none" => TableTheme::none(),
-        _ => TableTheme::rounded(),
-    }
-}
-
 fn render_path_name(
     path: &str,
     config: &Config,
@@ -859,34 +847,6 @@ fn maybe_strip_color(output: String, config: &Config) -> String {
     }
 }
 
-fn create_table_config(config: &Config, comp: &StyleComputer, out: &TableOutput) -> TableConfig {
-    let theme = load_theme_from_config(config);
-    let footer = with_footer(config, out.with_header, out.table.count_rows());
-    let line_style = lookup_separator_color(comp);
-    let trim = config.trim_strategy.clone();
-
-    TableConfig::new()
-        .theme(theme)
-        .with_footer(footer)
-        .with_header(out.with_header)
-        .with_index(out.with_index)
-        .line_style(line_style)
-        .trim(trim)
-}
-
-fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
-    style_computer.compute("separator", &Value::nothing(Span::unknown()))
-}
-
-fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {
-    with_header && need_footer(config, count_records as u64)
-}
-
-fn need_footer(config: &Config, count_records: u64) -> bool {
-    matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
-        || matches!(config.footer_mode, FooterMode::Always)
-}
-
 fn create_empty_placeholder(
     value_type_name: &str,
     termwidth: usize,
@@ -898,14 +858,14 @@ fn create_empty_placeholder(
         return String::new();
     }
 
-    let cell = Cell::new(format!("empty {}", value_type_name));
+    let cell = NuTableCell::new(format!("empty {}", value_type_name));
     let data = vec![vec![cell]];
     let mut table = NuTable::from(data);
     table.set_cell_style((0, 0), TextStyle::default().dimmed());
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_table_config(&config, style_computer, &out);
+    let config = create_nu_table_config(&config, style_computer, &out, false);
 
     out.table
         .draw(config, termwidth)

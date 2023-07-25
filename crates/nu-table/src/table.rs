@@ -22,14 +22,16 @@ use tabled::{
     Table,
 };
 
-/// Table represent a table view.
+/// NuTable is a table rendering implementation.
 #[derive(Debug, Clone)]
 pub struct NuTable {
-    data: Data,
+    data: NuTableData,
     styles: Styles,
     alignments: Alignments,
-    size: (usize, usize),
 }
+
+type NuTableData = VecRecords<NuTableCell>;
+pub type NuTableCell = CellInfo<String>;
 
 #[derive(Debug, Default, Clone)]
 struct Styles {
@@ -39,27 +41,39 @@ struct Styles {
     data_is_set: bool,
 }
 
-type Data = VecRecords<Cell>;
-pub type Cell = CellInfo<String>;
+#[derive(Debug, Clone)]
+struct Alignments {
+    data: AlignmentHorizontal,
+    index: AlignmentHorizontal,
+    header: AlignmentHorizontal,
+    columns: HashMap<usize, AlignmentHorizontal>,
+    cells: HashMap<Position, AlignmentHorizontal>,
+}
 
 impl NuTable {
     /// Creates an empty [Table] instance.
     pub fn new(count_rows: usize, count_columns: usize) -> Self {
-        let data = VecRecords::new(vec![vec![CellInfo::default(); count_columns]; count_rows]);
         Self {
-            data,
-            size: (count_rows, count_columns),
+            data: VecRecords::new(vec![vec![CellInfo::default(); count_columns]; count_rows]),
             styles: Styles::default(),
-            alignments: Alignments::default(),
+            alignments: Alignments {
+                data: AlignmentHorizontal::Left,
+                index: AlignmentHorizontal::Right,
+                header: AlignmentHorizontal::Center,
+                columns: HashMap::default(),
+                cells: HashMap::default(),
+            },
         }
     }
 
+    /// Return amount of rows.
     pub fn count_rows(&self) -> usize {
-        self.size.0
+        self.data.count_rows()
     }
 
+    /// Return amount of columns.
     pub fn count_columns(&self) -> usize {
-        self.size.1
+        self.data.count_columns()
     }
 
     pub fn insert(&mut self, pos: Position, text: String) {
@@ -123,12 +137,12 @@ impl NuTable {
     /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
-    pub fn draw(self, config: TableConfig, termwidth: usize) -> Option<String> {
+    pub fn draw(self, config: NuTableConfig, termwidth: usize) -> Option<String> {
         build_table(self.data, config, self.alignments, self.styles, termwidth)
     }
 
     /// Return a total table width.
-    pub fn total_width(&self, config: &TableConfig) -> usize {
+    pub fn total_width(&self, config: &NuTableConfig) -> usize {
         let config = get_config(&config.theme, false, None);
         let widths = build_width(&self.data);
         get_total_width2(&widths, &config)
@@ -137,114 +151,43 @@ impl NuTable {
 
 impl From<Vec<Vec<CellInfo<String>>>> for NuTable {
     fn from(value: Vec<Vec<CellInfo<String>>>) -> Self {
-        let data = VecRecords::new(value);
-        let size = (data.count_rows(), data.count_columns());
-        Self {
-            data,
-            size,
-            alignments: Alignments::default(),
-            styles: Styles::default(),
-        }
+        let mut nutable = Self::new(0, 0);
+        nutable.data = VecRecords::new(value);
+
+        nutable
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct TableConfig {
-    theme: TableTheme,
-    trim: TrimStrategy,
-    split_color: Option<Style>,
-    expand: bool,
-    with_index: bool,
-    with_header: bool,
-    with_footer: bool,
-    header_on_border: bool,
+pub struct NuTableConfig {
+    pub theme: TableTheme,
+    pub trim: TrimStrategy,
+    pub split_color: Option<Style>,
+    pub expand: bool,
+    pub with_index: bool,
+    pub with_header: bool,
+    pub with_footer: bool,
+    pub header_on_border: bool,
 }
 
-impl TableConfig {
-    pub fn new() -> Self {
+impl Default for NuTableConfig {
+    fn default() -> Self {
         Self {
             theme: TableTheme::basic(),
+            trim: TrimStrategy::truncate(None),
             with_header: false,
             with_index: false,
             with_footer: false,
             expand: false,
-            trim: TrimStrategy::truncate(None),
             split_color: None,
             header_on_border: false,
-        }
-    }
-
-    pub fn expand(mut self, on: bool) -> Self {
-        self.expand = on;
-        self
-    }
-
-    pub fn trim(mut self, strategy: TrimStrategy) -> Self {
-        self.trim = strategy;
-        self
-    }
-
-    pub fn line_style(mut self, color: Style) -> Self {
-        self.split_color = Some(color);
-        self
-    }
-
-    pub fn with_header(mut self, on: bool) -> Self {
-        self.with_header = on;
-        self
-    }
-
-    pub fn with_footer(mut self, on: bool) -> Self {
-        self.with_footer = on;
-        self
-    }
-
-    pub fn with_index(mut self, on: bool) -> Self {
-        self.with_index = on;
-        self
-    }
-
-    pub fn with_border_header(mut self, on: bool) -> Self {
-        self.header_on_border = on;
-        self
-    }
-
-    pub fn theme(mut self, theme: TableTheme) -> Self {
-        self.theme = theme;
-        self
-    }
-}
-
-impl Default for TableConfig {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Alignments {
-    data: AlignmentHorizontal,
-    index: AlignmentHorizontal,
-    header: AlignmentHorizontal,
-    columns: HashMap<usize, AlignmentHorizontal>,
-    cells: HashMap<Position, AlignmentHorizontal>,
-}
-
-impl Default for Alignments {
-    fn default() -> Self {
-        Self {
-            data: AlignmentHorizontal::Left,
-            index: AlignmentHorizontal::Right,
-            header: AlignmentHorizontal::Center,
-            columns: HashMap::default(),
-            cells: HashMap::default(),
         }
     }
 }
 
 fn build_table(
-    mut data: Data,
-    cfg: TableConfig,
+    mut data: NuTableData,
+    cfg: NuTableConfig,
     alignments: Alignments,
     styles: Styles,
     termwidth: usize,
@@ -266,11 +209,11 @@ fn build_table(
 }
 
 fn draw_table(
-    data: Data,
+    data: NuTableData,
     alignments: Alignments,
     styles: Styles,
     widths: Vec<usize>,
-    cfg: TableConfig,
+    cfg: NuTableConfig,
     termwidth: usize,
 ) -> Option<String> {
     let data: Vec<Vec<_>> = data.into();
@@ -283,8 +226,8 @@ fn draw_table(
     let header_alignment = alignments.header;
 
     load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
-    align_table(&mut table, alignments, with_index, with_header, with_footer);
     move_header_on_border(&mut table, &cfg, &styles, header_alignment);
+    align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
     let total_width = get_total_width2(&widths, table.get_config());
@@ -312,7 +255,7 @@ fn draw_table(
 
 fn move_header_on_border(
     table: &mut Table,
-    cfg: &TableConfig,
+    cfg: &NuTableConfig,
     styles: &Styles,
     alignment: AlignmentHorizontal,
 ) {
@@ -460,7 +403,11 @@ fn table_trim_columns(
     }
 }
 
-fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize) -> Vec<usize> {
+fn maybe_truncate_columns(
+    data: &mut NuTableData,
+    theme: &TableTheme,
+    termwidth: usize,
+) -> Vec<usize> {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
     let truncate = if termwidth > TERMWIDTH_THRESHOLD {
@@ -474,7 +421,7 @@ fn maybe_truncate_columns(data: &mut Data, theme: &TableTheme, termwidth: usize)
 
 // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
 fn truncate_columns_by_content(
-    data: &mut Data,
+    data: &mut NuTableData,
     theme: &TableTheme,
     termwidth: usize,
 ) -> Vec<usize> {
@@ -553,7 +500,7 @@ fn truncate_columns_by_content(
 
 // VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
 fn truncate_columns_by_columns(
-    data: &mut Data,
+    data: &mut NuTableData,
     theme: &TableTheme,
     termwidth: usize,
 ) -> Vec<usize> {
@@ -651,7 +598,7 @@ fn get_config(theme: &TableTheme, with_header: bool, color: Option<Style>) -> Co
     table.get_config().clone()
 }
 
-fn push_empty_column(data: &mut Data) {
+fn push_empty_column(data: &mut NuTableData) {
     let records = std::mem::take(data);
     let mut inner: Vec<Vec<_>> = records.into();
 
@@ -663,7 +610,7 @@ fn push_empty_column(data: &mut Data) {
     *data = VecRecords::new(inner);
 }
 
-fn duplicate_row(data: &mut Data, row: usize) {
+fn duplicate_row(data: &mut NuTableData, row: usize) {
     let records = std::mem::take(data);
     let mut inner: Vec<Vec<_>> = records.into();
 
@@ -673,7 +620,7 @@ fn duplicate_row(data: &mut Data, row: usize) {
     *data = VecRecords::new(inner);
 }
 
-fn truncate_columns(data: &mut Data, count: usize) {
+fn truncate_columns(data: &mut NuTableData, count: usize) {
     let records = std::mem::take(data);
     let mut inner: Vec<Vec<_>> = records.into();
 
