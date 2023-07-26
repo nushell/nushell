@@ -37,6 +37,7 @@ impl Command for BitsInto {
                 (Type::Bool, Type::String),
                 (Type::Date, Type::String),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(

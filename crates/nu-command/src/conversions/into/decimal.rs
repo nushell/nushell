@@ -21,6 +21,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Number),
                 (Type::Bool, Type::Number),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Number)),

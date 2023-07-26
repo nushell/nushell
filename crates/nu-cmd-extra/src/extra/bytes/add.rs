@@ -37,6 +37,7 @@ impl Command for BytesAdd {
                     Type::List(Box::new(Type::Binary)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
             .required("data", SyntaxShape::Binary, "the binary to add")

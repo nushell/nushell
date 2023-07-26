@@ -24,7 +24,9 @@ impl Command for SubCommand {
                 (Type::String, Type::String),
                 (Type::Duration, Type::String),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .named(
                 "convert",
                 SyntaxShape::String,
