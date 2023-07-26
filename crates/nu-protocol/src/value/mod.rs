@@ -563,7 +563,8 @@ impl Value {
                                 if x.is_numeric() && val_ty.is_numeric() {
                                     ty = Some(Type::Number)
                                 } else {
-                                    ty = Some(Type::Any)
+                                    ty = Some(Type::Any);
+                                    break;
                                 }
                             }
                         }
@@ -574,7 +575,7 @@ impl Value {
                 match ty {
                     Some(Type::Record(columns)) => Type::Table(columns),
                     Some(ty) => Type::List(Box::new(ty)),
-                    None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
+                    None => Type::List(Box::new(Type::Any)),
                 }
             }
             Value::LazyRecord { val, .. } => match val.collect() {

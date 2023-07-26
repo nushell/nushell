@@ -26,5 +26,6 @@ fn merge_styles(base: Style, extra: Style) -> Style {
         is_reverse: extra.is_reverse || base.is_reverse,
         is_hidden: extra.is_hidden || base.is_hidden,
         is_strikethrough: extra.is_strikethrough || base.is_strikethrough,
+        prefix_with_reset: false,
     }
 }

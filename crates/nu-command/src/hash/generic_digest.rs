@@ -56,7 +56,9 @@ where
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::String, Type::Binary),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .switch(
                 "binary",
                 "Output binary instead of hexadecimal representation",

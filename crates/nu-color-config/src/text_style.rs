@@ -186,6 +186,7 @@ impl TextStyle {
                 is_reverse: style.is_reverse,
                 is_hidden: style.is_hidden,
                 is_strikethrough: style.is_strikethrough,
+                prefix_with_reset: false,
             }),
         }
     }
@@ -235,6 +236,7 @@ impl TextStyle {
             is_reverse: style.is_reverse,
             is_hidden: style.is_hidden,
             is_strikethrough: style.is_strikethrough,
+            prefix_with_reset: false,
         })
     }
 }

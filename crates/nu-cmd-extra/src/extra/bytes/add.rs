@@ -36,6 +36,7 @@ impl Command for BytesAdd {
                     Type::List(Box::new(Type::Binary)),
                     Type::List(Box::new(Type::Binary)),
                 ),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
