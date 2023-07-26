@@ -43,7 +43,6 @@ impl Command for SubCommand {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true) // TODO: no test coverage
             .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to find in the input")
             .switch(

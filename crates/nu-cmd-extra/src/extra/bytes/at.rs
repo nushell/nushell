@@ -46,7 +46,6 @@ impl Command for BytesAt {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
             .required("range", SyntaxShape::Range, "the range to get bytes")
             .rest(
                 "rest",

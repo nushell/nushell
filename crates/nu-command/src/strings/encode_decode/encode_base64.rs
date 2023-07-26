@@ -35,7 +35,6 @@ impl Command for EncodeBase64 {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named(
                 "character-set",
