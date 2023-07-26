@@ -921,7 +921,7 @@ impl Value {
                                                 Value::string(config.table_mode.clone(), *span);
                                         }
                                     }
-                                    "move_header" => {
+                                    "header_on_separator" => {
                                         try_bool!(cols, vals, index, span, table_move_header)
                                     }
                                     "index_mode" => {
