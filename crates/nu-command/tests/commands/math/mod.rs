@@ -266,7 +266,7 @@ fn unit_multiplication_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "1.9 MiB");
+    assert_eq!(actual.out, "2.0 MB");
 }
 
 #[test]
@@ -277,7 +277,7 @@ fn unit_multiplication_float_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "1.1 MiB");
+    assert_eq!(actual.out, "1.2 MB");
 }
 
 #[test]
@@ -288,7 +288,7 @@ fn unit_float_floor_division_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "325.5 KiB");
+    assert_eq!(actual.out, "333.3 KB");
 }
 
 #[test]
@@ -299,7 +299,7 @@ fn unit_division_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "244.1 KiB");
+    assert_eq!(actual.out, "250.0 KB");
 }
 
 #[test]
@@ -310,7 +310,7 @@ fn unit_float_division_math() {
         "#
     ));
 
-    assert_eq!(actual.out, "315.0 KiB");
+    assert_eq!(actual.out, "322.6 KB");
 }
 
 #[test]

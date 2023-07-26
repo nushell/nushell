@@ -20,7 +20,7 @@ fn into_filesize_str() {
         '2000' | into filesize
         "#);
 
-    assert!(actual.out.contains("2.0 KiB"));
+    assert!(actual.out.contains("2.0 KB"));
 }
 
 #[test]
@@ -32,7 +32,7 @@ fn into_filesize_str_newline() {
         "#
     ));
 
-    assert!(actual.out.contains("2.0 KiB"));
+    assert!(actual.out.contains("2.0 KB"));
 }
 
 #[test]
@@ -45,19 +45,19 @@ fn into_filesize_str_many_newlines() {
         "#
     ));
 
-    assert!(actual.out.contains("2.0 KiB"));
+    assert!(actual.out.contains("2.0 KB"));
 }
 
 #[test]
 fn into_filesize_filesize() {
-    let actual = nu!("3kib | into filesize");
+    let actual = nu!("3kb | into filesize");
 
-    assert!(actual.out.contains("3.0 KiB"));
+    assert!(actual.out.contains("3.0 KB"));
 }
 
 #[test]
 fn into_filesize_negative_filesize() {
-    let actual = nu!("-3kib | into filesize");
+    let actual = nu!("-3kb | into filesize");
 
-    assert!(actual.out.contains("-3.0 KiB"));
+    assert!(actual.out.contains("-3.0 KB"));
 }
