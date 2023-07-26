@@ -219,9 +219,10 @@ fn draw_table(
     let data: Vec<Vec<_>> = data.into();
     let mut table = Builder::from(data).build();
 
+    let need_header_move = cfg.header_on_border && has_horizontals_for_header(&cfg);
     let with_index = cfg.with_index;
-    let with_header = cfg.with_header && table.count_rows() > 1 && !cfg.header_on_border;
-    let with_footer = cfg.with_footer && !cfg.header_on_border;
+    let with_header = cfg.with_header && table.count_rows() > 1 && !need_header_move;
+    let with_footer = cfg.with_footer && !need_header_move;
     let sep_color = cfg.split_color;
 
     load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
@@ -263,11 +264,16 @@ fn move_header_on_border(
     }
 
     let color = Color::from(styles.header.clone());
-    if cfg.with_header {
+    let has_bottom_line = table
+        .get_config()
+        .has_horizontal(table.count_rows(), table.count_rows());
+    let has_top_line = table.get_config().has_horizontal(0, table.count_rows());
+
+    if cfg.with_header && has_top_line {
         move_row_on_border(table, 0, color.clone(), alignments.header)
     }
 
-    if cfg.with_footer {
+    if cfg.with_footer && has_bottom_line {
         let last_row = table.count_rows() - 1;
         move_row_on_border(table, last_row, color, alignments.header)
     }
@@ -275,7 +281,7 @@ fn move_header_on_border(
     // because we remove rows we will invalidate the data alignments and colors
     // so we need to restore it back
 
-    if cfg.with_header {
+    if cfg.with_header && has_top_line {
         if !alignments.cells.is_empty() {
             for row in 1..table.count_rows() {
                 for col in 0..table.count_rows() {
@@ -726,4 +732,9 @@ fn move_row_on_border(table: &mut Table, row: usize, color: Color, alignment: Al
         .set_alignment(alignment);
 
     table.with(names);
+}
+
+fn has_horizontals_for_header(cfg: &NuTableConfig) -> bool {
+    cfg.theme.get_theme().get_horizontal(0).is_some()
+        || cfg.theme.get_theme().get_borders().has_horizontal()
 }
