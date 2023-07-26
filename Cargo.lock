@@ -2502,7 +2502,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "assert_cmd",
  "criterion",
@@ -2559,7 +2559,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "chrono",
  "crossterm",
@@ -2590,7 +2590,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "indexmap 2.0.0",
  "nu-engine",
@@ -2600,7 +2600,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-dataframe"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "chrono",
  "fancy-regex",
@@ -2618,7 +2618,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "ahash 0.8.3",
  "fancy-regex",
@@ -2642,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "fancy-regex",
  "itertools",
@@ -2656,7 +2656,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -2669,7 +2669,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "Inflector",
  "alphanumeric-sort",
@@ -2769,7 +2769,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -2780,7 +2780,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "ansi-str",
  "crossterm",
@@ -2800,14 +2800,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "linked-hash-map",
  "num-traits",
@@ -2816,7 +2816,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -2832,7 +2832,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "dirs-next",
  "omnipath",
@@ -2841,7 +2841,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "bincode",
  "nu-engine",
@@ -2853,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "byte-unit",
  "chrono",
@@ -2884,7 +2884,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "miette",
  "nu-engine",
@@ -2894,7 +2894,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "chrono",
  "is-terminal",
@@ -2911,7 +2911,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "nu-ansi-term",
  "nu-color-config",
@@ -2923,7 +2923,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "nu-utils",
  "unicode-width",
@@ -2931,7 +2931,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "hamcrest2",
  "nu-glob",
@@ -2944,7 +2944,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "crossterm_winapi",
  "log",
@@ -2966,7 +2966,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -2974,7 +2974,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "eml-parser",
  "ical",
@@ -2986,7 +2986,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -2995,7 +2995,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3004,7 +3004,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.83.0"
+version = "0.83.1"
 dependencies = [
  "gjson",
  "nu-engine",
