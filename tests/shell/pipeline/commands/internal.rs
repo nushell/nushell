@@ -743,10 +743,10 @@ fn range_with_mixed_types() {
 #[test]
 fn filesize_math() {
     let actual = nu!("
-        100 * 10kib
+        100 * 10kb
         ");
 
-    assert_eq!(actual.out, "1000.0 KiB");
+    assert_eq!(actual.out, "1000.0 KB");
     // why 1000.0 KB instead of 1.0 MB?
     // looks like `byte.get_appropriate_unit(false)` behaves this way
 }
@@ -763,45 +763,45 @@ fn filesize_math2() {
 #[test]
 fn filesize_math3() {
     let actual = nu!("
-        100kib / 10
+        100kb / 10
         ");
 
-    assert_eq!(actual.out, "10.0 KiB");
+    assert_eq!(actual.out, "10.0 KB");
 }
 #[test]
 fn filesize_math4() {
     let actual = nu!("
-        100kib * 5
+        100kb * 5
         ");
 
-    assert_eq!(actual.out, "500.0 KiB");
+    assert_eq!(actual.out, "500.0 KB");
 }
 
 #[test]
 fn filesize_math5() {
     let actual = nu!("
-        1000 * 1kib
+        1000 * 1kb
         ");
 
-    assert_eq!(actual.out, "1000.0 KiB");
+    assert_eq!(actual.out, "1000.0 KB");
 }
 
 #[test]
 fn filesize_math6() {
     let actual = nu!("
-        1000 * 1mib
+        1000 * 1mb
         ");
 
-    assert_eq!(actual.out, "1000.0 MiB");
+    assert_eq!(actual.out, "1000.0 MB");
 }
 
 #[test]
 fn filesize_math7() {
     let actual = nu!("
-        1000 * 1gib
+        1000 * 1gb
         ");
 
-    assert_eq!(actual.out, "1000.0 GiB");
+    assert_eq!(actual.out, "1000.0 GB");
 }
 
 #[test]
