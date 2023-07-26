@@ -507,7 +507,9 @@ impl Command for AnsiCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::String),
+                (Type::Nothing, Type::Table(vec![]))])
             .optional(
                 "code",
                 SyntaxShape::Any,
@@ -524,6 +526,7 @@ impl Command for AnsiCommand {
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
+            .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
 
