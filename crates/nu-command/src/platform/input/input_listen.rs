@@ -54,13 +54,15 @@ impl Command for InputListen {
     fn extra_usage(&self) -> &str {
         r#"There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by type field:
+```
     { type: focus event: (gained|lost) }
     { type: key key_type: <key_type> code: <string> modifiers: [ <modifier> ... ] }
     { type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
     { type: paste content: <string> }
     { type: resize col: <int> row: <int> }
-There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
-There are 4 <key_type> variants:
+```
+There are 6 `modifier` variants: shift, control, alt, super, hyper, meta.
+There are 4 `key_type` variants:
     f - f1, f2, f3 ... keys
     char - alphanumeric and special symbols (a, A, 1, $ ...)
     media - dedicated media keys (play, pause, tracknext ...)
