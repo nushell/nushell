@@ -36,7 +36,6 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .vectorizes_over_list(true)
             .switch(
                 "grapheme-clusters",
                 "count length using grapheme clusters (all visible chars have length 1)",

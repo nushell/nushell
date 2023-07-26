@@ -26,7 +26,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .rest(
                 "rest",
