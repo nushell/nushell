@@ -22,6 +22,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
                 (
                     Type::List(Box::new(Type::Int)),
                     Type::List(Box::new(Type::Filesize)),
