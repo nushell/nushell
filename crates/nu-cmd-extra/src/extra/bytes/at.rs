@@ -44,6 +44,7 @@ impl Command for BytesAt {
                     Type::List(Box::new(Type::Binary)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .vectorizes_over_list(true)
             .required("range", SyntaxShape::Range, "the range to get bytes")
@@ -108,11 +109,11 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Get the remaining characters from a starting index",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..",
-                result: Some(Value::Binary {
-                    val: vec![0x10, 0x01, 0x13],
-                    span: Span::test_data(),
-                }),
+                example: " { data: 0x[33 44 55 10 01 13] } | bytes at 3.. data",
+                result: Some(Value::test_record(
+                    vec!["data"],
+                    vec![Value::test_binary(vec![0x10, 0x01, 0x13])],
+                )),
             },
             Example {
                 description: "Get the characters from the beginning until ending index",
