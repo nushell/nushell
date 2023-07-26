@@ -45,6 +45,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(
