@@ -46,14 +46,12 @@ fn to_row() {
 
         assert!(actual.out.contains('5'));
 
-        let actual = nu!(
-            r#"
+        let actual = nu!(r#"
                 def foo [a: list<string>] {
                     $a | describe
                 }
                 foo (["a b", "c d"] | split row " ")
-            "#
-        );
+            "#);
 
         assert!(actual.out.contains("list<string>"));
     })
