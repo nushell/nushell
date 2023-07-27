@@ -16,14 +16,7 @@ impl Command for Append {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("append")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (Type::Record(vec![]), Type::Table(vec![])),
-                (Type::String, Type::String),
-            ])
+            .input_output_types(vec![(Type::Any, Type::List(Box::new(Type::Any)))])
             .required("row", SyntaxShape::Any, "the row, list, or table to append")
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -57,6 +50,27 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "0 | append [1 2 3]",
+                description: "Append a list to an item",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#""a" | append ["b"] "#,
+                description: "Append a list of string to a string",
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("a"), Value::test_string("b")],
                     span: Span::test_data(),
                 }),
             },
