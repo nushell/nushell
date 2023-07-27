@@ -1111,3 +1111,9 @@ mod variable_scoping {
         );
     }
 }
+
+#[test]
+fn pipe_input_to_print() {
+    assert_eq!(nu!(r#""foo" | print"#).out, "");
+    assert_eq!(nu!(r#""foo" | print a b c"#).out, "");
+}
