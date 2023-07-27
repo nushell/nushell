@@ -54,6 +54,27 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 }),
             },
             Example {
+                example: "0 | append [1 2 3]",
+                description: "Append a list to an item",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: r#""a" | append ["b"] "#,
+                description: "Append a list of string to a string",
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("a"), Value::test_string("b")],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 example: "[0,1] | append [2,3,4]",
                 description: "Append three Int items",
                 result: Some(Value::List {
