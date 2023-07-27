@@ -673,3 +673,8 @@ fn properly_typecheck_rest_param() -> TestResult {
         "3",
     )
 }
+
+#[test]
+fn implied_collect_has_compatible_type() -> TestResult {
+    run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
+}
