@@ -45,5 +45,18 @@ fn to_row() {
         ));
 
         assert!(actual.out.contains('5'));
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open sample2.txt
+                | lines
+                | str trim
+                | split row -r '\s*,\s*'
+                | describe
+            "#
+        ));
+
+        assert!(actual.out.contains("list<string>"));
     })
 }
