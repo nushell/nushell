@@ -20,7 +20,9 @@ impl Command for SubCommand {
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

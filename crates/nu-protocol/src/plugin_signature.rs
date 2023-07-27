@@ -143,11 +143,6 @@ impl PluginSignature {
         self
     }
 
-    pub fn vectorizes_over_list(mut self, vectorizes_over_list: bool) -> PluginSignature {
-        self.sig = self.sig.vectorizes_over_list(vectorizes_over_list);
-        self
-    }
-
     /// Set the input-output type signature variants of the command
     pub fn input_output_types(mut self, input_output_types: Vec<(Type, Type)>) -> PluginSignature {
         self.sig = self.sig.input_output_types(input_output_types);

@@ -27,8 +27,8 @@ impl Command for DecodeBase64 {
                     Type::List(Box::new(Type::Binary)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named(
                 "character-set",

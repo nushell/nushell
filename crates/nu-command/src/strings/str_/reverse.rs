@@ -23,9 +23,9 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .vectorizes_over_list(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

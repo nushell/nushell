@@ -32,9 +32,9 @@ impl Command for SubCommand {
                 (Type::String, Type::Bool),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",

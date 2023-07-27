@@ -31,6 +31,7 @@ impl Command for FileSize {
             .input_output_types(vec![
                 (Type::Filesize, Type::String),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
             .required(
