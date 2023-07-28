@@ -16,7 +16,7 @@ impl Command for SubCommand {
                 (Type::Number, Type::Int),
                 (
                     Type::List(Box::new(Type::Number)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Int)),
                 ),
             ])
             .allow_variants_without_examples(true)
