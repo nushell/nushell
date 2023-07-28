@@ -1,7 +1,6 @@
 mod collect;
 mod deprecated_commands;
 mod hash_base64;
-mod let_env;
 mod lpad;
 mod math_eval;
 mod rpad;
@@ -13,7 +12,6 @@ mod str_int;
 pub use collect::StrCollectDeprecated;
 pub use deprecated_commands::*;
 pub use hash_base64::HashBase64;
-pub use let_env::LetEnvDeprecated;
 pub use lpad::LPadDeprecated;
 pub use math_eval::SubCommand as MathEvalDeprecated;
 pub use rpad::RPadDeprecated;
