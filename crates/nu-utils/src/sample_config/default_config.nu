@@ -265,7 +265,7 @@ $env.config = {
     }
 
     filesize: {
-        metric: false # true => KB, MB, GB (1KB = 1000bytes), false => KiB, MiB, GiB (1KiB = 1024bytes)
+        metric: false # true => KB, MB, GB (1KB = 1000B), false => KiB, MiB, GiB (1KiB = 1024B)
         format: "auto" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, auto
     }
 
