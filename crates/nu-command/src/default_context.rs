@@ -380,17 +380,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         // Deprecated
-        bind_command! {
-            HashBase64,
-            LPadDeprecated,
-            MathEvalDeprecated,
-            RPadDeprecated,
-            StrCollectDeprecated,
-            StrDatetimeDeprecated,
-            StrDecimalDeprecated,
-            StrFindReplaceDeprecated,
-            StrIntDeprecated,
-        };
+        bind_command! {};
 
         working_set.render()
     };
