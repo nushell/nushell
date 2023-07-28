@@ -21,6 +21,9 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
 
     let cfg = Table::default().with(Style::modern()).get_config().clone();
     let mut widths = get_data_widths(&data, count_columns);
+    if widths.is_empty() {
+        return String::new();
+    }
     truncate_data(&mut data, &mut widths, &cfg, termsize);
 
     let val_table_width = get_total_width2(&widths, &cfg);
