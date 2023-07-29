@@ -25,11 +25,11 @@ fn doesnt_convert_record_to_table() {
 fn sets_the_column_from_a_block_run_output() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open cargo_sample.toml
             | upsert dev-dependencies.pretty_assertions { open cargo_sample.toml | get dev-dependencies.pretty_assertions | inc --minor }
             | get dev-dependencies.pretty_assertions
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "0.7.0");
@@ -68,9 +68,8 @@ fn sets_the_column_from_a_subexpression() {
 #[test]
 fn upsert_uses_enumerate_index_inserting() {
     let actual = nu!(
-        cwd: ".", pipeline(
-        r#"[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
-    ));
+        "[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
+    );
 
     assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");
 }

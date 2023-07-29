@@ -52,7 +52,7 @@ pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
     stack: &'s Stack,
     vars_map: HashMap<&'e Vec<u8>, &'e usize>,
-    decls_map: HashMap<&'e (Vec<u8>, Type), &'e usize>,
+    decls_map: HashMap<&'e Vec<u8>, &'e usize>,
     modules_map: HashMap<&'e Vec<u8>, &'e usize>,
     visibility: Visibility,
 }
@@ -108,7 +108,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
-        for ((command_name, _), decl_id) in &self.decls_map {
+        for (command_name, decl_id) in &self.decls_map {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(**decl_id).is_alias()
             {
@@ -337,7 +337,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span),
                 Value::string("input", span),
                 Value::string(input_type.to_shape().to_string(), span),
-                Value::boolean(false, span),
+                Value::bool(false, span),
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
@@ -352,7 +352,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(&req.name, span),
                 Value::string("positional", span),
                 Value::string(req.shape.to_string(), span),
-                Value::boolean(false, span),
+                Value::bool(false, span),
                 Value::nothing(span),
                 Value::string(&req.desc, span),
                 Value::string(
@@ -375,7 +375,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(&opt.name, span),
                 Value::string("positional", span),
                 Value::string(opt.shape.to_string(), span),
-                Value::boolean(true, span),
+                Value::bool(true, span),
                 Value::nothing(span),
                 Value::string(&opt.desc, span),
                 Value::string(
@@ -402,7 +402,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(if rest.name == "rest" { "" } else { &rest.name }, span),
                 Value::string("rest", span),
                 Value::string(rest.shape.to_string(), span),
-                Value::boolean(true, span),
+                Value::bool(true, span),
                 Value::nothing(span),
                 Value::string(&rest.desc, span),
                 Value::string(
@@ -449,7 +449,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(&named.long, span),
                 flag_type,
                 shape,
-                Value::boolean(!named.required, span),
+                Value::bool(!named.required, span),
                 short_flag,
                 Value::string(&named.desc, span),
                 Value::string(custom_completion_command_name, span),
@@ -474,7 +474,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span),
                 Value::string("output", span),
                 Value::string(output_type.to_shape().to_string(), span),
-                Value::boolean(false, span),
+                Value::bool(false, span),
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
@@ -488,7 +488,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
-        for ((command_name, _), decl_id) in &self.decls_map {
+        for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
             if decl.is_known_external() {

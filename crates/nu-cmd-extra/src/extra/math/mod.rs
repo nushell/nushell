@@ -6,6 +6,9 @@ mod tan;
 mod tanh;
 
 mod egamma;
+mod euler;
+mod exp;
+mod ln;
 mod phi;
 mod pi;
 mod tau;
@@ -25,6 +28,9 @@ pub use tan::SubCommand as MathTan;
 pub use tanh::SubCommand as MathTanH;
 
 pub use egamma::SubCommand as MathEulerGamma;
+pub use euler::SubCommand as MathEuler;
+pub use exp::SubCommand as MathExp;
+pub use ln::SubCommand as MathLn;
 pub use phi::SubCommand as MathPhi;
 pub use pi::SubCommand as MathPi;
 pub use tau::SubCommand as MathTau;

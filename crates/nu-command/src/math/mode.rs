@@ -43,8 +43,17 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
                 ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 

@@ -7,22 +7,28 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "math exp"
+        "math ln"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math exp")
-            .input_output_types(vec![(Type::Number, Type::Float)])
-            .vectorizes_over_list(true)
+        Signature::build("math ln")
+            .input_output_types(vec![
+                (Type::Number, Type::Float),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Returns e raised to the power of x."
+        "Returns the natural logarithm. Base: (math e)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["exponential", "exponentiation", "euler"]
+        vec!["natural", "logarithm", "inverse", "euler"]
     }
 
     fn run(
@@ -44,18 +50,11 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Get e raised to the power of zero",
-                example: "0 | math exp",
-                result: Some(Value::test_float(1.0f64)),
-            },
-            Example {
-                description: "Get e (same as 'math e')",
-                example: "1 | math exp",
-                result: Some(Value::test_float(1.0f64.exp())),
-            },
-        ]
+        vec![Example {
+            description: "Get the natural logarithm of e",
+            example: "math e | math ln",
+            result: Some(Value::test_float(1.0f64)),
+        }]
     }
 }
 
@@ -68,9 +67,19 @@ fn operate(value: Value, head: Span) -> Value {
                 _ => unreachable!(),
             };
 
-            Value::Float {
-                val: val.exp(),
-                span,
+            if val > 0.0 {
+                let val = val.ln();
+
+                Value::Float { val, span }
+            } else {
+                Value::Error {
+                    error: Box::new(ShellError::UnsupportedInput(
+                        "'ln' undefined for values outside the open interval (0, Inf).".into(),
+                        "value originates from here".into(),
+                        head,
+                        span,
+                    )),
+                }
             }
         }
         Value::Error { .. } => value,

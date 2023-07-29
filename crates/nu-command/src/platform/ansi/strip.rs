@@ -15,12 +15,18 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi strip")
-            .input_output_types(vec![(Type::String, Type::String)])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .rest(
                 "cell path",
                 SyntaxShape::CellPath,
                 "for a data structure input, remove ANSI sequences from strings at the given cell paths",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
 

@@ -39,6 +39,7 @@ mod help;
 mod histogram;
 mod insert;
 mod inspect;
+mod into_datetime;
 mod into_filesize;
 mod into_int;
 mod join;

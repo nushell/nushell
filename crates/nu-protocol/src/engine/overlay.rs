@@ -1,7 +1,5 @@
-use crate::{DeclId, ModuleId, OverlayId, Type, Value, VarId};
-use std::borrow::Borrow;
+use crate::{DeclId, ModuleId, OverlayId, VarId};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
@@ -179,9 +177,8 @@ impl ScopeFrame {
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
-    pub constants: HashMap<VarId, Value>,
     pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
-    pub decls: HashMap<(Vec<u8>, Type), DeclId>,
+    pub decls: HashMap<Vec<u8>, DeclId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
@@ -192,7 +189,6 @@ impl OverlayFrame {
     pub fn from_origin(origin: ModuleId, prefixed: bool) -> Self {
         Self {
             vars: HashMap::new(),
-            constants: HashMap::new(),
             predecls: HashMap::new(),
             decls: HashMap::new(),
             modules: HashMap::new(),
@@ -202,82 +198,16 @@ impl OverlayFrame {
         }
     }
 
-    pub fn insert_decl(&mut self, name: Vec<u8>, input: Type, decl_id: DeclId) -> Option<DeclId> {
-        self.decls.insert((name, input), decl_id)
+    pub fn insert_decl(&mut self, name: Vec<u8>, decl_id: DeclId) -> Option<DeclId> {
+        self.decls.insert(name, decl_id)
     }
 
     pub fn insert_module(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
         self.modules.insert(name, module_id)
     }
 
-    pub fn get_decl(&self, name: &[u8], input: &Type) -> Option<DeclId> {
-        if let Some(decl) = self.decls.get(&(name, input) as &dyn DeclKey) {
-            Some(*decl)
-        } else {
-            // then fallback to not using the input type
-            for decl_key in self.decls.keys() {
-                if decl_key.0 == name {
-                    // FIXME: this fallback may give bad type information
-                    // in the case where no matching type is found. But, at
-                    // least we treat it as a found internal command rather
-                    // than an external command, which would cause further issues
-                    return Some(
-                        *self
-                            .decls
-                            .get(decl_key)
-                            .expect("internal error: found decl not actually found"),
-                    );
-                }
-            }
-
-            None
-        }
-    }
-}
-
-trait DeclKey {
-    fn name(&self) -> &[u8];
-    fn input(&self) -> &Type;
-}
-
-impl Hash for dyn DeclKey + '_ {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name().hash(state);
-        self.input().hash(state);
-    }
-}
-
-impl PartialEq for dyn DeclKey + '_ {
-    fn eq(&self, other: &Self) -> bool {
-        self.name() == other.name() && self.input() == other.input()
-    }
-}
-
-impl Eq for dyn DeclKey + '_ {}
-
-impl<'a> DeclKey for (&'a [u8], &Type) {
-    fn name(&self) -> &[u8] {
-        self.0
-    }
-
-    fn input(&self) -> &Type {
-        self.1
-    }
-}
-
-impl DeclKey for (Vec<u8>, Type) {
-    fn name(&self) -> &[u8] {
-        &self.0
-    }
-
-    fn input(&self) -> &Type {
-        &self.1
-    }
-}
-
-impl<'a> Borrow<dyn DeclKey + 'a> for (Vec<u8>, Type) {
-    fn borrow(&self) -> &(dyn DeclKey + 'a) {
-        self
+    pub fn get_decl(&self, name: &[u8]) -> Option<DeclId> {
+        self.decls.get(name).cloned()
     }
 }
 

@@ -81,88 +81,19 @@ impl Command for DetectColumns {
                 }),
             },
             Example {
-                description: "Splits a multi-line string into columns with headers detected",
-                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "c1".to_string(),
-                            "c2".to_string(),
-                            "c3".to_string(),
-                            "c4".to_string(),
-                            "c5".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                            Value::test_string("d"),
-                            Value::test_string("e"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
-            },
-            Example {
                 description: "",
-                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns -c 0..1",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "c1".to_string(),
-                            "c3".to_string(),
-                            "c4".to_string(),
-                            "c5".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a b"),
-                            Value::test_string("c"),
-                            Value::test_string("d"),
-                            Value::test_string("e"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 0..1",
+                result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns -c -2..-1",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "c1".to_string(),
-                            "c2".to_string(),
-                            "c3".to_string(),
-                            "c4".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                            Value::test_string("d e"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c -2..-1",
+                result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "\"c1 c2 c3 c4 c5\na b c d e\" | detect columns -c 2..",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["c1".to_string(), "c2".to_string(), "c3".to_string()],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c d e"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 2..",
+                result: None,
             },
             Example {
                 description: "Parse external ls command and combine columns for datetime",

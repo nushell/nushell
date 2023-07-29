@@ -15,14 +15,15 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math min")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Finds the minimum within a list of numbers or tables."
+        "Finds the minimum within a list of values or tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,6 +55,11 @@ impl Command for SubCommand {
                     vals: vec![Value::test_int(1), Value::test_int(-1)],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                description: "Find the minimum of a list of arbitrary values (Warning: Weird)",
+                example: "[-50 'hello' true] | math min",
+                result: Some(Value::test_bool(true)),
             },
         ]
     }

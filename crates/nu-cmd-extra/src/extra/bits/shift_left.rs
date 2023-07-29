@@ -18,8 +18,13 @@ impl Command for BitsShl {
 
     fn signature(&self) -> Signature {
         Signature::build("bits shl")
-            .input_output_types(vec![(Type::Int, Type::Int)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Int, Type::Int),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
             .required("bits", SyntaxShape::Int, "number of bits to shift left")
             .switch(
                 "signed",

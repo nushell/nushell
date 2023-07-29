@@ -12,8 +12,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math ceil")
-            .input_output_types(vec![(Type::Number, Type::Int)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Number, Type::Int),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
