@@ -179,27 +179,6 @@ lazy_command!(
     test_max
 );
 
-// LazyMin command
-// Expands to a command definition for min aggregation
-lazy_command!(
-    LazyMin,
-    "dfr min",
-    "Aggregates columns to their min value",
-    vec![Example {
-        description: "Min value from columns in a dataframe",
-        example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr min",
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_int(1)],),
-                Column::new("b".to_string(), vec![Value::test_int(1)],),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
-    min,
-    test_min
-);
 
 // LazySum command
 // Expands to a command definition for sum aggregation

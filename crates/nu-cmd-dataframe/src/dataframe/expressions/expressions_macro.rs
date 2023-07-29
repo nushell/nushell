@@ -1,7 +1,7 @@
 /// Definition of multiple Expression commands using a macro rule
 /// All of these expressions have an identical body and only require
 /// to have a change in the name, description and expression function
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -129,6 +129,170 @@ macro_rules! expr_command {
                     Box::new(LazyAggregate {}),
                     Box::new(ToLazyGroupBy {}),
                 ])
+            }
+        }
+    };
+}
+
+// The structs defined in this file are structs that form part of other commands
+// since they share a similar name
+macro_rules! lazy_expr_command {
+    ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident) => {
+        #[derive(Clone)]
+        pub struct $command;
+
+        impl Command for $command {
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
+                    .input_output_types(vec![
+                        (
+                            Type::Custom("expression".into()),
+                            Type::Custom("expression".into()),
+                        ),
+                        (
+                            Type::Custom("dataframe".into()),
+                            Type::Custom("dataframe".into()),
+                        ),
+                    ])
+                    .category(Category::Custom("expression".into()))
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
+            }
+
+            fn run(
+                &self,
+                _engine_state: &EngineState,
+                _stack: &mut Stack,
+                call: &Call,
+                input: PipelineData,
+            ) -> Result<PipelineData, ShellError> {
+                let value = input.into_value(call.head);
+                if NuDataFrame::can_downcast(&value) {
+                    let lazy = NuLazyFrame::try_from_value(value)?;
+                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func());
+
+                    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+                } else {
+                    let expr = NuExpression::try_from_value(value)?;
+                    let expr: NuExpression = expr.into_polars().$func().into();
+
+                    Ok(PipelineData::Value(
+                        NuExpression::into_value(expr, call.head),
+                        None,
+                    ))
+                }
+            }
+        }
+
+        #[cfg(test)]
+        mod $test {
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
+            use crate::dataframe::lazy::aggregate::LazyAggregate;
+            use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+
+            #[test]
+            fn test_examples_expression() {
+                test_dataframe(vec![
+                    Box::new($command {}),
+                    Box::new(LazyAggregate {}),
+                    Box::new(ToLazyGroupBy {}),
+                ])
+            }
+
+            #[test]
+            fn test_examples_dataframe() {
+                test_dataframe(vec![Box::new($command {})])
+            }
+        }
+    };
+
+    ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident, $ddof: expr) => {
+        #[derive(Clone)]
+        pub struct $command;
+
+        impl Command for $command {
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
+                    .input_output_types(vec![
+                        (
+                            Type::Custom("expression".into()),
+                            Type::Custom("expression".into()),
+                        ),
+                        (
+                            Type::Custom("dataframe".into()),
+                            Type::Custom("dataframe".into()),
+                        ),
+                    ])
+                    .category(Category::Custom("expression".into()))
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
+            }
+
+            fn run(
+                &self,
+                _engine_state: &EngineState,
+                _stack: &mut Stack,
+                call: &Call,
+                input: PipelineData,
+            ) -> Result<PipelineData, ShellError> {
+                let value = input.into_value(call.head);
+                if NuLazyFrame::can_downcast(&value) {
+                    let lazy = NuLazyFrame::try_from_value(value)?;
+                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddot));
+
+                    Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+                } else {
+                    let expr = NuExpression::try_from_value(value)?;
+                    let expr: NuExpression = expr.into_polars().$func($ddof).into();
+
+                    Ok(PipelineData::Value(
+                        NuExpression::into_value(expr, call.head),
+                        None,
+                    ))
+                }
+            }
+        }
+
+        #[cfg(test)]
+        mod $test {
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
+            use crate::dataframe::lazy::aggregate::LazyAggregate;
+            use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+
+            #[test]
+            fn test_examples_expressions() {
+                test_dataframe(vec![
+                    Box::new($command {}),
+                    Box::new(LazyAggregate {}),
+                    Box::new(ToLazyGroupBy {}),
+                ])
+            }
+
+            #[test]
+            fn test_examples_dataframe() {
+                test_dataframe(vec![Box::new($command {})])
             }
         }
     };
@@ -332,31 +496,45 @@ expr_command!(
 
 // ExprMin command
 // Expands to a command definition for min aggregation
-expr_command!(
+lazy_expr_command!(
     ExprMin,
     "dfr min",
-    "Creates a min expression",
-    vec![Example {
-        description: "Min aggregation for a group-by",
-        example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    "Creates a min expression or aggregates columns to their min value",
+    vec![
+        Example {
+            description: "Min value from columns in a dataframe",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr min",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("a".to_string(), vec![Value::test_int(1)],),
+                    Column::new("b".to_string(), vec![Value::test_int(1)],),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+        Example {
+            description: "Min aggregation for a group-by",
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | dfr into-df
     | dfr group-by a
     | dfr agg (dfr col b | dfr min)"#,
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new(
-                    "a".to_string(),
-                    vec![Value::test_string("one"), Value::test_string("two")],
-                ),
-                Column::new(
-                    "b".to_string(),
-                    vec![Value::test_int(2), Value::test_int(1)],
-                ),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_string("one"), Value::test_string("two")],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(1)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+    ],
     min,
     test_min
 );

@@ -200,7 +200,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::{ExprAlias, ExprMax, ExprMin, ExprSum};
+    use crate::dataframe::expressions::{ExprAlias, ExprMin, ExprMax, ExprSum};
     use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
     #[test]
