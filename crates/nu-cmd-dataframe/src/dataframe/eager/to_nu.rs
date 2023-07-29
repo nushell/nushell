@@ -18,7 +18,7 @@ impl Command for ToNu {
     }
 
     fn usage(&self) -> &str {
-        "Converts a dataframe or an expression into into nushell value for access ane exploration."
+        "Converts a dataframe or an expression into into nushell value for access and exploration."
     }
 
     fn signature(&self) -> Signature {
