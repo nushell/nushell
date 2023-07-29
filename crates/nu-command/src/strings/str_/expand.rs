@@ -168,7 +168,7 @@ impl Command for SubCommand {
                 };
                 match v.as_string() {
                     Ok(s) => {
-                        let contents = if is_path { s.replace("\\", "\\\\") } else { s };
+                        let contents = if is_path { s.replace('\\', "\\\\") } else { s };
                         str_expand(&contents, span, v.expect_span())
                     }
                     Err(_) => Value::Error {
