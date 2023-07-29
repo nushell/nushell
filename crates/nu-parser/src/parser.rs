@@ -6177,7 +6177,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 parser_info: HashMap::new(),
             })),
             span,
-            ty: Type::String,
+            ty: Type::Any,
             custom_completion: None,
         }
     } else {

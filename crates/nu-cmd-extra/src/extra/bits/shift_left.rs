@@ -25,7 +25,6 @@ impl Command for BitsShl {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .required("bits", SyntaxShape::Int, "number of bits to shift left")
             .switch(
                 "signed",

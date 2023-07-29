@@ -22,7 +22,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named(
                 "precision",

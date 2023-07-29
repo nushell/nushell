@@ -39,6 +39,7 @@ impl Command for SubCommand {
                 (Type::Duration, Type::Int),
                 (Type::Filesize, Type::Int),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
                 (
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Int)),
@@ -69,7 +70,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .switch("little-endian", "use little-endian byte decoding", None)
