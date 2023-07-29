@@ -1,7 +1,6 @@
 use std::path::Path;
 
-use nu_engine::env::current_dir_str;
-use nu_path::expand_path_with;
+use nu_path::expand_tilde;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
@@ -10,9 +9,7 @@ use nu_protocol::{
 
 use super::PathSubcommandArguments;
 
-struct Arguments {
-    cwd: String,
-}
+struct Arguments;
 
 impl PathSubcommandArguments for Arguments {}
 
@@ -48,14 +45,12 @@ If nothing is found, an empty string will be returned."#
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments {
-            cwd: current_dir_str(engine_state, stack)?,
-        };
+        let args = Arguments;
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -83,9 +78,9 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, args: &Arguments) -> Value {
+fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
     let meta = if path.starts_with("~") {
-        let p = expand_path_with(path, &args.cwd);
+        let p = expand_tilde(path);
         std::fs::symlink_metadata(p)
     } else {
         std::fs::symlink_metadata(path)
