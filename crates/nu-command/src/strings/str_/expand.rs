@@ -29,6 +29,11 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::List(Box::new(Type::String)))),
                 ),
             ])
+            .switch(
+                "path",
+                "Replaces all backslashes with double backslashes, useful for Path.",
+                None,
+            )
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
@@ -51,6 +56,19 @@ impl Command for SubCommand {
             Example {
                 description: "Export comma separated values inside braces (`{}`) to a string list.",
                 example: "\"{apple,banana,cherry}\" | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("apple"),
+                        Value::test_string("banana"),
+                        Value::test_string("cherry")
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "If the piped data is path, you may want to use --path flag, or else manually replace the backslashes with double backslashes.",
+                example: "'C:\\{Users,Windows}' | str expand --flag",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("apple"),
@@ -141,6 +159,7 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: span });
         }
+        let is_path = call.has_flag("path");
         input.map(
             move |v| {
                 let value_span = match v.span() {
@@ -148,7 +167,10 @@ impl Command for SubCommand {
                     Ok(v) => v,
                 };
                 match v.as_string() {
-                    Ok(s) => str_expand(&s, span, v.expect_span()),
+                    Ok(s) => {
+                        let contents = if is_path { s.replace("\\", "\\\\") } else { s };
+                        str_expand(&contents, span, v.expect_span())
+                    }
                     Err(_) => Value::Error {
                         error: Box::new(ShellError::PipelineMismatch {
                             exp_input_type: "string".into(),
