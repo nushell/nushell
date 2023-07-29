@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use nu_engine::current_dir_str;
+use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
@@ -8,7 +10,9 @@ use nu_protocol::{
 
 use super::PathSubcommandArguments;
 
-struct Arguments;
+struct Arguments {
+    cwd: String,
+}
 
 impl PathSubcommandArguments for Arguments {}
 
@@ -49,7 +53,9 @@ If nothing is found, an empty string will be returned."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments;
+        let args = Arguments {
+            cwd: current_dir_str(engine_state, _stack)?,
+        };
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -77,7 +83,25 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
+fn r#type(path: &Path, span: Span, args: &Arguments) -> Value {
+    let path = if path.starts_with("~") {
+        match canonicalize_with(path, &args.cwd) {
+            Ok(p) => p,
+            Err(e) => {
+                return Value::Error {
+                    error: Box::new(ShellError::GenericError(
+                        "Could not expand the path".to_owned(),
+                        format!("Tried, but could not. You may want to try `path expand` before `path type`. {e}"),
+                        Some(span),
+                        None,
+                        vec![],
+                    )),
+                }
+            }
+        }
+    } else {
+        path.to_path_buf()
+    };
     let meta = std::fs::symlink_metadata(path);
 
     Value::string(
