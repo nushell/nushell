@@ -2817,7 +2817,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 // https://github.com/nushell/nushell/issues/9596, let = if $
-                // let x = if $, = at least start from index 2
+                // let x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let (tokens, parse_error) = lex(
                         working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
@@ -2937,7 +2937,8 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
             // so that the var-id created by the variable isn't visible in the expression that init it
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
-                if item == b"=" && spans.len() > (span.0 + 1) {
+                // const x = 'f', = at least start from index 2
+                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let mut idx = span.0;
                     // let rvalue = parse_multispan_value(
                     //     working_set,
@@ -3075,7 +3076,8 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             // so that the var-id created by the variable isn't visible in the expression that init it
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
-                if item == b"=" && spans.len() > (span.0 + 1) {
+                // mut x = 'f', = at least start from index 2
+                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let (tokens, parse_error) = lex(
                         working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
                         spans[span.0 + 1].start,
