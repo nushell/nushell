@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use nu_engine::env::current_dir_str;
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
@@ -8,7 +10,9 @@ use nu_protocol::{
 
 use super::PathSubcommandArguments;
 
-struct Arguments;
+struct Arguments {
+    cwd: String,
+}
 
 impl PathSubcommandArguments for Arguments {}
 
@@ -44,12 +48,14 @@ If nothing is found, an empty string will be returned."#
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments;
+        let args = Arguments {
+            cwd: current_dir_str(engine_state, stack)?,
+        };
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -77,8 +83,13 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
-    let meta = std::fs::symlink_metadata(path);
+fn r#type(path: &Path, span: Span, args: &Arguments) -> Value {
+    let meta = if path.starts_with("~") {
+        let p = expand_path_with(path, &args.cwd);
+        std::fs::symlink_metadata(p)
+    } else {
+        std::fs::symlink_metadata(path)
+    };
 
     Value::string(
         match &meta {

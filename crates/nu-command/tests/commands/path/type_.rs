@@ -31,6 +31,18 @@ fn returns_type_of_existing_file() {
         ));
 
         assert_eq!(actual.out, "dir");
+
+        // fix: this will create file in the '~', may be have the other best test method
+        // let actual = nu!(
+        //     cwd: dirs.test(), pipeline(
+        //     r#"
+        //         cd ~; touch spam.txt;
+        //         echo "~/spam.txt"
+        //         | path type
+        //     "#
+        // ));
+
+        // assert_eq!(actual.out, "file");
     })
 }
 
@@ -50,5 +62,16 @@ fn returns_type_of_existing_directory() {
         ));
 
         assert_eq!(actual.out, "file");
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                echo "~"
+                | path type
+            "#
+        ));
+
+        assert_eq!(actual.out, "dir");
+
     })
 }
