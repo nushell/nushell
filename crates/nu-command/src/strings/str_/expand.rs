@@ -71,9 +71,8 @@ impl Command for SubCommand {
                 example: "'C:\\{Users,Windows}' | str expand --flag",
                 result: Some(Value::List{
                     vals: vec![
-                        Value::test_string("apple"),
-                        Value::test_string("banana"),
-                        Value::test_string("cherry")
+                        Value::test_string("C:\\Users"),
+                        Value::test_string("C:\\Windows"),
                     ],
                     span: Span::test_data()
                 },)
