@@ -72,6 +72,5 @@ fn returns_type_of_existing_directory() {
         ));
 
         assert_eq!(actual.out, "dir");
-
     })
 }
