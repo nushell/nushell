@@ -11,14 +11,8 @@ use nu_protocol::{
 
 use super::PathSubcommandArguments;
 
-#[cfg(windows)]
 struct Arguments {
     escape: bool,
-    append: Vec<Spanned<String>>,
-}
-
-#[cfg(not(windows))]
-struct Arguments {
     append: Vec<Spanned<String>>,
 }
 
@@ -32,7 +26,6 @@ impl Command for SubCommand {
         "path join"
     }
 
-    #[cfg(windows)]
     fn signature(&self) -> Signature {
         Signature::build("path join")
             .input_output_types(vec![
@@ -45,18 +38,6 @@ impl Command for SubCommand {
             .rest("append", SyntaxShape::String, "Path to append to the input")
     }
 
-    #[cfg(not(windows))]
-    fn signature(&self) -> Signature {
-        Signature::build("path join")
-            .input_output_types(vec![
-                (Type::String, Type::String),
-                (Type::List(Box::new(Type::String)), Type::String),
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-            ])
-            .rest("append", SyntaxShape::String, "Path to append to the input")
-    }
-
     fn usage(&self) -> &str {
         "Join a structured path or a list of path parts."
     }
@@ -66,7 +47,6 @@ impl Command for SubCommand {
 the output of 'path parse' and 'path split' subcommands."#
     }
 
-    #[cfg(windows)]
     fn run(
         &self,
         engine_state: &EngineState,
@@ -77,41 +57,6 @@ the output of 'path parse' and 'path split' subcommands."#
         let head = call.head;
         let args = Arguments {
             escape: call.has_flag("escape"),
-            append: call.rest(engine_state, stack, 0)?,
-        };
-
-        let metadata = input.metadata();
-
-        match input {
-            PipelineData::Value(val, md) => {
-                Ok(PipelineData::Value(handle_value(val, &args, head), md))
-            }
-            PipelineData::ListStream(..) => Ok(PipelineData::Value(
-                handle_value(input.into_value(head), &args, head),
-                metadata,
-            )),
-            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
-            _ => Err(ShellError::UnsupportedInput(
-                "Input value cannot be joined".to_string(),
-                "value originates from here".into(),
-                head,
-                input
-                    .span()
-                    .expect("non-Empty non-ListStream PipelineData had no span"),
-            )),
-        }
-    }
-
-    #[cfg(not(windows))]
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        let args = Arguments {
             append: call.rest(engine_state, stack, 0)?,
         };
 
@@ -221,24 +166,13 @@ fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     }
 }
 
-#[cfg(windows)]
 fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
     let mut result = path.to_path_buf();
     for path_to_append in &args.append {
         result.push(&path_to_append.item)
     }
-
     if args.escape {
         return Value::string(result.to_string_lossy().replace("\\", "\\\\"), head);
-    }
-    Value::string(result.to_string_lossy(), head)
-}
-
-#[cfg(not(windows))]
-fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
-    let mut result = path.to_path_buf();
-    for path_to_append in &args.append {
-        result.push(&path_to_append.item)
     }
 
     Value::string(result.to_string_lossy(), head)
