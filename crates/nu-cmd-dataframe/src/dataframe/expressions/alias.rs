@@ -88,7 +88,7 @@ impl Command for ExprAlias {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::ExprAsNu;
+    use crate::dataframe::eager::ToNu;
     use crate::dataframe::expressions::ExprCol;
 
     #[test]
@@ -96,7 +96,7 @@ mod test {
         test_dataframe(vec![
             Box::new(ExprAlias {}),
             Box::new(ExprCol {}),
-            Box::new(ExprAsNu {}),
+            Box::new(ToNu {}),
         ])
     }
 }

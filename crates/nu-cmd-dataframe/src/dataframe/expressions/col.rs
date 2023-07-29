@@ -64,10 +64,10 @@ impl Command for ExprCol {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::as_nu::ExprAsNu;
+    use crate::dataframe::eager::ToNu;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ExprAsNu {})])
+        test_dataframe(vec![Box::new(ExprCol {}), Box::new(ToNu {})])
     }
 }
