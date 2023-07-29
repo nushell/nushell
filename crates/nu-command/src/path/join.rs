@@ -172,7 +172,7 @@ fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
         result.push(&path_to_append.item)
     }
     if args.escape {
-        return Value::string(result.to_string_lossy().replace("\\", "\\\\"), head);
+        return Value::string(result.to_string_lossy().replace('\\', "\\\\"), head);
     }
 
     Value::string(result.to_string_lossy(), head)
