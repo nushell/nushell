@@ -68,7 +68,7 @@ impl Command for SubCommand {
 
             Example {
                 description: "If the piped data is path, you may want to use --path flag, or else manually replace the backslashes with double backslashes.",
-                example: "'C:\\{Users,Windows}' | str expand --flag",
+                example: "'C:\\{Users,Windows}' | str expand --path",
                 result: Some(Value::List{
                     vals: vec![
                         Value::test_string("C:\\Users"),
