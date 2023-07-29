@@ -20,7 +20,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Float)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .category(Category::Math)
     }
 

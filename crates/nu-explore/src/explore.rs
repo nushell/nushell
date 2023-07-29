@@ -317,6 +317,7 @@ const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
         is_reverse: false,
         is_strikethrough: false,
         is_underline: false,
+        prefix_with_reset: false,
     }
 }
 

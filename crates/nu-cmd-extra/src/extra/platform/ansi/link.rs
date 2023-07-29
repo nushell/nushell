@@ -39,7 +39,6 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "for a data structure input, add links to all strings at the given cell paths",
             )
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }

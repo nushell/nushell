@@ -16,6 +16,8 @@ impl Command for SubCommand {
         Signature::build("math sum")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Duration),
+                (Type::List(Box::new(Type::Filesize)), Type::Filesize),
                 (Type::Range, Type::Number),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])

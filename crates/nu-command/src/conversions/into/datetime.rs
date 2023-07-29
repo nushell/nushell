@@ -68,7 +68,10 @@ impl Command for SubCommand {
             (Type::Int, Type::Date),
             (Type::String, Type::Date),
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
+            (Type::Table(vec![]), Type::Table(vec![])),
+            (Type::Record(vec![]), Type::Record(vec![])),
         ])
+        .allow_variants_without_examples(true)
         .named(
                 "timezone",
                 SyntaxShape::String,

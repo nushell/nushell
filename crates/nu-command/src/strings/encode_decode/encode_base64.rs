@@ -18,8 +18,24 @@ impl Command for EncodeBase64 {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::Binary, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                // Relaxed for heterogeneous list.
+                // Should be removed as soon as the type system supports better restrictions
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .named(
                 "character-set",
                 SyntaxShape::String,

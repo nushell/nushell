@@ -35,7 +35,9 @@ impl Command for BytesIndexOf {
                 // FIXME: this shouldn't be needed, cell paths should work with the two
                 // above
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .required(
                 "pattern",
                 SyntaxShape::Binary,

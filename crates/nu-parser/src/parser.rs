@@ -3696,7 +3696,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     Arg::RestPositional(PositionalArg {
                                         shape, var_id, ..
                                     }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
@@ -6177,7 +6177,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 parser_info: HashMap::new(),
             })),
             span,
-            ty: Type::String,
+            ty: Type::Any,
             custom_completion: None,
         }
     } else {

@@ -30,8 +30,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str starts-with")
-            .input_output_types(vec![(Type::String, Type::Bool)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
