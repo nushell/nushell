@@ -102,6 +102,7 @@ the output of 'path parse' and 'path split' subcommands."#
         }
     }
 
+    #[cfg(not(windows))]
     fn run(
         &self,
         engine_state: &EngineState,
