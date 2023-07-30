@@ -179,29 +179,6 @@ lazy_command!(
     test_median
 );
 
-// LazyStd command
-// Expands to a command definition for std aggregation
-lazy_command!(
-    LazyStd,
-    "dfr std",
-    "Aggregates columns to their std value",
-    vec![Example {
-        description: "Std value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr std",
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_float(2.0)],),
-                Column::new("b".to_string(), vec![Value::test_float(0.0)],),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
-    std,
-    test_std,
-    1
-);
-
 // LazyVar command
 // Expands to a command definition for var aggregation
 lazy_command!(

@@ -265,9 +265,9 @@ macro_rules! lazy_expr_command {
                 input: PipelineData,
             ) -> Result<PipelineData, ShellError> {
                 let value = input.into_value(call.head);
-                if NuLazyFrame::can_downcast(&value) {
+                if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
-                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddot));
+                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddof));
 
                     Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
                 } else {
@@ -295,8 +295,7 @@ macro_rules! lazy_expr_command {
             fn test_examples_dataframe() {
                 // the first example should be a for the dataframe case
                 let example = &$command.examples()[0];
-                let commands: Vec<Box<dyn Command<'_>> = vec![Box::new($command {})];
-                let mut engine_state = build_test_engine_state();
+                let mut engine_state = build_test_engine_state(vec![Box::new($command {})]);
                 test_dataframe_example(&mut engine_state, &example)
             }
 
@@ -304,16 +303,14 @@ macro_rules! lazy_expr_command {
             fn test_examples_expressions() {
                 // the second example should be a for the dataframe case
                 let example = &$command.examples()[1];
-                let commands = vec![
+                let mut engine_state = build_test_engine_state(vec![
                     Box::new($command {}),
                     Box::new(LazyAggregate {}),
                     Box::new(ToLazyGroupBy {}),
-                ];
-                let mut engine_state = build_test_engine_state(commands);
+                ]);
                 test_dataframe_example(&mut engine_state, &example)
             }
         }
-
     };
 }
 
@@ -695,34 +692,48 @@ expr_command!(
 
 // ExprStd command
 // Expands to a command definition for std aggregation
-expr_command!(
+lazy_expr_command!(
     ExprStd,
     "dfr std",
-    "Creates a std expression for an aggregation",
-    vec![Example {
-        description: "Std aggregation for a group-by",
-        example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
+    "Creates a std expression for an aggregation of std value from columns in a dataframe",
+    vec![
+        Example {
+            description: "Std value from columns in a dataframe",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr std",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("a".to_string(), vec![Value::test_float(2.0)],),
+                    Column::new("b".to_string(), vec![Value::test_float(0.0)],),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+        Example {
+            description: "Std aggregation for a group-by",
+            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | dfr into-df
     | dfr group-by a
     | dfr agg (dfr col b | dfr std)"#,
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new(
-                    "a".to_string(),
-                    vec![Value::test_string("one"), Value::test_string("two")],
-                ),
-                Column::new(
-                    "b".to_string(),
-                    vec![Value::test_float(0.0), Value::test_float(0.0)],
-                ),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_string("one"), Value::test_string("two")],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_float(0.0), Value::test_float(0.0)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+    ],
     std,
     test_std,
-    0
+    1
 );
 
 // ExprVar command
