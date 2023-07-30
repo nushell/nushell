@@ -12,7 +12,7 @@ pub struct ExprArgWhere;
 
 impl Command for ExprArgWhere {
     fn name(&self) -> &str {
-        "dfr arg-where"
+        "dfrexp arg-where"
     }
 
     fn usage(&self) -> &str {
@@ -29,8 +29,8 @@ impl Command for ExprArgWhere {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Return a dataframe where the value match the expression",
-            example: "let df = ([[a b]; [one 1] [two 2] [three 3]] | dfr into-df);
-    $df | dfr select (dfr arg-where ((dfr col b) >= 2) | dfr as b_arg)",
+            example: "let df = ([[a b]; [one 1] [two 2] [three 3]] | dfrexp into-df);
+    $df | dfrexp select (dfrexp arg-where ((dfrexp col b) >= 2) | dfrexp as b_arg)",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "b_arg".to_string(),

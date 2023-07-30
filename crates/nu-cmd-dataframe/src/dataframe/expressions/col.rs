@@ -12,7 +12,7 @@ pub struct ExprCol;
 
 impl Command for ExprCol {
     fn name(&self) -> &str {
-        "dfr col"
+        "dfrexp col"
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +33,7 @@ impl Command for ExprCol {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a named column expression and converts it to a nu object",
-            example: "dfr col a | dfr into-nu",
+            example: "dfrexp col a | dfr into-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![Value::test_string("column"), Value::test_string("a")],

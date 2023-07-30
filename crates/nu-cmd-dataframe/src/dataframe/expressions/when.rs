@@ -12,7 +12,7 @@ pub struct ExprWhen;
 
 impl Command for ExprWhen {
     fn name(&self) -> &str {
-        "dfr when"
+        "dfrexp when"
     }
 
     fn usage(&self) -> &str {
@@ -42,25 +42,25 @@ impl Command for ExprWhen {
         vec![
             Example {
                 description: "Create a when conditions",
-                example: "dfr when ((dfr col a) > 2) 4",
+                example: "dfrexp when ((dfrexp col a) > 2) 4",
                 result: None,
             },
             Example {
                 description: "Create a when conditions",
-                example: "dfr when ((dfr col a) > 2) 4 | dfr when ((dfr col a) < 0) 6",
+                example: "dfrexp when ((dfrexp col a) > 2) 4 | dfrexp when ((dfrexp col a) < 0) 6",
                 result: None,
             },
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | dfr into-lazy
-   | dfr with-column (
-    dfr when ((dfr col a) > 2) 4 | dfr otherwise 5 | dfr as c
+   | dfrexp into-lazy
+   | dfrexp with-column (
+    dfrexp when ((dfrexp col a) > 2) 4 | dfrexp otherwise 5 | dfrexp as c
      )
-   | dfr with-column (
-    dfr when ((dfr col a) > 5) 10 | dfr when ((dfr col a) < 2) 6 | dfr otherwise 0 | dfr as d
+   | dfrexp with-column (
+    dfrexp when ((dfrexp col a) > 5) 10 | dfrexp when ((dfrexp col a) < 2) 6 | dfrexp otherwise 0 | dfrexp as d
      )
-   | dfr collect"#,
+   | dfrexp collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

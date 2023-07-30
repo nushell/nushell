@@ -15,7 +15,7 @@ pub struct ExprDatePart;
 
 impl Command for ExprDatePart {
     fn name(&self) -> &str {
-        "dfr datepart"
+        "dfrexp datepart"
     }
 
     fn usage(&self) -> &str {
@@ -45,7 +45,7 @@ impl Command for ExprDatePart {
         vec![
             Example {
                 description: "Creates an expression to capture the year date part",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | dfr with-column [(dfr col datetime | dfr datepart year | dfr as datetime_year )]"#,
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfrexp into-df | dfrexp as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | dfrexp with-column [(dfrexp col datetime | dfrexp datepart year | dfrexp as datetime_year )]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
@@ -57,14 +57,14 @@ impl Command for ExprDatePart {
             },
             Example {
                 description: "Creates an expression to capture multiple date parts",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%9f" |
-                dfr with-column [ (dfr col datetime | dfr datepart year | dfr as datetime_year ),
-                (dfr col datetime | dfr datepart month | dfr as datetime_month ),
-                (dfr col datetime | dfr datepart day | dfr as datetime_day ),
-                (dfr col datetime | dfr datepart hour | dfr as datetime_hour ),
-                (dfr col datetime | dfr datepart minute | dfr as datetime_minute ),
-                (dfr col datetime | dfr datepart second | dfr as datetime_second ),
-                (dfr col datetime | dfr datepart nanosecond | dfr as datetime_ns ) ]"#,
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfrexp into-df | dfrexp as-datetime "%Y-%m-%dT%H:%M:%S.%9f" |
+                dfrexp with-column [ (dfrexp col datetime | dfrexp datepart year | dfrexp as datetime_year ),
+                (dfrexp col datetime | dfrexp datepart month | dfrexp as datetime_month ),
+                (dfrexp col datetime | dfrexp datepart day | dfrexp as datetime_day ),
+                (dfrexp col datetime | dfrexp datepart hour | dfrexp as datetime_hour ),
+                (dfrexp col datetime | dfrexp datepart minute | dfrexp as datetime_minute ),
+                (dfrexp col datetime | dfrexp datepart second | dfrexp as datetime_second ),
+                (dfrexp col datetime | dfrexp datepart nanosecond | dfrexp as datetime_ns ) ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
