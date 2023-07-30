@@ -123,16 +123,12 @@ impl Module {
                 }
 
                 for (sub_name, sub_var_id) in sub_results.variables {
-                    let mut new_name = final_name.clone();
-                    new_name.push(b' ');
-                    new_name.extend(sub_name);
-
-                    vars.push((new_name, sub_var_id));
+                    vars.push((sub_name, sub_var_id));
                 }
             }
 
             decls.extend(self.decls_with_head(&final_name));
-            vars.extend(self.vars_with_head(&final_name));
+            vars.extend(self.vars());
 
             return (
                 ResolvedImportPattern::new(decls, vec![(final_name, self_id)], vars),
@@ -266,15 +262,10 @@ impl Module {
         result
     }
 
-    pub fn vars_with_head(&self, head: &[u8]) -> Vec<(Vec<u8>, VarId)> {
+    pub fn vars(&self) -> Vec<(Vec<u8>, VarId)> {
         self.variables
             .iter()
-            .map(|(name, id)| {
-                let mut new_name = head.to_vec();
-                new_name.push(b' ');
-                new_name.extend(name);
-                (new_name, *id)
-            })
+            .map(|(name, id)| (name.to_vec(), *id))
             .collect()
     }
 
