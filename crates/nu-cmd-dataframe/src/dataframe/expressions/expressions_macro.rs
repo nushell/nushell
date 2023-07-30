@@ -308,9 +308,9 @@ expr_command!(
     vec![Example {
         description: "Max aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp max)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp max)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -339,9 +339,9 @@ expr_command!(
     vec![Example {
         description: "Min aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp min)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp min)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -370,9 +370,9 @@ expr_command!(
     vec![Example {
         description: "Sum aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp sum)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp sum)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -401,9 +401,9 @@ expr_command!(
     vec![Example {
         description: "Mean aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp mean)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp mean)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -432,9 +432,9 @@ expr_command!(
     vec![Example {
         description: "Median aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp median)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp median)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -463,9 +463,9 @@ expr_command!(
     vec![Example {
         description: "Std aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp std)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp std)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(
@@ -495,9 +495,9 @@ expr_command!(
     vec![Example {
         description: "Var aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp var)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp var)"#,
         result: Some(
             NuDataFrame::try_from_columns(vec![
                 Column::new(

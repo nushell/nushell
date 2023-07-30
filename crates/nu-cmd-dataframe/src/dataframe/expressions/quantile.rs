@@ -37,9 +37,9 @@ impl Command for ExprQuantile {
         vec![Example {
             description: "Quantile aggregation for a group-by",
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
-    | dfrexp into-df
-    | dfrexp group-by a
-    | dfrexp agg (dfrexp col b | dfrexp quantile 0.5)"#,
+    | dfr into-df
+    | dfr group-by a
+    | dfr agg (dfrexp col b | dfrexp quantile 0.5)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

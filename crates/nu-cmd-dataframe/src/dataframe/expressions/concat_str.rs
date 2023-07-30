@@ -38,7 +38,7 @@ impl Command for ExprConcatStr {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a concat string expression",
-            example: r#"let df = ([[a b c]; [one two 1] [three four 2]] | dfrexp into-df);
+            example: r#"let df = ([[a b c]; [one two 1] [three four 2]] | dfr into-df);
     $df | dfrexp with-column ((dfrexp concat-str "-" [(dfrexp col a) (dfrexp col b) ((dfrexp col c) * 2)]) | dfrexp as concat)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
