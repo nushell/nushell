@@ -157,28 +157,6 @@ lazy_command!(
     test_cache
 );
 
-// LazySum command
-// Expands to a command definition for sum aggregation
-lazy_command!(
-    LazySum,
-    "dfr sum",
-    "Aggregates columns to their sum value",
-    vec![Example {
-        description: "Sums all columns in a dataframe",
-        example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr sum",
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_int(11)],),
-                Column::new("b".to_string(), vec![Value::test_int(7)],),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
-    sum,
-    test_sum
-);
-
 // LazyMean command
 // Expands to a command definition for mean aggregation
 lazy_command!(

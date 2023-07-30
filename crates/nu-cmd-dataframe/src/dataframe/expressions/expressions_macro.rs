@@ -574,31 +574,45 @@ lazy_expr_command!(
 
 // ExprSum command
 // Expands to a command definition for sum aggregation
-expr_command!(
+lazy_expr_command!(
     ExprSum,
     "dfr sum",
-    "Creates a sum expression for an aggregation",
-    vec![Example {
-        description: "Sum aggregation for a group-by",
-        example: r#"[[a b]; [one 2] [one 4] [two 1]]
+    "Creates a sum expression for an aggregation or aggregates columns to their sum value",
+    vec![
+        Example {
+            description: "Sums all columns in a dataframe",
+            example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr sum",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("a".to_string(), vec![Value::test_int(11)],),
+                    Column::new("b".to_string(), vec![Value::test_int(7)],),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+        Example {
+            description: "Sum aggregation for a group-by",
+            example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | dfr into-df
     | dfr group-by a
     | dfr agg (dfr col b | dfr sum)"#,
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new(
-                    "a".to_string(),
-                    vec![Value::test_string("one"), Value::test_string("two")],
-                ),
-                Column::new(
-                    "b".to_string(),
-                    vec![Value::test_int(6), Value::test_int(1)],
-                ),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_string("one"), Value::test_string("two")],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(6), Value::test_int(1)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+    ],
     sum,
     test_sum
 );
