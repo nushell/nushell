@@ -57,7 +57,7 @@ impl Command for ExprDatePart {
             },
             Example {
                 description: "Creates an expression to capture multiple date parts",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%8f" |
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%9f" |
                 dfr with-column [ (dfrexp col datetime | dfrexp datepart year | dfrexp as datetime_year ),
                 (dfrexp col datetime | dfrexp datepart month | dfrexp as datetime_month ),
                 (dfrexp col datetime | dfrexp datepart day | dfrexp as datetime_day ),
