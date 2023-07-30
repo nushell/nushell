@@ -157,28 +157,6 @@ lazy_command!(
     test_cache
 );
 
-// LazyMean command
-// Expands to a command definition for mean aggregation
-lazy_command!(
-    LazyMean,
-    "dfr mean",
-    "Aggregates columns to their mean value",
-    vec![Example {
-        description: "Mean value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr mean",
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                Column::new("b".to_string(), vec![Value::test_float(2.0)],),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
-    mean,
-    test_mean
-);
-
 // LazyMedian command
 // Expands to a command definition for median aggregation
 lazy_command!(
