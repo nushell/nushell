@@ -196,23 +196,31 @@ macro_rules! lazy_expr_command {
 
         #[cfg(test)]
         mod $test {
-            use super::super::super::test_dataframe::test_dataframe;
+            use super::super::super::test_dataframe::{
+                build_test_engine_state, test_dataframe_example,
+            };
             use super::*;
             use crate::dataframe::lazy::aggregate::LazyAggregate;
             use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
             #[test]
-            fn test_examples_expression() {
-                test_dataframe(vec![
-                    Box::new($command {}),
-                    Box::new(LazyAggregate {}),
-                    Box::new(ToLazyGroupBy {}),
-                ])
+            fn test_examples_dataframe() {
+                // the first example should be a for the dataframe case
+                let example = &$command.examples()[0];
+                let mut engine_state = build_test_engine_state(vec![Box::new($command {})]);
+                test_dataframe_example(&mut engine_state, &example)
             }
 
             #[test]
-            fn test_examples_dataframe() {
-                test_dataframe(vec![Box::new($command {})])
+            fn test_examples_expressions() {
+                // the second example should be a for the dataframe case
+                let example = &$command.examples()[1];
+                let mut engine_state = build_test_engine_state(vec![
+                    Box::new($command {}),
+                    Box::new(LazyAggregate {}),
+                    Box::new(ToLazyGroupBy {}),
+                ]);
+                test_dataframe_example(&mut engine_state, &example)
             }
         }
     };
@@ -276,25 +284,36 @@ macro_rules! lazy_expr_command {
 
         #[cfg(test)]
         mod $test {
-            use super::super::super::test_dataframe::test_dataframe;
+            use super::super::super::test_dataframe::{
+                build_test_engine_state, test_dataframe_example,
+            };
             use super::*;
             use crate::dataframe::lazy::aggregate::LazyAggregate;
             use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
             #[test]
-            fn test_examples_expressions() {
-                test_dataframe(vec![
-                    Box::new($command {}),
-                    Box::new(LazyAggregate {}),
-                    Box::new(ToLazyGroupBy {}),
-                ])
+            fn test_examples_dataframe() {
+                // the first example should be a for the dataframe case
+                let example = &$command.examples()[0];
+                let commands: Vec<Box<dyn Command<'_>> = vec![Box::new($command {})];
+                let mut engine_state = build_test_engine_state();
+                test_dataframe_example(&mut engine_state, &example)
             }
 
             #[test]
-            fn test_examples_dataframe() {
-                test_dataframe(vec![Box::new($command {})])
+            fn test_examples_expressions() {
+                // the second example should be a for the dataframe case
+                let example = &$command.examples()[1];
+                let commands = vec![
+                    Box::new($command {}),
+                    Box::new(LazyAggregate {}),
+                    Box::new(ToLazyGroupBy {}),
+                ];
+                let mut engine_state = build_test_engine_state(commands);
+                test_dataframe_example(&mut engine_state, &example)
             }
         }
+
     };
 }
 
