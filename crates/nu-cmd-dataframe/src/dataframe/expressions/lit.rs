@@ -11,7 +11,7 @@ pub struct ExprLit;
 
 impl Command for ExprLit {
     fn name(&self) -> &str {
-        "dfrexp lit"
+        "dfexp lit"
     }
 
     fn usage(&self) -> &str {
@@ -32,7 +32,7 @@ impl Command for ExprLit {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
-            example: "dfrexp lit 2 | dfr into-nu",
+            example: "dfexp lit 2 | dfr into-nu",
             result: Some(Value::Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![Value::test_string("literal"), Value::test_string("2")],

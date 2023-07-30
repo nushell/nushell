@@ -12,7 +12,7 @@ pub struct ExprQuantile;
 
 impl Command for ExprQuantile {
     fn name(&self) -> &str {
-        "dfrexp quantile"
+        "dfexp quantile"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for ExprQuantile {
             example: r#"[[a b]; [one 2] [one 4] [two 1]]
     | dfr into-df
     | dfr group-by a
-    | dfr agg (dfrexp col b | dfrexp quantile 0.5)"#,
+    | dfr agg (dfexp col b | dfexp quantile 0.5)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

@@ -12,7 +12,7 @@ pub struct ExprAlias;
 
 impl Command for ExprAlias {
     fn name(&self) -> &str {
-        "dfrexp as"
+        "dfexp as"
     }
 
     fn usage(&self) -> &str {
@@ -36,7 +36,7 @@ impl Command for ExprAlias {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates and alias expression",
-            example: "dfrexp col a | dfrexp as new_a | dfr into-nu",
+            example: "dfexp col a | dfexp as new_a | dfr into-nu",
             result: {
                 let cols = vec!["expr".into(), "value".into()];
                 let expr = Value::test_string("column");

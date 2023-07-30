@@ -12,7 +12,7 @@ pub struct ExprConcatStr;
 
 impl Command for ExprConcatStr {
     fn name(&self) -> &str {
-        "dfrexp concat-str"
+        "dfexp concat-str"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for ExprConcatStr {
         vec![Example {
             description: "Creates a concat string expression",
             example: r#"let df = ([[a b c]; [one two 1] [three four 2]] | dfr into-df);
-    $df | dfr with-column ((dfrexp concat-str "-" [(dfrexp col a) (dfrexp col b) ((dfrexp col c) * 2)]) | dfrexp as concat)"#,
+    $df | dfr with-column ((dfexp concat-str "-" [(dfexp col a) (dfexp col b) ((dfexp col c) * 2)]) | dfexp as concat)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

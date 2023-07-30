@@ -42,9 +42,9 @@ impl Command for LazyAggregate {
     | dfr into-df
     | dfr group-by a
     | dfr agg [
-        (dfrexp col b | dfrexp min | dfrexp as "b_min")
-        (dfrexp col b | dfrexp max | dfrexp as "b_max")
-        (dfrexp col b | dfrexp sum | dfrexp as "b_sum")
+        (dfexp col b | dfexp min | dfexp as "b_min")
+        (dfexp col b | dfexp max | dfexp as "b_max")
+        (dfexp col b | dfexp sum | dfexp as "b_sum")
      ]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
@@ -75,9 +75,9 @@ impl Command for LazyAggregate {
     | dfr into-lazy
     | dfr group-by a
     | dfr agg [
-        (dfrexp col b | dfrexp min | dfrexp as "b_min")
-        (dfrexp col b | dfrexp max | dfrexp as "b_max")
-        (dfrexp col b | dfrexp sum | dfrexp as "b_sum")
+        (dfexp col b | dfexp min | dfexp as "b_min")
+        (dfexp col b | dfexp max | dfexp as "b_max")
+        (dfexp col b | dfexp sum | dfexp as "b_sum")
      ]
     | dfr collect"#,
                 result: Some(

@@ -65,8 +65,8 @@ impl Command for WithColumn {
                 example: r#"[[a b]; [1 2] [3 4]]
     | dfr into-lazy
     | dfr with-column [
-        ((dfrexp col a) * 2 | dfrexp as "c")
-        ((dfrexp col a) * 3 | dfrexp as "d")
+        ((dfexp col a) * 2 | dfexp as "c")
+        ((dfexp col a) * 3 | dfexp as "d")
       ]
     | dfr collect"#,
                 result: Some(

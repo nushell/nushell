@@ -12,7 +12,7 @@ pub struct ExprIsIn;
 
 impl Command for ExprIsIn {
     fn name(&self) -> &str {
-        "dfrexp is-in"
+        "dfexp is-in"
     }
 
     fn usage(&self) -> &str {
@@ -37,7 +37,7 @@ impl Command for ExprIsIn {
         vec![Example {
             description: "Creates a is-in expression",
             example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | dfr into-df);
-    $df | dfr with-column (dfrexp col a | dfrexp is-in [one two] | dfrexp as a_in)"#,
+    $df | dfr with-column (dfexp col a | dfexp is-in [one two] | dfexp as a_in)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

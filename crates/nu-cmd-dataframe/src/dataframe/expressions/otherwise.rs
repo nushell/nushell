@@ -11,7 +11,7 @@ pub struct ExprOtherwise;
 
 impl Command for ExprOtherwise {
     fn name(&self) -> &str {
-        "dfrexp otherwise"
+        "dfexp otherwise"
     }
 
     fn usage(&self) -> &str {
@@ -33,13 +33,13 @@ impl Command for ExprOtherwise {
         vec![
             Example {
                 description: "Create a when conditions",
-                example: "dfrexp when ((dfrexp col a) > 2) 4 | dfrexp otherwise 5",
+                example: "dfexp when ((dfexp col a) > 2) 4 | dfexp otherwise 5",
                 result: None,
             },
             Example {
                 description: "Create a when conditions",
                 example:
-                    "dfrexp when ((dfrexp col a) > 2) 4 | dfrexp when ((dfrexp col a) < 0) 6 | dfrexp otherwise 0",
+                    "dfexp when ((dfexp col a) > 2) 4 | dfexp when ((dfexp col a) < 0) 6 | dfexp otherwise 0",
                 result: None,
             },
             Example {
@@ -47,10 +47,10 @@ impl Command for ExprOtherwise {
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
    | dfr into-lazy
    | dfr with-column (
-    dfrexp when ((dfrexp col a) > 2) 4 | dfrexp otherwise 5 | dfrexp as c
+    dfexp when ((dfexp col a) > 2) 4 | dfexp otherwise 5 | dfexp as c
      )
    | dfr with-column (
-    dfrexp when ((dfrexp col a) > 5) 10 | dfrexp when ((dfrexp col a) < 2) 6 | dfrexp otherwise 0 | dfrexp as d
+    dfexp when ((dfexp col a) > 5) 10 | dfexp when ((dfexp col a) < 2) 6 | dfexp otherwise 0 | dfexp as d
      )
    | dfr collect"#,
                 result: Some(

@@ -53,8 +53,7 @@ impl Command for FilterWith {
             },
             Example {
                 description: "Filter dataframe using an expression",
-                example:
-                    "[[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with ((dfrexp col a) > 1)",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr filter-with ((dfexp col a) > 1)",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_int(3)]),
