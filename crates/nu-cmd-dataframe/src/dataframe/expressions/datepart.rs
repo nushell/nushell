@@ -144,9 +144,9 @@ impl Command for ExprDatePart {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::eager::ToNu;
     use crate::dataframe::eager::WithColumn;
     use crate::dataframe::expressions::ExprAlias;
-    use crate::dataframe::expressions::ExprAsNu;
     use crate::dataframe::expressions::ExprCol;
     use crate::dataframe::series::AsDateTime;
 
@@ -155,7 +155,7 @@ mod test {
         test_dataframe(vec![
             Box::new(ExprDatePart {}),
             Box::new(ExprCol {}),
-            Box::new(ExprAsNu {}),
+            Box::new(ToNu {}),
             Box::new(AsDateTime {}),
             Box::new(WithColumn {}),
             Box::new(ExprAlias {}),
