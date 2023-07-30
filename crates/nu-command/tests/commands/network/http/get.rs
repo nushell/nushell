@@ -113,6 +113,34 @@ fn http_get_with_accept_errors_and_full_json_response() {
     assert!(actual.out.contains("400 => error body"))
 }
 
+#[test]
+fn http_get_with_custom_headers_as_records() {
+    let mut server = Server::new();
+
+    let mock1 = server
+        .mock("GET", "/")
+        .match_header("content-type", "application/json")
+        .with_body(r#"{"hello": "world"}"#)
+        .create();
+
+    let mock2 = server
+        .mock("GET", "/")
+        .match_header("content-type", "text/plain")
+        .with_body("world")
+        .create();
+
+    let _json_response = nu!(format!(
+        "http get -H {{content-type: application/json}} {url}",
+        url = server.url()
+    ));
+
+    let _text_response = nu!(format!(
+        "http get -H {{content-type: text/plain}} {url}",
+        url = server.url()
+    ));
+    mock1.assert();
+    mock2.assert();
+}
 // These tests require network access; they use badssl.com which is a Google-affiliated site for testing various SSL errors.
 // Revisit this if these tests prove to be flaky or unstable.
 
