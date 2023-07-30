@@ -45,7 +45,7 @@ impl Command for ExprDatePart {
         vec![
             Example {
                 description: "Creates an expression to capture the year date part",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfrexp as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | dfr with-column [(dfrexp col datetime | dfrexp datepart year | dfrexp as datetime_year )]"#,
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | dfr with-column [(dfrexp col datetime | dfrexp datepart year | dfrexp as datetime_year )]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
@@ -57,7 +57,7 @@ impl Command for ExprDatePart {
             },
             Example {
                 description: "Creates an expression to capture multiple date parts",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfrexp as-datetime "%Y-%m-%dT%H:%M:%S.%8f" |
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%8f" |
                 dfr with-column [ (dfrexp col datetime | dfrexp datepart year | dfrexp as datetime_year ),
                 (dfrexp col datetime | dfrexp datepart month | dfrexp as datetime_month ),
                 (dfrexp col datetime | dfrexp datepart day | dfrexp as datetime_day ),

@@ -53,14 +53,14 @@ impl Command for ExprWhen {
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | dfrexp into-lazy
+   | dfr into-lazy
    | dfr with-column (
     dfrexp when ((dfrexp col a) > 2) 4 | dfrexp otherwise 5 | dfrexp as c
      )
    | dfr with-column (
     dfrexp when ((dfrexp col a) > 5) 10 | dfrexp when ((dfrexp col a) < 2) 6 | dfrexp otherwise 0 | dfrexp as d
      )
-   | dfrexp collect"#,
+   | dfr collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
