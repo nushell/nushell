@@ -157,28 +157,6 @@ lazy_command!(
     test_cache
 );
 
-// LazyMax command
-// Expands to a command definition for max aggregation
-lazy_command!(
-    LazyMax,
-    "dfr max",
-    "Aggregates columns to their max value",
-    vec![Example {
-        description: "Max value from columns in a dataframe",
-        example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr max",
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_int(6)],),
-                Column::new("b".to_string(), vec![Value::test_int(4)],),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
-    max,
-    test_max
-);
-
 // LazySum command
 // Expands to a command definition for sum aggregation
 lazy_command!(

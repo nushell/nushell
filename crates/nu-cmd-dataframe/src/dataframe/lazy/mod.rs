@@ -49,7 +49,6 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         LazyFilter,
         LazyJoin,
         LazyQuantile,
-        LazyMax,
         LazySum,
         LazyMean,
         LazyMedian,
