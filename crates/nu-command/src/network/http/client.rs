@@ -296,6 +296,12 @@ pub fn request_add_custom_headers(
         let mut custom_headers: HashMap<String, Value> = HashMap::new();
 
         match &headers {
+            Value::Record { cols, vals, .. } => {
+                for (k, v) in cols.iter().zip(vals.iter()) {
+                    custom_headers.insert(k.to_string(), v.clone());
+                }
+            }
+
             Value::List { vals: table, .. } => {
                 if table.len() == 1 {
                     // single row([key1 key2]; [val1 val2])
