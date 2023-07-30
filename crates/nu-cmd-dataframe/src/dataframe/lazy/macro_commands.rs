@@ -179,7 +179,6 @@ lazy_command!(
     test_max
 );
 
-
 // LazySum command
 // Expands to a command definition for sum aggregation
 lazy_command!(
