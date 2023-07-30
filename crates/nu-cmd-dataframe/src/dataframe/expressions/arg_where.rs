@@ -30,7 +30,7 @@ impl Command for ExprArgWhere {
         vec![Example {
             description: "Return a dataframe where the value match the expression",
             example: "let df = ([[a b]; [one 1] [two 2] [three 3]] | dfr into-df);
-    $df | dfrexp select (dfrexp arg-where ((dfrexp col b) >= 2) | dfrexp as b_arg)",
+    $df | dfr select (dfrexp arg-where ((dfrexp col b) >= 2) | dfrexp as b_arg)",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "b_arg".to_string(),

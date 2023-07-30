@@ -46,10 +46,10 @@ impl Command for ExprOtherwise {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
    | dfrexp into-lazy
-   | dfrexp with-column (
+   | dfr with-column (
     dfrexp when ((dfrexp col a) > 2) 4 | dfrexp otherwise 5 | dfrexp as c
      )
-   | dfrexp with-column (
+   | dfr with-column (
     dfrexp when ((dfrexp col a) > 5) 10 | dfrexp when ((dfrexp col a) < 2) 6 | dfrexp otherwise 0 | dfrexp as d
      )
    | dfrexp collect"#,

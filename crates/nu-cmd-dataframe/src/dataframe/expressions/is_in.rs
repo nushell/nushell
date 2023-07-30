@@ -37,7 +37,7 @@ impl Command for ExprIsIn {
         vec![Example {
             description: "Creates a is-in expression",
             example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | dfr into-df);
-    $df | dfrexp with-column (dfrexp col a | dfrexp is-in [one two] | dfrexp as a_in)"#,
+    $df | dfr with-column (dfrexp col a | dfrexp is-in [one two] | dfrexp as a_in)"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
