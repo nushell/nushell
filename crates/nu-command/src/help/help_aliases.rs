@@ -131,7 +131,7 @@ pub fn help_aliases(
         };
 
         let alias_expansion =
-            String::from_utf8_lossy(engine_state.get_span_contents(&alias.wrapped_call.span));
+            String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
         let usage = alias.usage();
         let extra_usage = alias.extra_usage();
 

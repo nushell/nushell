@@ -329,7 +329,7 @@ pub fn eval_expression(
         Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Overlay(_) => {
             let name =
-                String::from_utf8_lossy(engine_state.get_span_contents(&expr.span)).to_string();
+                String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
 
             Ok(Value::String {
                 val: name,
@@ -1128,7 +1128,7 @@ pub fn eval_block(
             {
                 let element_span = pipeline.elements[i].span();
                 let element_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(&pipeline.elements[i].span()),
+                    engine_state.get_span_contents(pipeline.elements[i].span()),
                 )
                 .to_string();
 
