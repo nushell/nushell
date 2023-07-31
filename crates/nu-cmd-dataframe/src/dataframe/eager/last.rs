@@ -1,4 +1,4 @@
-use super::super::values::{utils::DEFAULT_ROWS, Column, NuDataFrame};
+use super::super::values::{utils::DEFAULT_ROWS, Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -63,8 +63,19 @@ impl Command for LastDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-        command(engine_state, stack, call, df)
+        let value = input.into_value(call.head);
+        if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command(engine_state, stack, call, df)
+        } else {
+            let expr = NuExpression::try_from_value(value)?;
+            let expr: NuExpression = expr.into_polars().last().into();
+
+            Ok(PipelineData::Value(
+                NuExpression::into_value(expr, call.head),
+                None,
+            ))
+        }
     }
 }
 
