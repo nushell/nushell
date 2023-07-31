@@ -70,10 +70,10 @@ pub fn get_pipeline_elements(
         while i < pipeline.elements.len() {
             let pipeline_element = &pipeline.elements[i];
             let pipeline_expression = pipeline_element.expression().clone();
-            let pipeline_span = &pipeline_element.span();
+            let pipeline_span = pipeline_element.span();
             let element_str =
                 String::from_utf8_lossy(engine_state.get_span_contents(pipeline_span));
-            let value = Value::string(element_str.to_string(), *pipeline_span);
+            let value = Value::string(element_str.to_string(), pipeline_span);
             let expr = pipeline_expression.expr.clone();
             let (command_name, command_args_value) = if let Expr::Call(call) = expr {
                 let command = engine_state.get_decl(call.decl_id);

@@ -262,7 +262,7 @@ impl Command for Char {
                     .positional_nth(i)
                     .expect("Unexpected missing argument")
                     .span;
-                multi_byte.push(integer_to_unicode_char(arg, &span)?)
+                multi_byte.push(integer_to_unicode_char(arg, span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else if call.has_flag("unicode") {
@@ -279,7 +279,7 @@ impl Command for Char {
                     .positional_nth(i)
                     .expect("Unexpected missing argument")
                     .span;
-                multi_byte.push(string_to_unicode_char(arg, &span)?)
+                multi_byte.push(string_to_unicode_char(arg, span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else {
@@ -306,7 +306,7 @@ impl Command for Char {
     }
 }
 
-fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
+fn integer_to_unicode_char(value: i64, t: Span) -> Result<char, ShellError> {
     let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
@@ -314,12 +314,12 @@ fn integer_to_unicode_char(value: i64, t: &Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "not a valid Unicode codepoint".into(),
-            span: *t,
+            span: t,
         })
     }
 }
 
-fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
+fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
     let decoded_char = u32::from_str_radix(s, 16)
         .ok()
         .and_then(std::char::from_u32);
@@ -329,7 +329,7 @@ fn string_to_unicode_char(s: &str, t: &Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error decoding Unicode character".into(),
-            span: *t,
+            span: t,
         })
     }
 }

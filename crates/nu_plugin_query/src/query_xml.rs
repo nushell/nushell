@@ -10,7 +10,7 @@ pub fn execute_xpath_query(
     query: Option<Spanned<String>>,
 ) -> Result<Value, LabeledError> {
     let (query_string, span) = match &query {
-        Some(v) => (&v.item, &v.span),
+        Some(v) => (&v.item, v.span),
         None => {
             return Err(LabeledError {
                 msg: "problem with input data".to_string(),
@@ -101,20 +101,20 @@ pub fn execute_xpath_query(
     }
 }
 
-fn build_xpath(xpath_str: &str, span: &Span) -> Result<sxd_xpath::XPath, LabeledError> {
+fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
     if let Ok(xpath) = factory.build(xpath_str) {
         xpath.ok_or_else(|| LabeledError {
             label: "invalid xpath query".to_string(),
             msg: "invalid xpath query".to_string(),
-            span: Some(*span),
+            span: Some(span),
         })
     } else {
         Err(LabeledError {
             label: "expected valid xpath query".to_string(),
             msg: "expected valid xpath query".to_string(),
-            span: Some(*span),
+            span: Some(span),
         })
     }
 }

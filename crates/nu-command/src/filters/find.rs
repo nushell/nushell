@@ -295,7 +295,7 @@ fn highlight_terms_in_record_with_search_columns(
     search_cols: &Vec<String>,
     cols: &[String],
     vals: &[Value],
-    span: &Span,
+    span: Span,
     config: &Config,
     terms: &[Value],
     string_style: Style,
@@ -332,7 +332,7 @@ fn highlight_terms_in_record_with_search_columns(
 
             Value::String {
                 val: highlighted_str,
-                span: *span,
+                span,
             }
         })
         .map(|v| v.unwrap_or_else(|v| v));
@@ -340,7 +340,7 @@ fn highlight_terms_in_record_with_search_columns(
     Value::Record {
         cols: cols.to_vec(),
         vals: new_vals.collect(),
-        span: *span,
+        span,
     }
 }
 
@@ -397,7 +397,7 @@ fn find_with_rest_and_highlight(
                             &cols_to_search_in_map,
                             cols,
                             vals,
-                            span,
+                            *span,
                             &config,
                             &terms,
                             string_style,
@@ -414,7 +414,7 @@ fn find_with_rest_and_highlight(
                         value,
                         &filter_config,
                         &lower_terms,
-                        &span,
+                        span,
                         &cols_to_search_in_filter,
                         invert,
                     )
@@ -429,7 +429,7 @@ fn find_with_rest_and_highlight(
                             &cols_to_search_in_map,
                             cols,
                             vals,
-                            span,
+                            *span,
                             &config,
                             &terms,
                             string_style,
@@ -443,7 +443,7 @@ fn find_with_rest_and_highlight(
                         value,
                         &filter_config,
                         &lower_terms,
-                        &span,
+                        span,
                         &cols_to_search_in_filter,
                         invert,
                     )
@@ -509,7 +509,7 @@ fn value_should_be_printed(
     value: &Value,
     filter_config: &Config,
     lower_terms: &[Value],
-    span: &Span,
+    span: Span,
     columns_to_search: &Vec<String>,
     invert: bool,
 ) -> bool {
@@ -556,13 +556,13 @@ fn value_should_be_printed(
     match_found
 }
 
-fn term_contains_value(term: &Value, value: &Value, span: &Span) -> bool {
-    term.r#in(*span, value, *span)
+fn term_contains_value(term: &Value, value: &Value, span: Span) -> bool {
+    term.r#in(span, value, span)
         .map_or(false, |value| value.is_true())
 }
 
-fn term_equals_value(term: &Value, value: &Value, span: &Span) -> bool {
-    term.eq(*span, value, *span)
+fn term_equals_value(term: &Value, value: &Value, span: Span) -> bool {
+    term.eq(span, value, span)
         .map_or(false, |value| value.is_true())
 }
 
@@ -572,7 +572,7 @@ fn record_matches_term(
     columns_to_search: &Vec<String>,
     filter_config: &Config,
     term: &Value,
-    span: &Span,
+    span: Span,
 ) -> bool {
     let cols_to_search = if columns_to_search.is_empty() {
         cols.to_vec()
