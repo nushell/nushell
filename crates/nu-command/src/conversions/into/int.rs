@@ -73,7 +73,12 @@ impl Command for SubCommand {
             ])
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
-            .named("endian", SyntaxShape::String, "byte encode endian, available options: native(default), little, big", None)
+            .named(
+                "endian",
+                SyntaxShape::String,
+                "byte encode endian, available options: native(default), little, big",
+                None,
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -117,15 +122,15 @@ impl Command for SubCommand {
 
         let endian = call.get_flag::<Value>(engine_state, stack, "endian")?;
         let little_endian = match endian {
-            Some(Value::String { val, span }) => {
-                match val.as_str() {
-                    "native" => cfg!(target_endian = "little"),
-                    "little" => true,
-                    "big" => false,
-                    _ => return Err(ShellError::TypeMismatch {
+            Some(Value::String { val, span }) => match val.as_str() {
+                "native" => cfg!(target_endian = "little"),
+                "little" => true,
+                "big" => false,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
                         err_message: "Endian must be one of native, little, big".to_string(),
                         span,
-                    }),
+                    })
                 }
             },
             Some(_) => false,

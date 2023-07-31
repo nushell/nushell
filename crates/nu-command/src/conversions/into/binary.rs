@@ -252,10 +252,7 @@ mod test {
     #[case(vec![10], vec![10])]
     #[case(vec![10, 0, 0], vec![10])]
     #[case(vec![0, 10, 0, 0], vec![0, 10])]
-    fn test_compact(
-        #[case] input: Vec<u8>,
-        #[case] output: Vec<u8>,
-    ) {
+    fn test_compact(#[case] input: Vec<u8>, #[case] output: Vec<u8>) {
         let s = Value::test_binary(input);
         let actual = action(
             &s,
