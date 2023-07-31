@@ -389,21 +389,6 @@ expr_command!(
     test_count
 );
 
-// ExprFirst command
-// Expands to a command definition for a count expression
-expr_command!(
-    ExprFirst,
-    "dfr first",
-    "creates a first expression",
-    vec![Example {
-        description: "Creates a first expression from a column",
-        example: "dfr col a | dfr first",
-        result: None,
-    },],
-    first,
-    test_first
-);
-
 // ExprLast command
 // Expands to a command definition for a count expression
 expr_command!(

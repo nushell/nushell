@@ -50,7 +50,6 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprFlatten,
         ExprExplode,
         ExprCount,
-        ExprFirst,
         ExprLast,
         ExprNUnique,
         ExprIsIn,
