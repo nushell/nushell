@@ -389,21 +389,6 @@ expr_command!(
     test_count
 );
 
-// ExprNUnique command
-// Expands to a command definition for a n-unique expression
-expr_command!(
-    ExprNUnique,
-    "dfr n-unique",
-    "creates a n-unique expression",
-    vec![Example {
-        description: "Creates a is n-unique expression from a column",
-        example: "dfr col a | dfr n-unique",
-        result: None,
-    },],
-    n_unique,
-    test_nunique
-);
-
 // ExprIsNotNull command
 // Expands to a command definition for a n-unique expression
 expr_command!(
