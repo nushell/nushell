@@ -49,8 +49,8 @@ impl Command for LastDF {
                 ),
             },
             Example {
-                description: "Creates a is n-unique expression from a column",
-                example: "dfr col a | dfr n-unique",
+                description: "Creates a last expression from a column",
+                example: "dfr col a | dfr last",
                 result: None,
             },
         ]
