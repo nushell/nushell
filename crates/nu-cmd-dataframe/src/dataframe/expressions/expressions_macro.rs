@@ -389,21 +389,6 @@ expr_command!(
     test_count
 );
 
-// ExprLast command
-// Expands to a command definition for a count expression
-expr_command!(
-    ExprLast,
-    "dfr last",
-    "creates a last expression",
-    vec![Example {
-        description: "Creates a last expression from a column",
-        example: "dfr col a | dfr last",
-        result: None,
-    },],
-    last,
-    test_last
-);
-
 // ExprNUnique command
 // Expands to a command definition for a n-unique expression
 expr_command!(
