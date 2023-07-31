@@ -389,21 +389,6 @@ expr_command!(
     test_count
 );
 
-// ExprIsNotNull command
-// Expands to a command definition for a n-unique expression
-expr_command!(
-    ExprIsNotNull,
-    "dfr is-not-null",
-    "creates a is not null expression",
-    vec![Example {
-        description: "Creates a is not null expression from a column",
-        example: "dfr col a | dfr is-not-null",
-        result: None,
-    },],
-    is_not_null,
-    test_is_not_null
-);
-
 // ExprIsNull command
 // Expands to a command definition for a n-unique expression
 expr_command!(
