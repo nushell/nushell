@@ -249,10 +249,11 @@ mod test {
     }
 
     #[rstest]
-    #[case(vec![10], vec![10])]
-    #[case(vec![10, 0, 0], vec![10])]
-    #[case(vec![0, 10, 0, 0], vec![0, 10])]
-    fn test_compact(#[case] input: Vec<u8>, #[case] output: Vec<u8>) {
+    #[case(vec![10], vec![10], vec![10])]
+    #[case(vec![10, 0, 0], vec![10], vec![10, 0, 0])]
+    #[case(vec![0, 0, 10], vec![0, 0, 10], vec![10])]
+    #[case(vec![0, 10, 0, 0], vec![0, 10], vec![10, 0, 0])]
+    fn test_compact(#[case] input: Vec<u8>, #[case] little: Vec<u8>, #[case] big: Vec<u8>) {
         let s = Value::test_binary(input);
         let actual = action(
             &s,
@@ -262,6 +263,10 @@ mod test {
             },
             Span::test_data(),
         );
-        assert_eq!(actual, Value::test_binary(output));
+        if cfg!(target_endian = "little") {
+            assert_eq!(actual, Value::test_binary(little));
+        } else {
+            assert_eq!(actual, Value::test_binary(big));
+        }
     }
 }
