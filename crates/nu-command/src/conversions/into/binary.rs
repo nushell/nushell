@@ -115,7 +115,8 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "convert an integer to a nushell binary primitive with compact enabled",
+                description:
+                    "convert an integer to a nushell binary primitive with compact enabled",
                 example: "10 | into binary --compact",
                 result: Some(Value::Binary {
                     val: vec![10],
@@ -211,22 +212,21 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     if _args.compact {
         if let Value::Binary { val, span } = value {
             let val = if cfg!(target_endian = "little") {
-                let mut idx = val.len() - 1;
-                while val[idx] == 0 {
-                    idx -= 1;
+                match val.iter().rposition(|&x| x != 0) {
+                    Some(idx) => &val[..idx + 1],
+                    None => &val,
                 }
-                let (val, _) = val.split_at(idx + 1);
-                val
             } else {
-                let mut idx = 0;
-                while val[idx] == 0 {
-                    idx += 1;
+                match val.iter().position(|&x| x != 0) {
+                    Some(idx) => &val[idx..],
+                    None => &val,
                 }
-                let (_, val) = val.split_at(idx);
-                val
             };
 
-            Value::Binary { val: val.to_vec(), span }
+            Value::Binary {
+                val: val.to_vec(),
+                span,
+            }
         } else {
             value
         }
@@ -237,6 +237,8 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
 
 #[cfg(test)]
 mod test {
+    use rstest::rstest;
+
     use super::*;
 
     #[test]
@@ -244,5 +246,25 @@ mod test {
         use crate::test_examples;
 
         test_examples(SubCommand {})
+    }
+
+    #[rstest]
+    #[case(vec![10], vec![10])]
+    #[case(vec![10, 0, 0], vec![10])]
+    #[case(vec![0, 10, 0, 0], vec![0, 10])]
+    fn test_compact(
+        #[case] input: Vec<u8>,
+        #[case] output: Vec<u8>,
+    ) {
+        let s = Value::test_binary(input);
+        let actual = action(
+            &s,
+            &Arguments {
+                cell_paths: None,
+                compact: true,
+            },
+            Span::test_data(),
+        );
+        assert_eq!(actual, Value::test_binary(output));
     }
 }
