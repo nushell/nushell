@@ -82,7 +82,7 @@ impl Command for SubCommand {
                 description: "convert a number to a nushell binary primitive",
                 example: "1 | into binary",
                 result: Some(Value::Binary {
-                    val: i64::from(1).to_le_bytes().to_vec(),
+                    val: i64::from(1).to_ne_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
             },
@@ -90,7 +90,7 @@ impl Command for SubCommand {
                 description: "convert a boolean to a nushell binary primitive",
                 example: "true | into binary",
                 result: Some(Value::Binary {
-                    val: i64::from(1).to_le_bytes().to_vec(),
+                    val: i64::from(1).to_ne_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
             },
@@ -108,7 +108,7 @@ impl Command for SubCommand {
                 description: "convert a decimal to a nushell binary primitive",
                 example: "1.234 | into binary",
                 result: Some(Value::Binary {
-                    val: 1.234f64.to_le_bytes().to_vec(),
+                    val: 1.234f64.to_ne_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
             },
@@ -151,35 +151,19 @@ fn into_binary(
     }
 }
 
-fn int_to_endian(n: i64) -> Vec<u8> {
-    if cfg!(target_endian = "little") {
-        n.to_le_bytes().to_vec()
-    } else {
-        n.to_be_bytes().to_vec()
-    }
-}
-
-fn float_to_endian(n: f64) -> Vec<u8> {
-    if cfg!(target_endian = "little") {
-        n.to_le_bytes().to_vec()
-    } else {
-        n.to_be_bytes().to_vec()
-    }
-}
-
 pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
-            val: int_to_endian(*val),
+            val: val.to_ne_bytes().to_vec(),
             span,
         },
         Value::Float { val, .. } => Value::Binary {
-            val: float_to_endian(*val),
+            val: val.to_ne_bytes().to_vec(),
             span,
         },
         Value::Filesize { val, .. } => Value::Binary {
-            val: int_to_endian(*val),
+            val: val.to_ne_bytes().to_vec(),
             span,
         },
         Value::String { val, .. } => Value::Binary {
@@ -187,11 +171,11 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             span,
         },
         Value::Bool { val, .. } => Value::Binary {
-            val: int_to_endian(i64::from(*val)),
+            val: i64::from(*val).to_ne_bytes().to_vec(),
             span,
         },
         Value::Duration { val, .. } => Value::Binary {
-            val: int_to_endian(*val),
+            val: val.to_ne_bytes().to_vec(),
             span,
         },
         Value::Date { val, .. } => Value::Binary {
