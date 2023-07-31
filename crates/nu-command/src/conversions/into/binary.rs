@@ -40,7 +40,7 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
-            .switch("compact", "output without padding zeros", None)
+            .switch("compact", "output without padding zeros", Some('c'))
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

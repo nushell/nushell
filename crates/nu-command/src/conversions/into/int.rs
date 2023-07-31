@@ -77,7 +77,7 @@ impl Command for SubCommand {
                 "endian",
                 SyntaxShape::String,
                 "byte encode endian, available options: native(default), little, big",
-                None,
+                Some('e'),
             )
             .rest(
                 "rest",
