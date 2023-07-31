@@ -49,6 +49,30 @@ impl Command for SubCommand {
             },
 
             Example {
+                description: "Ignore the next character after the backslash ('\\')",
+                example: "'A{B\\,,C}' | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("AB,"),
+                        Value::test_string("AC"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
+                description: "Use double backslashes to add a backslash.",
+                example: "'A{B\\\\,C}' | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("AB\\"),
+                        Value::test_string("AC"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
                 description: "Export comma separated values inside braces (`{}`) to a string list.",
                 example: "\"{apple,banana,cherry}\" | str expand",
                 result: Some(Value::List{
