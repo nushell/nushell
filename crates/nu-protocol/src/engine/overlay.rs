@@ -206,6 +206,10 @@ impl OverlayFrame {
         self.modules.insert(name, module_id)
     }
 
+    pub fn insert_variable(&mut self, name: Vec<u8>, variable_id: VarId) -> Option<VarId> {
+        self.vars.insert(name, variable_id)
+    }
+
     pub fn get_decl(&self, name: &[u8]) -> Option<DeclId> {
         self.decls.get(name).cloned()
     }
