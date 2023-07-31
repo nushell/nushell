@@ -178,26 +178,3 @@ lazy_command!(
     median,
     test_median
 );
-
-// LazyVar command
-// Expands to a command definition for var aggregation
-lazy_command!(
-    LazyVar,
-    "dfr var",
-    "Aggregates columns to their var value",
-    vec![Example {
-        description: "Var value from columns in a dataframe",
-        example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr var",
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                Column::new("b".to_string(), vec![Value::test_float(0.0)],),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
-    var,
-    test_var,
-    1
-);

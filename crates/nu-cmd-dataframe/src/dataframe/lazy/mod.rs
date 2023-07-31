@@ -50,7 +50,6 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         LazyJoin,
         LazyQuantile,
         LazyMedian,
-        LazyVar,
         LazyReverse,
         LazySelect,
         LazySortBy,

@@ -738,32 +738,47 @@ lazy_expr_command!(
 
 // ExprVar command
 // Expands to a command definition for var aggregation
-expr_command!(
+lazy_expr_command!(
     ExprVar,
     "dfr var",
     "Create a var expression for an aggregation",
-    vec![Example {
-        description: "Var aggregation for a group-by",
-        example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
+    vec![
+        Example {
+            description:
+                "Var value from columns in a dataframe or aggregates columns to their var value",
+            example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr var",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
+                    Column::new("b".to_string(), vec![Value::test_float(0.0)],),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+        Example {
+            description: "Var aggregation for a group-by",
+            example: r#"[[a b]; [one 2] [one 2] [two 1] [two 1]]
     | dfr into-df
     | dfr group-by a
     | dfr agg (dfr col b | dfr var)"#,
-        result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new(
-                    "a".to_string(),
-                    vec![Value::test_string("one"), Value::test_string("two")],
-                ),
-                Column::new(
-                    "b".to_string(),
-                    vec![Value::test_float(0.0), Value::test_float(0.0)],
-                ),
-            ])
-            .expect("simple df for test should not fail")
-            .into_value(Span::test_data()),
-        ),
-    },],
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_string("one"), Value::test_string("two")],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_float(0.0), Value::test_float(0.0)],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
+            ),
+        },
+    ],
     var,
     test_var,
-    0
+    1
 );
