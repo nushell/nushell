@@ -1161,6 +1161,17 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_variables(&mut self, variables: Vec<(Vec<u8>, VarId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (mut name, var_id) in variables {
+            if !name.starts_with(b"$") {
+                name.insert(0, b'$');
+            }
+            overlay_frame.insert_variable(name, var_id);
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
@@ -1530,11 +1541,15 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
+        let mut name = name.to_vec();
+        if !name.starts_with(b"$") {
+            name.insert(0, b'$');
+        }
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                if let Some(var_id) = overlay_frame.vars.get(name) {
+                if let Some(var_id) = overlay_frame.vars.get(&name) {
                     return Some(*var_id);
                 }
             }
@@ -1545,7 +1560,7 @@ impl<'a> StateWorkingSet<'a> {
             .active_overlays(&removed_overlays)
             .rev()
         {
-            if let Some(var_id) = overlay_frame.vars.get(name) {
+            if let Some(var_id) = overlay_frame.vars.get(&name) {
                 return Some(*var_id);
             }
         }
