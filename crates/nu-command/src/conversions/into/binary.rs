@@ -9,6 +9,7 @@ use nu_protocol::{
 
 pub struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
+    compact: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -39,6 +40,7 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
+            .switch("compact", "output without padding zeros", None)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -112,6 +114,14 @@ impl Command for SubCommand {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "convert an integer to a nushell binary primitive with compact enabled",
+                example: "10 | into binary --compact",
+                result: Some(Value::Binary {
+                    val: vec![10],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 }
@@ -145,14 +155,17 @@ fn into_binary(
             .into_pipeline_data())
         }
         _ => {
-            let args = Arguments { cell_paths };
+            let args = Arguments {
+                cell_paths,
+                compact: call.has_flag("compact"),
+            };
             operate(action, args, input, call.head, engine_state.ctrlc.clone())
         }
     }
 }
 
 pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
-    match input {
+    let value = match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
             val: val.to_ne_bytes().to_vec(),
@@ -193,6 +206,32 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
                 src_span: other.expect_span(),
             }),
         },
+    };
+
+    if _args.compact {
+        if let Value::Binary { val, span } = value {
+            let val = if cfg!(target_endian = "little") {
+                let mut idx = val.len() - 1;
+                while val[idx] == 0 {
+                    idx -= 1;
+                }
+                let (val, _) = val.split_at(idx + 1);
+                val
+            } else {
+                let mut idx = 0;
+                while val[idx] == 0 {
+                    idx += 1;
+                }
+                let (_, val) = val.split_at(idx);
+                val
+            };
+
+            Value::Binary { val: val.to_vec(), span }
+        } else {
+            value
+        }
+    } else {
+        value
     }
 }
 
