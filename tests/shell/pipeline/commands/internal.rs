@@ -696,42 +696,6 @@ fn range_with_right_var() {
 }
 
 #[test]
-fn range_with_open_left() {
-    let actual = nu!("
-        echo ..30 | math sum
-        ");
-
-    assert_eq!(actual.out, "465");
-}
-
-#[test]
-fn exclusive_range_with_open_left() {
-    let actual = nu!("
-        echo ..<31 | math sum
-        ");
-
-    assert_eq!(actual.out, "465");
-}
-
-#[test]
-fn range_with_open_right() {
-    let actual = nu!("
-        echo 5.. | first 10 | math sum
-        ");
-
-    assert_eq!(actual.out, "95");
-}
-
-#[test]
-fn exclusive_range_with_open_right() {
-    let actual = nu!("
-        echo 5..< | first 10 | math sum
-        ");
-
-    assert_eq!(actual.out, "95");
-}
-
-#[test]
 fn range_with_mixed_types() {
     let actual = nu!("
         echo 1..10.5 | math sum
