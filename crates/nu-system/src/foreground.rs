@@ -163,7 +163,7 @@ mod fg_process_setup {
     }
 
     /// Reset the foreground process group to the shell
-    pub(super) fn reset_foreground_id(interactive: bool) {
+    pub(super) fn reset_foreground_id() {
         if std::io::stdin().is_terminal() {
             if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
                 println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
