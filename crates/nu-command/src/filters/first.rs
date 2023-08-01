@@ -81,8 +81,8 @@ impl Command for First {
         match input {
             PipelineData::ListStream(mut ls, metadata) => {
                 if return_single_element {
-                    if let Some(v) = ls.next() {
-                        Ok(v.into_pipeline_data())
+                    if let Some(first) = ls.next() {
+                        Ok(first.into_pipeline_data())
                     } else {
                         Err(ShellError::AccessEmptyContent { span: head })
                     }
