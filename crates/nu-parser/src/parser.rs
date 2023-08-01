@@ -1395,7 +1395,6 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
     //   and  <range_operator> is "..", "..=" or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
-    //bugbug range cannot be [..] because that looks like parent directory
 
     let contents = working_set.get_span_contents(span);
 
@@ -1436,18 +1435,33 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             (RangeInclusion::RightExclusive, "..<", op_span)
         } else {
             working_set.error(ParseError::Expected(
+                "exclusive operator preceding second range bound",
+                span,
+            ));
+            return garbage(span);
+        }
+    } else if let Some(pos) = token.find("..=") {
+        if pos == range_op_pos {
+            let op_str = "..=";
+            let op_span = Span::new(
+                span.start + range_op_pos,
+                span.start + range_op_pos + op_str.len(),
+            );
+            (RangeInclusion::Inclusive, "..=", op_span)
+        } else {
+            working_set.error(ParseError::Expected(
                 "inclusive operator preceding second range bound",
                 span,
             ));
             return garbage(span);
         }
     } else {
-        let op_str = if token.contains("..=") { "..=" } else { ".." };
+        let op_str = "..";
         let op_span = Span::new(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),
         );
-        (RangeInclusion::Inclusive, op_str, op_span)
+        (RangeInclusion::Inclusive, "..", op_span)
     };
 
     // Now, based on the operator positions, figure out where the bounds & next are located and

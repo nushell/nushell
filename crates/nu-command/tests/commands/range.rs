@@ -66,3 +66,17 @@ fn negative_indices() {
         assert_eq!(actual.out, "1");
     });
 }
+
+#[test]
+fn next_operator_mismatch() {
+    let actual = nu!("[0,1,2,3,4,5] | range ..=..");
+
+    assert!(actual.err.contains("inclusive"));
+}
+
+#[test]
+fn next_operator_mismatch_2() {
+    let actual = nu!("[0,1,2,3,4,5] | range ..<..");
+
+    assert!(actual.err.contains("exclusive"));
+}
