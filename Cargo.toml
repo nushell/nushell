@@ -16,8 +16,8 @@ version = "0.83.2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [package.metadata.binstall]
-pkg-fmt = "tgz"
 pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
+pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-fmt = "zip"
@@ -25,34 +25,33 @@ pkg-fmt = "zip"
 [workspace]
 members = [
 	"crates/nu-cli",
-	"crates/nu-cmd-base",
-	"crates/nu-cmd-dataframe",
-	"crates/nu-cmd-extra",
-	"crates/nu-cmd-lang",
-	"crates/nu-command",
 	"crates/nu-engine",
 	"crates/nu-parser",
-	"crates/nu-plugin",
-	"crates/nu-protocol",
-	"crates/nu-std",
 	"crates/nu-system",
-	"crates/nu-utils",
-	"crates/nu_plugin_custom_values",
-	"crates/nu_plugin_example",
-	"crates/nu_plugin_formats",
-	"crates/nu_plugin_gstat",
+	"crates/nu-cmd-base",
+	"crates/nu-cmd-extra",
+	"crates/nu-cmd-lang",
+	"crates/nu-cmd-dataframe",
+	"crates/nu-command",
+	"crates/nu-protocol",
+	"crates/nu-plugin",
 	"crates/nu_plugin_inc",
+	"crates/nu_plugin_gstat",
+	"crates/nu_plugin_example",
 	"crates/nu_plugin_query",
+	"crates/nu_plugin_custom_values",
+	"crates/nu_plugin_formats",
+	"crates/nu-std",
+	"crates/nu-utils",
 ]
 
 [dependencies]
-nu-ansi-term = "0.49.0"
 nu-cli = { path = "./crates/nu-cli", version = "0.83.2" }
+nu-color-config = { path = "./crates/nu-color-config", version = "0.83.2" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.83.2" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.83.2" }
 nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.83.2", optional = true }
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.83.2", optional = true }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.83.2" }
-nu-color-config = { path = "./crates/nu-color-config", version = "0.83.2" }
 nu-command = { path = "./crates/nu-command", version = "0.83.2" }
 nu-engine = { path = "./crates/nu-engine", version = "0.83.2" }
 nu-explore = { path = "./crates/nu-explore", version = "0.83.2" }
@@ -62,19 +61,19 @@ nu-path = { path = "./crates/nu-path", version = "0.83.2" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.83.2" }
 nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.83.2" }
 nu-protocol = { path = "./crates/nu-protocol", version = "0.83.2" }
-nu-std = { path = "./crates/nu-std", version = "0.83.2" }
 nu-system = { path = "./crates/nu-system", version = "0.83.2" }
 nu-table = { path = "./crates/nu-table", version = "0.83.2" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.83.2" }
+nu-std = { path = "./crates/nu-std", version = "0.83.2" }
 nu-utils = { path = "./crates/nu-utils", version = "0.83.2" }
-reedline = { version = "0.22.0", features = ["bashisms", "sqlite"] }
-
-mimalloc = { version = "0.1.37", default-features = false, optional = true }
+nu-ansi-term = "0.49.0"
+reedline = { version = "0.22.0", features = ["bashisms", "sqlite"]}
 
 crossterm = "0.26"
 ctrlc = "3.4"
 log = "0.4"
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }
+mimalloc = { version = "0.1.37", default-features = false, optional = true}
 serde_json = "1.0"
 simplelog = "0.12"
 time = "0.3"
@@ -88,21 +87,33 @@ signal-hook = { version = "0.3", default-features = false }
 winresource = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
+nix = { version = "0.26", default-features = false, features = [
+	"signal",
+	"process",
+	"fs",
+	"term",
+] }
 is-terminal = "0.4.8"
-nix = { version = "0.26", default-features = false, features = ["fs", "process", "signal", "term"] }
 
 [dev-dependencies]
+nu-test-support = { path = "./crates/nu-test-support", version = "0.83.2" }
 assert_cmd = "2.0"
 criterion = "0.5"
-nu-test-support = { path = "./crates/nu-test-support", version = "0.83.2" }
 pretty_assertions = "1.4"
 rstest = { version = "0.17", default-features = false }
 serial_test = "2.0"
 tempfile = "3.7"
 
 [features]
-default = ["plugin", "sqlite", "trash-support", "which-support"]
-plugin = ["nu-cli/plugin", "nu-command/plugin", "nu-engine/plugin", "nu-parser/plugin", "nu-plugin", "nu-protocol/plugin"]
+plugin = [
+	"nu-plugin",
+	"nu-cli/plugin",
+	"nu-parser/plugin",
+	"nu-command/plugin",
+	"nu-protocol/plugin",
+	"nu-engine/plugin",
+]
+default = ["plugin", "which-support", "trash-support", "sqlite"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
@@ -110,11 +121,11 @@ wasi = ["nu-cmd-lang/wasi"]
 # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
-mimalloc = ["dep:mimalloc", "nu-cmd-lang/mimalloc"]
+mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
 
 # Stable (Default)
-trash-support = ["nu-cmd-lang/trash-support", "nu-command/trash-support"]
-which-support = ["nu-cmd-lang/which-support", "nu-command/which-support"]
+which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
+trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # Extra feature for nushell
 extra = ["dep:nu-cmd-extra", "nu-cmd-lang/extra"]
@@ -123,42 +134,42 @@ extra = ["dep:nu-cmd-extra", "nu-cmd-lang/extra"]
 dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
 
 # SQLite commands for nushell
-sqlite = ["nu-cmd-lang/sqlite", "nu-command/sqlite"]
+sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
 
 [profile.release]
-lto = "thin"
 opt-level = "s"     # Optimize for size
 strip = "debuginfo"
+lto = "thin"
 
 # build with `cargo build --profile profiling`
 # to analyze performance with tooling like linux perf
 [profile.profiling]
-debug = true
 inherits = "release"
 strip = false
+debug = true
 
 # build with `cargo build --profile ci`
 # to analyze performance with tooling like linux perf
 [profile.ci]
-debug = false
 inherits = "dev"
 strip = false
+debug = false
 
 # Main nu binary
 [[bin]]
-bench = false
 name = "nu"
 path = "src/main.rs"
+bench = false
 
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main"}
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Criterion benchmarking setup
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
 [[bench]]
-harness = false
 name = "benchmarks"
+harness = false
