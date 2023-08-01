@@ -17,14 +17,14 @@ fn wrap_rows_into_a_row() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_caballeros.txt
                 | from csv
                 | wrap caballeros
                 | get caballeros
                 | get 0
                 | get last_name
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "Robalino");
@@ -46,14 +46,14 @@ fn wrap_rows_into_a_table() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_caballeros.txt
                 | from csv
                 | get last_name
                 | wrap caballero
                 | get 2
                 | get caballero
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "Katz");

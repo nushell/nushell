@@ -129,12 +129,12 @@ fn selects_a_row() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | sort-by name
                 | select 0
                 | get name.0
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "arepas.txt");
@@ -148,12 +148,12 @@ fn selects_many_rows() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | get name
                 | select 1 0
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "2");

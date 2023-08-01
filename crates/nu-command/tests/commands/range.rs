@@ -9,12 +9,12 @@ fn selects_a_row() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | sort-by name
                 | range 0..0
                 | get name.0
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "notes.txt");
@@ -32,12 +32,12 @@ fn selects_some_rows() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | get name
                 | range 1..2
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "2");
@@ -55,12 +55,12 @@ fn negative_indices() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | get name
                 | range (-1..)
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "1");

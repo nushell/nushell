@@ -35,6 +35,8 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Binary),
                 (Type::Filesize, Type::Binary),
                 (Type::Date, Type::Binary),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(

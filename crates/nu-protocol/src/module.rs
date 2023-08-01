@@ -1,5 +1,6 @@
 use crate::{
     ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
+    VarId,
 };
 
 use indexmap::IndexMap;
@@ -7,11 +8,20 @@ use indexmap::IndexMap;
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
     pub modules: Vec<(Vec<u8>, ModuleId)>,
+    pub variables: Vec<(Vec<u8>, VarId)>,
 }
 
 impl ResolvedImportPattern {
-    pub fn new(decls: Vec<(Vec<u8>, DeclId)>, modules: Vec<(Vec<u8>, ModuleId)>) -> Self {
-        ResolvedImportPattern { decls, modules }
+    pub fn new(
+        decls: Vec<(Vec<u8>, DeclId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
+        variables: Vec<(Vec<u8>, VarId)>,
+    ) -> Self {
+        ResolvedImportPattern {
+            decls,
+            modules,
+            variables,
+        }
     }
 }
 
@@ -21,6 +31,7 @@ pub struct Module {
     pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub submodules: IndexMap<Vec<u8>, ModuleId>,
+    pub variables: IndexMap<Vec<u8>, VarId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
@@ -32,6 +43,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
+            variables: IndexMap::new(),
             env_block: None,
             main: None,
             span: None,
@@ -43,6 +55,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
+            variables: IndexMap::new(),
             env_block: None,
             main: None,
             span: Some(span),
@@ -59,6 +72,10 @@ impl Module {
 
     pub fn add_submodule(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
         self.submodules.insert(name, module_id)
+    }
+
+    pub fn add_variable(&mut self, name: Vec<u8>, var_id: VarId) -> Option<VarId> {
+        self.variables.insert(name, var_id)
     }
 
     pub fn add_env_block(&mut self, block_id: BlockId) {
@@ -87,7 +104,8 @@ impl Module {
             (head, rest)
         } else {
             // Import pattern was just name without any members
-            let mut results = vec![];
+            let mut decls = vec![];
+            let mut vars = vec![];
             let mut errors = vec![];
 
             for (_, id) in &self.submodules {
@@ -101,14 +119,19 @@ impl Module {
                     new_name.push(b' ');
                     new_name.extend(sub_name);
 
-                    results.push((new_name, sub_decl_id));
+                    decls.push((new_name, sub_decl_id));
+                }
+
+                for (sub_name, sub_var_id) in sub_results.variables {
+                    vars.push((sub_name, sub_var_id));
                 }
             }
 
-            results.extend(self.decls_with_head(&final_name));
+            decls.extend(self.decls_with_head(&final_name));
+            vars.extend(self.vars());
 
             return (
-                ResolvedImportPattern::new(results, vec![(final_name, self_id)]),
+                ResolvedImportPattern::new(decls, vec![(final_name, self_id)], vars),
                 errors,
             );
         };
@@ -118,18 +141,27 @@ impl Module {
                 if name == b"main" {
                     if let Some(main_decl_id) = self.main {
                         (
-                            ResolvedImportPattern::new(vec![(final_name, main_decl_id)], vec![]),
+                            ResolvedImportPattern::new(
+                                vec![(final_name, main_decl_id)],
+                                vec![],
+                                vec![],
+                            ),
                             vec![],
                         )
                     } else {
                         (
-                            ResolvedImportPattern::new(vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![]),
                             vec![ParseError::ExportNotFound(*span)],
                         )
                     }
                 } else if let Some(decl_id) = self.decls.get(name) {
                     (
-                        ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![]),
+                        ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![], vec![]),
+                        vec![],
+                    )
+                } else if let Some(var_id) = self.variables.get(name) {
+                    (
+                        ResolvedImportPattern::new(vec![], vec![], vec![(name.clone(), *var_id)]),
                         vec![],
                     )
                 } else if let Some(submodule_id) = self.submodules.get(name) {
@@ -137,7 +169,7 @@ impl Module {
                     submodule.resolve_import_pattern(working_set, *submodule_id, rest, None)
                 } else {
                     (
-                        ResolvedImportPattern::new(vec![], vec![]),
+                        ResolvedImportPattern::new(vec![], vec![], vec![]),
                         vec![ParseError::ExportNotFound(*span)],
                     )
                 }
@@ -145,6 +177,7 @@ impl Module {
             ImportPatternMember::Glob { .. } => {
                 let mut decls = vec![];
                 let mut submodules = vec![];
+                let mut variables = vec![];
                 let mut errors = vec![];
 
                 for (_, id) in &self.submodules {
@@ -152,18 +185,25 @@ impl Module {
                     let (sub_results, sub_errors) =
                         submodule.resolve_import_pattern(working_set, *id, &[], None);
                     decls.extend(sub_results.decls);
+
                     submodules.extend(sub_results.modules);
+                    variables.extend(sub_results.variables);
                     errors.extend(sub_errors);
                 }
 
                 decls.extend(self.decls());
+                variables.extend(self.variables.clone());
                 submodules.extend(self.submodules());
 
-                (ResolvedImportPattern::new(decls, submodules), errors)
+                (
+                    ResolvedImportPattern::new(decls, submodules, variables),
+                    errors,
+                )
             }
             ImportPatternMember::List { names } => {
                 let mut decls = vec![];
                 let mut submodules = vec![];
+                let mut variables = vec![];
                 let mut errors = vec![];
 
                 for (name, span) in names {
@@ -175,6 +215,8 @@ impl Module {
                         }
                     } else if let Some(decl_id) = self.decls.get(name) {
                         decls.push((name.clone(), *decl_id));
+                    } else if let Some(var_id) = self.variables.get(name) {
+                        variables.push((name.clone(), *var_id));
                     } else if let Some(submodule_id) = self.submodules.get(name) {
                         submodules.push((name.clone(), *submodule_id));
                     } else {
@@ -182,7 +224,10 @@ impl Module {
                     }
                 }
 
-                (ResolvedImportPattern::new(decls, submodules), errors)
+                (
+                    ResolvedImportPattern::new(decls, submodules, variables),
+                    errors,
+                )
             }
         }
     }
@@ -215,6 +260,13 @@ impl Module {
         }
 
         result
+    }
+
+    pub fn vars(&self) -> Vec<(Vec<u8>, VarId)> {
+        self.variables
+            .iter()
+            .map(|(name, id)| (name.to_vec(), *id))
+            .collect()
     }
 
     pub fn decl_names_with_head(&self, head: &[u8]) -> Vec<Vec<u8>> {

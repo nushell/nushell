@@ -16,10 +16,9 @@ impl Command for SubCommand {
                 (Type::Number, Type::Int),
                 (
                     Type::List(Box::new(Type::Number)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .category(Category::Math)
     }

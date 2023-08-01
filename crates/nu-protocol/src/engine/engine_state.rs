@@ -724,7 +724,7 @@ impl EngineState {
         output
     }
 
-    pub fn get_span_contents(&self, span: &Span) -> &[u8] {
+    pub fn get_span_contents(&self, span: Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
             if span.start >= *start && span.end <= *finish {
                 return &contents[(span.start - start)..(span.end - start)];
@@ -902,7 +902,7 @@ impl EngineState {
     pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
-            .map(|span| self.get_span_contents(span))
+            .map(|span| self.get_span_contents(*span))
             .collect();
         build_usage(&comment_lines)
     }
@@ -1161,6 +1161,17 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_variables(&mut self, variables: Vec<(Vec<u8>, VarId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (mut name, var_id) in variables {
+            if !name.starts_with(b"$") {
+                name.insert(0, b'$');
+            }
+            overlay_frame.insert_variable(name, var_id);
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
@@ -1370,7 +1381,7 @@ impl<'a> StateWorkingSet<'a> {
                 }
             }
         } else {
-            return self.permanent_state.get_span_contents(&span);
+            return self.permanent_state.get_span_contents(span);
         }
 
         panic!("internal error: missing span contents in file cache")
@@ -1530,11 +1541,15 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
+        let mut name = name.to_vec();
+        if !name.starts_with(b"$") {
+            name.insert(0, b'$');
+        }
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                if let Some(var_id) = overlay_frame.vars.get(name) {
+                if let Some(var_id) = overlay_frame.vars.get(&name) {
                     return Some(*var_id);
                 }
             }
@@ -1545,7 +1560,7 @@ impl<'a> StateWorkingSet<'a> {
             .active_overlays(&removed_overlays)
             .rev()
         {
-            if let Some(var_id) = overlay_frame.vars.get(name) {
+            if let Some(var_id) = overlay_frame.vars.get(&name) {
                 return Some(*var_id);
             }
         }

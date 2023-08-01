@@ -655,3 +655,26 @@ fn def_with_in_var_mut_2() -> TestResult {
         "3",
     )
 }
+
+#[test]
+fn properly_nest_captures() -> TestResult {
+    run_test(r#"do { let b = 3; def c [] { $b }; c }"#, "3")
+}
+
+#[test]
+fn properly_nest_captures_call_first() -> TestResult {
+    run_test(r#"do { let b = 3; c; def c [] { $b }; c }"#, "3")
+}
+
+#[test]
+fn properly_typecheck_rest_param() -> TestResult {
+    run_test(
+        r#"def foo [...rest: string] { $rest | length }; foo "a" "b" "c""#,
+        "3",
+    )
+}
+
+#[test]
+fn implied_collect_has_compatible_type() -> TestResult {
+    run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
+}

@@ -12,8 +12,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math exp")
-            .input_output_types(vec![(Type::Number, Type::Float)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Number, Type::Float),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
