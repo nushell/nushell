@@ -271,6 +271,11 @@ fn nonshortcircuiting_xor() -> TestResult {
 }
 
 #[test]
+fn open_ended_range() -> TestResult {
+    run_test(r#"1.. | take 100000 | length"#, "100000")
+}
+
+#[test]
 fn default_value1() -> TestResult {
     run_test(r#"def foo [x = 3] { $x }; foo"#, "3")
 }
