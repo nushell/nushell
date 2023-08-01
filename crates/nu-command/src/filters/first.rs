@@ -79,6 +79,20 @@ impl Command for First {
         }
 
         match input {
+            PipelineData::ListStream(mut ls, metadata) => {
+                if return_single_element {
+                    if let Some(v) = ls.next() {
+                        Ok(v.into_pipeline_data())
+                    } else {
+                        Err(ShellError::AccessEmptyContent { span: head })
+                    }
+                } else {
+                    Ok(ls
+                        .take(rows_desired)
+                        .into_pipeline_data(ctrlc)
+                        .set_metadata(metadata))
+                }
+            }
             PipelineData::Value(val, _) => match val {
                 Value::List { vals, .. } => {
                     if return_single_element {
@@ -136,20 +150,6 @@ impl Command for First {
                     src_span: other.expect_span(),
                 }),
             },
-            PipelineData::ListStream(mut ls, metadata) => {
-                if return_single_element {
-                    if let Some(v) = ls.next() {
-                        Ok(v.into_pipeline_data())
-                    } else {
-                        Err(ShellError::AccessEmptyContent { span: head })
-                    }
-                } else {
-                    Ok(ls
-                        .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
-                }
-            }
             PipelineData::ExternalStream { span, .. } => {
                 Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),
