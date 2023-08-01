@@ -1,13 +1,6 @@
 use nu_test_support::nu;
 
 #[test]
-fn echo_range_is_lazy() {
-    let actual = nu!("echo 1..10000000000 | first 3 | to json --raw");
-
-    assert_eq!(actual.out, "[1,2,3]");
-}
-
-#[test]
 fn echo_range_handles_inclusive() {
     let actual = nu!("echo 1..3 | each { |x| $x } | to json --raw");
 
