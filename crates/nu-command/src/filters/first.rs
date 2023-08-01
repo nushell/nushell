@@ -33,14 +33,12 @@ impl Command for First {
                     Type::Any,
                 ),
                 (Type::Binary, Type::Binary),
-                (Type::Range, Type::Any),
             ])
             .optional(
                 "rows",
                 SyntaxShape::Int,
                 "starting from the front, the number of rows to return",
             )
-            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
@@ -150,17 +148,6 @@ fn first_helper(
                         Value::Binary { val: slice, span },
                         metadata,
                     ))
-                }
-            }
-            Value::Range { val, .. } => {
-                if return_single_element {
-                    Ok(val.from.into_pipeline_data())
-                } else {
-                    Ok(val
-                        .into_range_iter(ctrlc.clone())?
-                        .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
                 }
             }
             // Propagate errors by explicitly matching them before the final case.
