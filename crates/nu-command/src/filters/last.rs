@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
 use nu_engine::CallExt;
-
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -22,7 +21,7 @@ impl Command for Last {
             .input_output_types(vec![
                 (
                     // TODO: This variant duplicates the functionality of
-                    // `take`. See #6611, #6611, #6893
+                    // `take`. See #6611, #6893
                     // TODO: This is too permissive; if we could express this
                     // using a type parameter style it would be List<T> ->
                     // List<T>.
@@ -47,32 +46,6 @@ impl Command for Last {
 
     fn usage(&self) -> &str {
         "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                example: "[1,2,3] | last 2",
-                description: "Return the last 2 items of a list/table",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3)],
-                    span: Span::test_data(),
-                }),
-            },
-            Example {
-                example: "[1,2,3] | last",
-                description: "Return the last item of a list/table",
-                result: Some(Value::test_int(3)),
-            },
-            Example {
-                example: "0x[01 23 45] | last 2",
-                description: "Return the last 2 bytes of a binary value",
-                result: Some(Value::Binary {
-                    val: vec![0x23, 0x45],
-                    span: Span::test_data(),
-                }),
-            },
-        ]
     }
 
     fn run(
@@ -132,8 +105,8 @@ impl Command for Last {
             PipelineData::Value(val, _) => match val {
                 Value::List { vals, .. } => {
                     if return_single_element {
-                        if let Some(v) = vals.last() {
-                            Ok(v.clone().into_pipeline_data())
+                        if let Some(l) = vals.last() {
+                            Ok(l.clone().into_pipeline_data())
                         } else {
                             Err(ShellError::AccessEmptyContent { span: head })
                         }
@@ -193,6 +166,32 @@ impl Command for Last {
                 src_span: call.head,
             }),
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Return the last 2 items of a list/table",
+                example: "[1,2,3] | last 2",
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(3)],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Return the last item of a list/table",
+                example: "[1,2,3] | last",
+                result: Some(Value::test_int(3)),
+            },
+            Example {
+                description: "Return the last 2 bytes of a binary value",
+                example: "0x[01 23 45] | last 2",
+                result: Some(Value::Binary {
+                    val: vec![0x23, 0x45],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 }
 
