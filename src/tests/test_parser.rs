@@ -146,6 +146,25 @@ fn bad_var_name2() -> TestResult {
 }
 
 #[test]
+fn assignment_with_no_var() -> TestResult {
+    let cases = [
+        "let = if $",
+        "mut = if $",
+        "const = if $",
+        "let = 'foo' | $in; $x | describe",
+        "mut = 'foo' | $in; $x | describe",
+    ];
+
+    let expected = "valid variable";
+
+    for case in cases {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
 fn long_flag() -> TestResult {
     run_test(
         r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
