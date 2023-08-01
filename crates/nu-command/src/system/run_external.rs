@@ -213,7 +213,7 @@ impl ExternalCommand {
             // fails to be run as a normal executable:
             // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
             // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-            match fg_process.spawn(engine_state.is_interactive) {
+            match fg_process.spawn() {
                 Err(err) => {
                     // set the default value, maybe we'll override it later
                     child = Err(err);
@@ -235,7 +235,7 @@ impl ExternalCommand {
                             cmd,
                             engine_state.pipeline_externals_state.clone(),
                         );
-                        child = cmd_process.spawn(engine_state.is_interactive);
+                        child = cmd_process.spawn();
                     } else {
                         #[cfg(feature = "which-support")]
                         {
@@ -269,8 +269,7 @@ impl ExternalCommand {
                                                     cmd,
                                                     engine_state.pipeline_externals_state.clone(),
                                                 );
-                                                child =
-                                                    cmd_process.spawn(engine_state.is_interactive);
+                                                child = cmd_process.spawn();
                                             }
                                         }
                                     }
@@ -287,7 +286,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = fg_process.spawn(engine_state.is_interactive)
+            child = fg_process.spawn()
         }
 
         match child {
