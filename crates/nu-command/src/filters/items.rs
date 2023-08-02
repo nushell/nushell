@@ -23,6 +23,7 @@ impl Command for Items {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "the closure to run",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
