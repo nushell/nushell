@@ -250,8 +250,6 @@ fn move_record_columns(
         }
     }
 
-    if columns.is_empty() {}
-
     let mut out_cols: Vec<String> = Vec::with_capacity(inp_cols.len());
     let mut out_vals: Vec<Value> = Vec::with_capacity(inp_vals.len());
 

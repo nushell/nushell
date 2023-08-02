@@ -25,24 +25,3 @@ fn splits_correctly_single_path() {
 
     assert_eq!(actual.out, "spam.txt");
 }
-
-#[test]
-fn splits_correctly_with_column_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo [
-                [home, barn];
-
-                ['home/viking/spam.txt', 'barn/cow/moo.png']
-                ['home/viking/eggs.txt', 'barn/goat/cheese.png']
-            ]
-            | path split -c [ home barn ]
-            | get barn
-            | flatten
-            | length
-        "#
-    ));
-
-    assert_eq!(actual.out, "6");
-}

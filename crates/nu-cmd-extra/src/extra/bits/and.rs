@@ -15,8 +15,13 @@ impl Command for BitsAnd {
 
     fn signature(&self) -> Signature {
         Signature::build("bits and")
-            .input_output_types(vec![(Type::Int, Type::Int)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Int, Type::Int),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+            ])
             .required(
                 "target",
                 SyntaxShape::Int,

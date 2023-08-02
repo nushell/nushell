@@ -12,8 +12,19 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math abs")
-            .input_output_types(vec![(Type::Number, Type::Number)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Number, Type::Number),
+                (Type::Duration, Type::Duration),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Number)),
+                ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 

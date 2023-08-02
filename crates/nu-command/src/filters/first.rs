@@ -33,12 +33,14 @@ impl Command for First {
                     Type::Any,
                 ),
                 (Type::Binary, Type::Binary),
+                (Type::Range, Type::Any),
             ])
             .optional(
                 "rows",
                 SyntaxShape::Int,
                 "starting from the front, the number of rows to return",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

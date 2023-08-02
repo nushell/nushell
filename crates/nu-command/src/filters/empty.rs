@@ -76,13 +76,13 @@ fn empty(
                 let val = val.clone();
                 match val.follow_cell_path(&column.members, false) {
                     Ok(Value::Nothing { .. }) => {}
-                    Ok(_) => return Ok(Value::boolean(false, head).into_pipeline_data()),
+                    Ok(_) => return Ok(Value::bool(false, head).into_pipeline_data()),
                     Err(err) => return Err(err),
                 }
             }
         }
 
-        Ok(Value::boolean(true, head).into_pipeline_data())
+        Ok(Value::bool(true, head).into_pipeline_data())
     } else {
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -91,17 +91,17 @@ fn empty(
                     let bytes = s.into_bytes();
 
                     match bytes {
-                        Ok(s) => Ok(Value::boolean(s.item.is_empty(), head).into_pipeline_data()),
+                        Ok(s) => Ok(Value::bool(s.item.is_empty(), head).into_pipeline_data()),
                         Err(err) => Err(err),
                     }
                 }
-                None => Ok(Value::boolean(true, head).into_pipeline_data()),
+                None => Ok(Value::bool(true, head).into_pipeline_data()),
             },
             PipelineData::ListStream(s, ..) => {
-                Ok(Value::boolean(s.count() == 0, head).into_pipeline_data())
+                Ok(Value::bool(s.count() == 0, head).into_pipeline_data())
             }
             PipelineData::Value(value, ..) => {
-                Ok(Value::boolean(value.is_empty(), head).into_pipeline_data())
+                Ok(Value::bool(value.is_empty(), head).into_pipeline_data())
             }
         }
     }

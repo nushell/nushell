@@ -143,7 +143,7 @@ fn override_table() -> TestResult {
 
 #[test]
 fn override_table_eval_file() {
-    let actual = nu!(cwd: ".", r#"def table [] { "hi" }; table"#);
+    let actual = nu!(r#"def table [] { "hi" }; table"#);
     assert_eq!(actual.out, "hi");
 }
 
@@ -153,11 +153,8 @@ fn override_table_eval_file() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_recursion_does_not_panic() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
+    let actual = nu!(r#"
             def bang [] { bang }; bang
-        "#
-    );
+        "#);
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }

@@ -113,47 +113,61 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            filesize_metric: false,
-            table_mode: "rounded".into(),
-            table_show_empty: true,
-            external_completer: None,
+            show_banner: true,
+
             use_ls_colors: true,
-            color_config: HashMap::new(),
-            use_grid_icons: false,
-            footer_mode: FooterMode::RowCount(25),
-            float_precision: 4,
-            max_external_completion_results: 100,
-            filesize_format: "auto".into(),
-            use_ansi_coloring: true,
-            quick_completions: true,
-            partial_completions: true,
-            completion_algorithm: "prefix".into(),
-            edit_mode: "emacs".into(),
-            max_history_size: i64::MAX,
+            show_clickable_links_in_ls: true,
+
+            rm_always_trash: false,
+
+            cd_with_abbreviations: false,
+
+            table_mode: "rounded".into(),
+            table_index_mode: TableIndexMode::Always,
+            table_show_empty: true,
+            trim_strategy: TRIM_STRATEGY_DEFAULT,
+
+            datetime_normal_format: None,
+            datetime_table_format: None,
+
+            explore: HashMap::new(),
+
+            max_history_size: 100_000,
             sync_history_on_enter: true,
             history_file_format: HistoryFileFormat::PlainText,
             history_isolation: false,
-            keybindings: Vec::new(),
-            menus: Vec::new(),
-            hooks: Hooks::new(),
-            rm_always_trash: false,
-            shell_integration: false,
-            buffer_editor: String::new(),
-            table_index_mode: TableIndexMode::Always,
-            cd_with_abbreviations: false,
+
             case_sensitive_completions: false,
+            quick_completions: true,
+            partial_completions: true,
+            completion_algorithm: "prefix".into(),
             enable_external_completion: true,
-            trim_strategy: TRIM_STRATEGY_DEFAULT,
-            show_banner: true,
-            bracketed_paste: true,
-            show_clickable_links_in_ls: true,
-            render_right_prompt_on_last_line: false,
-            explore: HashMap::new(),
+            max_external_completion_results: 100,
+            external_completer: None,
+
+            filesize_metric: false,
+            filesize_format: "auto".into(),
+
+            cursor_shape_emacs: NuCursorShape::Line,
             cursor_shape_vi_insert: NuCursorShape::Block,
             cursor_shape_vi_normal: NuCursorShape::UnderScore,
-            cursor_shape_emacs: NuCursorShape::Line,
-            datetime_normal_format: None,
-            datetime_table_format: None,
+
+            color_config: HashMap::new(),
+            use_grid_icons: true,
+            footer_mode: FooterMode::RowCount(25),
+            float_precision: 2,
+            buffer_editor: String::new(),
+            use_ansi_coloring: true,
+            bracketed_paste: true,
+            edit_mode: "emacs".into(),
+            shell_integration: false,
+            render_right_prompt_on_last_line: false,
+
+            hooks: Hooks::new(),
+
+            menus: Vec::new(),
+
+            keybindings: Vec::new(),
         }
     }
 }
@@ -253,20 +267,20 @@ impl Value {
                 if let Ok(b) = &$vals[$index].as_bool() {
                     config.$setting = *b;
                 } else {
-                    invalid!(Some(*$span), "should be a bool");
+                    invalid!(Some($span), "should be a bool");
                     // Reconstruct
-                    $vals[$index] = Value::boolean(config.$setting, *$span);
+                    $vals[$index] = Value::bool(config.$setting, $span);
                 }
             };
         }
         macro_rules! try_int {
             ($cols:ident, $vals:ident, $index:ident, $span:expr, $setting:ident) => {
-                if let Ok(b) = &$vals[$index].as_integer() {
+                if let Ok(b) = &$vals[$index].as_int() {
                     config.$setting = *b;
                 } else {
-                    invalid!(Some(*$span), "should be an int");
+                    invalid!(Some($span), "should be an int");
                     // Reconstruct
-                    $vals[$index] = Value::int(config.$setting, *$span);
+                    $vals[$index] = Value::int(config.$setting, $span);
                 }
             };
         }
@@ -297,6 +311,7 @@ impl Value {
         // the current use_ls_colors config setting is converted to a Value::Boolean and inserted in the
         // record in place of the 2.
         if let Value::Record { cols, vals, span } = self {
+            let span = *span;
             // Because this whole algorithm removes while iterating, this must iterate in reverse.
             for index in (0..cols.len()).rev() {
                 let value = &vals[index];
@@ -305,6 +320,7 @@ impl Value {
                     // Grouped options
                     "ls" => {
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -336,10 +352,10 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["use_ls_colors".into(), "clickable_links".into()],
                                 vec![
-                                    Value::boolean(config.use_ls_colors, *span),
-                                    Value::boolean(config.show_clickable_links_in_ls, *span),
+                                    Value::bool(config.use_ls_colors, span),
+                                    Value::bool(config.show_clickable_links_in_ls, span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -350,7 +366,7 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "abbreviations" => {
-                                        try_bool!(cols, vals, index, span, cd_with_abbreviations)
+                                        try_bool!(cols, vals, index, *span, cd_with_abbreviations)
                                     }
                                     x => {
                                         invalid_key!(
@@ -369,10 +385,10 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["use_ls_colors".into(), "clickable_links".into()],
                                 vec![
-                                    Value::boolean(config.use_ls_colors, *span),
-                                    Value::boolean(config.show_clickable_links_in_ls, *span),
+                                    Value::bool(config.use_ls_colors, span),
+                                    Value::bool(config.show_clickable_links_in_ls, span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -383,7 +399,7 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "always_trash" => {
-                                        try_bool!(cols, vals, index, span, rm_always_trash)
+                                        try_bool!(cols, vals, index, *span, rm_always_trash)
                                     }
                                     x => {
                                         invalid_key!(
@@ -401,8 +417,8 @@ impl Value {
                             // Reconstruct
                             vals[index] = Value::record(
                                 vec!["always_trash".into()],
-                                vec![Value::boolean(config.rm_always_trash, *span)],
-                                *span,
+                                vec![Value::bool(config.rm_always_trash, span)],
+                                span,
                             );
                         }
                     }
@@ -414,11 +430,12 @@ impl Value {
                                         HistoryFileFormat::Sqlite => "sqlite",
                                         HistoryFileFormat::PlainText => "plaintext",
                                     },
-                                    *$span,
+                                    $span,
                                 )
                             };
                         }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -445,7 +462,7 @@ impl Value {
                                                         HistoryFileFormat::PlainText
                                                 }
                                                 _ => {
-                                                    invalid!(Some(*span),
+                                                    invalid!(Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
                                                     );
                                                     // Reconstruct
@@ -454,7 +471,7 @@ impl Value {
                                                 }
                                             };
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             // Reconstruct
                                             vals[index] = reconstruct_history_file_format!(span);
                                         }
@@ -481,12 +498,12 @@ impl Value {
                                     "isolation".into(),
                                 ],
                                 vec![
-                                    Value::boolean(config.sync_history_on_enter, *span),
-                                    Value::int(config.max_history_size, *span),
+                                    Value::bool(config.sync_history_on_enter, span),
+                                    Value::int(config.max_history_size, span),
                                     reconstruct_history_file_format!(span),
-                                    Value::boolean(config.history_isolation, *span),
+                                    Value::bool(config.history_isolation, span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -496,10 +513,10 @@ impl Value {
                                 if let Some(block) = config.external_completer {
                                     Value::Block {
                                         val: block,
-                                        span: *$span,
+                                        span: $span,
                                     }
                                 } else {
-                                    Value::Nothing { span: *$span }
+                                    Value::Nothing { span: $span }
                                 }
                             };
                         }
@@ -508,15 +525,16 @@ impl Value {
                                 Value::record(
                                     vec!["max_results".into(), "completer".into(), "enable".into()],
                                     vec![
-                                        Value::int(config.max_external_completion_results, *$span),
+                                        Value::int(config.max_external_completion_results, $span),
                                         reconstruct_external_completer!($span),
-                                        Value::boolean(config.enable_external_completion, *$span),
+                                        Value::bool(config.enable_external_completion, $span),
                                     ],
-                                    *$span,
+                                    $span,
                                 )
                             };
                         }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -536,22 +554,22 @@ impl Value {
                                                     config.completion_algorithm = val_str
                                                 }
                                                 _ => {
-                                                    invalid!( Some(*span),
+                                                    invalid!( Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'prefix' or 'fuzzy'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = Value::string(
                                                         config.completion_algorithm.clone(),
-                                                        *span,
+                                                        span,
                                                     );
                                                 }
                                             };
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             // Reconstruct
                                             vals[index] = Value::string(
                                                 config.completion_algorithm.clone(),
-                                                *span,
+                                                span,
                                             );
                                         }
                                     }
@@ -567,6 +585,7 @@ impl Value {
                                     "external" => {
                                         if let Value::Record { cols, vals, span } = &mut vals[index]
                                         {
+                                            let span = *span;
                                             for index in (0..cols.len()).rev() {
                                                 let value = &vals[index];
                                                 let key3 = cols[index].as_str();
@@ -588,7 +607,7 @@ impl Value {
                                                                 Value::Nothing { .. } => {}
                                                                 _ => {
                                                                     invalid!(
-                                                                        Some(*span),
+                                                                        Some(span),
                                                                         "should be a block or null"
                                                                     );
                                                                     // Reconstruct
@@ -620,7 +639,7 @@ impl Value {
                                                 }
                                             }
                                         } else {
-                                            invalid!(Some(*span), "should be a record");
+                                            invalid!(Some(span), "should be a record");
                                             // Reconstruct
                                             vals[index] = reconstruct_external!(span);
                                         }
@@ -648,13 +667,13 @@ impl Value {
                                     "external".into(),
                                 ],
                                 vec![
-                                    Value::boolean(config.quick_completions, *span),
-                                    Value::boolean(config.partial_completions, *span),
-                                    Value::string(config.completion_algorithm.clone(), *span),
-                                    Value::boolean(config.case_sensitive_completions, *span),
+                                    Value::bool(config.quick_completions, span),
+                                    Value::bool(config.partial_completions, span),
+                                    Value::string(config.completion_algorithm.clone(), span),
+                                    Value::bool(config.case_sensitive_completions, span),
                                     reconstruct_external!(span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -670,11 +689,12 @@ impl Value {
                                         NuCursorShape::BlinkBlock => "blink_block",
                                         NuCursorShape::BlinkUnderScore => "blink_underscore",
                                     },
-                                    *$span,
+                                    $span,
                                 )
                             };
                         }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -708,7 +728,7 @@ impl Value {
                                                         NuCursorShape::BlinkUnderScore;
                                                 }
                                                 _ => {
-                                                    invalid!(Some(*span),
+                                                    invalid!(Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
@@ -719,7 +739,7 @@ impl Value {
                                                 }
                                             };
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             // Reconstruct
                                             vals[index] = reconstruct_cursor_shape!(
                                                 config.cursor_shape_vi_insert,
@@ -756,7 +776,7 @@ impl Value {
                                                         NuCursorShape::BlinkUnderScore;
                                                 }
                                                 _ => {
-                                                    invalid!(Some(*span),
+                                                    invalid!(Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
@@ -767,7 +787,7 @@ impl Value {
                                                 }
                                             };
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             // Reconstruct
                                             vals[index] = reconstruct_cursor_shape!(
                                                 config.cursor_shape_vi_normal,
@@ -803,7 +823,7 @@ impl Value {
                                                         NuCursorShape::BlinkUnderScore;
                                                 }
                                                 _ => {
-                                                    invalid!(Some(*span),
+                                                    invalid!(Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
                                                     );
                                                     // Reconstruct
@@ -814,7 +834,7 @@ impl Value {
                                                 }
                                             };
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             // Reconstruct
                                             vals[index] = reconstruct_cursor_shape!(
                                                 config.cursor_shape_emacs,
@@ -843,7 +863,7 @@ impl Value {
                                     reconstruct_cursor_shape!(config.cursor_shape_vi_normal, span),
                                     reconstruct_cursor_shape!(config.cursor_shape_emacs, span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -856,7 +876,7 @@ impl Value {
                                         TableIndexMode::Never => "never",
                                         TableIndexMode::Auto => "auto",
                                     },
-                                    *$span,
+                                    $span,
                                 )
                             };
                         }
@@ -869,29 +889,30 @@ impl Value {
                                             "wrapping_try_keep_words".into(),
                                         ],
                                         vec![
-                                            Value::string("wrapping", *$span),
-                                            Value::boolean(*try_to_keep_words, *$span),
+                                            Value::string("wrapping", $span),
+                                            Value::bool(*try_to_keep_words, $span),
                                         ],
-                                        *$span,
+                                        $span,
                                     ),
                                     TrimStrategy::Truncate { suffix } => Value::record(
                                         vec!["methodology".into(), "truncating_suffix".into()],
                                         match suffix {
                                             Some(s) => vec![
-                                                Value::string("truncating", *$span),
-                                                Value::string(s.clone(), *$span),
+                                                Value::string("truncating", $span),
+                                                Value::string(s.clone(), $span),
                                             ],
                                             None => vec![
-                                                Value::string("truncating", *$span),
-                                                Value::Nothing { span: *span },
+                                                Value::string("truncating", $span),
+                                                Value::Nothing { span: $span },
                                             ],
                                         },
-                                        *$span,
+                                        $span,
                                     ),
                                 }
                             };
                         }
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -900,9 +921,9 @@ impl Value {
                                         if let Ok(v) = value.as_string() {
                                             config.table_mode = v;
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             vals[index] =
-                                                Value::string(config.table_mode.clone(), *span);
+                                                Value::string(config.table_mode.clone(), span);
                                         }
                                     }
                                     "index_mode" => {
@@ -919,14 +940,14 @@ impl Value {
                                                     config.table_index_mode = TableIndexMode::Auto
                                                 }
                                                 _ => {
-                                                    invalid!( Some(*span),
+                                                    invalid!( Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
                                                     );
                                                     vals[index] = reconstruct_index_mode!(span);
                                                 }
                                             }
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             vals[index] = reconstruct_index_mode!(span);
                                         }
                                     }
@@ -965,17 +986,18 @@ impl Value {
                                     "show_empty".into(),
                                 ],
                                 vec![
-                                    Value::string(config.table_mode.clone(), *span),
+                                    Value::string(config.table_mode.clone(), span),
                                     reconstruct_index_mode!(span),
                                     reconstruct_trim_strategy!(span),
-                                    Value::boolean(config.table_show_empty, *span),
+                                    Value::bool(config.table_show_empty, span),
                                 ],
-                                *span,
+                                span,
                             )
                         }
                     }
                     "filesize" => {
                         if let Value::Record { cols, vals, span } = &mut vals[index] {
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -987,12 +1009,10 @@ impl Value {
                                         if let Ok(v) = value.as_string() {
                                             config.filesize_format = v.to_lowercase();
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = Value::string(
-                                                config.filesize_format.clone(),
-                                                *span,
-                                            );
+                                            vals[index] =
+                                                Value::string(config.filesize_format.clone(), span);
                                         }
                                     }
                                     x => {
@@ -1012,10 +1032,10 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["metric".into(), "format".into()],
                                 vec![
-                                    Value::boolean(config.filesize_metric, *span),
-                                    Value::string(config.filesize_format.clone(), *span),
+                                    Value::bool(config.filesize_metric, span),
+                                    Value::string(config.filesize_format.clone(), span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -1025,7 +1045,7 @@ impl Value {
                         } else {
                             invalid!(vals[index].span().ok(), "should be a record");
                             // Reconstruct
-                            vals[index] = Value::record_from_hashmap(&config.explore, *span);
+                            vals[index] = Value::record_from_hashmap(&config.explore, span);
                         }
                     }
                     // Misc. options
@@ -1035,7 +1055,7 @@ impl Value {
                         } else {
                             invalid!(vals[index].span().ok(), "should be a record");
                             // Reconstruct
-                            vals[index] = Value::record_from_hashmap(&config.color_config, *span);
+                            vals[index] = Value::record_from_hashmap(&config.color_config, span);
                         }
                     }
                     "use_grid_icons" => {
@@ -1054,7 +1074,7 @@ impl Value {
                                 },
                             };
                         } else {
-                            invalid!(Some(*span), "should be a string");
+                            invalid!(Some(span), "should be a string");
                             // Reconstruct
                             vals[index] = Value::String {
                                 val: match config.footer_mode {
@@ -1063,7 +1083,7 @@ impl Value {
                                     FooterMode::Always => "always".into(),
                                     FooterMode::RowCount(number) => number.to_string(),
                                 },
-                                span: *span,
+                                span,
                             };
                         }
                     }
@@ -1077,9 +1097,9 @@ impl Value {
                         if let Ok(v) = value.as_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
-                            invalid!(Some(*span), "should be a string");
+                            invalid!(Some(span), "should be a string");
                             // Reconstruct
-                            vals[index] = Value::string(config.edit_mode.clone(), *span);
+                            vals[index] = Value::string(config.edit_mode.clone(), span);
                         }
                     }
                     "shell_integration" => {
@@ -1089,7 +1109,7 @@ impl Value {
                         if let Ok(v) = value.as_string() {
                             config.buffer_editor = v.to_lowercase();
                         } else {
-                            invalid!(Some(*span), "should be a string");
+                            invalid!(Some(span), "should be a string");
                         }
                     }
                     "show_banner" => {
@@ -1105,7 +1125,7 @@ impl Value {
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
-                            invalid!(Some(*span), "should be a valid list of menus");
+                            invalid!(Some(span), "should be a valid list of menus");
                             errors.push(e);
                             // Reconstruct
                             vals[index] = Value::List {
@@ -1138,12 +1158,12 @@ impl Value {
                                                     menu_type.clone(),
                                                     source.clone(),
                                                 ],
-                                                span: *span,
+                                                span,
                                             }
                                         },
                                     )
                                     .collect(),
-                                span: *span,
+                                span,
                             }
                         }
                     },
@@ -1151,7 +1171,7 @@ impl Value {
                     "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
-                            invalid!(Some(*span), "should be a valid keybindings list");
+                            invalid!(Some(span), "should be a valid keybindings list");
                             errors.push(e);
                             // Reconstruct
                             vals[index] = Value::List {
@@ -1178,12 +1198,12 @@ impl Value {
                                                     mode.clone(),
                                                     event.clone(),
                                                 ],
-                                                span: *span,
+                                                span,
                                             }
                                         },
                                     )
                                     .collect(),
-                                span: *span,
+                                span,
                             }
                         }
                     },
@@ -1191,7 +1211,7 @@ impl Value {
                     "hooks" => match create_hooks(value) {
                         Ok(hooks) => config.hooks = hooks,
                         Err(e) => {
-                            invalid!(Some(*span), "should be a valid hooks list");
+                            invalid!(Some(span), "should be a valid hooks list");
                             errors.push(e);
                             // Reconstruct
                             let mut hook_cols = vec![];
@@ -1215,7 +1235,7 @@ impl Value {
                             vals.push(Value::Record {
                                 cols: hook_cols,
                                 vals: hook_vals,
-                                span: *span,
+                                span,
                             });
                         }
                     },
@@ -1256,10 +1276,10 @@ impl Value {
                             vals[index] = Value::record(
                                 vec!["metric".into(), "format".into()],
                                 vec![
-                                    Value::boolean(config.filesize_metric, *span),
-                                    Value::string(config.filesize_format.clone(), *span),
+                                    Value::bool(config.filesize_metric, span),
+                                    Value::string(config.filesize_format.clone(), span),
                                 ],
-                                *span,
+                                span,
                             );
                         }
                     }
@@ -1444,6 +1464,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
+            let span = *span;
             // Finding the modifier value in the record
             let modifier = extract_value("modifier", cols, vals, span)?.clone();
             let keycode = extract_value("keycode", cols, vals, span)?.clone();
@@ -1481,6 +1502,7 @@ fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError
 pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
+            let span = *span;
             // Finding the modifier value in the record
             let name = extract_value("name", cols, vals, span)?.clone();
             let marker = extract_value("marker", cols, vals, span)?.clone();
@@ -1492,7 +1514,7 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
             // Source is an optional value
             let source = match extract_value("source", cols, vals, span) {
                 Ok(source) => source.clone(),
-                Err(_) => Value::Nothing { span: *span },
+                Err(_) => Value::Nothing { span },
             };
 
             let menu = ParsedMenu {
@@ -1524,10 +1546,10 @@ pub fn extract_value<'record>(
     name: &str,
     cols: &'record [String],
     vals: &'record [Value],
-    span: &Span,
+    span: Span,
 ) -> Result<&'record Value, ShellError> {
     cols.iter()
         .position(|col| col.as_str() == name)
         .and_then(|index| vals.get(index))
-        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), *span))
+        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
 }

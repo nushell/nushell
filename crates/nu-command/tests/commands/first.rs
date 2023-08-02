@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn gets_first_rows_by_amount() {
@@ -12,14 +12,7 @@ fn gets_first_rows_by_amount() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | first 3
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), "ls | first 3 | length");
 
         assert_eq!(actual.out, "3");
     })
@@ -36,13 +29,7 @@ fn gets_all_rows_if_amount_higher_than_all_rows() {
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | first 99
-                | length
-            "#
-        ));
+            cwd: dirs.test(), "ls | first 99 | length");
 
         assert_eq!(actual.out, "4");
     })
@@ -53,14 +40,7 @@ fn gets_first_row_when_no_amount_given() {
     Playground::setup("first_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ls
-                | first
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), "ls | first | length");
 
         assert_eq!(actual.out, "1");
     })
@@ -68,35 +48,21 @@ fn gets_first_row_when_no_amount_given() {
 
 #[test]
 fn gets_first_row_as_list_when_amount_given() {
-    let actual = nu!(pipeline(
-        r#"
-            [1, 2, 3]
-            | first 1
-            | describe
-        "#
-    ));
+    let actual = nu!("[1, 2, 3] | first 1 | describe");
 
     assert_eq!(actual.out, "list<int> (stream)");
 }
 
 #[test]
 fn gets_first_bytes() {
-    let actual = nu!(pipeline(
-        r#"
-            (0x[aa bb cc] | first 2) == 0x[aa bb]
-        "#
-    ));
+    let actual = nu!("(0x[aa bb cc] | first 2) == 0x[aa bb]");
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn gets_first_byte() {
-    let actual = nu!(pipeline(
-        r#"
-            0x[aa bb cc] | first
-        "#
-    ));
+    let actual = nu!("0x[aa bb cc] | first");
 
     assert_eq!(actual.out, "170");
 }
@@ -111,24 +77,14 @@ fn works_with_binary_list() {
 
 #[test]
 fn errors_on_negative_rows() {
-    let actual = nu!(pipeline(
-        r#"
-            [1, 2, 3]
-            | first -10
-        "#
-    ));
+    let actual = nu!("[1, 2, 3] | first -10");
 
     assert!(actual.err.contains("use a positive value"));
 }
 
 #[test]
 fn errors_on_empty_list_when_no_rows_given() {
-    let actual = nu!(pipeline(
-        r#"
-            []
-            | first
-        "#
-    ));
+    let actual = nu!("[] | first");
 
     assert!(actual.err.contains("index too large"));
 }

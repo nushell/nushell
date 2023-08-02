@@ -28,7 +28,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str distance")
-            .input_output_types(vec![(Type::String, Type::Int)])
+            .input_output_types(vec![
+                (Type::String, Type::Int),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .required(
                 "compare-string",
                 SyntaxShape::String,
@@ -74,7 +78,7 @@ impl Command for SubCommand {
             result: Some(Value::test_int(1)),
         },
         Example {
-            description: "Compute edit distance between strings in record and another string, using cell paths",
+            description: "Compute edit distance between strings in table and another string, using cell paths",
             example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
             result: Some(Value::List {
                 vals: vec![
@@ -86,6 +90,17 @@ impl Command for SubCommand {
                 ],
                 span: Span::test_data(),
             }),
+        },
+        Example {
+            description: "Compute edit distance between strings in record and another string, using cell paths",
+            example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
+            result: Some(
+                    Value::Record {
+                        cols: vec!["a".to_string(), "b".to_string()],
+                        vals: vec![Value::test_int(1), Value::test_int(4)],
+                        span: Span::test_data(),
+                    }
+                ),
         }]
     }
 }

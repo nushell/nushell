@@ -507,7 +507,9 @@ impl Command for AnsiCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::String),
+                (Type::Nothing, Type::Table(vec![]))])
             .optional(
                 "code",
                 SyntaxShape::Any,
@@ -515,15 +517,16 @@ impl Command for AnsiCommand {
             )
             .switch(
                 "escape", // \x1b[
-                r#"escape sequence without the escape character(s) ('\x1b[' is not required)"#,
+                r"escape sequence without the escape character(s) ('\x1b[' is not required)",
                 Some('e'),
             )
             .switch(
                 "osc", // \x1b]
-                r#"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)"#,
+                r"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)",
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
+            .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
 

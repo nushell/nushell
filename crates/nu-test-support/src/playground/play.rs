@@ -1,7 +1,6 @@
 use super::Director;
 use crate::fs;
 use crate::fs::Stub;
-use getset::Getters;
 use nu_glob::glob;
 use std::path::{Path, PathBuf};
 use std::str;
@@ -31,8 +30,7 @@ pub struct Playground<'a> {
     dirs: &'a Dirs,
 }
 
-#[derive(Default, Getters, Clone)]
-#[get = "pub"]
+#[derive(Default, Clone)]
 pub struct Dirs {
     pub root: PathBuf,
     pub test: PathBuf,
@@ -46,6 +44,14 @@ impl Dirs {
 
     pub fn config_fixtures(&self) -> PathBuf {
         self.fixtures.join("playground/config")
+    }
+
+    pub fn root(&self) -> &PathBuf {
+        &self.root
+    }
+
+    pub fn test(&self) -> &PathBuf {
+        &self.test
     }
 }
 

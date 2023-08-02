@@ -21,6 +21,7 @@ impl Command for Select {
             .input_output_types(vec![
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Any),
             ])
             .switch(
                 "ignore-errors",
@@ -32,6 +33,7 @@ impl Command for Select {
                 SyntaxShape::CellPath,
                 "the columns to select from the table",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

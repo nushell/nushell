@@ -52,7 +52,7 @@ fn condition_is_met() {
 
 #[test]
 fn fail_on_non_iterator() {
-    let actual = nu!(cwd: ".", pipeline("1 | skip while {|row| $row == 2}"));
+    let actual = nu!("1 | skip while {|row| $row == 2}");
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
 }

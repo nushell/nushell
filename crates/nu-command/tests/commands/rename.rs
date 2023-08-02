@@ -17,14 +17,14 @@ fn changes_the_column_name() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_cuatro_mosqueteros.txt
                 | lines
                 | wrap name
                 | rename mosqueteros
                 | get mosqueteros
                 | length
-                "#
+                "
         ));
 
         assert_eq!(actual.out, "4");
@@ -76,14 +76,14 @@ fn errors_if_no_columns_present() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_cuatro_mosqueteros.txt
                 | lines
                 | rename mosqueteros
-                "#
+                "
         ));
 
-        assert!(actual.err.contains("only record input data is supported"));
+        assert!(actual.err.contains("command doesn't support"));
     })
 }
 

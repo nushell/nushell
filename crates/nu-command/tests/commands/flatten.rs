@@ -4,8 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn flatten_nested_tables_with_columns() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
                  [[origin, people]; [Nu, ('nuno' | wrap name)]]
@@ -20,8 +19,7 @@ fn flatten_nested_tables_with_columns() {
 
 #[test]
 fn flatten_nested_tables_that_have_many_columns() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
             [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
@@ -36,11 +34,8 @@ fn flatten_nested_tables_that_have_many_columns() {
 
 #[test]
 fn flatten_nested_tables() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-            echo [[Andrés, Nicolás, Robalino]] | flatten | get 1
-        "#
+    let actual = nu!(pipeline(
+        "echo [[Andrés, Nicolás, Robalino]] | flatten | get 1"
     ));
 
     assert_eq!(actual.out, "Nicolás");

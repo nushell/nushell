@@ -17,15 +17,13 @@ impl Command for Items {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                Type::Record(vec![]),
-                Type::List(Box::new(Type::String)),
-            )])
+            .input_output_types(vec![(Type::Record(vec![]), Type::Any)])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "the closure to run",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
@@ -98,7 +96,7 @@ impl Command for Items {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => Ok(cols
                 .into_iter()
-                .zip(vals.into_iter())
+                .zip(vals)
                 .map_while(run_for_each_item)
                 .into_pipeline_data(ctrlc)),
             // Errors

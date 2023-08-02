@@ -111,3 +111,47 @@ fn export_alias() -> TestResult {
         "hello",
     )
 }
+
+#[test]
+fn export_consts() -> TestResult {
+    run_test(
+        r#"module spam { export const b = 3; }; use spam b; $b"#,
+        "3",
+    )
+}
+
+#[test]
+fn func_use_consts() -> TestResult {
+    run_test(
+        r#"module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "3",
+    )
+}
+
+#[test]
+fn export_module_which_defined_const() -> TestResult {
+    run_test(
+        r#"module spam { export const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
+        "7",
+    )
+}
+
+#[test]
+fn cannot_export_private_const() -> TestResult {
+    fail_test(
+        r#"module spam { const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
+        "cannot find column 'b'",
+    )
+}
+
+#[test]
+fn test_lexical_binding() -> TestResult {
+    run_test(
+        r#"module spam { const b = 3; export def c [] { $b } }; use spam c; const b = 4; c"#,
+        "3",
+    )?;
+    run_test(
+        r#"const b = 4; module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "3",
+    )
+}

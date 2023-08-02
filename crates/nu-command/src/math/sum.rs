@@ -14,7 +14,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math sum")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Duration),
+                (Type::List(Box::new(Type::Filesize)), Type::Filesize),
+                (Type::Range, Type::Number),
+                (Type::Table(vec![]), Type::Table(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
@@ -52,9 +59,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn summation(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
+pub fn summation(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let sum_func = reducer_for(Reduce::Summation);
-    sum_func(Value::nothing(*head), values.to_vec(), span, *head)
+    sum_func(Value::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]

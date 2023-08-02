@@ -131,7 +131,7 @@ fn add_menu(
     config: &Config,
 ) -> Result<Reedline, ShellError> {
     if let Value::Record { cols, vals, span } = &menu.menu_type {
-        let layout = extract_value("layout", cols, vals, span)?.into_string("", config);
+        let layout = extract_value("layout", cols, vals, *span)?.into_string("", config);
 
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
@@ -155,7 +155,7 @@ fn add_menu(
 macro_rules! add_style {
     // first arm match add!(1,2), add!(2,3) etc
     ($name:expr, $cols: expr, $vals:expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
-        $menu = match extract_value($name, $cols, $vals, $span) {
+        $menu = match extract_value($name, $cols, $vals, *$span) {
             Ok(text) => {
                 let style = match text {
                     Value::String { val, .. } => lookup_ansi_color_style(&val),
@@ -181,25 +181,25 @@ pub(crate) fn add_columnar_menu(
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
     if let Value::Record { cols, vals, span } = &menu.menu_type {
-        columnar_menu = match extract_value("columns", cols, vals, span) {
+        columnar_menu = match extract_value("columns", cols, vals, *span) {
             Ok(columns) => {
-                let columns = columns.as_integer()?;
+                let columns = columns.as_int()?;
                 columnar_menu.with_columns(columns as u16)
             }
             Err(_) => columnar_menu,
         };
 
-        columnar_menu = match extract_value("col_width", cols, vals, span) {
+        columnar_menu = match extract_value("col_width", cols, vals, *span) {
             Ok(col_width) => {
-                let col_width = col_width.as_integer()?;
+                let col_width = col_width.as_int()?;
                 columnar_menu.with_column_width(Some(col_width as usize))
             }
             Err(_) => columnar_menu.with_column_width(None),
         };
 
-        columnar_menu = match extract_value("col_padding", cols, vals, span) {
+        columnar_menu = match extract_value("col_padding", cols, vals, *span) {
             Ok(col_padding) => {
-                let col_padding = col_padding.as_integer()?;
+                let col_padding = col_padding.as_int()?;
                 columnar_menu.with_column_padding(col_padding as usize)
             }
             Err(_) => columnar_menu,
@@ -283,9 +283,9 @@ pub(crate) fn add_list_menu(
     let mut list_menu = ListMenu::default().with_name(&name);
 
     if let Value::Record { cols, vals, span } = &menu.menu_type {
-        list_menu = match extract_value("page_size", cols, vals, span) {
+        list_menu = match extract_value("page_size", cols, vals, *span) {
             Ok(page_size) => {
-                let page_size = page_size.as_integer()?;
+                let page_size = page_size.as_int()?;
                 list_menu.with_page_size(page_size as usize)
             }
             Err(_) => list_menu,
@@ -369,41 +369,41 @@ pub(crate) fn add_description_menu(
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
     if let Value::Record { cols, vals, span } = &menu.menu_type {
-        description_menu = match extract_value("columns", cols, vals, span) {
+        description_menu = match extract_value("columns", cols, vals, *span) {
             Ok(columns) => {
-                let columns = columns.as_integer()?;
+                let columns = columns.as_int()?;
                 description_menu.with_columns(columns as u16)
             }
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("col_width", cols, vals, span) {
+        description_menu = match extract_value("col_width", cols, vals, *span) {
             Ok(col_width) => {
-                let col_width = col_width.as_integer()?;
+                let col_width = col_width.as_int()?;
                 description_menu.with_column_width(Some(col_width as usize))
             }
             Err(_) => description_menu.with_column_width(None),
         };
 
-        description_menu = match extract_value("col_padding", cols, vals, span) {
+        description_menu = match extract_value("col_padding", cols, vals, *span) {
             Ok(col_padding) => {
-                let col_padding = col_padding.as_integer()?;
+                let col_padding = col_padding.as_int()?;
                 description_menu.with_column_padding(col_padding as usize)
             }
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("selection_rows", cols, vals, span) {
+        description_menu = match extract_value("selection_rows", cols, vals, *span) {
             Ok(selection_rows) => {
-                let selection_rows = selection_rows.as_integer()?;
+                let selection_rows = selection_rows.as_int()?;
                 description_menu.with_selection_rows(selection_rows as u16)
             }
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("description_rows", cols, vals, span) {
+        description_menu = match extract_value("description_rows", cols, vals, *span) {
             Ok(description_rows) => {
-                let description_rows = description_rows.as_integer()?;
+                let description_rows = description_rows.as_int()?;
                 description_menu.with_description_rows(description_rows as usize)
             }
             Err(_) => description_menu,
@@ -719,26 +719,26 @@ impl<'config> EventType<'config> {
     fn try_from_columns(
         cols: &'config [String],
         vals: &'config [Value],
-        span: &'config Span,
+        span: Span,
     ) -> Result<Self, ShellError> {
         extract_value("send", cols, vals, span)
             .map(Self::Send)
             .or_else(|_| extract_value("edit", cols, vals, span).map(Self::Edit))
             .or_else(|_| extract_value("until", cols, vals, span).map(Self::Until))
-            .map_err(|_| ShellError::MissingConfigValue("send, edit or until".to_string(), *span))
+            .map_err(|_| ShellError::MissingConfigValue("send, edit or until".to_string(), span))
     }
 }
 
 fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
-            match EventType::try_from_columns(cols, vals, span)? {
+            match EventType::try_from_columns(cols, vals, *span)? {
                 EventType::Send(value) => event_from_record(
                     value.into_string("", config).to_lowercase().as_str(),
                     cols,
                     vals,
                     config,
-                    span,
+                    *span,
                 )
                 .map(Some),
                 EventType::Edit(value) => {
@@ -747,7 +747,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                         cols,
                         vals,
                         config,
-                        span,
+                        *span,
                     )?;
                     Ok(Some(ReedlineEvent::Edit(vec![edit])))
                 }
@@ -810,7 +810,7 @@ fn event_from_record(
     cols: &[String],
     vals: &[Value],
     config: &Config,
-    span: &Span,
+    span: Span,
 ) -> Result<ReedlineEvent, ShellError> {
     let event = match name {
         "none" => ReedlineEvent::None,
@@ -853,7 +853,7 @@ fn event_from_record(
             return Err(ShellError::UnsupportedConfigValue(
                 "Reedline event".to_string(),
                 v.to_string(),
-                *span,
+                span,
             ))
         }
     };
@@ -866,7 +866,7 @@ fn edit_from_record(
     cols: &[String],
     vals: &[Value],
     config: &Config,
-    span: &Span,
+    span: Span,
 ) -> Result<EditCommand, ShellError> {
     let edit = match name {
         "movetostart" => EditCommand::MoveToStart,
@@ -884,7 +884,7 @@ fn edit_from_record(
         "movebigwordrightstart" => EditCommand::MoveBigWordRightStart,
         "movetoposition" => {
             let value = extract_value("value", cols, vals, span)?;
-            EditCommand::MoveToPosition(value.as_integer()? as usize)
+            EditCommand::MoveToPosition(value.as_int()? as usize)
         }
         "insertchar" => {
             let value = extract_value("value", cols, vals, span)?;
@@ -968,7 +968,7 @@ fn edit_from_record(
             return Err(ShellError::UnsupportedConfigValue(
                 "reedline EditCommand".to_string(),
                 e.to_string(),
-                *span,
+                span,
             ))
         }
     };
@@ -995,7 +995,7 @@ mod test {
         let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
         let event = Value::Record {
@@ -1015,7 +1015,7 @@ mod test {
         let vals = vec![Value::test_string("Clear")];
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Edit(_)));
 
         let event = Value::Record {
@@ -1041,7 +1041,7 @@ mod test {
         ];
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
         let event = Value::Record {
@@ -1091,7 +1091,7 @@ mod test {
         }];
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, &span).unwrap();
+        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Until(_)));
 
         let event = Value::Record {
@@ -1159,7 +1159,7 @@ mod test {
         let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, &span);
+        let b = EventType::try_from_columns(&cols, &vals, span);
         assert!(matches!(b, Err(ShellError::MissingConfigValue(_, _))));
     }
 }
