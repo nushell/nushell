@@ -86,7 +86,7 @@ impl ExpandedTable {
 struct Options<'a> {
     ctrlc: Option<Arc<AtomicBool>>,
     config: &'a Config,
-    style_computer: &'a StyleComputer<'a>,
+    style_computer: &'a StyleComputer,
     available_width: usize,
     format: ExpandedTable,
     span: Span,

@@ -12,8 +12,6 @@ let dark_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    # Closures can be used to choose colors for specific values.
-    # The value (in this case, a bool) is piped into the closure.
     bool: {|| if $in { 'light_cyan' } else { 'light_gray' } }
     int: white
     filesize: {|e|
@@ -96,35 +94,11 @@ let light_theme = {
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
     header: green_bold
     empty: blue
-    # Closures can be used to choose colors for specific values.
-    # The value (in this case, a bool) is piped into the closure.
-    bool: {|| if $in { 'dark_cyan' } else { 'dark_gray' } }
+    bool: dark_cyan
     int: dark_gray
-    filesize: {|e|
-        if $e == 0b {
-            'dark_gray'
-        } else if $e < 1mb {
-            'cyan_bold'
-        } else { 'blue_bold' }
-    }
+    filesize: cyan_bold
     duration: dark_gray
-    date: {|| (date now) - $in |
-        if $in < 1hr {
-            'purple'
-        } else if $in < 6hr {
-            'red'
-        } else if $in < 1day {
-            'yellow'
-        } else if $in < 3day {
-            'green'
-        } else if $in < 1wk {
-            'light_green'
-        } else if $in < 6wk {
-            'cyan'
-        } else if $in < 52wk {
-            'blue'
-        } else { 'dark_gray' }
-    }
+    date: purple
     range: dark_gray
     float: dark_gray
     string: dark_gray
@@ -275,7 +249,7 @@ $env.config = {
         vi_normal: underscore # block, underscore, line, blink_block, blink_underscore, blink_line (underscore is the default)
     }
 
-    color_config: {} # if you want a more interesting theme, you can replace the empty record with `$dark_theme`, `$light_theme` or another custom record
+    color_config: $dark_theme # if you want a more interesting theme, you can replace the empty record with `$dark_theme`, `$light_theme` or another custom record
     use_grid_icons: true
     footer_mode: "25" # always, never, number_of_rows, auto
     float_precision: 2 # the precision for displaying floats in tables

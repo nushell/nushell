@@ -1,106 +1,40 @@
 use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_engine::{env::get_config, eval_block};
+use nu_engine::env::get_config;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    CliError, IntoPipelineData, Value,
+    engine::{EngineState, Stack},
+    Value,
 };
 use std::collections::HashMap;
 
 use std::fmt::{Debug, Formatter, Result};
 
-// ComputableStyle represents the valid user style types: a single color value, or a closure which
-// takes an input value and produces a color value. The latter represents a value which
-// is computed at use-time.
-#[derive(Debug, Clone)]
-pub enum ComputableStyle {
-    Static(Style),
-    Closure(Value),
-}
-
 // An alias for the mapping used internally by StyleComputer.
-pub type StyleMapping = HashMap<String, ComputableStyle>;
+pub type StyleMapping = HashMap<String, Style>;
 //
 // A StyleComputer is an all-in-one way to compute styles. A nu command can
 // simply create it with from_config(), and then use it with compute().
 // It stores the engine state and stack needed to run closures that
 // may be defined as a user style.
 //
-pub struct StyleComputer<'a> {
-    engine_state: &'a EngineState,
-    stack: &'a Stack,
+pub struct StyleComputer {
     map: StyleMapping,
 }
 
-impl<'a> StyleComputer<'a> {
+impl<'a> StyleComputer {
     // This is NOT meant to be used in most cases - please use from_config() instead.
     // This only exists for testing purposes.
-    pub fn new(
-        engine_state: &'a EngineState,
-        stack: &'a Stack,
-        map: StyleMapping,
-    ) -> StyleComputer<'a> {
-        StyleComputer {
-            engine_state,
-            stack,
-            map,
-        }
+    pub fn new(map: StyleMapping) -> StyleComputer {
+        StyleComputer { map }
     }
     // The main method. Takes a string name which maps to a color_config style name,
     // and a Nu value to pipe into any closures that may have been defined there.
-    pub fn compute(&self, style_name: &str, value: &Value) -> Style {
+    pub fn compute(&self, style_name: &str, _value: &Value) -> Style {
         match self.map.get(style_name) {
             // Static values require no computation.
-            Some(ComputableStyle::Static(s)) => *s,
+            Some(s) => *s,
             // Closures are run here.
-            Some(ComputableStyle::Closure(Value::Closure {
-                val: block_id,
-                captures,
-                span,
-            })) => {
-                let block = self.engine_state.get_block(*block_id).clone();
-                // Because captures_to_stack() clones, we don't need to use with_env() here
-                // (contrast with_env() usage in `each` or `do`).
-                let mut stack = self.stack.captures_to_stack(captures);
-
-                // Support 1-argument blocks as well as 0-argument blocks.
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, value.clone());
-                    }
-                }
-
-                // Run the block.
-                match eval_block(
-                    self.engine_state,
-                    &mut stack,
-                    &block,
-                    value.clone().into_pipeline_data(),
-                    false,
-                    false,
-                ) {
-                    Ok(v) => {
-                        let value = v.into_value(*span);
-                        // These should be the same color data forms supported by color_config.
-                        match value {
-                            Value::Record { .. } => color_record_to_nustyle(&value),
-                            Value::String { val, .. } => lookup_ansi_color_style(&val),
-                            _ => Style::default(),
-                        }
-                    }
-                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
-                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
-                    // currently hook closure errors behave roughly the same.
-                    Err(e) => {
-                        eprintln!(
-                            "Error: {:?}",
-                            CliError(&e, &StateWorkingSet::new(self.engine_state))
-                        );
-                        Style::default()
-                    }
-                }
-            }
             // There should be no other kinds of values (due to create_map() in config.rs filtering them out)
             // so this is just a fallback.
             _ => Style::default(),
@@ -135,66 +69,67 @@ impl<'a> StyleComputer<'a> {
     }
 
     // The main constructor.
-    pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
+    pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer {
         let config = get_config(engine_state, stack);
 
         // Create the hashmap
         #[rustfmt::skip]
         let mut map: StyleMapping = [
-            ("separator".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("leading_trailing_space_bg".to_string(), ComputableStyle::Static(Style::default().on(Color::Rgb(128, 128, 128)))),
-            ("header".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("empty".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("bool".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("int".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("filesize".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("duration".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("date".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("range".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("float".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("string".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("nothing".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("binary".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("cellpath".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("row_index".to_string(), ComputableStyle::Static(Color::Green.bold())),
-            ("record".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("list".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("block".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
-            ("search_result".to_string(), ComputableStyle::Static(Color::White.normal().on(Color::Red))),
+            ("separator".to_string(), Color::White.normal()),
+            ("leading_trailing_space_bg".to_string(), Style::new()),
+            ("header".to_string(), Color::Green.bold()),
+            ("empty".to_string(), Color::Blue.normal()),
+            // FIXME: add value-specific colors?
+            ("bool".to_string(), Color::LightCyan.normal()),
+            ("int".to_string(), Color::White.normal()),
+            // FIXME: add value-specific colors?
+            ("filesize".to_string(), Color::Cyan.normal()),
+            ("duration".to_string(), Color::White.normal()),
+            // FIXME: add value-specific colors?
+            ("date".to_string(), Color::Purple.normal()),
+            ("range".to_string(), Color::White.normal()),
+            ("float".to_string(), Color::White.normal()),
+            ("string".to_string(), Color::White.normal()),
+            ("nothing".to_string(), Color::White.normal()),
+            ("binary".to_string(), Color::White.normal()),
+            ("cellpath".to_string(), Color::White.normal()),
+            ("row_index".to_string(), Color::Green.bold()),
+            ("record".to_string(), Color::White.normal()),
+            ("list".to_string(), Color::White.normal()),
+            ("block".to_string(), Color::White.normal()),
+            ("hints".to_string(), Color::DarkGray.normal()),
+            ("search_result".to_string(), {
+                let mut style = Style::new().fg(Color::White);
+                style.background = Some(Color::Red);
+                style
+            }),
         ].into_iter().collect();
 
         for (key, value) in &config.color_config {
             match value {
-                Value::Closure { .. } => {
-                    map.insert(key.to_string(), ComputableStyle::Closure(value.clone()));
-                }
                 Value::Record { .. } => {
-                    map.insert(
-                        key.to_string(),
-                        ComputableStyle::Static(color_record_to_nustyle(value)),
-                    );
+                    map.insert(key.to_string(), color_record_to_nustyle(value));
                 }
                 Value::String { val, .. } => {
                     // update the stylemap with the found key
                     let color = lookup_ansi_color_style(val.as_str());
                     if let Some(v) = map.get_mut(key) {
-                        *v = ComputableStyle::Static(color);
+                        *v = color;
                     } else {
-                        map.insert(key.to_string(), ComputableStyle::Static(color));
+                        map.insert(key.to_string(), color);
                     }
                 }
                 // This should never occur.
                 _ => (),
             }
         }
-        StyleComputer::new(engine_state, stack, map)
+        StyleComputer::new(map)
     }
 }
 
 // Because EngineState doesn't have Debug (Dec 2022),
 // this incomplete representation must be used.
-impl<'a> Debug for StyleComputer<'a> {
+impl Debug for StyleComputer {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.debug_struct("StyleComputer")
             .field("map", &self.map)
@@ -208,18 +143,10 @@ fn test_computable_style_static() {
 
     let style1 = Style::default().italic();
     let style2 = Style::default().underline();
-    // Create a "dummy" style_computer for this test.
-    let dummy_engine_state = EngineState::new();
-    let dummy_stack = Stack::new();
     let style_computer = StyleComputer::new(
-        &dummy_engine_state,
-        &dummy_stack,
-        [
-            ("string".into(), ComputableStyle::Static(style1)),
-            ("row_index".into(), ComputableStyle::Static(style2)),
-        ]
-        .into_iter()
-        .collect(),
+        [("string".into(), style1), ("row_index".into(), style2)]
+            .into_iter()
+            .collect(),
     );
     assert_eq!(
         style_computer.compute("string", &Value::nothing(Span::unknown())),

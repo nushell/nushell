@@ -163,7 +163,7 @@ pub enum Transition {
 #[derive(Debug, Clone)]
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
-    pub style_computer: &'a StyleComputer<'a>,
+    pub style_computer: &'a StyleComputer,
     pub lscolors: &'a LsColors,
     pub config: ConfigMap,
     pub style: StyleConfig,

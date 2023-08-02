@@ -60,7 +60,7 @@ impl ElementInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct ViewConfig<'a> {
     pub nu_config: &'a NuConfig,
-    pub style_computer: &'a StyleComputer<'a>,
+    pub style_computer: &'a StyleComputer,
     pub config: &'a ConfigMap,
     pub lscolors: &'a LsColors,
 }
@@ -68,7 +68,7 @@ pub struct ViewConfig<'a> {
 impl<'a> ViewConfig<'a> {
     pub fn new(
         nu_config: &'a NuConfig,
-        style_computer: &'a StyleComputer<'a>,
+        style_computer: &'a StyleComputer,
         config: &'a ConfigMap,
         lscolors: &'a LsColors,
     ) -> Self {

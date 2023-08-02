@@ -28,7 +28,7 @@ pub struct TableW<'a> {
     index_column: usize,
     style: TableStyle,
     head_position: Orientation,
-    style_computer: &'a StyleComputer<'a>,
+    style_computer: &'a StyleComputer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,7 +60,7 @@ impl<'a> TableW<'a> {
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
         data: impl Into<Cow<'a, [Vec<NuText>]>>,
-        style_computer: &'a StyleComputer<'a>,
+        style_computer: &'a StyleComputer,
         index_row: usize,
         index_column: usize,
         style: TableStyle,
@@ -542,7 +542,7 @@ fn check_column_width(
 }
 
 struct IndexColumn<'a> {
-    style_computer: &'a StyleComputer<'a>,
+    style_computer: &'a StyleComputer,
     start: usize,
 }
 

@@ -35,7 +35,7 @@ impl JustTable {
 pub struct BuildConfig<'a> {
     pub(crate) ctrlc: Option<Arc<AtomicBool>>,
     pub(crate) config: &'a Config,
-    pub(crate) style_computer: &'a StyleComputer<'a>,
+    pub(crate) style_computer: &'a StyleComputer,
     pub(crate) span: Span,
     pub(crate) term_width: usize,
 }
@@ -44,7 +44,7 @@ impl<'a> BuildConfig<'a> {
     pub fn new(
         ctrlc: Option<Arc<AtomicBool>>,
         config: &'a Config,
-        style_computer: &'a StyleComputer<'a>,
+        style_computer: &'a StyleComputer,
         span: Span,
         term_width: usize,
     ) -> Self {
