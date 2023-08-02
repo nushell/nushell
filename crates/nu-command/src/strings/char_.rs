@@ -157,7 +157,10 @@ impl Command for Char {
 
     fn signature(&self) -> Signature {
         Signature::build("char")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::String),
+                (Type::Nothing, Type::Table(vec![])),
+            ])
             .optional(
                 "character",
                 SyntaxShape::Any,
@@ -167,6 +170,7 @@ impl Command for Char {
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
             .switch("integer", "Create a codepoint from an integer", Some('i'))
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
