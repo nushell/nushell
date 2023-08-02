@@ -71,7 +71,7 @@ where
 ///
 /// It takes two args — `--abbr` and `--exclude` (optionally). The value of
 /// `--abbr` gets split into a prefix containing components like `c:/`, `/`,
-/// `~/`, and dots, and [`Abbr`](Abbr)'s. If there is more than one dir matching
+/// `~/`, and dots. If there is more than one dir matching
 /// the query, the value of `--exclude` is excluded from the search.
 pub fn query<P>(arg: &P, excluded: Option<PathBuf>, span: Span) -> Result<PathBuf, ShellError>
 where
