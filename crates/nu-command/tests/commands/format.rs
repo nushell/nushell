@@ -17,6 +17,13 @@ fn creates_the_resulting_string_from_the_given_fields() {
 }
 
 #[test]
+fn format_input_record_output_string() {
+    let actual = nu!(r#"{name: Downloads} | format "{name}""#);
+
+    assert_eq!(actual.out, "Downloads");
+}
+
+#[test]
 fn given_fields_can_be_column_paths() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
