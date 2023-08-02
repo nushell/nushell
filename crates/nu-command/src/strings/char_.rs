@@ -170,6 +170,7 @@ impl Command for Char {
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
             .switch("integer", "Create a codepoint from an integer", Some('i'))
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
