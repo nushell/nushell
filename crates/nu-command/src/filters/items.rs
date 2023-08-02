@@ -17,10 +17,7 @@ impl Command for Items {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                Type::Record(vec![]),
-                Type::List(Box::new(Type::String)),
-            )])
+            .input_output_types(vec![(Type::Record(vec![]), Type::Any)])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
