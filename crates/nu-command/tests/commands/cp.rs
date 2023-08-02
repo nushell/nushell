@@ -613,3 +613,99 @@ fn copy_file_with_update_flag_impl(progress: bool) {
         assert_eq!(actual.out, "newest_body");
     });
 }
+
+// uutils/coreutils copy tests
+static TEST_EXISTING_FILE: &str = "existing_file.txt";
+static TEST_HELLO_WORLD_SOURCE: &str = "hello_world.txt";
+static TEST_HELLO_WORLD_SOURCE_SYMLINK: &str = "hello_world.txt.link";
+static TEST_HELLO_WORLD_DEST: &str = "copy_of_hello_world.txt";
+static TEST_HELLO_WORLD_DEST_SYMLINK: &str = "copy_of_hello_world.txt.link";
+static TEST_HOW_ARE_YOU_SOURCE: &str = "how_are_you.txt";
+static TEST_HOW_ARE_YOU_DEST: &str = "hello_dir/how_are_you.txt";
+static TEST_COPY_TO_FOLDER: &str = "hello_dir/";
+static TEST_COPY_TO_FOLDER_FILE: &str = "hello_dir/hello_world.txt";
+static TEST_COPY_FROM_FOLDER: &str = "hello_dir_with_file/";
+static TEST_COPY_FROM_FOLDER_FILE: &str = "hello_dir_with_file/hello_world.txt";
+static TEST_COPY_TO_FOLDER_NEW: &str = "hello_dir_new";
+static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+static TEST_MOUNT_COPY_FROM_FOLDER: &str = "dir_with_mount";
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+static TEST_MOUNT_MOUNTPOINT: &str = "mount";
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+static TEST_MOUNT_OTHER_FILESYSTEM_FILE: &str = "mount/DO_NOT_copy_me.txt";
+#[cfg(unix)]
+static TEST_NONEXISTENT_FILE: &str = "nonexistent_file.txt";
+
+// #[test]
+// fn test_cp_cp() {
+//     let (at, mut ucmd) = at_and_ucmd!();
+//     // Invoke our binary to make the copy.
+//     ucmd.arg(TEST_HELLO_WORLD_SOURCE)
+//         .arg(TEST_HELLO_WORLD_DEST)
+//         .succeeds();
+
+//     // Check the content of the destination file that was copied.
+//     assert_eq!(at.read(TEST_HELLO_WORLD_DEST), "Hello, World!\n");
+// }
+
+#[cfg(feature = "nuuu")]
+#[test]
+fn test_cp_cp() {
+    Playground::setup("ucp_test_1", |dirs, _| {
+        let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+
+        // Get the hash of the file content to check integrity after copy.
+        let src_hash = get_file_hash(src.display());
+
+        nu!(
+            cwd: dirs.root(),
+            "cp {} ucp_test_1/{}",
+            src.display(),
+            TEST_HELLO_WORLD_DEST
+        );
+
+        assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+
+        // Get the hash of the copied file content to check against first_hash.
+        let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
+        assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
+#[cfg(feature = "nuuu")]
+#[test]
+fn test_cp_existing_target() {
+    Playground::setup("ucp_test_2", |dirs, _| {
+        let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+        let existing = dirs.fixtures.join("cp").join(TEST_EXISTING_FILE);
+
+        // Get the hash of the file content to check integrity after copy.
+        let src_hash = get_file_hash(src.display());
+
+        // Copy existing file to destination, so that it exists for the test
+        nu!(
+            cwd: dirs.root(),
+            "cp {} ucp_test_2/{}",
+            existing.display(),
+            TEST_EXISTING_FILE
+        );
+
+        // At this point the src and existing files should be different
+        assert!(dirs.test().join(TEST_EXISTING_FILE).exists());
+
+        // Now for the test
+        nu!(
+            cwd: dirs.root(),
+            "cp {} ucp_test_2/{}",
+            src.display(),
+            TEST_EXISTING_FILE
+        );
+
+        assert!(dirs.test().join(TEST_EXISTING_FILE).exists());
+
+        // Get the hash of the copied file content to check against first_hash.
+        let after_cp_hash = get_file_hash(dirs.test().join(TEST_EXISTING_FILE).display());
+        assert_eq!(src_hash, after_cp_hash);
+    });
+}

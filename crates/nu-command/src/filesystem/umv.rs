@@ -117,30 +117,29 @@ impl Command for Umv {
         // let s2 = "-h".to_string();
         // let args = vec![OsString::from(s1), OsString::from(s2)];
 
-        let mut args: Vec<OsString> = vec![OsString::from("mv")]; // seed it with the cp command
+        let mut args: Vec<OsString> = vec!["mv".into()]; // seed it with the cp command
         if strip_trailing_slashes {
             // working
-            args.push(OsString::from("--strip-trailing-slashes"));
+            args.push("--strip-trailing-slashes".into());
         }
         if verbose {
             // working
-            args.push(OsString::from("-v"));
+            args.push("-v".into());
         }
         if force {
             // working
-            args.push(OsString::from("-f"));
+            args.push("-f".into());
         }
         if interactive {
             // working
-            args.push(OsString::from("-i"));
+            args.push("-i".into());
         }
         if progress {
             // working (you won't see it unless there are a lot of files)
-            args.push(OsString::from("-p"));
+            args.push("-p".into());
         }
         if no_clobber {
-            // working (you won't see it unless there are a lot of files)
-            args.push(OsString::from("-n"));
+            args.push("-n".into());
         }
         let src_input = match source.to_str() {
             Some(s) => s,
@@ -167,8 +166,8 @@ impl Command for Umv {
             }
         };
 
-        args.push(OsString::from(src_input));
-        args.push(OsString::from(dest_input));
+        args.push(src_input.into());
+        args.push(dest_input.into());
 
         // Pass uucore::Args to app.uumain
         uu_mv::uumain(args.into_iter());
