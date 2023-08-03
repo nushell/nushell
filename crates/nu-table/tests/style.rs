@@ -1,7 +1,7 @@
 mod common;
 
 use common::create_row as row;
-use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
+use nu_table::{NuTable, TableConfig, TableTheme as theme};
 use tabled::grid::records::vec_records::CellInfo;
 
 #[test]
@@ -476,11 +476,10 @@ fn test_with_love() {
 }
 
 fn create_table(data: Vec<Vec<CellInfo<String>>>, with_header: bool, theme: theme) -> String {
-    let config = NuTableConfig {
-        theme,
-        with_header,
-        ..Default::default()
-    };
+    let mut config = TableConfig::new().theme(theme);
+    if with_header {
+        config = config.with_header(true);
+    }
 
     let out = common::create_table(data, config, usize::MAX);
 
@@ -492,11 +491,10 @@ fn create_table_with_size(
     with_header: bool,
     theme: theme,
 ) -> String {
-    let config = NuTableConfig {
-        theme,
-        with_header,
-        ..Default::default()
-    };
+    let mut config = TableConfig::new().theme(theme);
+    if with_header {
+        config = config.with_header(true);
+    }
 
     let table = NuTable::from(data);
 
