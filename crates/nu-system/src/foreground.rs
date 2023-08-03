@@ -81,7 +81,6 @@ impl Drop for ForegroundChild {
 }
 
 // It's a simpler version of fish shell's external process handling.
-// Note: we exclude macos because the techniques below seem to have issues in macos 13 currently.
 #[cfg(unix)]
 mod fg_process_setup {
     use is_terminal::IsTerminal;
