@@ -16,7 +16,7 @@ nu-utils = { path = "../nu-utils", version = "0.83.2" }
 nu-engine = { path = "../nu-engine", version = "0.83.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.83.2" }
 nu-ansi-term = "0.49.0"
-tabled = { version = "0.12.2", features = ["color"], default-features = false }
+tabled = { git = "https://github.com/zhiburt/tabled/", rev = "6c51e3eaa362914a71b868ccb78e7addbebd3657", features = ["color"], default-features = false }
 
 [dev-dependencies]
 # nu-test-support = { path="../nu-test-support", version = "0.83.2"  }
