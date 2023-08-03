@@ -1,7 +1,7 @@
 mod common;
 
 use nu_protocol::TrimStrategy;
-use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
+use nu_table::{NuTable, TableConfig, TableTheme as theme};
 
 use common::{create_row, test_table, TestCase};
 use tabled::grid::records::vec_records::CellInfo;
@@ -9,13 +9,11 @@ use tabled::grid::records::vec_records::CellInfo;
 #[test]
 fn data_and_header_has_different_size_doesnt_work() {
     let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
-    let cfg = NuTableConfig {
-        theme: theme::heavy(),
-        with_header: true,
-        ..Default::default()
-    };
 
-    let table = table.draw(cfg.clone(), usize::MAX);
+    let table = table.draw(
+        TableConfig::new().theme(theme::heavy()).with_header(true),
+        usize::MAX,
+    );
 
     assert_eq!(
         table.as_deref(),
@@ -31,7 +29,10 @@ fn data_and_header_has_different_size_doesnt_work() {
 
     let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
 
-    let table = table.draw(cfg, usize::MAX);
+    let table = table.draw(
+        TableConfig::new().theme(theme::heavy()).with_header(true),
+        usize::MAX,
+    );
 
     assert_eq!(
         table.as_deref(),
@@ -48,7 +49,7 @@ fn data_and_header_has_different_size_doesnt_work() {
 
 #[test]
 fn termwidth_too_small() {
-    let test_loop = |config: NuTableConfig| {
+    let test_loop = |config: TableConfig| {
         for i in 0..10 {
             let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
             let table = table.draw(config.clone(), i);
@@ -57,22 +58,29 @@ fn termwidth_too_small() {
         }
     };
 
-    let mut cfg = NuTableConfig {
-        theme: theme::heavy(),
-        with_header: true,
-        ..Default::default()
-    };
+    let base_config = TableConfig::new().theme(theme::heavy()).with_header(true);
 
-    for case in [
-        TrimStrategy::truncate(None),
-        TrimStrategy::truncate(Some(String::from("**"))),
-        TrimStrategy::truncate(Some(String::from(""))),
-        TrimStrategy::wrap(false),
-        TrimStrategy::wrap(true),
-    ] {
-        cfg.trim = case;
-        test_loop(cfg.clone());
-    }
+    let config = base_config.clone();
+    test_loop(config);
+
+    let config = base_config.clone().trim(TrimStrategy::truncate(None));
+    test_loop(config);
+
+    let config = base_config
+        .clone()
+        .trim(TrimStrategy::truncate(Some(String::from("**"))));
+    test_loop(config);
+
+    let config = base_config
+        .clone()
+        .trim(TrimStrategy::truncate(Some(String::from(""))));
+    test_loop(config);
+
+    let config = base_config.clone().trim(TrimStrategy::wrap(false));
+    test_loop(config);
+
+    let config = base_config.trim(TrimStrategy::wrap(true));
+    test_loop(config);
 }
 
 #[test]
@@ -196,12 +204,11 @@ fn width_control_test_0() {
 }
 
 fn test_width(data: Vec<Vec<CellInfo<String>>>, tests: &[(usize, &str)]) {
-    let config = NuTableConfig {
-        theme: theme::heavy(),
-        trim: TrimStrategy::truncate(Some(String::from("..."))),
-        with_header: true,
-        ..Default::default()
-    };
+    let trim = TrimStrategy::truncate(Some(String::from("...")));
+    let config = TableConfig::new()
+        .theme(theme::heavy())
+        .with_header(true)
+        .trim(trim);
 
     let tests = tests.iter().map(|&(termwidth, expected)| {
         TestCase::new(config.clone(), termwidth, Some(expected.to_owned()))
@@ -211,13 +218,10 @@ fn test_width(data: Vec<Vec<CellInfo<String>>>, tests: &[(usize, &str)]) {
 }
 
 fn test_trim(tests: &[(usize, Option<&str>)], trim: TrimStrategy) {
-    let config = NuTableConfig {
-        theme: theme::heavy(),
-        with_header: true,
-        trim,
-        ..Default::default()
-    };
-
+    let config = TableConfig::new()
+        .theme(theme::heavy())
+        .with_header(true)
+        .trim(trim);
     let tests = tests.iter().map(|&(termwidth, expected)| {
         TestCase::new(config.clone(), termwidth, expected.map(|s| s.to_string()))
     });

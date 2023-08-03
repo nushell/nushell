@@ -1,40 +1,84 @@
-use nu_color_config::TextStyle;
+use nu_color_config::{StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
-use crate::{
-    clean_charset,
-    common::{
-        create_nu_table_config, get_empty_style, get_header_style, get_index_style,
-        get_value_style, NuText, INDEX_COLUMN_NAME,
-    },
-    NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
+use crate::{Cell, NuTable, NuText};
+
+use super::{
+    clean_charset, create_table_config, get_empty_style, get_header_style, get_index_style,
+    get_value_style, StringResult, TableOutput, TableResult, INDEX_COLUMN_NAME,
 };
 
 pub struct JustTable;
 
 impl JustTable {
-    pub fn table(input: &[Value], opts: TableOpts<'_>) -> StringResult {
-        create_table(input, opts)
+    pub fn table(input: &[Value], row_offset: usize, opts: BuildConfig<'_>) -> StringResult {
+        let out = match table(input, row_offset, opts.clone())? {
+            Some(out) => out,
+            None => return Ok(None),
+        };
+
+        let table_config = create_table_config(opts.config, opts.style_computer, &out);
+        let table = out.table.draw(table_config, opts.term_width);
+
+        Ok(table)
     }
 
-    pub fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
+    pub fn kv_table(cols: &[String], vals: &[Value], opts: BuildConfig<'_>) -> StringResult {
         kv_table(cols, vals, opts)
     }
 }
 
-fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
-    match table(input, opts.row_offset, opts.clone())? {
-        Some(out) => {
-            let table_config =
-                create_nu_table_config(opts.config, opts.style_computer, &out, false);
-            Ok(out.table.draw(table_config, opts.width))
+#[derive(Debug, Clone)]
+pub struct BuildConfig<'a> {
+    pub(crate) ctrlc: Option<Arc<AtomicBool>>,
+    pub(crate) config: &'a Config,
+    pub(crate) style_computer: &'a StyleComputer<'a>,
+    pub(crate) span: Span,
+    pub(crate) term_width: usize,
+}
+
+impl<'a> BuildConfig<'a> {
+    pub fn new(
+        ctrlc: Option<Arc<AtomicBool>>,
+        config: &'a Config,
+        style_computer: &'a StyleComputer<'a>,
+        span: Span,
+        term_width: usize,
+    ) -> Self {
+        Self {
+            ctrlc,
+            config,
+            style_computer,
+            span,
+            term_width,
         }
-        None => Ok(None),
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    pub fn term_width(&self) -> usize {
+        self.term_width
+    }
+
+    pub fn config(&self) -> &Config {
+        self.config
+    }
+
+    pub fn style_computer(&self) -> &StyleComputer {
+        self.style_computer
+    }
+
+    pub fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
+        self.ctrlc.as_ref()
     }
 }
 
-fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
+fn kv_table(cols: &[String], vals: &[Value], opts: BuildConfig<'_>) -> StringResult {
     let mut data = vec![Vec::with_capacity(2); cols.len()];
     for ((column, value), row) in cols.iter().zip(vals.iter()).zip(data.iter_mut()) {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
@@ -47,8 +91,8 @@ fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResul
             value = clean_charset(&value);
         }
 
-        let key = NuTableCell::new(column.to_string());
-        let value = NuTableCell::new(value);
+        let key = Cell::new(column.to_string());
+        let value = Cell::new(value);
         row.push(key);
         row.push(value);
     }
@@ -57,13 +101,13 @@ fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResul
     table.set_index_style(TextStyle::default_field());
 
     let out = TableOutput::new(table, false, true);
-    let table_config = create_nu_table_config(opts.config, opts.style_computer, &out, false);
-    let table = out.table.draw(table_config, opts.width);
+    let table_config = create_table_config(opts.config, opts.style_computer, &out);
+    let table = out.table.draw(table_config, opts.term_width);
 
     Ok(table)
 }
 
-fn table(input: &[Value], row_offset: usize, opts: TableOpts<'_>) -> TableResult {
+fn table(input: &[Value], row_offset: usize, opts: BuildConfig<'_>) -> TableResult {
     if input.is_empty() {
         return Ok(None);
     }
@@ -104,7 +148,7 @@ fn to_table_with_header(
     headers: Vec<String>,
     with_index: bool,
     row_offset: usize,
-    opts: TableOpts<'_>,
+    opts: BuildConfig<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
@@ -135,7 +179,7 @@ fn to_table_with_header(
             let (text, style) = get_string_value_with_header(item, header, &opts);
 
             table.insert((row + 1, col), text);
-            table.insert_style((row + 1, col), style);
+            table.set_cell_style((row + 1, col), style);
         }
     }
 
@@ -146,7 +190,7 @@ fn to_table_with_no_header(
     input: &[Value],
     with_index: bool,
     row_offset: usize,
-    opts: TableOpts<'_>,
+    opts: BuildConfig<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), with_index as usize + 1);
     table.set_index_style(get_index_style(opts.style_computer));
@@ -169,13 +213,13 @@ fn to_table_with_no_header(
 
         let pos = (row, with_index as usize);
         table.insert(pos, text);
-        table.insert_style(pos, style);
+        table.set_cell_style(pos, style);
     }
 
     Ok(Some(table))
 }
 
-fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) -> NuText {
+fn get_string_value_with_header(item: &Value, header: &str, opts: &BuildConfig) -> NuText {
     match item {
         Value::Record { .. } => {
             let path = PathMember::String {
@@ -194,7 +238,7 @@ fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) ->
     }
 }
 
-fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
+fn get_string_value(item: &Value, opts: &BuildConfig) -> NuText {
     let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
     let is_string_value = matches!(item, Value::String { .. });
     if is_string_value {
