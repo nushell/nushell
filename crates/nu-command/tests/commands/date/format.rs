@@ -3,7 +3,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn formatter_not_valid() {
     let actual = nu!(r#"
-        date now | date format '%N'
+        date now | format date '%N'
         "#);
 
     assert!(actual.err.contains("invalid format"));
@@ -12,7 +12,7 @@ fn formatter_not_valid() {
 #[test]
 fn fails_without_input() {
     let actual = nu!(r#"
-        date format "%c"
+        format date "%c"
         "#);
 
     assert!(actual.err.contains("Pipeline empty"));
@@ -24,7 +24,7 @@ fn locale_format_respect_different_locale() {
         locale: "en_US",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | date format "%c"
+            "2021-10-22 20:00:12 +01:00" | format date "%c"
             "#
         )
     );
@@ -34,7 +34,7 @@ fn locale_format_respect_different_locale() {
         locale: "en_GB",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | date format "%c"
+            "2021-10-22 20:00:12 +01:00" | format date "%c"
             "#
         )
     );
@@ -44,7 +44,7 @@ fn locale_format_respect_different_locale() {
         locale: "de_DE",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | date format "%c"
+            "2021-10-22 20:00:12 +01:00" | format date "%c"
             "#
         )
     );
@@ -54,7 +54,7 @@ fn locale_format_respect_different_locale() {
         locale: "zh_CN",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | date format "%c"
+            "2021-10-22 20:00:12 +01:00" | format date "%c"
             "#
         )
     );
@@ -64,7 +64,7 @@ fn locale_format_respect_different_locale() {
         locale: "ja_JP",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | date format "%c"
+            "2021-10-22 20:00:12 +01:00" | format date "%c"
             "#
         )
     );
@@ -74,7 +74,7 @@ fn locale_format_respect_different_locale() {
         locale: "fr_FR",
         pipeline(
             r#"
-            "2021-10-22 20:00:12 +01:00" | date format "%c"
+            "2021-10-22 20:00:12 +01:00" | format date "%c"
             "#
         )
     );
