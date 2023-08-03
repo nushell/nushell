@@ -70,7 +70,6 @@ pub struct Config {
     pub external_completer: Option<usize>,
     pub filesize_metric: bool,
     pub table_mode: String,
-    pub table_move_header: bool,
     pub table_show_empty: bool,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
@@ -127,7 +126,6 @@ impl Default for Config {
             table_index_mode: TableIndexMode::Always,
             table_show_empty: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
-            table_move_header: false,
 
             datetime_normal_format: None,
             datetime_table_format: None,
@@ -927,9 +925,6 @@ impl Value {
                                             vals[index] =
                                                 Value::string(config.table_mode.clone(), span);
                                         }
-                                    }
-                                    "header_on_separator" => {
-                                        try_bool!(cols, vals, index, span, table_move_header)
                                     }
                                     "index_mode" => {
                                         if let Ok(b) = value.as_string() {
