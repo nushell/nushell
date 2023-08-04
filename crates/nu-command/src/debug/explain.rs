@@ -321,7 +321,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         //TODO: It would be good to drill in deeper to blocks and closures.
         Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {val}>"),
-        Value::Nothing { .. } => String::new(),
+        Value::Null { .. } => String::new(),
         Value::Error { error } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),

@@ -75,7 +75,7 @@ fn empty(
             for column in &columns {
                 let val = val.clone();
                 match val.follow_cell_path(&column.members, false) {
-                    Ok(Value::Nothing { .. }) => {}
+                    Ok(Value::Null { .. }) => {}
                     Ok(_) => return Ok(Value::bool(false, head).into_pipeline_data()),
                     Err(err) => return Err(err),
                 }

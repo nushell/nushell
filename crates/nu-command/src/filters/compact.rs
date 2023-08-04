@@ -96,13 +96,13 @@ pub fn compact(
             move |item| {
                 match item {
                     // Nothing is filtered out
-                    Value::Nothing { .. } => false,
+                    Value::Null { .. } => false,
                     Value::Record { .. } => {
                         for column in columns.iter() {
                             match item.get_data_by_key(column) {
                                 None => return false,
                                 Some(x) => {
-                                    if let Value::Nothing { .. } = x {
+                                    if let Value::Null { .. } = x {
                                         return false;
                                     }
                                 }

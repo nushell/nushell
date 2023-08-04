@@ -102,7 +102,7 @@ impl Command for Commandline {
                 repl.buffer = cmd.as_string()?;
                 repl.cursor_pos = repl.buffer.len();
             }
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::Null { span: call.head }.into_pipeline_data())
         } else {
             let repl = engine_state.repl_state.lock().expect("repl state mutex");
             if call.has_flag("cursor") {

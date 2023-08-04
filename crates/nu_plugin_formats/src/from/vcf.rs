@@ -63,7 +63,7 @@ END:VCARD' | from vcf"
                             vals: vec![
                                 Value::test_string("N"),
                                 Value::test_string("Foo"),
-                                Value::Nothing {
+                                Value::Null {
                                     span: Span::test_data(),
                                 },
                             ],
@@ -78,7 +78,7 @@ END:VCARD' | from vcf"
                             vals: vec![
                                 Value::test_string("FN"),
                                 Value::test_string("Bar"),
-                                Value::Nothing {
+                                Value::Null {
                                     span: Span::test_data(),
                                 },
                             ],
@@ -93,7 +93,7 @@ END:VCARD' | from vcf"
                             vals: vec![
                                 Value::test_string("EMAIL"),
                                 Value::test_string("foo@bar.com"),
-                                Value::Nothing {
+                                Value::Null {
                                     span: Span::test_data(),
                                 },
                             ],
@@ -131,11 +131,11 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
                 };
                 let value = match prop.value {
                     Some(val) => Value::String { val, span },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 };
                 let params = match prop.params {
                     Some(param_list) => params_to_value(param_list, span),
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 };
 
                 row.insert("name".to_string(), name);

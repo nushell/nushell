@@ -69,7 +69,7 @@ pub enum DataSource {
 
 impl PipelineData {
     pub fn new_with_metadata(metadata: Option<Box<PipelineMetadata>>, span: Span) -> PipelineData {
-        PipelineData::Value(Value::Nothing { span }, metadata)
+        PipelineData::Value(Value::Null { span }, metadata)
     }
 
     /// create a `PipelineData::ExternalStream` with proper exit_code
@@ -114,7 +114,7 @@ impl PipelineData {
     }
 
     pub fn is_nothing(&self) -> bool {
-        matches!(self, PipelineData::Value(Value::Nothing { .. }, ..))
+        matches!(self, PipelineData::Value(Value::Null { .. }, ..))
             || matches!(self, PipelineData::Empty)
     }
 
@@ -131,7 +131,7 @@ impl PipelineData {
     pub fn into_value(self, span: Span) -> Value {
         match self {
             PipelineData::Empty => Value::nothing(span),
-            PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
+            PipelineData::Value(Value::Null { .. }, ..) => Value::nothing(span),
             PipelineData::Value(v, ..) => v.with_span(span),
             PipelineData::ListStream(s, ..) => Value::List {
                 vals: s.collect(),
@@ -146,7 +146,7 @@ impl PipelineData {
                 if let Some(exit_code) = exit_code {
                     let _: Vec<_> = exit_code.into_iter().collect();
                 }
-                Value::Nothing { span }
+                Value::Null { span }
             }
             PipelineData::ExternalStream {
                 stdout: Some(mut s),
@@ -589,7 +589,7 @@ impl PipelineData {
                 if f(&v) {
                     Ok(v.into_pipeline_data())
                 } else {
-                    Ok(Value::Nothing { span: v.span()? }.into_pipeline_data())
+                    Ok(Value::Null { span: v.span()? }.into_pipeline_data())
                 }
             }
         }
@@ -926,7 +926,7 @@ impl Iterator for PipelineIterator {
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
             PipelineData::Empty => None,
-            PipelineData::Value(Value::Nothing { .. }, ..) => None,
+            PipelineData::Value(Value::Null { .. }, ..) => None,
             PipelineData::Value(v, ..) => Some(std::mem::take(v)),
             PipelineData::ListStream(stream, ..) => stream.next(),
             PipelineData::ExternalStream { stdout: None, .. } => None,

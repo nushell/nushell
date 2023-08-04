@@ -8,7 +8,7 @@ fn test_comparison_nothing() {
         Value::test_float(1.0),
     ];
 
-    let nothing = Value::Nothing {
+    let nothing = Value::Null {
         span: Span::test_data(),
     };
 

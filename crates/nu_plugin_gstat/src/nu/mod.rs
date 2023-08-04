@@ -17,7 +17,7 @@ impl Plugin for GStat {
         input: &Value,
     ) -> Result<Value, LabeledError> {
         if name != "gstat" {
-            return Ok(Value::Nothing { span: call.head });
+            return Ok(Value::Null { span: call.head });
         }
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;

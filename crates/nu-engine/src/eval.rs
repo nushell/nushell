@@ -33,7 +33,7 @@ pub fn eval_call(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-        return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
+        return Ok(Value::Null { span: call.head }.into_pipeline_data());
     }
     let decl = engine_state.get_decl(call.decl_id);
 
@@ -153,7 +153,7 @@ pub fn eval_call(
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);
                     } else {
-                        callee_stack.add_var(var_id, Value::Nothing { span: call.head })
+                        callee_stack.add_var(var_id, Value::Null { span: call.head })
                     }
                 }
             }
@@ -303,19 +303,19 @@ pub fn eval_expression(
             let from = if let Some(f) = from {
                 eval_expression(engine_state, stack, f)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Null { span: expr.span }
             };
 
             let next = if let Some(s) = next {
                 eval_expression(engine_state, stack, s)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Null { span: expr.span }
             };
 
             let to = if let Some(t) = to {
                 eval_expression(engine_state, stack, t)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Null { span: expr.span }
             };
 
             Ok(Value::Range {
@@ -324,7 +324,7 @@ pub fn eval_expression(
             })
         }
         Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
-        Expr::VarDecl(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::VarDecl(_) => Ok(Value::Null { span: expr.span }),
         Expr::CellPath(cell_path) => Ok(Value::CellPath {
             val: cell_path.clone(),
             span: expr.span,
@@ -334,7 +334,7 @@ pub fn eval_expression(
 
             value.follow_cell_path(&cell_path.tail, false)
         }
-        Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::ImportPattern(_) => Ok(Value::Null { span: expr.span }),
         Expr::Overlay(_) => {
             let name =
                 String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
@@ -366,12 +366,12 @@ pub fn eval_expression(
             val: *dt,
             span: expr.span,
         }),
-        Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::Operator(_) => Ok(Value::Null { span: expr.span }),
         Expr::MatchPattern(pattern) => Ok(Value::MatchPattern {
             val: pattern.clone(),
             span: expr.span,
         }),
-        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
+        Expr::MatchBlock(_) => Ok(Value::Null { span: expr.span }), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
@@ -689,9 +689,9 @@ pub fn eval_expression(
 
             Ok(Value::string(path.to_string_lossy(), expr.span))
         }
-        Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
-        Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
-        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::Signature(_) => Ok(Value::Null { span: expr.span }),
+        Expr::Garbage => Ok(Value::Null { span: expr.span }),
+        Expr::Nothing => Ok(Value::Null { span: expr.span }),
     }
 }
 
@@ -1189,7 +1189,7 @@ pub fn eval_block(
 
         if pipeline_idx < (num_pipelines) - 1 {
             match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {}
+                PipelineData::Value(Value::Null { .. }, ..) => {}
                 PipelineData::ExternalStream {
                     ref mut exit_code, ..
                 } => {
@@ -1531,7 +1531,7 @@ fn collect_profiling_metadata(
             Ok((PipelineData::ExternalStream { .. }, ..)) => {
                 Value::string("raw stream", element_span)
             }
-            Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
+            Ok((PipelineData::Empty, ..)) => Value::Null { span: element_span },
             Err(err) => Value::Error {
                 error: Box::new(err.clone()),
             },

@@ -303,7 +303,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
+                return Value::Null {
                     span: Span::unknown(),
                 };
             }
@@ -318,7 +318,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
+                return Value::Null {
                     span: Span::unknown(),
                 };
             }
@@ -335,7 +335,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
+                return Value::Null {
                     span: Span::unknown(),
                 };
             }

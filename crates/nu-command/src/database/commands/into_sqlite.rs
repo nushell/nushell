@@ -214,7 +214,7 @@ fn action(
             })?;
 
             // and we're done
-            Ok(Value::Nothing { span: *span })
+            Ok(Value::Null { span: *span })
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error } => Err(*error.clone()),
@@ -265,7 +265,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         },
         Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {val}>"),
-        Value::Nothing { .. } => String::new(),
+        Value::Null { .. } => String::new(),
         Value::Error { error } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),

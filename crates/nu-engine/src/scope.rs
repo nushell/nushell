@@ -173,7 +173,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                                 if let Some(result) = x.result {
                                     result
                                 } else {
-                                    Value::Nothing { span }
+                                    Value::Null { span }
                                 },
                             ],
                             span,

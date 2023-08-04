@@ -57,11 +57,11 @@ with 'transpose' first."#
         let stream_test_1 = vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)];
 
         let stream_test_2 = vec![
-            Value::Nothing {
+            Value::Null {
                 span: Span::test_data(),
             },
             Value::test_string("found 2!"),
-            Value::Nothing {
+            Value::Null {
                 span: Span::test_data(),
             },
         ];

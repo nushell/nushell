@@ -135,7 +135,7 @@ fn replace_headers(
 fn is_valid_header(value: &Value) -> bool {
     matches!(
         value,
-        Value::Nothing { span: _ }
+        Value::Null { span: _ }
             | Value::String { val: _, span: _ }
             | Value::Bool { val: _, span: _ }
             | Value::Float { val: _, span: _ }

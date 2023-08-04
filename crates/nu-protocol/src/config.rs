@@ -604,7 +604,7 @@ impl Value {
                                                             config.external_completer = Some(v)
                                                         } else {
                                                             match value {
-                                                                Value::Nothing { .. } => {}
+                                                                Value::Null { .. } => {}
                                                                 _ => {
                                                                     invalid!(
                                                                         Some(span),
@@ -1514,7 +1514,7 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
             // Source is an optional value
             let source = match extract_value("source", cols, vals, span) {
                 Ok(source) => source.clone(),
-                Err(_) => Value::Nothing { span },
+                Err(_) => Value::Null { span },
             };
 
             let menu = ParsedMenu {

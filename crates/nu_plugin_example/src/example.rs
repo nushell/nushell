@@ -53,7 +53,7 @@ impl Example {
     pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
         self.print_values(1, call, input)?;
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(Value::Null { span: call.head })
     }
 
     pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {

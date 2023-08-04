@@ -265,7 +265,7 @@ impl Command for Ls {
                         }),
                     }
                 }
-                _ => Some(Value::Nothing { span: call_span }),
+                _ => Some(Value::Null { span: call_span }),
             })
             .into_pipeline_data_with_metadata(
                 Box::new(PipelineMetadata {

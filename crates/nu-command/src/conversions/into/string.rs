@@ -243,7 +243,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             val: into_code(error).unwrap_or_default(),
             span,
         },
-        Value::Nothing { .. } => Value::String {
+        Value::Null { .. } => Value::String {
             val: "".to_string(),
             span,
         },

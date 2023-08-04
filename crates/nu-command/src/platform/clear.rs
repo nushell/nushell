@@ -49,7 +49,7 @@ impl Command for Clear {
                 .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
         }
 
-        Ok(Value::Nothing { span }.into_pipeline_data())
+        Ok(Value::Null { span }.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

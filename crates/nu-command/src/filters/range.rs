@@ -99,10 +99,7 @@ impl Command for Range {
             };
 
             if from > to {
-                Ok(PipelineData::Value(
-                    Value::Nothing { span: call.head },
-                    None,
-                ))
+                Ok(PipelineData::Value(Value::Null { span: call.head }, None))
             } else {
                 let iter = v.into_iter().skip(from).take(to - from + 1);
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
@@ -112,10 +109,7 @@ impl Command for Range {
             let to = rows_to as usize;
 
             if from > to {
-                Ok(PipelineData::Value(
-                    Value::Nothing { span: call.head },
-                    None,
-                ))
+                Ok(PipelineData::Value(Value::Null { span: call.head }, None))
             } else {
                 let iter = input.into_iter().skip(from).take(to - from + 1);
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))

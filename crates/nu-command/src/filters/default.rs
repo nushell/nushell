@@ -96,7 +96,7 @@ fn default(
                     while idx < cols.len() {
                         if cols[idx] == column.item {
                             found = true;
-                            if matches!(vals[idx], Value::Nothing { .. }) {
+                            if matches!(vals[idx], Value::Null { .. }) {
                                 vals[idx] = value.clone();
                             }
                         }
@@ -117,7 +117,7 @@ fn default(
     } else {
         input.map(
             move |item| match item {
-                Value::Nothing { .. } => value.clone(),
+                Value::Null { .. } => value.clone(),
                 x => x,
             },
             ctrlc,

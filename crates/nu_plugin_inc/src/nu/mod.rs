@@ -32,7 +32,7 @@ impl Plugin for Inc {
         input: &Value,
     ) -> Result<Value, LabeledError> {
         if name != "inc" {
-            return Ok(Value::Nothing { span: call.head });
+            return Ok(Value::Null { span: call.head });
         }
 
         let cell_path: Option<CellPath> = call.opt(0)?;

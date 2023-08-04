@@ -291,7 +291,7 @@ fn convert_to_value(
             "match blocks not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Nothing => Ok(Value::Nothing { span }),
+        Expr::Nothing => Ok(Value::Null { span }),
         Expr::Operator(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -302,19 +302,19 @@ fn convert_to_value(
             let from = if let Some(f) = from {
                 convert_to_value(*f, span, original_text)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Null { span: expr.span }
             };
 
             let next = if let Some(s) = next {
                 convert_to_value(*s, span, original_text)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Null { span: expr.span }
             };
 
             let to = if let Some(t) = to {
                 convert_to_value(*t, span, original_text)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Null { span: expr.span }
             };
 
             Ok(Value::Range {

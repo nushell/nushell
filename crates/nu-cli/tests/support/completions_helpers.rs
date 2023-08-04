@@ -163,7 +163,7 @@ pub fn merge_input(
         stack,
         &block,
         PipelineData::Value(
-            Value::Nothing {
+            Value::Null {
                 span: Span::unknown(),
             },
             None

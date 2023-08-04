@@ -234,7 +234,7 @@ mod test {
                 captures: HashMap::new(),
                 span,
             },
-            Value::Nothing { span },
+            Value::Null { span },
             Value::Error {
                 error: Box::new(ShellError::DidYouMean("what?".to_string(), span)),
             },

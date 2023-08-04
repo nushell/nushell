@@ -78,7 +78,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         }
         Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
-        Value::Nothing { .. } => serde_yaml::Value::Null,
+        Value::Null { .. } => serde_yaml::Value::Null,
         Value::Error { error } => return Err(*error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()

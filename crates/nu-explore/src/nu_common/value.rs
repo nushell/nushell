@@ -128,7 +128,7 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
                 vec![vec![Value::LazyRecord { val, span }]],
             ),
         },
-        Value::Nothing { .. } => (vec![], vec![]),
+        Value::Null { .. } => (vec![], vec![]),
         value => (vec![String::from("")], vec![vec![value]]),
     }
 }

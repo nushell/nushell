@@ -440,7 +440,7 @@ fn rm(
                         let val = format!("{} {:}", msg, f.to_string_lossy());
                         Value::String { val, span }
                     } else {
-                        Value::Nothing { span }
+                        Value::Null { span }
                     }
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
