@@ -2918,7 +2918,7 @@ dependencies = [
  "nu-engine",
  "nu-protocol",
  "nu-utils",
- "tabled 0.13.0 (git+https://github.com/zhiburt/tabled/?rev=6c51e3eaa362914a71b868ccb78e7addbebd3657)",
+ "tabled 0.13.0 (git+https://github.com/zhiburt/tabled/?branch=master)",
 ]
 
 [[package]]
@@ -4974,7 +4974,7 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.13.0"
-source = "git+https://github.com/zhiburt/tabled/?rev=6c51e3eaa362914a71b868ccb78e7addbebd3657#6c51e3eaa362914a71b868ccb78e7addbebd3657"
+source = "git+https://github.com/zhiburt/tabled/?branch=master#704d5f5a16f4fe1d644bb092eed5c0f1268dbe14"
 dependencies = [
  "ansi-str",
  "ansitok",

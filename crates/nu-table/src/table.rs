@@ -8,6 +8,7 @@ use tabled::{
     builder::Builder,
     grid::{
         color::AnsiColor,
+        colors::Colors,
         config::{AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Position},
         dimension::CompleteDimensionVecRecords,
         records::{
@@ -210,29 +211,70 @@ fn build_table(
 
 fn draw_table(
     data: NuTableData,
-    mut alignments: Alignments,
-    mut styles: Styles,
+    alignments: Alignments,
+    styles: Styles,
     widths: Vec<usize>,
     cfg: NuTableConfig,
     termwidth: usize,
 ) -> Option<String> {
+    let with_index = cfg.with_index;
+    let with_header = cfg.with_header && data.count_rows() > 1;
+    let with_footer = with_header && cfg.with_footer;
+    let sep_color = cfg.split_color;
+    let border_header = cfg.header_on_border;
+
     let data: Vec<Vec<_>> = data.into();
     let mut table = Builder::from(data).build();
 
-    let need_header_move = cfg.header_on_border && has_horizontals_for_header(&cfg);
-    let with_index = cfg.with_index;
-    let with_header = cfg.with_header && table.count_rows() > 1 && !need_header_move;
-    let with_footer = cfg.with_footer && !need_header_move;
-    let sep_color = cfg.split_color;
-
     load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
-    move_header_on_border(&mut table, &mut alignments, &mut styles, &cfg);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
+    let total_width = control_table_width(&mut table, cfg, widths, termwidth);
+
+    // we need to do it after width controll cause we of ColmnNames internals.
+    if with_header && border_header {
+        set_border_head(&mut table, with_footer);
+    }
+
+    build_table_with_width_check(table, total_width, termwidth)
+}
+
+fn set_border_head(table: &mut Table, with_footer: bool) {
+    let count_rows = table.count_rows();
+
+    if with_footer {
+        table.with(Settings::new(
+            HeaderMove((0, 0), true),
+            HeaderMove((count_rows - 1 - 1, count_rows - 1), false),
+        ));
+    } else {
+        table.with(HeaderMove((0, 0), true));
+    }
+}
+
+fn build_table_with_width_check(
+    table: Table,
+    total_width: usize,
+    termwidth: usize,
+) -> Option<String> {
+    if total_width > termwidth {
+        None
+    } else {
+        let content = table.to_string();
+        Some(content)
+    }
+}
+
+fn control_table_width(
+    table: &mut Table,
+    cfg: NuTableConfig,
+    widths: Vec<usize>,
+    termwidth: usize,
+) -> usize {
     let total_width = get_total_width2(&widths, table.get_config());
-    let total_width = if total_width > termwidth {
-        table_trim_columns(&mut table, widths, termwidth, &cfg.trim);
+    if total_width > termwidth {
+        table_trim_columns(table, widths, termwidth, &cfg.trim);
         table.total_width()
     } else if cfg.expand && termwidth > total_width {
         table.with(Settings::new(
@@ -243,62 +285,6 @@ fn draw_table(
         termwidth
     } else {
         total_width
-    };
-
-    if total_width > termwidth {
-        None
-    } else {
-        let content = table.to_string();
-        Some(content)
-    }
-}
-
-fn move_header_on_border(
-    table: &mut Table,
-    alignments: &mut Alignments,
-    styles: &mut Styles,
-    cfg: &NuTableConfig,
-) {
-    if !cfg.header_on_border || table.count_rows() <= 1 {
-        return;
-    }
-
-    let color = Color::from(styles.header.clone());
-    let has_bottom_line = table
-        .get_config()
-        .has_horizontal(table.count_rows(), table.count_rows());
-    let has_top_line = table.get_config().has_horizontal(0, table.count_rows());
-
-    if cfg.with_header && has_top_line {
-        move_row_on_border(table, 0, color.clone(), alignments.header)
-    }
-
-    if cfg.with_footer && has_bottom_line {
-        let last_row = table.count_rows() - 1;
-        move_row_on_border(table, last_row, color, alignments.header)
-    }
-
-    // because we remove rows we will invalidate the data alignments and colors
-    // so we need to restore it back
-
-    if cfg.with_header && has_top_line {
-        if !alignments.cells.is_empty() {
-            for row in 1..table.count_rows() {
-                for col in 0..table.count_rows() {
-                    let val = alignments.cells.get(&(row, col));
-                    if let Some(val) = val {
-                        alignments.cells.insert((row - 1, col), *val);
-                    }
-                }
-            }
-        }
-
-        for row in 1..table.count_rows() {
-            for col in 0..table.count_rows() {
-                let val = styles.data.get(Entity::Cell(row, col)).clone();
-                styles.data.insert(Entity::Cell(row - 1, col), val);
-            }
-        }
     }
 }
 
@@ -703,38 +689,177 @@ fn build_width(records: &VecRecords<CellInfo<String>>) -> Vec<usize> {
     widths
 }
 
-fn move_row_on_border(table: &mut Table, row: usize, color: Color, alignment: AlignmentHorizontal) {
-    if table.is_empty() {
+struct HeaderMove((usize, usize), bool);
+
+impl TableOption<VecRecords<CellInfo<String>>, CompleteDimensionVecRecords<'_>, ColoredConfig>
+    for HeaderMove
+{
+    fn change(
+        self,
+        recs: &mut VecRecords<CellInfo<String>>,
+        cfg: &mut ColoredConfig,
+        dims: &mut CompleteDimensionVecRecords<'_>,
+    ) {
+        let (row, line) = self.0;
+        if self.1 {
+            move_header_on_next(recs, cfg, dims, row, line);
+        } else {
+            move_header_on_prev(recs, cfg, dims, row, line);
+        }
+    }
+}
+
+fn move_header_on_next(
+    recs: &mut VecRecords<CellInfo<String>>,
+    cfg: &mut ColoredConfig,
+    dims: &mut CompleteDimensionVecRecords<'_>,
+    row: usize,
+    line: usize,
+) {
+    let count_rows = recs.count_rows();
+    let count_columns = recs.count_columns();
+    let has_line = cfg.has_horizontal(line, count_rows);
+    let has_next_line = cfg.has_horizontal(line + 1, count_rows);
+    let align = *cfg.get_alignment_horizontal(Entity::Row(row));
+    let color = cfg
+        .get_colors()
+        .get_color((row, 0))
+        .cloned()
+        .map(Color::from);
+
+    if !has_line && !has_next_line {
         return;
     }
 
-    let columns = (0..table.get_records().count_columns())
-        .map(|column| table.get_records().get_text((row, column)).to_owned())
-        .collect::<Vec<_>>();
-
-    table.get_records_mut().remove_row(row);
-
-    if table.is_empty() {
-        table.get_records_mut().push_row();
+    if !has_line {
+        let head = remove_row(recs, row);
+        let count_rows = recs.count_rows();
+        set_column_names(recs, cfg, dims, head, line, align, color);
+        shift_alignments_down(cfg, row, count_rows, count_columns);
+        shift_colors_down(cfg, row, count_rows, count_columns);
+        shift_lines_up(cfg, count_rows, &[line + 1]);
+        shift_lines_up(cfg, count_rows, &[count_rows]);
+        return;
     }
 
-    let mut line = 0;
-    if row != 0 {
-        line = row;
-    }
-
-    let colors = std::iter::repeat(color)
-        .take(table.count_columns())
-        .collect::<Vec<_>>();
-    let names = ColumnNames::new(columns)
-        .set_line(line)
-        .set_colors(colors)
-        .set_alignment(alignment);
-
-    table.with(names);
+    let head = remove_row(recs, row);
+    let count_rows = recs.count_rows();
+    set_column_names(recs, cfg, dims, head, line, align, color);
+    shift_alignments_down(cfg, row, count_rows, count_columns);
+    shift_colors_down(cfg, row, count_rows, count_columns);
+    remove_lines(cfg, count_rows, &[line + 1]);
+    shift_lines_up(cfg, count_rows, &[count_rows]);
 }
 
-fn has_horizontals_for_header(cfg: &NuTableConfig) -> bool {
-    cfg.theme.get_theme().get_horizontal(0).is_some()
-        || cfg.theme.get_theme().get_borders().has_horizontal()
+fn move_header_on_prev(
+    recs: &mut VecRecords<CellInfo<String>>,
+    cfg: &mut ColoredConfig,
+    dims: &mut CompleteDimensionVecRecords<'_>,
+    row: usize,
+    line: usize,
+) {
+    let count_rows = recs.count_rows();
+    let count_columns = recs.count_columns();
+    let has_line = cfg.has_horizontal(line, count_rows);
+    let has_prev_line = cfg.has_horizontal(line - 1, count_rows);
+    let align = *cfg.get_alignment_horizontal(Entity::Row(row));
+    let color = cfg
+        .get_colors()
+        .get_color((row, 0))
+        .cloned()
+        .map(Color::from);
+
+    if !has_line && !has_prev_line {
+        return;
+    }
+
+    if !has_line {
+        let head = remove_row(recs, row);
+        // shift_lines_down(table, &[line - 1]);
+        set_column_names(recs, cfg, dims, head, line - 1, align, color);
+        return;
+    }
+
+    let head = remove_row(recs, row);
+    let count_rows = count_rows - 1;
+    set_column_names(recs, cfg, dims, head, line - 1, align, color);
+    shift_alignments_down(cfg, row, count_rows, count_columns);
+    shift_colors_down(cfg, row, count_rows, count_columns);
+    remove_lines(cfg, count_rows, &[line - 1]);
+}
+
+fn remove_lines(cfg: &mut ColoredConfig, count_rows: usize, line: &[usize]) {
+    for &line in line {
+        cfg.remove_horizontal_line(line, count_rows)
+    }
+}
+
+fn shift_alignments_down(
+    cfg: &mut ColoredConfig,
+    row: usize,
+    count_rows: usize,
+    count_columns: usize,
+) {
+    for row in row..count_rows {
+        for col in 0..count_columns {
+            let pos = (row + 1, col).into();
+            let posn = (row, col).into();
+            let align = *cfg.get_alignment_horizontal(pos);
+            cfg.set_alignment_horizontal(posn, align);
+        }
+
+        let align = *cfg.get_alignment_horizontal(Entity::Row(row + 1));
+        cfg.set_alignment_horizontal(Entity::Row(row), align);
+    }
+}
+
+fn shift_colors_down(cfg: &mut ColoredConfig, row: usize, count_rows: usize, count_columns: usize) {
+    for row in row..count_rows {
+        for col in 0..count_columns {
+            let pos = (row + 1, col);
+            let posn = (row, col).into();
+            let color = cfg.get_colors().get_color(pos).cloned();
+            if let Some(color) = color {
+                cfg.set_color(posn, color);
+            }
+        }
+    }
+}
+
+fn shift_lines_up(cfg: &mut ColoredConfig, count_rows: usize, lines: &[usize]) {
+    for &i in lines {
+        let line = cfg.get_horizontal_line(i).cloned();
+        if let Some(line) = line {
+            cfg.insert_horizontal_line(i - 1, line);
+            cfg.remove_horizontal_line(i, count_rows);
+        }
+    }
+}
+
+fn set_column_names(
+    records: &mut VecRecords<CellInfo<String>>,
+    cfg: &mut ColoredConfig,
+    dims: &mut CompleteDimensionVecRecords<'_>,
+    head: Vec<String>,
+    line: usize,
+    align: AlignmentHorizontal,
+    color: Option<Color>,
+) {
+    let mut names = ColumnNames::new(head).set_line(line).set_alignment(align);
+    if let Some(color) = color {
+        names = names.set_color(color);
+    }
+
+    ColumnNames::change(names, records, cfg, dims)
+}
+
+fn remove_row(recs: &mut VecRecords<CellInfo<String>>, row: usize) -> Vec<String> {
+    let count_columns = recs.count_columns();
+    let columns = (0..count_columns)
+        .map(|column| recs.get_text((row, column)).to_owned())
+        .collect::<Vec<_>>();
+
+    recs.remove_row(row);
+
+    columns
 }
