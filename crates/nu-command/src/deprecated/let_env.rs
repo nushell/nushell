@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, Type};
 
 #[derive(Clone)]
 pub struct LetEnvDeprecated;
@@ -14,12 +14,6 @@ impl Command for LetEnvDeprecated {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::String, "variable name")
-            .required(
-                "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
-            )
             .category(Category::Deprecated)
     }
 
