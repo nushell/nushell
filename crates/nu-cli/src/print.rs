@@ -16,7 +16,11 @@ impl Command for Print {
 
     fn signature(&self) -> Signature {
         Signature::build("print")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::Any, Type::Nothing),
+            ])
+            .allow_variants_without_examples(true)
             .rest("rest", SyntaxShape::Any, "the values to print")
             .switch(
                 "no-newline",

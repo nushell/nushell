@@ -105,13 +105,13 @@ fn help() {
 #[test]
 fn count() {
     let actual = nu!(pipeline(
-        r#"
+        "
             echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1] [1]]
             | histogram bit --percentage-type relative
             | sort-by count
             | reject frequency
             | to json
-        "#
+        "
     ));
 
     let bit_json = r#"[  {    "bit": 1,    "count": 3,    "quantile": 0.5,    "percentage": "50.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 1,    "percentage": "100.00%"  }]"#;
@@ -122,13 +122,13 @@ fn count() {
 #[test]
 fn count_with_normalize_percentage() {
     let actual = nu!(pipeline(
-        r#"
+        "
             echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1]]
             | histogram bit --percentage-type normalize
             | sort-by count
             | reject frequency
             | to json
-        "#
+        "
     ));
 
     let bit_json = r#"[  {    "bit": 1,    "count": 2,    "quantile": 0.25,    "percentage": "25.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 0.75,    "percentage": "75.00%"  }]"#;

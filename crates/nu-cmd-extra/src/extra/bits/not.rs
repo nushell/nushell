@@ -23,7 +23,7 @@ impl Command for BitsNot {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .switch(
                 "signed",
                 "always treat input number as a signed number",

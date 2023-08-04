@@ -46,7 +46,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Get the current date and display it in a given format string.",
-                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
+                example: r#"date now | format date "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {

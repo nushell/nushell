@@ -313,7 +313,7 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm .*"#
+            "rm .*"
         );
 
         assert!(files_exist_at(vec!["foo"], dirs.test()));
@@ -349,6 +349,29 @@ fn remove_ignores_ansi() {
             "ls | find test | get name | rm $in.0; ls | is-empty",
         );
         assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn removes_symlink() {
+    let symlink_target = "symlink_target";
+    let symlink = "symlink";
+    Playground::setup("rm_test_symlink", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile(symlink_target)]);
+
+        #[cfg(not(windows))]
+        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
+            .unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(
+            dirs.test().join(symlink_target),
+            dirs.test().join(symlink),
+        )
+        .unwrap();
+
+        let _ = nu!(cwd: sandbox.cwd(), "rm symlink");
+
+        assert!(!dirs.test().join(symlink).exists());
     });
 }
 

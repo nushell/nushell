@@ -235,7 +235,7 @@ fn heuristic_parse(
                             Vec::new(),
                         ))
                     } else {
-                        Ok(PipelineData::Value(Value::boolean(false, span), None))
+                        Ok(PipelineData::Value(Value::bool(false, span), None))
                     }
                 }
             }
@@ -280,7 +280,7 @@ fn heuristic_parse_file(
                                     Vec::new(),
                                 ))
                             } else {
-                                Ok(PipelineData::Value(Value::boolean(false, call.head), None))
+                                Ok(PipelineData::Value(Value::bool(false, call.head), None))
                             }
                         }
                     }
@@ -326,10 +326,10 @@ fn parse_module(
                 Vec::new(),
             ))
         } else {
-            Ok(PipelineData::Value(Value::boolean(false, new_span), None))
+            Ok(PipelineData::Value(Value::bool(false, new_span), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::boolean(true, new_span), None))
+        Ok(PipelineData::Value(Value::bool(true, new_span), None))
     }
 }
 
@@ -359,10 +359,10 @@ fn parse_script(
                 Vec::new(),
             ))
         } else {
-            Ok(PipelineData::Value(Value::boolean(false, span), None))
+            Ok(PipelineData::Value(Value::bool(false, span), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::boolean(true, span), None))
+        Ok(PipelineData::Value(Value::bool(true, span), None))
     }
 }
 

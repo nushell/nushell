@@ -33,6 +33,7 @@ impl Command for BytesRemove {
             .input_output_types(vec![
                 (Type::Binary, Type::Binary),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .required("pattern", SyntaxShape::Binary, "the pattern to find")
             .rest(
@@ -92,12 +93,10 @@ impl Command for BytesRemove {
                 }),
             },
             Example {
-                description: "Remove all occurrences of find binary",
-                example: "0x[10 AA 10 BB 10] | bytes remove -a 0x[10]",
-                result: Some(Value::Binary {
-                    val: vec![0xAA, 0xBB],
-                    span: Span::test_data(),
-                }),
+                description: "Remove all occurrences of find binary in record field",
+                example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove -a 0x[10] data",
+                result: Some(Value::test_record(vec!["data"], 
+                    vec![Value::test_binary(vec![0xAA, 0xBB])])),
             },
             Example {
                 description: "Remove occurrences of find binary from end",

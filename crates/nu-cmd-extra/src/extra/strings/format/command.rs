@@ -1,3 +1,5 @@
+use std::vec;
+
 use nu_engine::{eval_expression, CallExt};
 use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
@@ -17,15 +19,16 @@ impl Command for Format {
 
     fn signature(&self) -> Signature {
         Signature::build("format")
-            .input_output_types(vec![(
-                Type::Table(vec![]),
-                Type::List(Box::new(Type::String)),
-            )])
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+                (Type::Record(vec![]), Type::Any),
+            ])
             .required(
                 "pattern",
                 SyntaxShape::String,
                 "the pattern to output. e.g.) \"{foo}: {bar}\"",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
