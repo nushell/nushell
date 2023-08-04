@@ -122,6 +122,16 @@ impl Command for NuCheck {
                         Err(error) => return Err(error),
                     };
 
+                    if path.is_dir() {
+                        return Err(ShellError::GenericError(
+                            "Cannot parse directory".to_string(),
+                            "Input given to `nu-check` needs to be a file".to_string(),
+                            Some(call.head),
+                            None,
+                            Vec::new(),
+                        ));
+                    }
+
                     // get the expanded path as a string
                     let path_str = path.to_string_lossy().to_string();
 

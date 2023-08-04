@@ -216,7 +216,7 @@ fn parse_dir_failure() {
 
         assert!(actual
             .err
-            .contains("File extension must be the type of .nu"));
+            .contains("Input given to `nu-check` needs to be a file"));
     })
 }
 
