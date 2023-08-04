@@ -66,10 +66,10 @@ impl Command for ExprLit {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::as_nu::ExprAsNu;
+    use crate::dataframe::eager::ToNu;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ExprAsNu {})])
+        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ToNu {})])
     }
 }

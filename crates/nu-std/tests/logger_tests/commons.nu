@@ -1,5 +1,5 @@
 export def now [] {
-    date now | date format "%Y-%m-%dT%H:%M:%S%.3f"
+    date now | format date "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
 export def format-message [

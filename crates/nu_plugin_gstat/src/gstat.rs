@@ -27,7 +27,7 @@ impl GStat {
         &self,
         value: &Value,
         path: Option<Spanned<String>>,
-        span: &Span,
+        span: Span,
     ) -> Result<Value, LabeledError> {
         // use std::any::Any;
         // eprintln!("input type: {:?} value: {:#?}", &value.type_id(), &value);
@@ -55,7 +55,7 @@ impl GStat {
             }
             None => Spanned {
                 item: ".".to_string(),
-                span: *span,
+                span,
             },
         };
 
@@ -146,54 +146,51 @@ impl GStat {
         let mut vals = vec![];
 
         cols.push("idx_added_staged".into());
-        vals.push(Value::int(stats.idx_added_staged as i64, *span));
+        vals.push(Value::int(stats.idx_added_staged as i64, span));
         cols.push("idx_modified_staged".into());
-        vals.push(Value::int(stats.idx_modified_staged as i64, *span));
+        vals.push(Value::int(stats.idx_modified_staged as i64, span));
         cols.push("idx_deleted_staged".into());
-        vals.push(Value::int(stats.idx_deleted_staged as i64, *span));
+        vals.push(Value::int(stats.idx_deleted_staged as i64, span));
         cols.push("idx_renamed".into());
-        vals.push(Value::int(stats.idx_renamed as i64, *span));
+        vals.push(Value::int(stats.idx_renamed as i64, span));
         cols.push("idx_type_changed".into());
-        vals.push(Value::int(stats.idx_type_changed as i64, *span));
+        vals.push(Value::int(stats.idx_type_changed as i64, span));
         cols.push("wt_untracked".into());
-        vals.push(Value::int(stats.wt_untracked as i64, *span));
+        vals.push(Value::int(stats.wt_untracked as i64, span));
         cols.push("wt_modified".into());
-        vals.push(Value::int(stats.wt_modified as i64, *span));
+        vals.push(Value::int(stats.wt_modified as i64, span));
         cols.push("wt_deleted".into());
-        vals.push(Value::int(stats.wt_deleted as i64, *span));
+        vals.push(Value::int(stats.wt_deleted as i64, span));
         cols.push("wt_type_changed".into());
-        vals.push(Value::int(stats.wt_type_changed as i64, *span));
+        vals.push(Value::int(stats.wt_type_changed as i64, span));
         cols.push("wt_renamed".into());
-        vals.push(Value::int(stats.wt_renamed as i64, *span));
+        vals.push(Value::int(stats.wt_renamed as i64, span));
         cols.push("ignored".into());
-        vals.push(Value::int(stats.ignored as i64, *span));
+        vals.push(Value::int(stats.ignored as i64, span));
         cols.push("conflicts".into());
-        vals.push(Value::int(stats.conflicts as i64, *span));
+        vals.push(Value::int(stats.conflicts as i64, span));
         cols.push("ahead".into());
-        vals.push(Value::int(stats.ahead as i64, *span));
+        vals.push(Value::int(stats.ahead as i64, span));
         cols.push("behind".into());
-        vals.push(Value::int(stats.behind as i64, *span));
+        vals.push(Value::int(stats.behind as i64, span));
         cols.push("stashes".into());
-        vals.push(Value::int(stats.stashes as i64, *span));
+        vals.push(Value::int(stats.stashes as i64, span));
         cols.push("repo_name".into());
         vals.push(Value::String {
             val: repo_name,
-            span: *span,
+            span,
         });
         cols.push("tag".into());
-        vals.push(Value::String {
-            val: tag,
-            span: *span,
-        });
+        vals.push(Value::String { val: tag, span });
         cols.push("branch".into());
         vals.push(Value::String {
             val: stats.branch,
-            span: *span,
+            span,
         });
         cols.push("remote".into());
         vals.push(Value::String {
             val: stats.remote,
-            span: *span,
+            span,
         });
 
         // Leave this in case we want to turn it into a table instead of a list
@@ -206,61 +203,53 @@ impl GStat {
         //     span: *span,
         // })
 
-        Ok(Value::Record {
-            cols,
-            vals,
-            span: *span,
-        })
+        Ok(Value::Record { cols, vals, span })
     }
 
-    fn create_empty_git_status(&self, span: &Span) -> Value {
+    fn create_empty_git_status(&self, span: Span) -> Value {
         let mut cols = vec![];
         let mut vals = vec![];
 
         cols.push("idx_added_staged".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_modified_staged".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_deleted_staged".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_renamed".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_type_changed".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_untracked".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_modified".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_deleted".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_type_changed".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_renamed".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("ignored".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("conflicts".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("ahead".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("behind".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("stashes".into());
-        vals.push(Value::int(-1, *span));
+        vals.push(Value::int(-1, span));
         cols.push("repo_name".into());
-        vals.push(Value::string("no_repository", *span));
+        vals.push(Value::string("no_repository", span));
         cols.push("tag".into());
-        vals.push(Value::string("no_tag", *span));
+        vals.push(Value::string("no_tag", span));
         cols.push("branch".into());
-        vals.push(Value::string("no_branch", *span));
+        vals.push(Value::string("no_branch", span));
         cols.push("remote".into());
-        vals.push(Value::string("no_remote", *span));
+        vals.push(Value::string("no_remote", span));
 
-        Value::Record {
-            cols,
-            vals,
-            span: *span,
-        }
+        Value::Record { cols, vals, span }
     }
 }
 
