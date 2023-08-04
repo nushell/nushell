@@ -101,7 +101,7 @@ impl Type {
             Type::Filesize => SyntaxShape::Filesize,
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
-            Type::Null => SyntaxShape::Nothing,
+            Type::Null => SyntaxShape::Null,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
