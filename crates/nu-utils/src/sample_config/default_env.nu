@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = 0.83.1
+# version = 0.83.2
 
 def create_left_prompt [] {
     mut home = ""
@@ -29,7 +29,7 @@ def create_right_prompt [] {
     let time_segment = ([
         (ansi reset)
         (ansi magenta)
-        (date now | date format '%Y/%m/%d %r')
+        (date now | format date '%Y/%m/%d %r')
     ] | str join | str replace --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
         str replace --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
@@ -48,9 +48,9 @@ $env.PROMPT_COMMAND = {|| create_left_prompt }
 
 # The prompt indicators are environmental variables that represent
 # the state of the prompt
-$env.PROMPT_INDICATOR = {|| " > " }
-$env.PROMPT_INDICATOR_VI_INSERT = {|| " : " }
-$env.PROMPT_INDICATOR_VI_NORMAL = {|| " > " }
+$env.PROMPT_INDICATOR = {|| "> " }
+$env.PROMPT_INDICATOR_VI_INSERT = {|| ": " }
+$env.PROMPT_INDICATOR_VI_NORMAL = {|| "> " }
 $env.PROMPT_MULTILINE_INDICATOR = {|| "::: " }
 
 # Specifies how environment variables are:

@@ -1,5 +1,6 @@
 mod collect;
 mod deprecated_commands;
+mod format;
 mod hash_base64;
 mod let_env;
 mod lpad;
@@ -12,6 +13,7 @@ mod str_int;
 
 pub use collect::StrCollectDeprecated;
 pub use deprecated_commands::*;
+pub use format::SubCommand as DateFormat;
 pub use hash_base64::HashBase64;
 pub use let_env::LetEnvDeprecated;
 pub use lpad::LPadDeprecated;

@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use nu_path::expand_tilde;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
@@ -78,7 +79,12 @@ If nothing is found, an empty string will be returned."#
 }
 
 fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
-    let meta = std::fs::symlink_metadata(path);
+    let meta = if path.starts_with("~") {
+        let p = expand_tilde(path);
+        std::fs::symlink_metadata(p)
+    } else {
+        std::fs::symlink_metadata(path)
+    };
 
     Value::string(
         match &meta {

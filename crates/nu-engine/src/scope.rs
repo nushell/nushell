@@ -548,8 +548,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                             Value::String { val: key, span },
                             Value::String {
                                 val: String::from_utf8_lossy(
-                                    self.engine_state
-                                        .get_span_contents(&alias.wrapped_call.span),
+                                    self.engine_state.get_span_contents(alias.wrapped_call.span),
                                 )
                                 .to_string(),
                                 span,

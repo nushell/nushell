@@ -65,9 +65,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn minimum(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
+pub fn minimum(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let min_func = reducer_for(Reduce::Minimum);
-    min_func(Value::nothing(*head), values.to_vec(), span, *head)
+    min_func(Value::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]
