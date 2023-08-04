@@ -181,9 +181,9 @@ fn missing_column_errors() -> TestResult {
 
 #[test]
 fn missing_optional_column_fills_in_null() -> TestResult {
-    // The empty value will be replaced with $null because of the ?
+    // The empty value will be replaced with null because of the ?
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size?.1 == $null"#,
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size?.1 == null"#,
         "true",
     )
 }
@@ -199,9 +199,9 @@ fn missing_required_row_fails() -> TestResult {
 
 #[test]
 fn missing_optional_row_fills_in_null() -> TestResult {
-    // ?.3 will return $null if there is no 3rd row
+    // ?.3 will return null if there is no 3rd row
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3? == $null"#,
+        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3? == null"#,
         "true",
     )
 }
