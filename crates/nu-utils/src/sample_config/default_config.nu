@@ -164,6 +164,7 @@ $env.config = {
             wrapping_try_keep_words: true # A strategy used by the 'wrapping' methodology
             truncating_suffix: "..." # A suffix used by the 'truncating' methodology
         }
+        header_on_separator: false # show header text on separator/border line
     }
 
     # datetime_format determines what a datetime rendered in the shell would look like.
