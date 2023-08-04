@@ -79,8 +79,8 @@ pub enum SyntaxShape {
     /// A match pattern, eg `{a: $foo}`
     MatchPattern,
 
-    /// Nothing
-    Nothing,
+    /// Null
+    Null,
 
     /// Only a numeric (integer or decimal) value is allowed
     Number,
@@ -152,7 +152,7 @@ impl SyntaxShape {
             SyntaxShape::MatchBlock => Type::Any,
             SyntaxShape::MatchPattern => Type::Any,
             SyntaxShape::MathExpression => Type::Any,
-            SyntaxShape::Nothing => Type::Any,
+            SyntaxShape::Null => Type::Any,
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
@@ -240,7 +240,7 @@ impl Display for SyntaxShape {
                 let arg_string = arg_vec.join(", ");
                 write!(f, "one_of({arg_string})")
             }
-            SyntaxShape::Nothing => write!(f, "nothing"),
+            SyntaxShape::Null => write!(f, "nothing"),
         }
     }
 }

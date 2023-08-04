@@ -2717,7 +2717,7 @@ pub fn parse_shape_name(
         b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
         _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
         b"math" => SyntaxShape::MathExpression,
-        b"nothing" => SyntaxShape::Nothing,
+        b"nothing" => SyntaxShape::Null,
         b"number" => SyntaxShape::Number,
         b"one-of" => SyntaxShape::OneOf(vec![]),
         b"operator" => SyntaxShape::Operator,
