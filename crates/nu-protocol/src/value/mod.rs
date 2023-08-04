@@ -1807,7 +1807,7 @@ impl Value {
         }
     }
 
-    /// Create a new `Nothing` value
+    /// Create a new `Null` value
     pub fn null(span: Span) -> Value {
         Value::Null { span }
     }
