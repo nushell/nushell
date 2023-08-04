@@ -316,9 +316,9 @@ fn join_rows(
                             if Some(key.as_ref()) == shared_join_key {
                                 this_row
                                     .get_data_by_key(key)
-                                    .unwrap_or_else(|| Value::nothing(span))
+                                    .unwrap_or_else(|| Value::null(span))
                             } else {
-                                Value::nothing(span)
+                                Value::null(span)
                             }
                         })
                         .collect();

@@ -54,7 +54,7 @@ impl Completer for NuMenuCompleter {
             }
         }
 
-        let input = Value::nothing(self.span).into_pipeline_data();
+        let input = Value::null(self.span).into_pipeline_data();
         let res = eval_block(
             &self.engine_state,
             &mut self.stack,

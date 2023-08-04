@@ -96,7 +96,7 @@ Current known limitations are:
         {
             Value::list(values, call.head)
         } else {
-            Value::nothing(call.head)
+            Value::null(call.head)
         };
 
         Ok(result.into_pipeline_data())

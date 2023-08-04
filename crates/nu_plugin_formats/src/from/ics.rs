@@ -261,11 +261,11 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
                 };
                 let value = match prop.value {
                     Some(val) => Value::String { val, span },
-                    None => Value::nothing(span),
+                    None => Value::null(span),
                 };
                 let params = match prop.params {
                     Some(param_list) => params_to_value(param_list, span),
-                    None => Value::nothing(span),
+                    None => Value::null(span),
                 };
 
                 row.insert("name".to_string(), name);

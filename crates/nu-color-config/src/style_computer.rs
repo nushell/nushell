@@ -222,11 +222,11 @@ fn test_computable_style_static() {
         .collect(),
     );
     assert_eq!(
-        style_computer.compute("string", &Value::nothing(Span::unknown())),
+        style_computer.compute("string", &Value::null(Span::unknown())),
         style1
     );
     assert_eq!(
-        style_computer.compute("row_index", &Value::nothing(Span::unknown())),
+        style_computer.compute("row_index", &Value::null(Span::unknown())),
         style2
     );
 }

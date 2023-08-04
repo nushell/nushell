@@ -81,7 +81,7 @@ pub fn get_empty_style(style_computer: &StyleComputer) -> NuText {
         String::from("❎"),
         TextStyle::with_style(
             Alignment::Right,
-            style_computer.compute("empty", &Value::nothing(Span::unknown())),
+            style_computer.compute("empty", &Value::null(Span::unknown())),
         ),
     )
 }
@@ -112,7 +112,7 @@ fn make_styled_string(
                 text,
                 TextStyle::with_style(
                     Alignment::Center,
-                    style_computer.compute("empty", &Value::nothing(Span::unknown())),
+                    style_computer.compute("empty", &Value::null(Span::unknown())),
                 ),
             )
         }
@@ -162,7 +162,7 @@ pub fn load_theme_from_config(config: &Config) -> TableTheme {
 }
 
 fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
-    style_computer.compute("separator", &Value::nothing(Span::unknown()))
+    style_computer.compute("separator", &Value::null(Span::unknown()))
 }
 
 fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {

@@ -55,7 +55,7 @@ impl Command for ExportAlias {
         vec![Example {
             description: "Alias ll to ls -l and export it from a module",
             example: "module spam { export alias ll = ls -l }",
-            result: Some(Value::nothing(Span::test_data())),
+            result: Some(Value::null(Span::test_data())),
         }]
     }
 }

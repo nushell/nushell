@@ -130,8 +130,8 @@ impl PipelineData {
 
     pub fn into_value(self, span: Span) -> Value {
         match self {
-            PipelineData::Empty => Value::nothing(span),
-            PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
+            PipelineData::Empty => Value::null(span),
+            PipelineData::Value(Value::Nothing{ .. }, ..) => Value::null(span),
             PipelineData::Value(v, ..) => v.with_span(span),
             PipelineData::ListStream(s, ..) => Value::List {
                 vals: s.collect(),

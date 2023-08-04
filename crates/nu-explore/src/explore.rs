@@ -379,5 +379,5 @@ fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &Style
 }
 
 fn lookup_color(style_computer: &StyleComputer, key: &str) -> nu_ansi_term::Style {
-    style_computer.compute(key, &Value::nothing(Span::unknown()))
+    style_computer.compute(key, &Value::null(Span::unknown()))
 }

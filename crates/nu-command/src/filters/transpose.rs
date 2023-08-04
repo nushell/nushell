@@ -307,14 +307,14 @@ pub fn transpose(
                             let new_val = match &vals[index] {
                                 Value::List { vals, span } => {
                                     let mut vals = vals.clone();
-                                    vals.push(Value::nothing(name));
+                                    vals.push(Value::null(name));
                                     Value::List {
                                         vals: vals.to_vec(),
                                         span: *span,
                                     }
                                 }
                                 v => Value::List {
-                                    vals: vec![v.clone(), Value::nothing(name)],
+                                    vals: vec![v.clone(), Value::null(name)],
                                     span: v.expect_span(),
                                 },
                             };
@@ -331,10 +331,10 @@ pub fn transpose(
                             cols.remove(index);
                             vals.remove(index);
                             cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
+                            vals.push(Value::null(name));
                         } else if !cols.contains(&headers[column_num]) {
                             cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
+                            vals.push(Value::null(name));
                         }
                     }
                 }

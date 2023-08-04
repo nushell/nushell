@@ -191,7 +191,7 @@ mod tests {
 
         let mut m = indexmap::IndexMap::new();
         m.insert("rust".to_owned(), Value::test_string("editor"));
-        m.insert("is".to_owned(), Value::nothing(Span::test_data()));
+        m.insert("is".to_owned(), Value::null(Span::test_data()));
         m.insert(
             "features".to_owned(),
             Value::List {

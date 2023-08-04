@@ -164,8 +164,8 @@ fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
         let mut node = IndexMap::new();
         let content = Value::string(String::from(text), span);
 
-        node.insert(String::from(COLUMN_TAG_NAME), Value::nothing(span));
-        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_TAG_NAME), Value::null(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::null(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
         let result = Value::from(Spanned { item: node, span });
@@ -185,7 +185,7 @@ fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
         let content = Value::string(String::from(text), span);
 
         node.insert(String::from(COLUMN_TAG_NAME), Value::string("!", span));
-        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::null(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
         let result = Value::from(Spanned { item: node, span });
@@ -207,10 +207,10 @@ fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> O
         let tag = Value::string(tag, span);
         let content = pi
             .value
-            .map_or_else(|| Value::nothing(span), |x| Value::string(x, span));
+            .map_or_else(|| Value::null(span), |x| Value::string(x, span));
 
         node.insert(String::from(COLUMN_TAG_NAME), tag);
-        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), Value::null(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
         let result = Value::from(Spanned { item: node, span });
@@ -373,8 +373,8 @@ mod tests {
     fn content_string(value: impl Into<String>) -> Value {
         Value::from(Spanned {
             item: indexmap! {
-                COLUMN_TAG_NAME.into() => Value::nothing(Span::test_data()),
-                COLUMN_ATTRS_NAME.into() => Value::nothing(Span::test_data()),
+                COLUMN_TAG_NAME.into() => Value::null(Span::test_data()),
+                COLUMN_ATTRS_NAME.into() => Value::null(Span::test_data()),
                 COLUMN_CONTENT_NAME.into() => string(value),
             },
             span: Span::test_data(),

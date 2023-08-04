@@ -158,7 +158,7 @@ fn registry_query(
                     )),
                 }
             }
-            None => Ok(Value::nothing(call_span).into_pipeline_data()),
+            None => Ok(Value::null(call_span).into_pipeline_data()),
         }
     }
 }
@@ -222,7 +222,7 @@ fn reg_value_to_nu_value(
     call_span: Span,
 ) -> (nu_protocol::Value, winreg::enums::RegType) {
     match reg_value.vtype {
-        REG_NONE => (Value::nothing(call_span), reg_value.vtype),
+        REG_NONE => (Value::null(call_span), reg_value.vtype),
         REG_SZ => (
             Value::string(clean_string(&reg_value.to_string()), call_span),
             reg_value.vtype,

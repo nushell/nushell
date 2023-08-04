@@ -54,7 +54,7 @@ fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableThe
     ));
 
     // color_config closures for "separator" are just given a null.
-    let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
+    let color = style_computer.compute("separator", &Value::null(Span::unknown()));
     let color = color.paint(" ").to_string();
     if let Ok(color) = Color::try_from(color) {
         // # SAFETY

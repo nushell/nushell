@@ -36,7 +36,7 @@ Test' | from eml"
                     Value::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
+                            Value::null(Span::test_data()),
                             Value::test_string("test@email.com"),
                         ],
                         span: Span::test_data(),
@@ -44,7 +44,7 @@ Test' | from eml"
                     Value::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
+                            Value::null(Span::test_data()),
                             Value::test_string("someone@somewhere.com"),
                         ],
                         span: Span::test_data(),
@@ -73,7 +73,7 @@ Test' | from eml -b 1"
                     Value::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
+                            Value::null(Span::test_data()),
                             Value::test_string("test@email.com"),
                         ],
                         span: Span::test_data(),
@@ -81,7 +81,7 @@ Test' | from eml -b 1"
                     Value::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
+                            Value::null(Span::test_data()),
                             Value::test_string("someone@somewhere.com"),
                         ],
                         span: Span::test_data(),
@@ -97,7 +97,7 @@ Test' | from eml -b 1"
 fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
     let (n, a) = match email_address {
         EmailAddress::AddressOnly { address } => (
-            Value::nothing(span),
+            Value::null(span),
             Value::String {
                 val: address.to_string(),
                 span,
@@ -135,7 +135,7 @@ fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
             span: head,
         },
         Unstructured(s) => Value::string(s, head),
-        Empty => Value::nothing(head),
+        Empty => Value::null(head),
     }
 }
 

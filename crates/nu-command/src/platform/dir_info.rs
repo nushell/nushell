@@ -255,13 +255,13 @@ impl From<FileInfo> for Value {
         });
 
         cols.push("directories".into());
-        vals.push(Value::nothing(Span::unknown()));
+        vals.push(Value::null(Span::unknown()));
 
         cols.push("files".into());
-        vals.push(Value::nothing(Span::unknown()));
+        vals.push(Value::null(Span::unknown()));
 
         // cols.push("errors".into());
-        // vals.push(Value::nothing(Span::unknown()));
+        // vals.push(Value::null(Span::unknown()));
 
         Value::Record {
             cols,
@@ -276,7 +276,7 @@ where
     V: Into<Value>,
 {
     if vec.is_empty() {
-        Value::nothing(tag)
+        Value::null(tag)
     } else {
         let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
         Value::List {

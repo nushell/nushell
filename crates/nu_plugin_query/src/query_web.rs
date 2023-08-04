@@ -39,7 +39,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     let attribute = call.get_flag("attribute")?.unwrap_or_default();
     let as_table: Value = call
         .get_flag("as-table")?
-        .unwrap_or_else(|| Value::nothing(head));
+        .unwrap_or_else(|| Value::null(head));
 
     let inspect = call.has_flag("inspect");
 

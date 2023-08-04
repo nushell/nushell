@@ -181,7 +181,7 @@ fn detect_columns(
                     }
 
                     if !found {
-                        pre_output.push((header.item.to_string(), Value::nothing(name_span)));
+                        pre_output.push((header.item.to_string(), Value::null(name_span)));
                     }
                 }
 

@@ -93,7 +93,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     }
     terminal::disable_raw_mode()?;
 
-    Ok(Value::nothing(Span::unknown()))
+    Ok(Value::null(Span::unknown()))
 }
 
 // this fn is totally ripped off from crossterm's examples

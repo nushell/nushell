@@ -437,7 +437,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
                 let data = row.get_data_by_key(header);
                 output_string.push_str("<td>");
                 output_string.push_str(&html_value(
-                    data.unwrap_or_else(|| Value::nothing(span)),
+                    data.unwrap_or_else(|| Value::null(span)),
                     config,
                 ));
                 output_string.push_str("</td>");

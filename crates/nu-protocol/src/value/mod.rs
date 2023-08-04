@@ -606,9 +606,9 @@ impl Value {
                     match item {
                         Value::Record { .. } => match item.get_data_by_key(name) {
                             Some(v) => out.push(v),
-                            None => out.push(Value::nothing(*span)),
+                            None => out.push(Value::null(*span)),
                         },
-                        _ => out.push(Value::nothing(*span)),
+                        _ => out.push(Value::null(*span)),
                     }
                 }
 
@@ -917,7 +917,7 @@ impl Value {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
                             } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                                return Ok(Value::null(*origin_span)); // short-circuit
                             } else if val.is_empty() {
                                 return Err(ShellError::AccessEmptyContent { span: *origin_span })
                             } else {
@@ -928,7 +928,7 @@ impl Value {
                             if let Some(item) = val.get(*count) {
                                 current = Value::int(*item as i64, *origin_span);
                             } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                                return Ok(Value::null(*origin_span)); // short-circuit
                             } else if val.is_empty() {
                                 return Err(ShellError::AccessEmptyContent { span: *origin_span })
                             } else {
@@ -939,7 +939,7 @@ impl Value {
                             if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
                                 current = item.clone();
                             } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                                return Ok(Value::null(*origin_span)); // short-circuit
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream {
                                     span: *origin_span
@@ -951,7 +951,7 @@ impl Value {
                                 Ok(val) => val,
                                 Err(err) => {
                                     if *optional {
-                                        return Ok(Value::nothing(*origin_span));
+                                        return Ok(Value::null(*origin_span));
                                     // short-circuit
                                     } else {
                                         return Err(err);
@@ -960,7 +960,7 @@ impl Value {
                             };
                         }
                         Value::Nothing { .. } if *optional => {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
+                            return Ok(Value::null(*origin_span)); // short-circuit
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
@@ -995,7 +995,7 @@ impl Value {
                         }) {
                             current = found.1.clone();
                         } else if *optional {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
+                            return Ok(Value::null(*origin_span)); // short-circuit
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&cols, column_name) {
@@ -1015,7 +1015,7 @@ impl Value {
                         if columns.contains(&column_name.as_str()) {
                             current = val.get_column_value(column_name)?;
                         } else if *optional {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
+                            return Ok(Value::null(*origin_span)); // short-circuit
                         } else {
                             if from_user_input {
                                 if let Some(suggestion) = did_you_mean(&columns, column_name) {
@@ -1055,7 +1055,7 @@ impl Value {
                                     });
                                 }
                             } else if *optional && matches!(val, Value::Nothing { .. }) {
-                                output.push(Value::nothing(*origin_span));
+                                output.push(Value::null(*origin_span));
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.to_string(),
@@ -1074,7 +1074,7 @@ impl Value {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     Value::Nothing { .. } if *optional => {
-                        return Ok(Value::nothing(*origin_span)); // short-circuit
+                        return Ok(Value::null(*origin_span)); // short-circuit
                     }
                     Value::Error { error } => return Err(*error.to_owned()),
                     x => {
@@ -1807,8 +1807,8 @@ impl Value {
         }
     }
 
-    /// Create a new `Nothing` value
-    pub fn nothing(span: Span) -> Value {
+    /// Create a new `Null` value
+    pub fn null(span: Span) -> Value {
         Value::Nothing { span }
     }
 
@@ -1923,7 +1923,7 @@ impl Value {
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_nothing() -> Value {
-        Value::nothing(Span::test_data())
+        Value::null(Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -2968,7 +2968,7 @@ impl Value {
         }
 
         if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
-            return Ok(Value::nothing(span));
+            return Ok(Value::null(span));
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -3011,7 +3011,7 @@ impl Value {
         }
 
         if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
-            return Ok(Value::nothing(span));
+            return Ok(Value::null(span));
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -3052,7 +3052,7 @@ impl Value {
         }
 
         if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
-            return Ok(Value::nothing(span));
+            return Ok(Value::null(span));
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())
@@ -3093,7 +3093,7 @@ impl Value {
         }
 
         if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
-            return Ok(Value::nothing(span));
+            return Ok(Value::null(span));
         }
 
         if !type_compatible(self.get_type(), rhs.get_type())

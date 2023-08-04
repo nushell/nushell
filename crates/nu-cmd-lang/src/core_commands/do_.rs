@@ -239,7 +239,7 @@ impl Command for Do {
                 let ctrlc = ls.ctrlc.clone();
                 for v in ls {
                     if let Value::Error { .. } = v {
-                        values.push(Value::nothing(call.head));
+                        values.push(Value::null(call.head));
                     } else {
                         values.push(v)
                     }

@@ -140,7 +140,7 @@ pub fn make_styled_string(
                 text,
                 TextStyle::with_style(
                     Alignment::Center,
-                    style_computer.compute("empty", &Value::nothing(nu_protocol::Span::unknown())),
+                    style_computer.compute("empty", &Value::null(nu_protocol::Span::unknown())),
                 ),
             )
         }
