@@ -23,7 +23,7 @@ let dark_theme = {
     range: white
     float: white
     string: white
-    nothing: white
+    "null": white
     binary: white
     cellpath: white
     row_index: green_bold
@@ -86,7 +86,7 @@ let light_theme = {
     range: dark_gray
     float: dark_gray
     string: dark_gray
-    nothing: dark_gray
+    "null": dark_gray
     binary: dark_gray
     cellpath: dark_gray
     row_index: green_bold
