@@ -393,7 +393,7 @@ impl ExternalCommand {
                 }
             }
             Ok(mut child) => {
-                if !input.is_nothing() {
+                if !input.is_null() {
                     let mut engine_state = engine_state.clone();
                     let mut stack = stack.clone();
 
@@ -632,7 +632,7 @@ impl ExternalCommand {
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
-        if !input.is_nothing() {
+        if !input.is_null() {
             process.stdin(Stdio::piped());
         }
 
