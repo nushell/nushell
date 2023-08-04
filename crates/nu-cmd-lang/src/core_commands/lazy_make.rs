@@ -141,7 +141,7 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
         pipeline_result.map(|data| match data {
             PipelineData::Value(value, ..) => value,
             // TODO: Proper error handling.
-            _ => Value::Nothing { span: self.span },
+            _ => Value::Null { span: self.span },
         })
     }
 

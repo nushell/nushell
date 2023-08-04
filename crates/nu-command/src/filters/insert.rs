@@ -187,7 +187,7 @@ fn insert(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else {
-                    pre_elems.push(Value::Nothing { span })
+                    pre_elems.push(Value::Null { span })
                 }
             }
 

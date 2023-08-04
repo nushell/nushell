@@ -154,7 +154,7 @@ fn helper(val: Value, head: Span) -> Value {
             let date = parse_date_from_string(&val, val_span);
             parse_date_into_table(date, head)
         }
-        Value::Nothing { span: _ } => {
+        Value::Null { span: _ } => {
             let now = Local::now();
             let n = now.with_timezone(now.offset());
             parse_date_into_table(Ok(n), head)

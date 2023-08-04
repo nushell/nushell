@@ -113,7 +113,7 @@ pub fn eval_constant(
             val: s.clone(),
             span: expr.span,
         }),
-        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::Nothing => Ok(Value::Null { span: expr.span }),
         Expr::ValueWithUnit(expr, unit) => {
             if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
                 Ok(unit.item.to_value(val, unit.span))

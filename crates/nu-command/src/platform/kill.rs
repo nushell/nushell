@@ -172,7 +172,7 @@ impl Command for Kill {
                 .trim_end(),
         );
         if val.is_empty() {
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::Null { span: call.head }.into_pipeline_data())
         } else {
             Ok(vec![Value::String {
                 val,

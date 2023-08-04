@@ -28,13 +28,13 @@ impl Range {
     ) -> Result<Range, ShellError> {
         // Select from & to values if they're not specified
         // TODO: Replace the placeholder values with proper min/max for range based on data type
-        let from = if let Value::Nothing { .. } = from {
+        let from = if let Value::Null { .. } = from {
             Value::int(0i64, expr_span)
         } else {
             from
         };
 
-        let to = if let Value::Nothing { .. } = to {
+        let to = if let Value::Null { .. } = to {
             if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
                 Value::int(i64::MIN, expr_span)
             } else {
@@ -51,7 +51,7 @@ impl Range {
         );
 
         // Convert the next value into the increment
-        let incr = if let Value::Nothing { .. } = next {
+        let incr = if let Value::Null { .. } = next {
             if moves_up {
                 Value::int(1i64, expr_span)
             } else {
@@ -171,12 +171,12 @@ impl RangeIterator {
         let is_end_inclusive = range.is_end_inclusive();
 
         let start = match range.from {
-            Value::Nothing { .. } => Value::Int { val: 0, span },
+            Value::Null { .. } => Value::Int { val: 0, span },
             x => x,
         };
 
         let end = match range.to {
-            Value::Nothing { .. } => Value::Int {
+            Value::Null { .. } => Value::Int {
                 val: i64::MAX,
                 span,
             },
@@ -207,7 +207,7 @@ impl Iterator for RangeIterator {
             return None;
         }
 
-        let ordering = if matches!(self.end, Value::Nothing { .. }) {
+        let ordering = if matches!(self.end, Value::Null { .. }) {
             Some(Ordering::Less)
         } else {
             self.curr.partial_cmp(&self.end)

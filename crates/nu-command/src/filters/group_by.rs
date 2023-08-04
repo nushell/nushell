@@ -168,7 +168,7 @@ pub fn group_cell_path(
         let group_key = value
             .clone()
             .follow_cell_path(&column_name.members, false)?;
-        if matches!(group_key, Value::Nothing { .. }) {
+        if matches!(group_key, Value::Null { .. }) {
             continue; // likely the result of a failed optional access, ignore this value
         }
 

@@ -67,7 +67,7 @@ impl Command for Open {
             path_params.insert(0, filename);
         } else {
             let filename = match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {
+                PipelineData::Value(Value::Null { .. }, ..) => {
                     return Err(ShellError::MissingParameter {
                         param_name: "needs filename".to_string(),
                         span: call.head,

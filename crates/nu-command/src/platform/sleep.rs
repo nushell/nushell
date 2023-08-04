@@ -66,7 +66,7 @@ impl Command for Sleep {
             }
         }
 
-        Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+        Ok(Value::Null { span: call.head }.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,7 +74,7 @@ impl Command for Sleep {
             Example {
                 description: "Sleep for 1sec",
                 example: "sleep 1sec",
-                result: Some(Value::Nothing {
+                result: Some(Value::Null {
                     span: Span::test_data(),
                 }),
             },

@@ -106,7 +106,7 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
         nu_json::Value::Bool(b) => Value::Bool { val: *b, span },
         nu_json::Value::F64(f) => Value::Float { val: *f, span },
         nu_json::Value::I64(i) => Value::Int { val: *i, span },
-        nu_json::Value::Null => Value::Nothing { span },
+        nu_json::Value::Null => Value::Null { span },
         nu_json::Value::Object(k) => {
             let mut cols = vec![];
             let mut vals = vec![];

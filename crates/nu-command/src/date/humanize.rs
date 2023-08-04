@@ -65,7 +65,7 @@ impl Command for SubCommand {
 
 fn helper(value: Value, head: Span) -> Value {
     match value {
-        Value::Nothing { span: _ } => {
+        Value::Null { span: _ } => {
             let dt = Local::now();
             Value::String {
                 val: humanize_date(dt.with_timezone(dt.offset())),

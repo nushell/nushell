@@ -92,7 +92,7 @@ pub enum Value {
         captures: HashMap<VarId, Value>,
         span: Span,
     },
-    Nothing {
+    Null {
         span: Span,
     },
     Error {
@@ -171,7 +171,7 @@ impl Clone for Value {
                 captures: captures.clone(),
                 span: *span,
             },
-            Value::Nothing { span } => Value::Nothing { span: *span },
+            Value::Null { span } => Value::Null { span: *span },
             Value::Error { error } => Value::Error {
                 error: error.clone(),
             },
@@ -492,7 +492,7 @@ impl Value {
             | Value::List { span, .. }
             | Value::Block { span, .. }
             | Value::Closure { span, .. }
-            | Value::Nothing { span, .. }
+            | Value::Null { span, .. }
             | Value::Binary { span, .. }
             | Value::CellPath { span, .. }
             | Value::CustomValue { span, .. }
@@ -525,7 +525,7 @@ impl Value {
             | Value::List { span, .. }
             | Value::Closure { span, .. }
             | Value::Block { span, .. }
-            | Value::Nothing { span, .. }
+            | Value::Null { span, .. }
             | Value::Binary { span, .. }
             | Value::CellPath { span, .. }
             | Value::CustomValue { span, .. }
@@ -582,7 +582,7 @@ impl Value {
                 Ok(val) => val.get_type(),
                 Err(..) => Type::Error,
             },
-            Value::Nothing { .. } => Type::Nothing,
+            Value::Null { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
             Value::Error { .. } => Type::Error,
@@ -695,7 +695,7 @@ impl Value {
             }
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {val}>"),
-            Value::Nothing { .. } => String::new(),
+            Value::Null { .. } => String::new(),
             Value::Error { error } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
@@ -750,7 +750,7 @@ impl Value {
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {val}>"),
-            Value::Nothing { .. } => String::new(),
+            Value::Null { .. } => String::new(),
             Value::Error { error } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
@@ -852,7 +852,7 @@ impl Value {
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {val}>"),
-            Value::Nothing { .. } => String::new(),
+            Value::Null { .. } => String::new(),
             Value::Error { error } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
@@ -868,13 +868,13 @@ impl Value {
             Value::List { vals, .. } => vals.is_empty(),
             Value::Record { cols, .. } => cols.is_empty(),
             Value::Binary { val, .. } => val.is_empty(),
-            Value::Nothing { .. } => true,
+            Value::Null { .. } => true,
             _ => false,
         }
     }
 
     pub fn is_nothing(&self) -> bool {
-        matches!(self, Value::Nothing { .. })
+        matches!(self, Value::Null { .. })
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
@@ -959,7 +959,7 @@ impl Value {
                                 }
                             };
                         }
-                        Value::Nothing { .. } if *optional => {
+                        Value::Null { .. } if *optional => {
                             return Ok(Value::null(*origin_span)); // short-circuit
                         }
                         // Records (and tables) are the only built-in which support column names,
@@ -1054,7 +1054,7 @@ impl Value {
                                         src_span: val.span().unwrap_or(*span),
                                     });
                                 }
-                            } else if *optional && matches!(val, Value::Nothing { .. }) {
+                            } else if *optional && matches!(val, Value::Null { .. }) {
                                 output.push(Value::null(*origin_span));
                             } else {
                                 return Err(ShellError::CantFindColumn {
@@ -1073,7 +1073,7 @@ impl Value {
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
-                    Value::Nothing { .. } if *optional => {
+                    Value::Null { .. } if *optional => {
                         return Ok(Value::null(*origin_span)); // short-circuit
                     }
                     Value::Error { error } => return Err(*error.to_owned()),
@@ -1809,7 +1809,7 @@ impl Value {
 
     /// Create a new `Null` value
     pub fn null(span: Span) -> Value {
-        Value::Nothing { span }
+        Value::Null { span }
     }
 
     pub fn error(error: ShellError) -> Value {
@@ -1959,7 +1959,7 @@ impl Value {
 
 impl Default for Value {
     fn default() -> Self {
-        Value::Nothing {
+        Value::Null {
             span: Span::unknown(),
         }
     }
@@ -1994,7 +1994,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2015,7 +2015,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2036,7 +2036,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2057,7 +2057,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2078,7 +2078,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2099,7 +2099,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2120,7 +2120,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2141,7 +2141,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2194,7 +2194,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2215,7 +2215,7 @@ impl PartialOrd for Value {
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2236,7 +2236,7 @@ impl PartialOrd for Value {
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::Block { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2257,14 +2257,14 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Null { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
                 Value::MatchPattern { .. } => Some(Ordering::Less),
             },
-            (Value::Nothing { .. }, rhs) => match rhs {
+            (Value::Null { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
@@ -2278,7 +2278,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Equal),
+                Value::Null { .. } => Some(Ordering::Equal),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2299,7 +2299,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Null { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Equal),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2320,7 +2320,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Null { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
@@ -2341,7 +2341,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Null { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2370,7 +2370,7 @@ impl PartialOrd for Value {
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
+                Value::Null { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { .. } => Some(Ordering::Greater),
@@ -2967,7 +2967,7 @@ impl Value {
             return lhs.operation(*span, Operator::Comparison(Comparison::LessThan), op, rhs);
         }
 
-        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+        if matches!(self, Value::Null { .. }) || matches!(rhs, Value::Null { .. }) {
             return Ok(Value::null(span));
         }
 
@@ -3010,7 +3010,7 @@ impl Value {
             );
         }
 
-        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+        if matches!(self, Value::Null { .. }) || matches!(rhs, Value::Null { .. }) {
             return Ok(Value::null(span));
         }
 
@@ -3051,7 +3051,7 @@ impl Value {
             );
         }
 
-        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+        if matches!(self, Value::Null { .. }) || matches!(rhs, Value::Null { .. }) {
             return Ok(Value::null(span));
         }
 
@@ -3092,7 +3092,7 @@ impl Value {
             );
         }
 
-        if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
+        if matches!(self, Value::Null { .. }) || matches!(rhs, Value::Null { .. }) {
             return Ok(Value::null(span));
         }
 
@@ -3136,7 +3136,7 @@ impl Value {
             })
         } else {
             match (self, rhs) {
-                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
+                (Value::Null { .. }, _) | (_, Value::Null { .. }) => {
                     Ok(Value::Bool { val: false, span })
                 }
                 _ => Err(ShellError::OperatorMismatch {
@@ -3162,7 +3162,7 @@ impl Value {
             })
         } else {
             match (self, rhs) {
-                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
+                (Value::Null { .. }, _) | (_, Value::Null { .. }) => {
                     Ok(Value::Bool { val: true, span })
                 }
                 _ => Err(ShellError::OperatorMismatch {

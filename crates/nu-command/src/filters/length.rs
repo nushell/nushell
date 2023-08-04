@@ -78,7 +78,7 @@ fn length_col(
 
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     match input {
-        PipelineData::Value(Value::Nothing { .. }, ..) => {
+        PipelineData::Value(Value::Null { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
         }
         _ => {

@@ -9,7 +9,7 @@ impl Plugin for Example {
         // plugin is registered to nushell
         vec![
             PluginSignature::build("nu-example-1")
-                .usage("PluginSignature test 1 for plugin. Returns Value::Nothing")
+                .usage("PluginSignature test 1 for plugin. Returns Value::Null")
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))

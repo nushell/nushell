@@ -1,6 +1,6 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
-// Tests for $nothing / null / Value::Nothing
+// Tests for $nothing / null / Value::Null
 #[test]
 fn nothing_fails_string() -> TestResult {
     fail_test("$nothing.foo", "doesn't support cell paths")

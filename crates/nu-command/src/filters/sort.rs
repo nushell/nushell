@@ -336,14 +336,14 @@ pub fn process(
 
         let left_res = match left_value {
             Some(left_res) => left_res,
-            None => Value::Nothing { span },
+            None => Value::Null { span },
         };
 
         let right_value = right.get_data_by_key(column);
 
         let right_res = match right_value {
             Some(right_res) => right_res,
-            None => Value::Nothing { span },
+            None => Value::Null { span },
         };
 
         let result = if insensitive {

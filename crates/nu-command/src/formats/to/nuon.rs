@@ -248,7 +248,7 @@ pub fn value_to_string(
             span,
             v.expect_span(),
         )),
-        Value::Nothing { .. } => Ok("null".to_string()),
+        Value::Null { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",
             value_to_string(&val.from, span, depth + 1, indent)?,

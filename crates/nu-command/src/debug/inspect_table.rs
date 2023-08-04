@@ -227,7 +227,7 @@ mod util {
 
                 (vec![String::from("")], lines)
             }
-            Value::Nothing { .. } => (vec![], vec![]),
+            Value::Null { .. } => (vec![], vec![]),
             value => (
                 vec![String::from("")],
                 vec![vec![debug_string_without_formatting(&value)]],

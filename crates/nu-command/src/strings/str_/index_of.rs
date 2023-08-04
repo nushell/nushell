@@ -268,7 +268,7 @@ mod tests {
                 val: 1,
                 span: Span::test_data(),
             },
-            to: Value::Nothing {
+            to: Value::Null {
                 span: Span::test_data(),
             },
             inclusion: RangeInclusion::Inclusive,
@@ -291,7 +291,7 @@ mod tests {
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
         let range = Range {
-            from: Value::Nothing {
+            from: Value::Null {
                 span: Span::test_data(),
             },
             inclusion: RangeInclusion::Inclusive,

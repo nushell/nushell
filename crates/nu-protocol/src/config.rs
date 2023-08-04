@@ -521,7 +521,7 @@ impl Value {
                                         span: $span,
                                     }
                                 } else {
-                                    Value::Nothing { span: $span }
+                                    Value::Null { span: $span }
                                 }
                             };
                         }
@@ -609,7 +609,7 @@ impl Value {
                                                             config.external_completer = Some(v)
                                                         } else {
                                                             match value {
-                                                                Value::Nothing { .. } => {}
+                                                                Value::Null { .. } => {}
                                                                 _ => {
                                                                     invalid!(
                                                                         Some(span),
@@ -908,7 +908,7 @@ impl Value {
                                             ],
                                             None => vec![
                                                 Value::string("truncating", $span),
-                                                Value::Nothing { span: $span },
+                                                Value::Null { span: $span },
                                             ],
                                         },
                                         $span,
@@ -1522,7 +1522,7 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
             // Source is an optional value
             let source = match extract_value("source", cols, vals, span) {
                 Ok(source) => source.clone(),
-                Err(_) => Value::Nothing { span },
+                Err(_) => Value::Null { span },
             };
 
             let menu = ParsedMenu {

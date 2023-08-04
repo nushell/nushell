@@ -131,7 +131,7 @@ fn to_xml_entry<W: Write>(
         .unwrap_or_else(|| Value::null(Span::unknown()));
 
     match (tag, attrs, content) {
-        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, span }) => {
+        (Value::Null { .. }, Value::Null { .. }, Value::String { val, span }) => {
             // Strings can not appear on top level of document
             if top_level {
                 return Err(ShellError::CantConvert {
@@ -192,7 +192,7 @@ fn to_tag_like<W: Write>(
 
         let content: String = match content {
             Value::String { val, .. } => val,
-            Value::Nothing { .. } => "".into(),
+            Value::Null { .. } => "".into(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -210,7 +210,7 @@ fn to_tag_like<W: Write>(
         // content: null}, {tag: a}. See to_xml_entry for more
         let (attr_cols, attr_values) = match attrs {
             Value::Record { cols, vals, .. } => (cols, vals),
-            Value::Nothing { .. } => (Vec::new(), Vec::new()),
+            Value::Null { .. } => (Vec::new(), Vec::new()),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -223,7 +223,7 @@ fn to_tag_like<W: Write>(
 
         let content = match content {
             Value::List { vals, .. } => vals,
-            Value::Nothing { .. } => Vec::new(),
+            Value::Null { .. } => Vec::new(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -253,7 +253,7 @@ fn to_comment<W: Write>(
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
     match (attrs, content) {
-        (Value::Nothing { .. }, Value::String { val, .. }) => {
+        (Value::Null { .. }, Value::String { val, .. }) => {
             let comment_content = BytesText::new(val.as_str());
             writer
                 .write_event(Event::Comment(comment_content))
@@ -280,7 +280,7 @@ fn to_processing_instruction<W: Write>(
     content: String,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
-    if !matches!(attrs, Value::Nothing { .. }) {
+    if !matches!(attrs, Value::Null { .. }) {
         return Err(ShellError::CantConvert {
             to_type: "XML".into(),
             from_type: Type::Record(vec![]).to_string(),

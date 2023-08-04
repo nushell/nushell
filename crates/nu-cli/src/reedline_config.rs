@@ -243,7 +243,7 @@ pub(crate) fn add_columnar_menu(
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
 
     match &menu.source {
-        Value::Nothing { .. } => {
+        Value::Null { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
         Value::Closure {
@@ -329,7 +329,7 @@ pub(crate) fn add_list_menu(
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
 
     match &menu.source {
-        Value::Nothing { .. } => {
+        Value::Null { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
         Value::Closure {
@@ -447,7 +447,7 @@ pub(crate) fn add_description_menu(
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
 
     match &menu.source {
-        Value::Nothing { .. } => {
+        Value::Null { .. } => {
             let completer = Box::new(NuHelpCompleter::new(engine_state));
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
                 menu: Box::new(description_menu),
@@ -802,7 +802,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
 
             Ok(Some(ReedlineEvent::Multiple(events)))
         }
-        Value::Nothing { .. } => Ok(None),
+        Value::Null { .. } => Ok(None),
         v => Err(ShellError::UnsupportedConfigValue(
             "record or list of records, null to unbind key".to_string(),
             v.into_abbreviated_string(config),

@@ -111,7 +111,7 @@ pub fn create_column(
     let size = to_row - from_row;
     match series.dtype() {
         DataType::Null => {
-            let values = std::iter::repeat(Value::Nothing { span })
+            let values = std::iter::repeat(Value::Null { span })
                 .take(size)
                 .collect::<Vec<Value>>();
 
@@ -136,7 +136,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -161,7 +161,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -186,7 +186,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -211,7 +211,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -236,7 +236,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -261,7 +261,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -286,7 +286,7 @@ pub fn create_column(
                         val: a as i64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -308,7 +308,7 @@ pub fn create_column(
                 .take(size)
                 .map(|v| match v {
                     Some(a) => Value::Int { val: a, span },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -333,7 +333,7 @@ pub fn create_column(
                         val: a as f64,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -355,7 +355,7 @@ pub fn create_column(
                 .take(size)
                 .map(|v| match v {
                     Some(a) => Value::Float { val: a, span },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -378,7 +378,7 @@ pub fn create_column(
                 .take(size)
                 .map(|v| match v {
                     Some(a) => Value::Bool { val: a, span },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -404,7 +404,7 @@ pub fn create_column(
                         val: a.into(),
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -430,7 +430,7 @@ pub fn create_column(
                         .take(size)
                         .map(|v| match v {
                             Some(a) => a.get_value(),
-                            None => Value::Nothing { span },
+                            None => Value::Null { span },
                         })
                         .collect::<Vec<Value>>();
 
@@ -493,7 +493,7 @@ pub fn create_column(
                             span,
                         }
                     }
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -558,7 +558,7 @@ pub fn create_column(
                             span,
                         }
                     }
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -584,7 +584,7 @@ pub fn create_column(
                         val: nanoseconds,
                         span,
                     },
-                    None => Value::Nothing { span },
+                    None => Value::Null { span },
                 })
                 .collect::<Vec<Value>>();
 

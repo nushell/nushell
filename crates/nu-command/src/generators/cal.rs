@@ -339,7 +339,7 @@ fn add_month_to_table(
             let should_add_day_number_to_table =
                 (day_number > total_start_offset) && (day_number <= day_limit);
 
-            let mut value = Value::Nothing { span: tag };
+            let mut value = Value::Null { span: tag };
 
             if should_add_day_number_to_table {
                 let adjusted_day_number = day_number - total_start_offset;

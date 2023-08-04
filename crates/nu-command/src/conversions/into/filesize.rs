@@ -170,7 +170,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                     error: Box::new(error),
                 },
             },
-            Value::Nothing { .. } => Value::Filesize {
+            Value::Null { .. } => Value::Filesize {
                 val: 0,
                 span: value_span,
             },

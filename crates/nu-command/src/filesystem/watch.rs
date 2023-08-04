@@ -213,7 +213,7 @@ impl Command for Watch {
                         engine_state,
                         stack,
                         &block,
-                        Value::Nothing { span: call.span() }.into_pipeline_data(),
+                        Value::Null { span: call.span() }.into_pipeline_data(),
                         call.redirect_stdout,
                         call.redirect_stderr,
                     );

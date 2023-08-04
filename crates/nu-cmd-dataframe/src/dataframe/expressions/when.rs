@@ -106,7 +106,7 @@ impl Command for ExprWhen {
 
         let value = input.into_value(call.head);
         let when_then: NuWhen = match value {
-            Value::Nothing { .. } => when(when_predicate.into_polars())
+            Value::Null { .. } => when(when_predicate.into_polars())
                 .then(then_predicate.into_polars())
                 .into(),
             v => match NuWhen::try_from_value(v)? {

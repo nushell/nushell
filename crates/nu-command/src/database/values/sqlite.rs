@@ -455,7 +455,7 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<S
 
 pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
     match value {
-        ValueRef::Null => Value::Nothing { span },
+        ValueRef::Null => Value::Null { span },
         ValueRef::Integer(i) => Value::Int { val: i, span },
         ValueRef::Real(f) => Value::Float { val: f, span },
         ValueRef::Text(buf) => {
@@ -552,7 +552,7 @@ mod test {
                 vals: vec![
                     Value::Record {
                         cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![Value::Int { val: 123, span }, Value::Nothing { span }],
+                        vals: vec![Value::Int { val: 123, span }, Value::Null { span }],
                         span,
                     },
                     Value::Record {

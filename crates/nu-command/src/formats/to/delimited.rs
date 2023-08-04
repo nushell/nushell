@@ -120,7 +120,7 @@ fn to_string_tagged_value(
         | Value::CellPath { .. }
         | Value::Float { .. } => Ok(v.clone().into_abbreviated_string(config)),
         Value::Date { val, .. } => Ok(val.to_string()),
-        Value::Nothing { .. } => Ok(String::new()),
+        Value::Null { .. } => Ok(String::new()),
         // Propagate existing errors
         Value::Error { error } => Err(*error.clone()),
         _ => Err(make_unsupported_input_error(v, head, span)),

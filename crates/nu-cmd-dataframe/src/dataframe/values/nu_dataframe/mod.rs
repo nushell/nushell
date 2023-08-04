@@ -38,7 +38,7 @@ impl Display for DataFrameValue {
 
 impl Default for DataFrameValue {
     fn default() -> Self {
-        Self(Value::Nothing {
+        Self(Value::Null {
             span: Span::unknown(),
         })
     }
@@ -54,7 +54,7 @@ impl Eq for DataFrameValue {}
 impl std::hash::Hash for DataFrameValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.0 {
-            Value::Nothing { .. } => 0.hash(state),
+            Value::Null { .. } => 0.hash(state),
             Value::Int { val, .. } => val.hash(state),
             Value::String { val, .. } => val.hash(state),
             // TODO. Define hash for the rest of types
@@ -441,7 +441,7 @@ impl NuDataFrame {
 
                     match col.next() {
                         Some(v) => vals.push(v),
-                        None => vals.push(Value::Nothing { span }),
+                        None => vals.push(Value::Null { span }),
                     };
                 }
 

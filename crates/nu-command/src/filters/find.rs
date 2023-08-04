@@ -529,7 +529,7 @@ fn value_should_be_printed(
         | Value::Float { .. }
         | Value::Block { .. }
         | Value::Closure { .. }
-        | Value::Nothing { .. }
+        | Value::Null { .. }
         | Value::Error { .. } => term_equals_value(term, &lower_value, span),
         Value::String { .. }
         | Value::List { .. }
