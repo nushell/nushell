@@ -29,7 +29,7 @@ pub enum FlatShape {
     List,
     Literal,
     MatchPattern,
-    Nothing,
+    Null,
     Operator,
     Or,
     Pipe,
@@ -68,7 +68,7 @@ impl Display for FlatShape {
             FlatShape::List => write!(f, "shape_list"),
             FlatShape::Literal => write!(f, "shape_literal"),
             FlatShape::MatchPattern => write!(f, "shape_match_pattern"),
-            FlatShape::Nothing => write!(f, "shape_nothing"),
+            FlatShape::Null => write!(f, "shape_nothing"),
             FlatShape::Operator => write!(f, "shape_operator"),
             FlatShape::Or => write!(f, "shape_or"),
             FlatShape::Pipe => write!(f, "shape_pipe"),
@@ -248,7 +248,7 @@ pub fn flatten_expression(
             vec![(expr.span, FlatShape::Garbage)]
         }
         Expr::Nothing => {
-            vec![(expr.span, FlatShape::Nothing)]
+            vec![(expr.span, FlatShape::Null)]
         }
         Expr::DateTime(_) => {
             vec![(expr.span, FlatShape::DateTime)]
@@ -578,10 +578,10 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
             output.push((match_pattern.span, FlatShape::Garbage));
         }
         Pattern::IgnoreValue => {
-            output.push((match_pattern.span, FlatShape::Nothing));
+            output.push((match_pattern.span, FlatShape::Null));
         }
         Pattern::IgnoreRest => {
-            output.push((match_pattern.span, FlatShape::Nothing));
+            output.push((match_pattern.span, FlatShape::Null));
         }
         Pattern::List(items) => {
             if let Some(first) = items.first() {

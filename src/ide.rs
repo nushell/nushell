@@ -511,7 +511,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
                     }
                 })
             ),
-            FlatShape::Nothing => println!(
+            FlatShape::Null => println!(
                 "{}",
                 json!({
                     "hover": "nothing",
