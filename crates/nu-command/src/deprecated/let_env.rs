@@ -3,9 +3,9 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
-pub struct LetEnvDeprecated;
+pub struct LetEnv;
 
-impl Command for LetEnvDeprecated {
+impl Command for LetEnv {
     fn name(&self) -> &str {
         "let-env"
     }

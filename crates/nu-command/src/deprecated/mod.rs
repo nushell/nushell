@@ -4,4 +4,4 @@ mod let_env;
 
 pub use deprecated_commands::*;
 pub use format::SubCommand as DateFormat;
-pub use let_env::LetEnvDeprecated;
+pub use let_env::LetEnv;
