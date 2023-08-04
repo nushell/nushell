@@ -21,9 +21,9 @@ impl Command for SubCommand {
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                // todo: add (Type::Record(vec![]), Type::Duration)),
+                // todo: to handle {day:5 hour:3 sign:+} | into duration
             ])
-            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -116,14 +116,6 @@ impl Command for SubCommand {
                 example: "'9day 184min' | into duration",
                 result: Some(Value::Duration {
                     val: ((9 * 24 * 60) + 184) * 60 * 1_000_000_000,
-                    span,
-                }),
-            },
-            Example {
-                description: "Convert string to the requested duration as a string",
-                example: "'7min' | into duration --convert sec",
-                result: Some(Value::String {
-                    val: "420 sec".to_string(),
                     span,
                 }),
             },
