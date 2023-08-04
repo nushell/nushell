@@ -113,7 +113,7 @@ impl PipelineData {
         self
     }
 
-    pub fn is_nothing(&self) -> bool {
+    pub fn is_null(&self) -> bool {
         matches!(self, PipelineData::Value(Value::Null { .. }, ..))
             || matches!(self, PipelineData::Empty)
     }

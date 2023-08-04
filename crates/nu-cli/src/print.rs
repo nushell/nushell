@@ -60,7 +60,7 @@ Since this command has no output, there is no point in piping it with other comm
                 arg.into_pipeline_data()
                     .print(engine_state, stack, no_newline, to_stderr)?;
             }
-        } else if !input.is_nothing() {
+        } else if !input.is_null() {
             input.print(engine_state, stack, no_newline, to_stderr)?;
         }
 
