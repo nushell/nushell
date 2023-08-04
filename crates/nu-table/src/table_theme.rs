@@ -191,6 +191,10 @@ impl TableTheme {
         self.has_inner
     }
 
+    pub fn has_horizontals(&self) -> bool {
+        self.full_theme.get_borders().has_horizontal()
+    }
+
     pub fn get_theme_full(&self) -> RawStyle {
         self.full_theme.clone()
     }
