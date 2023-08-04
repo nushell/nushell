@@ -313,7 +313,7 @@ fn find_matching_block_end_in_expr(
             Expr::Signature(_) => None,
             Expr::MatchPattern(_) => None,
             Expr::MatchBlock(_) => None,
-            Expr::Nothing => None,
+            Expr::Null => None,
             Expr::Garbage => None,
 
             Expr::Table(hdr, rows) => {

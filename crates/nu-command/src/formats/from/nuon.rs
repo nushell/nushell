@@ -100,7 +100,7 @@ impl Command for FromNuon {
 
         let expr = if block.pipelines.is_empty() {
             Expression {
-                expr: Expr::Nothing,
+                expr: Expr::Null,
                 span: head,
                 custom_completion: None,
                 ty: Type::Null,
@@ -125,7 +125,7 @@ impl Command for FromNuon {
 
             if pipeline.elements.is_empty() {
                 Expression {
-                    expr: Expr::Nothing,
+                    expr: Expr::Null,
                     span: head,
                     custom_completion: None,
                     ty: Type::Null,
@@ -291,7 +291,7 @@ fn convert_to_value(
             "match blocks not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Nothing => Ok(Value::Null { span }),
+        Expr::Null => Ok(Value::Null { span }),
         Expr::Operator(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),

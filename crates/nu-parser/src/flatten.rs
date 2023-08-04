@@ -247,7 +247,7 @@ pub fn flatten_expression(
         Expr::Garbage => {
             vec![(expr.span, FlatShape::Garbage)]
         }
-        Expr::Nothing => {
+        Expr::Null => {
             vec![(expr.span, FlatShape::Null)]
         }
         Expr::DateTime(_) => {

@@ -201,7 +201,7 @@ impl Expression {
                 false
             }
             Expr::Garbage => false,
-            Expr::Nothing => false,
+            Expr::Null => false,
             Expr::GlobPattern(_) => false,
             Expr::Int(_) => false,
             Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
@@ -394,7 +394,7 @@ impl Expression {
             Expr::ImportPattern(_) => {}
             Expr::Overlay(_) => {}
             Expr::Garbage => {}
-            Expr::Nothing => {}
+            Expr::Null => {}
             Expr::GlobPattern(_) => {}
             Expr::Int(_) => {}
             Expr::MatchPattern(_) => {}
@@ -556,7 +556,7 @@ impl Expression {
             Expr::ImportPattern(_) => {}
             Expr::Overlay(_) => {}
             Expr::Garbage => {}
-            Expr::Nothing => {}
+            Expr::Null => {}
             Expr::GlobPattern(_) => {}
             Expr::MatchPattern(_) => {}
             Expr::MatchBlock(_) => {}

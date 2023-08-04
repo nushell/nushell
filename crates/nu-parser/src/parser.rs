@@ -1795,7 +1795,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
 
     if contents == b"$nothing" {
         return Expression {
-            expr: Expr::Nothing,
+            expr: Expr::Null,
             span,
             ty: Type::Null,
             custom_completion: None,
@@ -4604,7 +4604,7 @@ pub fn parse_value(
         }
         b"null" => {
             return Expression {
-                expr: Expr::Nothing,
+                expr: Expr::Null,
                 span,
                 ty: Type::Null,
                 custom_completion: None,
@@ -5967,7 +5967,7 @@ pub fn discover_captures_in_expr(
         Expr::ImportPattern(_) => {}
         Expr::Overlay(_) => {}
         Expr::Garbage => {}
-        Expr::Nothing => {}
+        Expr::Null => {}
         Expr::GlobPattern(_) => {}
         Expr::Int(_) => {}
         Expr::Keyword(_, _, expr) => {
