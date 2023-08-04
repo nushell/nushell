@@ -232,7 +232,7 @@ fn draw_table(
 
     let total_width = control_table_width(&mut table, cfg, widths, termwidth);
 
-    // we need to do it after width controll cause we of ColmnNames internals.
+    // we need to do it after width control cause we of ColumnNames internals.
     if with_header && border_header {
         set_border_head(&mut table, with_footer);
     }
