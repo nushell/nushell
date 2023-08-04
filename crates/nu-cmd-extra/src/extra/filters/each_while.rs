@@ -123,7 +123,7 @@ impl Command for EachWhile {
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
-                            if value.is_nothing() {
+                            if value.is_null() {
                                 None
                             } else {
                                 Some(value)
@@ -167,7 +167,7 @@ impl Command for EachWhile {
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
-                            if value.is_nothing() {
+                            if value.is_null() {
                                 None
                             } else {
                                 Some(value)

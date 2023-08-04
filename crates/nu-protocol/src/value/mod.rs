@@ -873,7 +873,7 @@ impl Value {
         }
     }
 
-    pub fn is_nothing(&self) -> bool {
+    pub fn is_null(&self) -> bool {
         matches!(self, Value::Null { .. })
     }
 

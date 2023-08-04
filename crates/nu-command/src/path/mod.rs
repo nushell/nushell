@@ -51,7 +51,7 @@ fn handle_invalid_values(rest: Value, name: Span) -> Value {
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest.span() {
         Ok(span) => {
-            if rest.is_nothing() {
+            if rest.is_null() {
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string, record or list".into(),
                     wrong_type: "nothing".into(),
