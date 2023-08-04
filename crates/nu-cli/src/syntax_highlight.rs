@@ -82,7 +82,7 @@ impl Highlighter for NuHighlighter {
 
             match shape.1 {
                 FlatShape::Garbage => add_colored_token(&shape.1, next_token),
-                FlatShape::Nothing => add_colored_token(&shape.1, next_token),
+                FlatShape::Null => add_colored_token(&shape.1, next_token),
                 FlatShape::Binary => add_colored_token(&shape.1, next_token),
                 FlatShape::Bool => add_colored_token(&shape.1, next_token),
                 FlatShape::Int => add_colored_token(&shape.1, next_token),
