@@ -88,8 +88,8 @@ string. This way content of every tag is always a table and is easier to parse"#
                                             COLUMN_CONTENT_NAME,
                                         ],
                                         vec![
-                                            Value::test_nothing(),
-                                            Value::test_nothing(),
+                                            Value::test_null(),
+                                            Value::test_null(),
                                             Value::test_string("Event"),
                                         ],
                                     )],
