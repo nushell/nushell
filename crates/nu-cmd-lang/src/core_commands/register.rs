@@ -16,7 +16,7 @@ impl Command for Register {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("register")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .required(
                 "plugin",
                 SyntaxShape::Filepath,

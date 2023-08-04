@@ -483,8 +483,8 @@ pub fn math_result_type(
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
-                (Type::Nothing, _) => (Type::Nothing, None),
-                (_, Type::Nothing) => (Type::Nothing, None),
+                (Type::Null, _) => (Type::Null, None),
+                (_, Type::Null) => (Type::Null, None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -532,8 +532,8 @@ pub fn math_result_type(
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
 
-                (Type::Nothing, _) => (Type::Nothing, None),
-                (_, Type::Nothing) => (Type::Nothing, None),
+                (Type::Null, _) => (Type::Null, None),
+                (_, Type::Null) => (Type::Null, None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -584,8 +584,8 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
 
-                (Type::Nothing, _) => (Type::Nothing, None),
-                (_, Type::Nothing) => (Type::Nothing, None),
+                (Type::Null, _) => (Type::Null, None),
+                (_, Type::Null) => (Type::Null, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
                     *op = Expression::garbage(op.span);
                     (
@@ -633,8 +633,8 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
 
-                (Type::Nothing, _) => (Type::Nothing, None),
-                (_, Type::Nothing) => (Type::Nothing, None),
+                (Type::Null, _) => (Type::Null, None),
+                (_, Type::Null) => (Type::Null, None),
                 (Type::Int | Type::Float | Type::Duration | Type::Filesize, _) => {
                     *op = Expression::garbage(op.span);
                     (
@@ -927,12 +927,12 @@ pub fn math_result_type(
                 }
             },
             Operator::Assignment(_) => match (&lhs.ty, &rhs.ty) {
-                (x, y) if x == y => (Type::Nothing, None),
-                (Type::Any, _) => (Type::Nothing, None),
-                (_, Type::Any) => (Type::Nothing, None),
-                (Type::List(_), Type::List(_)) => (Type::Nothing, None),
+                (x, y) if x == y => (Type::Null, None),
+                (Type::Any, _) => (Type::Null, None),
+                (_, Type::Any) => (Type::Null, None),
+                (Type::List(_), Type::List(_)) => (Type::Null, None),
                 (x, y) => (
-                    Type::Nothing,
+                    Type::Null,
                     Some(ParseError::Mismatch(x.to_string(), y.to_string(), rhs.span)),
                 ),
             },
@@ -1026,13 +1026,13 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
 
     for (input_type, output_type) in &block.signature.input_output_types {
         let mut current_type = input_type.clone();
-        let mut current_output_type = Type::Nothing;
+        let mut current_output_type = Type::Null;
 
         for pipeline in &block.pipelines {
             let (checked_output_type, err) =
                 check_pipeline_type(working_set, pipeline, current_type);
             current_output_type = checked_output_type;
-            current_type = Type::Nothing;
+            current_type = Type::Null;
             if let Some(err) = err {
                 output_errors.extend_from_slice(&err);
             }
@@ -1068,7 +1068,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
 
         for pipeline in &block.pipelines {
             let (_, err) = check_pipeline_type(working_set, pipeline, current_type);
-            current_type = Type::Nothing;
+            current_type = Type::Null;
 
             if let Some(err) = err {
                 output_errors.extend_from_slice(&err);

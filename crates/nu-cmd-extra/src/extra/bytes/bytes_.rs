@@ -16,7 +16,7 @@ impl Command for Bytes {
     fn signature(&self) -> Signature {
         Signature::build("bytes")
             .category(Category::Bytes)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

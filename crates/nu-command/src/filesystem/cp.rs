@@ -44,7 +44,7 @@ impl Command for Cp {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
             .switch(

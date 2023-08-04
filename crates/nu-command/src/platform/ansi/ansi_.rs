@@ -508,8 +508,8 @@ impl Command for AnsiCommand {
     fn signature(&self) -> Signature {
         Signature::build("ansi")
             .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Table(vec![]))])
+                (Type::Null, Type::String),
+                (Type::Null, Type::Table(vec![]))])
             .optional(
                 "code",
                 SyntaxShape::Any,

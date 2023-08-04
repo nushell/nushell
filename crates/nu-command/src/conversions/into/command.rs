@@ -16,7 +16,7 @@ impl Command for Into {
     fn signature(&self) -> Signature {
         Signature::build("into")
             .category(Category::Conversions)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

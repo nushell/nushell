@@ -21,7 +21,7 @@ impl Command for TermSize {
         Signature::build("term size")
             .category(Category::Platform)
             .input_output_types(vec![(
-                Type::Nothing,
+                Type::Null,
                 Type::Record(vec![
                     ("columns".into(), Type::Int),
                     ("rows".into(), Type::Int),

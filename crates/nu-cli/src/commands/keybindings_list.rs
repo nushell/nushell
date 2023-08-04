@@ -18,7 +18,7 @@ impl Command for KeybindingsList {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .switch("modifiers", "list of modifiers", Some('m'))
             .switch("keycodes", "list of keycodes", Some('k'))
             .switch("modes", "list of edit modes", Some('o'))

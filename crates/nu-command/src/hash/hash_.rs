@@ -14,7 +14,7 @@ impl Command for Hash {
     fn signature(&self) -> Signature {
         Signature::build("hash")
             .category(Category::Hash)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

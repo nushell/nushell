@@ -14,7 +14,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date now")
-            .input_output_types(vec![(Type::Nothing, Type::Date)])
+            .input_output_types(vec![(Type::Null, Type::Date)])
             .category(Category::Date)
     }
 

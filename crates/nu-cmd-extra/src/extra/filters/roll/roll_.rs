@@ -18,7 +18,7 @@ impl Command for Roll {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Filters)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

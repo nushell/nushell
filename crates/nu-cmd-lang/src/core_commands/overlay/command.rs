@@ -16,7 +16,7 @@ impl Command for Overlay {
     fn signature(&self) -> Signature {
         Signature::build("overlay")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

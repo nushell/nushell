@@ -26,7 +26,7 @@ impl Command for Sleep {
 
     fn signature(&self) -> Signature {
         Signature::build("sleep")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .required("duration", SyntaxShape::Duration, "time to sleep")
             .rest("rest", SyntaxShape::Duration, "additional time")
             .category(Category::Platform)

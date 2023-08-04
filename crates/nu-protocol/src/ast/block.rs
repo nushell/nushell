@@ -78,10 +78,10 @@ impl Block {
                     PipelineElement::Or(_, expr) => expr.ty.clone(),
                 }
             } else {
-                Type::Nothing
+                Type::Null
             }
         } else {
-            Type::Nothing
+            Type::Null
         }
     }
 }

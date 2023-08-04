@@ -16,7 +16,7 @@ impl Command for Str {
     fn signature(&self) -> Signature {
         Signature::build("str")
             .category(Category::Strings)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

@@ -20,7 +20,7 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .rest(
                 "rest",
                 SyntaxShape::String,

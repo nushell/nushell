@@ -19,7 +19,7 @@ impl Command for IsAdmin {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("is-admin")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::Bool)])
+            .input_output_types(vec![(Type::Null, Type::Bool)])
             .allow_variants_without_examples(true)
     }
 

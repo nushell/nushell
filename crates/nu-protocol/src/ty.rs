@@ -26,7 +26,7 @@ pub enum Type {
     ListStream,
     MatchPattern,
     #[default]
-    Nothing,
+    Null,
     Number,
     Range,
     Record(Vec<(String, Type)>),
@@ -101,7 +101,7 @@ impl Type {
             Type::Filesize => SyntaxShape::Filesize,
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
-            Type::Nothing => SyntaxShape::Nothing,
+            Type::Null => SyntaxShape::Nothing,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
@@ -132,7 +132,7 @@ impl Type {
             Type::Table(_) => String::from("table"),
             Type::List(_) => String::from("list"),
             Type::MatchPattern => String::from("match pattern"),
-            Type::Nothing => String::from("nothing"),
+            Type::Null => String::from("nothing"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
             Type::ListStream => String::from("list stream"),
@@ -189,7 +189,7 @@ impl Display for Type {
                 }
             }
             Type::List(l) => write!(f, "list<{l}>"),
-            Type::Nothing => write!(f, "nothing"),
+            Type::Null => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
             Type::ListStream => write!(f, "list stream"),

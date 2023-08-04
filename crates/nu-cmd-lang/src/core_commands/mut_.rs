@@ -17,7 +17,7 @@ impl Command for Mut {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mut")
-            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .input_output_types(vec![(Type::Any, Type::Null)])
             .allow_variants_without_examples(true)
             .required("var_name", SyntaxShape::VarWithOptType, "variable name")
             .required(

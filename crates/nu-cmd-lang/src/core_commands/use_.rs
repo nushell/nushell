@@ -19,7 +19,7 @@ impl Command for Use {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("use")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .allow_variants_without_examples(true)
             .required("module", SyntaxShape::String, "Module or module file")
             .rest(

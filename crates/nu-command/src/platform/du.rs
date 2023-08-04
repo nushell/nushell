@@ -43,7 +43,7 @@ impl Command for Du {
 
     fn signature(&self) -> Signature {
         Signature::build("du")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
             .optional("path", SyntaxShape::GlobPattern, "starting directory")
             .switch(

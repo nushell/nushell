@@ -16,7 +16,7 @@ impl Command for Ignore {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ignore")
-            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .input_output_types(vec![(Type::Any, Type::Null)])
             .category(Category::Core)
     }
 

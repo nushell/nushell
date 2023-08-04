@@ -20,7 +20,7 @@ impl Command for IntoSqliteDb {
 
     fn signature(&self) -> Signature {
         Signature::build("into sqlite")
-            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .input_output_types(vec![(Type::Any, Type::Null)])
             .allow_variants_without_examples(true)
             // TODO: narrow disallowed types
             .required(
@@ -286,7 +286,7 @@ fn nu_type_to_sqlite_type(nu_type: Type) -> &'static str {
         Type::Float => "REAL",
         Type::String => "TEXT",
         Type::Bool => "TEXT",
-        Type::Nothing => "NULL",
+        Type::Null => "NULL",
         Type::Filesize => "INTEGER",
         Type::Date => "TEXT",
         _ => "TEXT",

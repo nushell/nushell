@@ -20,8 +20,8 @@ impl Command for LoadEnv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("load-env")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Nothing),
-                (Type::Nothing, Type::Nothing),
+                (Type::Record(vec![]), Type::Null),
+                (Type::Null, Type::Null),
             ])
             .allow_variants_without_examples(true)
             .optional(

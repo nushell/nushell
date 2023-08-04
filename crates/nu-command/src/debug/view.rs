@@ -16,7 +16,7 @@ impl Command for View {
     fn signature(&self) -> Signature {
         Signature::build("view")
             .category(Category::Debug)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

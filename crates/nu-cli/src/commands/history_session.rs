@@ -19,7 +19,7 @@ impl Command for HistorySession {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history session")
             .category(Category::Misc)
-            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .input_output_types(vec![(Type::Null, Type::Int)])
     }
 
     fn examples(&self) -> Vec<Example> {

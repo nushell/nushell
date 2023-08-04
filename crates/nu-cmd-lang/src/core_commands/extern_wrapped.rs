@@ -16,7 +16,7 @@ impl Command for ExternWrapped {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("extern-wrapped")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
             .required("body", SyntaxShape::Block, "wrapper function block")

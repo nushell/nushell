@@ -14,7 +14,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("random uuid")
             .category(Category::Random)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .allow_variants_without_examples(true)
     }
 

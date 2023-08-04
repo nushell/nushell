@@ -16,7 +16,7 @@ impl Command for Scope {
     fn signature(&self) -> Signature {
         Signature::build("scope")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .allow_variants_without_examples(true)
     }
 

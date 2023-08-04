@@ -20,7 +20,7 @@ impl Command for Glob {
 
     fn signature(&self) -> Signature {
         Signature::build("glob")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Null, Type::List(Box::new(Type::String)))])
             .required("glob", SyntaxShape::String, "the glob expression")
             .named(
                 "depth",

@@ -16,10 +16,7 @@ impl Command for Commandline {
 
     fn signature(&self) -> Signature {
         Signature::build("commandline")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::String, Type::String),
-            ])
+            .input_output_types(vec![(Type::Null, Type::Null), (Type::String, Type::String)])
             .switch(
                 "cursor",
                 "Set or get the current cursor position",

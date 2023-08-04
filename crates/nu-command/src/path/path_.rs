@@ -14,7 +14,7 @@ impl Command for PathCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path").input_output_types(vec![(Type::Nothing, Type::String)])
+        Signature::build("path").input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

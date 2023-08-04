@@ -15,7 +15,7 @@ impl Command for ExportEnv {
 
     fn signature(&self) -> Signature {
         Signature::build("export-env")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .required(
                 "block",
                 SyntaxShape::Block,

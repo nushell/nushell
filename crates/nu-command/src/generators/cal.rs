@@ -48,7 +48,7 @@ impl Command for Cal {
                 "Display the month names instead of integers",
                 None,
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .category(Category::Generators)
     }

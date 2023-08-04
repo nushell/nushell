@@ -22,7 +22,7 @@ impl Command for OverlayUse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay use")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .allow_variants_without_examples(true)
             .required(
                 "name",

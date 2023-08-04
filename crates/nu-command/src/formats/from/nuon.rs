@@ -103,7 +103,7 @@ impl Command for FromNuon {
                 expr: Expr::Nothing,
                 span: head,
                 custom_completion: None,
-                ty: Type::Nothing,
+                ty: Type::Null,
             }
         } else {
             let mut pipeline = block.pipelines.remove(0);
@@ -128,7 +128,7 @@ impl Command for FromNuon {
                     expr: Expr::Nothing,
                     span: head,
                     custom_completion: None,
-                    ty: Type::Nothing,
+                    ty: Type::Null,
                 }
             } else {
                 match pipeline.elements.remove(0) {

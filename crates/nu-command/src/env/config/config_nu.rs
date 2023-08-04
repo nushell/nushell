@@ -18,7 +18,7 @@ impl Command for ConfigNu {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
         // TODO: Signature narrower than what run actually supports theoretically
     }
 

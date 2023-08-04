@@ -13,7 +13,7 @@ impl Command for Exit {
 
     fn signature(&self) -> Signature {
         Signature::build("exit")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .optional(
                 "exit_code",
                 SyntaxShape::Int,

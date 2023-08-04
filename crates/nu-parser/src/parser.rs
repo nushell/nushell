@@ -1797,7 +1797,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
         return Expression {
             expr: Expr::Nothing,
             span,
-            ty: Type::Nothing,
+            ty: Type::Null,
             custom_completion: None,
         };
     } else if contents == b"$nu" {
@@ -4606,7 +4606,7 @@ pub fn parse_value(
             return Expression {
                 expr: Expr::Nothing,
                 span,
-                ty: Type::Nothing,
+                ty: Type::Null,
                 custom_completion: None,
             };
         }
@@ -5113,7 +5113,7 @@ pub fn parse_expression(
                 Expression {
                     expr: Expr::String(String::new()),
                     span: Span::unknown(),
-                    ty: Type::Nothing,
+                    ty: Type::Null,
                     custom_completion: None,
                 }
             };
