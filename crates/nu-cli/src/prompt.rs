@@ -143,11 +143,11 @@ impl Prompt for NushellPrompt {
             PromptEditMode::Vi(vi_mode) => match vi_mode {
                 PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
                     Some(indicator) => indicator,
-                    None => ": ",
+                    None => "> ",
                 },
                 PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
                     Some(indicator) => indicator,
-                    None => "> ",
+                    None => ": ",
                 },
             }
             .into(),
