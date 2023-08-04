@@ -1793,14 +1793,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents == b"null" {
-        return Expression {
-            expr: Expr::Null,
-            span,
-            ty: Type::Null,
-            custom_completion: None,
-        };
-    } else if contents == b"$nu" {
+    if contents == b"$nu" {
         return Expression {
             expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
             span,

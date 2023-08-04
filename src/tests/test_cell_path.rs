@@ -1,16 +1,5 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
-// Tests for null / null / Value::Null
-#[test]
-fn null_fails_string() -> TestResult {
-    fail_test("null.foo", "doesn't support cell paths")
-}
-
-#[test]
-fn null_fails_int() -> TestResult {
-    fail_test("null.3", "doesn't support cell paths")
-}
-
 // Tests for records
 #[test]
 fn record_single_field_success() -> TestResult {
