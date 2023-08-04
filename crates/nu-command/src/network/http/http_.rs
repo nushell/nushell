@@ -15,7 +15,7 @@ impl Command for Http {
 
     fn signature(&self) -> Signature {
         Signature::build("http")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .category(Category::Network)
     }
 

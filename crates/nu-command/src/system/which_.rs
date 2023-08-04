@@ -21,7 +21,7 @@ impl Command for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
             .required("application", SyntaxShape::String, "application")
             .rest("rest", SyntaxShape::String, "additional applications")

@@ -17,7 +17,7 @@ impl Command for Tutor {
 
     fn signature(&self) -> Signature {
         Signature::build("tutor")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .allow_variants_without_examples(true)
             .optional(
                 "search",

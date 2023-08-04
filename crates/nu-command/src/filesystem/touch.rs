@@ -25,7 +25,7 @@ impl Command for Touch {
 
     fn signature(&self) -> Signature {
         Signature::build("touch")
-            .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
+            .input_output_types(vec![ (Type::Null, Type::Null) ])
             .required(
                 "filename",
                 SyntaxShape::Filepath,

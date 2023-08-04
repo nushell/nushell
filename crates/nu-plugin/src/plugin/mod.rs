@@ -203,7 +203,7 @@ pub fn get_signature(
 /// impl Plugin for HelloPlugin {
 ///     fn signature(&self) -> Vec<PluginSignature> {
 ///         let sig = PluginSignature::build("hello")
-///             .input_output_type(Type::Nothing, Type::String);
+///             .input_output_type(Type::Null, Type::String);
 ///
 ///         vec![sig]
 ///     }

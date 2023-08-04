@@ -17,7 +17,7 @@ impl Command for Ps {
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .switch(
                 "long",
                 "list all available columns for each entry",

@@ -43,11 +43,11 @@ impl Command for Cd {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .optional("path", SyntaxShape::Directory, "the path to change to")
             .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::String, Type::Nothing),
+                (Type::Null, Type::Null),
+                (Type::String, Type::Null),
             ])
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)

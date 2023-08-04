@@ -18,7 +18,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("port")
-            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .input_output_types(vec![(Type::Null, Type::Int)])
             .optional(
                 "start",
                 SyntaxShape::Int,
