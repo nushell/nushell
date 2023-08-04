@@ -516,7 +516,7 @@ impl Value {
                                         span: $span,
                                     }
                                 } else {
-                                    Value::Nothing { span: $span }
+                                    Value::Null { span: $span }
                                 }
                             };
                         }
@@ -903,7 +903,7 @@ impl Value {
                                             ],
                                             None => vec![
                                                 Value::string("truncating", $span),
-                                                Value::Nothing { span: $span },
+                                                Value::Null { span: $span },
                                             ],
                                         },
                                         $span,
