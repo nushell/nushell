@@ -68,7 +68,7 @@ impl Command for Try {
                     // Because external command errors aren't "real" errors,
                     // (unless do -c is in effect)
                     // they can't be passed in as Nushell values.
-                    let err_value = Value::nothing(call.head);
+                    let err_value = Value::null(call.head);
                     handle_catch(err_value, catch_block, engine_state, stack)
                 } else {
                     Ok(pipeline)

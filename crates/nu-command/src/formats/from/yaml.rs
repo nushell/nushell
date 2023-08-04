@@ -199,7 +199,7 @@ fn convert_yaml_value_to_nu_value(
 
             value
         }
-        serde_yaml::Value::Null => Value::nothing(span),
+        serde_yaml::Value::Null => Value::null(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
     })
 }
@@ -224,7 +224,7 @@ pub fn from_yaml_string_to_value(
     }
 
     match documents.len() {
-        0 => Ok(Value::nothing(span)),
+        0 => Ok(Value::null(span)),
         1 => Ok(documents.remove(0)),
         _ => Ok(Value::List {
             vals: documents,

@@ -94,7 +94,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             let var_value = if let Ok(val) = self.stack.get_var(**var.1, span) {
                 val
             } else {
-                Value::nothing(span)
+                Value::null(span)
             };
 
             vars.push(Value::Record {
@@ -334,14 +334,14 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records.push(Value::Record {
             cols: sig_cols.clone(),
             vals: vec![
-                Value::nothing(span),
+                Value::null(span),
                 Value::string("input", span),
                 Value::string(input_type.to_shape().to_string(), span),
                 Value::bool(false, span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
+                Value::null(span),
+                Value::null(span),
+                Value::null(span),
+                Value::null(span),
             ],
             span,
         });
@@ -353,13 +353,13 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string("positional", span),
                 Value::string(req.shape.to_string(), span),
                 Value::bool(false, span),
-                Value::nothing(span),
+                Value::null(span),
                 Value::string(&req.desc, span),
                 Value::string(
                     extract_custom_completion_from_arg(self.engine_state, &req.shape),
                     span,
                 ),
-                Value::nothing(span),
+                Value::null(span),
             ];
 
             sig_records.push(Value::Record {
@@ -376,7 +376,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string("positional", span),
                 Value::string(opt.shape.to_string(), span),
                 Value::bool(true, span),
-                Value::nothing(span),
+                Value::null(span),
                 Value::string(&opt.desc, span),
                 Value::string(
                     extract_custom_completion_from_arg(self.engine_state, &opt.shape),
@@ -385,7 +385,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 if let Some(val) = &opt.default_value {
                     val.clone()
                 } else {
-                    Value::nothing(span)
+                    Value::null(span)
                 },
             ];
 
@@ -403,13 +403,13 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string("rest", span),
                 Value::string(rest.shape.to_string(), span),
                 Value::bool(true, span),
-                Value::nothing(span),
+                Value::null(span),
                 Value::string(&rest.desc, span),
                 Value::string(
                     extract_custom_completion_from_arg(self.engine_state, &rest.shape),
                     span,
                 ),
-                Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
+                Value::null(span), // rest_positional does have default, but parser prohibits specifying it?!
             ];
 
             sig_records.push(Value::Record {
@@ -436,13 +436,13 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(arg.to_string(), span)
             } else {
                 flag_type = Value::string("switch", span);
-                Value::nothing(span)
+                Value::null(span)
             };
 
             let short_flag = if let Some(c) = named.short {
                 Value::string(c, span)
             } else {
-                Value::nothing(span)
+                Value::null(span)
             };
 
             let sig_vals = vec![
@@ -456,7 +456,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 if let Some(val) = &named.default_value {
                     val.clone()
                 } else {
-                    Value::nothing(span)
+                    Value::null(span)
                 },
             ];
 
@@ -471,14 +471,14 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records.push(Value::Record {
             cols: sig_cols,
             vals: vec![
-                Value::nothing(span),
+                Value::null(span),
                 Value::string("output", span),
                 Value::string(output_type.to_shape().to_string(), span),
                 Value::bool(false, span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
+                Value::null(span),
+                Value::null(span),
+                Value::null(span),
+                Value::null(span),
             ],
             span,
         });
@@ -595,7 +595,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 .collect();
 
             let export_env_block = module.env_block.map_or_else(
-                || Value::nothing(span),
+                || Value::null(span),
                 |block_id| Value::Block {
                     val: block_id,
                     span,

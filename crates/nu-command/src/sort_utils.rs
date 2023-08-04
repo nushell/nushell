@@ -95,7 +95,7 @@ pub fn sort(
                 for col in &sort_columns {
                     let val = item
                         .get_data_by_key(col)
-                        .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                        .unwrap_or_else(|| Value::null(Span::unknown()));
                     vals.push(val);
                 }
             }

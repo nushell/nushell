@@ -65,7 +65,7 @@ impl Command for Compact {
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["Hello".into(), "World".into()],
-                        vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
+                        vals: vec![Value::null(Span::test_data()), Value::test_int(3)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

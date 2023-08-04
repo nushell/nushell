@@ -53,7 +53,7 @@ impl Matcher for Pattern {
                             match &items[vals.len()].pattern {
                                 Pattern::IgnoreRest => {}
                                 Pattern::Rest(var_id) => {
-                                    matches.push((*var_id, Value::nothing(items[vals.len()].span)))
+                                    matches.push((*var_id, Value::null(items[vals.len()].span)))
                                 }
                                 _ => {
                                     // There is a pattern which can't skip missing values, so we fail
@@ -227,7 +227,7 @@ impl Matcher for Pattern {
 
                                 if !found {
                                     // FIXME: don't use Span::unknown()
-                                    matches.push((*var, Value::nothing(Span::unknown())))
+                                    matches.push((*var, Value::null(Span::unknown())))
                                 }
                             }
                         }
@@ -245,7 +245,7 @@ impl Matcher for Pattern {
 
                             if !found {
                                 // FIXME: don't use Span::unknown()
-                                matches.push((*var, Value::nothing(Span::unknown())))
+                                matches.push((*var, Value::null(Span::unknown())))
                             }
                         }
                     }

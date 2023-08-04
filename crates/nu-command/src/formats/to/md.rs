@@ -170,7 +170,7 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
                 for i in 0..headers.len() {
                     let data = row.get_data_by_key(&headers[i]);
                     let value_string = data
-                        .unwrap_or_else(|| Value::nothing(span))
+                        .unwrap_or_else(|| Value::null(span))
                         .into_string(", ", config);
                     let new_column_width = value_string.len();
 
@@ -222,7 +222,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
     let mut output = vec![];
     for (_, mut value) in lists {
         if value.len() == 1 {
-            output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
+            output.push(value.pop().unwrap_or_else(|| Value::null(head)))
         } else {
             output.push(Value::List {
                 vals: value.to_vec(),

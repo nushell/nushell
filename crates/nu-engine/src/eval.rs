@@ -84,7 +84,7 @@ pub fn eval_call(
             } else if let Some(value) = &param.default_value {
                 callee_stack.add_var(var_id, value.to_owned());
             } else {
-                callee_stack.add_var(var_id, Value::nothing(call.head));
+                callee_stack.add_var(var_id, Value::null(call.head));
             }
         }
 
@@ -492,7 +492,7 @@ pub fn eval_expression(
                             let var_info = engine_state.get_var(*var_id);
                             if var_info.mutable {
                                 stack.add_var(*var_id, rhs);
-                                Ok(Value::nothing(lhs.span))
+                                Ok(Value::null(lhs.span))
                             } else {
                                 Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
                             }
@@ -544,7 +544,7 @@ pub fn eval_expression(
                                         } else {
                                             stack.add_var(*var_id, lhs);
                                         }
-                                        Ok(Value::nothing(cell_path.head.span))
+                                        Ok(Value::null(cell_path.head.span))
                                     } else {
                                         Err(ShellError::AssignmentRequiresMutableVar {
                                             lhs_span: lhs.span,

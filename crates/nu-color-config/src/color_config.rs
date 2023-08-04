@@ -144,7 +144,7 @@ mod tests {
 
         // Test case 2: no values are valid
         let cols = vec!["invalid".to_string()];
-        let vals = vec![Value::nothing(Span::unknown())];
+        let vals = vec![Value::null(Span::unknown())];
         assert_eq!(get_style_from_value(&cols, &vals), None);
 
         // Test case 3: some values are valid
@@ -154,7 +154,7 @@ mod tests {
                 val: "green".to_string(),
                 span: Span::unknown(),
             },
-            Value::nothing(Span::unknown()),
+            Value::null(Span::unknown()),
         ];
         let expected_style = NuStyle {
             bg: Some("green".to_string()),

@@ -450,7 +450,7 @@ pub(crate) fn dir_entry_dict(
         });
     } else {
         cols.push("type".into());
-        vals.push(Value::nothing(span));
+        vals.push(Value::null(span));
     }
 
     if long {
@@ -469,7 +469,7 @@ pub(crate) fn dir_entry_dict(
                     });
                 }
             } else {
-                vals.push(Value::nothing(span));
+                vals.push(Value::null(span));
             }
         }
     }
@@ -572,25 +572,25 @@ pub(crate) fn dir_entry_dict(
                     span,
                 });
             } else {
-                vals.push(Value::nothing(span));
+                vals.push(Value::null(span));
             }
         } else {
             let value = if zero_sized {
                 Value::Filesize { val: 0, span }
             } else {
-                Value::nothing(span)
+                Value::null(span)
             };
             vals.push(value);
         }
     } else {
-        vals.push(Value::nothing(span));
+        vals.push(Value::null(span));
     }
 
     if let Some(md) = metadata {
         if long {
             cols.push("created".to_string());
             {
-                let mut val = Value::nothing(span);
+                let mut val = Value::null(span);
                 if let Ok(c) = md.created() {
                     if let Some(local) = try_convert_to_local_date_time(c) {
                         val = Value::Date {
@@ -604,7 +604,7 @@ pub(crate) fn dir_entry_dict(
 
             cols.push("accessed".to_string());
             {
-                let mut val = Value::nothing(span);
+                let mut val = Value::null(span);
                 if let Ok(a) = md.accessed() {
                     if let Some(local) = try_convert_to_local_date_time(a) {
                         val = Value::Date {
@@ -619,7 +619,7 @@ pub(crate) fn dir_entry_dict(
 
         cols.push("modified".to_string());
         {
-            let mut val = Value::nothing(span);
+            let mut val = Value::null(span);
             if let Ok(m) = md.modified() {
                 if let Some(local) = try_convert_to_local_date_time(m) {
                     val = Value::Date {
@@ -633,14 +633,14 @@ pub(crate) fn dir_entry_dict(
     } else {
         if long {
             cols.push("created".to_string());
-            vals.push(Value::nothing(span));
+            vals.push(Value::null(span));
 
             cols.push("accessed".to_string());
-            vals.push(Value::nothing(span));
+            vals.push(Value::null(span));
         }
 
         cols.push("modified".to_string());
-        vals.push(Value::nothing(span));
+        vals.push(Value::null(span));
     }
 
     Ok(Value::Record { cols, vals, span })
@@ -747,7 +747,7 @@ mod windows_helper {
                     });
                 }
             } else {
-                vals.push(Value::nothing(span));
+                vals.push(Value::null(span));
             }
 
             cols.push("readonly".into());
@@ -767,7 +767,7 @@ mod windows_helper {
         if long {
             cols.push("created".to_string());
             {
-                let mut val = Value::nothing(span);
+                let mut val = Value::null(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
                     val = Value::Date {
@@ -780,7 +780,7 @@ mod windows_helper {
 
             cols.push("accessed".to_string());
             {
-                let mut val = Value::nothing(span);
+                let mut val = Value::null(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
                     val = Value::Date {
@@ -794,7 +794,7 @@ mod windows_helper {
 
         cols.push("modified".to_string());
         {
-            let mut val = Value::nothing(span);
+            let mut val = Value::null(span);
             let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
             if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
                 val = Value::Date {

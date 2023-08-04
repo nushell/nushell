@@ -81,7 +81,7 @@ fn eval_pipeline_without_terminal_expression(
             let empty_input = PipelineData::empty();
             Some(eval_block(block, empty_input, cwd, engine_state, delta))
         } else {
-            Some(Value::nothing(Span::test_data()))
+            Some(Value::null(Span::test_data()))
         }
     } else {
         // E.g. multiple semicolon-separated statements

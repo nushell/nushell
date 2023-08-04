@@ -875,7 +875,7 @@ fn create_table_config(config: &Config, comp: &StyleComputer, out: &TableOutput)
 }
 
 fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
-    style_computer.compute("separator", &Value::nothing(Span::unknown()))
+    style_computer.compute("separator", &Value::null(Span::unknown()))
 }
 
 fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {

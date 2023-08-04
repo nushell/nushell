@@ -496,7 +496,7 @@ fn request_handle_response_content(
             vals: vec![
                 match response_headers {
                     Some(headers) => headers.into_value(span),
-                    None => Value::nothing(span),
+                    None => Value::null(span),
                 },
                 formatted_content?.into_value(span),
                 Value::int(response_status as i64, span),

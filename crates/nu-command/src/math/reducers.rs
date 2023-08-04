@@ -101,7 +101,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             head,
             span,
         )),
-        _ => Ok(Value::nothing(head)),
+        _ => Ok(Value::null(head)),
     }?;
 
     for value in &data {
@@ -137,7 +137,7 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             head,
             span,
         )),
-        _ => Ok(Value::nothing(head)),
+        _ => Ok(Value::null(head)),
     }?;
 
     for value in &data {

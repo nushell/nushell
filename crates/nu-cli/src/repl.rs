@@ -281,7 +281,7 @@ pub fn evaluate_repl(
         line_editor = if config.use_ansi_coloring {
             line_editor.with_hinter(Box::new({
                 // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+                let style = style_computer.compute("hints", &Value::null(Span::unknown()));
                 DefaultHinter::default().with_style(style)
             }))
         } else {

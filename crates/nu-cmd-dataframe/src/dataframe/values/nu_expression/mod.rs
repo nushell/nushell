@@ -607,7 +607,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let order_by = order_by
                 .as_ref()
                 .map(|e| expr_to_value(e.as_ref(), span))
-                .unwrap_or_else(|| Value::nothing(span));
+                .unwrap_or_else(|| Value::null(span));
 
             let options = Value::String {
                 val: format!("{options:?}"),

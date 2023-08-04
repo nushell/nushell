@@ -122,13 +122,13 @@ fn to_xml_entry<W: Write>(
     // of longer {tag: a attributes: {} content: [...]}
     let tag = entry
         .get_data_by_key(COLUMN_TAG_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::null(Span::unknown()));
     let attrs = entry
         .get_data_by_key(COLUMN_ATTRS_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::null(Span::unknown()));
     let content = entry
         .get_data_by_key(COLUMN_CONTENT_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::null(Span::unknown()));
 
     match (tag, attrs, content) {
         (Value::Null { .. }, Value::Null { .. }, Value::String { val, span }) => {

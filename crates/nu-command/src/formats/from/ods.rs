@@ -141,12 +141,12 @@ fn from_ods(
                 let mut row_output = IndexMap::new();
                 for (i, cell) in row.iter().enumerate() {
                     let value = match cell {
-                        DataType::Empty => Value::nothing(head),
+                        DataType::Empty => Value::null(head),
                         DataType::String(s) => Value::string(s, head),
                         DataType::Float(f) => Value::float(*f, head),
                         DataType::Int(i) => Value::int(*i, head),
                         DataType::Bool(b) => Value::bool(*b, head),
-                        _ => Value::nothing(head),
+                        _ => Value::null(head),
                     };
 
                     row_output.insert(format!("column{i}"), value);

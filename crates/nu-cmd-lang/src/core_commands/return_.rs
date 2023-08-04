@@ -46,7 +46,7 @@ impl Command for Return {
         } else {
             Err(ShellError::Return(
                 call.head,
-                Box::new(Value::nothing(call.head)),
+                Box::new(Value::null(call.head)),
             ))
         }
     }
