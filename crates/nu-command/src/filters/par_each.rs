@@ -293,7 +293,7 @@ impl Command for ParEach {
                 )
             }
         }
-        .and_then(|x| x.filter(|v| !v.is_nothing(), outer_ctrlc))
+        .and_then(|x| x.filter(|v| !v.is_null(), outer_ctrlc))
         .map(|res| res.set_metadata(metadata))
     }
 }

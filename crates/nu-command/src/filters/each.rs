@@ -246,7 +246,7 @@ with 'transpose' first."#
         }
         .and_then(|x| {
             x.filter(
-                move |x| if !keep_empty { !x.is_nothing() } else { true },
+                move |x| if !keep_empty { !x.is_null() } else { true },
                 outer_ctrlc,
             )
         })
