@@ -653,18 +653,4 @@ mod test {
         }
     }
 
-    #[test]
-    #[ignore = "foo"]
-    fn playground() {
-        let instr = "   abc def ";
-        instr
-            .match_indices(|c: char| !c.is_whitespace())
-            .for_each(|(start_index, s)| {
-                println!(
-                    "substring {s} starts at {} and ends at {}",
-                    start_index,
-                    start_index + s.len() - 1
-                );
-            });
-    }
 }
