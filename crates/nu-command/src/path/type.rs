@@ -39,7 +39,7 @@ impl Command for SubCommand {
 
     fn extra_usage(&self) -> &str {
         r#"This checks the file system to confirm the path's object type.
-If nothing is found, an empty string will be returned."#
+If null is found, an empty string will be returned."#
     }
 
     fn run(

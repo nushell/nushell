@@ -231,7 +231,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
         && check_windows_verbatim(root.expect("internal error: already checked for len > 0"))
     {
         // FIXME: How do we want to handle verbatim paths? I'm inclined to
-        // return nothing, since we can't very well find all UNC shares with a
+        // return null, since we can't very well find all UNC shares with a
         // 1-letter server name.
         return Ok(Paths {
             dir_patterns: Vec::new(),

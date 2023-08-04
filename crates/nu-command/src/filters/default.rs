@@ -45,7 +45,7 @@ impl Command for Default {
         vec![
             Example {
                 description: "Give a default 'target' column to all file entries",
-                example: "ls -la | default 'nothing' target ",
+                example: "ls -la | default 'null' target ",
                 result: None,
             },
             Example {

@@ -12,7 +12,7 @@ fn filters_by_unit_size_comparison() {
 }
 
 #[test]
-fn filters_with_nothing_comparison() {
+fn filters_with_null_comparison() {
     let actual = nu!(
         r#"'[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from json | get foo | compact | where $it > 1 | math sum"#
     );

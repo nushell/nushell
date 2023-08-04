@@ -68,7 +68,7 @@ impl Display for FlatShape {
             FlatShape::List => write!(f, "shape_list"),
             FlatShape::Literal => write!(f, "shape_literal"),
             FlatShape::MatchPattern => write!(f, "shape_match_pattern"),
-            FlatShape::Null => write!(f, "shape_nothing"),
+            FlatShape::Null => write!(f, "shape_null"),
             FlatShape::Operator => write!(f, "shape_operator"),
             FlatShape::Or => write!(f, "shape_or"),
             FlatShape::Pipe => write!(f, "shape_pipe"),

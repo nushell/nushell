@@ -10,7 +10,7 @@ use nu_std::load_standard_library;
 
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
-/// If it it's not present echo's nothing
+/// If it it's not present echo's null
 pub fn echo_env(to_stdout: bool) {
     let args = args();
     for arg in args {

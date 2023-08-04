@@ -52,7 +52,7 @@ impl Command for Compact {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Filter out all records where 'Hello' is null (returns nothing)",
+                description: "Filter out all records where 'Hello' is null (returns null)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact Hello"#,
                 result: Some(Value::List {
                     vals: vec![],
@@ -72,7 +72,7 @@ impl Command for Compact {
                 }),
             },
             Example {
-                description: "Filter out all instances of nothing from a list (Returns [1,2])",
+                description: "Filter out all instances of null from a list (Returns [1,2])",
                 example: r#"[1, null, 2] | compact"#,
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],

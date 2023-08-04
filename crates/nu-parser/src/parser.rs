@@ -1793,7 +1793,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents == b"$nothing" {
+    if contents == b"$null" {
         return Expression {
             expr: Expr::Null,
             span,
@@ -2717,7 +2717,7 @@ pub fn parse_shape_name(
         b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
         _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
         b"math" => SyntaxShape::MathExpression,
-        b"nothing" => SyntaxShape::Null,
+        b"null" => SyntaxShape::Null,
         b"number" => SyntaxShape::Number,
         b"one-of" => SyntaxShape::OneOf(vec![]),
         b"operator" => SyntaxShape::Operator,

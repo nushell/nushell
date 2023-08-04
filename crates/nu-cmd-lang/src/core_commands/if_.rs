@@ -114,7 +114,7 @@ impl Command for If {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Output a value if a condition matches, otherwise return nothing",
+                description: "Output a value if a condition matches, otherwise return null",
                 example: "if 2 < 3 { 'yes!' }",
                 result: Some(Value::test_string("yes!")),
             },

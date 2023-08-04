@@ -86,12 +86,12 @@ fn const_string() {
 }
 
 #[test]
-fn const_nothing() {
-    let inp = &["const x = $nothing", "$x | describe"];
+fn const_null() {
+    let inp = &["const x = $null", "$x | describe"];
 
     let actual = nu!(&inp.join("; "));
 
-    assert_eq!(actual.out, "nothing");
+    assert_eq!(actual.out, "null");
 }
 
 #[test]

@@ -67,9 +67,9 @@ fn scope_variable() -> TestResult {
     )
 }
 #[rstest]
-#[case("a", "<> nothing")]
+#[case("a", "<> null")]
 #[case("b", "<1.23> float")]
-#[case("flag1", "<> nothing")]
+#[case("flag1", "<> null")]
 #[case("flag2", "<4.56> float")]
 
 fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
@@ -92,7 +92,7 @@ fn earlier_errors() -> TestResult {
 }
 
 #[test]
-fn missing_flags_are_nothing() -> TestResult {
+fn missing_flags_are_null() -> TestResult {
     run_test(
         r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo"#,
         "110",
@@ -100,7 +100,7 @@ fn missing_flags_are_nothing() -> TestResult {
 }
 
 #[test]
-fn missing_flags_are_nothing2() -> TestResult {
+fn missing_flags_are_null2() -> TestResult {
     run_test(
         r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 90"#,
         "190",
@@ -108,7 +108,7 @@ fn missing_flags_are_nothing2() -> TestResult {
 }
 
 #[test]
-fn missing_flags_are_nothing3() -> TestResult {
+fn missing_flags_are_null3() -> TestResult {
     run_test(
         r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -b 45"#,
         "55",
@@ -116,7 +116,7 @@ fn missing_flags_are_nothing3() -> TestResult {
 }
 
 #[test]
-fn missing_flags_are_nothing4() -> TestResult {
+fn missing_flags_are_null4() -> TestResult {
     run_test(
         r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 3 -b 10000"#,
         "10003",

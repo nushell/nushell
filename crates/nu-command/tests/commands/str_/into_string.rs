@@ -131,7 +131,7 @@ fn from_table() {
 }
 
 #[test]
-fn from_nothing() {
+fn from_null() {
     let actual = nu!(r#"
         null | into string
         "#);

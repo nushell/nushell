@@ -117,7 +117,7 @@ fn to_xml_entry<W: Write>(
         });
     };
 
-    // If key is not found it is assumed to be nothing. This way
+    // If key is not found it is assumed to be null. This way
     // user can write a tag like {tag: a content: [...]} instead
     // of longer {tag: a attributes: {} content: [...]}
     let tag = entry

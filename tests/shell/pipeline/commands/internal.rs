@@ -919,7 +919,7 @@ fn manysubcommand() {
 }
 
 #[test]
-fn nothing_string_1() {
+fn null_string_1() {
     let actual = nu!(pipeline(
         r#"
         null == "foo"

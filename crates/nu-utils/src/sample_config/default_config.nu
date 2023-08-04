@@ -23,7 +23,7 @@ let dark_theme = {
     range: white
     float: white
     string: white
-    nothing: white
+    null: white
     binary: white
     cellpath: white
     row_index: green_bold
@@ -54,7 +54,7 @@ let dark_theme = {
     shape_literal: blue
     shape_match_pattern: green
     shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
+    shape_null: light_cyan
     shape_operator: yellow
     shape_or: purple_bold
     shape_pipe: purple_bold
@@ -86,7 +86,7 @@ let light_theme = {
     range: dark_gray
     float: dark_gray
     string: dark_gray
-    nothing: dark_gray
+    null: dark_gray
     binary: dark_gray
     cellpath: dark_gray
     row_index: green_bold
@@ -117,7 +117,7 @@ let light_theme = {
     shape_literal: blue
     shape_match_pattern: green
     shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
+    shape_null: light_cyan
     shape_operator: yellow
     shape_or: purple_bold
     shape_pipe: purple_bold

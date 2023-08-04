@@ -33,7 +33,7 @@ impl Command for Print {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"Unlike `echo`, this command does not return any value (`print | describe` will return "nothing").
+        r#"Unlike `echo`, this command does not return any value (`print | describe` will return "null").
 Since this command has no output, there is no point in piping it with other commands.
 
 `print` may be used inside blocks of code (e.g.: hooks) to display text during execution without interfering with the pipeline."#

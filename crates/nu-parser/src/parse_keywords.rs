@@ -2933,7 +2933,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                             .trim_start_matches('$')
                             .to_string();
 
-                    if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
+                    if ["in", "nu", "env", "null"].contains(&var_name.as_str()) {
                         working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                     }
 
@@ -3050,7 +3050,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                             .to_string();
 
                     // TODO: Remove the hard-coded variables, too error-prone
-                    if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
+                    if ["in", "nu", "env", "null"].contains(&var_name.as_str()) {
                         working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                     }
 
@@ -3192,7 +3192,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                             .trim_start_matches('$')
                             .to_string();
 
-                    if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
+                    if ["in", "nu", "env", "null"].contains(&var_name.as_str()) {
                         working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                     }
 

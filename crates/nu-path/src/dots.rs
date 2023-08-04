@@ -108,7 +108,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     expanded.into()
 }
 
-/// Expand "." and ".." into nothing and parent directory, respectively.
+/// Expand "." and ".." into null and parent directory, respectively.
 pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
 

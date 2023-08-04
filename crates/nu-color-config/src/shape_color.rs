@@ -26,7 +26,7 @@ pub fn default_shape_color(shape: String) -> Style {
         "shape_list" => Style::new().fg(Color::Cyan).bold(),
         "shape_literal" => Style::new().fg(Color::Blue),
         "shape_match_pattern" => Style::new().fg(Color::Green),
-        "shape_nothing" => Style::new().fg(Color::LightCyan),
+        "shape_null" => Style::new().fg(Color::LightCyan),
         "shape_operator" => Style::new().fg(Color::Yellow),
         "shape_or" => Style::new().fg(Color::Purple).bold(),
         "shape_pipe" => Style::new().fg(Color::Purple).bold(),

@@ -211,7 +211,7 @@ impl Matcher for Pattern {
                     let mut local_matches = vec![];
                     if !result {
                         if pattern.match_value(value, &mut local_matches) {
-                            // TODO: do we need to replace previous variables that defaulted to nothing?
+                            // TODO: do we need to replace previous variables that defaulted to null?
                             matches.append(&mut local_matches);
                             result = true;
                         } else {

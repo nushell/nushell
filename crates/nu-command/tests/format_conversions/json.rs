@@ -101,7 +101,7 @@ fn table_to_json_text() {
 
 #[test]
 fn top_level_values_from_json() {
-    for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
+    for (value, type_name) in [("null", "null"), ("true", "bool"), ("false", "bool")] {
         let actual = nu!(r#""{}" | from json | to json"#, value);
         assert_eq!(actual.out, value);
         let actual = nu!(r#""{}" | from json | describe"#, value);
