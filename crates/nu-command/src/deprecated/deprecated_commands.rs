@@ -9,7 +9,6 @@ pub fn deprecated_commands() -> HashMap<String, String> {
         ("fetch".to_string(), "http get".to_string()),
         ("post".to_string(), "http post".to_string()),
         ("benchmark".to_string(), "timeit".to_string()),
-        ("old-alias".to_string(), "alias".to_string()),
     ]
     .into_iter()
     .collect()
