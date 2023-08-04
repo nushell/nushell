@@ -45,7 +45,7 @@ impl Command for Rm {
 
     fn signature(&self) -> Signature {
         let sig = Signature::build("rm")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .required(
                 "filename",
                 SyntaxShape::Filepath,
@@ -467,7 +467,7 @@ fn rm(
                 }
             }
         })
-        .filter(|x| !matches!(x.get_type(), Type::Nothing))
+        .filter(|x| !matches!(x.get_type(), Type::Null))
         .into_pipeline_data(ctrlc)
         .print_not_formatted(engine_state, false, true)?;
 

@@ -22,7 +22,7 @@ impl Command for SeqDate {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("seq date")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Null, Type::List(Box::new(Type::String)))])
             .named(
                 "output-format",
                 SyntaxShape::String,

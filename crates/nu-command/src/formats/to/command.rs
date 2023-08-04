@@ -18,7 +18,7 @@ impl Command for To {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("to")
             .category(Category::Formats)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn extra_usage(&self) -> &str {

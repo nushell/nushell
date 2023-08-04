@@ -28,7 +28,7 @@ impl Command for TimeIt {
             )
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
-                (Type::Nothing, Type::Duration),
+                (Type::Null, Type::Duration),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Debug)

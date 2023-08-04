@@ -24,8 +24,8 @@ impl Command for History {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
             .input_output_types(vec![
-                (Type::Nothing, Type::Table(vec![])),
-                (Type::Nothing, Type::Nothing),
+                (Type::Null, Type::Table(vec![])),
+                (Type::Null, Type::Null),
             ])
             .allow_variants_without_examples(true)
             .switch("clear", "Clears out the history entries", Some('c'))

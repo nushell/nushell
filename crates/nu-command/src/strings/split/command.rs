@@ -16,7 +16,7 @@ impl Command for SplitCommand {
     fn signature(&self) -> Signature {
         Signature::build("split")
             .category(Category::Strings)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

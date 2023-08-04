@@ -18,7 +18,7 @@ impl Command for LazyMake {
 
     fn signature(&self) -> Signature {
         Signature::build("lazy make")
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Record(vec![]))])
             .required_named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),

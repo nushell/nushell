@@ -16,7 +16,7 @@ impl Command for Date {
     fn signature(&self) -> Signature {
         Signature::build("date")
             .category(Category::Date)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

@@ -16,7 +16,7 @@ impl Command for Break {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("break")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .category(Category::Core)
     }
 

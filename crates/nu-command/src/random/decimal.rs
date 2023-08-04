@@ -17,7 +17,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random decimal")
-            .input_output_types(vec![(Type::Nothing, Type::Float)])
+            .input_output_types(vec![(Type::Null, Type::Float)])
             .allow_variants_without_examples(true)
             .optional("range", SyntaxShape::Range, "Range of values")
             .category(Category::Random)

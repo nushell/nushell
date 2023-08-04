@@ -327,7 +327,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     Expression {
         expr: Expr::Call(call),
         span: call_span,
-        ty: Type::Nothing,
+        ty: Type::Null,
         custom_completion: None,
     }
 }
@@ -3630,7 +3630,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
         span: call_span,
-        ty: Type::Nothing,
+        ty: Type::Null,
         custom_completion: None,
     }])
 }

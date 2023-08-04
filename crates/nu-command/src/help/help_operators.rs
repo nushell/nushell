@@ -19,7 +19,7 @@ impl Command for HelpOperators {
     fn signature(&self) -> Signature {
         Signature::build("help operators")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
     }
 

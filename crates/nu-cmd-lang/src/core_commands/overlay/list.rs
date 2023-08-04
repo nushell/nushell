@@ -19,7 +19,7 @@ impl Command for OverlayList {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay list")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Null, Type::List(Box::new(Type::String)))])
     }
 
     fn extra_usage(&self) -> &str {

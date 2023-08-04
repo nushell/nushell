@@ -16,7 +16,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random bool")
-            .input_output_types(vec![(Type::Nothing, Type::Bool)])
+            .input_output_types(vec![(Type::Null, Type::Bool)])
             .allow_variants_without_examples(true)
             .named(
                 "bias",

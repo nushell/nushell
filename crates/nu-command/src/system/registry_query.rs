@@ -31,7 +31,7 @@ impl Command for RegistryQuery {
 
     fn signature(&self) -> Signature {
         Signature::build("registry query")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Null, Type::Any)])
             .switch("hkcr", "query the hkey_classes_root hive", None)
             .switch("hkcu", "query the hkey_current_user hive", None)
             .switch("hklm", "query the hkey_local_machine hive", None)

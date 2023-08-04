@@ -16,7 +16,7 @@ impl Command for RandomCommand {
     fn signature(&self) -> Signature {
         Signature::build("random")
             .category(Category::Random)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

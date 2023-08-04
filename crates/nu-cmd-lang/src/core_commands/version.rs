@@ -17,7 +17,7 @@ impl Command for Version {
 
     fn signature(&self) -> Signature {
         Signature::build("version")
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Record(vec![]))])
             .allow_variants_without_examples(true)
             .category(Category::Core)
     }

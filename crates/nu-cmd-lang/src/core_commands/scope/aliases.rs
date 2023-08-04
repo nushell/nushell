@@ -15,7 +15,7 @@ impl Command for ScopeAliases {
 
     fn signature(&self) -> Signature {
         Signature::build("scope aliases")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Null, Type::Any)])
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }

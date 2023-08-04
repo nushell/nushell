@@ -24,7 +24,7 @@ impl Command for ViewSpan {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view span")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .required("start", SyntaxShape::Int, "start of the span")
             .required("end", SyntaxShape::Int, "end of the span")
             .category(Category::Debug)

@@ -16,7 +16,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date list-timezone")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Null, Type::Table(vec![]))])
             .category(Category::Date)
     }
 

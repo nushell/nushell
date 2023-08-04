@@ -25,7 +25,7 @@ impl Command for Explain {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
             )
-            .input_output_types(vec![(Type::Any, Type::Any), (Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Any, Type::Any), (Type::Null, Type::Any)])
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }

@@ -16,7 +16,7 @@ impl Command for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build("seq")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Number)))])
+            .input_output_types(vec![(Type::Null, Type::List(Box::new(Type::Number)))])
             .rest("rest", SyntaxShape::Number, "sequence values")
             .category(Category::Generators)
     }

@@ -582,7 +582,7 @@ impl Value {
                 Ok(val) => val.get_type(),
                 Err(..) => Type::Error,
             },
-            Value::Null { .. } => Type::Nothing,
+            Value::Null { .. } => Type::Null,
             Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
             Value::Error { .. } => Type::Error,

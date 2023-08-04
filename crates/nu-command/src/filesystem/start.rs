@@ -25,7 +25,7 @@ impl Command for Start {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("start")
-            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
+            .input_output_types(vec![(Type::Null, Type::Any), (Type::String, Type::Any)])
             .required("path", SyntaxShape::String, "path to open")
             .category(Category::FileSystem)
     }

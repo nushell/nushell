@@ -22,7 +22,7 @@ impl Command for ViewFiles {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view files")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .category(Category::Debug)
     }
 

@@ -16,10 +16,7 @@ impl Command for Print {
 
     fn signature(&self) -> Signature {
         Signature::build("print")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::Any, Type::Nothing),
-            ])
+            .input_output_types(vec![(Type::Null, Type::Null), (Type::Any, Type::Null)])
             .allow_variants_without_examples(true)
             .rest("rest", SyntaxShape::Any, "the values to print")
             .switch(

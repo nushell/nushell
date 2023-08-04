@@ -16,7 +16,7 @@ impl Command for Bits {
     fn signature(&self) -> Signature {
         Signature::build("bits")
             .category(Category::Bits)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

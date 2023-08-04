@@ -20,7 +20,7 @@ impl Command for ConfigReset {
             .switch("nu", "reset only nu config, config.nu", Some('n'))
             .switch("env", "reset only env config, env.nu", Some('e'))
             .switch("without-backup", "do not make a backup", Some('w'))
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Null, Type::Null)])
             .allow_variants_without_examples(true)
             .category(Category::Env)
     }

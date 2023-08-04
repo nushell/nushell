@@ -19,7 +19,7 @@ impl Command for SeqChar {
 
     fn signature(&self) -> Signature {
         Signature::build("seq char")
-            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Null, Type::List(Box::new(Type::String)))])
             .required(
                 "start",
                 SyntaxShape::String,

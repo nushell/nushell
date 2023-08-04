@@ -16,7 +16,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random dice")
-            .input_output_types(vec![(Type::Nothing, Type::ListStream)])
+            .input_output_types(vec![(Type::Null, Type::ListStream)])
             .allow_variants_without_examples(true)
             .named(
                 "dice",

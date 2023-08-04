@@ -15,7 +15,7 @@ impl Command for Url {
 
     fn signature(&self) -> Signature {
         Signature::build("url")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
             .category(Category::Network)
     }
 

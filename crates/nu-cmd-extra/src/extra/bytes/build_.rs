@@ -24,7 +24,7 @@ impl Command for BytesBuild {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("bytes build")
-            .input_output_types(vec![(Type::Nothing, Type::Binary)])
+            .input_output_types(vec![(Type::Null, Type::Binary)])
             .rest("rest", SyntaxShape::Any, "list of bytes")
             .category(Category::Bytes)
     }

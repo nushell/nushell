@@ -16,7 +16,7 @@ impl Command for MathCommand {
     fn signature(&self) -> Signature {
         Signature::build("math")
             .category(Category::Math)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Null, Type::String)])
     }
 
     fn usage(&self) -> &str {

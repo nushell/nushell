@@ -21,7 +21,7 @@ impl Command for Kill {
 
     fn signature(&self) -> Signature {
         let signature = Signature::build("kill")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Null, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
                 "pid",
