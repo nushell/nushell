@@ -20,19 +20,10 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
-                // TODO: --convert option should be implemented as `format duration`
-                (Type::String, Type::String),
-                (Type::Duration, Type::String),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 // (Type::Record(vec![]), Type::Record(vec![])), // use <duration>  | into record if you want record output
             ])
-            //.allow_variants_without_examples(true)
-            .named(
-                "convert",
-                SyntaxShape::String,
-                "convert duration into another duration",
-                Some('c'),
-            )
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -141,38 +132,6 @@ impl Command for SubCommand {
                 example: "420sec | into duration",
                 result: Some(Value::Duration {
                     val: 7 * 60 * 1000 * 1000 * 1000,
-                    span,
-                }),
-            },
-            Example {
-                description: "Convert duration to the requested duration as a string",
-                example: "420sec | into duration --convert ms",
-                result: Some(Value::String {
-                    val: "420000 ms".to_string(),
-                    span,
-                }),
-            },
-            Example {
-                description: "Convert µs duration to the requested duration as a string",
-                example: "1000000µs | into duration --convert sec",
-                result: Some(Value::String {
-                    val: "1 sec".to_string(),
-                    span,
-                }),
-            },
-            Example {
-                description: "Convert duration to the µs duration as a string",
-                example: "1sec | into duration --convert µs",
-                result: Some(Value::String {
-                    val: "1000000 µs".to_string(),
-                    span,
-                }),
-            },
-            Example {
-                description: "Convert duration to µs as a string if unit asked for was us",
-                example: "1sec | into duration --convert us",
-                result: Some(Value::String {
-                    val: "1000000 µs".to_string(),
                     span,
                 }),
             },
@@ -502,44 +461,7 @@ fn action(
     span: Span,
 ) -> Value {
     match input {
-        Value::Duration {
-            val: val_num,
-            span: value_span,
-        } => {
-            if let Some(to_unit) = convert_to_unit {
-                let from_unit = "ns";
-                let duration = *val_num;
-                match convert_str_from_unit_to_unit(
-                    duration,
-                    from_unit,
-                    &to_unit.item,
-                    span,
-                    *value_span,
-                ) {
-                    Ok(d) => {
-                        let unit = if &to_unit.item == "us" {
-                            "µs"
-                        } else {
-                            &to_unit.item
-                        };
-                        if d.fract() == 0.0 {
-                            Value::String {
-                                val: format!("{} {}", d, unit),
-                                span: *value_span,
-                            }
-                        } else {
-                            Value::String {
-                                val: format!("{:.float_precision$} {}", d, unit),
-                                span: *value_span,
-                            }
-                        }
-                    }
-                    Err(e) => Value::Error { error: Box::new(e) },
-                }
-            } else {
-                input.clone()
-            }
-        }
+        Value::Duration { .. } => input.clone(),
         Value::String {
             val,
             span: value_span,
@@ -652,5 +574,20 @@ mod test {
                 panic!("Expected Value::Duration, observed {other:?}");
             }
         }
+    }
+
+    #[test]
+    #[ignore = "foo"]
+    fn playground() {
+        let instr = "   abc def ";
+        instr
+            .match_indices(|c: char| !c.is_whitespace())
+            .for_each(|(start_index, s)| {
+                println!(
+                    "substring {s} starts at {} and ends at {}",
+                    start_index,
+                    start_index + s.len() - 1
+                );
+            });
     }
 }
