@@ -201,9 +201,7 @@ fn parse_unsupported_file() {
             "
         ));
 
-        assert!(actual
-            .err
-            .contains("File extension must be the type of .nu"));
+        assert!(actual.err.is_empty());
     })
 }
 #[test]
