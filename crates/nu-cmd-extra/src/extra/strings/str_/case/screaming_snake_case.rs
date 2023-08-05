@@ -5,7 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use crate::operate;
+use super::operate;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
