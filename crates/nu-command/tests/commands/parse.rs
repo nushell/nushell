@@ -200,18 +200,14 @@ mod regex {
 
     #[test]
     fn parse_does_not_truncate_list_streams() {
-        Playground::setup("parse_test_streaming_1", |dirs, _sandbox| {
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    [a b c]
-                    | each {|x| $x}
-                    | parse --regex "([ac])"
-                    | length
-                "#
-            ));
-
-            assert_eq!(actual.out, "2");
-        })
+        let actual = nu!(pipeline(
+            r#"
+                [a b c]
+                | each {|x| $x}
+                | parse --regex "[ac]"
+                | length
+            "#
+        ));
+        assert_eq!(actual.out, "2");
     }
 }
