@@ -2658,7 +2658,6 @@ dependencies = [
 name = "nu-command"
 version = "0.83.2"
 dependencies = [
- "Inflector",
  "alphanumeric-sort",
  "base64",
  "bracoxide",
