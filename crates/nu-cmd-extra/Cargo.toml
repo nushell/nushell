@@ -20,6 +20,7 @@ nu-cmd-base = { path = "../nu-cmd-base", version = "0.83.2" }
 nu-utils = { path = "../nu-utils", version = "0.83.2" }
 
 # Potential dependencies for extras
+Inflector = "0.11"
 num-traits = "0.2"
 ahash = "0.8.3"
 nu-ansi-term = "0.49.0"
