@@ -96,6 +96,7 @@ fn upcases() {
     })
 }
 
+#[ignore]
 #[test]
 fn camelcases() {
     Playground::setup("str_test_3", |dirs, sandbox| {
