@@ -208,6 +208,7 @@ mod regex {
                 | length
             "#
         ));
+
         assert_eq!(actual.out, "2");
     }
 }
