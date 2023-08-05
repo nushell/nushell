@@ -206,7 +206,7 @@ mod regex {
                 r#"
                     [a b c]
                     | each {|x| $x}
-                    | parse --regex "[ac]"
+                    | parse --regex "([ac])"
                     | length
                 "#
             ));
