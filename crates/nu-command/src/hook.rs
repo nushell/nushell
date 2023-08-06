@@ -87,6 +87,65 @@ pub fn eval_hook(
     };
 
     match value {
+        Value::String { val, span } => {
+            let (block, delta, vars) = {
+                let mut working_set = StateWorkingSet::new(engine_state);
+
+                let mut vars: Vec<(VarId, Value)> = vec![];
+
+                for (name, val) in arguments {
+                    let var_id = working_set.add_variable(
+                        name.as_bytes().to_vec(),
+                        val.span()?,
+                        Type::Any,
+                        false,
+                    );
+
+                    vars.push((var_id, val));
+                }
+
+                let output = parse(&mut working_set, Some("hook"), val.as_bytes(), false);
+                if let Some(err) = working_set.parse_errors.first() {
+                    report_error(&working_set, err);
+
+                    return Err(ShellError::UnsupportedConfigValue(
+                        "valid source code".into(),
+                        "source code with syntax errors".into(),
+                        *span,
+                    ));
+                }
+
+                (output, working_set.render(), vars)
+            };
+
+            engine_state.merge_delta(delta)?;
+            let input = if let Some(input) = input {
+                input
+            } else {
+                PipelineData::empty()
+            };
+
+            let var_ids: Vec<VarId> = vars
+                .into_iter()
+                .map(|(var_id, val)| {
+                    stack.add_var(var_id, val);
+                    var_id
+                })
+                .collect();
+
+            match eval_block(engine_state, stack, &block, input, false, false) {
+                Ok(pipeline_data) => {
+                    output = pipeline_data;
+                }
+                Err(err) => {
+                    report_error_new(engine_state, &err);
+                }
+            }
+
+            for var_id in var_ids.iter() {
+                stack.remove_var(*var_id);
+            }
+        }
         Value::List { vals, .. } => {
             for val in vals {
                 eval_hook(engine_state, stack, None, arguments.clone(), val)?;
@@ -274,7 +333,7 @@ pub fn eval_hook(
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
-                "block, record, or list of records".into(),
+                "block, record, or list of commands".into(),
                 format!("{}", other.get_type()),
                 other.span()?,
             ));

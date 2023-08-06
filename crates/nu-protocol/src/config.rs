@@ -42,7 +42,9 @@ impl Hooks {
             pre_prompt: None,
             pre_execution: None,
             env_change: None,
-            display_output: None,
+            display_output: Some(Value::test_string(
+                "if (term size).columns >= 100 { table -e } else { table }",
+            )),
             command_not_found: None,
         }
     }

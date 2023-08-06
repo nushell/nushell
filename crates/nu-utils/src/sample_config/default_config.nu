@@ -137,7 +137,6 @@ let light_theme = {
 #     carapace $spans.0 nushell $spans | from json
 # }
 
-
 # The default config record. This is where much of your global configuration is setup.
 $env.config = {
     show_banner: true # true or false to enable or disable the welcome banner at startup
@@ -251,7 +250,7 @@ $env.config = {
         env_change: {
             PWD: [{|before, after| null }] # run if the PWD environment is different since the last repl input
         }
-        display_output: { table } # run before the output of a command is drawn, example: `{ if (term size).columns >= 100 { table -e } else { table } }`
+        display_output: "if (term size).columns >= 100 { table -e } else { table }" # run to display the output of a pipeline
         command_not_found: { null } # return an error message when a command is not found
     }
 
