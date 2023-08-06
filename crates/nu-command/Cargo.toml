@@ -28,7 +28,6 @@ nu-table = { path = "../nu-table", version = "0.83.2" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.83.2" }
 nu-utils = { path = "../nu-utils", version = "0.83.2" }
 
-Inflector = "0.11"
 alphanumeric-sort = "1.5"
 base64 = "0.21"
 byteorder = "1.4"
