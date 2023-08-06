@@ -39,7 +39,7 @@ impl Command for ToNuon {
                 "specify indentation tab quantity",
                 Some('t'),
             )
-            .category(Category::Experimental)
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
