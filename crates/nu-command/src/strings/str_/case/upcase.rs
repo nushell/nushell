@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
@@ -29,6 +30,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, convert strings at the given cell paths",
             )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
