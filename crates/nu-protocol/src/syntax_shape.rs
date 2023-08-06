@@ -156,7 +156,7 @@ impl SyntaxShape {
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
-            SyntaxShape::Range => Type::Any,
+            SyntaxShape::Range => Type::Range,
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
