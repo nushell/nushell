@@ -152,7 +152,7 @@ impl SyntaxShape {
             SyntaxShape::MatchBlock => Type::Any,
             SyntaxShape::MatchPattern => Type::Any,
             SyntaxShape::MathExpression => Type::Any,
-            SyntaxShape::Nothing => Type::Any,
+            SyntaxShape::Nothing => Type::Nothing,
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(_) => Type::Any,
             SyntaxShape::Operator => Type::Any,
