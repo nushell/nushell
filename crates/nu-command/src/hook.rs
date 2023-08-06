@@ -333,7 +333,7 @@ pub fn eval_hook(
         }
         other => {
             return Err(ShellError::UnsupportedConfigValue(
-                "block, record, or list of commands".into(),
+                "string, block, record, or list of commands".into(),
                 format!("{}", other.get_type()),
                 other.span()?,
             ));
