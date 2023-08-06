@@ -299,8 +299,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Env
         bind_command! {
-            LetEnvDeprecated,
-            DateFormat,
             ExportEnv,
             LoadEnv,
             SourceEnv,
@@ -382,15 +380,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Deprecated
         bind_command! {
-            HashBase64,
-            LPadDeprecated,
-            MathEvalDeprecated,
-            RPadDeprecated,
-            StrCollectDeprecated,
-            StrDatetimeDeprecated,
-            StrDecimalDeprecated,
-            StrFindReplaceDeprecated,
-            StrIntDeprecated,
+            LetEnv,
+            DateFormat,
         };
 
         working_set.render()
