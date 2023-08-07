@@ -211,4 +211,19 @@ mod regex {
 
         assert_eq!(actual.out, "2");
     }
+
+    #[test]
+    fn parse_handles_external_stream_chunking() {
+        Playground::setup("parse_test_streaming_1", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    "abcdefghijklmnopqrstuvwxyz" * 1000 | save --force data.txt;
+                    open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length
+                "#
+            ));
+
+            assert_eq!(actual.out, "1000");
+        })
+    }
 }
