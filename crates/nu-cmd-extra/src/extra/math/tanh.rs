@@ -52,7 +52,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Apply the hyperbolic tangent to 10*π",
-            example: "(math pi) * 10 | math tanh",
+            example: "3.141592 * 10 | math tanh | math round --precision 4",
             result: Some(Value::test_float(1f64)),
         }]
     }

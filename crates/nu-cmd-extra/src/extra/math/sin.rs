@@ -54,7 +54,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Apply the sine to π/2",
-                example: "(math pi) / 2 | math sin",
+                example: "3.141592 / 2 | math sin | math round --precision 4",
                 result: Some(Value::test_float(1f64)),
             },
             Example {
