@@ -396,30 +396,36 @@ impl Iterator for ParseStreamerExternal {
 
         let chunk = self.stream.next();
 
-        if let Some(Ok(chunk)) = chunk {
-            match String::from_utf8(chunk) {
-                Ok(chunk) => stream_helper(
-                    self.regex.clone(),
-                    self.span,
-                    chunk,
-                    self.columns.clone(),
-                    &mut self.excess,
-                ),
-                Err(_) => Some(Value::Error {
+        let chunk = match chunk {
+            Some(Ok(chunk)) => chunk,
+            Some(Err(err)) => {
+                return Some(Value::Error {
+                    error: Box::new(err),
+                })
+            }
+            _ => return None,
+        };
+
+        let chunk = match String::from_utf8(chunk) {
+            Ok(chunk) => chunk,
+            Err(_) => {
+                return Some(Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
                         src_span: self.span,
                     }),
-                }),
+                })
             }
-        } else if let Some(Err(err)) = chunk {
-            Some(Value::Error {
-                error: Box::new(err),
-            })
-        } else {
-            None
-        }
+        };
+
+        stream_helper(
+            self.regex.clone(),
+            self.span,
+            chunk,
+            self.columns.clone(),
+            &mut self.excess,
+        )
     }
 }
 
