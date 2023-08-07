@@ -66,6 +66,18 @@ impl Command for SubCommand {
             },
 
             Example {
+                description: "Commas that are not inside any braces need to be skipped.",
+                example: "'Welcome\\, {home,mon ami}!' | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("Welcome, home!"),
+                        Value::test_string("Welcome, mon ami!"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
                 description: "Use double backslashes to add a backslash.",
                 example: "'A{B\\\\,C}' | str expand",
                 result: Some(Value::List{
