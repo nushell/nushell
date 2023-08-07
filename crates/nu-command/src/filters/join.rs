@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
@@ -53,6 +53,7 @@ impl Command for Join {
             .switch("right", "Right-outer join", Some('r'))
             .switch("outer", "Outer join", Some('o'))
             .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
