@@ -380,3 +380,9 @@ fn help_alias_before_command() {
 
     assert!(actual.out.contains("Alias"));
 }
+
+#[test]
+fn nothing_type_annotation() {
+    let actual = nu!("def foo []: nothing -> nothing {}; help foo");
+    assert!(actual.out.contains("│ 0 │ nothing │ nothing │"));
+}
