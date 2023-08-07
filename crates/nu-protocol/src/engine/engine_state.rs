@@ -783,16 +783,22 @@ impl EngineState {
         decls.into_iter()
     }
 
+    #[allow(clippy::borrowed_box)]
+    pub fn get_signature(&self, decl: &Box<dyn Command>) -> Signature {
+        if let Some(block_id) = decl.get_block_id() {
+            *self.blocks[block_id].signature.clone()
+        } else {
+            decl.signature()
+        }
+    }
+
     /// Get signatures of all commands within scope.
     pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
         self.get_decls_sorted(include_hidden)
-            .map(|(name_bytes, id)| {
+            .map(|(_, id)| {
                 let decl = self.get_decl(id);
-                // the reason to create the name this way is because the command could be renamed
-                // during module imports but the signature still contains the old name
-                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                (*decl).signature().update_from_command(name, decl.borrow())
+                self.get_signature(decl).update_from_command(decl.borrow())
             })
             .collect()
     }
@@ -807,13 +813,10 @@ impl EngineState {
         include_hidden: bool,
     ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
         self.get_decls_sorted(include_hidden)
-            .map(|(name_bytes, id)| {
+            .map(|(_, id)| {
                 let decl = self.get_decl(id);
-                // the reason to create the name this way is because the command could be renamed
-                // during module imports but the signature still contains the old name
-                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                let signature = (*decl).signature().update_from_command(name, decl.borrow());
+                let signature = self.get_signature(decl).update_from_command(decl.borrow());
 
                 (
                     signature,

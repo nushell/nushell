@@ -534,12 +534,11 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
-        for (name_bytes, decl_id) in self.engine_state.get_decls_sorted(false) {
+        for (_, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    let name = String::from_utf8_lossy(&name_bytes).to_string();
-                    let sig = decl.signature().update_from_command(name, decl.borrow());
+                    let sig = decl.signature().update_from_command(decl.borrow());
                     let key = sig.name;
 
                     aliases.push(Value::Record {

@@ -127,13 +127,12 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 
-    for (name_bytes, decl_id) in commands {
+    for (_, decl_id) in commands {
         let mut cols = vec![];
         let mut vals = vec![];
 
-        let name = String::from_utf8_lossy(&name_bytes).to_string();
         let decl = engine_state.get_decl(decl_id);
-        let sig = decl.signature().update_from_command(name, decl.borrow());
+        let sig = decl.signature().update_from_command(decl.borrow());
 
         let signatures = sig.to_string().trim_start().replace("\n  ", "\n");
         let key = sig.name;
