@@ -192,11 +192,23 @@ mod regex {
 
     #[test]
     fn parse_works_with_streaming() {
-        let actual = nu!(
-            cwd: ".", pipeline(
-               r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#
-        ));
+        let actual =
+            nu!(r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#);
 
         assert_eq!(actual.out, "table<letter: string, a: string> (stream)")
+    }
+
+    #[test]
+    fn parse_does_not_truncate_list_streams() {
+        let actual = nu!(pipeline(
+            r#"
+                [a b c]
+                | each {|x| $x}
+                | parse --regex "[ac]"
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "2");
     }
 }

@@ -204,10 +204,10 @@ impl From<DirInfo> for Value {
         });
 
         cols.push("directories".into());
-        vals.push(value_from_vec(d.dirs, &d.tag));
+        vals.push(value_from_vec(d.dirs, d.tag));
 
         cols.push("files".into());
-        vals.push(value_from_vec(d.files, &d.tag));
+        vals.push(value_from_vec(d.files, d.tag));
 
         // if !d.errors.is_empty() {
         //     let v = d
@@ -271,17 +271,17 @@ impl From<FileInfo> for Value {
     }
 }
 
-fn value_from_vec<V>(vec: Vec<V>, tag: &Span) -> Value
+fn value_from_vec<V>(vec: Vec<V>, tag: Span) -> Value
 where
     V: Into<Value>,
 {
     if vec.is_empty() {
-        Value::nothing(*tag)
+        Value::nothing(tag)
     } else {
         let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
         Value::List {
             vals: values,
-            span: *tag,
+            span: tag,
         }
     }
 }

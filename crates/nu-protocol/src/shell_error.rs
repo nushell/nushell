@@ -269,7 +269,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(
         code(nu::shell::nushell_failed),
@@ -283,7 +283,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(
         code(nu::shell::nushell_failed_spanned),
@@ -302,7 +302,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(code(nu::shell::nushell_failed_help))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
@@ -1072,6 +1072,18 @@ pub enum ShellError {
     InterruptedByUser {
         #[label("This operation was interrupted")]
         span: Option<Span>,
+    },
+
+    /// An attempt to use, as a match guard, an expression that
+    /// does not resolve into a boolean
+    #[error("Match guard not bool")]
+    #[diagnostic(
+        code(nu::shell::match_guard_not_bool),
+        help("Match guards should evaluate to a boolean")
+    )]
+    MatchGuardNotBool {
+        #[label("not a boolean expression")]
+        span: Span,
     },
 }
 

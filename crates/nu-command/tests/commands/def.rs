@@ -109,7 +109,7 @@ fn def_fails_with_invalid_name() {
     let actual = nu!(r#"def 5gib = echo "test""#);
     assert!(actual.err.contains(err_msg));
 
-    let actual = nu!(r#"def ^foo [] {}"#);
+    let actual = nu!("def ^foo [] {}");
     assert!(actual.err.contains(err_msg));
 }
 
@@ -158,8 +158,9 @@ fn def_with_paren_params() {
 
 #[test]
 fn extern_with_block() {
-    let actual =
-        nu!("extern foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x");
+    let actual = nu!(
+        "extern-wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
+    );
 
     assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
 }

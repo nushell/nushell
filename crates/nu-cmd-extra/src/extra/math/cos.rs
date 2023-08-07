@@ -13,8 +13,13 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math cos")
             .switch("degrees", "Use degrees instead of radians", Some('d'))
-            .input_output_types(vec![(Type::Number, Type::Float)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Number, Type::Float),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
+                ),
+            ])
             .category(Category::Math)
     }
 

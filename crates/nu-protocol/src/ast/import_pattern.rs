@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{span, ModuleId, Span};
+use crate::{span, ModuleId, Span, VarId};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,6 +24,7 @@ pub struct ImportPattern {
     // communicate to eval which decls/aliases were hidden during `parse_hide()` so it does not
     // interpret these as env var names:
     pub hidden: HashSet<Vec<u8>>,
+    pub module_name_var_id: Option<VarId>,
 }
 
 impl ImportPattern {
@@ -36,6 +37,7 @@ impl ImportPattern {
             },
             members: vec![],
             hidden: HashSet::new(),
+            module_name_var_id: None,
         }
     }
 
@@ -62,6 +64,7 @@ impl ImportPattern {
             head: self.head,
             members: self.members,
             hidden,
+            module_name_var_id: self.module_name_var_id,
         }
     }
 }

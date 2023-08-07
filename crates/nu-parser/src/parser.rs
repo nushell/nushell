@@ -4,7 +4,7 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
-    type_check::{math_result_type, type_compatible},
+    type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
 };
 
@@ -681,6 +681,14 @@ pub fn parse_multispan_value(
             *spans_idx = spans.len() - 1;
 
             arg
+        }
+        SyntaxShape::Signature => {
+            trace!("parsing: signature");
+
+            let sig = parse_full_signature(working_set, &spans[*spans_idx..]);
+            *spans_idx = spans.len() - 1;
+
+            sig
         }
         SyntaxShape::Keyword(keyword, arg) => {
             trace!(
@@ -2932,36 +2940,7 @@ fn prepare_inner_span(
 }
 
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
-    match bytes {
-        b"binary" => Type::Binary,
-        b"block" => {
-            working_set.error(ParseError::LabeledErrorWithHelp {
-                error: "Blocks are not support as first-class values".into(),
-                label: "blocks are not supported as values".into(),
-                help: "Use 'closure' instead of 'block'".into(),
-                span,
-            });
-
-            Type::Any
-        }
-        b"bool" => Type::Bool,
-        b"cellpath" => Type::CellPath,
-        b"closure" => Type::Closure,
-        b"date" => Type::Date,
-        b"duration" => Type::Duration,
-        b"error" => Type::Error,
-        b"filesize" => Type::Filesize,
-        b"float" | b"decimal" => Type::Float,
-        b"int" => Type::Int,
-        b"list" => Type::List(Box::new(Type::Any)),
-        b"number" => Type::Number,
-        b"range" => Type::Range,
-        b"record" => Type::Record(vec![]),
-        b"string" => Type::String,
-        b"table" => Type::Table(vec![]), //FIXME
-
-        _ => Type::Any,
-    }
+    parse_shape_name(working_set, bytes, span).to_type()
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
@@ -2997,6 +2976,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         },
         members: vec![],
         hidden: HashSet::new(),
+        module_name_var_id: None,
     };
 
     if spans.len() > 1 {
@@ -3196,6 +3176,95 @@ pub fn expand_to_cell_path(
         let new_expression = parse_full_cell_path(working_set, Some(var_id), *span);
 
         *expression = new_expression;
+    }
+}
+
+pub fn parse_input_output_types(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> Vec<(Type, Type)> {
+    let mut full_span = span(spans);
+
+    let mut bytes = working_set.get_span_contents(full_span);
+
+    if bytes.starts_with(b"[") {
+        bytes = &bytes[1..];
+        full_span.start += 1;
+    }
+
+    if bytes.ends_with(b"]") {
+        bytes = &bytes[..(bytes.len() - 1)];
+        full_span.end -= 1;
+    }
+
+    let (tokens, parse_error) = lex(bytes, full_span.start, &[b','], &[], true);
+
+    if let Some(parse_error) = parse_error {
+        working_set.parse_errors.push(parse_error);
+    }
+
+    let mut output = vec![];
+
+    let mut idx = 0;
+    while idx < tokens.len() {
+        let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+        let input_type = parse_type(working_set, &type_bytes, tokens[idx].span);
+
+        idx += 1;
+        if idx >= tokens.len() {
+            working_set.error(ParseError::Expected(
+                "arrow (->)",
+                Span::new(tokens[idx - 1].span.end, tokens[idx - 1].span.end),
+            ));
+            break;
+        }
+
+        let arrow = working_set.get_span_contents(tokens[idx].span);
+        if arrow != b"->" {
+            working_set.error(ParseError::Expected("arrow (->)", tokens[idx].span));
+        }
+
+        idx += 1;
+        if idx >= tokens.len() {
+            working_set.error(ParseError::MissingType(Span::new(
+                tokens[idx - 1].span.end,
+                tokens[idx - 1].span.end,
+            )));
+            break;
+        }
+
+        let type_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+        let output_type = parse_type(working_set, &type_bytes, tokens[idx].span);
+
+        output.push((input_type, output_type));
+
+        idx += 1;
+    }
+
+    output
+}
+
+pub fn parse_full_signature(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
+    let arg_signature = working_set.get_span_contents(spans[0]);
+
+    if arg_signature.ends_with(b":") {
+        let mut arg_signature =
+            parse_signature(working_set, Span::new(spans[0].start, spans[0].end - 1));
+
+        let input_output_types = parse_input_output_types(working_set, &spans[1..]);
+
+        if let Expression {
+            expr: Expr::Signature(sig),
+            span: expr_span,
+            ..
+        } = &mut arg_signature
+        {
+            sig.input_output_types = input_output_types;
+            expr_span.end = span(&spans[1..]).end;
+        }
+        arg_signature
+    } else {
+        parse_signature(working_set, spans[0])
     }
 }
 
@@ -3627,7 +3696,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     Arg::RestPositional(PositionalArg {
                                         shape, var_id, ..
                                     }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
@@ -4202,8 +4271,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             break;
         }
 
-        // Multiple patterns connected by '|'
         let mut connector = working_set.get_span_contents(output[position].span);
+
+        // Multiple patterns connected by '|'
         if connector == b"|" && position < output.len() {
             let mut or_pattern = vec![pattern];
 
@@ -4254,10 +4324,56 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
             pattern = MatchPattern {
                 pattern: Pattern::Or(or_pattern),
+                guard: None,
                 span: Span::new(start, end),
             }
-        }
+        // A match guard
+        } else if connector == b"if" {
+            let if_end = {
+                let end = output[position].span.end;
+                Span::new(end, end)
+            };
 
+            position += 1;
+
+            let mk_err = || ParseError::LabeledErrorWithHelp {
+                error: "Match guard without an expression".into(),
+                label: "expected an expression".into(),
+                help: "The `if` keyword must be followed with an expression".into(),
+                span: if_end,
+            };
+
+            if output.get(position).is_none() {
+                working_set.error(mk_err());
+                return garbage(span);
+            };
+
+            let (tokens, found) = if let Some((pos, _)) = output[position..]
+                .iter()
+                .find_position(|t| working_set.get_span_contents(t.span) == b"=>")
+            {
+                if position + pos == position {
+                    working_set.error(mk_err());
+                    return garbage(span);
+                }
+
+                (&output[position..position + pos], true)
+            } else {
+                (&output[position..], false)
+            };
+
+            let mut start = 0;
+            let guard = parse_multispan_value(
+                working_set,
+                &tokens.iter().map(|tok| tok.span).collect_vec(),
+                &mut start,
+                &SyntaxShape::MathExpression,
+            );
+
+            pattern.guard = Some(guard);
+            position += if found { start + 1 } else { start };
+            connector = working_set.get_span_contents(output[position].span);
+        }
         // Then the `=>` arrow
         if connector != b"=>" {
             working_set.error(ParseError::Mismatch(
@@ -5026,8 +5142,8 @@ pub fn parse_expression(
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"hide" => {
+            b"def" | b"extern" | b"extern-wrapped" | b"for" | b"module" | b"use" | b"source"
+            | b"alias" | b"export" | b"hide" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
@@ -5194,7 +5310,7 @@ pub fn parse_builtin_commands(
 
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command, None),
-        b"extern" => parse_extern(working_set, lite_command, None),
+        b"extern" | b"extern-wrapped" => parse_extern(working_set, lite_command, None),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"const" => parse_const(working_set, &lite_command.parts),
         b"mut" => parse_mut(working_set, &lite_command.parts),
@@ -5407,8 +5523,7 @@ pub fn parse_pipeline(
                     PipelineElement::Expression(*span, expr)
                 }
                 LiteElement::Redirection(span, redirection, command) => {
-                    trace!("parsing: pipeline element: redirection");
-                    let expr = parse_string(working_set, command.parts[0]);
+                    let expr = parse_value(working_set, command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::Redirection(*span, redirection.clone(), expr)
                 }
@@ -5417,9 +5532,11 @@ pub fn parse_pipeline(
                     err: (err_span, err_command),
                 } => {
                     trace!("parsing: pipeline element: separate redirection");
-                    let out_expr = parse_string(working_set, out_command.parts[0]);
+                    let out_expr =
+                        parse_value(working_set, out_command.parts[0], &SyntaxShape::Any);
 
-                    let err_expr = parse_string(working_set, err_command.parts[0]);
+                    let err_expr =
+                        parse_value(working_set, err_command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::SeparateRedirection {
                         out: (*out_span, out_expr),
@@ -5432,7 +5549,8 @@ pub fn parse_pipeline(
                 } => {
                     trace!("parsing: pipeline element: same target redirection");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
-                    let redirect_expr = parse_string(working_set, redirect_command.parts[0]);
+                    let redirect_expr =
+                        parse_value(working_set, redirect_command.parts[0], &SyntaxShape::Any);
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
                         redirection: (*redirect_span, redirect_expr),
@@ -5521,7 +5639,8 @@ pub fn parse_pipeline(
                 trace!("parsing: pipeline element: same target redirection");
                 let expr = parse_expression(working_set, &command.parts, is_subexpression);
 
-                let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
+                let redirect_expr =
+                    parse_value(working_set, redirect_cmd.parts[0], &SyntaxShape::Any);
 
                 Pipeline {
                     elements: vec![PipelineElement::SameTargetRedirection {
@@ -5581,6 +5700,11 @@ pub fn parse_block(
     }
 
     block.span = Some(span);
+
+    let errors = type_check::check_block_input_output(working_set, &block);
+    if !errors.is_empty() {
+        working_set.parse_errors.extend_from_slice(&errors);
+    }
 
     block
 }
@@ -5771,25 +5895,44 @@ pub fn discover_captures_in_expr(
             if let Some(block_id) = decl.get_block_id() {
                 match seen_blocks.get(&block_id) {
                     Some(capture_list) => {
-                        output.extend(capture_list);
+                        // Push captures onto the outer closure that aren't created by that outer closure
+                        for capture in capture_list {
+                            if !seen.contains(&capture.0) {
+                                output.push(*capture);
+                            }
+                        }
                     }
                     None => {
                         let block = working_set.get_block(block_id);
                         if !block.captures.is_empty() {
-                            output.extend(block.captures.iter().map(|var_id| (*var_id, call.head)));
+                            for capture in &block.captures {
+                                if !seen.contains(capture) {
+                                    output.push((*capture, call.head));
+                                }
+                            }
                         } else {
-                            let mut seen = vec![];
-                            seen_blocks.insert(block_id, output.clone());
+                            let result = {
+                                let mut seen = vec![];
+                                seen_blocks.insert(block_id, output.clone());
 
-                            let mut result = vec![];
-                            discover_captures_in_closure(
-                                working_set,
-                                block,
-                                &mut seen,
-                                seen_blocks,
-                                &mut result,
-                            )?;
-                            output.extend(&result);
+                                let mut result = vec![];
+                                discover_captures_in_closure(
+                                    working_set,
+                                    block,
+                                    &mut seen,
+                                    seen_blocks,
+                                    &mut result,
+                                )?;
+
+                                result
+                            };
+                            // Push captures onto the outer closure that aren't created by that outer closure
+                            for capture in &result {
+                                if !seen.contains(&capture.0) {
+                                    output.push(*capture);
+                                }
+                            }
+
                             seen_blocks.insert(block_id, result);
                         }
                     }
@@ -6034,7 +6177,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 parser_info: HashMap::new(),
             })),
             span,
-            ty: Type::String,
+            ty: Type::Any,
             custom_completion: None,
         }
     } else {

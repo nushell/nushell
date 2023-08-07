@@ -73,7 +73,6 @@ def signatures():
                         "shape": "String",
                         "var_id": None,
                     },
-                    "vectorizes_over_list": False,
                     "named": [
                         {
                             "long": "help",

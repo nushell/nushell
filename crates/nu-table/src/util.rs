@@ -42,3 +42,8 @@ pub fn string_truncate(text: &str, width: usize) -> String {
 
     Truncate::truncate_text(line, width).into_owned()
 }
+
+pub fn clean_charset(text: &str) -> String {
+    // todo: optimize, I bet it can be done in 1 path
+    text.replace('\t', "    ").replace('\r', "")
+}

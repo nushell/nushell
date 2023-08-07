@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
+use nu_protocol::Category;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
@@ -35,8 +36,16 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str trim")
-            .input_output_types(vec![(Type::String, Type::String)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -58,6 +67,7 @@ impl Command for SubCommand {
                 "trims characters only from the end of the string",
                 Some('r'),
             )
+            .category(Category::Strings)
     }
     fn usage(&self) -> &str {
         "Trim whitespace or specific character."

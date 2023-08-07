@@ -1,4 +1,4 @@
-use super::super::values::{Column, NuDataFrame};
+use super::super::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -15,7 +15,7 @@ impl Command for FirstDF {
     }
 
     fn usage(&self) -> &str {
-        "Show only the first number of rows."
+        "Show only the first number of rows or create a first expression"
     }
 
     fn signature(&self) -> Signature {
@@ -25,10 +25,16 @@ impl Command for FirstDF {
                 SyntaxShape::Int,
                 "starting from the front, the number of rows to return",
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -64,6 +70,11 @@ impl Command for FirstDF {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Creates a first expression from a column",
+                example: "dfr col a | dfr first",
+                result: None,
+            },
         ]
     }
 
@@ -74,8 +85,19 @@ impl Command for FirstDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-        command(engine_state, stack, call, df)
+        let value = input.into_value(call.head);
+        if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command(engine_state, stack, call, df)
+        } else {
+            let expr = NuExpression::try_from_value(value)?;
+            let expr: NuExpression = expr.into_polars().first().into();
+
+            Ok(PipelineData::Value(
+                NuExpression::into_value(expr, call.head),
+                None,
+            ))
+        }
     }
 }
 
@@ -97,11 +119,25 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
+    use super::super::super::test_dataframe::{build_test_engine_state, test_dataframe_example};
     use super::*;
+    use crate::dataframe::lazy::aggregate::LazyAggregate;
+    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
     #[test]
-    fn test_examples() {
-        test_dataframe(vec![Box::new(FirstDF {})])
+    fn test_examples_dataframe() {
+        let mut engine_state = build_test_engine_state(vec![Box::new(FirstDF {})]);
+        test_dataframe_example(&mut engine_state, &FirstDF.examples()[0]);
+        test_dataframe_example(&mut engine_state, &FirstDF.examples()[1]);
+    }
+
+    #[test]
+    fn test_examples_expression() {
+        let mut engine_state = build_test_engine_state(vec![
+            Box::new(FirstDF {}),
+            Box::new(LazyAggregate {}),
+            Box::new(ToLazyGroupBy {}),
+        ]);
+        test_dataframe_example(&mut engine_state, &FirstDF.examples()[2]);
     }
 }

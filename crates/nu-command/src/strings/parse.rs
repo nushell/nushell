@@ -1,3 +1,6 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -30,8 +33,12 @@ impl Command for Parse {
                 SyntaxShape::String,
                 "the pattern to match. Eg) \"{foo}: {bar}\"",
             )
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::String, Type::Table(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+            ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
@@ -226,6 +233,7 @@ fn operate(
                     regex: regex_pattern,
                     columns,
                     stream: stream.stream,
+                    ctrlc: ctrlc.clone(),
                 },
                 ctrlc,
             ),
@@ -325,6 +333,7 @@ pub struct ParseStreamer {
     regex: Regex,
     columns: Vec<String>,
     stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl Iterator for ParseStreamer {
@@ -334,27 +343,38 @@ impl Iterator for ParseStreamer {
             return Some(self.excess.remove(0));
         }
 
-        let v = self.stream.next();
+        loop {
+            if let Some(ctrlc) = &self.ctrlc {
+                if ctrlc.load(Ordering::SeqCst) {
+                    break None;
+                }
+            }
 
-        if let Some(v) = v {
-            match v.as_string() {
-                Ok(s) => stream_helper(
-                    self.regex.clone(),
-                    v.span().unwrap_or(self.span),
-                    s,
-                    self.columns.clone(),
-                    &mut self.excess,
-                ),
-                Err(_) => Some(Value::Error {
+            let Some(v) = self.stream.next() else { return None };
+
+            let Ok(s) = v.as_string() else {
+                return Some(Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
                         src_span: v.span().unwrap_or(self.span),
                     }),
-                }),
-            }
-        } else {
-            None
+                })
+            };
+
+            let parsed = stream_helper(
+                self.regex.clone(),
+                v.span().unwrap_or(self.span),
+                s,
+                self.columns.clone(),
+                &mut self.excess,
+            );
+
+            if parsed.is_none() {
+                continue;
+            };
+
+            return parsed;
         }
     }
 }

@@ -17,7 +17,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("url parse")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![
+                (Type::String, Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

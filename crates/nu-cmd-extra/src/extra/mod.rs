@@ -81,8 +81,16 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command!(
             strings::format::Format,
             strings::format::FileSize,
+            strings::format::FormatDuration,
             strings::encode_decode::EncodeHex,
-            strings::encode_decode::DecodeHex
+            strings::encode_decode::DecodeHex,
+            strings::str_::case::Str,
+            strings::str_::case::StrCamelCase,
+            strings::str_::case::StrKebabCase,
+            strings::str_::case::StrPascalCase,
+            strings::str_::case::StrScreamingSnakeCase,
+            strings::str_::case::StrSnakeCase,
+            strings::str_::case::StrTitleCase
         );
 
         bind_command!(formats::ToHtml, formats::FromUrl);

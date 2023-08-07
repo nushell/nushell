@@ -50,5 +50,14 @@ fn returns_type_of_existing_directory() {
         ));
 
         assert_eq!(actual.out, "file");
+
+        let actual = nu!(pipeline(
+            r#"
+                echo "~"
+                | path type
+            "#
+        ));
+
+        assert_eq!(actual.out, "dir");
     })
 }

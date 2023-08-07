@@ -60,6 +60,7 @@ pub enum Category {
     Math,
     Misc,
     Network,
+    Path,
     Platform,
     Random,
     Shells,
@@ -91,6 +92,7 @@ impl std::fmt::Display for Category {
             Category::Math => "math",
             Category::Misc => "misc",
             Category::Network => "network",
+            Category::Path => "path",
             Category::Platform => "platform",
             Category::Random => "random",
             Category::Shells => "shells",
@@ -112,7 +114,6 @@ pub struct Signature {
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
-    pub vectorizes_over_list: bool,
     pub named: Vec<Flag>,
     pub input_output_types: Vec<(Type, Type)>,
     pub allow_variants_without_examples: bool,
@@ -212,7 +213,6 @@ impl Signature {
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
-            vectorizes_over_list: false,
             input_output_types: vec![],
             allow_variants_without_examples: false,
             named: vec![],
@@ -461,11 +461,6 @@ impl Signature {
     /// Changes the input type of the command signature
     pub fn input_output_type(mut self, input_type: Type, output_type: Type) -> Signature {
         self.input_output_types.push((input_type, output_type));
-        self
-    }
-
-    pub fn vectorizes_over_list(mut self, vectorizes_over_list: bool) -> Signature {
-        self.vectorizes_over_list = vectorizes_over_list;
         self
     }
 

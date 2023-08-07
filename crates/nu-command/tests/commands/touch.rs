@@ -105,7 +105,7 @@ fn not_create_file_if_it_not_exists() {
     Playground::setup("change_time_test_28", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            r#"touch -c file.txt"#
+            "touch -c file.txt"
         );
 
         let path = dirs.test().join("file.txt");
@@ -114,7 +114,7 @@ fn not_create_file_if_it_not_exists() {
 
         nu!(
             cwd: dirs.test(),
-            r#"touch -c file.txt"#
+            "touch -c file.txt"
         );
 
         let path = dirs.test().join("file.txt");

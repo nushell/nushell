@@ -15,8 +15,16 @@ impl Command for EncodeHex {
 
     fn signature(&self) -> Signature {
         Signature::build("encode hex")
-            .input_output_types(vec![(Type::Binary, Type::String)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Binary, Type::String),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

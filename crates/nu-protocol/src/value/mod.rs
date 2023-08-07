@@ -125,7 +125,7 @@ pub enum Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::boolean(*val, *span),
+            Value::Bool { val, span } => Value::bool(*val, *span),
             Value::Int { val, span } => Value::int(*val, *span),
             Value::Filesize { val, span } => Value::Filesize {
                 val: *val,
@@ -193,20 +193,84 @@ impl Clone for Value {
 }
 
 impl Value {
-    pub fn as_char(&self) -> Result<char, ShellError> {
+    pub fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
-            Value::String { val, span } => {
-                let mut chars = val.chars();
-                match (chars.next(), chars.next()) {
-                    (Some(c), None) => Ok(c),
-                    _ => Err(ShellError::MissingParameter {
-                        param_name: "single character separator".into(),
-                        span: *span,
-                    }),
-                }
-            }
+            Value::Bool { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {
-                to_type: "char".into(),
+                to_type: "boolean".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_int(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "integer".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_float(&self) -> Result<f64, ShellError> {
+        match self {
+            Value::Float { val, .. } => Ok(*val),
+            Value::Int { val, .. } => Ok(*val as f64),
+            x => Err(ShellError::CantConvert {
+                to_type: "float".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_filesize(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Filesize { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "filesize".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_duration(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Duration { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "duration".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_date(&self) -> Result<DateTime<FixedOffset>, ShellError> {
+        match self {
+            Value::Date { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert {
+                to_type: "date".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_range(&self) -> Result<&Range, ShellError> {
+        match self {
+            Value::Range { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "range".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -270,37 +334,32 @@ impl Value {
         }
     }
 
+    pub fn as_char(&self) -> Result<char, ShellError> {
+        match self {
+            Value::String { val, span } => {
+                let mut chars = val.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(c), None) => Ok(c),
+                    _ => Err(ShellError::MissingParameter {
+                        param_name: "single character separator".into(),
+                        span: *span,
+                    }),
+                }
+            }
+            x => Err(ShellError::CantConvert {
+                to_type: "char".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self {
             Value::String { val, .. } => Ok(PathBuf::from(val)),
             x => Err(ShellError::CantConvert {
                 to_type: "path".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span()?,
-                help: None,
-            }),
-        }
-    }
-
-    pub fn as_block(&self) -> Result<BlockId, ShellError> {
-        match self {
-            Value::Block { val, .. } => Ok(*val),
-            Value::Closure { val, .. } => Ok(*val),
-            x => Err(ShellError::CantConvert {
-                to_type: "block".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span()?,
-                help: None,
-            }),
-        }
-    }
-
-    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
-        match self {
-            Value::Binary { val, .. } => Ok(val),
-            Value::String { val, .. } => Ok(val.as_bytes()),
-            x => Err(ShellError::CantConvert {
-                to_type: "binary".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -332,11 +391,12 @@ impl Value {
         }
     }
 
-    pub fn as_bool(&self) -> Result<bool, ShellError> {
+    pub fn as_block(&self) -> Result<BlockId, ShellError> {
         match self {
-            Value::Bool { val, .. } => Ok(*val),
+            Value::Block { val, .. } => Ok(*val),
+            Value::Closure { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {
-                to_type: "boolean".into(),
+                to_type: "block".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -344,12 +404,11 @@ impl Value {
         }
     }
 
-    pub fn as_float(&self) -> Result<f64, ShellError> {
+    pub fn as_closure(&self) -> Result<(BlockId, &HashMap<VarId, Value>), ShellError> {
         match self {
-            Value::Float { val, .. } => Ok(*val),
-            Value::Int { val, .. } => Ok(*val as f64),
+            Value::Closure { val, captures, .. } => Ok((*val, captures)),
             x => Err(ShellError::CantConvert {
-                to_type: "float".into(),
+                to_type: "closure".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -357,11 +416,60 @@ impl Value {
         }
     }
 
-    pub fn as_integer(&self) -> Result<i64, ShellError> {
+    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
         match self {
-            Value::Int { val, .. } => Ok(*val),
+            Value::Binary { val, .. } => Ok(val),
+            Value::String { val, .. } => Ok(val.as_bytes()),
             x => Err(ShellError::CantConvert {
-                to_type: "integer".into(),
+                to_type: "binary".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_cell_path(&self) -> Result<&CellPath, ShellError> {
+        match self {
+            Value::CellPath { val, .. } => Ok(val),
+            x => Err(ShellError::CantConvert {
+                to_type: "cell path".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
+        match self {
+            Value::CustomValue { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "custom value".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
+        match self {
+            Value::LazyRecord { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "lazy record".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span()?,
+                help: None,
+            }),
+        }
+    }
+
+    pub fn as_match_pattern(&self) -> Result<&MatchPattern, ShellError> {
+        match self {
+            Value::MatchPattern { val, .. } => Ok(val.as_ref()),
+            x => Err(ShellError::CantConvert {
+                to_type: "match pattern".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
@@ -372,25 +480,25 @@ impl Value {
     /// Get the span for the current value
     pub fn span(&self) -> Result<Span, ShellError> {
         match self {
+            Value::Bool { span, .. }
+            | Value::Int { span, .. }
+            | Value::Float { span, .. }
+            | Value::Filesize { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Date { span, .. }
+            | Value::Range { span, .. }
+            | Value::String { span, .. }
+            | Value::Record { span, .. }
+            | Value::List { span, .. }
+            | Value::Block { span, .. }
+            | Value::Closure { span, .. }
+            | Value::Nothing { span, .. }
+            | Value::Binary { span, .. }
+            | Value::CellPath { span, .. }
+            | Value::CustomValue { span, .. }
+            | Value::LazyRecord { span, .. }
+            | Value::MatchPattern { span, .. } => Ok(*span),
             Value::Error { error } => Err(*error.clone()),
-            Value::Bool { span, .. } => Ok(*span),
-            Value::Int { span, .. } => Ok(*span),
-            Value::Float { span, .. } => Ok(*span),
-            Value::Filesize { span, .. } => Ok(*span),
-            Value::Duration { span, .. } => Ok(*span),
-            Value::Date { span, .. } => Ok(*span),
-            Value::Range { span, .. } => Ok(*span),
-            Value::String { span, .. } => Ok(*span),
-            Value::Record { span, .. } => Ok(*span),
-            Value::List { span, .. } => Ok(*span),
-            Value::Block { span, .. } => Ok(*span),
-            Value::Closure { span, .. } => Ok(*span),
-            Value::Nothing { span, .. } => Ok(*span),
-            Value::Binary { span, .. } => Ok(*span),
-            Value::CellPath { span, .. } => Ok(*span),
-            Value::CustomValue { span, .. } => Ok(*span),
-            Value::LazyRecord { span, .. } => Ok(*span),
-            Value::MatchPattern { span, .. } => Ok(*span),
         }
     }
 
@@ -404,25 +512,25 @@ impl Value {
     /// Update the value with a new span
     pub fn with_span(mut self, new_span: Span) -> Value {
         match &mut self {
-            Value::Bool { span, .. } => *span = new_span,
-            Value::Int { span, .. } => *span = new_span,
-            Value::Float { span, .. } => *span = new_span,
-            Value::Filesize { span, .. } => *span = new_span,
-            Value::Duration { span, .. } => *span = new_span,
-            Value::Date { span, .. } => *span = new_span,
-            Value::Range { span, .. } => *span = new_span,
-            Value::String { span, .. } => *span = new_span,
-            Value::Record { span, .. } => *span = new_span,
-            Value::LazyRecord { span, .. } => *span = new_span,
-            Value::List { span, .. } => *span = new_span,
-            Value::Closure { span, .. } => *span = new_span,
-            Value::Block { span, .. } => *span = new_span,
-            Value::Nothing { span, .. } => *span = new_span,
-            Value::Error { .. } => {}
-            Value::Binary { span, .. } => *span = new_span,
-            Value::CellPath { span, .. } => *span = new_span,
-            Value::CustomValue { span, .. } => *span = new_span,
-            Value::MatchPattern { span, .. } => *span = new_span,
+            Value::Bool { span, .. }
+            | Value::Int { span, .. }
+            | Value::Float { span, .. }
+            | Value::Filesize { span, .. }
+            | Value::Duration { span, .. }
+            | Value::Date { span, .. }
+            | Value::Range { span, .. }
+            | Value::String { span, .. }
+            | Value::Record { span, .. }
+            | Value::LazyRecord { span, .. }
+            | Value::List { span, .. }
+            | Value::Closure { span, .. }
+            | Value::Block { span, .. }
+            | Value::Nothing { span, .. }
+            | Value::Binary { span, .. }
+            | Value::CellPath { span, .. }
+            | Value::CustomValue { span, .. }
+            | Value::MatchPattern { span, .. } => *span = new_span,
+            Value::Error { .. } => (),
         }
 
         self
@@ -455,7 +563,8 @@ impl Value {
                                 if x.is_numeric() && val_ty.is_numeric() {
                                     ty = Some(Type::Number)
                                 } else {
-                                    ty = Some(Type::Any)
+                                    ty = Some(Type::Any);
+                                    break;
                                 }
                             }
                         }
@@ -466,7 +575,7 @@ impl Value {
                 match ty {
                     Some(Type::Record(columns)) => Type::Table(columns),
                     Some(ty) => Type::List(Box::new(ty)),
-                    None => Type::List(Box::new(ty.unwrap_or(Type::Any))),
+                    None => Type::List(Box::new(Type::Any)),
                 }
             }
             Value::LazyRecord { val, .. } => match val.collect() {
@@ -766,11 +875,6 @@ impl Value {
 
     pub fn is_nothing(&self) -> bool {
         matches!(self, Value::Nothing { .. })
-    }
-
-    /// Create a new `Nothing` value
-    pub fn nothing(span: Span) -> Value {
-        Value::Nothing { span }
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
@@ -1635,18 +1739,8 @@ impl Value {
         }
     }
 
-    pub fn string(val: impl Into<String>, span: Span) -> Value {
-        Value::String {
-            val: val.into(),
-            span,
-        }
-    }
-
-    pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
-        Value::Binary {
-            val: val.into(),
-            span,
-        }
+    pub fn bool(val: bool, span: Span) -> Value {
+        Value::Bool { val, span }
     }
 
     pub fn int(val: i64, span: Span) -> Value {
@@ -1657,8 +1751,30 @@ impl Value {
         Value::Float { val, span }
     }
 
-    pub fn boolean(val: bool, span: Span) -> Value {
-        Value::Bool { val, span }
+    pub fn filesize(val: i64, span: Span) -> Value {
+        Value::Filesize { val, span }
+    }
+
+    pub fn duration(val: i64, span: Span) -> Value {
+        Value::Duration { val, span }
+    }
+
+    pub fn date(val: DateTime<FixedOffset>, span: Span) -> Value {
+        Value::Date { val, span }
+    }
+
+    pub fn range(val: Range, span: Span) -> Value {
+        Value::Range {
+            val: Box::new(val),
+            span,
+        }
+    }
+
+    pub fn string(val: impl Into<String>, span: Span) -> Value {
+        Value::String {
+            val: val.into(),
+            span,
+        }
     }
 
     pub fn record(cols: Vec<String>, vals: Vec<Value>, span: Span) -> Value {
@@ -1679,74 +1795,165 @@ impl Value {
         Value::List { vals, span }
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_string(s: impl Into<String>) -> Value {
-        Value::string(s, Span::test_data())
+    pub fn block(val: BlockId, span: Span) -> Value {
+        Value::Block { val, span }
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_int(val: i64) -> Value {
-        Value::Int {
+    pub fn closure(val: BlockId, captures: HashMap<VarId, Value>, span: Span) -> Value {
+        Value::Closure {
             val,
-            span: Span::test_data(),
+            captures,
+            span,
         }
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_float(val: f64) -> Value {
-        Value::Float {
-            val,
-            span: Span::test_data(),
+    /// Create a new `Nothing` value
+    pub fn nothing(span: Span) -> Value {
+        Value::Nothing { span }
+    }
+
+    pub fn error(error: ShellError) -> Value {
+        Value::Error {
+            error: Box::new(error),
+        }
+    }
+
+    pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
+        Value::Binary {
+            val: val.into(),
+            span,
+        }
+    }
+
+    pub fn cell_path(val: CellPath, span: Span) -> Value {
+        Value::CellPath { val, span }
+    }
+
+    pub fn custom_value(val: Box<dyn CustomValue>, span: Span) -> Value {
+        Value::CustomValue { val, span }
+    }
+
+    pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: Span) -> Value {
+        Value::LazyRecord { val, span }
+    }
+
+    pub fn match_pattern(val: MatchPattern, span: Span) -> Value {
+        Value::MatchPattern {
+            val: Box::new(val),
+            span,
         }
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_bool(val: bool) -> Value {
-        Value::Bool {
-            val,
-            span: Span::test_data(),
-        }
+        Value::bool(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_int(val: i64) -> Value {
+        Value::int(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_float(val: f64) -> Value {
+        Value::float(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_filesize(val: i64) -> Value {
-        Value::Filesize {
-            val,
-            span: Span::test_data(),
-        }
+        Value::filesize(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_nothing() -> Value {
-        Value::Nothing {
-            span: Span::test_data(),
-        }
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
-        Value::Record {
-            cols: cols.into_iter().map(|s| s.into()).collect(),
-            vals,
-
-            span: Span::test_data(),
-        }
+    pub fn test_duration(val: i64) -> Value {
+        Value::duration(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
-        Value::Date {
-            val,
-            span: Span::test_data(),
-        }
+        Value::date(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_range(val: Range) -> Value {
+        Value::range(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_string(val: impl Into<String>) -> Value {
+        Value::string(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
+        Value::record(
+            cols.into_iter().map(|s| s.into()).collect(),
+            vals,
+            Span::test_data(),
+        )
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_list(vals: Vec<Value>) -> Value {
+        Value::list(vals, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_block(val: BlockId) -> Value {
+        Value::block(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_closure(val: BlockId, captures: HashMap<VarId, Value>) -> Value {
+        Value::closure(val, captures, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_nothing() -> Value {
+        Value::nothing(Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_binary(val: impl Into<Vec<u8>>) -> Value {
+        Value::binary(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_cell_path(val: CellPath) -> Value {
+        Value::cell_path(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_custom_value(val: Box<dyn CustomValue>) -> Value {
+        Value::custom_value(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
+        Value::lazy_record(val, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_match_pattern(val: MatchPattern) -> Value {
+        Value::match_pattern(val, Span::test_data())
     }
 }
 
@@ -3883,7 +4090,7 @@ mod tests {
                 vals: vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
-                    Value::boolean(false, Span::unknown()),
+                    Value::bool(false, Span::unknown()),
                 ],
                 span: Span::unknown(),
             };

@@ -68,10 +68,7 @@ fn print_created_paths() {
         let actual = nu!(
          cwd: dirs.test(),
          pipeline(
-             r#"
-                 mkdir -v dir_1 dir_2 dir_3
-                 | length
-             "#
+             "mkdir -v dir_1 dir_2 dir_3"
         ));
 
         assert!(files_exist_at(

@@ -41,7 +41,6 @@ mod test_examples {
                     &mut make_engine_state(cmd.clone_box()),
                     &signature.input_output_types,
                     signature.operates_on_cell_paths(),
-                    signature.vectorizes_over_list,
                 ),
             );
             check_example_evaluates_to_expected_output(&example, cwd.as_path(), &mut engine_state);

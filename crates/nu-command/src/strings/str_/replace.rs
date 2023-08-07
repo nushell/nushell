@@ -34,8 +34,16 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str replace")
-            .input_output_types(vec![(Type::String, Type::String)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                // TODO: clarify behavior with cellpath-rest argument
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement string")
             .rest(
@@ -59,6 +67,7 @@ impl Command for SubCommand {
                 "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
@@ -125,6 +134,20 @@ impl Command for SubCommand {
                     }],
                     span: Span::test_data(),
                 }),
+            },
+            Example {
+                description: "Find and replace all occurrences of find string in record",
+                example:
+                    "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace -a 'b' 'z' KeyA KeyC",
+                result: Some(Value::Record {
+                        cols: vec!["KeyA".to_string(), "KeyB".to_string(), "KeyC".to_string()],
+                        vals: vec![
+                            Value::test_string("azc"),
+                            Value::test_string("abc"),
+                            Value::test_string("ads"),
+                        ],
+                        span: Span::test_data(),
+                    }),
             },
             Example {
                 description: "Find and replace contents without using the replace parameter as a regular expression",

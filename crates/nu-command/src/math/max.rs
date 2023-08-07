@@ -15,14 +15,15 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math max")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
     fn usage(&self) -> &str {
-        "Returns the maximum of a list of numbers, or of columns in a table."
+        "Returns the maximum of a list of values, or of columns in a table."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -59,9 +60,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn maximum(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
+pub fn maximum(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
-    max_func(Value::nothing(*head), values.to_vec(), span, *head)
+    max_func(Value::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]

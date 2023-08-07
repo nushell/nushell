@@ -3,9 +3,9 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
-pub struct LetEnvDeprecated;
+pub struct LetEnv;
 
-impl Command for LetEnvDeprecated {
+impl Command for LetEnv {
     fn name(&self) -> &str {
         "let-env"
     }
@@ -14,8 +14,8 @@ impl Command for LetEnvDeprecated {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::String, "variable name")
-            .required(
+            .optional("var_name", SyntaxShape::String, "variable name")
+            .optional(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",

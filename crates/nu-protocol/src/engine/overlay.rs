@@ -1,4 +1,4 @@
-use crate::{DeclId, ModuleId, OverlayId, Value, VarId};
+use crate::{DeclId, ModuleId, OverlayId, VarId};
 use std::collections::HashMap;
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
@@ -177,7 +177,6 @@ impl ScopeFrame {
 #[derive(Debug, Clone)]
 pub struct OverlayFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
-    pub constants: HashMap<VarId, Value>,
     pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<Vec<u8>, DeclId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
@@ -190,7 +189,6 @@ impl OverlayFrame {
     pub fn from_origin(origin: ModuleId, prefixed: bool) -> Self {
         Self {
             vars: HashMap::new(),
-            constants: HashMap::new(),
             predecls: HashMap::new(),
             decls: HashMap::new(),
             modules: HashMap::new(),
@@ -206,6 +204,10 @@ impl OverlayFrame {
 
     pub fn insert_module(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
         self.modules.insert(name, module_id)
+    }
+
+    pub fn insert_variable(&mut self, name: Vec<u8>, variable_id: VarId) -> Option<VarId> {
+        self.vars.insert(name, variable_id)
     }
 
     pub fn get_decl(&self, name: &[u8]) -> Option<DeclId> {
