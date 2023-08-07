@@ -2,7 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 use indexmap::IndexMap;
@@ -35,6 +36,7 @@ impl Command for GroupBy {
                 ]),
                 "the path to the column to group on",
             )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
