@@ -79,7 +79,7 @@
 
 ## 6. social media
 - [ ] post a status update on Discord
-- [ ] tweet about the new release
+- [ ] tweet about the new release using `./scripts/release/this_week_in_nu_weekly.nu`
 
 ## 7. Create the next release note PR on the website
 - [ ] run `./scripts/release/release-note/create-pr 0.xx.0 ((date now) + 4wk | format date "%Y-%m-%d" | into datetime)`
