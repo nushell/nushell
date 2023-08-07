@@ -85,7 +85,7 @@ by opening PRs against the `release-notes-($version)` branch."
     log info "writing release note"
     $release_note | save --force $blog_path
 
-    log info "commiting release note"
+    log info "committing release note"
     git -C $repo add $blog_path
     git -C $repo commit -m $"($title)\n\n($body)"
 

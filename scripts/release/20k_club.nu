@@ -13,7 +13,7 @@
 # example usage: get_pr_counts true
 # If true is provided as an argument, the script will also generate CSV files for each
 # repo with one line per commit, username, email, date in order for you to figure out
-# if you need to update the mailmap file so you can merge mutliple users into one.
+# if you need to update the mailmap file so you can merge multiple users into one.
 # If false is provided as an argument, the script will summarize the PR counts and
 # display a table with the top 50 rows.
 # Whether you run in debug_csv mode or not, the output is written to csv files in the
