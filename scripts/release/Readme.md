@@ -24,7 +24,7 @@
 - [ ] bump the version on the Nushell side ([example with `reedline`][reedline pin example]) (reference the release notes for courtesy)
 
 ## 1. Minor bump of the version ([example][nushell bump example])
-- [ ] in the repo of Nushell, run `/path/to/nu_scripts/make_release/bump-version.nu`
+- [ ] run `./scripts/release/bump-version.nu`
 - [ ] Also commit `Cargo.lock` AFTER running a Cargo command like `cargo check --workspace`
 
 ## 2. Tag the [`nushell`] repo
@@ -45,8 +45,8 @@
 :point_right: check that there is the same number of targets compared to [last release](https://github.com/nushell/nushell/releases/latest)
 
 ## 3. Publish `nu` to *crates.io*
-- [ ] check the order of dependencies with `nushell/nu_scripts/make_release/nu_deps.nu` from the `nushell` repo
-- [ ] release the Nushell crates `nushell/nu_scripts/make_release/nu_release.nu` from the `nushell` repo
+- [ ] check the order of dependencies with `./scripts/release/nu_deps.nu` from the `nushell` repo
+- [ ] release the Nushell crates `./scripts/release/nu_release.nu` from the `nushell` repo
 
 > **Note**  
 > if there is a new crate, you must add it to the `github:nushell:publishing` group (`cargo owner --list`)
@@ -61,11 +61,11 @@
 > **Note**  
 > the scripts have been written in such a way they can be run from anywhere
 
-- [ ] inspect the merged PRs to write changelogs with `./make_release/release-note/list-merged-prs nushell/nushell`
+- [ ] inspect the merged PRs to write changelogs with `.scripts/release/release-note/list-merged-prs nushell/nushell`
 - [ ] reorder sections by priority, what makes the most sense to the user?
-- [ ] paste the output of  `./make_release/release-note/list-merged-prs nushell/nushell --label breaking-change --pretty --no-author` to the "*Breaking changes*" section
+- [ ] paste the output of  `./scripts/release/release-note/list-merged-prs nushell/nushell --label breaking-change --pretty --no-author` to the "*Breaking changes*" section
 - [ ] make sure breaking changes titles are clear enough
-- [ ] paste the output of `./make_release/release-note/get-full-changelog` to the "*Full changelog*" section
+- [ ] paste the output of `./scripts/release/release-note/get-full-changelog` to the "*Full changelog*" section
 - [ ] mark as *ready for review* when uploading to *crates.io*
 - [ ] land when
     - **fully uploaded** to *crates.io*
@@ -82,12 +82,12 @@
 - [ ] tweet about the new release
 
 ## 7. Create the next release note PR on the website
-- [ ] run `./make_release/release-note/create-pr 0.xx.0 ((date now) + 4wk | format date "%Y-%m-%d" | into datetime)`
+- [ ] run `./scripts/release/release-note/create-pr 0.xx.0 ((date now) + 4wk | format date "%Y-%m-%d" | into datetime)`
 
 ## 8. Bump the version as development
 - [ ] bump the patch version on [`nushell`] ([example][nushell dev example]) by running
 ```nushell
-/path/to/nu_scripts/make_release/bump-version.nu --patch
+./scripts/release/bump-version.nu --patch
 ```
 
 

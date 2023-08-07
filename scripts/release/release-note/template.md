@@ -30,7 +30,7 @@ As part of this release, we also publish a set of optional plugins you can insta
 <!-- TODO
     paste the output of
     ```nu
-    ./make_release/release-note/list-merged-prs nushell/nushell --label breaking-change --pretty --no-author
+    ./scripts/release/release-note/list-merged-prs nushell/nushell --label breaking-change --pretty --no-author
     ```
     here
 -->
@@ -39,7 +39,7 @@ As part of this release, we also publish a set of optional plugins you can insta
 <!-- TODO
     paste the output of
     ```nu
-    ./make_release/release-note/get-full-changelog
+    ./scripts/release/release-note/get-full-changelog
     ```
     here
 -->
