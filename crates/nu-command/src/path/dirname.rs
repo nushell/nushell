@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -46,6 +46,7 @@ impl Command for SubCommand {
                 "Number of directories to walk up",
                 Some('n'),
             )
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {

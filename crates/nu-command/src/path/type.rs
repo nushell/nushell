@@ -4,7 +4,7 @@ use nu_path::expand_tilde;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -31,6 +31,7 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {
