@@ -155,10 +155,103 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         vals.push(Value::String { val: usage, span });
 
         cols.push("params".into());
+
         // Build table of parameters
         let param_table = {
             let mut vals = vec![];
+
+            for required_param in &sig.required_positional {
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(&required_param.name, span),
+                        Value::string(required_param.shape.to_string(), span),
+                        Value::bool(true, span),
+                        Value::string(&required_param.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            for optional_param in &sig.optional_positional {
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(&optional_param.name, span),
+                        Value::string(optional_param.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::string(&optional_param.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            if let Some(rest_positional) = &sig.rest_positional {
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(format!("...{}", rest_positional.name), span),
+                        Value::string(rest_positional.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::string(&rest_positional.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            for named_param in &sig.named {
+                let name = if let Some(short) = named_param.short {
+                    if named_param.long.is_empty() {
+                        format!("-{}", short)
+                    } else {
+                        format!("--{}(-{})", named_param.long, short)
+                    }
+                } else {
+                    format!("--{}", named_param.long)
+                };
+
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(name, span),
+                        Value::string(
+                            if let Some(arg) = &named_param.arg {
+                                arg.to_string()
+                            } else {
+                                "switch".to_string()
+                            },
+                            span,
+                        ),
+                        Value::bool(named_param.required, span),
+                        Value::string(&named_param.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            Value::List { vals, span }
         };
+        vals.push(param_table);
 
         cols.push("input_output".into());
 
