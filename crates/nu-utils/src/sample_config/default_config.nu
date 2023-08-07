@@ -391,7 +391,7 @@ $env.config = {
         {
             name: search_history
             modifier: control
-            keycode: char_r
+            keycode: char_q
             mode: [emacs, vi_normal, vi_insert]
             event: { send: searchhistory }
         }

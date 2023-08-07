@@ -1,12 +1,18 @@
-mod capitalize;
-mod downcase;
+mod camel_case;
+mod kebab_case;
+mod pascal_case;
+mod screaming_snake_case;
+mod snake_case;
 mod str_;
-mod upcase;
+mod title_case;
 
-pub use capitalize::SubCommand as StrCapitalize;
-pub use downcase::SubCommand as StrDowncase;
+pub use camel_case::SubCommand as StrCamelCase;
+pub use kebab_case::SubCommand as StrKebabCase;
+pub use pascal_case::SubCommand as StrPascalCase;
+pub use screaming_snake_case::SubCommand as StrScreamingSnakeCase;
+pub use snake_case::SubCommand as StrSnakeCase;
 pub use str_::Str;
-pub use upcase::SubCommand as StrUpcase;
+pub use title_case::SubCommand as StrTitleCase;
 
 use nu_engine::CallExt;
 

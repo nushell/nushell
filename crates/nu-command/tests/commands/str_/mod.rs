@@ -97,6 +97,7 @@ fn upcases() {
 }
 
 #[test]
+#[ignore = "Playgrounds are not supported in nu-cmd-extra"]
 fn camelcases() {
     Playground::setup("str_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
