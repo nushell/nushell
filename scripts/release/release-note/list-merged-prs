@@ -1,0 +1,71 @@
+#!/usr/bin/env nu
+
+def md-link [
+    text: string
+    link: string
+] {
+    $"[($text)]\(($link)\)"
+}
+
+# list all merged PRs since last release
+def main [
+    repo: string  # the name of the repo, e.g. `nushell/nushell`
+    date?: datetime  # the date of the last release (default to 4 weeks ago, excluded)
+    --label: string  # the label to filter the PRs by, e.g. `good-first-issue`
+    --pretty: bool  # pretty-print for the MarkDown release not
+    --no-author: bool  # do not group the contributions by author
+] {
+    let date = $date | default ((date now) - 4wk) | format date "%Y-%m-%d"
+
+    let since = (date now | format date %F | into datetime) - ($date | into datetime)
+    log info $"listing PRs in ($repo) since ($date) \(($since) ago\)"
+
+    let query = if $label == null {
+        $"merged:>($date)"
+    } else {
+        $"merged:>($date) label:($label)"
+    }
+
+    let prs = (
+        gh --repo $repo pr list
+            --state merged
+            --limit (inf | into int)
+            --json author,title,number,mergedAt,url
+            --search $query
+        | from json
+        | sort-by mergedAt --reverse
+        | update author { get login }
+    )
+
+    if $pretty {
+        if $no_author {
+            return (
+                $prs | each {|pr|
+                    let link = (md-link $"#($pr.number)" $pr.url)
+                    $"- ($link) ($pr.title)"
+                }
+                | str join "\n"
+            )
+        }
+
+        return (
+            $prs
+            | group-by author
+            | transpose author prs
+            | each {|line|
+                let author = (md-link $line.author $"https://github.com/($line.author)")
+
+                $"- ($author) created" | append (
+                    $line.prs | each {|pr|
+                        let link = (md-link $pr.title $pr.url)
+                        $"    - ($link)"
+                    }
+                )
+                | str join "\n"
+            }
+            | to text
+        )
+    }
+
+    $prs
+}
