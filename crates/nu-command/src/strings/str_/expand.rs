@@ -270,6 +270,59 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dots() {
+        assert_eq!(
+            str_expand("{a.b.c,d}", Span::test_data(), Span::test_data()),
+            Value::List {
+                vals: vec![
+                    Value::String {
+                        val: String::from("a.b.c"),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: String::from("d"),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }
+        );
+        assert_eq!(
+            str_expand("{1.2.3,a}", Span::test_data(), Span::test_data()),
+            Value::List {
+                vals: vec![
+                    Value::String {
+                        val: String::from("1.2.3"),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: String::from("a"),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }
+        );
+        assert_eq!(
+            str_expand("{a-1.2,b}", Span::test_data(), Span::test_data()),
+            Value::List {
+                vals: vec![
+                    Value::String {
+                        val: String::from("a-1.2"),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: String::from("b"),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }
+        );
+    }
+
     #[test]
     fn test_examples() {
         use crate::test_examples;
