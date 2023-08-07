@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Command for SplitBy {
         Signature::build("split-by")
             .input_output_types(vec![(Type::Record(vec![]), Type::Record(vec![]))])
             .optional("splitter", SyntaxShape::Any, "the splitter value to use")
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
