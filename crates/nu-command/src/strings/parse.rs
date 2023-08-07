@@ -394,14 +394,14 @@ impl Iterator for ParseStreamerExternal {
             return Some(self.excess.remove(0));
         }
 
-        let v = self.stream.next();
+        let chunk = self.stream.next();
 
-        if let Some(Ok(v)) = v {
-            match String::from_utf8(v) {
-                Ok(s) => stream_helper(
+        if let Some(Ok(chunk)) = chunk {
+            match String::from_utf8(chunk) {
+                Ok(chunk) => stream_helper(
                     self.regex.clone(),
                     self.span,
-                    s,
+                    chunk,
                     self.columns.clone(),
                     &mut self.excess,
                 ),
@@ -413,7 +413,7 @@ impl Iterator for ParseStreamerExternal {
                     }),
                 }),
             }
-        } else if let Some(Err(err)) = v {
+        } else if let Some(Err(err)) = chunk {
             Some(Value::Error {
                 error: Box::new(err),
             })
