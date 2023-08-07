@@ -5,6 +5,8 @@ export-env {
     use log.nu []
 }
 
+export use math.nu
+
 use dt.nu [datetime-diff, pretty-print-duration]
 use log.nu
 
