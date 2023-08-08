@@ -394,32 +394,48 @@ impl Iterator for ParseStreamerExternal {
             return Some(self.excess.remove(0));
         }
 
-        let v = self.stream.next();
+        let mut chunk = self.stream.next();
 
-        if let Some(Ok(v)) = v {
-            match String::from_utf8(v) {
-                Ok(s) => stream_helper(
-                    self.regex.clone(),
-                    self.span,
-                    s,
-                    self.columns.clone(),
-                    &mut self.excess,
-                ),
-                Err(_) => Some(Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: self.span,
-                        src_span: self.span,
-                    }),
-                }),
+        // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
+        // extend across chunk boundaries.
+        // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
+        // solution is found.
+        // See https://github.com/nushell/nushell/issues/9795
+        while let Some(Ok(chunks)) = &mut chunk {
+            match self.stream.next() {
+                Some(Ok(mut next_chunk)) => chunks.append(&mut next_chunk),
+                error @ Some(Err(_)) => chunk = error,
+                None => break,
             }
-        } else if let Some(Err(err)) = v {
-            Some(Value::Error {
-                error: Box::new(err),
-            })
-        } else {
-            None
         }
+
+        let chunk = match chunk {
+            Some(Ok(chunk)) => chunk,
+            Some(Err(err)) => {
+                return Some(Value::Error {
+                    error: Box::new(err),
+                })
+            }
+            _ => return None,
+        };
+
+        let Ok(chunk) = String::from_utf8(chunk) else {
+            return Some(Value::Error {
+                error: Box::new(ShellError::PipelineMismatch {
+                    exp_input_type: "string".into(),
+                    dst_span: self.span,
+                    src_span: self.span,
+                }),
+            })
+        };
+
+        stream_helper(
+            self.regex.clone(),
+            self.span,
+            chunk,
+            self.columns.clone(),
+            &mut self.excess,
+        )
     }
 }
 
