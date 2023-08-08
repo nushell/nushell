@@ -131,6 +131,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             )
         }
         Value::String { val, .. } => val,
+        Value::RawString { val, .. } => val,
         Value::List { vals: val, .. } => val
             .iter()
             .map(|x| local_into_string(x.clone(), ", ", config))

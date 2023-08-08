@@ -31,6 +31,7 @@ pub fn default_shape_color(shape: String) -> Style {
         "shape_or" => Style::new().fg(Color::Purple).bold(),
         "shape_pipe" => Style::new().fg(Color::Purple).bold(),
         "shape_range" => Style::new().fg(Color::Yellow).bold(),
+        "shape_raw_string" => Style::new().fg(Color::LightMagenta).bold(),
         "shape_record" => Style::new().fg(Color::Cyan).bold(),
         "shape_redirection" => Style::new().fg(Color::Purple).bold(),
         "shape_signature" => Style::new().fg(Color::Green).bold(),
@@ -50,6 +51,7 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             match int_color {
                 Value::Record { .. } => color_record_to_nustyle(int_color),
                 Value::String { val, .. } => lookup_ansi_color_style(val),
+                Value::RawString { val, .. } => lookup_ansi_color_style(val),
                 // Defer to the default in the event of incorrect types being given
                 // (i.e. treat null, etc. as the value being unset)
                 _ => default_shape_color(shape),

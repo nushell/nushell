@@ -32,6 +32,7 @@ pub enum Type {
     Record(Vec<(String, Type)>),
     Signature,
     String,
+    RawString,
     Table(Vec<(String, Type)>),
 }
 
@@ -93,6 +94,7 @@ impl Type {
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
+            Type::RawString => SyntaxShape::RawString,
             Type::Block => SyntaxShape::Block, // FIXME needs more accuracy
             Type::Closure => SyntaxShape::Closure(None), // FIXME needs more accuracy
             Type::CellPath => SyntaxShape::CellPath,
@@ -135,6 +137,7 @@ impl Type {
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
+            Type::RawString => String::from("raw string"),
             Type::ListStream => String::from("list stream"),
             Type::Any => String::from("any"),
             Type::Error => String::from("error"),
@@ -192,6 +195,7 @@ impl Display for Type {
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
+            Type::RawString => write!(f, "raw string"),
             Type::ListStream => write!(f, "list stream"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),

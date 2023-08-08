@@ -53,6 +53,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Range { .. } => serde_yaml::Value::Null,
         Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
         Value::String { val, .. } => serde_yaml::Value::String(val.clone()),
+        Value::RawString { val, .. } => serde_yaml::Value::String(val.clone()),
         Value::Record { cols, vals, .. } => {
             let mut m = serde_yaml::Mapping::new();
             for (k, v) in cols.iter().zip(vals.iter()) {

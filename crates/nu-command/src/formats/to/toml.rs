@@ -54,6 +54,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
         Value::String { val, .. } => toml::Value::String(val.clone()),
+        Value::RawString { val, .. } => toml::Value::String(val.clone()),
         Value::Record { cols, vals, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in cols.iter().zip(vals.iter()) {

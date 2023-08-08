@@ -667,6 +667,10 @@ pub fn eval_expression(
             val: s.clone(),
             span: expr.span,
         }),
+        Expr::RawString(s) => Ok(Value::RawString {
+            val: s.clone(),
+            span: expr.span,
+        }),
         Expr::Filepath(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);

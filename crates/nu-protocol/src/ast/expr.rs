@@ -38,6 +38,7 @@ pub enum Expr {
     Directory(String),
     GlobPattern(String),
     String(String),
+    RawString(String),
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     ImportPattern(ImportPattern),

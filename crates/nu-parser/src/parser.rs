@@ -1534,6 +1534,68 @@ pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -
     }
 }
 
+pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    trace!("parsing: raw string, with required delimiters");
+
+    let bytes = working_set.get_span_contents(span);
+
+    // Check for unbalanced quotes:
+    {
+        let bytes = if bytes.starts_with(b"r") {
+            &bytes[1..]
+        } else {
+            bytes
+        };
+        if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
+            working_set.error(ParseError::Unclosed("\"".into(), span));
+            return garbage(span);
+        }
+        if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
+            working_set.error(ParseError::Unclosed("\'".into(), span));
+            return garbage(span);
+        }
+    }
+
+    let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    {
+        (&bytes[1..(bytes.len() - 1)], true)
+    } else if (bytes.starts_with(b"r\"") && bytes.ends_with(b"\"") && bytes.len() > 2)
+        || (bytes.starts_with(b"r\'") && bytes.ends_with(b"\'") && bytes.len() > 2)
+    {
+        (&bytes[2..(bytes.len() - 1)], true)
+    } else {
+        (bytes, false)
+    };
+
+    if let Ok(token) = String::from_utf8(bytes.into()) {
+        trace!("-- found {}", token);
+
+        if quoted {
+            Expression {
+                expr: Expr::RawString(token),
+                span,
+                ty: Type::RawString,
+                custom_completion: None,
+            }
+        } else if token.contains(' ') {
+            working_set.error(ParseError::Expected("raw string", span));
+
+            garbage(span)
+        } else {
+            Expression {
+                expr: Expr::RawString(token),
+                span,
+                ty: Type::RawString,
+                custom_completion: None,
+            }
+        }
+    } else {
+        working_set.error(ParseError::Expected("raw string", span));
+        garbage(span)
+    }
+}
+
 pub fn parse_paren_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -4635,6 +4697,9 @@ pub fn parse_value(
                 return Expression::garbage(span);
             }
         },
+        b'r' if bytes.len() > 1 && (bytes[1] == b'"' || bytes[1] == b'\'') => {
+            return parse_raw_string(working_set, span);
+        }
         _ => {}
     }
 
@@ -6021,6 +6086,7 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::String(_) => {}
+        Expr::RawString(_) => {}
         Expr::StringInterpolation(exprs) => {
             for expr in exprs {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;

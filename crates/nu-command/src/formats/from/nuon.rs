@@ -360,6 +360,7 @@ fn convert_to_value(
             expr.span,
         )),
         Expr::String(s) => Ok(Value::String { val: s, span }),
+        Expr::RawString(s) => Ok(Value::RawString { val: s, span }),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),

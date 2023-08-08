@@ -248,6 +248,11 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             // escape single quotes
             nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
+        Value::RawString { val, .. } => {
+            // don't store ansi escape sequences in the database
+            // escape single quotes
+            nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
+        }
         Value::List { vals: val, .. } => val
             .iter()
             .map(|x| nu_value_to_string(x.clone(), ", "))

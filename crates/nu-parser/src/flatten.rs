@@ -34,6 +34,7 @@ pub enum FlatShape {
     Or,
     Pipe,
     Range,
+    RawString,
     Record,
     Redirection,
     Signature,
@@ -73,6 +74,7 @@ impl Display for FlatShape {
             FlatShape::Or => write!(f, "shape_or"),
             FlatShape::Pipe => write!(f, "shape_pipe"),
             FlatShape::Range => write!(f, "shape_range"),
+            FlatShape::RawString => write!(f, "shape_raw_string"),
             FlatShape::Record => write!(f, "shape_record"),
             FlatShape::Redirection => write!(f, "shape_redirection"),
             FlatShape::Signature => write!(f, "shape_signature"),
@@ -451,6 +453,9 @@ pub fn flatten_expression(
         }
         Expr::String(_) => {
             vec![(expr.span, FlatShape::String)]
+        }
+        Expr::RawString(_) => {
+            vec![(expr.span, FlatShape::RawString)]
         }
         Expr::Table(headers, cells) => {
             let outer_span = expr.span;
