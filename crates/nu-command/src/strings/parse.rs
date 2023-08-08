@@ -419,17 +419,14 @@ impl Iterator for ParseStreamerExternal {
             _ => return None,
         };
 
-        let chunk = match String::from_utf8(chunk) {
-            Ok(chunk) => chunk,
-            Err(_) => {
-                return Some(Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: self.span,
-                        src_span: self.span,
-                    }),
-                })
-            }
+        let Ok(chunk) = String::from_utf8(chunk) else {
+            return Some(Value::Error {
+                error: Box::new(ShellError::PipelineMismatch {
+                    exp_input_type: "string".into(),
+                    dst_span: self.span,
+                    src_span: self.span,
+                }),
+            })
         };
 
         stream_helper(
