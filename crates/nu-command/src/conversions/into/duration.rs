@@ -60,7 +60,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert duration string to duration value",
-                example: "'7wk' | into duration",
+                example: "'7min' | into duration",
                 result: Some(Value::Duration {
                     val: 7 * 60 * NS_PER_SEC,
                     span,
@@ -68,9 +68,9 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert compound duration string to duration value",
-                example: "'1day 2hour 3min 4sec' | into duration",
+                example: "'1day 2hr 3min 4sec' | into duration",
                 result: Some(Value::Duration {
-                    val: (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4),
+                    val: (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4) * NS_PER_SEC,
                     span,
                 }),
             },
