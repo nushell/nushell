@@ -83,21 +83,21 @@ impl Command for SubCommand {
                 }),
             },
             Example {
-                description: "convert duration to record",
-                example: "-500day | into record",
+                description: "convert duration to record (weeks max)",
+                example: "(-500day - 4hr - 5sec) | into record",
                 result: Some(Value::Record {
                     cols: vec![
-                        "year".into(),
-                        "month".into(),
                         "week".into(),
                         "day".into(),
+                        "hour".into(),
+                        "second".into(),
                         "sign".into(),
                     ],
                     vals: vec![
-                        Value::Int { val: 1, span },
+                        Value::Int { val: 71, span },
+                        Value::Int { val: 3, span },
                         Value::Int { val: 4, span },
-                        Value::Int { val: 2, span },
-                        Value::Int { val: 1, span },
+                        Value::Int { val: 5, span },
                         Value::String {
                             val: "-".into(),
                             span,
@@ -261,8 +261,6 @@ fn parse_duration_into_record(duration: i64, span: Span) -> Value {
             "hr" => "hour".into(),
             "day" => "day".into(),
             "wk" => "week".into(),
-            "month" => "month".into(),
-            "yr" => "year".into(),
             _ => "unknown".into(),
         });
 
