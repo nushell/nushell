@@ -70,7 +70,7 @@ pub enum InputType {
     Date,
     Duration,
     Filesize,
-    List,
+    List(Box<InputType>),
 }
 
 #[derive(Debug)]
@@ -699,35 +699,7 @@ pub fn insert_value(
     // Checking that the type for the value is the same
     // for the previous value in the column
     if col_val.values.is_empty() {
-        match &value {
-            Value::Int { .. } => {
-                col_val.column_type = Some(InputType::Integer);
-            }
-            Value::Float { .. } => {
-                col_val.column_type = Some(InputType::Float);
-            }
-            Value::String { .. } => {
-                col_val.column_type = Some(InputType::String);
-            }
-            Value::Bool { .. } => {
-                col_val.column_type = Some(InputType::Boolean);
-            }
-            Value::Date { .. } => {
-                col_val.column_type = Some(InputType::Date);
-            }
-            Value::Duration { .. } => {
-                col_val.column_type = Some(InputType::Duration);
-            }
-            Value::Filesize { .. } => {
-                col_val.column_type = Some(InputType::Filesize);
-            }
-            Value::List { .. } => {
-                col_val.column_type = Some(InputType::List);
-            }
-            _ => {
-                col_val.column_type = Some(InputType::Object);
-            }
-        }
+        col_val.column_type = Some(value_to_input_type(&value));
         col_val.values.push(value);
     } else {
         let prev_value = &col_val.values[col_val.values.len() - 1];
@@ -741,7 +713,7 @@ pub fn insert_value(
             | (Value::Filesize { .. }, Value::Filesize { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
             (Value::List { .. }, _) => {
-                col_val.column_type = Some(InputType::List);
+                col_val.column_type = Some(value_to_input_type(&value));
                 col_val.values.push(value);
             }
             _ => {
@@ -752,6 +724,38 @@ pub fn insert_value(
     }
 
     Ok(())
+}
+
+fn value_to_input_type(value: &Value) -> InputType {
+    match &value {
+        Value::Int { .. } => InputType::Integer,
+        Value::Float { .. } => InputType::Float,
+        Value::String { .. } => InputType::String,
+        Value::Bool { .. } => InputType::Boolean,
+        Value::Date { .. } => InputType::Date,
+        Value::Duration { .. } => InputType::Duration,
+        Value::Filesize { .. } => InputType::Filesize,
+        Value::List { vals, .. } => {
+            // We need to determind the type inside of the list.
+            // Since Value::List does not have any kind of internal
+            // type information, we need to look inside the list.
+            // This will cause errors if lists have inconsistent types.
+            // Basically, if a list column needs to be converted to dataframe,
+            // needs to have consistent types.
+            let list_type = vals
+                .iter()
+                .filter(|v| match v {
+                    Value::Nothing { .. } => false,
+                    _ => true,
+                })
+                .map(value_to_input_type)
+                .nth(1)
+                .unwrap_or(InputType::Object);
+
+            InputType::List(Box::new(list_type))
+        }
+        _ => InputType::Object,
+    }
 }
 
 // The ColumnMap has the parsed data from the StreamInput
@@ -803,27 +807,56 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     let res = builder.finish();
                     df_series.push(res.into_series())
                 }
-                InputType::List => {
-                    //todo - this should be better.. it is for the internal Vec size.. just picked something
+                InputType::List(list_type) => {
+                    // The values capacity is for the size of an internal vec.
+                    // Since this is impossible to determine without traversing every value
+                    // I just picked one. Since this is for converting back and forth
+                    // between nushell tables the values shouldn't be too extremely large for
+                    // practical reasone (~ a few thousand rows).
                     let values_capacity = 10;
-                    let mut builder =
-                        ListUtf8ChunkedBuilder::new(&name, column.values.len(), values_capacity);
 
-                    // todo - jack - only works as string
-                    for v in &column.values {
-                        let value_list = v.as_list()?;
-                        let mut string_values: Vec<String> = Vec::with_capacity(value_list.len());
-                        for value in value_list {
-                            if let Ok(s) = value.as_string() {
-                                string_values.push(s);
-                            } else {
-                                eprintln!("Couldn't convert {value:?} to string");
+                    match **list_type {
+                        InputType::String => {
+                            // todo find a better way to deterine type
+
+                            let mut builder = ListUtf8ChunkedBuilder::new(
+                                &name,
+                                column.values.len(),
+                                values_capacity,
+                            );
+
+                            for v in &column.values {
+                                let value_list = v.as_list()?;
+                                let mut string_values: Vec<String> =
+                                    Vec::with_capacity(value_list.len());
+                                for value in value_list {
+                                    if let Ok(s) = value.as_string() {
+                                        string_values.push(s);
+                                    } else {
+                                        return Err(ShellError::GenericError(
+                                            format!("Received a non-string value {value:?} for a list column detected as containing strings. List columns must have consistent types to work with dataframes." ),
+                                            "".to_string(),
+                                            None,
+                                            None,
+                                            Vec::new(),
+                                        ));
+                                    }
+                                }
+                                builder.append_values_iter(string_values.iter().map(AsRef::as_ref));
                             }
+                            let res = builder.finish();
+                            df_series.push(res.into_series())
                         }
-                        builder.append_values_iter(string_values.iter().map(AsRef::as_ref));
+                        _ => {
+                            return Err(ShellError::GenericError(
+                                format!("Unsupported list type: {list_type:?}"),
+                                "".to_string(),
+                                None,
+                                None,
+                                Vec::new(),
+                            ))
+                        }
                     }
-                    let res = builder.finish();
-                    df_series.push(res.into_series())
                 }
                 InputType::Date => {
                     let it = column.values.iter().map(|v| {
