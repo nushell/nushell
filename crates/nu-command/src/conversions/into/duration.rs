@@ -70,7 +70,7 @@ impl Command for SubCommand {
                 description: "Convert compound duration string to duration value",
                 example: "'1day 2hour 3min 4sec' | into duration",
                 result: Some(Value::Duration {
-                    val: (((((1 * 24) + 2) * 60) + 3) * 60 + 4),
+                    val: (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4),
                     span,
                 }),
             },
