@@ -2530,7 +2530,7 @@ dependencies = [
  "openssl",
  "pretty_assertions",
  "reedline",
- "rstest 0.17.0",
+ "rstest",
  "serde_json",
  "serial_test",
  "signal-hook",
@@ -2575,7 +2575,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "reedline",
- "rstest 0.17.0",
+ "rstest",
  "sysinfo",
  "unicode-segmentation",
 ]
@@ -2733,7 +2733,7 @@ dependencies = [
  "rayon",
  "regex",
  "roxmltree",
- "rstest 0.17.0",
+ "rstest",
  "rusqlite",
  "same-file",
  "serde",
@@ -2818,7 +2818,7 @@ dependencies = [
  "nu-path",
  "nu-plugin",
  "nu-protocol",
- "rstest 0.17.0",
+ "rstest",
  "serde_json",
 ]
 
@@ -2866,7 +2866,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
- "rstest 0.18.1",
+ "rstest",
  "serde",
  "serde_json",
  "strum 0.25.0",
@@ -4222,38 +4222,14 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de1bb486a691878cd320c2f0d319ba91eeaa2e894066d8b5f8f117c000e9d962"
-dependencies = [
- "rstest_macros 0.17.0",
- "rustc_version",
-]
-
-[[package]]
-name = "rstest"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b96577ca10cb3eade7b337eb46520108a67ca2818a24d0b63f41fd62bc9651c"
 dependencies = [
  "futures",
  "futures-timer",
- "rstest_macros 0.18.1",
+ "rstest_macros",
  "rustc_version",
-]
-
-[[package]]
-name = "rstest_macros"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290ca1a1c8ca7edb7c3283bd44dc35dd54fdec6253a3912e201ba1072018fca8"
-dependencies = [
- "cfg-if",
- "proc-macro2",
- "quote",
- "rustc_version",
- "syn 1.0.109",
- "unicode-ident",
 ]
 
 [[package]]
