@@ -361,9 +361,9 @@ dependencies = [
 
 [[package]]
 name = "bracoxide"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae76c117551a0459f61c57b573271778214287482c346d14591d2ea250ecbea5"
+checksum = "d8654ced31d3071e01cee9112fb25f241798b17b08d083512f8da2afa3da076b"
 
 [[package]]
 name = "brotli"
