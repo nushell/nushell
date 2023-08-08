@@ -748,15 +748,7 @@ fn value_to_input_type(value: &Value) -> InputType {
                     Value::Nothing { .. } => false,
                     _ => true,
                 })
-                .map(|v| {
-                    let list_type = value_to_input_type(&v);
-                    match list_type {
-                        // since we can't accurately tell whether a list of integers
-                        // might also have floats, just make everything a float
-                        InputType::Integer => InputType::Float,
-                        _ => list_type,
-                    }
-                })
+                .map(value_to_input_type)
                 .nth(1)
                 .unwrap_or(InputType::Object);
 
@@ -827,7 +819,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                         // Currently all number types are treated as float as 
                         // it is impossible to determine the real numeric types without traversing 
                         // all List column values for a dataset.
-                        InputType::Float => {
+                        InputType::Float | InputType::Integer => {
                             let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
                                 &name,
                                 column.values.len(),
