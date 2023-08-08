@@ -183,10 +183,10 @@ impl Command for Mv {
         }
 
         let span = call.head;
-        sources
+        let (out, mut err) = sources
             .into_iter()
             .flatten()
-            .filter_map(move |entry| {
+            .filter_map(|entry| {
                 let result = move_file(
                     Spanned {
                         item: entry.clone(),
@@ -221,9 +221,39 @@ impl Command for Mv {
                     None
                 }
             })
+            .fold((Vec::new(), Vec::new()), |(mut out, mut err), v| {
+                match v {
+                    Value::Error { error } => err.push(*error),
+                    val => out.push(val),
+                }
+                (out, err)
+            });
+
+        if let Err(e) = out
+            .into_iter()
             .into_pipeline_data(ctrlc)
-            .print_not_formatted(engine_state, false, true)?;
-        Ok(PipelineData::empty())
+            .print_not_formatted(engine_state, false, true)
+        {
+            err.push(e);
+        }
+
+        match err.len() {
+            0 => Ok(PipelineData::empty()),
+            1 => Err(err.pop().unwrap_or_else(|| unreachable!())),
+            _ => {
+                let msg = format!(
+                    "Some file cannot move to {:?}",
+                    destination.to_string_lossy()
+                );
+                Err(ShellError::GenericError(
+                    msg,
+                    "Some file cannot move".to_string(),
+                    Some(call.head),
+                    None,
+                    err,
+                ))
+            }
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
