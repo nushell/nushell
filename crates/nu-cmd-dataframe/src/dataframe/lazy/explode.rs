@@ -70,9 +70,7 @@ pub(crate) fn explode(call: &Call, input: PipelineData) -> Result<PipelineData, 
         let df = NuLazyFrame::try_from_value(value)?;
         let columns: Vec<String> = call
             .positional_iter()
-            .map(|e| e.as_string())
-            .into_iter()
-            .flatten()
+            .filter_map(|e| e.as_string())
             .collect();
 
         let exploded = df

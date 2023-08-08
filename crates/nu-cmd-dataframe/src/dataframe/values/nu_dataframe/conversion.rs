@@ -692,7 +692,7 @@ pub fn insert_value(
     column_values: &mut ColumnMap,
 ) -> Result<(), ShellError> {
     let col_val = match column_values.entry(key.clone()) {
-        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key.clone())),
+        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
@@ -736,7 +736,7 @@ fn value_to_input_type(value: &Value) -> InputType {
         Value::Duration { .. } => InputType::Duration,
         Value::Filesize { .. } => InputType::Filesize,
         Value::List { vals, .. } => {
-            // We need to determind the type inside of the list.
+            // We need to determined the type inside of the list.
             // Since Value::List does not have any kind of internal
             // type information, we need to look inside the list.
             // This will cause errors if lists have inconsistent types.
@@ -744,18 +744,27 @@ fn value_to_input_type(value: &Value) -> InputType {
             // needs to have consistent types.
             let list_type = vals
                 .iter()
-                .filter(|v| match v {
-                    Value::Nothing { .. } => false,
-                    _ => true,
-                })
+                .filter(|v| !matches!(v, Value::Nothing{..}))
                 .map(value_to_input_type)
                 .nth(1)
                 .unwrap_or(InputType::Object);
 
-            InputType::List(Box::new(list_type))
+            // If it's not a supported list type, then treat as an object
+            if is_supported_list_type(&list_type) {
+                InputType::List(Box::new(list_type))
+            } else {
+                InputType::Object
+            }
         }
         _ => InputType::Object,
     }
+}
+
+fn is_supported_list_type(value: &InputType) -> bool {
+    matches!(
+        value,
+        InputType::Integer | InputType::Float | InputType::String
+    )
 }
 
 // The ColumnMap has the parsed data from the StreamInput
@@ -816,8 +825,8 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     let values_capacity = 10;
 
                     match **list_type {
-                        // Currently all number types are treated as float as 
-                        // it is impossible to determine the real numeric types without traversing 
+                        // Currently all number types are treated as float as
+                        // it is impossible to determine the real numeric types without traversing
                         // all List column values for a dataset.
                         InputType::Float | InputType::Integer => {
                             let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
@@ -844,7 +853,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                                         ));
                                     }
                                 }
-                                builder.append_iter_values(inner_values.iter().map(|v| *v));
+                                builder.append_iter_values(inner_values.iter().copied());
                             }
                             let res = builder.finish();
                             df_series.push(res.into_series())
