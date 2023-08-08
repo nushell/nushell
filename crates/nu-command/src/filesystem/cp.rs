@@ -334,20 +334,45 @@ impl Command for Cp {
             }
         }
 
+        let (out, mut err) =
+            result
+                .into_iter()
+                .fold((Vec::new(), Vec::new()), |(mut out, mut err), v| {
+                    match v {
+                        Value::Error { error } => err.push(*error),
+                        val => out.push(val),
+                    }
+
+                    (out, err)
+                });
+
         if verbose {
-            result
+            if let Err(e) = out
                 .into_iter()
                 .into_pipeline_data(ctrlc)
-                .print_not_formatted(engine_state, false, true)?;
-        } else {
-            // filter to only errors
-            result
-                .into_iter()
-                .filter(|v| matches!(v, Value::Error { .. }))
-                .into_pipeline_data(ctrlc)
-                .print_not_formatted(engine_state, false, true)?;
+                .print_not_formatted(engine_state, false, true)
+            {
+                err.push(e);
+            }
         }
-        Ok(PipelineData::empty())
+
+        match err.len() {
+            0 => Ok(PipelineData::empty()),
+            1 => Err(err.pop().unwrap_or_else(|| unreachable!())),
+            _ => {
+                let msg = format!(
+                    "Some file cannot copy to {:?}",
+                    destination.to_string_lossy()
+                );
+                Err(ShellError::GenericError(
+                    msg,
+                    "Some file cannot move".to_string(),
+                    Some(call.head),
+                    None,
+                    err,
+                ))
+            }
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
