@@ -383,6 +383,11 @@ fn help_alias_before_command() {
 
 #[test]
 fn nothing_type_annotation() {
-    let actual = nu!("def foo []: nothing -> nothing {}; help foo");
-    assert!(actual.out.contains("│ 0 │ nothing │ nothing │"));
+    let actual = nu!(pipeline(
+        "
+        def foo []: nothing -> nothing {};
+        help commands | where name == foo | get input_output.0.output.0
+    "
+    ));
+    assert_eq!(actual.out, "nothing");
 }
