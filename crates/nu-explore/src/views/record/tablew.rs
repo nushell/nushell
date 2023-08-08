@@ -772,10 +772,9 @@ fn render_column(
 }
 
 fn strip_string(text: &str) -> String {
-    strip_ansi_escapes::strip(text)
-        .ok()
-        .and_then(|s| String::from_utf8(s).ok())
-        .unwrap_or_else(|| text.to_owned())
+    String::from_utf8(strip_ansi_escapes::strip(text))
+        .map_err(|_| ())
+        .unwrap_or_else(|_| text.to_owned())
 }
 
 fn head_row_text(head: &str, style_computer: &StyleComputer) -> NuText {
