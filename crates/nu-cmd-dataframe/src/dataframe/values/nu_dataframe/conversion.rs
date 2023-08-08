@@ -6,9 +6,9 @@ use nu_protocol::{ShellError, Span, Value};
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::prelude::{
-    AnyValue, DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, ListBuilderTrait,
-    ListType, ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray, ObjectType, Series,
-    TemporalMethods, TimeUnit,
+    AnyValue, DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
+    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom,
+    NewChunkedArray, ObjectType, Series, TemporalMethods, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -748,7 +748,15 @@ fn value_to_input_type(value: &Value) -> InputType {
                     Value::Nothing { .. } => false,
                     _ => true,
                 })
-                .map(value_to_input_type)
+                .map(|v| {
+                    let list_type = value_to_input_type(&v);
+                    match list_type {
+                        // since we can't accurately tell whether a list of integers
+                        // might also have floats, just make everything a float
+                        InputType::Integer => InputType::Float,
+                        _ => list_type,
+                    }
+                })
                 .nth(1)
                 .unwrap_or(InputType::Object);
 
@@ -816,9 +824,40 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     let values_capacity = 10;
 
                     match **list_type {
-                        InputType::String => {
-                            // todo find a better way to deterine type
+                        // Currently all number types are treated as float as 
+                        // it is impossible to determine the real numeric types without traversing 
+                        // all List column values for a dataset.
+                        InputType::Float => {
+                            let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
+                                &name,
+                                column.values.len(),
+                                values_capacity,
+                                DataType::Float64,
+                            );
 
+                            for v in &column.values {
+                                let value_list = v.as_list()?;
+                                let mut inner_values: Vec<f64> =
+                                    Vec::with_capacity(value_list.len());
+                                for value in value_list {
+                                    if let Ok(s) = f64_value(value) {
+                                        inner_values.push(s);
+                                    } else {
+                                        return Err(ShellError::GenericError(
+                                            format!("Received a non-float value {value:?} for a list column detected as containing floats. List columns must have consistent types to work with dataframes." ),
+                                            "".to_string(),
+                                            None,
+                                            None,
+                                            Vec::new(),
+                                        ));
+                                    }
+                                }
+                                builder.append_iter_values(inner_values.iter().map(|v| *v));
+                            }
+                            let res = builder.finish();
+                            df_series.push(res.into_series())
+                        }
+                        InputType::String => {
                             let mut builder = ListUtf8ChunkedBuilder::new(
                                 &name,
                                 column.values.len(),
@@ -894,4 +933,18 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 Vec::new(),
             )
         })
+}
+
+fn f64_value(val: &Value) -> Result<f64, ShellError> {
+    match val {
+        Value::Float { .. } => val.as_f64(),
+        Value::Int { .. } => val.as_int().map(|v| v as f64),
+        _ => Err(ShellError::GenericError(
+            format!("Expected a float or integer value, received: {:?}", val),
+            "".to_string(),
+            None,
+            None,
+            Vec::new(),
+        )),
+    }
 }
