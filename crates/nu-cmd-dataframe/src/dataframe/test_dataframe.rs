@@ -61,7 +61,7 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Exa
     let start = std::time::Instant::now();
 
     let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(&engine_state);
+        let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(&mut working_set, None, example.example.as_bytes(), false);
 
         if let Some(err) = working_set.parse_errors.first() {
@@ -78,7 +78,7 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Exa
     let mut stack = Stack::new();
 
     let result = eval_block(
-        &engine_state,
+        engine_state,
         &mut stack,
         &block,
         PipelineData::empty(),

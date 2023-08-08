@@ -197,4 +197,18 @@ mod regex {
 
         assert_eq!(actual.out, "table<letter: string, a: string> (stream)")
     }
+
+    #[test]
+    fn parse_does_not_truncate_list_streams() {
+        let actual = nu!(pipeline(
+            r#"
+                [a b c]
+                | each {|x| $x}
+                | parse --regex "[ac]"
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "2");
+    }
 }

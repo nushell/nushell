@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
+use nu_protocol::Category;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
@@ -66,6 +67,7 @@ impl Command for SubCommand {
                 "trims characters only from the end of the string",
                 Some('r'),
             )
+            .category(Category::Strings)
     }
     fn usage(&self) -> &str {
         "Trim whitespace or specific character."

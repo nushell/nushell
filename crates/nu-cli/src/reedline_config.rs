@@ -523,6 +523,12 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::F(1),
         ReedlineEvent::Menu("help_menu".to_string()),
     );
+
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('q'),
+        ReedlineEvent::SearchHistory,
+    );
 }
 
 pub enum KeybindingsMode {

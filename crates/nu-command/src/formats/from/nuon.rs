@@ -19,7 +19,7 @@ impl Command for FromNuon {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("from nuon")
             .input_output_types(vec![(Type::String, Type::Any)])
-            .category(Category::Experimental)
+            .category(Category::Formats)
     }
 
     fn examples(&self) -> Vec<Example> {

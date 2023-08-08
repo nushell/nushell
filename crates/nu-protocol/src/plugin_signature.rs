@@ -12,12 +12,6 @@ pub struct PluginSignature {
     pub examples: Vec<PluginExample>,
 }
 
-impl std::fmt::Display for PluginSignature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.sig)
-    }
-}
-
 impl PluginSignature {
     pub fn new(sig: Signature, examples: Vec<PluginExample>) -> Self {
         Self { sig, examples }

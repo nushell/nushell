@@ -5,7 +5,7 @@ use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -41,6 +41,7 @@ impl Command for SubCommand {
                 Some('s'),
             )
             .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {

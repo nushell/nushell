@@ -16,7 +16,7 @@ nu-utils = { path = "../nu-utils", version = "0.83.2" }
 nu-engine = { path = "../nu-engine", version = "0.83.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.83.2" }
 nu-ansi-term = "0.49.0"
-tabled = { version = "0.12.2", features = ["color"], default-features = false }
+tabled = { version = "0.14.0", features = ["color"], default-features = false }
 
 [dev-dependencies]
 # nu-test-support = { path="../nu-test-support", version = "0.83.2"  }

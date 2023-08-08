@@ -1732,10 +1732,10 @@ impl Value {
         matches!(self, Value::Bool { val: false, .. })
     }
 
-    pub fn columns(&self) -> Vec<String> {
+    pub fn columns(&self) -> &[String] {
         match self {
-            Value::Record { cols, .. } => cols.clone(),
-            _ => vec![],
+            Value::Record { cols, .. } => cols,
+            _ => &[],
         }
     }
 
