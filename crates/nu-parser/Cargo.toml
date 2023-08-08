@@ -23,7 +23,7 @@ log = "0.4"
 serde_json = "1.0"
 
 [dev-dependencies]
-rstest = { version = "0.17", default-features = false }
+rstest = { version = "0.18", default-features = false }
 
 [features]
 plugin = ["nu-plugin"]
