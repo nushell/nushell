@@ -47,8 +47,6 @@ pub fn add_expressions(working_set: &mut StateWorkingSet) {
         ExprQuantile,
         ExprList,
         ExprAggGroups,
-        ExprFlatten,
-        ExprExplode,
         ExprCount,
         ExprIsIn,
         ExprNot,

@@ -6,8 +6,9 @@ use nu_protocol::{ShellError, Span, Value};
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::prelude::{
-    DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, NamedFrom, NewChunkedArray,
-    ObjectType, Series, TemporalMethods, TimeUnit,
+    AnyValue, DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, ListBuilderTrait,
+    ListType, ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray, ObjectType, Series,
+    TemporalMethods, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -69,6 +70,7 @@ pub enum InputType {
     Date,
     Duration,
     Filesize,
+    List,
 }
 
 #[derive(Debug)]
@@ -438,6 +440,52 @@ pub fn create_column(
                 }
             }
         }
+        DataType::List(x) => {
+            let casted = series.as_any().downcast_ref::<ChunkedArray<ListType>>();
+            match casted {
+                None => Err(ShellError::GenericError(
+                    "Error casting list from series".into(),
+                    "".to_string(),
+                    None,
+                    Some(format!("List not supported for conversion: {x}")),
+                    Vec::new(),
+                )),
+                Some(ca) => {
+                    let values: Vec<Value> = ca
+                        .into_iter()
+                        .skip(from_row)
+                        .take(size)
+                        .map(|ca| match ca {
+                            Some(s) => {
+                                let column_values: Vec<Value> = s
+                                    .iter()
+                                    .map(|v| match v {
+                                        AnyValue::Utf8Owned(s) => Value::String {
+                                            val: s.to_string(),
+                                            span: Span::unknown(),
+                                        },
+                                        // todo - jack - support other types
+                                        _ => Value::String {
+                                            val: format!("todo: {v:?}"),
+                                            span: Span::unknown(),
+                                        },
+                                    })
+                                    .collect();
+                                Value::List {
+                                    vals: column_values,
+                                    span: Span::unknown(),
+                                }
+                            }
+                            None => Value::Nothing {
+                                span: Span::unknown(),
+                            },
+                        })
+                        .collect();
+
+                    Ok(Column::new(ca.name().into(), values))
+                }
+            }
+        }
         DataType::Date => {
             let casted = series.date().map_err(|e| {
                 ShellError::GenericError(
@@ -644,7 +692,7 @@ pub fn insert_value(
     column_values: &mut ColumnMap,
 ) -> Result<(), ShellError> {
     let col_val = match column_values.entry(key.clone()) {
-        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
+        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key.clone())),
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
@@ -673,7 +721,12 @@ pub fn insert_value(
             Value::Filesize { .. } => {
                 col_val.column_type = Some(InputType::Filesize);
             }
-            _ => col_val.column_type = Some(InputType::Object),
+            Value::List { .. } => {
+                col_val.column_type = Some(InputType::List);
+            }
+            _ => {
+                col_val.column_type = Some(InputType::Object);
+            }
         }
         col_val.values.push(value);
     } else {
@@ -687,6 +740,10 @@ pub fn insert_value(
             | (Value::Date { .. }, Value::Date { .. })
             | (Value::Filesize { .. }, Value::Filesize { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
+            (Value::List { .. }, _) => {
+                col_val.column_type = Some(InputType::List);
+                col_val.values.push(value);
+            }
             _ => {
                 col_val.column_type = Some(InputType::Object);
                 col_val.values.push(value);
@@ -743,6 +800,28 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                         builder.append_value(DataFrameValue::new(v.clone()));
                     }
 
+                    let res = builder.finish();
+                    df_series.push(res.into_series())
+                }
+                InputType::List => {
+                    //todo - this should be better.. it is for the internal Vec size.. just picked something
+                    let values_capacity = 10;
+                    let mut builder =
+                        ListUtf8ChunkedBuilder::new(&name, column.values.len(), values_capacity);
+
+                    // todo - jack - only works as string
+                    for v in &column.values {
+                        let value_list = v.as_list()?;
+                        let mut string_values: Vec<String> = Vec::with_capacity(value_list.len());
+                        for value in value_list {
+                            if let Ok(s) = value.as_string() {
+                                string_values.push(s);
+                            } else {
+                                eprintln!("Couldn't convert {value:?} to string");
+                            }
+                        }
+                        builder.append_values_iter(string_values.iter().map(AsRef::as_ref));
+                    }
                     let res = builder.finish();
                     df_series.push(res.into_series())
                 }
