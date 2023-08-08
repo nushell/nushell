@@ -40,6 +40,7 @@ impl Command for SubCommand {
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
+                (Type::Duration, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
@@ -145,6 +146,11 @@ impl Command for SubCommand {
                 example: "1KiB | into string",
                 result: Some(Value::test_string("1,024 B")),
             },
+            Example {
+                description: "convert duration to string",
+                example: "9day | into string",
+                result: Some(Value::test_string("1wk 2day")),
+            },
         ]
     }
 }
@@ -239,6 +245,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             val: input.into_string(", ", config),
             span,
         },
+        Value::Duration { val: _, .. } => Value::String {
+            val: input.into_string("", config),
+            span,
+        },
+
         Value::Error { error } => Value::String {
             val: into_code(error).unwrap_or_default(),
             span,
