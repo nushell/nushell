@@ -202,7 +202,7 @@ fn ignore_error_works_with_fs_cmd() {
         assert!(files_exist_at(file_names.clone(), test_dir));
         assert!(
             actual.err.is_empty(),
-            "do {{rm test*.txt}} -i shold ignore errors"
+            "do {{rm test*.txt}} -i should ignore errors"
         );
 
         let subdir = dirs.test().join("subdir");
@@ -216,7 +216,7 @@ fn ignore_error_works_with_fs_cmd() {
         assert!(!files_exist_at(file_names.clone(), &subdir));
         assert!(
             actual.err.is_empty(),
-            "do {{cp test*.txt subdir/}} -i shold ignore errors"
+            "do {{cp test*.txt subdir/}} -i should ignore errors"
         );
 
         let actual = nu!(cwd: test_dir, "do {mv test*.txt subdir/} -i");
@@ -224,7 +224,7 @@ fn ignore_error_works_with_fs_cmd() {
         assert!(files_exist_at(file_names.clone(), test_dir));
         assert!(
             actual.err.is_empty(),
-            "do {{mv test*.txt subdir/}} -i shold ignore errors"
+            "do {{mv test*.txt subdir/}} -i should ignore errors"
         );
     });
 }
