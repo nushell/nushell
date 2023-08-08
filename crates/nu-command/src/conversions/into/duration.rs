@@ -6,7 +6,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Unit, Value,
 };
 
-const NS_PER_SEC:i64 = 1_000_000_000;
+const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -70,7 +70,7 @@ impl Command for SubCommand {
                 description: "Convert compound duration string to duration value",
                 example: "'1day 2hour 3min 4sec' | into duration",
                 result: Some(Value::Duration {
-                    val: (((((1 * 24) + 2 ) * 60) + 3) * 60 + 4),
+                    val: (((((1 * 24) + 2) * 60) + 3) * 60 + 4),
                     span,
                 }),
             },
@@ -124,7 +124,6 @@ impl Command for SubCommand {
                     span,
                 }),
             },
-            
             Example {
                 description: "Convert duration to duration",
                 example: "420sec | into duration",
@@ -172,7 +171,32 @@ fn into_duration(
     )
 }
 
-fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
+// convert string list of duration values to duration NS.
+// technique for getting substrings and span based on: https://stackoverflow.com/a/67098851/2036651
+#[inline]
+fn addr_of(s: &str) -> usize {
+    s.as_ptr() as usize
+}
+
+fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, Span)> {
+    s.split_whitespace().map(move |sub| {
+        let start_offset = span.start + addr_of(sub) - addr_of(s);
+        (sub, Span::new(start_offset, start_offset + sub.len()))
+    })
+}
+
+fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+    let mut duration_ns: i64 = 0;
+
+    for (substring, substring_span) in split_whitespace_indices(s, span) {
+        let sub_ns = string_to_duration(substring, substring_span)?;
+        duration_ns += sub_ns;
+    }
+
+    Ok(duration_ns)
+}
+
+fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -200,11 +224,8 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
     Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
-        src_span: value_span,
-        help: Some(
-            "supported units are ns, us/µs, ms, sec, min, hr, day, and wk"
-                .to_string(),
-        ),
+        src_span: span,
+        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
     })
 }
 
@@ -214,7 +235,7 @@ fn action(input: &Value, span: Span) -> Value {
         Value::String {
             val,
             span: value_span,
-        } => match string_to_duration(val, span, *value_span) {
+        } => match compound_to_duration(val, *value_span) {
             Ok(val) => Value::Duration { val, span },
             Err(error) => Value::Error {
                 error: Box::new(error),
@@ -245,7 +266,7 @@ mod test {
         test_examples(SubCommand {})
     }
 
-    const NS_PER_SEC:i64 = 1_000_000_000;
+    const NS_PER_SEC: i64 = 1_000_000_000;
 
     #[rstest]
     #[case("3ns", 3)]
@@ -262,10 +283,7 @@ mod test {
     #[case("14ns 3hr 17sec", 14 + 3 * 3600 * NS_PER_SEC + 17 * NS_PER_SEC)] // compound string with units in random order
 
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
-        let actual = action(
-            &Value::test_string(phrase),
-            Span::new(0, phrase.len()),
-        );
+        let actual = action(&Value::test_string(phrase), Span::new(0, phrase.len()));
         match actual {
             Value::Duration {
                 val: observed_val, ..
