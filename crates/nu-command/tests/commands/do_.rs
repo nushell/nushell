@@ -1,6 +1,11 @@
 use nu_test_support::nu;
 #[cfg(not(windows))]
-use nu_test_support::pipeline;
+use nu_test_support::{
+    fs::{files_exist_at, Stub::EmptyFile},
+    pipeline,
+    playground::Playground,
+};
+use std::path::PathBuf;
 
 #[test]
 fn capture_errors_works() {
@@ -153,4 +158,73 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
 fn ignore_error_works_with_list_stream() {
     let actual = nu!(r#"do -i { ["a", $nothing, "b"] | ansi strip }"#);
     assert!(actual.err.is_empty());
+}
+
+struct Cleanup<'a> {
+    dir_to_clean: &'a PathBuf,
+}
+
+fn set_dir_read_only(directory: &PathBuf, read_only: bool) {
+    let mut permissions = std::fs::metadata(directory).unwrap().permissions();
+    permissions.set_readonly(read_only);
+    std::fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
+}
+
+impl<'a> Drop for Cleanup<'a> {
+    /// Restores write permissions to the given directory so that the Playground can be successfully
+    /// cleaned up.
+    fn drop(&mut self) {
+        set_dir_read_only(self.dir_to_clean, false);
+    }
+}
+
+#[cfg(not(windows))]
+#[test]
+fn ignore_error_works_with_fs_cmd() {
+    Playground::setup("igr_err_with_fscmd", |dirs, sandbox| {
+        let file_names = vec!["test1.txt", "test2.txt"];
+
+        let with_files = file_names
+            .iter()
+            .map(|file_name| EmptyFile(file_name))
+            .collect();
+        sandbox.with_files(with_files).mkdir("subdir");
+
+        let test_dir = dirs.test();
+
+        set_dir_read_only(test_dir, true);
+        let _cleanup = Cleanup {
+            dir_to_clean: test_dir,
+        };
+
+        let actual = nu!(cwd: test_dir, "do {rm test*.txt} -i");
+        // rm failed due to not the permission
+        assert!(files_exist_at(file_names.clone(), test_dir));
+        assert!(
+            actual.err.is_empty(),
+            "do {{rm test*.txt}} -i shold ignore erros"
+        );
+
+        let subdir = dirs.test().join("subdir");
+        set_dir_read_only(&subdir, true);
+        let _cleanup = Cleanup {
+            dir_to_clean: &subdir,
+        };
+
+        let actual = nu!(cwd: &subdir, "do {cp test*.txt subdir/} -i");
+        // cp failed due to not the permission
+        assert!(!files_exist_at(file_names.clone(), &subdir));
+        assert!(
+            actual.err.is_empty(),
+            "do {{cp test*.txt subdir/}} -i shold ignore erros"
+        );
+
+        let actual = nu!(cwd: test_dir, "do {mv test*.txt subdir/} -i");
+        // mv failed due to not the permission
+        assert!(files_exist_at(file_names.clone(), test_dir));
+        assert!(
+            actual.err.is_empty(),
+            "do {{mv test*.txt subdir/}} -i shold ignore erros"
+        );
+    });
 }
