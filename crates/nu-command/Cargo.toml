@@ -131,4 +131,4 @@ dirs-next = "2.0"
 mockito = { version = "1.1", default-features = false }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
-rstest = { version = "0.17", default-features = false }
+rstest = { version = "0.18", default-features = false }
