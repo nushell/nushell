@@ -112,7 +112,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "220044e6a1bb31ddee4e3db724d29767f352de47445a6cd75e1a173142136c83"
 dependencies = [
  "nom",
- "vte",
+ "vte 0.10.1",
 ]
 
 [[package]]
@@ -4124,7 +4124,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.22.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#ed5e48e5374942c5a15ed026bb0ffaf973e47964"
+source = "git+https://github.com/nushell/reedline.git?branch=main#541698fb74c249cd540583fab2425c91700481fa"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4822,11 +4822,11 @@ dependencies = [
 
 [[package]]
 name = "strip-ansi-escapes"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "011cbb39cf7c1f62871aea3cc46e5817b0937b49e9447370c93cacbe93a766d8"
+checksum = "dad0ed65755f6fdd06f7afd1afefe7b2b220c2b197844687c2ea9d6d4807305e"
 dependencies = [
- "vte",
+ "vte 0.11.1",
 ]
 
 [[package]]
@@ -5484,6 +5484,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6cbce692ab4ca2f1f3047fcf732430249c0e971bfdd2b234cf2c47ad93af5983"
 dependencies = [
  "arrayvec 0.5.2",
+ "utf8parse",
+ "vte_generate_state_changes",
+]
+
+[[package]]
+name = "vte"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5022b5fbf9407086c180e9557be968742d839e68346af7792b8592489732197"
+dependencies = [
  "utf8parse",
  "vte_generate_state_changes",
 ]
