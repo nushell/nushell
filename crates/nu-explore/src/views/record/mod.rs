@@ -245,7 +245,11 @@ impl<'a> RecordView<'a> {
         let layer = self.get_layer_last();
         let covered_percent = report_row_position(layer.cursor);
         let cursor = report_cursor_position(self.mode, layer.cursor);
-        let message = layer.name.clone().unwrap_or_default();
+        let message = match self.mode {
+            UIMode::View => "VIEW",
+            UIMode::Cursor => "CURSOR",
+        }
+        .to_string();
 
         Report {
             message,
