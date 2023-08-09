@@ -25,7 +25,6 @@ impl Command for Debug {
                 (Type::Any, Type::String),
             ])
             .category(Category::Debug)
-            .switch("raw", "Prints the raw value representation", Some('r'))
     }
 
     fn run(
@@ -36,23 +35,12 @@ impl Command for Debug {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config().clone();
-        let raw = call.has_flag("raw");
 
         // Should PipelineData::Empty result in an error here?
-
         input.map(
-            move |x| {
-                if raw {
-                    Value::String {
-                        val: x.debug_value(),
-                        span: head,
-                    }
-                } else {
-                    Value::String {
-                        val: x.debug_string(", ", &config),
-                        span: head,
-                    }
+            move |x| { Value::String {
+                    val: x.debug_value(),
+                    span: head,
                 }
             },
             engine_state.ctrlc.clone(),
