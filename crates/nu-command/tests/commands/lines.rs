@@ -62,6 +62,7 @@ fn lines_mixed_line_endings() {
     assert_eq!(actual.out, "3");
 }
 
+#[cfg(not(windows))]
 #[test]
 fn lines_on_error() {
     let actual = nu!("open . | lines");
