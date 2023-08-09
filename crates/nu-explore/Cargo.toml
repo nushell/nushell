@@ -17,11 +17,11 @@ nu-parser = { path = "../nu-parser", version = "0.83.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.83.2" }
 nu-engine = { path = "../nu-engine", version = "0.83.2" }
 nu-table = { path = "../nu-table", version = "0.83.2" }
-nu-json = { path = "../nu-json", version = "0.83.2"  }
-nu-utils = { path = "../nu-utils", version = "0.83.2"  }
+nu-json = { path = "../nu-json", version = "0.83.2" }
+nu-utils = { path = "../nu-utils", version = "0.83.2" }
 
 terminal_size = "0.2"
-strip-ansi-escapes = "0.1"
+strip-ansi-escapes = "0.2.0"
 crossterm = "0.26"
 ratatui = "0.20"
 ansi-str = "0.8"

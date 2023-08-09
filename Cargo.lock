@@ -4124,7 +4124,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.22.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#541698fb74c249cd540583fab2425c91700481fa"
+source = "git+https://github.com/nushell/reedline.git?branch=main#e7ee24a2b01d041feefb5eb58ba2377a20412f94"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4822,9 +4822,9 @@ dependencies = [
 
 [[package]]
 name = "strip-ansi-escapes"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dad0ed65755f6fdd06f7afd1afefe7b2b220c2b197844687c2ea9d6d4807305e"
+checksum = "55ff8ef943b384c414f54aefa961dd2bd853add74ec75e7ac74cf91dba62bcfa"
 dependencies = [
  "vte 0.11.1",
 ]
