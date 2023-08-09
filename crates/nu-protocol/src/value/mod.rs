@@ -781,7 +781,7 @@ impl Value {
 
     /// Convert Value into a debug string
     pub fn debug_value(&self) -> String {
-        format!("{self:#?}")
+        serde_json::to_string(self).unwrap_or("".to_string())
     }
 
     /// Convert Value into a parsable string (quote strings)
