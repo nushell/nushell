@@ -33,7 +33,10 @@ impl Command for Debug {
 
         // Should PipelineData::Empty result in an error here?
         input.map(
-            move |x| convert_string_to_value(x.debug_value(), head).unwrap(),
+            move |x| match convert_string_to_value(x.debug_value(), head) {
+                Ok(value) => value,
+                Err(err) => Value::error(err),
+            },
             engine_state.ctrlc.clone(),
         )
     }
