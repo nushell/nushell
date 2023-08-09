@@ -191,7 +191,7 @@ $env.config = {
             selected_cell: {},
             selected_row: {},
             selected_column: {},
-            cursor: true,
+            show_cursor: true,
             line_head_top: true,
             line_head_bottom: true,
             line_shift: true,
