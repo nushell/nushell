@@ -2,6 +2,8 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
+use crate::formats::convert_string_to_value;
+
 #[derive(Clone)]
 pub struct Debug;
 
@@ -38,11 +40,7 @@ impl Command for Debug {
 
         // Should PipelineData::Empty result in an error here?
         input.map(
-            move |x| { Value::String {
-                    val: x.debug_value(),
-                    span: head,
-                }
-            },
+            move |x| convert_string_to_value(x.debug_value(), head).unwrap(),
             engine_state.ctrlc.clone(),
         )
     }

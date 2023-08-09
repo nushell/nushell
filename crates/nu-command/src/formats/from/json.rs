@@ -162,7 +162,10 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
     Span::new(contents.len(), contents.len())
 }
 
-fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn convert_string_to_value(
+    string_input: String,
+    span: Span,
+) -> Result<Value, ShellError> {
     let result: Result<nu_json::Value, nu_json::Error> = nu_json::from_str(&string_input);
     match result {
         Ok(value) => Ok(convert_nujson_to_value(&value, span)),
