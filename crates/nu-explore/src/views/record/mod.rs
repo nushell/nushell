@@ -431,7 +431,15 @@ impl<'a> RecordLayer<'a> {
 
 fn handle_key_event(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
     match key.code {
-        KeyCode::Esc => Some(Transition::Ok),
+        KeyCode::Esc => {
+            if view.layer_stack.len() > 1 {
+                view.layer_stack.pop();
+
+                Some(Transition::Ok)
+            } else {
+                Some(Transition::Exit)
+            }
+        }
         KeyCode::Up => {
             view.get_layer_last_mut().cursor.prev_row();
 
