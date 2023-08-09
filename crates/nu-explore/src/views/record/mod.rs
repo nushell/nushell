@@ -473,42 +473,42 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             Some(Transition::Ok)
         }
         KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             view.get_layer_last_mut().cursor.prev_row_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::Down => {
+        KeyCode::Down | KeyCode::Char('j') => {
             view.get_layer_last_mut().cursor.next_row_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::Left => {
+        KeyCode::Left | KeyCode::Char('h') => {
             view.get_layer_last_mut().cursor.prev_column_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::Right => {
+        KeyCode::Right | KeyCode::Char('l') => {
             view.get_layer_last_mut().cursor.next_column_i();
 
             Some(Transition::Ok)
         }
-        KeyCode::PageUp => {
+        KeyCode::PageUp | KeyCode::Char('u') => {
             view.get_layer_last_mut().cursor.prev_row_page();
 
             Some(Transition::Ok)
         }
-        KeyCode::PageDown => {
+        KeyCode::PageDown | KeyCode::Char('d') => {
             view.get_layer_last_mut().cursor.next_row_page();
 
             Some(Transition::Ok)
         }
-        KeyCode::Home => {
+        KeyCode::Home | KeyCode::Char('g') => {
             view.get_layer_last_mut().cursor.row_move_to_start();
 
             Some(Transition::Ok)
         }
-        KeyCode::End => {
+        KeyCode::End | KeyCode::Char('G') => {
             view.get_layer_last_mut().cursor.row_move_to_end();
 
             Some(Transition::Ok)
@@ -524,42 +524,42 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
 
             Some(Transition::Ok)
         }
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             view.get_layer_last_mut().cursor.prev_row();
 
             Some(Transition::Ok)
         }
-        KeyCode::Down => {
+        KeyCode::Down | KeyCode::Char('j') => {
             view.get_layer_last_mut().cursor.next_row();
 
             Some(Transition::Ok)
         }
-        KeyCode::Left => {
+        KeyCode::Left | KeyCode::Char('h') => {
             view.get_layer_last_mut().cursor.prev_column();
 
             Some(Transition::Ok)
         }
-        KeyCode::Right => {
+        KeyCode::Right | KeyCode::Char('l') => {
             view.get_layer_last_mut().cursor.next_column();
 
             Some(Transition::Ok)
         }
-        KeyCode::PageUp => {
+        KeyCode::PageUp | KeyCode::Char('u') => {
             view.get_layer_last_mut().cursor.prev_row_page();
 
             Some(Transition::Ok)
         }
-        KeyCode::PageDown => {
+        KeyCode::PageDown | KeyCode::Char('d') => {
             view.get_layer_last_mut().cursor.next_row_page();
 
             Some(Transition::Ok)
         }
-        KeyCode::Home => {
+        KeyCode::Home | KeyCode::Char('g') => {
             view.get_layer_last_mut().cursor.row_move_to_start();
 
             Some(Transition::Ok)
         }
-        KeyCode::End => {
+        KeyCode::End | KeyCode::Char('G') => {
             view.get_layer_last_mut().cursor.row_move_to_end();
 
             Some(Transition::Ok)
