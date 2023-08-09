@@ -42,29 +42,58 @@ impl Command for Debug {
         vec![
             Example {
                 description: "Debug print a string",
-                example: "'hello' | debug",
-                result: Some(Value::test_string("hello")),
+                example: r#""hello" | debug | reject String.span"#,
+                result: Some(Value::test_record(
+                    vec!["String".to_string()],
+                    vec![Value::test_record(
+                        vec!["val".to_string()],
+                        vec![Value::test_string("hello")],
+                    )],
+                )),
             },
             Example {
                 description: "Debug print a list",
-                example: "['hello'] | debug",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("hello")],
-                    span: Span::test_data(),
-                }),
+                example: "[1 2 3] | debug | reject Int.span",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(
+                        vec!["Int".to_string()],
+                        vec![Value::test_record(
+                            vec!["val".to_string()],
+                            vec![Value::test_int(1)],
+                        )],
+                    ),
+                    Value::test_record(
+                        vec!["Int".to_string()],
+                        vec![Value::test_record(
+                            vec!["val".to_string()],
+                            vec![Value::test_int(2)],
+                        )],
+                    ),
+                    Value::test_record(
+                        vec!["Int".to_string()],
+                        vec![Value::test_record(
+                            vec!["val".to_string()],
+                            vec![Value::test_int(3)],
+                        )],
+                    ),
+                ])),
             },
             Example {
                 description: "Debug print a table",
-                example:
-                    "[[version patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | debug",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_string("{version: 0.1.0, patch: false}"),
-                        Value::test_string("{version: 0.1.1, patch: true}"),
-                        Value::test_string("{version: 0.2.0, patch: false}"),
-                    ],
-                    span: Span::test_data(),
-                }),
+                example: "{foo: 1.23, bar: true} | debug | reject Record.span Record.vals.0.Float.span Record.vals.1.Bool.span",
+                result: Some(Value::test_record(
+                    vec!["Record".to_string()],
+                    vec![Value::test_record(
+                        vec!["cols".to_string(), "vals".to_string()],
+                        vec![
+                            Value::test_list(vec![Value::test_string("foo"), Value::test_string("bar")]),
+                            Value::test_list(vec![
+                                Value::test_record(vec!["Float".to_string()], vec![Value::test_record(vec!["val".to_string()], vec![Value::test_float(1.23)])]),
+                                Value::test_record(vec!["Bool".to_string()], vec![Value::test_record(vec!["val".to_string()], vec![Value::test_bool(true)])]),
+                            ]),
+                        ]
+                    )]
+                )),
             },
         ]
     }
