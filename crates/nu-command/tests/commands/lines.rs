@@ -61,3 +61,10 @@ fn lines_mixed_line_endings() {
 
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn lines_on_error() {
+    let actual = nu!("open . | lines");
+
+    assert!(actual.err.contains("Is a directory"));
+}
