@@ -279,7 +279,7 @@ impl View for RecordView<'_> {
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
-        let result = handle_key_event_cursor_mode(self, &key);
+        let result = handle_key_event(self, &key);
 
         if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
             let report = self.create_records_report();
@@ -429,7 +429,7 @@ impl<'a> RecordLayer<'a> {
     }
 }
 
-fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
+fn handle_key_event(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
     match key.code {
         KeyCode::Esc => Some(Transition::Ok),
         KeyCode::Up => {
