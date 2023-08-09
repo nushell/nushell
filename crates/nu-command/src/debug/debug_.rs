@@ -18,14 +18,7 @@ impl Command for Debug {
 
     fn signature(&self) -> Signature {
         Signature::build("debug")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::String)),
-                ),
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-                (Type::Any, Type::String),
-            ])
+            .input_output_type(Type::Any, Type::Record(vec![]))
             .category(Category::Debug)
     }
 
