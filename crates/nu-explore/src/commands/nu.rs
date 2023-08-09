@@ -8,7 +8,10 @@ use ratatui::layout::Rect;
 
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
-    pager::Frame,
+    pager::{
+        report::{Report, Severity},
+        Frame,
+    },
     views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
 
@@ -125,10 +128,20 @@ impl View for NuView<'_> {
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
     ) -> Option<crate::pager::Transition> {
-        match self {
+        let transition = match self {
             NuView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
             NuView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),
-        }
+        };
+
+        let report = Report::new(
+            "NU".to_string(),
+            Severity::Info,
+            "".to_string(),
+            "".to_string(),
+        );
+        info.status = Some(report);
+
+        transition
     }
 
     fn show_data(&mut self, i: usize) -> bool {
