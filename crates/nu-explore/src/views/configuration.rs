@@ -15,7 +15,10 @@ use ratatui::{
 
 use crate::{
     nu_common::{truncate_str, NuText},
-    pager::{Frame, Transition, ViewInfo},
+    pager::{
+        report::{Report, Severity},
+        Frame, Transition, ViewInfo,
+    },
     util::create_map,
     views::util::nu_style_to_tui,
 };
@@ -236,10 +239,10 @@ impl View for ConfigurationView {
         _: &EngineState,
         _: &mut Stack,
         _: &Layout,
-        _: &mut ViewInfo,
+        info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
-        match key.code {
+        let transition = match key.code {
             KeyCode::Esc => {
                 if self.peeked_cursor.is_some() {
                     self.peeked_cursor = None;
@@ -298,7 +301,17 @@ impl View for ConfigurationView {
                 Some(Transition::Cmd(build_tweak_cmd(group, opt)))
             }
             _ => None,
-        }
+        };
+
+        let report = Report::new(
+            "CONFIG".to_string(),
+            Severity::Info,
+            "".to_string(),
+            "".to_string(),
+        );
+        info.status = Some(report);
+
+        transition
     }
 
     fn exit(&mut self) -> Option<Value> {

@@ -8,6 +8,7 @@ use nu_protocol::{
 };
 use ratatui::layout::Rect;
 
+use crate::pager::report::{Report, Severity};
 use crate::{
     nu_common::{collect_input, NuSpan},
     pager::{Frame, Transition, ViewInfo},
@@ -323,10 +324,20 @@ impl View for HelpView<'_> {
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
-        match self {
+        let transition = match self {
             HelpView::Records(v) => v.handle_input(engine_state, stack, layout, info, key),
             HelpView::Preview(v) => v.handle_input(engine_state, stack, layout, info, key),
-        }
+        };
+
+        let report = Report::new(
+            "HELP".to_string(),
+            Severity::Info,
+            "".to_string(),
+            "".to_string(),
+        );
+        info.status = Some(report);
+
+        transition
     }
 
     fn show_data(&mut self, i: usize) -> bool {

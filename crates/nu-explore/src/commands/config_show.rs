@@ -8,7 +8,10 @@ use std::io::Result;
 
 use crate::{
     nu_common::{try_build_table, NuSpan},
-    pager::Frame,
+    pager::{
+        report::{Report, Severity},
+        Frame,
+    },
     util::map_into_value,
     views::{Layout, Preview, View, ViewConfig},
 };
@@ -99,8 +102,19 @@ impl View for ConfigView {
         info: &mut crate::pager::ViewInfo,
         key: crossterm::event::KeyEvent,
     ) -> Option<crate::pager::Transition> {
-        self.preview
-            .handle_input(engine_state, stack, layout, info, key)
+        let transition = self
+            .preview
+            .handle_input(engine_state, stack, layout, info, key);
+
+        let report = Report::new(
+            "CONFIG-SHOW".to_string(),
+            Severity::Info,
+            "".to_string(),
+            "".to_string(),
+        );
+        info.status = Some(report);
+
+        transition
     }
 
     fn setup(&mut self, config: ViewConfig<'_>) {
