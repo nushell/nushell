@@ -35,7 +35,6 @@ pub use self::tablew::Orientation;
 #[derive(Debug, Clone)]
 pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
-    mode: UIMode,
     orientation: Orientation,
     theme: TableTheme,
 }
@@ -47,7 +46,6 @@ impl<'a> RecordView<'a> {
     ) -> Self {
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
-            mode: UIMode::View,
             orientation: Orientation::Top,
             theme: TableTheme::default(),
         }
@@ -188,14 +186,6 @@ impl<'a> RecordView<'a> {
         )
     }
 
-    pub fn set_cursor_mode(&mut self) {
-        self.mode = UIMode::Cursor;
-    }
-
-    pub fn set_view_mode(&mut self) {
-        self.mode = UIMode::View;
-    }
-
     pub fn get_current_value(&self) -> Value {
         let (row, column) = self.get_current_position();
         let layer = self.get_layer_last();
@@ -244,7 +234,7 @@ impl<'a> RecordView<'a> {
     fn create_records_report(&self) -> Report {
         let layer = self.get_layer_last();
         let covered_percent = report_row_position(layer.cursor);
-        let cursor = report_cursor_position(self.mode, layer.cursor);
+        let cursor = report_cursor_position(layer.cursor);
         let message = layer.name.clone().unwrap_or_default();
 
         Report {
@@ -266,20 +256,18 @@ impl View for RecordView<'_> {
 
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
-        if self.mode == UIMode::Cursor {
-            let (row, column) = self.get_current_window();
-            let info = get_element_info(
-                layout,
-                row,
-                column,
-                table_layout.count_rows,
-                self.get_layer_last().orientation,
-                self.theme.table.show_header,
-            );
+        let (row, column) = self.get_current_window();
+        let info = get_element_info(
+            layout,
+            row,
+            column,
+            table_layout.count_rows,
+            self.get_layer_last().orientation,
+            self.theme.table.show_header,
+        );
 
-            if let Some(info) = info {
-                highlight_cell(f, area, info.clone(), &self.theme.cursor);
-            }
+        if let Some(info) = info {
+            highlight_cell(f, area, info.clone(), &self.theme.cursor);
         }
     }
 
@@ -291,10 +279,7 @@ impl View for RecordView<'_> {
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Option<Transition> {
-        let result = match self.mode {
-            UIMode::View => handle_key_event_view_mode(self, &key),
-            UIMode::Cursor => handle_key_event_cursor_mode(self, &key),
-        };
+        let result = handle_key_event_cursor_mode(self, &key);
 
         if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
             let report = self.create_records_report();
@@ -387,12 +372,6 @@ fn get_element_info(
     layout.data.get(index)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum UIMode {
-    Cursor,
-    View,
-}
-
 #[derive(Debug, Clone)]
 pub struct RecordLayer<'a> {
     columns: Cow<'a, [String]>,
@@ -450,80 +429,9 @@ impl<'a> RecordLayer<'a> {
     }
 }
 
-fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
-    match key.code {
-        KeyCode::Esc => {
-            if view.layer_stack.len() > 1 {
-                view.layer_stack.pop();
-                view.mode = UIMode::Cursor;
-
-                Some(Transition::Ok)
-            } else {
-                Some(Transition::Exit)
-            }
-        }
-        KeyCode::Char('i') | KeyCode::Enter => {
-            view.set_cursor_mode();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Char('t') => {
-            view.transpose();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
-        KeyCode::Up => {
-            view.get_layer_last_mut().cursor.prev_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Down => {
-            view.get_layer_last_mut().cursor.next_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Left => {
-            view.get_layer_last_mut().cursor.prev_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Right => {
-            view.get_layer_last_mut().cursor.next_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::PageUp => {
-            view.get_layer_last_mut().cursor.prev_row_page();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::PageDown => {
-            view.get_layer_last_mut().cursor.next_row_page();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Home => {
-            view.get_layer_last_mut().cursor.row_move_to_start();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::End => {
-            view.get_layer_last_mut().cursor.row_move_to_end();
-
-            Some(Transition::Ok)
-        }
-        _ => None,
-    }
-}
-
 fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
     match key.code {
-        KeyCode::Esc => {
-            view.set_view_mode();
-
-            Some(Transition::Ok)
-        }
+        KeyCode::Esc => Some(Transition::Ok),
         KeyCode::Up => {
             view.get_layer_last_mut().cursor.prev_row();
 
@@ -666,13 +574,7 @@ fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorSt
 }
 
 fn build_last_value(v: &RecordView) -> Value {
-    if v.mode == UIMode::Cursor {
-        v.get_current_value()
-    } else if v.get_layer_last().count_rows() < 2 {
-        build_table_as_record(v)
-    } else {
-        build_table_as_list(v)
-    }
+    v.get_current_value()
 }
 
 fn build_table_as_list(v: &RecordView) -> Value {
@@ -709,16 +611,10 @@ fn build_table_as_record(v: &RecordView) -> Value {
     }
 }
 
-fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
-    if mode == UIMode::Cursor {
-        let row = cursor.row();
-        let column = cursor.column();
-        format!("{row},{column}")
-    } else {
-        let rows_seen = cursor.row_starts_at();
-        let columns_seen = cursor.column_starts_at();
-        format!("{rows_seen},{columns_seen}")
-    }
+fn report_cursor_position(cursor: XYCursor) -> String {
+    let row = cursor.row();
+    let column = cursor.column();
+    format!("{row},{column}")
 }
 
 fn report_row_position(cursor: XYCursor) -> String {

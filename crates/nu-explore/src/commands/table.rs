@@ -250,9 +250,7 @@ impl ViewCommand for TableCmd {
             view.set_padding_index((c.0, p))
         }
 
-        if self.settings.turn_on_cursor_mode {
-            view.set_cursor_mode();
-        }
+        if self.settings.turn_on_cursor_mode {}
 
         Ok(view)
     }
