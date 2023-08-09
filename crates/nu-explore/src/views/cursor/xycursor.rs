@@ -126,18 +126,6 @@ impl XYCursor {
         self.x.prev(i)
     }
 
-    pub fn next_column_i(&mut self) -> bool {
-        self.x.set_window_at(self.x.starts_at() + 1)
-    }
-
-    pub fn prev_column_i(&mut self) -> bool {
-        if self.x.starts_at() == 0 {
-            return false;
-        }
-
-        self.x.set_window_at(self.x.starts_at() - 1)
-    }
-
     pub fn next_row_i(&mut self) -> bool {
         self.y.set_window_at(self.y.starts_at() + 1)
     }

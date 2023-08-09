@@ -13,7 +13,7 @@ use nu_protocol::{
 use ratatui::{layout::Rect, widgets::Block};
 
 use crate::{
-    nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},
+    nu_common::{collect_input, lscolorize, NuConfig, NuStyle, NuText},
     pager::{
         report::{Report, Severity},
         ConfigMap, Frame, Transition, ViewInfo,
@@ -123,13 +123,6 @@ impl<'a> RecordView<'a> {
 
     pub fn set_theme(&mut self, theme: TableTheme) {
         self.theme = theme;
-    }
-
-    pub fn transpose(&mut self) {
-        let layer = self.get_layer_last_mut();
-        transpose_table(layer);
-
-        layer.reset_cursor();
     }
 
     // todo: rename to get_layer
@@ -378,7 +371,6 @@ pub struct RecordLayer<'a> {
     records: Cow<'a, [Vec<Value>]>,
     orientation: Orientation,
     name: Option<String>,
-    was_transposed: bool,
     cursor: XYCursor,
 }
 
@@ -397,7 +389,6 @@ impl<'a> RecordLayer<'a> {
             cursor,
             orientation: Orientation::Top,
             name: None,
-            was_transposed: false,
         }
     }
 
@@ -585,40 +576,6 @@ fn build_last_value(v: &RecordView) -> Value {
     v.get_current_value()
 }
 
-fn build_table_as_list(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
-
-    let headers = layer.columns.to_vec();
-    let vals = layer
-        .records
-        .iter()
-        .cloned()
-        .map(|vals| Value::Record {
-            cols: headers.clone(),
-            vals,
-            span: NuSpan::unknown(),
-        })
-        .collect();
-
-    Value::List {
-        vals,
-        span: NuSpan::unknown(),
-    }
-}
-
-fn build_table_as_record(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
-
-    let cols = layer.columns.to_vec();
-    let vals = layer.records.get(0).map_or(Vec::new(), |row| row.clone());
-
-    Value::Record {
-        cols,
-        vals,
-        span: NuSpan::unknown(),
-    }
-}
-
 fn report_cursor_position(cursor: XYCursor) -> String {
     let row = cursor.row();
     let column = cursor.column();
@@ -642,69 +599,6 @@ fn get_percentage(value: usize, max: usize) -> usize {
     debug_assert!(value <= max, "{value:?} {max:?}");
 
     ((value as f32 / max as f32) * 100.0).floor() as usize
-}
-
-fn transpose_table(layer: &mut RecordLayer<'_>) {
-    let count_rows = layer.records.len();
-    let count_columns = layer.columns.len();
-
-    if layer.was_transposed {
-        let data = match &mut layer.records {
-            Cow::Owned(data) => data,
-            Cow::Borrowed(_) => unreachable!("must never happen"),
-        };
-
-        let headers = pop_first_column(data);
-        let headers = headers
-            .into_iter()
-            .map(|value| match value {
-                Value::String { val, .. } => val,
-                _ => unreachable!("must never happen"),
-            })
-            .collect();
-
-        let data = _transpose_table(data, count_rows, count_columns - 1);
-
-        layer.records = Cow::Owned(data);
-        layer.columns = Cow::Owned(headers);
-    } else {
-        let mut data = _transpose_table(&layer.records, count_rows, count_columns);
-
-        for (column, column_name) in layer.columns.iter().enumerate() {
-            let value = Value::string(column_name, NuSpan::unknown());
-
-            data[column].insert(0, value);
-        }
-
-        layer.records = Cow::Owned(data);
-        layer.columns = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
-    }
-
-    layer.was_transposed = !layer.was_transposed;
-}
-
-fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
-    let mut data = vec![Value::default(); values.len()];
-    for (row, values) in values.iter_mut().enumerate() {
-        data[row] = values.remove(0);
-    }
-
-    data
-}
-
-fn _transpose_table(
-    values: &[Vec<Value>],
-    count_rows: usize,
-    count_columns: usize,
-) -> Vec<Vec<Value>> {
-    let mut data = vec![vec![Value::default(); count_rows]; count_columns];
-    for (row, values) in values.iter().enumerate() {
-        for (column, value) in values.iter().enumerate() {
-            data[column][row] = value.to_owned();
-        }
-    }
-
-    data
 }
 
 fn theme_from_config(config: &ConfigMap) -> TableTheme {
