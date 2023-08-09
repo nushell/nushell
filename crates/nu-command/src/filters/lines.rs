@@ -245,7 +245,7 @@ impl Iterator for RawStreamLinesAdapter {
                                 }
                             }
                         }
-                        Err(_) => todo!(),
+                        Err(err) => return Some(Err(err)),
                     }
                 } else {
                     self.inner_complete = true;
