@@ -763,7 +763,7 @@ fn value_to_input_type(value: &Value) -> InputType {
 fn is_supported_list_type(value: &InputType) -> bool {
     matches!(
         value,
-        InputType::Integer | InputType::Float | InputType::String
+        InputType::Integer | InputType::Float | InputType::String | InputType::Duration
     )
 }
 
@@ -828,7 +828,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                         // Currently all number types are treated as float as
                         // it is impossible to determine the real numeric types without traversing
                         // all List column values for a dataset.
-                        InputType::Float | InputType::Integer => {
+                        InputType::Float | InputType::Integer | InputType::Duration => {
                             let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
                                 &name,
                                 column.values.len(),
@@ -940,6 +940,7 @@ fn f64_value(val: &Value) -> Result<f64, ShellError> {
     match val {
         Value::Float { .. } => val.as_f64(),
         Value::Int { .. } => val.as_int().map(|v| v as f64),
+        Value::Duration {..} => val.as_duration().map(|v| v as f64),
         _ => Err(ShellError::GenericError(
             format!("Expected a float or integer value, received: {:?}", val),
             "".to_string(),
@@ -948,4 +949,31 @@ fn f64_value(val: &Value) -> Result<f64, ShellError> {
             Vec::new(),
         )),
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_f64_value_float() {
+        let val = Value::Float { val: 1.234, span:Span::test_data() };
+        assert_eq!(f64_value(&val).unwrap(), 1.234);
+    }
+
+    #[test]
+    fn test_f64_value_int() {
+        let val = Value::Int { val: 1234, span:Span::test_data() };
+        assert_eq!(f64_value(&val).unwrap(), 1234.0);
+    }
+
+    #[test]
+    fn test_f64_value_string() {
+        let val = Value::String { val: "1234".to_string(), span: Span::test_data() };
+        assert_eq!(
+            f64_value(&val).err().unwrap().to_string(),
+            "Expected a float or integer value, received: Value::String"
+        );
+    }
+
 }
