@@ -54,7 +54,7 @@ let dark_theme = {
     shape_literal: blue
     shape_match_pattern: green
     shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
+    shape_null: light_cyan
     shape_operator: yellow
     shape_or: purple_bold
     shape_pipe: purple_bold
@@ -117,7 +117,7 @@ let light_theme = {
     shape_literal: blue
     shape_match_pattern: green
     shape_matching_brackets: { attr: u }
-    shape_nothing: light_cyan
+    shape_null: light_cyan
     shape_operator: yellow
     shape_or: purple_bold
     shape_pipe: purple_bold
