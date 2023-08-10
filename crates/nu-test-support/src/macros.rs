@@ -161,10 +161,10 @@ macro_rules! nu {
 
         let mut command = Command::new($crate::fs::executable_path());
         command
+            .current_dir(&target_cwd)
             .env_clear()
             .env("PWD", &target_cwd)
             .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
-            .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")
@@ -323,9 +323,10 @@ macro_rules! nu_with_std {
 
         let mut command = Command::new($crate::fs::executable_path());
         command
+            .current_dir(&target_cwd)
+            .env_clear()
             .env("PWD", &target_cwd)
             .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
-            .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")
@@ -439,6 +440,7 @@ macro_rules! nu_with_plugins {
         }
         let mut process = match Command::new(executable_path)
             .current_dir(&target_cwd)
+            .env_clear()
             .env("PWD", &target_cwd) // setting PWD is enough to set cwd
             .arg("--commands")
             .arg(commands)
