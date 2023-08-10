@@ -95,7 +95,7 @@ pub fn compact(
         .filter(
             move |item| {
                 match item {
-                    // Nothing is filtered out
+                    // Null is filtered out
                     Value::Null { .. } => false,
                     Value::Record { .. } => {
                         for column in columns.iter() {
@@ -108,10 +108,10 @@ pub fn compact(
                                 }
                             }
                         }
-                        // No defined columns contained Nothing
+                        // No defined columns contained Null
                         true
                     }
-                    // Any non-Nothing, non-record should be kept
+                    // Any non-Null, non-record should be kept
                     _ => true,
                 }
             },

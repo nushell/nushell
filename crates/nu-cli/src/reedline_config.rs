@@ -765,7 +765,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                                 Ok(inner) => match inner {
                                     None => Err(ShellError::UnsupportedConfigValue(
                                         "List containing valid events".to_string(),
-                                        "Nothing value (null)".to_string(),
+                                        "null".to_string(),
                                         value.span()?,
                                     )),
                                     Some(event) => Ok(event),
@@ -791,7 +791,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                     Ok(inner) => match inner {
                         None => Err(ShellError::UnsupportedConfigValue(
                             "List containing valid events".to_string(),
-                            "Nothing value (null)".to_string(),
+                            "null".to_string(),
                             value.span()?,
                         )),
                         Some(event) => Ok(event),

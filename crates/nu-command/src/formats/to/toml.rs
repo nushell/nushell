@@ -76,7 +76,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }
-        Value::Null { .. } => toml::Value::String("<Nothing>".to_string()),
+        Value::Null { .. } => toml::Value::String("<null>".to_string()),
         Value::Error { error } => return Err(*error.clone()),
         Value::Binary { val, .. } => toml::Value::Array(
             val.iter()
