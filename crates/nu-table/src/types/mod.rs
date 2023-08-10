@@ -36,6 +36,7 @@ pub struct TableOpts<'a> {
     span: Span,
     row_offset: usize,
     width: usize,
+    indent: (usize, usize),
 }
 
 impl<'a> TableOpts<'a> {
@@ -45,7 +46,8 @@ impl<'a> TableOpts<'a> {
         ctrlc: Option<Arc<AtomicBool>>,
         span: Span,
         row_offset: usize,
-        available_width: usize,
+        width: usize,
+        indent: (usize, usize),
     ) -> Self {
         Self {
             ctrlc,
@@ -53,7 +55,8 @@ impl<'a> TableOpts<'a> {
             style_computer,
             span,
             row_offset,
-            width: available_width,
+            indent,
+            width,
         }
     }
 }
