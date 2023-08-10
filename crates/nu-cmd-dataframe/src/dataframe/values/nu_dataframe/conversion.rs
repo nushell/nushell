@@ -1,6 +1,7 @@
 use super::{DataFrameValue, NuDataFrame};
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Utc};
+use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
 use nu_protocol::{ShellError, Span, Value};
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
@@ -455,30 +456,11 @@ pub fn create_column(
                         .into_iter()
                         .skip(from_row)
                         .take(size)
-                        .map(|ca| match ca {
-                            Some(s) => {
-                                let column_values: Vec<Value> = s
-                                    .iter()
-                                    .map(|v| match v {
-                                        AnyValue::Utf8Owned(s) => Value::String {
-                                            val: s.to_string(),
-                                            span: Span::unknown(),
-                                        },
-                                        // todo - jack - support other types
-                                        _ => Value::String {
-                                            val: format!("todo: {v:?}"),
-                                            span: Span::unknown(),
-                                        },
-                                    })
-                                    .collect();
-                                Value::List {
-                                    vals: column_values,
+                        .map(|ca| {
+                            ca.map(|ref s| series_to_list_value(s, Span::unknown()))
+                                .unwrap_or(Value::Nothing {
                                     span: Span::unknown(),
-                                }
-                            }
-                            None => Value::Nothing {
-                                span: Span::unknown(),
-                            },
+                                })
                         })
                         .collect();
 
@@ -744,7 +726,7 @@ fn value_to_input_type(value: &Value) -> InputType {
             // needs to have consistent types.
             let list_type = vals
                 .iter()
-                .filter(|v| !matches!(v, Value::Nothing{..}))
+                .filter(|v| !matches!(v, Value::Nothing { .. }))
                 .map(value_to_input_type)
                 .nth(1)
                 .unwrap_or(InputType::Object);
@@ -758,13 +740,6 @@ fn value_to_input_type(value: &Value) -> InputType {
         }
         _ => InputType::Object,
     }
-}
-
-fn is_supported_list_type(value: &InputType) -> bool {
-    matches!(
-        value,
-        InputType::Integer | InputType::Float | InputType::String | InputType::Duration
-    )
 }
 
 // The ColumnMap has the parsed data from the StreamInput
@@ -828,7 +803,10 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                         // Currently all number types are treated as float as
                         // it is impossible to determine the real numeric types without traversing
                         // all List column values for a dataset.
-                        InputType::Float | InputType::Integer | InputType::Duration => {
+                        InputType::Float
+                        | InputType::Integer
+                        | InputType::Duration
+                        | InputType::Filesize => {
                             let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
                                 &name,
                                 column.values.len(),
@@ -936,11 +914,166 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         })
 }
 
+fn is_supported_list_type(value: &InputType) -> bool {
+    matches!(
+        value,
+        InputType::Integer
+            | InputType::Float
+            | InputType::String
+            | InputType::Duration
+            | InputType::Filesize
+    )
+}
+
+fn series_to_list_value(series: &Series, span: Span) -> Value {
+    let column_values = series
+        .iter()
+        .map(|v| match v {
+            AnyValue::Boolean(b) => Value::Bool { val: b, span },
+            AnyValue::Datetime(time, unit, maybe_timezone) => {
+                match arrow_date_to_datetime(time, &unit, maybe_timezone) {
+                    Ok(date) => Value::Date { val: date, span },
+                    Err(e) => {
+                        eprintln!("Error converting date in list. date: {v:?} - {e}");
+                        Value::Date {
+                            val: error_date(),
+                            span,
+                        }
+                    }
+                }
+            }
+            AnyValue::Int8(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+            AnyValue::Int16(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+            AnyValue::Int32(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+            AnyValue::Int64(i) => Value::Int { val: i, span },
+            AnyValue::Float32(f) => Value::Float {
+                val: f as f64,
+                span,
+            },
+            AnyValue::Float64(f) => Value::Float { val: f, span },
+            AnyValue::List(ref s) => series_to_list_value(s, span),
+            AnyValue::Null => Value::Nothing { span },
+            AnyValue::Object(o) => {
+                o.as_any()
+                    .downcast_ref::<Value>()
+                    .cloned()
+                    .unwrap_or(Value::String {
+                        val: format!("Unknown type: {}", o.type_name()),
+                        span,
+                    })
+            }
+            AnyValue::UInt8(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+            AnyValue::UInt16(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+            AnyValue::UInt32(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+            AnyValue::UInt64(i) => Value::Int {
+                val: i as i64,
+                span,
+            },
+
+            AnyValue::Utf8(s) => Value::String {
+                val: s.to_string(),
+                span,
+            },
+            AnyValue::Utf8Owned(s) => Value::String {
+                val: s.to_string(),
+                span,
+            },
+            _ => {
+                eprintln!("Unsupported value type: {v:?}");
+                Value::Nothing { span }
+            }
+        })
+        .collect();
+
+    Value::List {
+        vals: column_values,
+        span,
+    }
+}
+
+fn arrow_date_to_datetime(
+    time: i64,
+    unit: &TimeUnit,
+    timezone: &Option<String>,
+) -> Result<DateTime<FixedOffset>, ShellError> {
+    let naive = match unit {
+        TimeUnit::Microseconds => NaiveDateTime::from_timestamp_micros(time),
+        TimeUnit::Milliseconds => NaiveDateTime::from_timestamp_millis(time),
+        TimeUnit::Nanoseconds => NaiveDateTime::from_timestamp_micros(time / 1000),
+    }
+    .ok_or(ShellError::GenericError(
+        format!("Could not convert to datetime: {time}, {unit}"),
+        "".to_string(),
+        None,
+        None,
+        Vec::new(),
+    ))?;
+
+    if let Some(tz_string) = timezone {
+        let tz: Tz = tz_string.parse().map_err(|e| {
+            ShellError::GenericError(
+                format!("Could not parse timezone: {tz_string} : {e}"),
+                "".to_string(),
+                None,
+                None,
+                Vec::new(),
+            )
+        })?;
+
+        naive
+            .and_local_timezone(tz)
+            .latest()
+            .ok_or(ShellError::GenericError(
+                format!("Could not add timezone to date: {naive} timezone: {tz_string}"),
+                "".to_string(),
+                None,
+                None,
+                Vec::new(),
+            ))
+            .map(|t| t.fixed_offset())
+    } else {
+        Ok(naive.and_utc().fixed_offset())
+    }
+}
+
+// Since I don't to stop processing an entire result if there is one bad date.
+// An error message should be printed and this date will be returned (UNIX epoch)
+fn error_date() -> DateTime<FixedOffset> {
+    // The errors shouldn't occur, so just adding expect
+    NaiveDate::from_ymd_opt(1970, 1, 1)
+        .expect("couldn't create error date time")
+        .and_hms_micro_opt(0, 0, 0, 000)
+        .expect("couldn't add time while building error epoch datetime")
+        .and_local_timezone(Utc)
+        .latest()
+        .expect("couldn't convert to datetime while building error epoch")
+        .fixed_offset()
+}
+
 fn f64_value(val: &Value) -> Result<f64, ShellError> {
     match val {
         Value::Float { .. } => val.as_f64(),
         Value::Int { .. } => val.as_int().map(|v| v as f64),
-        Value::Duration {..} => val.as_duration().map(|v| v as f64),
+        Value::Duration { .. } => val.as_duration().map(|v| v as f64),
+        Value::Filesize { .. } => val.as_filesize().map(|v| v as f64),
         _ => Err(ShellError::GenericError(
             format!("Expected a float or integer value, received: {:?}", val),
             "".to_string(),
@@ -954,26 +1087,63 @@ fn f64_value(val: &Value) -> Result<f64, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::indexmap;
+
+    #[test]
+    fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
+        let values = vec![
+            Value::List {
+                vals: vec![Value::String {
+                    val: "bar".to_string(),
+                    span: Span::test_data(),
+                }],
+                span: Span::test_data(),
+            },
+            Value::List {
+                vals: vec![Value::String {
+                    val: "baz".to_string(),
+                    span: Span::test_data(),
+                }],
+                span: Span::test_data(),
+            },
+        ];
+        let column = Column {
+            name: "foo".to_string(),
+            values: values.clone(),
+        };
+        let typed_column = TypedColumn {
+            column,
+            column_type: Some(InputType::List(Box::new(InputType::String))),
+        };
+
+        let column_map = indexmap!("foo".to_string() => typed_column);
+        let parsed_df = from_parsed_columns(column_map)?;
+        let parsed_columns = parsed_df.columns(Span::test_data())?;
+        assert_eq!(parsed_columns.len(), 1);
+        let column = parsed_columns
+            .first()
+            .expect("There should be a first value in columns");
+        assert_eq!(column.name(), "foo");
+        assert_eq!(column.values, values);
+
+        Ok(())
+    }
 
     #[test]
     fn test_f64_value_float() {
-        let val = Value::Float { val: 1.234, span:Span::test_data() };
+        let val = Value::Float {
+            val: 1.234,
+            span: Span::test_data(),
+        };
         assert_eq!(f64_value(&val).unwrap(), 1.234);
     }
 
     #[test]
     fn test_f64_value_int() {
-        let val = Value::Int { val: 1234, span:Span::test_data() };
+        let val = Value::Int {
+            val: 1234,
+            span: Span::test_data(),
+        };
         assert_eq!(f64_value(&val).unwrap(), 1234.0);
     }
-
-    #[test]
-    fn test_f64_value_string() {
-        let val = Value::String { val: "1234".to_string(), span: Span::test_data() };
-        assert_eq!(
-            f64_value(&val).err().unwrap().to_string(),
-            "Expected a float or integer value, received: Value::String"
-        );
-    }
-
 }
