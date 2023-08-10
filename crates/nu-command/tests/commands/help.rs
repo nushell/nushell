@@ -385,9 +385,9 @@ fn help_alias_before_command() {
 fn nothing_type_annotation() {
     let actual = nu!(pipeline(
         "
-        def foo []: nothing -> nothing {};
+        def foo []: null -> null {};
         help commands | where name == foo | get input_output.0.output.0
     "
     ));
-    assert_eq!(actual.out, "nothing");
+    assert_eq!(actual.out, "null");
 }

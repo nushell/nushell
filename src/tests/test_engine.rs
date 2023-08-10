@@ -67,9 +67,9 @@ fn scope_variable() -> TestResult {
     )
 }
 #[rstest]
-#[case("a", "<> nothing")]
+#[case("a", "<> null")]
 #[case("b", "<1.23> float")]
-#[case("flag1", "<> nothing")]
+#[case("flag1", "<> null")]
 #[case("flag2", "<4.56> float")]
 
 fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {

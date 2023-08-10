@@ -598,7 +598,7 @@ fn let_variable_type_mismatch() -> TestResult {
 
 #[test]
 fn def_with_input_output_1() -> TestResult {
-    run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
+    run_test(r#"def foo []: null -> int { 3 }; foo"#, "3")
 }
 
 #[test]

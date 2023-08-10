@@ -91,7 +91,7 @@ fn const_nothing() {
 
     let actual = nu!(&inp.join("; "));
 
-    assert_eq!(actual.out, "nothing");
+    assert_eq!(actual.out, "null");
 }
 
 #[test]
