@@ -10,7 +10,7 @@ mod str_;
 pub use char_::Char;
 pub use detect_columns::*;
 pub use encode_decode::*;
-pub use format::FormatDate;
+pub use format::*;
 pub use parse::*;
 pub use size::Size;
 pub use split::*;
