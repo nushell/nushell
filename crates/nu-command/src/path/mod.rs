@@ -54,7 +54,7 @@ fn err_from_value(rest: &Value, name: Span) -> ShellError {
             if rest.is_null() {
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string, record or list".into(),
-                    wrong_type: "nothing".into(),
+                    wrong_type: "null".into(),
                     dst_span: name,
                     src_span: span,
                 }

@@ -132,7 +132,7 @@ impl Type {
             Type::Table(_) => String::from("table"),
             Type::List(_) => String::from("list"),
             Type::MatchPattern => String::from("match pattern"),
-            Type::Null => String::from("nothing"),
+            Type::Null => String::from("null"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
             Type::ListStream => String::from("list stream"),
@@ -189,7 +189,7 @@ impl Display for Type {
                 }
             }
             Type::List(l) => write!(f, "list<{l}>"),
-            Type::Null => write!(f, "nothing"),
+            Type::Null => write!(f, "null"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
             Type::ListStream => write!(f, "list stream"),

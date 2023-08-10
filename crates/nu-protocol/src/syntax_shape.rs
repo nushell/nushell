@@ -240,7 +240,7 @@ impl Display for SyntaxShape {
                 let arg_string = arg_vec.join(", ");
                 write!(f, "one_of({arg_string})")
             }
-            SyntaxShape::Null => write!(f, "nothing"),
+            SyntaxShape::Null => write!(f, "null"),
         }
     }
 }
