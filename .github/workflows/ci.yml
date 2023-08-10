@@ -20,7 +20,7 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
+        feature: [default, dataframe, extra, rustls]
         include:
           - feature: default
             flags: ""
@@ -28,6 +28,8 @@ jobs:
             flags: "--features=dataframe"
           - feature: extra
             flags: "--features=extra"
+          - feature: rustls
+            flags: "--features=rustls"
         exclude:
           - platform: windows-latest
             feature: dataframe
@@ -55,7 +57,7 @@ jobs:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
+        feature: [default, dataframe, extra, rustls]
         include:
           - feature: default
             flags: ""
@@ -63,6 +65,8 @@ jobs:
             flags: "--features=dataframe"
           - feature: extra
             flags: "--features=extra"
+          - feature: rustls
+            flags: "--features=rustls"
         exclude:
           - platform: windows-latest
             feature: dataframe

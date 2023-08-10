@@ -32,67 +32,70 @@ pub enum BodyType {
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-cfg_if::cfg_if! {
-    if #[cfg(feature = "rustls")] {
-        struct NoCertificateVerification {}
+#[cfg(all(feature = "rustls", not(feature = "native-tls")))]
+struct NoCertificateVerification {}
 
-        impl rustls::client::ServerCertVerifier for NoCertificateVerification {
-            fn verify_server_cert(
-                &self,
-                _end_entity: &rustls::Certificate,
-                _intermediates: &[rustls::Certificate],
-                _server_name: &rustls::ServerName,
-                _scts: &mut dyn Iterator<Item = &[u8]>,
-                _ocsp: &[u8],
-                _now: std::time::SystemTime,
-            ) -> std::result::Result<rustls::client::ServerCertVerified, rustls::Error> {
-                Ok(rustls::client::ServerCertVerified::assertion())
-            }
-        }
-
-        pub fn http_client(allow_insecure: bool) -> ureq::Agent {
-            if allow_insecure {
-                let mut root_store = rustls::RootCertStore::empty();
-                root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
-                    rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
-                        ta.subject,
-                        ta.spki,
-                        ta.name_constraints,
-                    )
-                }));
-
-                let mut config = rustls::ClientConfig::builder()
-                    .with_safe_defaults()
-                    .with_root_certificates(root_store)
-                    .with_no_client_auth();
-                config.dangerous()
-                    .set_certificate_verifier(Arc::new(NoCertificateVerification{}));
-                ureq::builder()
-                    .tls_config(Arc::new(config))
-                    .user_agent("nushell")
-                    .build()
-            } else {
-                ureq::builder()
-                    .user_agent("nushell")
-                    .build()
-            }
-        }
-    } else if  #[cfg(feature = "native-tls")] {
-        pub fn http_client(allow_insecure: bool) -> ureq::Agent {
-            let tls = native_tls::TlsConnector::builder()
-                .danger_accept_invalid_certs(allow_insecure)
-                .build()
-                .expect("Failed to build network tls");
-
-            ureq::builder()
-                .user_agent("nushell")
-                .tls_connector(std::sync::Arc::new(tls))
-                .build()
-        }
-    } else {
-        compile_error!("Either feature native_tls or rustls features must be specified.");
+#[cfg(all(feature = "rustls", not(feature = "native-tls")))]
+impl rustls::client::ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::Certificate,
+        _intermediates: &[rustls::Certificate],
+        _server_name: &rustls::ServerName,
+        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _ocsp: &[u8],
+        _now: std::time::SystemTime,
+    ) -> std::result::Result<rustls::client::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::ServerCertVerified::assertion())
     }
 }
+
+#[cfg(all(feature = "rustls", not(feature = "native-tls")))]
+pub fn http_client(allow_insecure: bool) -> ureq::Agent {
+    if allow_insecure {
+        let mut root_store = rustls::RootCertStore::empty();
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+
+        let mut config = rustls::ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        config
+            .dangerous()
+            .set_certificate_verifier(Arc::new(NoCertificateVerification {}));
+        ureq::builder()
+            .tls_config(Arc::new(config))
+            .user_agent("nushell")
+            .build()
+    } else {
+        ureq::builder().user_agent("nushell").build()
+    }
+}
+
+#[cfg(all(not(feature = "rustls"), feature = "native-tls"))]
+pub fn http_client(allow_insecure: bool) -> ureq::Agent {
+    let tls = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(allow_insecure)
+        .build()
+        .expect("Failed to build network tls");
+
+    ureq::builder()
+        .user_agent("nushell")
+        .tls_connector(std::sync::Arc::new(tls))
+        .build()
+}
+
+#[cfg(all(not(feature = "rustls"), not(feature = "native-tls")))]
+compile_error!("Either feature native_tls or rustls features must be specified.");
+
+#[cfg(all(feature = "rustls", feature = "native-tls"))]
+compile_error!("Either feature native_tls or rustls features must be specified.");
 
 pub fn http_parse_url(
     call: &Call,
