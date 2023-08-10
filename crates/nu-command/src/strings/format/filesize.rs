@@ -19,9 +19,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct FileSize;
+pub struct FormatFilesize;
 
-impl Command for FileSize {
+impl Command for FormatFilesize {
     fn name(&self) -> &str {
         "format filesize"
     }
@@ -129,6 +129,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(FileSize)
+        test_examples(FormatFilesize)
     }
 }
