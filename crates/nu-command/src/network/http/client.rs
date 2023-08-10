@@ -7,11 +7,8 @@ use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
-#[cfg(feature = "rustls")]
-use rustls;
+
 use ureq::{Error, ErrorKind, Request, Response};
-#[cfg(feature = "rustls")]
-use webpki_roots;
 
 use std::collections::HashMap;
 use std::io::BufReader;
@@ -54,7 +51,7 @@ impl rustls::client::ServerCertVerifier for NoCertificateVerification {
 pub fn http_client(allow_insecure: bool) -> ureq::Agent {
     if allow_insecure {
         let mut root_store = rustls::RootCertStore::empty();
-        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
             rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
                 ta.subject,
                 ta.spki,
@@ -92,10 +89,10 @@ pub fn http_client(allow_insecure: bool) -> ureq::Agent {
 }
 
 #[cfg(all(not(feature = "rustls"), not(feature = "native-tls")))]
-compile_error!("Either feature native_tls or rustls features must be specified.");
+compile_error!("Either feature native_tls or rustls features must be specified, none supplied.");
 
 #[cfg(all(feature = "rustls", feature = "native-tls"))]
-compile_error!("Either feature native_tls or rustls features must be specified.");
+compile_error!("Either feature native_tls or rustls features must be specified, both supplied, --no-default-features might be needed.");
 
 pub fn http_parse_url(
     call: &Call,
