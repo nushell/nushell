@@ -190,7 +190,7 @@ fn hides_env_in_block() {
 #[test]
 fn env_var_not_var() {
     let actual = nu!("
-        echo $CARGO
+        echo $PATH
         ");
-    assert!(actual.err.contains("use $env.CARGO instead of $CARGO"));
+    assert!(actual.err.contains("use $env.PATH instead of $PATH"));
 }

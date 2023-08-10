@@ -161,6 +161,7 @@ macro_rules! nu {
 
         let mut command = Command::new($crate::fs::executable_path());
         command
+            .env_clear()
             .env("PWD", &target_cwd)
             .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
             .current_dir(target_cwd)
