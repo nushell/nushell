@@ -2426,7 +2426,7 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2532,7 +2532,7 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2610,7 +2610,7 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3547,7 +3547,7 @@ impl Value {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
