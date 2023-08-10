@@ -54,7 +54,7 @@ nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.83.2", fea
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.83.2", optional = true }
 nu-command = { path = "./crates/nu-command", version = "0.83.2" }
 nu-engine = { path = "./crates/nu-engine", version = "0.83.2" }
-nu-explore = { path = "./crates/nu-explore", version = "0.83.2" }
+nu-explore = { path = "./crates/nu-explore", version = "0.83.2", optional = true }
 nu-json = { path = "./crates/nu-json", version = "0.83.2" }
 nu-parser = { path = "./crates/nu-parser", version = "0.83.2" }
 nu-path = { path = "./crates/nu-path", version = "0.83.2" }
@@ -128,7 +128,7 @@ which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # Extra feature for nushell
-extra = ["dep:nu-cmd-extra", "nu-cmd-lang/extra"]
+extra = ["dep:nu-cmd-extra", "nu-cmd-lang/extra", "dep:nu-explore"]
 
 # Dataframe feature for nushell
 dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]

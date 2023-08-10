@@ -43,8 +43,9 @@ fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     #[cfg(feature = "dataframe")]
     let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);
-    let engine_state = nu_cli::add_cli_context(engine_state);
-    nu_explore::add_explore_context(engine_state)
+    #[cfg(feature = "extra")]
+    let engine_state = nu_explore::add_explore_context(engine_state);
+    nu_cli::add_cli_context(engine_state)
 }
 
 fn main() -> Result<()> {
