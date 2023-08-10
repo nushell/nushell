@@ -44,7 +44,7 @@ impl Command for InputList {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::List(Box::new(Type::String)), Type::String),
+                (Type::List(Box::new(Type::Any)), Type::Any),
             ])
             .optional("prompt", SyntaxShape::String, "the prompt to display")
             .switch(
