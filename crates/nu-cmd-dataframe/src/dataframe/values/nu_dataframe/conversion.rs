@@ -1,15 +1,15 @@
 use super::{DataFrameValue, NuDataFrame};
 
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Utc};
-use chrono_tz::Tz;
+use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use indexmap::map::{Entry, IndexMap};
 use nu_protocol::{ShellError, Span, Value};
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
+use polars::export::arrow::Either;
 use polars::prelude::{
-    AnyValue, DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
-    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom,
-    NewChunkedArray, ObjectType, Series, TemporalMethods, TimeUnit,
+    DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries, ListBuilderTrait,
+    ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray,
+    ObjectType, Series, TemporalMethods, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -112,522 +112,8 @@ pub fn create_column(
     span: Span,
 ) -> Result<Column, ShellError> {
     let size = to_row - from_row;
-    match series.dtype() {
-        DataType::Null => {
-            let values = std::iter::repeat(Value::Nothing { span })
-                .take(size)
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(series.name().into(), values))
-        }
-        DataType::UInt8 => {
-            let casted = series.u8().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u8".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::UInt16 => {
-            let casted = series.u16().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u16".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::UInt32 => {
-            let casted = series.u32().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u32".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::UInt64 => {
-            let casted = series.u64().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u64".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Int8 => {
-            let casted = series.i8().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i8".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Int16 => {
-            let casted = series.i16().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i16".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Int32 => {
-            let casted = series.i32().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i32".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int {
-                        val: a as i64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Int64 => {
-            let casted = series.i64().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i64".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Int { val: a, span },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Float32 => {
-            let casted = series.f32().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to f32".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Float {
-                        val: a as f64,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Float64 => {
-            let casted = series.f64().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to f64".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Float { val: a, span },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Boolean => {
-            let casted = series.bool().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to bool".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::Bool { val: a, span },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Utf8 => {
-            let casted = series.utf8().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to string".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => Value::String {
-                        val: a.into(),
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Object(x) => {
-            let casted = series
-                .as_any()
-                .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
-
-            match casted {
-                None => Err(ShellError::GenericError(
-                    "Error casting object from series".into(),
-                    "".to_string(),
-                    None,
-                    Some(format!("Object not supported for conversion: {x}")),
-                    Vec::new(),
-                )),
-                Some(ca) => {
-                    let values = ca
-                        .into_iter()
-                        .skip(from_row)
-                        .take(size)
-                        .map(|v| match v {
-                            Some(a) => a.get_value(),
-                            None => Value::Nothing { span },
-                        })
-                        .collect::<Vec<Value>>();
-
-                    Ok(Column::new(ca.name().into(), values))
-                }
-            }
-        }
-        DataType::List(x) => {
-            let casted = series.as_any().downcast_ref::<ChunkedArray<ListType>>();
-            match casted {
-                None => Err(ShellError::GenericError(
-                    "Error casting list from series".into(),
-                    "".to_string(),
-                    None,
-                    Some(format!("List not supported for conversion: {x}")),
-                    Vec::new(),
-                )),
-                Some(ca) => {
-                    let values: Vec<Value> = ca
-                        .into_iter()
-                        .skip(from_row)
-                        .take(size)
-                        .map(|ca| {
-                            ca.map(|ref s| series_to_list_value(s, Span::unknown()))
-                                .unwrap_or(Value::Nothing {
-                                    span: Span::unknown(),
-                                })
-                        })
-                        .collect();
-
-                    Ok(Column::new(ca.name().into(), values))
-                }
-            }
-        }
-        DataType::Date => {
-            let casted = series.date().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to date".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => {
-                        // elapsed time in day since 1970-01-01
-                        let seconds = a as i64 * SECS_PER_DAY;
-                        let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
-                            Some(val) => val,
-                            None => {
-                                return Value::Error {
-                                    error: Box::new(ShellError::UnsupportedInput(
-                                        "The given local datetime representation is invalid."
-                                            .to_string(),
-                                        format!("timestamp is {a:?}"),
-                                        span,
-                                        Span::unknown(),
-                                    )),
-                                }
-                            }
-                        };
-                        // Zero length offset
-                        let offset = match FixedOffset::east_opt(0) {
-                            Some(val) => val,
-                            None => {
-                                return Value::Error {
-                                    error: Box::new(ShellError::UnsupportedInput(
-                                        "The given local datetime representation is invalid."
-                                            .to_string(),
-                                        format!("timestamp is {a:?}"),
-                                        span,
-                                        Span::unknown(),
-                                    )),
-                                }
-                            }
-                        };
-                        let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
-
-                        Value::Date {
-                            val: datetime,
-                            span,
-                        }
-                    }
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Datetime(time_unit, _) => {
-            let casted = series.datetime().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to datetime".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(a) => {
-                        let unit_divisor = match time_unit {
-                            TimeUnit::Nanoseconds => 1_000_000_000,
-                            TimeUnit::Microseconds => 1_000_000,
-                            TimeUnit::Milliseconds => 1_000,
-                        };
-                        // elapsed time in nano/micro/milliseconds since 1970-01-01
-                        let seconds = a / unit_divisor;
-                        let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
-                            Some(val) => val,
-                            None => {
-                                return Value::Error {
-                                    error: Box::new(ShellError::UnsupportedInput(
-                                        "The given local datetime representation is invalid."
-                                            .to_string(),
-                                        format!("timestamp is {a:?}"),
-                                        span,
-                                        Span::unknown(),
-                                    )),
-                                }
-                            }
-                        };
-                        // Zero length offset
-                        let offset = match FixedOffset::east_opt(0) {
-                            Some(val) => val,
-                            None => {
-                                return Value::Error {
-                                    error: Box::new(ShellError::UnsupportedInput(
-                                        "The given local datetime representation is invalid."
-                                            .to_string(),
-                                        format!("timestamp is {a:?}"),
-                                        span,
-                                        Span::unknown(),
-                                    )),
-                                }
-                            }
-                        };
-                        let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
-
-                        Value::Date {
-                            val: datetime,
-                            span,
-                        }
-                    }
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        DataType::Time => {
-            let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to time".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
-
-            let values = casted
-                .into_iter()
-                .skip(from_row)
-                .take(size)
-                .map(|v| match v {
-                    Some(nanoseconds) => Value::Duration {
-                        val: nanoseconds,
-                        span,
-                    },
-                    None => Value::Nothing { span },
-                })
-                .collect::<Vec<Value>>();
-
-            Ok(Column::new(casted.name().into(), values))
-        }
-        e => Err(ShellError::GenericError(
-            "Error creating Dataframe".into(),
-            "".to_string(),
-            None,
-            Some(format!("Value not supported in nushell: {e}")),
-            Vec::new(),
-        )),
-    }
+    let values = series_to_values(series, Some(from_row), Some(size), span)?;
+    Ok(Column::new(series.name().into(), values))
 }
 
 // Adds a separator to the vector of values using the column names from the
@@ -925,147 +411,589 @@ fn is_supported_list_type(value: &InputType) -> bool {
     )
 }
 
-fn series_to_list_value(series: &Series, span: Span) -> Value {
-    let column_values = series
-        .iter()
-        .map(|v| match v {
-            AnyValue::Boolean(b) => Value::Bool { val: b, span },
-            AnyValue::Datetime(time, unit, maybe_timezone) => {
-                match arrow_date_to_datetime(time, &unit, maybe_timezone) {
-                    Ok(date) => Value::Date { val: date, span },
-                    Err(e) => {
-                        eprintln!("Error converting date in list. date: {v:?} - {e}");
-                        Value::Date {
-                            val: error_date(),
-                            span,
-                        }
+fn series_to_values(
+    series: &Series,
+    maybe_from_row: Option<usize>,
+    maybe_size: Option<usize>,
+    span: Span,
+) -> Result<Vec<Value>, ShellError> {
+    match series.dtype() {
+        DataType::Null => {
+            let it = std::iter::repeat(Value::Nothing { span });
+            let values = if let Some(size) = maybe_size {
+                Either::Left(it.take(size))
+            } else {
+                Either::Right(it)
+            }
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::UInt8 => {
+            let casted = series.u8().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to u8".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::UInt16 => {
+            let casted = series.u16().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to u16".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::UInt32 => {
+            let casted = series.u32().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to u32".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::UInt64 => {
+            let casted = series.u64().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to u64".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Int8 => {
+            let casted = series.i8().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to i8".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Int16 => {
+            let casted = series.i16().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to i16".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Int32 => {
+            let casted = series.i32().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to i32".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int {
+                    val: a as i64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Int64 => {
+            let casted = series.i64().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to i64".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Int { val: a, span },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Float32 => {
+            let casted = series.f32().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to f32".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Float {
+                    val: a as f64,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Float64 => {
+            let casted = series.f64().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to f64".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Float { val: a, span },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Boolean => {
+            let casted = series.bool().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to bool".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::Bool { val: a, span },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Utf8 => {
+            let casted = series.utf8().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to string".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => Value::String {
+                    val: a.into(),
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Object(x) => {
+            let casted = series
+                .as_any()
+                .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
+
+            match casted {
+                None => Err(ShellError::GenericError(
+                    "Error casting object from series".into(),
+                    "".to_string(),
+                    None,
+                    Some(format!("Object not supported for conversion: {x}")),
+                    Vec::new(),
+                )),
+                Some(ca) => {
+                    let it = ca.into_iter();
+                    let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row)
+                    {
+                        Either::Left(it.skip(from_row).take(size))
+                    } else {
+                        Either::Right(it)
                     }
+                    .map(|v| match v {
+                        Some(a) => a.get_value(),
+                        None => Value::Nothing { span },
+                    })
+                    .collect::<Vec<Value>>();
+
+                    Ok(values)
                 }
             }
-            AnyValue::Int8(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
-            AnyValue::Int16(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
-            AnyValue::Int32(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
-            AnyValue::Int64(i) => Value::Int { val: i, span },
-            AnyValue::Float32(f) => Value::Float {
-                val: f as f64,
-                span,
-            },
-            AnyValue::Float64(f) => Value::Float { val: f, span },
-            AnyValue::List(ref s) => series_to_list_value(s, span),
-            AnyValue::Null => Value::Nothing { span },
-            AnyValue::Object(o) => {
-                o.as_any()
-                    .downcast_ref::<Value>()
-                    .cloned()
-                    .unwrap_or(Value::String {
-                        val: format!("Unknown type: {}", o.type_name()),
+        }
+        DataType::List(x) => {
+            let casted = series.as_any().downcast_ref::<ChunkedArray<ListType>>();
+            match casted {
+                None => Err(ShellError::GenericError(
+                    "Error casting list from series".into(),
+                    "".to_string(),
+                    None,
+                    Some(format!("List not supported for conversion: {x}")),
+                    Vec::new(),
+                )),
+                Some(ca) => {
+                    let it = ca.into_iter();
+                    let values: Vec<Value> =
+                        if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                            Either::Left(it.skip(from_row).take(size))
+                        } else {
+                            Either::Right(it)
+                        }
+                        .map(|ca| {
+                            let sublist = ca
+                                .map(|ref s| {
+                                    match series_to_values(s, None, None, Span::unknown()) {
+                                        Ok(v) => v,
+                                        Err(e) => {
+                                            eprintln!("Error list values: {e}");
+                                            vec![]
+                                        }
+                                    }
+                                })
+                                .unwrap_or(vec![]);
+                            Value::List {
+                                vals: sublist,
+                                span,
+                            }
+                        })
+                        .collect::<Vec<Value>>();
+                    Ok(values)
+                }
+            }
+        }
+        DataType::Date => {
+            let casted = series.date().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to date".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => {
+                    // elapsed time in day since 1970-01-01
+                    let seconds = a as i64 * SECS_PER_DAY;
+                    let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
+                        Some(val) => val,
+                        None => {
+                            return Value::Error {
+                                error: Box::new(ShellError::UnsupportedInput(
+                                    "The given local datetime representation is invalid."
+                                        .to_string(),
+                                    format!("timestamp is {a:?}"),
+                                    span,
+                                    Span::unknown(),
+                                )),
+                            }
+                        }
+                    };
+                    // Zero length offset
+                    let offset = match FixedOffset::east_opt(0) {
+                        Some(val) => val,
+                        None => {
+                            return Value::Error {
+                                error: Box::new(ShellError::UnsupportedInput(
+                                    "The given local datetime representation is invalid."
+                                        .to_string(),
+                                    format!("timestamp is {a:?}"),
+                                    span,
+                                    Span::unknown(),
+                                )),
+                            }
+                        }
+                    };
+                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+
+                    Value::Date {
+                        val: datetime,
                         span,
-                    })
+                    }
+                }
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Datetime(time_unit, _) => {
+            let casted = series.datetime().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to datetime".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
             }
-            AnyValue::UInt8(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
-            AnyValue::UInt16(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
-            AnyValue::UInt32(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
-            AnyValue::UInt64(i) => Value::Int {
-                val: i as i64,
-                span,
-            },
+            .map(|v| match v {
+                Some(a) => {
+                    let unit_divisor = match time_unit {
+                        TimeUnit::Nanoseconds => 1_000_000_000,
+                        TimeUnit::Microseconds => 1_000_000,
+                        TimeUnit::Milliseconds => 1_000,
+                    };
+                    // elapsed time in nano/micro/milliseconds since 1970-01-01
+                    let seconds = a / unit_divisor;
+                    let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
+                        Some(val) => val,
+                        None => {
+                            return Value::Error {
+                                error: Box::new(ShellError::UnsupportedInput(
+                                    "The given local datetime representation is invalid."
+                                        .to_string(),
+                                    format!("timestamp is {a:?}"),
+                                    span,
+                                    Span::unknown(),
+                                )),
+                            }
+                        }
+                    };
+                    // Zero length offset
+                    let offset = match FixedOffset::east_opt(0) {
+                        Some(val) => val,
+                        None => {
+                            return Value::Error {
+                                error: Box::new(ShellError::UnsupportedInput(
+                                    "The given local datetime representation is invalid."
+                                        .to_string(),
+                                    format!("timestamp is {a:?}"),
+                                    span,
+                                    Span::unknown(),
+                                )),
+                            }
+                        }
+                    };
+                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
 
-            AnyValue::Utf8(s) => Value::String {
-                val: s.to_string(),
-                span,
-            },
-            AnyValue::Utf8Owned(s) => Value::String {
-                val: s.to_string(),
-                span,
-            },
-            _ => {
-                eprintln!("Unsupported value type: {v:?}");
-                Value::Nothing { span }
+                    Value::Date {
+                        val: datetime,
+                        span,
+                    }
+                }
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::Time => {
+            let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to time".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
             }
-        })
-        .collect();
+            .map(|v| match v {
+                Some(nanoseconds) => Value::Duration {
+                    val: nanoseconds,
+                    span,
+                },
+                None => Value::Nothing { span },
+            })
+            .collect::<Vec<Value>>();
 
-    Value::List {
-        vals: column_values,
-        span,
+            Ok(values)
+        }
+        e => Err(ShellError::GenericError(
+            "Error creating Dataframe".into(),
+            "".to_string(),
+            None,
+            Some(format!("Value not supported in nushell: {e}")),
+            Vec::new(),
+        )),
     }
-}
-
-fn arrow_date_to_datetime(
-    time: i64,
-    unit: &TimeUnit,
-    timezone: &Option<String>,
-) -> Result<DateTime<FixedOffset>, ShellError> {
-    let naive = match unit {
-        TimeUnit::Microseconds => NaiveDateTime::from_timestamp_micros(time),
-        TimeUnit::Milliseconds => NaiveDateTime::from_timestamp_millis(time),
-        TimeUnit::Nanoseconds => NaiveDateTime::from_timestamp_micros(time / 1000),
-    }
-    .ok_or(ShellError::GenericError(
-        format!("Could not convert to datetime: {time}, {unit}"),
-        "".to_string(),
-        None,
-        None,
-        Vec::new(),
-    ))?;
-
-    if let Some(tz_string) = timezone {
-        let tz: Tz = tz_string.parse().map_err(|e| {
-            ShellError::GenericError(
-                format!("Could not parse timezone: {tz_string} : {e}"),
-                "".to_string(),
-                None,
-                None,
-                Vec::new(),
-            )
-        })?;
-
-        naive
-            .and_local_timezone(tz)
-            .latest()
-            .ok_or(ShellError::GenericError(
-                format!("Could not add timezone to date: {naive} timezone: {tz_string}"),
-                "".to_string(),
-                None,
-                None,
-                Vec::new(),
-            ))
-            .map(|t| t.fixed_offset())
-    } else {
-        Ok(naive.and_utc().fixed_offset())
-    }
-}
-
-// Since I don't to stop processing an entire result if there is one bad date.
-// An error message should be printed and this date will be returned (UNIX epoch)
-fn error_date() -> DateTime<FixedOffset> {
-    // The errors shouldn't occur, so just adding expect
-    NaiveDate::from_ymd_opt(1970, 1, 1)
-        .expect("couldn't create error date time")
-        .and_hms_micro_opt(0, 0, 0, 000)
-        .expect("couldn't add time while building error epoch datetime")
-        .and_local_timezone(Utc)
-        .latest()
-        .expect("couldn't convert to datetime while building error epoch")
-        .fixed_offset()
 }
 
 fn f64_value(val: &Value) -> Result<f64, ShellError> {
