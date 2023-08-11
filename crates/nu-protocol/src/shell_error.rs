@@ -431,7 +431,7 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot not be set manually."#
+            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
         )
     )]
     AutomaticEnvVarSetManually {
