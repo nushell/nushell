@@ -48,8 +48,8 @@ impl PluginSignature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> PluginSignature {
-        self.sig = self.sig.update_from_command(name, command);
+    pub fn update_from_command(mut self, command: &dyn Command) -> PluginSignature {
+        self.sig = self.sig.update_from_command(command);
         self
     }
 

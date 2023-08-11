@@ -237,8 +237,7 @@ impl Signature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> Signature {
-        self.name = name;
+    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
         self.search_terms = command
             .search_terms()
             .into_iter()
