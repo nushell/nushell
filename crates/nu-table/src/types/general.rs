@@ -25,7 +25,11 @@ impl JustTable {
 
 fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
     match table(input, opts.row_offset, opts.clone())? {
-        Some(out) => {
+        Some(mut out) => {
+            let left = opts.config.table_indent.left;
+            let right = opts.config.table_indent.right;
+            out.table.set_indent(left, right);
+
             let table_config =
                 create_nu_table_config(opts.config, opts.style_computer, &out, false);
             Ok(out.table.draw(table_config, opts.width))
@@ -56,7 +60,12 @@ fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResul
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
 
-    let out = TableOutput::new(table, false, true);
+    let mut out = TableOutput::new(table, false, true);
+
+    let left = opts.config.table_indent.left;
+    let right = opts.config.table_indent.right;
+    out.table.set_indent(left, right);
+
     let table_config = create_nu_table_config(opts.config, opts.style_computer, &out, false);
     let table = out.table.draw(table_config, opts.width);
 

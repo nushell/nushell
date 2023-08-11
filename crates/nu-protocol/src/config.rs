@@ -75,6 +75,7 @@ pub struct Config {
     pub table_mode: String,
     pub table_move_header: bool,
     pub table_show_empty: bool,
+    pub table_indent: TableIndent,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
@@ -131,6 +132,7 @@ impl Default for Config {
             table_show_empty: true,
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             table_move_header: false,
+            table_indent: TableIndent { left: 1, right: 1 },
 
             datetime_normal_format: None,
             datetime_table_format: None,
@@ -241,6 +243,12 @@ impl TrimStrategy {
     pub fn truncate(suffix: Option<String>) -> Self {
         Self::Truncate { suffix }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TableIndent {
+    pub left: usize,
+    pub right: usize,
 }
 
 impl Value {
@@ -934,6 +942,55 @@ impl Value {
                                     "header_on_separator" => {
                                         try_bool!(cols, vals, index, span, table_move_header)
                                     }
+                                    "padding" => match value {
+                                        Value::Int { val, .. } => {
+                                            if *val < 0 {
+                                                invalid!(Some(span), "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
+                                            }
+
+                                            config.table_indent.left = *val as usize;
+                                            config.table_indent.right = *val as usize;
+                                        }
+                                        Value::Record { vals, cols, .. } => {
+                                            let left = cols.iter().position(|e| e == "left");
+                                            let right = cols.iter().position(|e| e == "right");
+
+                                            if let Some(i) = left {
+                                                let value = vals[i].as_int();
+                                                match value {
+                                                    Ok(val) => {
+                                                        if val < 0 {
+                                                            invalid!(Some(span), "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
+                                                        }
+
+                                                        config.table_indent.left = val as usize;
+                                                    }
+                                                    Err(_) => {
+                                                        invalid!(Some(span), "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                                    }
+                                                }
+                                            }
+
+                                            if let Some(i) = right {
+                                                let value = vals[i].as_int();
+                                                match value {
+                                                    Ok(val) => {
+                                                        if val < 0 {
+                                                            invalid!(Some(span), "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
+                                                        }
+
+                                                        config.table_indent.right = val as usize;
+                                                    }
+                                                    Err(_) => {
+                                                        invalid!(Some(span), "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            invalid!(Some(span), "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                        }
+                                    },
                                     "index_mode" => {
                                         if let Ok(b) = value.as_string() {
                                             let val_str = b.to_lowercase();

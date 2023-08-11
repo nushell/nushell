@@ -174,6 +174,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         let mut table = NuTable::from(data);
+        table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
         table.set_index_style(get_index_style(cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
@@ -333,6 +334,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut table = NuTable::from(data);
     table.set_index_style(get_index_style(cfg.opts.style_computer));
     table.set_header_style(get_header_style(cfg.opts.style_computer));
+    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
     set_data_styles(&mut table, data_styles);
 
     Ok(Some(TableOutput::new(table, true, with_index)))
@@ -378,6 +380,7 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], cfg: Cfg<'_>) -> StringRes
 
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
+    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
 
     let out = TableOutput::new(table, false, true);
 
