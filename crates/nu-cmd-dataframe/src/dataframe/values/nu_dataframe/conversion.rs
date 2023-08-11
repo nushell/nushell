@@ -3,17 +3,26 @@ use super::{DataFrameValue, NuDataFrame};
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use indexmap::map::{Entry, IndexMap};
 use nu_protocol::{ShellError, Span, Value};
+use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::export::arrow::Either;
 use polars::prelude::{
-    DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries, ListBuilderTrait,
-    ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray,
-    ObjectType, Series, TemporalMethods, TimeUnit,
+    DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
+    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType,
+    ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray, ObjectType, Series, TemporalMethods,
+    TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
 const SECS_PER_DAY: i64 = 86_400;
+
+// The values capacity is for the size of an internal vec.
+// Since this is impossible to determine without traversing every value
+// I just picked one. Since this is for converting back and forth
+// between nushell tables the values shouldn't be too extremely large for
+// practical reasone (~ a few thousand rows).
+const VALUES_CAPACITY: usize = 10;
 
 #[derive(Debug)]
 pub struct Column {
@@ -217,12 +226,7 @@ fn value_to_input_type(value: &Value) -> InputType {
                 .nth(1)
                 .unwrap_or(InputType::Object);
 
-            // If it's not a supported list type, then treat as an object
-            if is_supported_list_type(&list_type) {
-                InputType::List(Box::new(list_type))
-            } else {
-                InputType::Object
-            }
+            InputType::List(Box::new(list_type))
         }
         _ => InputType::Object,
     }
@@ -242,13 +246,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     let series = Series::new(&name, series_values?);
                     df_series.push(series)
                 }
-                InputType::Integer => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_i64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::Filesize => {
+                InputType::Integer | InputType::Filesize | InputType::Duration => {
                     let series_values: Result<Vec<_>, _> =
                         column.values.iter().map(|v| v.as_i64()).collect();
                     let series = Series::new(&name, series_values?);
@@ -278,46 +276,76 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     df_series.push(res.into_series())
                 }
                 InputType::List(list_type) => {
-                    // The values capacity is for the size of an internal vec.
-                    // Since this is impossible to determine without traversing every value
-                    // I just picked one. Since this is for converting back and forth
-                    // between nushell tables the values shouldn't be too extremely large for
-                    // practical reasone (~ a few thousand rows).
-                    let values_capacity = 10;
-
-                    match **list_type {
-                        // Currently all number types are treated as float as
-                        // it is impossible to determine the real numeric types without traversing
-                        // all List column values for a dataset.
-                        InputType::Float
-                        | InputType::Integer
-                        | InputType::Duration
-                        | InputType::Filesize => {
-                            let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
-                                &name,
-                                column.values.len(),
-                                values_capacity,
-                                DataType::Float64,
-                            );
-
-                            for v in &column.values {
-                                let value_list = v.as_list()?;
-                                let mut inner_values: Vec<f64> =
-                                    Vec::with_capacity(value_list.len());
-                                for value in value_list {
-                                    if let Ok(s) = f64_value(value) {
-                                        inner_values.push(s);
-                                    } else {
-                                        return Err(ShellError::GenericError(
-                                            format!("Received a non-float value {value:?} for a list column detected as containing floats. List columns must have consistent types to work with dataframes." ),
+                    let inconsistent_error = |_| {
+                        ShellError::GenericError(
+                                            format!("column {name} contains a list with inconsistent types: Expecting: {list_type:?}"),
                                             "".to_string(),
                                             None,
                                             None,
-                                            Vec::new(),
-                                        ));
-                                    }
-                                }
-                                builder.append_iter_values(inner_values.iter().copied());
+                                            Vec::new()
+                                        )
+                    };
+                    match **list_type {
+                        // list of boolean values
+                        InputType::Boolean => {
+                            let mut builder = ListBooleanChunkedBuilder::new(
+                                &name,
+                                column.values.len(),
+                                VALUES_CAPACITY,
+                            );
+                            for v in &column.values {
+                                let value_list = v
+                                    .as_list()?
+                                    .iter()
+                                    .map(|v| v.as_bool())
+                                    .collect::<Result<Vec<bool>, _>>()
+                                    .map_err(inconsistent_error)?;
+                                builder.append_iter(value_list.iter().map(|v| Some(v.clone())));
+                            }
+                            let res = builder.finish();
+                            df_series.push(res.into_series());
+                        }
+                        // list of values that reduce down to i64
+                        InputType::Integer | InputType::Filesize | InputType::Duration => {
+                            let logical_type = match column_type {
+                                InputType::Duration => DataType::Duration(TimeUnit::Milliseconds),
+                                _ => DataType::Int64,
+                            };
+
+                            let mut builder = ListPrimitiveChunkedBuilder::<Int64Type>::new(
+                                &name,
+                                column.values.len(),
+                                VALUES_CAPACITY,
+                                logical_type,
+                            );
+
+                            for v in &column.values {
+                                let value_list = v
+                                    .as_list()?
+                                    .iter()
+                                    .map(|v| v.as_i64())
+                                    .collect::<Result<Vec<i64>, _>>()
+                                    .map_err(inconsistent_error)?;
+                                builder.append_iter_values(value_list.iter().copied());
+                            }
+                            let res = builder.finish();
+                            df_series.push(res.into_series())
+                        }
+                        InputType::Float => {
+                            let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
+                                &name,
+                                column.values.len(),
+                                VALUES_CAPACITY,
+                                DataType::Float64,
+                            );
+                            for v in &column.values {
+                                let value_list = v
+                                    .as_list()?
+                                    .iter()
+                                    .map(|v| v.as_f64())
+                                    .collect::<Result<Vec<f64>, _>>()
+                                    .map_err(inconsistent_error)?;
+                                builder.append_iter_values(value_list.iter().copied());
                             }
                             let res = builder.finish();
                             df_series.push(res.into_series())
@@ -326,39 +354,67 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                             let mut builder = ListUtf8ChunkedBuilder::new(
                                 &name,
                                 column.values.len(),
-                                values_capacity,
+                                VALUES_CAPACITY,
                             );
-
                             for v in &column.values {
-                                let value_list = v.as_list()?;
-                                let mut string_values: Vec<String> =
-                                    Vec::with_capacity(value_list.len());
-                                for value in value_list {
-                                    if let Ok(s) = value.as_string() {
-                                        string_values.push(s);
-                                    } else {
-                                        return Err(ShellError::GenericError(
-                                            format!("Received a non-string value {value:?} for a list column detected as containing strings. List columns must have consistent types to work with dataframes." ),
-                                            "".to_string(),
-                                            None,
-                                            None,
-                                            Vec::new(),
-                                        ));
-                                    }
-                                }
-                                builder.append_values_iter(string_values.iter().map(AsRef::as_ref));
+                                let value_list = v
+                                    .as_list()?
+                                    .iter()
+                                    .map(|v| v.as_string())
+                                    .collect::<Result<Vec<String>, _>>()
+                                    .map_err(inconsistent_error)?;
+                                builder.append_values_iter(value_list.iter().map(AsRef::as_ref));
                             }
                             let res = builder.finish();
                             df_series.push(res.into_series())
                         }
+                        // Treat lists as objects at this depth as it is expensive to calculate the list type
+                        // We can revisit this later if necessary
+                        InputType::Date => {
+                            let mut builder = AnonymousOwnedListBuilder::new(
+                                &name,
+                                column.values.len(),
+                                Some(DataType::Datetime(TimeUnit::Nanoseconds, None)),
+                            );
+                            for (i, v) in column.values.iter().enumerate() {
+                                let list_name = i.to_string();
+
+                                let it = v.as_list()?.iter().map(|v| {
+                                    if let Value::Date { val, .. } = &v {
+                                        Some(val.timestamp_nanos())
+                                    } else {
+                                        None
+                                    }
+                                });
+                                let dt_chunked =
+                                    ChunkedArray::<Int64Type>::from_iter_options(&list_name, it)
+                                        .into_datetime(TimeUnit::Nanoseconds, None);
+
+                                builder.append_series(&dt_chunked.into_series());
+                            }
+                            let res = builder.finish();
+                            df_series.push(res.into_series())
+                        }
+                        // treat everything else as a list of objects
                         _ => {
-                            return Err(ShellError::GenericError(
-                                format!("Unsupported list type: {list_type:?}"),
-                                "".to_string(),
-                                None,
-                                None,
-                                Vec::new(),
-                            ))
+                            let mut builder =
+                                AnonymousOwnedListBuilder::new(&name, column.values.len(), None);
+
+                            for v in column.values.iter() {
+                                let mut obj_builder = ObjectChunkedBuilder::<DataFrameValue>::new(
+                                    &name,
+                                    column.values.len(),
+                                );
+                                for list_v in v.as_list()?.iter() {
+                                    let dfv = DataFrameValue::new(list_v.clone());
+                                    obj_builder.append_value(dfv);
+                                }
+                                let series = obj_builder.finish().into_series();
+                                builder.append_series(&series);
+                            }
+
+                            let res = builder.finish();
+                            df_series.push(res.into_series())
                         }
                     }
                 }
@@ -377,12 +433,6 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
 
                     df_series.push(res.into_series())
                 }
-                InputType::Duration => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_i64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
             }
         }
     }
@@ -398,17 +448,6 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 Vec::new(),
             )
         })
-}
-
-fn is_supported_list_type(value: &InputType) -> bool {
-    matches!(
-        value,
-        InputType::Integer
-            | InputType::Float
-            | InputType::String
-            | InputType::Duration
-            | InputType::Filesize
-    )
 }
 
 fn series_to_values(
@@ -996,22 +1035,6 @@ fn series_to_values(
     }
 }
 
-fn f64_value(val: &Value) -> Result<f64, ShellError> {
-    match val {
-        Value::Float { .. } => val.as_f64(),
-        Value::Int { .. } => val.as_int().map(|v| v as f64),
-        Value::Duration { .. } => val.as_duration().map(|v| v as f64),
-        Value::Filesize { .. } => val.as_filesize().map(|v| v as f64),
-        _ => Err(ShellError::GenericError(
-            format!("Expected a float or integer value, received: {:?}", val),
-            "".to_string(),
-            None,
-            None,
-            Vec::new(),
-        )),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1055,23 +1078,5 @@ mod tests {
         assert_eq!(column.values, values);
 
         Ok(())
-    }
-
-    #[test]
-    fn test_f64_value_float() {
-        let val = Value::Float {
-            val: 1.234,
-            span: Span::test_data(),
-        };
-        assert_eq!(f64_value(&val).unwrap(), 1.234);
-    }
-
-    #[test]
-    fn test_f64_value_int() {
-        let val = Value::Int {
-            val: 1234,
-            span: Span::test_data(),
-        };
-        assert_eq!(f64_value(&val).unwrap(), 1234.0);
     }
 }
