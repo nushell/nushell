@@ -942,7 +942,7 @@ impl Value {
                                     "header_on_separator" => {
                                         try_bool!(cols, vals, index, span, table_move_header)
                                     }
-                                    "indent" => match value {
+                                    "padding" => match value {
                                         Value::Int { val, .. } => {
                                             if *val < 0 {
                                                 invalid!(Some(span), "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");

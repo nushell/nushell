@@ -2563,7 +2563,7 @@ fn theme_cmd(theme: &str, footer: bool, then: &str) -> String {
 
 #[test]
 fn table_padding_not_default() {
-    let actual = nu!("$env.config.table.indent = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table");
+    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table");
     assert_eq!(
         actual.out,
         "╭───────────┬───────────┬───────────┬────────────────────────╮\
@@ -2578,7 +2578,7 @@ fn table_padding_not_default() {
 #[test]
 fn table_padding_zero() {
     let actual = nu!(
-        "$env.config.table.indent = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+        "$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
     );
     assert_eq!(
         actual.out,
@@ -2593,7 +2593,7 @@ fn table_padding_zero() {
 
 #[test]
 fn table_expand_padding_not_default() {
-    let actual = nu!("$env.config.table.indent = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
+    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
     assert_eq!(
         actual.out,
         "╭───────────┬───────────┬───────────┬───────────────────────────────────╮\
@@ -2611,7 +2611,7 @@ fn table_expand_padding_not_default() {
 
 #[test]
 fn table_expand_padding_zero() {
-    let actual = nu!("$env.config.table.indent = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
     assert_eq!(
         actual.out,
         "╭─┬─┬─┬─────╮\
@@ -2629,7 +2629,7 @@ fn table_expand_padding_zero() {
 
 #[test]
 fn table_collapse_padding_not_default() {
-    let actual = nu!("$env.config.table.indent = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
+    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
     assert_eq!(
         actual.out,
         "╭───────────┬───────────┬───────────╮\
@@ -2648,7 +2648,7 @@ fn table_collapse_padding_not_default() {
 
 #[test]
 fn table_collapse_padding_zero() {
-    let actual = nu!("$env.config.table.indent = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
     assert_eq!(
         actual.out,
         "╭─┬─┬─╮\
