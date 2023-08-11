@@ -18,7 +18,7 @@ use tabled::{
     },
     settings::{
         formatting::AlignmentStrategy, object::Segment, peaker::Peaker, themes::ColumnNames, Color,
-        Modify, Settings, TableOption, Width,
+        Modify, Padding, Settings, TableOption, Width,
     },
     Table,
 };
@@ -29,6 +29,7 @@ pub struct NuTable {
     data: NuTableData,
     styles: Styles,
     alignments: Alignments,
+    indent: (usize, usize),
 }
 
 type NuTableData = VecRecords<NuTableCell>;
@@ -57,6 +58,7 @@ impl NuTable {
         Self {
             data: VecRecords::new(vec![vec![CellInfo::default(); count_columns]; count_rows]),
             styles: Styles::default(),
+            indent: (1, 1),
             alignments: Alignments {
                 data: AlignmentHorizontal::Left,
                 index: AlignmentHorizontal::Right,
@@ -135,11 +137,22 @@ impl NuTable {
         self.alignments.data = convert_alignment(style.alignment);
     }
 
+    pub fn set_indent(&mut self, left: usize, right: usize) {
+        self.indent = (left, right);
+    }
+
     /// Converts a table to a String.
     ///
     /// It returns None in case where table cannot be fit to a terminal width.
     pub fn draw(self, config: NuTableConfig, termwidth: usize) -> Option<String> {
-        build_table(self.data, config, self.alignments, self.styles, termwidth)
+        build_table(
+            self.data,
+            config,
+            self.alignments,
+            self.styles,
+            termwidth,
+            self.indent,
+        )
     }
 
     /// Return a total table width.
@@ -192,6 +205,7 @@ fn build_table(
     alignments: Alignments,
     styles: Styles,
     termwidth: usize,
+    indent: (usize, usize),
 ) -> Option<String> {
     if data.count_columns() == 0 || data.count_rows() == 0 {
         return Some(String::new());
@@ -206,7 +220,7 @@ fn build_table(
         duplicate_row(&mut data, 0);
     }
 
-    draw_table(data, alignments, styles, widths, cfg, termwidth)
+    draw_table(data, alignments, styles, widths, cfg, termwidth, indent)
 }
 
 fn draw_table(
@@ -216,6 +230,7 @@ fn draw_table(
     widths: Vec<usize>,
     cfg: NuTableConfig,
     termwidth: usize,
+    indent: (usize, usize),
 ) -> Option<String> {
     let with_index = cfg.with_index;
     let with_header = cfg.with_header && data.count_rows() > 1;
@@ -226,6 +241,7 @@ fn draw_table(
     let data: Vec<Vec<_>> = data.into();
     let mut table = Builder::from(data).build();
 
+    set_indent(&mut table, indent.0, indent.1);
     load_theme(&mut table, &cfg.theme, with_footer, with_header, sep_color);
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
@@ -238,6 +254,10 @@ fn draw_table(
     }
 
     build_table_with_width_check(table, total_width, termwidth)
+}
+
+fn set_indent(table: &mut Table, left: usize, right: usize) {
+    table.with(Padding::new(left, right, 0, 0));
 }
 
 fn set_border_head(table: &mut Table, with_footer: bool) {

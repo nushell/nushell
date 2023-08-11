@@ -362,7 +362,8 @@ fn handle_record(
     let result = if cols.is_empty() {
         create_empty_placeholder("record", term_width, engine_state, stack)
     } else {
-        let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width);
+        let indent = (config.table_indent.left, config.table_indent.right);
+        let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width, indent);
         let result = build_table_kv(cols, vals, table_view, opts, span)?;
         match result {
             Some(output) => maybe_strip_color(output, config),
@@ -691,6 +692,7 @@ impl PagingTableCreator {
             self.head,
             self.row_offset,
             get_width_param(self.width_param),
+            (cfg.table_indent.left, cfg.table_indent.right),
         )
     }
 }
