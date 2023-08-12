@@ -70,14 +70,36 @@ produce a table, a list will produce a list, and a record will produce a record.
                 }
                 Value::List { vals, .. } => {
                     for val in vals {
-                        let cv = CellPath {
-                            members: vec![PathMember::String {
-                                val: val.as_string()?,
-                                span: val.span()?,
-                                optional: false,
-                            }],
-                        };
-                        new_columns.push(cv.clone());
+                        match val {
+                            Value::String { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::String {
+                                        val: val.clone(),
+                                        span: Span::unknown(),
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            Value::Int { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::Int {
+                                        val: val as usize,
+                                        span: Span::unknown(),
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            y => {
+                                return Err(ShellError::CantConvert {
+                                    to_type: "cell path".into(),
+                                    from_type: y.get_type().to_string(),
+                                    span: y.span()?,
+                                    help: None,
+                                })
+                            }
+                        }
                     }
                 }
                 x => {
@@ -156,6 +178,53 @@ produce a table, a list will produce a list, and a record will produce a record.
                                     },
                                     Value::String {
                                         val: "toml".into(),
+                                        span: Span::unknown(),
+                                    },
+                                ],
+                                span: Span::unknown(),
+                            },
+                        ],
+                        span: Span::unknown(),
+                    }
+                ),
+            },
+            Example {
+                description: "Select rows by a provided list of rows",
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | select $rows",
+                result: Some(
+                    Value::List {
+                        vals: vec![
+                            Value::Record {
+                                cols: vec!["name".into(), "type".into(), "size".into()],
+                                vals: vec![
+                                    Value::String {
+                                        val: "Cargo.toml".into(),
+                                        span: Span::unknown(),
+                                    },
+                                    Value::String {
+                                        val: "toml".into(),
+                                        span: Span::unknown(),
+                                    },
+                                    Value::String {
+                                        val: "1kb".into(),
+                                        span: Span::unknown(),
+                                    },
+                                ],
+                                span: Span::unknown(),
+                            },
+                            Value::Record {
+                                cols: vec!["name".into(), "type".into(), "size".into()],
+                                vals: vec![
+                                    Value::String {
+                                        val: "file.json".into(),
+                                        span: Span::unknown(),
+                                    },
+                                    Value::String {
+                                        val: "json".into(),
+                                        span: Span::unknown(),
+                                    },
+                                    Value::String {
+                                        val: "3kb".into(),
                                         span: Span::unknown(),
                                     },
                                 ],
