@@ -265,156 +265,19 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     df_series.push(series)
                 }
                 InputType::Object => {
-                    let mut builder =
-                        ObjectChunkedBuilder::<DataFrameValue>::new(&name, column.values.len());
-
-                    for v in &column.values {
-                        builder.append_value(DataFrameValue::new(v.clone()));
-                    }
-
-                    let res = builder.finish();
-                    df_series.push(res.into_series())
+                    df_series.push(input_type_object_to_series(&name, &column.values)?)
                 }
                 InputType::List(list_type) => {
-                    let inconsistent_error = |_| {
-                        ShellError::GenericError(
-                                            format!("column {name} contains a list with inconsistent types: Expecting: {list_type:?}"),
-                                            "".to_string(),
-                                            None,
-                                            None,
-                                            Vec::new()
-                                        )
-                    };
-                    match **list_type {
-                        // list of boolean values
-                        InputType::Boolean => {
-                            let mut builder = ListBooleanChunkedBuilder::new(
+                    match input_type_list_to_series(&name, list_type.as_ref(), &column.values) {
+                        Ok(series) => df_series.push(series),
+                        Err(_) => {
+                            // An error case will occur when there are lists of mixed types.
+                            // If this happens, fallback to object list
+                            df_series.push(input_type_list_to_series(
                                 &name,
-                                column.values.len(),
-                                VALUES_CAPACITY,
-                            );
-                            for v in &column.values {
-                                let value_list = v
-                                    .as_list()?
-                                    .iter()
-                                    .map(|v| v.as_bool())
-                                    .collect::<Result<Vec<bool>, _>>()
-                                    .map_err(inconsistent_error)?;
-                                builder.append_iter(value_list.iter().map(|v| Some(v.clone())));
-                            }
-                            let res = builder.finish();
-                            df_series.push(res.into_series());
-                        }
-                        // list of values that reduce down to i64
-                        InputType::Integer | InputType::Filesize | InputType::Duration => {
-                            let logical_type = match column_type {
-                                InputType::Duration => DataType::Duration(TimeUnit::Milliseconds),
-                                _ => DataType::Int64,
-                            };
-
-                            let mut builder = ListPrimitiveChunkedBuilder::<Int64Type>::new(
-                                &name,
-                                column.values.len(),
-                                VALUES_CAPACITY,
-                                logical_type,
-                            );
-
-                            for v in &column.values {
-                                let value_list = v
-                                    .as_list()?
-                                    .iter()
-                                    .map(|v| v.as_i64())
-                                    .collect::<Result<Vec<i64>, _>>()
-                                    .map_err(inconsistent_error)?;
-                                builder.append_iter_values(value_list.iter().copied());
-                            }
-                            let res = builder.finish();
-                            df_series.push(res.into_series())
-                        }
-                        InputType::Float => {
-                            let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
-                                &name,
-                                column.values.len(),
-                                VALUES_CAPACITY,
-                                DataType::Float64,
-                            );
-                            for v in &column.values {
-                                let value_list = v
-                                    .as_list()?
-                                    .iter()
-                                    .map(|v| v.as_f64())
-                                    .collect::<Result<Vec<f64>, _>>()
-                                    .map_err(inconsistent_error)?;
-                                builder.append_iter_values(value_list.iter().copied());
-                            }
-                            let res = builder.finish();
-                            df_series.push(res.into_series())
-                        }
-                        InputType::String => {
-                            let mut builder = ListUtf8ChunkedBuilder::new(
-                                &name,
-                                column.values.len(),
-                                VALUES_CAPACITY,
-                            );
-                            for v in &column.values {
-                                let value_list = v
-                                    .as_list()?
-                                    .iter()
-                                    .map(|v| v.as_string())
-                                    .collect::<Result<Vec<String>, _>>()
-                                    .map_err(inconsistent_error)?;
-                                builder.append_values_iter(value_list.iter().map(AsRef::as_ref));
-                            }
-                            let res = builder.finish();
-                            df_series.push(res.into_series())
-                        }
-                        // Treat lists as objects at this depth as it is expensive to calculate the list type
-                        // We can revisit this later if necessary
-                        InputType::Date => {
-                            let mut builder = AnonymousOwnedListBuilder::new(
-                                &name,
-                                column.values.len(),
-                                Some(DataType::Datetime(TimeUnit::Nanoseconds, None)),
-                            );
-                            for (i, v) in column.values.iter().enumerate() {
-                                let list_name = i.to_string();
-
-                                let it = v.as_list()?.iter().map(|v| {
-                                    if let Value::Date { val, .. } = &v {
-                                        Some(val.timestamp_nanos())
-                                    } else {
-                                        None
-                                    }
-                                });
-                                let dt_chunked =
-                                    ChunkedArray::<Int64Type>::from_iter_options(&list_name, it)
-                                        .into_datetime(TimeUnit::Nanoseconds, None);
-
-                                builder.append_series(&dt_chunked.into_series());
-                            }
-                            let res = builder.finish();
-                            df_series.push(res.into_series())
-                        }
-                        // treat everything else as a list of objects
-                        _ => {
-                            let mut builder =
-                                AnonymousOwnedListBuilder::new(&name, column.values.len(), None);
-
-                            for v in column.values.iter() {
-                                let mut obj_builder = ObjectChunkedBuilder::<DataFrameValue>::new(
-                                    &name,
-                                    column.values.len(),
-                                );
-                                for list_v in v.as_list()?.iter() {
-                                    let dfv = DataFrameValue::new(list_v.clone());
-                                    obj_builder.append_value(dfv);
-                                }
-                                let series = obj_builder.finish().into_series();
-                                builder.append_series(&series);
-                            }
-
-                            let res = builder.finish();
-                            df_series.push(res.into_series())
+                                &InputType::Object,
+                                &column.values,
+                            )?)
                         }
                     }
                 }
@@ -448,6 +311,139 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 Vec::new(),
             )
         })
+}
+
+fn input_type_object_to_series(name: &str, values: &[Value]) -> Result<Series, ShellError> {
+    let mut builder = ObjectChunkedBuilder::<DataFrameValue>::new(name, values.len());
+
+    for v in values {
+        builder.append_value(DataFrameValue::new(v.clone()));
+    }
+
+    let res = builder.finish();
+    Ok(res.into_series())
+}
+
+fn input_type_list_to_series(
+    name: &str,
+    list_type: &InputType,
+    values: &[Value],
+) -> Result<Series, ShellError> {
+    let inconsistent_error = |_| {
+        ShellError::GenericError(
+            format!(
+                "column {name} contains a list with inconsistent types: Expecting: {list_type:?}"
+            ),
+            "".to_string(),
+            None,
+            None,
+            Vec::new(),
+        )
+    };
+    match *list_type {
+        // list of boolean values
+        InputType::Boolean => {
+            let mut builder = ListBooleanChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
+            for v in values {
+                let value_list = v
+                    .as_list()?
+                    .iter()
+                    .map(|v| v.as_bool())
+                    .collect::<Result<Vec<bool>, _>>()
+                    .map_err(inconsistent_error)?;
+                builder.append_iter(value_list.iter().map(|v| Some(*v)));
+            }
+            let res = builder.finish();
+            Ok(res.into_series())
+        }
+        // list of values that reduce down to i64
+        InputType::Integer | InputType::Filesize | InputType::Duration => {
+            let logical_type = match list_type {
+                InputType::Duration => DataType::Duration(TimeUnit::Milliseconds),
+                _ => DataType::Int64,
+            };
+
+            let mut builder = ListPrimitiveChunkedBuilder::<Int64Type>::new(
+                name,
+                values.len(),
+                VALUES_CAPACITY,
+                logical_type,
+            );
+
+            for v in values {
+                let value_list = v
+                    .as_list()?
+                    .iter()
+                    .map(|v| v.as_i64())
+                    .collect::<Result<Vec<i64>, _>>()
+                    .map_err(inconsistent_error)?;
+                builder.append_iter_values(value_list.iter().copied());
+            }
+            let res = builder.finish();
+            Ok(res.into_series())
+        }
+        InputType::Float => {
+            let mut builder = ListPrimitiveChunkedBuilder::<Float64Type>::new(
+                name,
+                values.len(),
+                VALUES_CAPACITY,
+                DataType::Float64,
+            );
+            for v in values {
+                let value_list = v
+                    .as_list()?
+                    .iter()
+                    .map(|v| v.as_f64())
+                    .collect::<Result<Vec<f64>, _>>()
+                    .map_err(inconsistent_error)?;
+                builder.append_iter_values(value_list.iter().copied());
+            }
+            let res = builder.finish();
+            Ok(res.into_series())
+        }
+        InputType::String => {
+            let mut builder = ListUtf8ChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
+            for v in values {
+                let value_list = v
+                    .as_list()?
+                    .iter()
+                    .map(|v| v.as_string())
+                    .collect::<Result<Vec<String>, _>>()
+                    .map_err(inconsistent_error)?;
+                builder.append_values_iter(value_list.iter().map(AsRef::as_ref));
+            }
+            let res = builder.finish();
+            Ok(res.into_series())
+        }
+        // Treat lists as objects at this depth as it is expensive to calculate the list type
+        // We can revisit this later if necessary
+        InputType::Date => {
+            let mut builder = AnonymousOwnedListBuilder::new(
+                name,
+                values.len(),
+                Some(DataType::Datetime(TimeUnit::Nanoseconds, None)),
+            );
+            for (i, v) in values.iter().enumerate() {
+                let list_name = i.to_string();
+
+                let it = v.as_list()?.iter().map(|v| {
+                    if let Value::Date { val, .. } = &v {
+                        Some(val.timestamp_nanos())
+                    } else {
+                        None
+                    }
+                });
+                let dt_chunked = ChunkedArray::<Int64Type>::from_iter_options(&list_name, it)
+                    .into_datetime(TimeUnit::Nanoseconds, None);
+
+                builder.append_series(&dt_chunked.into_series());
+            }
+            let res = builder.finish();
+            Ok(res.into_series())
+        }
+        // treat everything else as an object
+        _ => Ok(input_type_object_to_series(name, values)?),
+    }
 }
 
 fn series_to_values(
