@@ -97,10 +97,20 @@ produce a table, a list will produce a list, and a record will produce a record.
                                     from_type: y.get_type().to_string(),
                                     span: y.span()?,
                                     help: None,
-                                })
+                                });
                             }
                         }
                     }
+                }
+                Value::String { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::String {
+                            val: val.clone(),
+                            span: Span::unknown(),
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
                 }
                 x => {
                     return Err(ShellError::CantConvert {
@@ -108,7 +118,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                         from_type: x.get_type().to_string(),
                         span: x.span()?,
                         help: None,
-                    })
+                    });
                 }
             }
         }
