@@ -467,11 +467,35 @@ fn handle_row_stream(
                             // Only the name column gets special colors, for now
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let val = render_path_name(val, &config, &ls_colors, *span);
+                                    // We get the filename index and value here so that we can use that information
+                                    // to pass into lscolors so that even if `ls -s` is used, we still know the full
+                                    // path and can color it appropriately
+                                    let filename_idx = cols
+                                        .iter()
+                                        .position(|r| r.clone() == "filename")
+                                        .unwrap_or(idx);
+                                    let filename_val = vals
+                                        .get(filename_idx)
+                                        .unwrap_or(vals.get(idx).expect("cant fail"))
+                                        .into_string("", &config);
+
+                                    let val = render_path_name(
+                                        &filename_val,
+                                        val,
+                                        &config,
+                                        &ls_colors,
+                                        *span,
+                                    );
                                     if let Some(val) = val {
                                         vals[idx] = val;
                                     }
                                 }
+                            }
+                            // Now that we've rendered the path, we don't need the filename column
+                            // in the output, so let's remove it.
+                            if cols[idx] == "filename" {
+                                cols.remove(idx);
+                                vals.remove(idx);
                             }
 
                             idx += 1;
@@ -787,7 +811,8 @@ impl Iterator for PagingTableCreator {
 }
 
 fn render_path_name(
-    path: &str,
+    filename: &str,
+    display_name: &str,
     config: &Config,
     ls_colors: &LsColors,
     span: Span,
@@ -796,7 +821,7 @@ fn render_path_name(
         return None;
     }
 
-    let stripped_path = nu_utils::strip_ansi_unlikely(path);
+    let stripped_path = nu_utils::strip_ansi_unlikely(filename);
 
     let (style, has_metadata) = match std::fs::symlink_metadata(stripped_path.as_ref()) {
         Ok(metadata) => (
@@ -818,7 +843,7 @@ fn render_path_name(
 
     let full_path_link = make_clickable_link(
         full_path.display().to_string(),
-        Some(path),
+        Some(display_name),
         show_clickable_links,
     );
 

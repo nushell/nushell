@@ -441,6 +441,12 @@ pub(crate) fn dir_entry_dict(
         span,
     });
 
+    cols.push("filename".into());
+    vals.push(Value::String {
+        val: filename.display().to_string(),
+        span,
+    });
+
     if let Some(md) = metadata {
         file_type = get_file_type(md, display_name, use_mime_type);
         cols.push("type".into());
