@@ -36,6 +36,10 @@ impl Command for Reject {
         "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["drop", "key"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
