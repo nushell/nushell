@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -94,8 +94,8 @@ fn get_documentation(
         let signatures = engine_state.get_signatures(true);
         for sig in signatures {
             if sig.name.starts_with(&format!("{cmd_name} "))
-                // Don't display deprecated commands in the Subcommands list
-                    && !sig.usage.starts_with("Deprecated command")
+                // Don't display removed/deprecated commands in the Subcommands list
+                    && !matches!(sig.category, Category::Removed)
             {
                 subcommands.push(format!("  {C}{}{RESET} - {}", sig.name, sig.usage));
             }

@@ -295,15 +295,15 @@ impl ExternalCommand {
                 match err.kind() {
                     // If file not found, try suggesting alternative commands to the user
                     std::io::ErrorKind::NotFound => {
-                        // recommend a replacement if the user tried a deprecated command
+                        // recommend a replacement if the user tried a removed command
                         let command_name_lower = self.name.item.to_lowercase();
-                        let deprecated = crate::deprecated_commands();
-                        if deprecated.contains_key(&command_name_lower) {
-                            let replacement = match deprecated.get(&command_name_lower) {
+                        let removed_from_nu = crate::removed_commands();
+                        if removed_from_nu.contains_key(&command_name_lower) {
+                            let replacement = match removed_from_nu.get(&command_name_lower) {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::DeprecatedCommand(
+                            return Err(ShellError::RemovedCommand(
                                 command_name_lower,
                                 replacement,
                                 self.name.span,
