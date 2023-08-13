@@ -20,6 +20,7 @@ impl Command for SubCommand {
                 (Type::Int, Type::Number),
                 (Type::String, Type::Number),
                 (Type::Bool, Type::Number),
+                (Type::Float, Type::Float),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (
@@ -91,6 +92,7 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
+        Value::Float { .. } => input.clone(),
         Value::String { val: s, span } => {
             let other = s.trim();
 
