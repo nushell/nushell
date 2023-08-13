@@ -77,9 +77,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_float(1.345)),
             },
             Example {
-                description: "Convert decimal to decimal",
-                example: "'-5.9' | into decimal",
-                result: Some(Value::test_float(-5.9)),
+                description: "Coerce list of ints and floats to float",
+                example: "[4 -5.9] | into decimal",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(4.0),
+                    Value::test_float(-5.9),
+                ])),
             },
             Example {
                 description: "Convert boolean to decimal",
