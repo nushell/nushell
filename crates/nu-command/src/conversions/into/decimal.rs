@@ -17,15 +17,15 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into decimal")
             .input_output_types(vec![
-                (Type::Int, Type::Number),
-                (Type::String, Type::Number),
-                (Type::Bool, Type::Number),
+                (Type::Int, Type::Float),
+                (Type::String, Type::Float),
+                (Type::Bool, Type::Float),
                 (Type::Float, Type::Float),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (
                     Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
                 ),
             ])
             .rest(
