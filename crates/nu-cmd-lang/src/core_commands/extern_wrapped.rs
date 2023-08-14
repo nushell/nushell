@@ -11,7 +11,7 @@ impl Command for ExternWrapped {
     }
 
     fn usage(&self) -> &str {
-        "Define a signature for an external command."
+        "Define a signature for an external command with a custom code block."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -19,7 +19,7 @@ impl Command for ExternWrapped {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
-            .required("body", SyntaxShape::Block, "wrapper function block")
+            .required("body", SyntaxShape::Block, "wrapper block")
             .category(Category::Core)
     }
 
@@ -44,9 +44,19 @@ impl Command for ExternWrapped {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Write a signature for an external command",
-            example: r#"extern-wrapped echo [text: string] { print $text }"#,
+            description: "Define a custom wrapper for an external command",
+            example: r#"extern-wrapped my-echo [...rest] { ^echo $rest }"#,
             result: None,
         }]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::ExternWrapped;
+        use crate::test_examples;
+        test_examples(ExternWrapped {})
     }
 }
