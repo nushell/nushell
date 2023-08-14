@@ -19,7 +19,7 @@ impl Command for ExternWrapped {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
-            .required("body", SyntaxShape::Block, "wrapper block")
+            .required("body", SyntaxShape::Block, "wrapper code block")
             .category(Category::Core)
     }
 
