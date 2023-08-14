@@ -1,7 +1,7 @@
 use std::path::{Component, Path};
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
@@ -57,6 +57,25 @@ impl Command for SubCommand {
         input.map(
             move |value| super::operate(&split, &args, value, head),
             engine_state.ctrlc.clone(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments;
+
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&split, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
         )
     }
 
