@@ -1,6 +1,6 @@
 use crate::{
     ast::{Block, Call, Expr, Expression, PipelineElement},
-    engine::{Stack, StateWorkingSet},
+    engine::StateWorkingSet,
     PipelineData, ShellError, Span, Value,
 };
 

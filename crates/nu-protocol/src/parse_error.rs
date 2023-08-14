@@ -473,7 +473,6 @@ pub enum ParseError {
     //     help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
     // )]
     // NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
-
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),

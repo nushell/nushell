@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, ParseError, Span, Value, engine::StateWorkingSet, format_error};
+use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -1133,7 +1133,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
 impl ShellError {
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
         let msg = format_error(working_set, &self);
-        ParseError::LabeledError(msg, "Encountered error during parse-time evaluation".into(), span)
+        ParseError::LabeledError(
+            msg,
+            "Encountered error during parse-time evaluation".into(),
+            span,
+        )
     }
 }
 

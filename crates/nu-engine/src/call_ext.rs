@@ -15,6 +15,12 @@ pub trait CallExt {
         name: &str,
     ) -> Result<Option<T>, ShellError>;
 
+    fn get_flag_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        name: &str,
+    ) -> Result<Option<T>, ShellError>;
+
     fn rest<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -59,6 +65,19 @@ impl CallExt for Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
             let result = eval_expression(engine_state, stack, &expr)?;
+            FromValue::from_value(&result).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_flag_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        name: &str,
+    ) -> Result<Option<T>, ShellError> {
+        if let Some(expr) = self.get_flag_expr(name) {
+            let result = eval_constant(working_set, &expr)?;
             FromValue::from_value(&result).map(Some)
         } else {
             Ok(None)
