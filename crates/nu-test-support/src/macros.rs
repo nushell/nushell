@@ -164,6 +164,8 @@ macro_rules! nu {
         command
             .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
+            // TODO: consider adding custom plugin path for tests to
+            // not interfere with user local environment
             // .arg("--skip-plugins")
             // .arg("--no-history")
             // .arg("--config-file")
