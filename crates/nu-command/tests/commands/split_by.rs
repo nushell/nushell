@@ -42,11 +42,11 @@ fn errors_if_no_table_given_as_input() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | get name
                 | split-by type
-            "#
+            "
         ));
 
         assert!(actual.err.contains("requires a table"));

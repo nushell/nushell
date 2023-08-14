@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+};
 use shadow_rs::shadow;
 
 shadow!(build);
@@ -17,6 +19,7 @@ impl Command for Version {
         Signature::build("version")
             .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
             .allow_variants_without_examples(true)
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {

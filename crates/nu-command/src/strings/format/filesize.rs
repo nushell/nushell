@@ -19,16 +19,21 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct FileSize;
+pub struct FormatFilesize;
 
-impl Command for FileSize {
+impl Command for FormatFilesize {
     fn name(&self) -> &str {
         "format filesize"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("format filesize")
-            .input_output_types(vec![(Type::Filesize, Type::String)])
+            .input_output_types(vec![
+                (Type::Filesize, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required(
                 "format value",
                 SyntaxShape::String,
@@ -124,6 +129,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(FileSize)
+        test_examples(FormatFilesize)
     }
 }

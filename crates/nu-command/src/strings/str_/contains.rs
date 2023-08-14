@@ -31,10 +31,11 @@ impl Command for SubCommand {
         Signature::build("str contains")
             .input_output_types(vec![
                 (Type::String, Type::Bool),
+                // TODO figure out cell-path type behavior
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
-            .vectorizes_over_list(true)
             .required("string", SyntaxShape::String, "the substring to find")
             .rest(
                 "rest",
@@ -89,14 +90,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test 100]] | str contains 'e' ColA",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
+                description: "Check if input contains string in a record",
+                example: "{ ColA: test, ColB: 100 } | str contains 'e' ColA",
+                result: Some(Value::Record {
+                    cols: vec!["ColA".to_string(), "ColB".to_string()],
+                    vals: vec![Value::test_bool(true), Value::test_int(100)],
                     span: Span::test_data(),
                 }),
             },
@@ -168,7 +166,7 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => Value::boolean(
+        Value::String { val, .. } => Value::bool(
             match case_insensitive {
                 true => {
                     if *not_contain {

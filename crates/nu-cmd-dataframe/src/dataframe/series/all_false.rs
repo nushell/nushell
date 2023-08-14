@@ -88,7 +88,7 @@ fn command(
         )
     })?;
 
-    let value = Value::boolean(!bool.any(), call.head);
+    let value = Value::bool(!bool.any(), call.head);
 
     NuDataFrame::try_from_columns(vec![Column::new("all_false".to_string(), vec![value])])
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

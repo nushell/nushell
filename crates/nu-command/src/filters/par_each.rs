@@ -28,6 +28,7 @@ impl Command for ParEach {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Any))),
                 (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
             ])
             .named(
@@ -41,6 +42,7 @@ impl Command for ParEach {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

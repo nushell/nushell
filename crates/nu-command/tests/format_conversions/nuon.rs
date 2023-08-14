@@ -17,8 +17,7 @@ fn to_nuon_correct_compaction() {
 
 #[test]
 fn to_nuon_list_of_numbers() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [1, 2, 3, 4]
             | to nuon
@@ -32,8 +31,7 @@ fn to_nuon_list_of_numbers() {
 
 #[test]
 fn to_nuon_list_of_strings() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [abc, xyz, def]
             | to nuon
@@ -47,8 +45,7 @@ fn to_nuon_list_of_strings() {
 
 #[test]
 fn to_nuon_table() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             [[my, columns]; [abc, xyz], [def, ijk]]
             | to nuon
@@ -62,8 +59,7 @@ fn to_nuon_table() {
 
 #[test]
 fn to_nuon_bool() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             false
             | to nuon
@@ -76,8 +72,7 @@ fn to_nuon_bool() {
 
 #[test]
 fn to_nuon_escaping() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "hello\"world"
             | to nuon
@@ -90,8 +85,7 @@ fn to_nuon_escaping() {
 
 #[test]
 fn to_nuon_escaping2() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "hello\\world"
             | to nuon
@@ -104,8 +98,7 @@ fn to_nuon_escaping2() {
 
 #[test]
 fn to_nuon_escaping3() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             ["hello\\world"]
             | to nuon
@@ -119,8 +112,7 @@ fn to_nuon_escaping3() {
 
 #[test]
 fn to_nuon_escaping4() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             ["hello\"world"]
             | to nuon
@@ -134,8 +126,7 @@ fn to_nuon_escaping4() {
 
 #[test]
 fn to_nuon_escaping5() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             {s: "hello\"world"}
             | to nuon
@@ -149,8 +140,7 @@ fn to_nuon_escaping5() {
 
 #[test]
 fn to_nuon_negative_int() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             -1
             | to nuon
@@ -163,8 +153,7 @@ fn to_nuon_negative_int() {
 
 #[test]
 fn to_nuon_records() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             {name: "foo bar", age: 100, height: 10}
             | to nuon
@@ -178,8 +167,7 @@ fn to_nuon_records() {
 
 #[test]
 fn to_nuon_range() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             1..42
             | to nuon
@@ -191,8 +179,7 @@ fn to_nuon_range() {
 
 #[test]
 fn from_nuon_range() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "1..42"
             | from nuon
@@ -205,8 +192,7 @@ fn from_nuon_range() {
 
 #[test]
 fn to_nuon_filesize() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             1kib
             | to nuon
@@ -218,8 +204,7 @@ fn to_nuon_filesize() {
 
 #[test]
 fn from_nuon_filesize() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "1024b"
             | from nuon
@@ -232,8 +217,7 @@ fn from_nuon_filesize() {
 
 #[test]
 fn to_nuon_duration() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             1min
             | to nuon
@@ -245,8 +229,7 @@ fn to_nuon_duration() {
 
 #[test]
 fn from_nuon_duration() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "60000000000ns"
             | from nuon
@@ -259,8 +242,7 @@ fn from_nuon_duration() {
 
 #[test]
 fn to_nuon_datetime() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             2019-05-10
             | to nuon
@@ -272,8 +254,7 @@ fn to_nuon_datetime() {
 
 #[test]
 fn from_nuon_datetime() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "2019-05-10T00:00:00+00:00"
             | from nuon
@@ -286,8 +267,7 @@ fn from_nuon_datetime() {
 
 #[test]
 fn to_nuon_errs_on_closure() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             {|| to nuon}
             | to nuon
@@ -299,8 +279,7 @@ fn to_nuon_errs_on_closure() {
 
 #[test]
 fn binary_to() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             0x[ab cd ef] | to nuon
         "#
@@ -311,8 +290,7 @@ fn binary_to() {
 
 #[test]
 fn binary_roundtrip() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             "0x[1f ff]" | from nuon | to nuon
         "#
@@ -359,8 +337,7 @@ fn read_bool() {
 
 #[test]
 fn float_doesnt_become_int() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             1.0 | to nuon
         "#
@@ -371,8 +348,7 @@ fn float_doesnt_become_int() {
 
 #[test]
 fn float_inf_parsed_properly() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             inf | to nuon
         "#
@@ -383,8 +359,7 @@ fn float_inf_parsed_properly() {
 
 #[test]
 fn float_neg_inf_parsed_properly() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             -inf | to nuon
         "#
@@ -395,8 +370,7 @@ fn float_neg_inf_parsed_properly() {
 
 #[test]
 fn float_nan_parsed_properly() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             NaN | to nuon
         "#
@@ -407,9 +381,8 @@ fn float_nan_parsed_properly() {
 
 #[test]
 fn to_nuon_converts_columns_with_spaces() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
     let test = [[a, b, "c d"]; [1 2 3] [4 5 6]]; $test | to nuon | from nuon
     "#
     ));
@@ -418,9 +391,8 @@ fn to_nuon_converts_columns_with_spaces() {
 
 #[test]
 fn to_nuon_quotes_empty_string() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
     let test = ""; $test | to nuon
     "#
     ));
@@ -430,9 +402,8 @@ fn to_nuon_quotes_empty_string() {
 
 #[test]
 fn to_nuon_quotes_empty_string_in_list() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
     let test = [""]; $test | to nuon | from nuon | $in == [""]
     "#
     ));
@@ -442,9 +413,8 @@ fn to_nuon_quotes_empty_string_in_list() {
 
 #[test]
 fn to_nuon_quotes_empty_string_in_table() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
     let test = [[a, b]; ['', la] [le lu]]; $test | to nuon | from nuon
     "#
     ));
@@ -453,16 +423,14 @@ fn to_nuon_quotes_empty_string_in_table() {
 
 #[test]
 fn does_not_quote_strings_unnecessarily() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
         let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon
     "#
     ));
     assert_eq!(actual.out, "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]");
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
          let a = {"ro name": "sam" rank: 10}; $a | to nuon
     "#
     ));
@@ -471,8 +439,7 @@ fn does_not_quote_strings_unnecessarily() {
 
 #[test]
 fn quotes_some_strings_necessarily() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             ['true','false','null',
             'NaN','NAN','nan','+nan','-nan',

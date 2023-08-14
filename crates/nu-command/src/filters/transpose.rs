@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,8 +27,7 @@ impl Command for Transpose {
     fn signature(&self) -> Signature {
         Signature::build("transpose")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Any),
                 (Type::Record(vec![]), Type::Table(vec![])),
             ])
             .switch(
@@ -62,6 +61,7 @@ impl Command for Transpose {
                 SyntaxShape::String,
                 "the names to give columns once transposed",
             )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

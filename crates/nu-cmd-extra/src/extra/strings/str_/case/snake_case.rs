@@ -1,27 +1,31 @@
-use inflector::cases::camelcase::to_camel_case;
+use inflector::cases::snakecase::to_snake_case;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use crate::operate;
-
+use super::operate;
 #[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str camel-case"
+        "str snake-case"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str camel-case")
+        Signature::build("str snake-case")
             .input_output_types(vec![
                 (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -31,11 +35,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert a string to camelCase."
+        "Convert a string to snake_case."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "style", "caps", "convention"]
+        vec!["convert", "style", "underscore", "lower", "convention"]
     }
 
     fn run(
@@ -45,34 +49,34 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &to_camel_case)
+        operate(engine_state, stack, call, input, &to_snake_case)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "convert a string to camelCase",
-                example: " 'NuShell' | str camel-case",
-                result: Some(Value::test_string("nuShell")),
+                description: "convert a string to snake_case",
+                example: r#" "NuShell" | str snake-case"#,
+                result: Some(Value::test_string("nu_shell")),
             },
             Example {
-                description: "convert a string to camelCase",
-                example: "'this-is-the-first-case' | str camel-case",
-                result: Some(Value::test_string("thisIsTheFirstCase")),
+                description: "convert a string to snake_case",
+                example: r#" "this_is_the_second_case" | str snake-case"#,
+                result: Some(Value::test_string("this_is_the_second_case")),
             },
             Example {
-                description: "convert a string to camelCase",
-                example: " 'this_is_the_second_case' | str camel-case",
-                result: Some(Value::test_string("thisIsTheSecondCase")),
+                description: "convert a string to snake_case",
+                example: r#""this-is-the-first-case" | str snake-case"#,
+                result: Some(Value::test_string("this_is_the_first_case")),
             },
             Example {
-                description: "convert a column from a table to camelCase",
-                example: r#"[[lang, gems]; [nu_test, 100]] | str camel-case lang"#,
+                description: "convert a column from a table to snake_case",
+                example: r#"[[lang, gems]; [nuTest, 100]] | str snake-case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![Value::test_string("nuTest"), Value::test_int(100)],
+                        vals: vec![Value::test_string("nu_test"), Value::test_int(100)],
                     }],
                     span: Span::test_data(),
                 }),

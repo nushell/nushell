@@ -22,14 +22,12 @@ impl Command for SubCommand {
             )
             .input_output_types(vec![
                 (Type::Number, Type::Float),
-                (Type::Number, Type::Int),
                 (
                     Type::List(Box::new(Type::Number)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
                 ),
             ])
             .allow_variants_without_examples(true)
-            .vectorizes_over_list(true)
             .category(Category::Math)
     }
 

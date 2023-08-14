@@ -38,7 +38,7 @@ pub fn eval_call(
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-        let mut signature = decl.signature();
+        let mut signature = engine_state.get_signature(decl);
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
 
@@ -58,6 +58,14 @@ pub fn eval_call(
         let block = engine_state.get_block(block_id);
 
         let mut callee_stack = caller_stack.gather_captures(&block.captures);
+        // When the def is defined in module, relative captured variable doesn't go into stack
+        // so it can't be merged to callee_stack, but the variable is defined in `engine_state`
+        // then, to solve the issue, we also need to try to get relative const from `engine_state`
+        for cap in &block.captures {
+            if let Some(value) = engine_state.get_var(*cap).const_val.clone() {
+                callee_stack.vars.push((*cap, value))
+            }
+        }
 
         for (param_idx, param) in decl
             .signature()
@@ -121,7 +129,7 @@ pub fn eval_call(
                             } else if let Some(value) = &named.default_value {
                                 callee_stack.add_var(var_id, value.to_owned());
                             } else {
-                                callee_stack.add_var(var_id, Value::boolean(true, call.head))
+                                callee_stack.add_var(var_id, Value::bool(true, call.head))
                             }
                             found = true;
                         }
@@ -133,7 +141,7 @@ pub fn eval_call(
                         } else if let Some(value) = &named.default_value {
                             callee_stack.add_var(var_id, value.to_owned());
                         } else {
-                            callee_stack.add_var(var_id, Value::boolean(true, call.head))
+                            callee_stack.add_var(var_id, Value::bool(true, call.head))
                         }
                         found = true;
                     }
@@ -141,7 +149,7 @@ pub fn eval_call(
 
                 if !found {
                     if named.arg.is_none() {
-                        callee_stack.add_var(var_id, Value::boolean(false, call.head))
+                        callee_stack.add_var(var_id, Value::bool(false, call.head))
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);
                     } else {
@@ -275,7 +283,7 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
+        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {
@@ -329,7 +337,7 @@ pub fn eval_expression(
         Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Overlay(_) => {
             let name =
-                String::from_utf8_lossy(engine_state.get_span_contents(&expr.span)).to_string();
+                String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
 
             Ok(Value::String {
                 val: name,
@@ -367,7 +375,7 @@ pub fn eval_expression(
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
-                Value::Bool { val, .. } => Ok(Value::boolean(!val, expr.span)),
+                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                 _ => Err(ShellError::TypeMismatch {
                     err_message: "bool".to_string(),
                     span: expr.span,
@@ -384,7 +392,7 @@ pub fn eval_expression(
                     match boolean {
                         Boolean::And => {
                             if lhs.is_false() {
-                                Ok(Value::boolean(false, expr.span))
+                                Ok(Value::bool(false, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.and(op_span, &rhs, expr.span)
@@ -392,7 +400,7 @@ pub fn eval_expression(
                         }
                         Boolean::Or => {
                             if lhs.is_true() {
-                                Ok(Value::boolean(true, expr.span))
+                                Ok(Value::bool(true, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.or(op_span, &rhs, expr.span)
@@ -795,7 +803,10 @@ pub fn eval_element_with_input(
             redirect_stderr,
         ),
         PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
-            Expr::String(_) => {
+            Expr::String(_)
+            | Expr::FullCellPath(_)
+            | Expr::StringInterpolation(_)
+            | Expr::Filepath(_) => {
                 let exit_code = match &mut input {
                     PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                     _ => None,
@@ -880,7 +891,16 @@ pub fn eval_element_with_input(
             out: (out_span, out_expr),
             err: (err_span, err_expr),
         } => match (&out_expr.expr, &err_expr.expr) {
-            (Expr::String(_), Expr::String(_)) => {
+            (
+                Expr::String(_)
+                | Expr::FullCellPath(_)
+                | Expr::StringInterpolation(_)
+                | Expr::Filepath(_),
+                Expr::String(_)
+                | Expr::FullCellPath(_)
+                | Expr::StringInterpolation(_)
+                | Expr::Filepath(_),
+            ) => {
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                     let exit_code = match &mut input {
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
@@ -1116,7 +1136,7 @@ pub fn eval_block(
             {
                 let element_span = pipeline.elements[i].span();
                 let element_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(&pipeline.elements[i].span()),
+                    engine_state.get_span_contents(pipeline.elements[i].span()),
                 )
                 .to_string();
 

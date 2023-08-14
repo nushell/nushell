@@ -28,7 +28,11 @@ impl Command for BytesEndsWith {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes ends-with")
-            .input_output_types(vec![(Type::Binary, Type::Bool)])
+            .input_output_types(vec![(Type::Binary, Type::Bool),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required("pattern", SyntaxShape::Binary, "the pattern to match")
             .rest(
                 "rest",
@@ -89,7 +93,7 @@ fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary {
             val,
             span: val_span,
-        } => Value::boolean(val.ends_with(&args.pattern), *val_span),
+        } => Value::bool(val.ends_with(&args.pattern), *val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::Error {

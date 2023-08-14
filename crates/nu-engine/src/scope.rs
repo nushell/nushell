@@ -337,7 +337,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span),
                 Value::string("input", span),
                 Value::string(input_type.to_shape().to_string(), span),
-                Value::boolean(false, span),
+                Value::bool(false, span),
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
@@ -352,7 +352,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(&req.name, span),
                 Value::string("positional", span),
                 Value::string(req.shape.to_string(), span),
-                Value::boolean(false, span),
+                Value::bool(false, span),
                 Value::nothing(span),
                 Value::string(&req.desc, span),
                 Value::string(
@@ -375,7 +375,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(&opt.name, span),
                 Value::string("positional", span),
                 Value::string(opt.shape.to_string(), span),
-                Value::boolean(true, span),
+                Value::bool(true, span),
                 Value::nothing(span),
                 Value::string(&opt.desc, span),
                 Value::string(
@@ -402,7 +402,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(if rest.name == "rest" { "" } else { &rest.name }, span),
                 Value::string("rest", span),
                 Value::string(rest.shape.to_string(), span),
-                Value::boolean(true, span),
+                Value::bool(true, span),
                 Value::nothing(span),
                 Value::string(&rest.desc, span),
                 Value::string(
@@ -449,7 +449,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::string(&named.long, span),
                 flag_type,
                 shape,
-                Value::boolean(!named.required, span),
+                Value::bool(!named.required, span),
                 short_flag,
                 Value::string(&named.desc, span),
                 Value::string(custom_completion_command_name, span),
@@ -474,7 +474,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 Value::nothing(span),
                 Value::string("output", span),
                 Value::string(output_type.to_shape().to_string(), span),
-                Value::boolean(false, span),
+                Value::bool(false, span),
                 Value::nothing(span),
                 Value::nothing(span),
                 Value::nothing(span),
@@ -534,12 +534,11 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
-        for (name_bytes, decl_id) in self.engine_state.get_decls_sorted(false) {
+        for (_, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    let name = String::from_utf8_lossy(&name_bytes).to_string();
-                    let sig = decl.signature().update_from_command(name, decl.borrow());
+                    let sig = decl.signature().update_from_command(decl.borrow());
                     let key = sig.name;
 
                     aliases.push(Value::Record {
@@ -548,8 +547,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                             Value::String { val: key, span },
                             Value::String {
                                 val: String::from_utf8_lossy(
-                                    self.engine_state
-                                        .get_span_contents(&alias.wrapped_call.span),
+                                    self.engine_state.get_span_contents(alias.wrapped_call.span),
                                 )
                                 .to_string(),
                                 span,

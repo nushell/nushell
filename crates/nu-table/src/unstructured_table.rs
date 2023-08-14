@@ -6,7 +6,7 @@ use tabled::{
         config::{AlignmentHorizontal, Borders, CompactMultilineConfig},
         dimension::{DimensionPriority, PoolTableDimension},
     },
-    settings::{style::RawStyle, Color, TableOption},
+    settings::{style::RawStyle, Color, Padding, TableOption},
     tables::{PoolTable, TableValue},
 };
 
@@ -35,17 +35,28 @@ impl UnstructuredTable {
         truncate_table_value(&mut self.value, has_vertical, available).is_none()
     }
 
-    pub fn draw(self, style_computer: &StyleComputer, theme: &TableTheme) -> String {
-        build_table(self.value, style_computer, theme)
+    pub fn draw(
+        self,
+        style_computer: &StyleComputer,
+        theme: &TableTheme,
+        indent: (usize, usize),
+    ) -> String {
+        build_table(self.value, style_computer, theme, indent)
     }
 }
 
-fn build_table(val: TableValue, style_computer: &StyleComputer, theme: &TableTheme) -> String {
+fn build_table(
+    val: TableValue,
+    style_computer: &StyleComputer,
+    theme: &TableTheme,
+    indent: (usize, usize),
+) -> String {
     let mut table = PoolTable::from(val);
 
     let mut theme = theme.get_theme_full();
     theme.set_horizontals(std::collections::HashMap::default());
 
+    table.with(Padding::new(indent.0, indent.1, 0, 0));
     table.with(SetRawStyle(theme));
     table.with(SetAlignment(AlignmentHorizontal::Left));
     table.with(PoolTableDimension::new(

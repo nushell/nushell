@@ -192,11 +192,38 @@ mod regex {
 
     #[test]
     fn parse_works_with_streaming() {
-        let actual = nu!(
-            cwd: ".", pipeline(
-               r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#
-        ));
+        let actual =
+            nu!(r#"seq char a z | each {|c| $c + " a"} | parse '{letter} {a}' | describe"#);
 
         assert_eq!(actual.out, "table<letter: string, a: string> (stream)")
+    }
+
+    #[test]
+    fn parse_does_not_truncate_list_streams() {
+        let actual = nu!(pipeline(
+            r#"
+                [a b c]
+                | each {|x| $x}
+                | parse --regex "[ac]"
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "2");
+    }
+
+    #[test]
+    fn parse_handles_external_stream_chunking() {
+        Playground::setup("parse_test_streaming_1", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    "abcdefghijklmnopqrstuvwxyz" * 1000 | save --force data.txt;
+                    open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length
+                "#
+            ));
+
+            assert_eq!(actual.out, "1000");
+        })
     }
 }

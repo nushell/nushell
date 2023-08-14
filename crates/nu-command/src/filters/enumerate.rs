@@ -23,7 +23,7 @@ impl Command for Enumerate {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("enumerate")
-            .input_output_types(vec![(Type::Any, Type::Any)])
+            .input_output_types(vec![(Type::Any, Type::Table(vec![]))])
             .category(Category::Filters)
     }
 

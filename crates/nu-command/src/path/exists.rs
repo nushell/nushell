@@ -5,7 +5,7 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -25,13 +25,15 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path exists").input_output_types(vec![
-            (Type::String, Type::Bool),
-            (
-                Type::List(Box::new(Type::String)),
-                Type::List(Box::new(Type::Bool)),
-            ),
-        ])
+        Signature::build("path exists")
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Bool)),
+                ),
+            ])
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {

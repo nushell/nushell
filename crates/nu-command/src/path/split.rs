@@ -3,7 +3,7 @@ use std::path::{Component, Path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -21,13 +21,15 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path split").input_output_types(vec![
-            (Type::String, Type::List(Box::new(Type::String))),
-            (
-                Type::List(Box::new(Type::String)),
-                Type::List(Box::new(Type::List(Box::new(Type::String)))),
-            ),
-        ])
+        Signature::build("path split")
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
+                ),
+            ])
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {

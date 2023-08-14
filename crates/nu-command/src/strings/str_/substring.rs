@@ -5,6 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{
     Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -42,8 +43,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str substring")
-            .input_output_types(vec![(Type::String, Type::String), (Type::Table(vec![]), Type::Table(vec![]))])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
@@ -65,6 +70,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, turn strings at the given cell paths into substrings",
             )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

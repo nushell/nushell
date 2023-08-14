@@ -86,10 +86,10 @@ fn errors_if_column_not_found() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open los_tres_caballeros.csv
                 | group-by ttype
-            "#
+            "
         ));
 
         assert!(actual.err.contains("did you mean 'type'"),);

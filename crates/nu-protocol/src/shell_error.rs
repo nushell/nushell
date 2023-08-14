@@ -269,7 +269,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(
         code(nu::shell::nushell_failed),
@@ -283,7 +283,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(
         code(nu::shell::nushell_failed_spanned),
@@ -302,7 +302,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(code(nu::shell::nushell_failed_help))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
@@ -431,7 +431,7 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot not be set manually."#
+            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
         )
     )]
     AutomaticEnvVarSetManually {

@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
 use std::iter;
@@ -29,6 +29,7 @@ impl Command for Histogram {
             .optional("column-name", SyntaxShape::String, "column name to calc frequency, no need to provide if input is just a list")
             .optional("frequency-column-name", SyntaxShape::String, "histogram's frequency column, default to be frequency column output")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
+            .category(Category::Chart)
     }
 
     fn usage(&self) -> &str {

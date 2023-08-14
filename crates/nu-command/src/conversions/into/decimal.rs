@@ -17,13 +17,15 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into decimal")
             .input_output_types(vec![
-                (Type::Int, Type::Number),
-                (Type::String, Type::Number),
-                (Type::Bool, Type::Number),
+                (Type::Int, Type::Float),
+                (Type::String, Type::Float),
+                (Type::Bool, Type::Float),
+                (Type::Float, Type::Float),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
                 (
                     Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
                 ),
             ])
             .rest(
@@ -75,9 +77,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_float(1.345)),
             },
             Example {
-                description: "Convert decimal to decimal",
-                example: "'-5.9' | into decimal",
-                result: Some(Value::test_float(-5.9)),
+                description: "Coerce list of ints and floats to float",
+                example: "[4 -5.9] | into decimal",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(4.0),
+                    Value::test_float(-5.9),
+                ])),
             },
             Example {
                 description: "Convert boolean to decimal",
@@ -90,6 +95,7 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
+        Value::Float { .. } => input.clone(),
         Value::String { val: s, span } => {
             let other = s.trim();
 

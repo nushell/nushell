@@ -127,15 +127,13 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 
-    for (name_bytes, decl_id) in commands {
+    for (_, decl_id) in commands {
         let mut cols = vec![];
         let mut vals = vec![];
 
-        let name = String::from_utf8_lossy(&name_bytes).to_string();
         let decl = engine_state.get_decl(decl_id);
-        let sig = decl.signature().update_from_command(name, decl.borrow());
+        let sig = decl.signature().update_from_command(decl.borrow());
 
-        let signatures = sig.to_string().trim_start().replace("\n  ", "\n");
         let key = sig.name;
         let usage = sig.usage;
         let search_terms = sig.search_terms;
@@ -155,15 +153,131 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         cols.push("usage".into());
         vals.push(Value::String { val: usage, span });
 
-        cols.push("signatures".into());
-        vals.push(Value::String {
-            val: if decl.is_parser_keyword() {
-                "".to_string()
-            } else {
-                signatures
-            },
-            span,
-        });
+        cols.push("params".into());
+
+        // Build table of parameters
+        let param_table = {
+            let mut vals = vec![];
+
+            for required_param in &sig.required_positional {
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(&required_param.name, span),
+                        Value::string(required_param.shape.to_string(), span),
+                        Value::bool(true, span),
+                        Value::string(&required_param.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            for optional_param in &sig.optional_positional {
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(&optional_param.name, span),
+                        Value::string(optional_param.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::string(&optional_param.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            if let Some(rest_positional) = &sig.rest_positional {
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(format!("...{}", rest_positional.name), span),
+                        Value::string(rest_positional.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::string(&rest_positional.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            for named_param in &sig.named {
+                let name = if let Some(short) = named_param.short {
+                    if named_param.long.is_empty() {
+                        format!("-{}", short)
+                    } else {
+                        format!("--{}(-{})", named_param.long, short)
+                    }
+                } else {
+                    format!("--{}", named_param.long)
+                };
+
+                vals.push(Value::Record {
+                    cols: vec![
+                        "name".to_string(),
+                        "type".to_string(),
+                        "required".to_string(),
+                        "description".to_string(),
+                    ],
+                    vals: vec![
+                        Value::string(name, span),
+                        Value::string(
+                            if let Some(arg) = &named_param.arg {
+                                arg.to_string()
+                            } else {
+                                "switch".to_string()
+                            },
+                            span,
+                        ),
+                        Value::bool(named_param.required, span),
+                        Value::string(&named_param.desc, span),
+                    ],
+                    span,
+                });
+            }
+
+            Value::List { vals, span }
+        };
+        vals.push(param_table);
+
+        cols.push("input_output".into());
+
+        // Build the signature input/output table
+        let input_output_table = {
+            let mut vals = vec![];
+
+            for (input_type, output_type) in sig.input_output_types {
+                vals.push(Value::Record {
+                    cols: vec!["input".to_string(), "output".to_string()],
+                    vals: vec![
+                        Value::String {
+                            val: input_type.to_string(),
+                            span,
+                        },
+                        Value::String {
+                            val: output_type.to_string(),
+                            span,
+                        },
+                    ],
+                    span,
+                });
+            }
+
+            Value::List { vals, span }
+        };
+        vals.push(input_output_table);
 
         cols.push("search_terms".into());
         vals.push(Value::String {

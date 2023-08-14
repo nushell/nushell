@@ -1111,3 +1111,10 @@ mod variable_scoping {
         );
     }
 }
+
+#[test]
+fn pipe_input_to_print() {
+    let actual = nu!(r#""foo" | print"#);
+    assert_eq!(actual.out, "foo");
+    assert!(actual.err.is_empty());
+}

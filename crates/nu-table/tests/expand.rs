@@ -2,16 +2,18 @@ mod common;
 
 use common::{create_row, create_table};
 
-use nu_table::{TableConfig, TableTheme as theme};
+use nu_table::{NuTableConfig, TableTheme as theme};
 
 #[test]
 fn test_expand() {
     let table = create_table(
         vec![create_row(4); 3],
-        TableConfig::new()
-            .theme(theme::rounded())
-            .with_header(true)
-            .expand(true),
+        NuTableConfig {
+            theme: theme::rounded(),
+            with_header: true,
+            expand: true,
+            ..Default::default()
+        },
         50,
     );
 

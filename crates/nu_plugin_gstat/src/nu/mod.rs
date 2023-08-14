@@ -22,6 +22,6 @@ impl Plugin for GStat {
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
         // eprintln!("input value: {:#?}", &input);
-        self.gstat(input, repo_path, &call.head)
+        self.gstat(input, repo_path, call.head)
     }
 }
