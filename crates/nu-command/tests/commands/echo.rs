@@ -34,3 +34,10 @@ fn echo_range_handles_exclusive_down() {
 
     assert_eq!(actual.out, "[3,2]");
 }
+
+#[test]
+fn echo_const() {
+    let actual = nu!("const x = (echo spam); $x");
+
+    assert_eq!(actual.out, "spam");
+}
