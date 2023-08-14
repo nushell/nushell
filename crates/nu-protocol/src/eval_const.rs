@@ -14,7 +14,7 @@ fn eval_const_call(
         return Err(ShellError::NotAConstCommand(call.head));
     }
 
-    Ok(decl.run_const(working_set, call, input)?)
+    decl.run_const(working_set, call, input)
 }
 
 fn eval_const_subexpression(
