@@ -129,3 +129,12 @@ fn const_in_scope() {
 
     assert_eq!(actual.out, "x");
 }
+
+#[test]
+fn not_a_const_help() {
+    let inp = &["const x = ('abc' | str length -h)"];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert!(actual.err.contains("not_a_const_help"));
+}

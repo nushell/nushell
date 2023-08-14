@@ -1127,6 +1127,18 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
     )]
     NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
+
+    /// Tried getting a help message at parse time.
+    ///
+    /// ## Resolution
+    ///
+    /// Help messages are not supported at parse time.
+    #[error("Help message not a constant.")]
+    #[diagnostic(
+        code(nu::shell::not_a_const_help),
+        help("Help messages are currently not supported to be constants.")
+    )]
+    NotAConstHelp(#[label = "Cannot get help message at parse time."] Span),
 }
 
 // TODO: Implement as From trait

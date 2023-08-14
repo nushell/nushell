@@ -10,8 +10,15 @@ fn eval_const_call(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let decl = working_set.get_decl(call.decl_id);
+
     if !decl.is_const() {
         return Err(ShellError::NotAConstCommand(call.head));
+    }
+
+    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+        // It would require re-implementing get_full_help() for const evaluation. Assuming that
+        // getting help messages at parse-time is rare enough, we can simply disallow it.
+        return Err(ShellError::NotAConstHelp(call.head));
     }
 
     decl.run_const(working_set, call, input)
