@@ -20,11 +20,11 @@ impl Command for LetEnv {
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",
             )
-            .category(Category::Deprecated)
+            .category(Category::Removed)
     }
 
     fn usage(&self) -> &str {
-        "`let-env FOO = ...` is deprecated, use `$env.FOO = ...` instead."
+        "`let-env FOO = ...` has been removed, use `$env.FOO = ...` instead."
     }
 
     fn run(
@@ -34,7 +34,7 @@ impl Command for LetEnv {
         call: &Call,
         _: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(nu_protocol::ShellError::DeprecatedCommand(
+        Err(nu_protocol::ShellError::RemovedCommand(
             self.name().to_string(),
             "$env.<environment variable> = ...".to_owned(),
             call.head,

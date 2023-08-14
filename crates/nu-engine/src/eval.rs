@@ -38,7 +38,7 @@ pub fn eval_call(
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-        let mut signature = decl.signature();
+        let mut signature = engine_state.get_signature(decl);
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
 

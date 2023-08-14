@@ -49,7 +49,7 @@ pub enum Category {
     Date,
     Debug,
     Default,
-    Deprecated,
+    Removed,
     Env,
     Experimental,
     FileSystem,
@@ -81,7 +81,7 @@ impl std::fmt::Display for Category {
             Category::Date => "date",
             Category::Debug => "debug",
             Category::Default => "default",
-            Category::Deprecated => "deprecated",
+            Category::Removed => "removed",
             Category::Env => "env",
             Category::Experimental => "experimental",
             Category::FileSystem => "filesystem",
@@ -237,8 +237,7 @@ impl Signature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> Signature {
-        self.name = name;
+    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
         self.search_terms = command
             .search_terms()
             .into_iter()
