@@ -3564,68 +3564,55 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let stack = Stack::new();
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
-    let error = match signature {
-        Some(signature) => arguments.and_then(|(path, path_span)| {
-            let path = path.path_buf();
-            // restrict plugin file name starts with `nu_plugin_`
-            let valid_plugin_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = valid_plugin_name {
-                signature.map(|signature| {
-                    let plugin_decl = PluginDeclaration::new(path, signature, shell);
-                    working_set.add_decl(Box::new(plugin_decl));
+    let error = arguments.and_then(|(path, path_span)| {
+        let path = path.path_buf();
+        // restrict plugin file name starts with `nu_plugin_`
+        let valid_plugin_name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+
+        let Some(true) = valid_plugin_name else {
+            return Err(ParseError::LabeledError(
+                "Register plugin failed".into(),
+                "plugin name must start with nu_plugin_".into(),
+                path_span,
+            ));
+        };
+
+        let signatures = signature.map_or_else(
+            || {
+                let signatures = get_signature(&path, &shell, &current_envs).map_err(|err| {
+                    ParseError::LabeledError(
+                        "Error getting signatures".into(),
+                        err.to_string(),
+                        spans[0],
+                    )
+                });
+
+                if signatures.is_ok() {
+                    // mark plugins file as dirty only when the user is registering plugins
+                    // and not when we evaluate plugin.nu on shell startup
                     working_set.mark_plugins_file_dirty();
-                })
-            } else {
-                Err(ParseError::LabeledError(
-                    "Register plugin failed".into(),
-                    "plugin name must start with nu_plugin_".into(),
-                    path_span,
-                ))
-            }
-        }),
-        None => arguments.and_then(|(path, path_span)| {
-            let path = path.path_buf();
-            // restrict plugin file name starts with `nu_plugin_`
-            let valid_plugin_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+                }
 
-            if let Some(true) = valid_plugin_name {
-                get_signature(&path, &shell, &current_envs)
-                    .map_err(|err| {
-                        ParseError::LabeledError(
-                            "Error getting signatures".into(),
-                            err.to_string(),
-                            spans[0],
-                        )
-                    })
-                    .map(|signatures| {
-                        for signature in signatures {
-                            // create plugin command declaration (need struct impl Command)
-                            // store declaration in working set
-                            let plugin_decl =
-                                PluginDeclaration::new(path.clone(), signature, shell.clone());
+                signatures
+            },
+            |sig| sig.map(|sig| vec![sig]),
+        )?;
 
-                            working_set.add_decl(Box::new(plugin_decl));
-                        }
+        for signature in signatures {
+            // create plugin command declaration (need struct impl Command)
+            // store declaration in working set
+            let plugin_decl = PluginDeclaration::new(path.clone(), signature, shell.clone());
 
-                        working_set.mark_plugins_file_dirty();
-                    })
-            } else {
-                Err(ParseError::LabeledError(
-                    "Register plugin failed".into(),
-                    "plugin name must start with nu_plugin_".into(),
-                    path_span,
-                ))
-            }
-        }),
-    }
-    .err();
+            working_set.add_decl(Box::new(plugin_decl));
+        }
 
-    if let Some(err) = error {
+        Ok(())
+    });
+
+    if let Err(err) = error {
         working_set.error(err);
     }
 
