@@ -138,3 +138,11 @@ fn not_a_const_help() {
 
     assert!(actual.err.contains("not_a_const_help"));
 }
+
+// const implementations of commands without dedicated tests
+#[test]
+fn describe_const() {
+    let actual = nu!("const x = ('abc' | describe); $x");
+
+    assert_eq!(actual.out, "string");
+}
