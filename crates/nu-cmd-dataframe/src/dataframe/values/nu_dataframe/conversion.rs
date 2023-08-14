@@ -441,6 +441,7 @@ fn input_type_list_to_series(
             let res = builder.finish();
             Ok(res.into_series())
         }
+        InputType::List(ref sub_list_type) => Ok(input_type_list_to_series(name, sub_list_type, values)?),
         // treat everything else as an object
         _ => Ok(input_type_object_to_series(name, values)?),
     }
