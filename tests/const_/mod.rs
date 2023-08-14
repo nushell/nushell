@@ -143,6 +143,17 @@ fn not_a_const_help() {
 #[test]
 fn describe_const() {
     let actual = nu!("const x = ('abc' | describe); $x");
-
     assert_eq!(actual.out, "string");
+}
+
+#[test]
+fn ignore_const() {
+    let actual = nu!("const x = (echo spam | ignore); $x == null");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn version_const() {
+    let actual = nu!("const x = (version); $x");
+    assert!(actual.err.is_empty());
 }
