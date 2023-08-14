@@ -464,9 +464,10 @@ fn request_handle_response_content(
     requested_url: &str,
     flags: RequestFlags,
     resp: Response,
+    request: Request,
 ) -> Result<PipelineData, ShellError> {
     let response_headers: Option<PipelineData> = if flags.full {
-        let headers_raw = request_handle_response_headers_raw(span, &resp)?;
+        let headers_raw = headers_to_nu(&extract_response_headers(&resp), span)?;
         Some(headers_raw)
     } else {
         None
@@ -486,14 +487,20 @@ fn request_handle_response_content(
         ),
         None => Ok(response_to_buffer(resp, engine_state, span)),
     };
+
     if flags.full {
         let full_response = Value::Record {
             cols: vec![
+                "request_headers".to_string(),
                 "headers".to_string(),
                 "body".to_string(),
                 "status".to_string(),
             ],
             vals: vec![
+                match headers_to_nu(&extract_request_headers(&request), span) {
+                    Ok(headers) => headers.into_value(span),
+                    Err(_) => Value::nothing(span),
+                },
                 match response_headers {
                     Some(headers) => headers.into_value(span),
                     None => Value::nothing(span),
@@ -517,11 +524,18 @@ pub fn request_handle_response(
     requested_url: &str,
     flags: RequestFlags,
     response: Result<Response, ShellErrorOrRequestError>,
+    request: Request,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => {
-            request_handle_response_content(engine_state, stack, span, requested_url, flags, resp)
-        }
+        Ok(resp) => request_handle_response_content(
+            engine_state,
+            stack,
+            span,
+            requested_url,
+            flags,
+            resp,
+            request,
+        ),
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(_, e) => {
@@ -534,6 +548,7 @@ pub fn request_handle_response(
                             requested_url,
                             flags,
                             resp,
+                            request,
                         )?)
                     } else {
                         Err(handle_response_error(span, requested_url, *e))
@@ -546,16 +561,39 @@ pub fn request_handle_response(
     }
 }
 
-pub fn request_handle_response_headers_raw(
-    span: Span,
-    response: &Response,
-) -> Result<PipelineData, ShellError> {
-    let header_names = response.headers_names();
+type Headers = HashMap<String, Vec<String>>;
 
+fn extract_request_headers(request: &Request) -> Headers {
+    request
+        .header_names()
+        .iter()
+        .map(|name| {
+            (
+                name.clone(),
+                request.all(name).iter().map(|e| e.to_string()).collect(),
+            )
+        })
+        .collect()
+}
+
+fn extract_response_headers(response: &Response) -> Headers {
+    response
+        .headers_names()
+        .iter()
+        .map(|name| {
+            (
+                name.clone(),
+                response.all(name).iter().map(|e| e.to_string()).collect(),
+            )
+        })
+        .collect()
+}
+
+fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
     let cols = vec!["name".to_string(), "value".to_string()];
-    let mut vals = Vec::with_capacity(header_names.len());
+    let mut vals = Vec::with_capacity(headers.len());
 
-    for name in &header_names {
+    for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { vals, .. } = val {
                 if let Some(Value::String {
@@ -568,10 +606,13 @@ pub fn request_handle_response_headers_raw(
             false
         });
         if !is_duplicate {
-            // Use the ureq `Response.all` api to get all of the header values with a given name.
+            // A single header can hold multiple values
             // This interface is why we needed to check if we've already parsed this header name.
-            for str_value in response.all(name) {
-                let header = vec![Value::string(name, span), Value::string(str_value, span)];
+            for str_value in values {
+                let header = vec![
+                    Value::string(name, span),
+                    Value::string(str_value.to_string(), span),
+                ];
                 vals.push(Value::record(cols.clone(), header, span));
             }
         }
@@ -585,7 +626,7 @@ pub fn request_handle_response_headers(
     response: Result<Response, ShellErrorOrRequestError>,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => request_handle_response_headers_raw(span, &resp),
+        Ok(resp) => headers_to_nu(&extract_response_headers(&resp), span),
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(requested_url, e) => {
