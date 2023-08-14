@@ -19,6 +19,7 @@ impl Command for ExternWrapped {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("extern-wrapped")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .allow_variants_without_examples(true)
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
             .required("body", SyntaxShape::Block, "wrapper code block")
@@ -47,8 +48,8 @@ impl Command for ExternWrapped {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Define a custom wrapper for an external command",
-            example: r#"extern-wrapped my-echo [...rest] { ^echo $rest }; my-echo spam"#,
-            result: Some(Value::test_string("spam")),
+            example: r#"extern-wrapped my-echo [...rest] { echo $rest }; my-echo spam"#,
+            result: Some(Value::test_list(vec![Value::test_string("spam")])),
         }]
     }
 }
