@@ -1,5 +1,5 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
@@ -33,11 +33,20 @@ impl Command for Version {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(engine_state, stack, call, input)
+        version(engine_state, call)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        version(working_set.permanent(), call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,12 +58,7 @@ impl Command for Version {
     }
 }
 
-pub fn version(
-    engine_state: &EngineState,
-    _stack: &mut Stack,
-    call: &Call,
-    _input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (12 items):
     // - version
     // - branch
