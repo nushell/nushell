@@ -18,7 +18,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-static PWD_ENV: &str = "PWD";
+pub static PWD_ENV: &str = "PWD";
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
