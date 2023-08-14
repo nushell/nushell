@@ -441,7 +441,7 @@ pub(crate) fn dir_entry_dict(
         span,
     });
 
-    cols.push("filename".into());
+    cols.push("fullpath".into());
     vals.push(Value::String {
         val: filename.display().to_string(),
         span,

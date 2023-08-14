@@ -470,17 +470,17 @@ fn handle_row_stream(
                                     // We get the filename index and value here so that we can use that information
                                     // to pass into lscolors so that even if `ls -s` is used, we still know the full
                                     // path and can color it appropriately
-                                    let filename_idx = cols
+                                    let fullpath_idx = cols
                                         .iter()
-                                        .position(|r| r.clone() == "filename")
+                                        .position(|r| r.clone() == "fullpath")
                                         .unwrap_or(idx);
-                                    let filename_val = vals
-                                        .get(filename_idx)
+                                    let fullpath_val = vals
+                                        .get(fullpath_idx)
                                         .unwrap_or(vals.get(idx).expect("cant fail"))
                                         .into_string("", &config);
 
                                     let val = render_path_name(
-                                        &filename_val,
+                                        &fullpath_val,
                                         val,
                                         &config,
                                         &ls_colors,
@@ -493,7 +493,7 @@ fn handle_row_stream(
                             }
                             // Now that we've rendered the path, we don't need the filename column
                             // in the output, so let's remove it.
-                            if cols[idx] == "filename" {
+                            if cols[idx] == "fullpath" {
                                 cols.remove(idx);
                                 vals.remove(idx);
                             }
@@ -811,7 +811,7 @@ impl Iterator for PagingTableCreator {
 }
 
 fn render_path_name(
-    filename: &str,
+    fullpath: &str,
     display_name: &str,
     config: &Config,
     ls_colors: &LsColors,
@@ -821,7 +821,7 @@ fn render_path_name(
         return None;
     }
 
-    let stripped_path = nu_utils::strip_ansi_unlikely(filename);
+    let stripped_path = nu_utils::strip_ansi_unlikely(fullpath);
 
     let (style, has_metadata) = match std::fs::symlink_metadata(stripped_path.as_ref()) {
         Ok(metadata) => (
