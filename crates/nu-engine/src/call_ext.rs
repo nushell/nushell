@@ -48,6 +48,12 @@ pub trait CallExt {
         pos: usize,
     ) -> Result<T, ShellError>;
 
+    fn req_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        pos: usize,
+    ) -> Result<T, ShellError>;
+
     fn req_parser_info<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -137,6 +143,24 @@ impl CallExt for Call {
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_expression(engine_state, stack, expr)?;
+            FromValue::from_value(&result)
+        } else if self.positional_len() == 0 {
+            Err(ShellError::AccessEmptyContent { span: self.head })
+        } else {
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.positional_len() - 1,
+                span: self.head,
+            })
+        }
+    }
+
+    fn req_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        pos: usize,
+    ) -> Result<T, ShellError> {
+        if let Some(expr) = self.positional_nth(pos) {
+            let result = eval_constant(working_set, expr)?;
             FromValue::from_value(&result)
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
