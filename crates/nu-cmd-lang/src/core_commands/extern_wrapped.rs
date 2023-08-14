@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct ExternWrapped;
@@ -45,8 +47,8 @@ impl Command for ExternWrapped {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Define a custom wrapper for an external command",
-            example: r#"extern-wrapped my-echo [...rest] { ^echo $rest }"#,
-            result: None,
+            example: r#"extern-wrapped my-echo [...rest] { ^echo $rest }; my-echo spam"#,
+            result: Some(Value::test_string("spam")),
         }]
     }
 }
