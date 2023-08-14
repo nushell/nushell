@@ -135,3 +135,11 @@ fn replaces_dirname_of_way_too_many_levels() {
     let expected = join_path_sep(&["eggs", "some/dir/with/spam.txt"]);
     assert_eq!(actual.out, expected);
 }
+
+#[test]
+fn const_path_dirname() {
+    let actual =
+        nu!(cwd: "tests", pipeline("const name = ('spam/eggs.txt' | path dirname); $name"));
+
+    assert_eq!(actual.out, "spam");
+}
