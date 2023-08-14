@@ -81,10 +81,6 @@ impl Command for SubCommand {
         vec!["slice"]
     }
 
-    fn is_const(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

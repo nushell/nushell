@@ -42,10 +42,6 @@ impl Command for SubCommand {
         vec!["convert", "inverse", "flip"]
     }
 
-    fn is_const(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

@@ -79,10 +79,6 @@ impl Command for SubCommand {
         vec!["search", "shift", "switch", "regex"]
     }
 
-    fn is_const(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,

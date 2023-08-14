@@ -53,10 +53,6 @@ impl Command for SubCommand {
         vec!["suffix", "match", "find", "search"]
     }
 
-    fn is_const(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,
