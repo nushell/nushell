@@ -61,6 +61,5 @@ fn checks_tilde_relative_path_exists() {
 #[test]
 fn const_path_exists() {
     let actual = nu!("const exists = ('~' | path exists); $exists");
-
     assert_eq!(actual.out, "true");
 }

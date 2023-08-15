@@ -37,6 +37,5 @@ fn joins_path_on_other_than_windows() {
 #[test]
 fn const_path_relative_to() {
     let actual = nu!("'/home/viking' | path relative-to '/home'");
-
     assert_eq!(actual.out, "viking");
 }

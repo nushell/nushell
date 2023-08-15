@@ -85,6 +85,5 @@ fn replaces_basename_of_path_ending_with_double_dot() {
 #[test]
 fn const_path_basename() {
     let actual = nu!("const name = ('spam/eggs.txt' | path basename); $name");
-
     assert_eq!(actual.out, "eggs.txt");
 }

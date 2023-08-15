@@ -38,6 +38,5 @@ fn echo_range_handles_exclusive_down() {
 #[test]
 fn echo_const() {
     let actual = nu!("const x = (echo spam); $x");
-
     assert_eq!(actual.out, "spam");
 }
