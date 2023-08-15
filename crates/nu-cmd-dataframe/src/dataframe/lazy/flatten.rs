@@ -43,7 +43,7 @@ impl Command for LazyFlatten {
     fn examples(&self) -> Vec<Example> {
         vec![
 Example {
-                description: "Explode the specified dataframe",
+                description: "Flatten the specified dataframe",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr flatten hobbies | dfr collect",
                 result: Some(
                    NuDataFrame::try_from_columns(vec![
