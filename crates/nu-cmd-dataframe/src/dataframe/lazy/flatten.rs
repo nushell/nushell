@@ -76,7 +76,7 @@ Example {
                     )
             },
         Example {
-                description: "todo expression case",
+                description: "Select a column and flatten the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr flatten)",
                 result: Some(
                    NuDataFrame::try_from_columns(vec![

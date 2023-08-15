@@ -74,7 +74,7 @@ impl Command for LazyExplode {
                     )
             },
             Example {
-                description: "todo expression case",
+                description: "Select a column and explode the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr explode)",
                 result: Some(
                    NuDataFrame::try_from_columns(vec![
