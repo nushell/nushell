@@ -93,12 +93,12 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                format!("DEPRECATED option, will be removed in 0.85: see `format date`"),
+                "DEPRECATED option, will be removed in 0.85: see `format date`",
                 Some('f'),
             )
             .switch(
                 "list",
-                format!("DEPRECATED option, will be removed in 0.85: see `format date --list`"),
+                "DEPRECATED option, will be removed in 0.85: see `format date --list`",
                 Some('l'),
                 )
             .rest(
