@@ -75,7 +75,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 head,
                 input
                     .span()
-                    .expect("non-Empty non-ListStream PipelineData had no span"),
+                    .unwrap_or_default(),
             )),
         }
     }
