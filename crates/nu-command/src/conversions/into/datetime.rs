@@ -10,6 +10,12 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 
+const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+const CYAN: &str = "\x1b[36m";
+const DEFAULT_DIMMED_ITALIC: &str = "\x1b[2;3;39m";
+const RESET: &str = "\x1b[0m";
+
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
     format_options: Option<DatetimeFormat>,
@@ -87,12 +93,12 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of string input to parse to datetime. Use --list to see options",
+                "deprecated option, will be removed in 0.85: see `format date`",
                 Some('f'),
             )
             .switch(
                 "list",
-                "Show all possible variables for use in --format flag",
+                "deprecated option, will be removed in 0.85: see `format date --list`",
                 Some('l'),
                 )
             .rest(
@@ -111,6 +117,8 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag("list") {
+            eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --list{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
+            eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime --list{RESET} instead");
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
@@ -129,6 +137,11 @@ impl Command for SubCommand {
                         span: zone.span,
                     }),
                 };
+
+            if call.has_flag("format") {
+                eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --format{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
+                eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime{RESET} instead");
+            }
 
             let format_options = call
                 .get_flag::<String>(engine_state, stack, "format")?
