@@ -138,8 +138,7 @@ fn replaces_dirname_of_way_too_many_levels() {
 
 #[test]
 fn const_path_dirname() {
-    let actual =
-        nu!(cwd: "tests", pipeline("const name = ('spam/eggs.txt' | path dirname); $name"));
+    let actual = nu!("const name = ('spam/eggs.txt' | path dirname); $name");
 
     assert_eq!(actual.out, "spam");
 }
