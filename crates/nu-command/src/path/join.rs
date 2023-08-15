@@ -75,7 +75,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 head,
                 input
                     .span()
-                    .unwrap_or_default(),
+                    .unwrap_or(call.head),
             )),
         }
     }
