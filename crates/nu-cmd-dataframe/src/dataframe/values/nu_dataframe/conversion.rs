@@ -21,7 +21,7 @@ const SECS_PER_DAY: i64 = 86_400;
 // Since this is impossible to determine without traversing every value
 // I just picked one. Since this is for converting back and forth
 // between nushell tables the values shouldn't be too extremely large for
-// practical reasone (~ a few thousand rows).
+// practical reasons (~ a few thousand rows).
 const VALUES_CAPACITY: usize = 10;
 
 #[derive(Debug)]
