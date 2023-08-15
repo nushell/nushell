@@ -73,9 +73,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 "Input value cannot be joined".to_string(),
                 "value originates from here".into(),
                 head,
-                input
-                    .span()
-                    .unwrap_or(call.head),
+                input.span().unwrap_or(call.head),
             )),
         }
     }
