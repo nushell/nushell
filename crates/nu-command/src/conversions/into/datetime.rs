@@ -93,12 +93,12 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                "deprecated option, will be removed in 0.85: see `format date`",
+                format!("{YELLOW}deprecated option{RESET}, will be {RED}removed in 0.85{RESET}: see {DEFAULT_DIMMED_ITALIC}format date{RESET}"),
                 Some('f'),
             )
             .switch(
                 "list",
-                "deprecated option, will be removed in 0.85: see `format date --list`",
+                format!("{YELLOW}deprecated option{RESET}, will be {RED}removed in 0.85{RESET}: see {DEFAULT_DIMMED_ITALIC}format date --list{RESET}"),
                 Some('l'),
                 )
             .rest(
