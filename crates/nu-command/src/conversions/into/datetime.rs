@@ -93,12 +93,12 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                format!("{YELLOW}deprecated option{RESET}, will be {RED}removed in 0.85{RESET}: see {DEFAULT_DIMMED_ITALIC}format date{RESET}"),
+                format!("DEPRECATED option, will be removed in 0.85: see `format date`"),
                 Some('f'),
             )
             .switch(
                 "list",
-                format!("{YELLOW}deprecated option{RESET}, will be {RED}removed in 0.85{RESET}: see {DEFAULT_DIMMED_ITALIC}format date --list{RESET}"),
+                format!("DEPRECATED option, will be removed in 0.85: see `format date --list`"),
                 Some('l'),
                 )
             .rest(
@@ -116,9 +116,18 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
+
         if call.has_flag("list") {
-            eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --list{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
-            eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime --list{RESET} instead");
+            if use_ansi_coloring {
+                eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --list{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
+                eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime --list{RESET} instead");
+            } else {
+                eprintln!(
+                    "WARNING: `into datetime --list` is deprecated and will be removed in 0.85"
+                );
+                eprintln!("    help: see `format datetime --list` instead");
+            }
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
@@ -139,8 +148,15 @@ impl Command for SubCommand {
                 };
 
             if call.has_flag("format") {
-                eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --format{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
-                eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime{RESET} instead");
+                if use_ansi_coloring {
+                    eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --format{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
+                    eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime{RESET} instead");
+                } else {
+                    eprintln!(
+                        "WARNING: `into datetime --format` is deprecated and will be removed in 0.85"
+                    );
+                    eprintln!("    help: see `format datetime` instead");
+                }
             }
 
             let format_options = call
@@ -187,7 +203,7 @@ impl Command for SubCommand {
             },
             Example {
                 description:
-                    "Convert non-standard timestamp string to datetime using a custom format",
+                    "Convert non-standard timestamp string to datetime using a custom format (DEPRECATED: will be removed in 0.85)",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
