@@ -1,9 +1,5 @@
 use std::collections::HashMap;
-#[cfg(all(
-    feature = "trash-support",
-    not(target_os = "android"),
-    not(target_os = "ios")
-))]
+#[cfg(trash)]
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
@@ -95,11 +91,7 @@ impl Command for Rm {
             example: "rm file.txt",
             result: None,
         }];
-        #[cfg(all(
-            feature = "trash-support",
-            not(target_os = "android"),
-            not(target_os = "ios")
-        ))]
+        #[cfg(trash)]
         examples.append(&mut vec![
             Example {
                 description: "Move a file to the trash",
@@ -133,11 +125,7 @@ fn rm(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let trash = call.has_flag("trash");
-    #[cfg(all(
-        feature = "trash-support",
-        not(target_os = "android"),
-        not(target_os = "ios")
-    ))]
+    #[cfg(trash)]
     let permanent = call.has_flag("permanent");
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
@@ -182,12 +170,9 @@ fn rm(
     }
 
     let span = call.head;
+    let rm_always_trash = engine_state.get_config().rm_always_trash;
 
-    let config = engine_state.get_config();
-
-    let rm_always_trash = config.rm_always_trash;
-
-    #[cfg(not(feature = "trash-support"))]
+    #[cfg(not(trash))]
     {
         if rm_always_trash {
             return Err(ShellError::GenericError(
@@ -202,9 +187,9 @@ fn rm(
             ));
         } else if trash {
             return Err(ShellError::GenericError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled"
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled or on an unsupported platform"
                     .into(),
-                "this option is only available if nu is built with the `trash-support` feature"
+                "this option is only available if nu is built with the `trash-support` feature and the platform supports trash"
                     .into(),
                 Some(span),
                 None,
@@ -377,11 +362,7 @@ fn rm(
                     );
 
                     let result;
-                    #[cfg(all(
-                        feature = "trash-support",
-                        not(target_os = "android"),
-                        not(target_os = "ios")
-                    ))]
+                    #[cfg(trash)]
                     {
                         use std::io::Error;
                         result = if let Err(e) = interaction {
@@ -403,11 +384,7 @@ fn rm(
                             std::fs::remove_dir_all(&f)
                         };
                     }
-                    #[cfg(any(
-                        not(feature = "trash-support"),
-                        target_os = "android",
-                        target_os = "ios"
-                    ))]
+                    #[cfg(not(trash))]
                     {
                         use std::io::{Error, ErrorKind};
                         result = if let Err(e) = interaction {

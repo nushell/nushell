@@ -103,7 +103,7 @@ libc = "0.2"
 umask = "2.1"
 nix = { version = "0.26", default-features = false, features = ["user"] }
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
+[target.'cfg(trash)'.dependencies.trash]
 optional = true
 version = "3.0"
 
