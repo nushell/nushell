@@ -86,26 +86,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                let mut module_commands = vec![];
-                for module in &self.modules_map {
-                    let module_name = String::from_utf8_lossy(module.0).to_string();
-                    let module_id = self.engine_state.find_module(module.0, &[]);
-                    if let Some(module_id) = module_id {
-                        let module = self.engine_state.get_module(module_id);
-                        if module.has_decl(command_name) {
-                            module_commands.push(module_name);
-                        }
-                    }
-                }
-
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: String::from_utf8_lossy(command_name).to_string(),
                     span,
                 });
-
-                cols.push("module_name".into());
-                vals.push(Value::string(module_commands.join(", "), span));
 
                 let decl = self.engine_state.get_decl(**decl_id);
                 let signature = decl.signature();
@@ -470,27 +455,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                let mut module_commands = vec![];
-                for module in &self.modules_map {
-                    let module_name = String::from_utf8_lossy(module.0).to_string();
-                    let module_id = self.engine_state.find_module(module.0, &[]);
-                    if let Some(module_id) = module_id {
-                        let module = self.engine_state.get_module(module_id);
-                        if module.has_decl(command_name) {
-                            module_commands.push(module_name);
-                        }
-                    }
-                }
-
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: String::from_utf8_lossy(command_name).to_string(),
-                    span,
-                });
-
-                cols.push("module_name".into());
-                vals.push(Value::String {
-                    val: module_commands.join(", "),
                     span,
                 });
 
