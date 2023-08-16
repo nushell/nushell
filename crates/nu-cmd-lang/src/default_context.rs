@@ -58,6 +58,7 @@ pub fn create_default_context() -> EngineState {
             ScopeAliases,
             ScopeCommands,
             ScopeEngineStats,
+            ScopeExterns,
             ScopeModules,
             ScopeVariables,
             Try,
