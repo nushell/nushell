@@ -466,9 +466,9 @@ fn request_handle_response_content(
     resp: Response,
     request: Request,
 ) -> Result<PipelineData, ShellError> {
+    // This must be set before "resp" is moved in #response_to_buffer
     let response_headers: Option<PipelineData> = if flags.full {
-        let headers_raw = headers_to_nu(&extract_response_headers(&resp), span)?;
-        Some(headers_raw)
+        Some(headers_to_nu(&extract_response_headers(&resp), span)?)
     } else {
         None
     };
@@ -489,28 +489,36 @@ fn request_handle_response_content(
     };
 
     if flags.full {
+        let request_headers_value = match headers_to_nu(&extract_request_headers(&request), span) {
+            Ok(headers) => headers.into_value(span),
+            Err(_) => Value::nothing(span),
+        };
+
+        let response_headers_value = match response_headers {
+            Some(headers) => headers.into_value(span),
+            None => Value::nothing(span),
+        };
+
+        let headers = Value::Record {
+            cols: vec!["request".to_string(), "response".to_string()],
+            vals: vec![request_headers_value, response_headers_value],
+            span,
+        };
+
         let full_response = Value::Record {
             cols: vec![
-                "request_headers".to_string(),
                 "headers".to_string(),
                 "body".to_string(),
                 "status".to_string(),
             ],
             vals: vec![
-                match headers_to_nu(&extract_request_headers(&request), span) {
-                    Ok(headers) => headers.into_value(span),
-                    Err(_) => Value::nothing(span),
-                },
-                match response_headers {
-                    Some(headers) => headers.into_value(span),
-                    None => Value::nothing(span),
-                },
+                headers,
                 formatted_content?.into_value(span),
                 Value::int(response_status as i64, span),
             ],
             span,
-        }
-        .into_pipeline_data();
+        }.into_pipeline_data();
+
         Ok(full_response)
     } else {
         Ok(formatted_content?)
