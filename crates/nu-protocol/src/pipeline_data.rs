@@ -62,7 +62,7 @@ pub struct PipelineMetadata {
 
 #[derive(Debug, Clone)]
 pub enum DataSource {
-    Ls,
+    Ls(bool), // full_paths
     HtmlThemes,
     Profiling(Vec<Value>),
 }

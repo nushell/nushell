@@ -195,10 +195,8 @@ impl Command for Ls {
                         return None;
                     }
 
-                    let display_name = if short_names {
-                        path.file_name().map(|os| os.to_string_lossy().to_string())
-                    } else if full_paths || absolute_path {
-                        Some(path.to_string_lossy().to_string())
+                    let display_name = if short_names || absolute_path {
+                        Some(path.display().to_string())
                     } else if let Some(prefix) = &prefix {
                         if let Ok(remainder) = path.strip_prefix(prefix) {
                             if directory {
@@ -269,7 +267,7 @@ impl Command for Ls {
             })
             .into_pipeline_data_with_metadata(
                 Box::new(PipelineMetadata {
-                    data_source: DataSource::Ls,
+                    data_source: DataSource::Ls(full_paths),
                 }),
                 engine_state.ctrlc.clone(),
             ))
@@ -436,12 +434,6 @@ pub(crate) fn dir_entry_dict(
     let mut file_type = "unknown".to_string();
 
     cols.push("name".into());
-    vals.push(Value::String {
-        val: display_name.to_string(),
-        span,
-    });
-
-    cols.push("fullpath".into());
     vals.push(Value::String {
         val: filename.display().to_string(),
         span,

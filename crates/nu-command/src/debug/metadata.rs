@@ -78,7 +78,7 @@ impl Command for Metadata {
                 if let Some(x) = input.metadata().as_deref() {
                     match x {
                         PipelineMetadata {
-                            data_source: DataSource::Ls,
+                            data_source: DataSource::Ls(_full_paths),
                         } => {
                             cols.push("source".into());
                             vals.push(Value::string("ls", head))
@@ -153,7 +153,7 @@ fn build_metadata_record(
     if let Some(x) = metadata.as_deref() {
         match x {
             PipelineMetadata {
-                data_source: DataSource::Ls,
+                data_source: DataSource::Ls(_full_paths),
             } => {
                 cols.push("source".into());
                 vals.push(Value::string("ls", head))

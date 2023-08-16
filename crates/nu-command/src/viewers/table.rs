@@ -265,7 +265,7 @@ fn handle_table_command(
             call,
             row_offset,
             ctrlc,
-            metadata,
+            &metadata,
         ),
         PipelineData::ListStream(stream, metadata) => handle_row_stream(
             engine_state,
@@ -274,7 +274,7 @@ fn handle_table_command(
             call,
             row_offset,
             ctrlc,
-            metadata,
+            &metadata,
         ),
         PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
             let term_width = get_width_param(term_width);
@@ -320,7 +320,7 @@ fn handle_table_command(
             call,
             row_offset,
             ctrlc,
-            metadata,
+            &metadata,
         ),
         x => Ok(x),
     }
@@ -436,19 +436,19 @@ fn build_table_batch(
     }
 }
 
-fn handle_row_stream(
+fn handle_row_stream<'a>(
     engine_state: &EngineState,
     stack: &mut Stack,
     stream: ListStream,
     call: &Call,
     row_offset: usize,
     ctrlc: Option<Arc<AtomicBool>>,
-    metadata: Option<Box<PipelineMetadata>>,
+    metadata: &Option<Box<PipelineMetadata>>,
 ) -> Result<PipelineData, ShellError> {
     let stream = match metadata.as_deref() {
         // First, `ls` sources:
-        Some(PipelineMetadata {
-            data_source: DataSource::Ls,
+        Some(&PipelineMetadata {
+            data_source: DataSource::Ls(full_paths),
         }) => {
             let config = get_config(engine_state, stack);
             let ctrlc = ctrlc.clone();
@@ -467,21 +467,18 @@ fn handle_row_stream(
                             // Only the name column gets special colors, for now
                             if cols[idx] == "name" {
                                 if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    // We get the filename index and value here so that we can use that information
-                                    // to pass into lscolors so that even if `ls -s` is used, we still know the full
-                                    // path and can color it appropriately
-                                    let fullpath_idx = cols
-                                        .iter()
-                                        .position(|r| r.clone() == "fullpath")
-                                        .unwrap_or(idx);
-                                    let fullpath_val = vals
-                                        .get(fullpath_idx)
-                                        .unwrap_or(vals.get(idx).expect("cant fail"))
-                                        .into_string("", &config);
-
+                                    let display_val = if full_paths {
+                                        val.clone()
+                                    } else {
+                                        PathBuf::from(val)
+                                            .file_name()
+                                            .map(|os| os.to_string_lossy().to_string())
+                                            .unwrap_or(val.clone())
+                                    };
+                                    // Pass the full_path and the display path
                                     let val = render_path_name(
-                                        &fullpath_val,
                                         val,
+                                        &display_val,
                                         &config,
                                         &ls_colors,
                                         *span,
@@ -490,12 +487,6 @@ fn handle_row_stream(
                                         vals[idx] = val;
                                     }
                                 }
-                            }
-                            // Now that we've rendered the path, we don't need the filename column
-                            // in the output, so let's remove it.
-                            if cols[idx] == "fullpath" {
-                                cols.remove(idx);
-                                vals.remove(idx);
                             }
 
                             idx += 1;
@@ -811,7 +802,7 @@ impl Iterator for PagingTableCreator {
 }
 
 fn render_path_name(
-    fullpath: &str,
+    full_path: &str,
     display_name: &str,
     config: &Config,
     ls_colors: &LsColors,
@@ -821,7 +812,7 @@ fn render_path_name(
         return None;
     }
 
-    let stripped_path = nu_utils::strip_ansi_unlikely(fullpath);
+    let stripped_path = nu_utils::strip_ansi_unlikely(full_path);
 
     let (style, has_metadata) = match std::fs::symlink_metadata(stripped_path.as_ref()) {
         Ok(metadata) => (
