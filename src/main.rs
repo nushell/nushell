@@ -17,7 +17,7 @@ use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
-    terminal::{acquire_terminal, record_initial_foreground_process_group},
+    terminal::acquire_terminal,
 };
 use command::gather_commandline_args;
 use log::Level;
@@ -55,8 +55,6 @@ fn main() -> Result<()> {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
         miette_hook(x);
     }));
-
-    record_initial_foreground_process_group();
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();

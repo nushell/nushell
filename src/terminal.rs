@@ -13,27 +13,22 @@ use nix::{
 use is_terminal::IsTerminal;
 
 #[cfg(unix)]
-static INITIAL_FOREGROUND_PGROUP: AtomicI32 = AtomicI32::new(-1);
-
-#[cfg(unix)]
-pub(crate) fn record_initial_foreground_process_group() {
-    if let Ok(pid) = unistd::tcgetpgrp(libc::STDIN_FILENO) {
-        INITIAL_FOREGROUND_PGROUP.store(pid.into(), Ordering::Relaxed);
-    }
-}
-
-#[cfg(not(unix))]
-pub(crate) fn record_initial_foreground_process_group() {}
+static INITIAL_PGID: AtomicI32 = AtomicI32::new(-1);
 
 #[cfg(unix)]
 pub(crate) fn acquire_terminal(interactive: bool) {
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
 
-        take_control();
+        let initial_pgid = take_control();
+
+        INITIAL_PGID.store(initial_pgid.into(), Ordering::Relaxed);
 
         unsafe {
-            libc::atexit(restore_terminal);
+            if libc::atexit(restore_terminal) != 0 {
+                eprintln!("ERROR: failed to set exit function");
+                std::process::exit(1);
+            };
 
             // SIGINT and SIGQUIT have special handling
             signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
@@ -70,19 +65,20 @@ pub(crate) fn acquire_terminal(interactive: bool) {
 pub(crate) fn acquire_terminal(_: bool) {}
 
 // Inspired by fish's acquire_tty_or_exit
+// Returns our original pgid
 #[cfg(unix)]
-fn take_control() {
+fn take_control() -> Pid {
     let shell_pgid = unistd::getpgrp();
 
     match unistd::tcgetpgrp(nix::libc::STDIN_FILENO) {
         Ok(owner_pgid) if owner_pgid == shell_pgid => {
             // Common case, nothing to do
-            return;
+            return owner_pgid;
         }
         Ok(owner_pgid) if owner_pgid == unistd::getpid() => {
             // This can apparently happen with sudo: https://github.com/fish-shell/fish-shell/issues/7388
             let _ = unistd::setpgid(owner_pgid, owner_pgid);
-            return;
+            return owner_pgid;
         }
         _ => (),
     }
@@ -106,7 +102,7 @@ fn take_control() {
         match unistd::tcgetpgrp(libc::STDIN_FILENO) {
             Ok(owner_pgid) if owner_pgid == shell_pgid => {
                 // success
-                return;
+                return owner_pgid;
             }
             Ok(owner_pgid) if owner_pgid == Pid::from_raw(0) => {
                 // Zero basically means something like "not owned" and we can just take it
@@ -134,7 +130,7 @@ fn take_control() {
 extern "C" fn restore_terminal() {
     // Safety: can only call async-signal-safe functions here
     // tcsetpgrp and getpgrp are async-signal-safe
-    let initial_pgid = Pid::from_raw(INITIAL_FOREGROUND_PGROUP.load(Ordering::Relaxed));
+    let initial_pgid = Pid::from_raw(INITIAL_PGID.load(Ordering::Relaxed));
     if initial_pgid.as_raw() > 0 && initial_pgid != unistd::getpgrp() {
         let _ = unistd::tcsetpgrp(libc::STDIN_FILENO, initial_pgid);
     }
