@@ -4,17 +4,13 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
+use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::report_error;
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-
-const RED: &str = "\x1b[31m";
-const YELLOW: &str = "\x1b[33m";
-const CYAN: &str = "\x1b[36m";
-const DEFAULT_DIMMED_ITALIC: &str = "\x1b[2;3;39m";
-const RESET: &str = "\x1b[0m";
 
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
@@ -116,18 +112,18 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
-
         if call.has_flag("list") {
-            if use_ansi_coloring {
-                eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --list{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
-                eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime --list{RESET} instead");
-            } else {
-                eprintln!(
-                    "WARNING: `into datetime --list` is deprecated and will be removed in 0.85"
-                );
-                eprintln!("    help: see `format datetime --list` instead");
-            }
+            report_error(
+                &StateWorkingSet::new(engine_state),
+                &ShellError::GenericError(
+                    "Deprecated option".into(),
+                    "`into datetime --list` is deprecated and will be removed in 0.85".into(),
+                    Some(call.head),
+                    Some("see `format datetime --list` instead".into()),
+                    vec![],
+                ),
+            );
+
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
@@ -148,15 +144,16 @@ impl Command for SubCommand {
                 };
 
             if call.has_flag("format") {
-                if use_ansi_coloring {
-                    eprintln!("{YELLOW}WARNING{RESET}: {DEFAULT_DIMMED_ITALIC}into datetime --format{RESET} is deprecated and will be {RED}removed in 0.85{RESET}");
-                    eprintln!("    {CYAN}help{RESET}: see {DEFAULT_DIMMED_ITALIC}format datetime{RESET} instead");
-                } else {
-                    eprintln!(
-                        "WARNING: `into datetime --format` is deprecated and will be removed in 0.85"
-                    );
-                    eprintln!("    help: see `format datetime` instead");
-                }
+                report_error(
+                    &StateWorkingSet::new(engine_state),
+                    &ShellError::GenericError(
+                        "Deprecated option".into(),
+                        "`into datetime --format` is deprecated and will be removed in 0.85".into(),
+                        Some(call.head),
+                        Some("see `format datetime` instead".into()),
+                        vec![],
+                    ),
+                );
             }
 
             let format_options = call
