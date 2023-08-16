@@ -80,7 +80,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let file_name: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let compression = get_compression(&call)?;
+    let compression = get_compression(call)?;
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
