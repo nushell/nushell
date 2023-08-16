@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
-    Signature, Span, SyntaxShape, Type, Value,
+    ModuleId, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -555,94 +555,156 @@ impl<'e, 's> ScopeData<'e, 's> {
         aliases
     }
 
+    fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> Value {
+        let module = self.engine_state.get_module(*module_id);
+
+        let all_decls = module.decls();
+
+        let export_commands: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if !decl.is_alias() && !decl.is_known_external() {
+                    Some(Value::record(
+                        vec!["name".into(), "decl_id".into()],
+                        vec![
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::int(*decl_id as i64, span),
+                        ],
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let export_aliases: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if decl.is_alias() {
+                    Some(Value::record(
+                        vec!["name".into(), "decl_id".into()],
+                        vec![
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::int(*decl_id as i64, span),
+                        ],
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let export_externs: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if decl.is_known_external() {
+                    Some(Value::record(
+                        vec!["name".into(), "decl_id".into()],
+                        vec![
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::int(*decl_id as i64, span),
+                        ],
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let export_submodules: Vec<Value> = module
+            .submodules()
+            .iter()
+            .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
+            .collect();
+
+        let export_consts: Vec<Value> = module
+            .vars()
+            .iter()
+            .map(|(name_bytes, var_id)| {
+                Value::record(
+                    vec!["name".into(), "type".into(), "var_id".into()],
+                    vec![
+                        Value::string(String::from_utf8_lossy(name_bytes), span),
+                        Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
+                        Value::int(*var_id as i64, span),
+                    ],
+                    span,
+                )
+            })
+            .collect();
+
+        let export_env_block = module.env_block.map_or_else(
+            || Value::nothing(span),
+            |block_id| Value::Block {
+                val: block_id,
+                span,
+            },
+        );
+
+        let module_usage = self
+            .engine_state
+            .build_module_usage(*module_id)
+            .map(|(usage, _)| usage)
+            .unwrap_or_default();
+
+        Value::Record {
+            cols: vec![
+                "name".into(),
+                "commands".into(),
+                "aliases".into(),
+                "externs".into(),
+                "submodules".into(),
+                "constants".into(),
+                "env_block".into(),
+                "usage".into(),
+                "module_id".into(),
+            ],
+            vals: vec![
+                Value::string(String::from_utf8_lossy(module_name), span),
+                Value::List {
+                    vals: export_commands,
+                    span,
+                },
+                Value::List {
+                    vals: export_aliases,
+                    span,
+                },
+                Value::List {
+                    vals: export_externs,
+                    span,
+                },
+                Value::List {
+                    vals: export_submodules,
+                    span,
+                },
+                Value::List {
+                    vals: export_consts,
+                    span,
+                },
+                export_env_block,
+                Value::string(module_usage, span),
+                Value::int(*module_id as i64, span),
+            ],
+            span,
+        }
+    }
+
     pub fn collect_modules(&self, span: Span) -> Vec<Value> {
         let mut modules = vec![];
 
         for (module_name, module_id) in &self.modules_map {
-            let module = self.engine_state.get_module(**module_id);
-
-            let all_decls = module.decls();
-
-            let export_commands: Vec<Value> = all_decls
-                .iter()
-                .filter_map(|(name_bytes, decl_id)| {
-                    let decl = self.engine_state.get_decl(*decl_id);
-
-                    if !decl.is_alias() && !decl.is_known_external() {
-                        Some(Value::record(
-                            vec!["name".into(), "decl_id".into()],
-                            vec![
-                                Value::string(String::from_utf8_lossy(name_bytes), span),
-                                Value::int(*decl_id as i64, span),
-                            ],
-                            span,
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            let export_aliases: Vec<Value> = all_decls
-                .iter()
-                .filter_map(|(name_bytes, decl_id)| {
-                    let decl = self.engine_state.get_decl(*decl_id);
-
-                    if decl.is_alias() {
-                        Some(Value::record(
-                            vec!["name".into(), "decl_id".into()],
-                            vec![
-                                Value::string(String::from_utf8_lossy(name_bytes), span),
-                                Value::int(*decl_id as i64, span),
-                            ],
-                            span,
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            let export_env_block = module.env_block.map_or_else(
-                || Value::nothing(span),
-                |block_id| Value::Block {
-                    val: block_id,
-                    span,
-                },
-            );
-
-            let module_usage = self
-                .engine_state
-                .build_module_usage(**module_id)
-                .map(|(usage, _)| usage)
-                .unwrap_or_default();
-
-            modules.push(Value::Record {
-                cols: vec![
-                    "name".into(),
-                    "commands".into(),
-                    "aliases".into(),
-                    "env_block".into(),
-                    "usage".into(),
-                    "module_id".into(),
-                ],
-                vals: vec![
-                    Value::string(String::from_utf8_lossy(module_name), span),
-                    Value::List {
-                        vals: export_commands,
-                        span,
-                    },
-                    Value::List {
-                        vals: export_aliases,
-                        span,
-                    },
-                    export_env_block,
-                    Value::string(module_usage, span),
-                    Value::int(**module_id as i64, span),
-                ],
-                span,
-            });
+            modules.push(self.collect_module(module_name, module_id, span));
         }
+
         modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         modules
     }
