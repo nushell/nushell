@@ -6,48 +6,6 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-pub fn create_scope(
-    engine_state: &EngineState,
-    stack: &Stack,
-    span: Span,
-) -> Result<Value, ShellError> {
-    let mut scope_data = ScopeData::new(engine_state, stack);
-
-    scope_data.populate_all();
-
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("vars".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_vars(span),
-        span,
-    });
-
-    cols.push("commands".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_commands(span),
-        span,
-    });
-
-    cols.push("aliases".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_aliases(span),
-        span,
-    });
-
-    cols.push("modules".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_modules(span),
-        span,
-    });
-
-    cols.push("engine_state".to_string());
-    vals.push(scope_data.collect_engine_state(span));
-
-    Ok(Value::Record { cols, vals, span })
-}
-
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
     stack: &'s Stack,
