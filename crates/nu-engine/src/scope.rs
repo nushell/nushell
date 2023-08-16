@@ -48,20 +48,28 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_vars(&self, span: Span) -> Vec<Value> {
         let mut vars = vec![];
-        for var in &self.vars_map {
-            let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-            let var_type = Value::string(self.engine_state.get_var(**var.1).ty.to_string(), span);
+        for (var_name, var_id) in &self.vars_map {
+            let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
 
-            let var_value = if let Ok(val) = self.stack.get_var(**var.1, span) {
+            let var_type = Value::string(self.engine_state.get_var(**var_id).ty.to_string(), span);
+
+            let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
                 val
             } else {
                 Value::nothing(span)
             };
 
+            let var_id_val = Value::int(**var_id as i64, span);
+
             vars.push(Value::Record {
-                cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
-                vals: vec![var_name, var_type, var_value],
+                cols: vec![
+                    "name".to_string(),
+                    "type".to_string(),
+                    "value".to_string(),
+                    "var_id".to_string(),
+                ],
+                vals: vec![var_name, var_type, var_value, var_id_val],
                 span,
             })
         }
@@ -70,6 +78,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
+
         for (command_name, decl_id) in &self.decls_map {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(**decl_id).is_alias()
@@ -199,6 +208,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     val: search_terms.join(", "),
                     span,
                 });
+
+                cols.push("decl_id".into());
+                vals.push(Value::int(**decl_id as i64, span));
 
                 commands.push(Value::Record { cols, vals, span })
             }
@@ -450,6 +462,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
+
         for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
@@ -487,6 +500,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     span,
                 });
 
+                cols.push("decl_id".into());
+                vals.push(Value::int(**decl_id as i64, span));
+
                 externals.push(Value::Record { cols, vals, span })
             }
         }
@@ -496,12 +512,18 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
+
         for (_, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
                     aliases.push(Value::Record {
-                        cols: vec!["name".into(), "expansion".into(), "usage".into()],
+                        cols: vec![
+                            "name".into(),
+                            "expansion".into(),
+                            "usage".into(),
+                            "decl_id".into(),
+                        ],
                         vals: vec![
                             Value::String {
                                 val: decl.name().to_string(),
@@ -516,6 +538,10 @@ impl<'e, 's> ScopeData<'e, 's> {
                             },
                             Value::String {
                                 val: alias.usage().to_string(),
+                                span,
+                            },
+                            Value::Int {
+                                val: decl_id as i64,
                                 span,
                             },
                         ],
@@ -535,24 +561,46 @@ impl<'e, 's> ScopeData<'e, 's> {
         for (module_name, module_id) in &self.modules_map {
             let module = self.engine_state.get_module(**module_id);
 
-            let export_commands: Vec<Value> = module
-                .decls()
+            let all_decls = module.decls();
+
+            let export_commands: Vec<Value> = all_decls
                 .iter()
-                .filter(|(_, id)| {
-                    self.visibility.is_decl_id_visible(id)
-                        && !self.engine_state.get_decl(*id).is_alias()
+                .filter_map(|(name_bytes, decl_id)| {
+                    let decl = self.engine_state.get_decl(*decl_id);
+
+                    if !decl.is_alias() && !decl.is_known_external() {
+                        Some(Value::record(
+                            vec!["name".into(), "decl_id".into()],
+                            vec![
+                                Value::string(String::from_utf8_lossy(name_bytes), span),
+                                Value::int(*decl_id as i64, span),
+                            ],
+                            span,
+                        ))
+                    } else {
+                        None
+                    }
                 })
-                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
                 .collect();
 
-            let export_aliases: Vec<Value> = module
-                .decls()
+            let export_aliases: Vec<Value> = all_decls
                 .iter()
-                .filter(|(_, id)| {
-                    self.visibility.is_decl_id_visible(id)
-                        && self.engine_state.get_decl(*id).is_alias()
+                .filter_map(|(name_bytes, decl_id)| {
+                    let decl = self.engine_state.get_decl(*decl_id);
+
+                    if decl.is_alias() {
+                        Some(Value::record(
+                            vec!["name".into(), "decl_id".into()],
+                            vec![
+                                Value::string(String::from_utf8_lossy(name_bytes), span),
+                                Value::int(*decl_id as i64, span),
+                            ],
+                            span,
+                        ))
+                    } else {
+                        None
+                    }
                 })
-                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
                 .collect();
 
             let export_env_block = module.env_block.map_or_else(
@@ -576,6 +624,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "aliases".into(),
                     "env_block".into(),
                     "usage".into(),
+                    "module_id".into(),
                 ],
                 vals: vec![
                     Value::string(String::from_utf8_lossy(module_name), span),
@@ -589,6 +638,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     },
                     export_env_block,
                     Value::string(module_usage, span),
+                    Value::int(**module_id as i64, span),
                 ],
                 span,
             });
