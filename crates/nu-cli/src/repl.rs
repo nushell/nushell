@@ -50,7 +50,7 @@ pub fn evaluate_repl(
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
-) -> Result<i32> {
+) -> Result<()> {
     use nu_command::hook;
     use reedline::Signal;
     let use_color = engine_state.get_config().use_ansi_coloring;
@@ -573,12 +573,12 @@ pub fn evaluate_repl(
                                 Some(s) => {
                                     if let Ok(n) = s.parse::<i32>() {
                                         drop(line_editor);
-                                        return Ok(n);
+                                        std::process::exit(n);
                                     }
                                 }
                                 None => {
                                     drop(line_editor);
-                                    return Ok(0);
+                                    std::process::exit(0);
                                 }
                             }
                         }
@@ -713,7 +713,7 @@ pub fn evaluate_repl(
         );
     }
 
-    Ok(0)
+    Ok(())
 }
 
 fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {

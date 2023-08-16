@@ -17,7 +17,7 @@ use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
-    terminal::{acquire_terminal, record_initial_foreground_process_group, restore_terminal},
+    terminal::{acquire_terminal, record_initial_foreground_process_group},
 };
 use command::gather_commandline_args;
 use log::Level;
@@ -54,7 +54,6 @@ fn main() -> Result<()> {
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
         miette_hook(x);
-        restore_terminal();
     }));
 
     record_initial_foreground_process_group();
@@ -296,12 +295,6 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        let exit_code = run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time);
-        restore_terminal();
-        // must use std::process::exit to support i32 exit code
-        match exit_code {
-            Ok(code) => std::process::exit(code),
-            Err(e) => Err(e),
-        }
+        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

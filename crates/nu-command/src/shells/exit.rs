@@ -1,10 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct Exit;
@@ -40,18 +37,13 @@ impl Command for Exit {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if engine_state.is_interactive {
-            // instead exit in repl to restore terminal
-            Ok(Value::nothing(call.head).into_pipeline_data())
-        } else {
-            let exit_code: Option<i64> = call.opt(engine_state, stack, 0)?;
+        let exit_code: Option<i64> = call.opt(engine_state, stack, 0)?;
 
-            if let Some(exit_code) = exit_code {
-                std::process::exit(exit_code as i32);
-            }
-
-            std::process::exit(0);
+        if let Some(exit_code) = exit_code {
+            std::process::exit(exit_code as i32);
         }
+
+        std::process::exit(0);
     }
 
     fn examples(&self) -> Vec<Example> {

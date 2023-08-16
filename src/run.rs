@@ -212,7 +212,7 @@ pub(crate) fn run_repl(
     engine_state: &mut nu_protocol::engine::EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
-) -> Result<i32, miette::ErrReport> {
+) -> Result<(), miette::ErrReport> {
     let mut stack = nu_protocol::engine::Stack::new();
     let start_time = std::time::Instant::now();
 

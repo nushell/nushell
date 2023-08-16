@@ -33,12 +33,19 @@ pub(crate) fn acquire_terminal(interactive: bool) {
         take_control();
 
         unsafe {
-            // SIGINT and SIGQUIT have special handling above
+            libc::atexit(restore_terminal);
+
+            // SIGINT and SIGQUIT have special handling
             signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
-            signal_hook::low_level::register(signal_hook::consts::SIGTERM, restore_terminal)
-                .expect("signal hook");
+            signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
+                restore_terminal();
+                // TODO: POSIX specifies that if terminated by a signal, exit code should be > 128
+                // Typically, this is 128 + signal_num
+                std::process::exit(0)
+            })
+            .expect("signal hook");
         }
 
         // Put ourselves in our own process group, if not already
@@ -119,12 +126,12 @@ fn take_control() {
         }
     }
 
-    eprintln!("ERROR: failed take control of the terminal, we might be orphaned");
+    eprintln!("ERROR: failed to take control of the terminal, we might be orphaned");
     std::process::exit(1);
 }
 
 #[cfg(unix)]
-pub(crate) fn restore_terminal() {
+extern "C" fn restore_terminal() {
     // Safety: can only call async-signal-safe functions here
     // tcsetpgrp and getpgrp are async-signal-safe
     let initial_pgid = Pid::from_raw(INITIAL_FOREGROUND_PGROUP.load(Ordering::Relaxed));
@@ -132,6 +139,3 @@ pub(crate) fn restore_terminal() {
         let _ = unistd::tcsetpgrp(libc::STDIN_FILENO, initial_pgid);
     }
 }
-
-#[cfg(not(unix))]
-pub(crate) fn restore_terminal() {}
