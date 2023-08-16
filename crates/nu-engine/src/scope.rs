@@ -27,12 +27,9 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn populate_all(&mut self) {
+    pub fn populate_vars(&mut self) {
         for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.vars_map.extend(&overlay_frame.vars);
-            self.decls_map.extend(&overlay_frame.decls);
-            self.modules_map.extend(&overlay_frame.modules);
-            self.visibility.merge_with(overlay_frame.visibility.clone());
         }
     }
 
@@ -626,6 +623,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 span,
             ),
         ];
+
         Value::Record {
             cols: engine_state_cols,
             vals: engine_state_vals,
