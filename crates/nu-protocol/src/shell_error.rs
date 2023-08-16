@@ -982,30 +982,17 @@ pub enum ShellError {
     #[diagnostic()]
     OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
 
-    /// Attempted to use a deprecated command.
+    /// Attempted to use a command that has been removed from Nushell.
     ///
     /// ## Resolution
     ///
     /// Check the help for the new suggested command and update your script accordingly.
-    #[error("Deprecated command {0}")]
-    #[diagnostic(code(nu::shell::deprecated_command))]
-    DeprecatedCommand(
+    #[error("Removed command: {0}")]
+    #[diagnostic(code(nu::shell::removed_command))]
+    RemovedCommand(
         String,
         String,
-        #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
-    ),
-
-    /// Attempted to use a deprecated parameter.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the help for the command and update your script accordingly.
-    #[error("Deprecated parameter {0}")]
-    #[diagnostic(code(nu::shell::deprecated_command))]
-    DeprecatedParameter(
-        String,
-        String,
-        #[label = "Parameter '{0}' is deprecated. Please use '{1}' instead."] Span,
+        #[label = "'{0}' has been removed from Nushell. Please use '{1}' instead."] Span,
     ),
 
     /// Non-Unicode input received.

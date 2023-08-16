@@ -162,9 +162,7 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
             "Input value cannot be joined".to_string(),
             "value originates from here".into(),
             head,
-            input
-                .span()
-                .expect("non-Empty non-ListStream PipelineData had no span"),
+            input.span().unwrap_or(call.head),
         )),
     }
 }

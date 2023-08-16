@@ -23,15 +23,11 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "the desired date format",
             )
-            .category(Category::Date)
+            .category(Category::Removed)
     }
 
     fn usage(&self) -> &str {
-        "Format a given date using a format string."
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["fmt", "strftime"]
+        "Removed command: use `format date` instead"
     }
 
     fn run(
@@ -41,7 +37,7 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(nu_protocol::ShellError::DeprecatedCommand(
+        Err(nu_protocol::ShellError::RemovedCommand(
             self.name().to_string(),
             "format date".to_owned(),
             call.head,

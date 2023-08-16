@@ -713,7 +713,7 @@ impl EngineState {
             for decl in &overlay_frame.decls {
                 if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
                     let command = self.get_decl(*decl.1);
-                    if ignore_deprecated && command.signature().category == Category::Deprecated {
+                    if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
                     output.push((decl.0.clone(), Some(command.usage().to_string())));
@@ -1717,8 +1717,7 @@ impl<'a> StateWorkingSet<'a> {
                 for decl in &overlay_frame.decls {
                     if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
                         let command = self.get_decl(*decl.1);
-                        if ignore_deprecated && command.signature().category == Category::Deprecated
-                        {
+                        if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;
                         }
                         output.push((decl.0.clone(), Some(command.usage().to_string())));

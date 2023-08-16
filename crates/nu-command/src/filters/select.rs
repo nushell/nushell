@@ -30,7 +30,10 @@ impl Command for Select {
             )
             .rest(
                 "rest",
-                SyntaxShape::CellPath,
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
+                ]),
                 "the columns to select from the table",
             )
             .allow_variants_without_examples(true)
@@ -58,17 +61,77 @@ produce a table, a list will produce a list, and a record will produce a record.
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let mut new_columns: Vec<CellPath> = vec![];
+        for col_val in columns {
+            match col_val {
+                Value::CellPath { val, .. } => {
+                    new_columns.push(val);
+                }
+                Value::List { vals, .. } => {
+                    for val in vals {
+                        match val {
+                            Value::String { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::String {
+                                        val: val.clone(),
+                                        span: Span::unknown(),
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            Value::Int { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::Int {
+                                        val: val as usize,
+                                        span: Span::unknown(),
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            y => {
+                                return Err(ShellError::CantConvert {
+                                    to_type: "cell path".into(),
+                                    from_type: y.get_type().to_string(),
+                                    span: y.span()?,
+                                    help: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                Value::String { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::String {
+                            val: val.clone(),
+                            span: Span::unknown(),
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                x => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: x.get_type().to_string(),
+                        span: x.span()?,
+                        help: None,
+                    });
+                }
+            }
+        }
         let ignore_errors = call.has_flag("ignore-errors");
         let span = call.head;
 
         if ignore_errors {
-            for cell_path in &mut columns {
+            for cell_path in &mut new_columns {
                 cell_path.make_optional();
             }
         }
 
-        select(engine_state, span, columns, input)
+        select(engine_state, span, new_columns, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -95,6 +158,16 @@ produce a table, a list will produce a list, and a record will produce a record.
                 description: "Select the first four rows (this is the same as `first 4`)",
                 example: "ls | select 0 1 2 3",
                 result: None,
+            },
+            Example {
+                description: "Select columns by a provided list of columns",
+                example: "let cols = [name type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select $cols",
+                result: None
+            },
+            Example {
+                description: "Select rows by a provided list of rows",
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | select $rows",
+                result: None
             },
         ]
     }
