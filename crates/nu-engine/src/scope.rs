@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 use std::cmp::Ordering;
