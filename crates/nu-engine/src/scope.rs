@@ -515,7 +515,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                                 span,
                             },
                             Value::String {
-                                val: alias.signature().usage,
+                                val: alias.usage().to_string(),
                                 span,
                             },
                         ],

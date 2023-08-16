@@ -749,6 +749,7 @@ pub fn parse_alias(
 
     if let Some(decl_id) = working_set.find_decl(b"alias") {
         let (command_spans, rest_spans) = spans.split_at(split_id);
+        let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
         let original_starting_error_count = working_set.parse_errors.len();
 
@@ -906,6 +907,8 @@ pub fn parse_alias(
                 name: alias_name,
                 command,
                 wrapped_call,
+                usage,
+                extra_usage,
             };
 
             working_set.add_decl(Box::new(decl));
