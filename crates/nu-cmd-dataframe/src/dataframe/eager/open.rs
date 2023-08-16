@@ -13,6 +13,8 @@ use polars::prelude::{
     LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
+use polars_io::avro::AvroReader;
+
 #[derive(Clone)]
 pub struct OpenDataFrame;
 
@@ -22,7 +24,7 @@ impl Command for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens CSV, JSON, JSON lines, arrow, or parquet file to create dataframe."
+        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe."
     }
 
     fn signature(&self) -> Signature {
@@ -36,7 +38,7 @@ impl Command for OpenDataFrame {
             .named(
                 "type",
                 SyntaxShape::String,
-                "File type: csv, tsv, json, parquet, arrow. If omitted, derive from file extension",
+                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension",
                 Some('t'),
             )
             .named(
@@ -118,6 +120,7 @@ fn command(
             "ipc" | "arrow" => from_ipc(engine_state, stack, call),
             "json" => from_json(engine_state, stack, call),
             "jsonl" => from_jsonl(engine_state, stack, call),
+            "avro" => from_avro(engine_state, stack, call),
             _ => Err(ShellError::FileNotFoundCustom(
                 format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
                 blamed,
@@ -197,6 +200,46 @@ fn from_parquet(
 
         Ok(df.into_value(call.head))
     }
+}
+
+fn from_avro(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Value, ShellError> {
+    let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
+    let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
+
+    let r = File::open(&file.item).map_err(|e| {
+        ShellError::GenericError(
+            "Error opening file".into(),
+            e.to_string(),
+            Some(file.span),
+            None,
+            Vec::new(),
+        )
+    })?;
+    let reader = AvroReader::new(r);
+
+    let reader = match columns {
+        None => reader,
+        Some(columns) => reader.with_columns(Some(columns)),
+    };
+
+    let df: NuDataFrame = reader
+        .finish()
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Avro reader error".into(),
+                format!("{e:?}"),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        })?
+        .into();
+
+    Ok(df.into_value(call.head))
 }
 
 fn from_ipc(
