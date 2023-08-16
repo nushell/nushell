@@ -501,13 +501,13 @@ impl<'e, 's> ScopeData<'e, 's> {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    let sig = decl.signature().update_from_command(decl.borrow());
-                    let key = sig.name;
-
                     aliases.push(Value::Record {
                         cols: vec!["name".into(), "expansion".into(), "usage".into()],
                         vals: vec![
-                            Value::String { val: key, span },
+                            Value::String {
+                                val: decl.name().to_string(),
+                                span,
+                            },
                             Value::String {
                                 val: String::from_utf8_lossy(
                                     self.engine_state.get_span_contents(alias.wrapped_call.span),
