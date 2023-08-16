@@ -2,7 +2,6 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
     Signature, Span, SyntaxShape, Type, Value,
 };
-use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
