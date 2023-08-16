@@ -36,6 +36,14 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
+    // decls include all commands, i.e., normal commands, aliases, and externals
+    pub fn populate_decls(&mut self) {
+        for overlay_frame in self.engine_state.active_overlays(&[]) {
+            self.decls_map.extend(&overlay_frame.decls);
+            self.visibility.merge_with(overlay_frame.visibility.clone());
+        }
+    }
+
     pub fn populate_modules(&mut self) {
         for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.modules_map.extend(&overlay_frame.modules);
