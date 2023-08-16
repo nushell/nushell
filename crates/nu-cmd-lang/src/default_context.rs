@@ -33,6 +33,7 @@ pub fn create_default_context() -> EngineState {
             ExportDef,
             ExportDefEnv,
             ExportExtern,
+            ExportExternWrapped,
             ExportUse,
             ExportModule,
             Extern,
