@@ -34,10 +34,10 @@ fn helper_for_tables(
                         .or_insert_with(|| vec![value.clone()]);
                 }
             }
-            SpannedValue::Error { error } => return Err(*error.clone()),
+            SpannedValue::Error { error, .. } => return Err(*error.clone()),
             _ => {
                 //Turns out we are not dealing with a table
-                return mf(values, val.expect_span(), name);
+                return mf(values, val.span(), name);
             }
         }
     }

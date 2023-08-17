@@ -123,7 +123,7 @@ impl PipelineData {
         match self {
             PipelineData::ListStream(..) => None,
             PipelineData::ExternalStream { span, .. } => Some(*span),
-            PipelineData::Value(v, _) => v.span().ok(),
+            PipelineData::Value(v, _) => Some(v.span()),
             PipelineData::Empty => None,
         }
     }
@@ -162,7 +162,10 @@ impl PipelineData {
                             items.push(val);
                         }
                         Err(e) => {
-                            return SpannedValue::Error { error: Box::new(e) };
+                            return SpannedValue::Error {
+                                error: Box::new(e),
+                                span,
+                            };
                         }
                     }
                 }
@@ -184,6 +187,7 @@ impl PipelineData {
                             Err(err) => {
                                 return SpannedValue::Error {
                                     error: Box::new(err),
+                                    span,
                                 };
                             }
                         }
@@ -201,6 +205,7 @@ impl PipelineData {
                             Err(err) => {
                                 return SpannedValue::Error {
                                     error: Box::new(err),
+                                    span,
                                 };
                             }
                         }
@@ -219,7 +224,7 @@ impl PipelineData {
 
     pub fn drain(self) -> Result<(), ShellError> {
         match self {
-            PipelineData::Value(SpannedValue::Error { error }, _) => Err(*error),
+            PipelineData::Value(SpannedValue::Error { error, .. }, _) => Err(*error),
             PipelineData::Value(_, _) => Ok(()),
             PipelineData::ListStream(stream, _) => stream.drain(),
             PipelineData::ExternalStream { stdout, stderr, .. } => {
@@ -239,7 +244,7 @@ impl PipelineData {
 
     pub fn drain_with_exit_code(self) -> Result<i64, ShellError> {
         match self {
-            PipelineData::Value(SpannedValue::Error { error }, _) => Err(*error),
+            PipelineData::Value(SpannedValue::Error { error, .. }, _) => Err(*error),
             PipelineData::Value(_, _) => Ok(0),
             PipelineData::ListStream(stream, _) => {
                 stream.drain()?;
@@ -306,12 +311,12 @@ impl PipelineData {
                     Err(error) => Err(error),
                 },
                 // Propagate errors by explicitly matching them before the final case.
-                SpannedValue::Error { error } => Err(*error),
+                SpannedValue::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary, raw data or range".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: span,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
             },
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
@@ -373,7 +378,7 @@ impl PipelineData {
             }
             PipelineData::Value(val, _) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
-                span: val.span()?,
+                span: val.span(),
             }),
             PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
@@ -477,7 +482,7 @@ impl PipelineData {
                 .map(f)
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(v, ..) => match f(v) {
-                SpannedValue::Error { error } => Err(*error),
+                SpannedValue::Error { error, .. } => Err(*error),
                 v => Ok(v.into_pipeline_data()),
             },
         }
@@ -596,7 +601,7 @@ impl PipelineData {
                 if f(&v) {
                     Ok(v.into_pipeline_data())
                 } else {
-                    Ok(SpannedValue::Nothing { span: v.span()? }.into_pipeline_data())
+                    Ok(SpannedValue::Nothing { span: v.span() }.into_pipeline_data())
                 }
             }
         }
@@ -814,7 +819,7 @@ impl PipelineData {
     ) -> Result<i64, ShellError> {
         for item in self {
             let mut is_err = false;
-            let mut out = if let SpannedValue::Error { error } = item {
+            let mut out = if let SpannedValue::Error { error, .. } = item {
                 let working_set = StateWorkingSet::new(engine_state);
                 // Value::Errors must always go to stderr, not stdout.
                 is_err = true;
@@ -858,7 +863,7 @@ impl IntoIterator for PipelineData {
                     metadata,
                 ))
             }
-            PipelineData::Value(SpannedValue::Range { val, .. }, metadata) => {
+            PipelineData::Value(SpannedValue::Range { val, span }, metadata) => {
                 match val.into_range_iter(None) {
                     Ok(iter) => PipelineIterator(PipelineData::ListStream(
                         ListStream {
@@ -871,6 +876,7 @@ impl IntoIterator for PipelineData {
                         ListStream {
                             stream: Box::new(std::iter::once(SpannedValue::Error {
                                 error: Box::new(error),
+                                span,
                             })),
                             ctrlc: None,
                         },
@@ -921,7 +927,7 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     let mut exit_codes: Vec<_> = exit_code.into_iter().collect();
     match exit_codes.pop() {
         #[cfg(unix)]
-        Some(SpannedValue::Error { error }) => Err(*error),
+        Some(SpannedValue::Error { error, .. }) => Err(*error),
         Some(SpannedValue::Int { val, .. }) => Ok(val),
         _ => Ok(0),
     }
@@ -944,6 +950,7 @@ impl Iterator for PipelineIterator {
                 Ok(x) => x,
                 Err(err) => SpannedValue::Error {
                     error: Box::new(err),
+                    span: Span::unknown(), //FIXME: unclear where this span should come from
                 },
             }),
         }

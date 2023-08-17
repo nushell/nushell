@@ -194,9 +194,19 @@ fn rename(
                                 redirect_stderr,
                             );
                             match eval_result {
-                                Err(e) => return SpannedValue::Error { error: Box::new(e) },
+                                Err(e) => {
+                                    return SpannedValue::Error {
+                                        error: Box::new(e),
+                                        span,
+                                    }
+                                }
                                 Ok(res) => match res.collect_string_strict(span) {
-                                    Err(e) => return SpannedValue::Error { error: Box::new(e) },
+                                    Err(e) => {
+                                        return SpannedValue::Error {
+                                            error: Box::new(e),
+                                            span,
+                                        }
+                                    }
                                     Ok(new_c) => *c = new_c.0,
                                 },
                             }
@@ -218,6 +228,7 @@ fn rename(
                                             // Arrow 2 points at the input value.
                                             span,
                                         )),
+                                        span,
                                     };
                                 }
                                 for (idx, val) in cols.iter_mut().enumerate() {
@@ -248,8 +259,9 @@ fn rename(
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head_span,
-                        src_span: other.expect_span(),
+                        src_span: other.span(),
                     }),
+                    span: head_span,
                 },
             },
             engine_state.ctrlc.clone(),

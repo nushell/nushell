@@ -38,7 +38,7 @@ fn vertical_rotate_value(
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "list".to_string(),
-            span: value.span()?,
+            span: value.span(),
         }),
     }
 }
@@ -98,7 +98,7 @@ fn horizontal_rotate_value(
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),
-            span: value.span()?,
+            span: value.span(),
         }),
     }
 }

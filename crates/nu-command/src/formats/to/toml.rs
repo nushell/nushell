@@ -78,7 +78,7 @@ fn helper(engine_state: &EngineState, v: &SpannedValue) -> Result<toml::Value, S
             toml::Value::String(code)
         }
         SpannedValue::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
-        SpannedValue::Error { error } => return Err(*error.clone()),
+        SpannedValue::Error { error, .. } => return Err(*error.clone()),
         SpannedValue::Binary { val, .. } => toml::Value::Array(
             val.iter()
                 .map(|x| toml::Value::Integer(*x as i64))
@@ -129,6 +129,7 @@ fn toml_into_pipeline_data(
                 span,
                 help: None,
             }),
+            span,
         }
         .into_pipeline_data()),
     }
@@ -142,12 +143,12 @@ fn value_to_toml_value(
     match v {
         SpannedValue::Record { .. } => helper(engine_state, v),
         // Propagate existing errors
-        SpannedValue::Error { error } => Err(*error.clone()),
+        SpannedValue::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput(
             format!("{:?} is not valid top-level TOML", v.get_type()),
             "value originates from here".into(),
             head,
-            v.expect_span(),
+            v.span(),
         )),
     }
 }

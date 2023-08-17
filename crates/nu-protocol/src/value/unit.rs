@@ -108,6 +108,7 @@ impl Unit {
                         None,
                         Vec::new(),
                     )),
+                    span,
                 },
             },
             Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
@@ -120,6 +121,7 @@ impl Unit {
                         None,
                         Vec::new(),
                     )),
+                    span,
                 },
             },
             Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
@@ -132,6 +134,7 @@ impl Unit {
                         None,
                         Vec::new(),
                     )),
+                    span,
                 },
             },
             Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
@@ -144,6 +147,7 @@ impl Unit {
                         None,
                         Vec::new(),
                     )),
+                    span,
                 },
             },
         }

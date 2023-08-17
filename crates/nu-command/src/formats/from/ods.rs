@@ -93,13 +93,13 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
             Some(SpannedValue::Binary { val: b, .. }) => {
                 bytes.extend_from_slice(&b);
             }
-            Some(SpannedValue::Error { error }) => return Err(*error),
+            Some(SpannedValue::Error { error, .. }) => return Err(*error),
             Some(x) => {
                 return Err(ShellError::UnsupportedInput(
                     "Expected binary from pipeline".to_string(),
                     "value originates from here".into(),
                     span,
-                    x.expect_span(),
+                    x.span(),
                 ))
             }
             None => break,

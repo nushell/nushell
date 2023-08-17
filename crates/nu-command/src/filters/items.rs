@@ -1,4 +1,3 @@
-use super::utils::chain_error_with_input;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -6,6 +5,8 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     SpannedValue, SyntaxShape, Type,
 };
+
+use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct Items;
@@ -85,9 +86,10 @@ impl Command for Items {
                 Ok(v) => Some(v.into_value(span)),
                 Err(ShellError::Break(_)) => None,
                 Err(error) => {
-                    let error = chain_error_with_input(error, Ok(input_span));
+                    let error = chain_error_with_input(error, false, input_span);
                     Some(SpannedValue::Error {
                         error: Box::new(error),
+                        span,
                     })
                 }
             }
@@ -106,12 +108,12 @@ impl Command for Items {
                 dst_span: call.head,
                 src_span: input_span,
             }),
-            PipelineData::Value(SpannedValue::Error { error }, ..) => Err(*error),
+            PipelineData::Value(SpannedValue::Error { error, .. }, ..) => Err(*error),
             PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: call.head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
             PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),

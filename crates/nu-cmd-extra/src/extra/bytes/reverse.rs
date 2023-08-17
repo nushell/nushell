@@ -95,8 +95,9 @@ fn reverse(val: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> SpannedV
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

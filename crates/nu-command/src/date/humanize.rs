@@ -93,6 +93,7 @@ fn helper(value: SpannedValue, head: Span) -> SpannedValue {
         },
         _ => SpannedValue::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
+            span: head,
         },
     }
 }

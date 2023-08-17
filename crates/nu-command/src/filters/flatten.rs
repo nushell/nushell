@@ -154,13 +154,10 @@ enum TableInside<'a> {
 fn flat_value(
     columns: &[CellPath],
     item: &SpannedValue,
-    _name_tag: Span,
+    name_tag: Span,
     all: bool,
 ) -> Vec<SpannedValue> {
-    let tag = match item.span() {
-        Ok(x) => x,
-        Err(e) => return vec![SpannedValue::Error { error: Box::new(e) }],
-    };
+    let tag = item.span();
 
     let res = {
         if item.as_record().is_ok() {
@@ -180,17 +177,15 @@ fn flat_value(
                         error: Box::new(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),
                             wrong_type: other.get_type().to_string(),
-                            dst_span: _name_tag,
-                            src_span: other.expect_span(),
+                            dst_span: name_tag,
+                            src_span: other.span(),
                         }),
+                        span: name_tag,
                     }];
                 }
             };
 
-            let s = match item.span() {
-                Ok(x) => x,
-                Err(e) => return vec![SpannedValue::Error { error: Box::new(e) }],
-            };
+            let s = item.span();
 
             let records_iterator = {
                 let cols = records.0;
@@ -239,7 +234,9 @@ fn flat_value(
                                     "value originates from here".into(),
                                     s,
                                     *span
-                                ))}
+                                )),
+                                span: *span,
+                            }
                             ];
                         }
                         // it's a table (a list of record, we can flatten inner record)
@@ -277,7 +274,9 @@ fn flat_value(
                                     "value originates from here".into(),
                                     s,
                                     *span
-                                ))}
+                                )),
+                                span: *span,
+                                }
                             ];
                         }
 

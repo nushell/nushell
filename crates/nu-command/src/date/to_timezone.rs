@@ -130,6 +130,7 @@ fn helper(value: SpannedValue, head: Span, timezone: &Spanned<String>) -> Spanne
         }
         _ => SpannedValue::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
+            span: head,
         },
     }
 }
@@ -142,6 +143,7 @@ fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Spa
                 err_message: String::from("invalid time zone"),
                 span: timezone.span,
             }),
+            span: timezone.span,
         },
     }
 }

@@ -91,7 +91,7 @@ impl Command for Do {
                 }
 
                 let span = if let Some(rest_item) = rest_items.first() {
-                    rest_item.span()?
+                    rest_item.span()
                 } else {
                     call.head
                 };

@@ -76,7 +76,7 @@ impl RawStream {
         for next in self {
             match next {
                 Ok(val) => {
-                    if let SpannedValue::Error { error } = val {
+                    if let SpannedValue::Error { error, .. } = val {
                         return Err(*error);
                     }
                 }
@@ -213,7 +213,7 @@ impl ListStream {
 
     pub fn drain(self) -> Result<(), ShellError> {
         for next in self {
-            if let SpannedValue::Error { error } = next {
+            if let SpannedValue::Error { error, .. } = next {
                 return Err(*error);
             }
         }

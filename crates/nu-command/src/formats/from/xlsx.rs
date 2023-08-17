@@ -98,7 +98,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
                     "Expected binary from pipeline".to_string(),
                     "value originates from here".into(),
                     span,
-                    x.expect_span(),
+                    x.span(),
                 ))
             }
             None => break,

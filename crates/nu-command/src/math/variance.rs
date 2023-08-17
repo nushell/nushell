@@ -66,13 +66,13 @@ fn sum_of_squares(values: &[SpannedValue], span: Span) -> Result<SpannedValue, S
     for value in values {
         let v = match &value {
             SpannedValue::Int { .. } | SpannedValue::Float { .. } => Ok(value),
-            SpannedValue::Error { error } => Err(*error.clone()),
+            SpannedValue::Error { error, .. } => Err(*error.clone()),
             _ => Err(ShellError::UnsupportedInput(
                 "Attempted to compute the sum of squares of a non-integer, non-float value"
                     .to_string(),
                 "value originates from here".into(),
                 span,
-                value.expect_span(),
+                value.span(),
             )),
         }?;
         let v_squared = &v.mul(span, v, span)?;

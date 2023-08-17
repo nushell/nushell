@@ -771,7 +771,7 @@ Operating system commands:
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle {
                             msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
-                            span: code.expect_span(),
+                            span: code.span(),
                         })
                     }
                 }

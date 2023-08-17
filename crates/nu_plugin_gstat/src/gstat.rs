@@ -73,7 +73,7 @@ impl GStat {
                 label: "error with path".to_string(),
                 msg: format!("path does not exist [{}]", &a_path.item),
                 span: if using_input_value {
-                    Some(value.span().expect("unable to get value span"))
+                    Some(value.span())
                 } else {
                     Some(a_path.span)
                 },
@@ -86,7 +86,7 @@ impl GStat {
                 &a_path.item, e
             ),
             span: if using_input_value {
-                Some(value.span().expect("unable to get value span"))
+                Some(value.span())
             } else {
                 Some(a_path.span)
             },
@@ -98,7 +98,7 @@ impl GStat {
                 label: "error with directory".to_string(),
                 msg: format!("path is not a directory [{}]", &a_path.item),
                 span: if using_input_value {
-                    Some(value.span().expect("unable to get value span"))
+                    Some(value.span())
                 } else {
                     Some(a_path.span)
                 },
@@ -112,7 +112,7 @@ impl GStat {
                     label: format!("error canonicalizing [{}]", a_path.item),
                     msg: e.to_string(),
                     span: if using_input_value {
-                        Some(value.span().expect("unable to get value span"))
+                        Some(value.span())
                     } else {
                         Some(a_path.span)
                     },

@@ -163,6 +163,7 @@ fn action(
                         let err = processing_error("could not find `index-of`", head);
                         return SpannedValue::Error {
                             error: Box::new(err),
+                            span: head,
                         };
                     }
                 }
@@ -202,8 +203,9 @@ fn action(
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

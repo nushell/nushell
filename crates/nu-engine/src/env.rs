@@ -18,6 +18,7 @@ const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
+#[allow(dead_code)]
 enum ConversionResult {
     Ok(SpannedValue),
     ConversionError(ShellError), // Failure during the conversion itself
@@ -116,19 +117,19 @@ pub fn env_to_string(
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
                                 Err(_) => Err(ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
-                                    span: value.span()?,
+                                    span: value.span(),
                                 }),
                             }
                         }
                         _ => Err(ShellError::EnvVarNotAString {
                             envvar_name: env_name.to_string(),
-                            span: value.span()?,
+                            span: value.span(),
                         }),
                     }
                 } else {
                     Err(ShellError::EnvVarNotAString {
                         envvar_name: env_name.to_string(),
-                        span: value.span()?,
+                        span: value.span(),
                     })
                 }
             }
@@ -167,7 +168,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                     Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            Some(pwd.span()?),
+                            Some(pwd.span()),
                             None,
                             Vec::new()
                     ))
@@ -260,7 +261,7 @@ pub fn find_in_dirs_env(
                     return Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            Some(pwd.span()?),
+                            Some(pwd.span()),
                             None,
                             Vec::new()
                     ));
@@ -321,18 +322,8 @@ fn get_converted_value(
     direction: &str,
 ) -> ConversionResult {
     if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
-        let env_span = match env_conversions.span() {
-            Ok(span) => span,
-            Err(e) => {
-                return ConversionResult::GeneralError(e);
-            }
-        };
-        let val_span = match orig_val.span() {
-            Ok(span) => span,
-            Err(e) => {
-                return ConversionResult::GeneralError(e);
-            }
-        };
+        let env_span = env_conversions.span();
+        let val_span = orig_val.span();
 
         let path_members = &[
             PathMember::String {
@@ -430,13 +421,7 @@ fn ensure_path(
         }
         Some(val) => {
             // All other values are errors
-            let span = match val.span() {
-                Ok(sp) => sp,
-                Err(e) => {
-                    error = error.or(Some(e));
-                    Span::unknown() // FIXME: any better span to use here?
-                }
-            };
+            let span = val.span();
 
             error = error.or_else(|| {
                 Some(ShellError::GenericError(

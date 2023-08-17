@@ -118,13 +118,13 @@ pub fn sum(data: Vec<SpannedValue>, span: Span, head: Span) -> Result<SpannedVal
             | SpannedValue::Duration { .. } => {
                 acc = acc.add(head, value, head)?;
             }
-            SpannedValue::Error { error } => return Err(*error.clone()),
+            SpannedValue::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
                     "value originates from here".into(),
                     head,
-                    other.expect_span(),
+                    other.span(),
                 ));
             }
         }
@@ -157,14 +157,14 @@ pub fn product(
             SpannedValue::Int { .. } | SpannedValue::Float { .. } => {
                 acc = acc.mul(head, value, head)?;
             }
-            SpannedValue::Error { error } => return Err(*error.clone()),
+            SpannedValue::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the product of a value that cannot be multiplied"
                         .to_string(),
                     "value originates from here".into(),
                     head,
-                    other.expect_span(),
+                    other.span(),
                 ));
             }
         }

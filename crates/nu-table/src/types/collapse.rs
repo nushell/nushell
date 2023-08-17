@@ -61,7 +61,7 @@ fn colorize_value(value: &mut SpannedValue, config: &Config, style_computer: &St
             let (text, style) = nu_value_to_string_clean(value, config, style_computer);
             if let Some(color) = style.color_style {
                 let text = color.paint(text).to_string();
-                let span = value.span().unwrap_or(Span::unknown());
+                let span = value.span();
                 *value = SpannedValue::string(text, span);
             }
         }

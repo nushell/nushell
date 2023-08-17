@@ -92,8 +92,9 @@ fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> Spanned
                 exp_input_type: "float , integer or filesize".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

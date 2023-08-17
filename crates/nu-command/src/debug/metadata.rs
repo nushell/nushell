@@ -132,23 +132,22 @@ fn build_metadata_record(
     let mut cols = vec![];
     let mut vals = vec![];
 
-    if let Ok(span) = arg.span() {
-        cols.push("span".into());
-        vals.push(SpannedValue::Record {
-            cols: vec!["start".into(), "end".into()],
-            vals: vec![
-                SpannedValue::Int {
-                    val: span.start as i64,
-                    span,
-                },
-                SpannedValue::Int {
-                    val: span.end as i64,
-                    span,
-                },
-            ],
-            span: head,
-        });
-    }
+    let span = arg.span();
+    cols.push("span".into());
+    vals.push(SpannedValue::Record {
+        cols: vec!["start".into(), "end".into()],
+        vals: vec![
+            SpannedValue::Int {
+                val: span.start as i64,
+                span,
+            },
+            SpannedValue::Int {
+                val: span.end as i64,
+                span,
+            },
+        ],
+        span: head,
+    });
 
     if let Some(x) = metadata.as_deref() {
         match x {

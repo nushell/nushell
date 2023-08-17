@@ -7,7 +7,7 @@ pub fn from_ini_call(
     call: &EvaluatedCall,
     input: &SpannedValue,
 ) -> Result<SpannedValue, LabeledError> {
-    let span = input.span().unwrap_or(call.head);
+    let span = input.span();
     let input_string = input.as_string()?;
     let head = call.head;
 

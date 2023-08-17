@@ -34,7 +34,7 @@ impl Command for ViewSource {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let arg: SpannedValue = call.req(engine_state, stack, 0)?;
-        let arg_span = arg.span()?;
+        let arg_span = arg.span();
 
         match arg {
             SpannedValue::Block { val: block_id, .. }

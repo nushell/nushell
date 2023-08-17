@@ -250,7 +250,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
             span,
         },
 
-        SpannedValue::Error { error } => SpannedValue::String {
+        SpannedValue::Error { error, .. } => SpannedValue::String {
             val: into_code(error).unwrap_or_default(),
             span,
         },
@@ -270,6 +270,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                 span,
                 help: Some("try using the `to nuon` command".into()),
             }),
+            span,
         },
         SpannedValue::Binary { .. } => SpannedValue::Error {
             error: Box::new(ShellError::CantConvert {
@@ -278,6 +279,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                 span,
                 help: Some("try using the `decode` command".into()),
             }),
+            span,
         },
         x => SpannedValue::Error {
             error: Box::new(ShellError::CantConvert {
@@ -286,6 +288,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                 span,
                 help: None,
             }),
+            span,
         },
     }
 }

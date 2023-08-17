@@ -99,12 +99,12 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 }
             }
             // Propagate existing errors
-            SpannedValue::Error { error } => Err(*error),
+            SpannedValue::Error { error, .. } => Err(*error),
             other => Err(ShellError::UnsupportedInput(
                 "Expected a table from pipeline".to_string(),
                 "value originates from here".into(),
                 head,
-                other.expect_span(),
+                other.span(),
             )),
         })
         .collect();

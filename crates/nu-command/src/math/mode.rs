@@ -150,12 +150,12 @@ pub fn mode(values: &[SpannedValue], _span: Span, head: Span) -> Result<SpannedV
             SpannedValue::Filesize { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
-            SpannedValue::Error { error } => Err(*error.clone()),
+            SpannedValue::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
                 "value originates from here".into(),
                 head,
-                other.expect_span(),
+                other.span(),
             )),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;

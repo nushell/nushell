@@ -250,8 +250,9 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span: head,
             };
         }
     };
@@ -283,12 +284,14 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                     Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
                     None => SpannedValue::Error {
                         error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
+                        span: *span,
                     },
                 },
                 Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
                     Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
                     None => SpannedValue::Error {
                         error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
+                        span: *span,
                     },
                 },
                 Zone::Error => SpannedValue::Error {
@@ -297,6 +300,7 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                         err_message: "Invalid timezone or offset".to_string(),
                         span: *span,
                     }),
+                    span: *span,
                 },
             },
         };
@@ -311,6 +315,7 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                     Err(reason) => {
                         SpannedValue::Error {
                             error: Box::new(ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) }),
+                            span: head,
                         }
                     }
                 },
@@ -333,8 +338,9 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

@@ -69,7 +69,7 @@ pub fn parse_selector_params(
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
-            span: Some(input.span()?),
+            span: Some(input.span()),
         }),
     }
 }

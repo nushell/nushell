@@ -206,8 +206,9 @@ fn action(input: &SpannedValue, arg: &Arguments, head: Span) -> SpannedValue {
                         format!("input type: {:?}", other.get_type()),
                         head,
                         // This line requires the Value::Error match above.
-                        other.expect_span(),
+                        other.span(),
                     )),
+                    span: head,
                 }
             }
         },

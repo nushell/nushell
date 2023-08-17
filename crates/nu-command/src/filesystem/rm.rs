@@ -430,6 +430,7 @@ fn rm(
                         let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
                         SpannedValue::Error {
                             error: Box::new(ShellError::RemoveNotPossible(msg, span)),
+                            span,
                         }
                     } else if verbose {
                         let msg = if interactive && !confirmed {
@@ -452,6 +453,7 @@ fn rm(
                             None,
                             Vec::new(),
                         )),
+                        span,
                     }
                 }
             } else {
@@ -464,6 +466,7 @@ fn rm(
                         None,
                         Vec::new(),
                     )),
+                    span,
                 }
             }
         })

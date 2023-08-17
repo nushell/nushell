@@ -123,6 +123,7 @@ fn process_each_path(
         if let Err(error) = ret {
             return SpannedValue::Error {
                 error: Box::new(error),
+                span: command_span,
             };
         }
     }
@@ -142,8 +143,9 @@ fn process_value(value: &SpannedValue, text: &Option<String>, command_span: Span
             SpannedValue::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(command_span),
+                    span: other.span(),
                 }),
+                span: other.span(),
             }
         }
     }

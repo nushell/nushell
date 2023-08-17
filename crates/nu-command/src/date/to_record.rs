@@ -160,6 +160,7 @@ fn helper(val: SpannedValue, head: Span) -> SpannedValue {
         SpannedValue::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
         _ => SpannedValue::Error {
             error: Box::new(DatetimeParseError(val.debug_value(), head)),
+            span: head,
         },
     }
 }

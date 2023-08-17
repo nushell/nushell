@@ -217,12 +217,12 @@ fn action(
             Ok(SpannedValue::Nothing { span: *span })
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { error } => Err(*error.clone()),
+        SpannedValue::Error { error, .. } => Err(*error.clone()),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list".into(),
             wrong_type: other.get_type().to_string(),
             dst_span: span,
-            src_span: other.expect_span(),
+            src_span: other.span(),
         }),
     }
 }
@@ -266,7 +266,7 @@ fn nu_value_to_string(value: SpannedValue, separator: &str) -> String {
         SpannedValue::Block { val, .. } => format!("<Block {val}>"),
         SpannedValue::Closure { val, .. } => format!("<Closure {val}>"),
         SpannedValue::Nothing { .. } => String::new(),
-        SpannedValue::Error { error } => format!("{error:?}"),
+        SpannedValue::Error { error, .. } => format!("{error:?}"),
         SpannedValue::Binary { val, .. } => format!("{val:?}"),
         SpannedValue::CellPath { val, .. } => val.into_string(),
         SpannedValue::CustomValue { val, .. } => val.value_string(),

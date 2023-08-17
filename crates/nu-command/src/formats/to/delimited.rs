@@ -18,8 +18,8 @@ fn from_value_to_delimited_string(
             table_to_delimited(vals, *span, separator, config, head)
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { error } => Err(*error.clone()),
-        v => Err(make_unsupported_input_error(v, head, v.expect_span())),
+        SpannedValue::Error { error, .. } => Err(*error.clone()),
+        v => Err(make_unsupported_input_error(v, head, v.span())),
     }
 }
 
@@ -124,7 +124,7 @@ fn to_string_tagged_value(
         SpannedValue::Date { val, .. } => Ok(val.to_string()),
         SpannedValue::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
-        SpannedValue::Error { error } => Err(*error.clone()),
+        SpannedValue::Error { error, .. } => Err(*error.clone()),
         _ => Err(make_unsupported_input_error(v, head, span)),
     }
 }

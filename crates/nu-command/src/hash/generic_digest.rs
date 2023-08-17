@@ -112,8 +112,9 @@ where
                                     exp_input_type: "string and binary".into(),
                                     wrong_type: other.get_type().to_string(),
                                     dst_span: span,
-                                    src_span: other.expect_span(),
+                                    src_span: other.span(),
                                 }),
+                                span,
                             }
                             .into_pipeline_data());
                         }
@@ -162,6 +163,7 @@ where
                 Err(error) => {
                     return SpannedValue::Error {
                         error: Box::new(error),
+                        span,
                     }
                 }
             };
@@ -171,8 +173,9 @@ where
                     exp_input_type: "string or binary".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: span,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span,
             };
         }
     };

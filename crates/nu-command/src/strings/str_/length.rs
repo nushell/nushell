@@ -119,8 +119,9 @@ fn action(input: &SpannedValue, arg: &Arguments, head: Span) -> SpannedValue {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

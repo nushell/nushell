@@ -113,8 +113,9 @@ fn action(
                     "value originates from here".into(),
                     command_span,
                     // This line requires the Value::Error {} match above.
-                    input.expect_span(),
+                    input.span(),
                 )),
+                span: command_span,
             },
         },
         SpannedValue::String { val, .. } => {
@@ -125,8 +126,9 @@ fn action(
                         "value originates from here".into(),
                         command_span,
                         // This line requires the Value::Error {} match above.
-                        input.expect_span(),
+                        input.span(),
                     )),
+                    span: command_span,
                 },
 
                 ActionType::Decode => match hex_decode(val.as_ref()) {
@@ -139,6 +141,7 @@ fn action(
                             None,
                             Vec::new(),
                         )),
+                        span: command_span,
                     },
                     Err(HexDecodingError::InvalidDigit(index, digit)) => SpannedValue::Error {
                         error: Box::new(ShellError::GenericError(
@@ -148,6 +151,7 @@ fn action(
                             None,
                             Vec::new(),
                         )),
+                        span: command_span,
                     },
                 },
             }
@@ -155,8 +159,9 @@ fn action(
         other => SpannedValue::Error {
             error: Box::new(ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
-                span: other.span().unwrap_or(command_span),
+                span: other.span(),
             }),
+            span: other.span(),
         },
     }
 }

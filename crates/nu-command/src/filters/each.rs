@@ -164,6 +164,7 @@ with 'transpose' first."#
                     }
 
                     let input_span = x.span();
+                    let x_is_error = x.is_error();
                     match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
@@ -176,9 +177,10 @@ with 'transpose' first."#
                         Err(ShellError::Continue(v)) => Some(SpannedValue::nothing(v)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
-                            let error = chain_error_with_input(error, input_span);
+                            let error = chain_error_with_input(error, x_is_error, input_span);
                             Some(SpannedValue::Error {
                                 error: Box::new(error),
+                                span: input_span,
                             })
                         }
                     }
@@ -203,6 +205,7 @@ with 'transpose' first."#
                         Err(err) => {
                             return Some(SpannedValue::Error {
                                 error: Box::new(err),
+                                span,
                             })
                         }
                     };
@@ -214,6 +217,8 @@ with 'transpose' first."#
                     }
 
                     let input_span = x.span();
+                    let x_is_error = x.is_error();
+
                     match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
@@ -226,8 +231,12 @@ with 'transpose' first."#
                         Err(ShellError::Continue(v)) => Some(SpannedValue::nothing(v)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
-                            let error = Box::new(chain_error_with_input(error, input_span));
-                            Some(SpannedValue::Error { error })
+                            let error =
+                                Box::new(chain_error_with_input(error, x_is_error, input_span));
+                            Some(SpannedValue::Error {
+                                error,
+                                span: input_span,
+                            })
                         }
                     }
                 })

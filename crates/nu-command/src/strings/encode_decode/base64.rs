@@ -99,12 +99,12 @@ fn action(
             Some(config_character_set.span),
             None,
             Vec::new(),
-        ))}
+        )), span:config_character_set.span}
     };
     match input {
         // Propagate existing errors.
         SpannedValue::Error { .. } => input.clone(),
-        SpannedValue::Binary { val, .. } => match base64_config.action_type {
+        SpannedValue::Binary { val, span } => match base64_config.action_type {
             ActionType::Encode => {
                 let mut enc_vec = Vec::new();
                 enc_vec.resize(val.len() * 4 / 3 + 4, 0);
@@ -115,10 +115,11 @@ fn action(
                             error: Box::new(ShellError::GenericError(
                                 "Error encoding data".into(),
                                 err.to_string(),
-                                Some(Span::unknown()),
+                                Some(span),
                                 None,
                                 Vec::new(),
                             )),
+                            span,
                         }
                     }
                 };
@@ -131,8 +132,9 @@ fn action(
                     "value originates from here".into(),
                     command_span,
                     // This line requires the Value::Error {} match above.
-                    input.expect_span(),
+                    input.span(),
                 )),
+                span: command_span,
             },
         },
         SpannedValue::String {
@@ -169,6 +171,7 @@ fn action(
                                             Some("consider using the `--binary` flag".to_owned()),
                                             Vec::new(),
                                         )),
+                                        span: *value_span,
                                     },
                                 }
                             }
@@ -184,6 +187,7 @@ fn action(
                                 None,
                                 Vec::new(),
                             )),
+                            span: command_span,
                         },
                     }
                 }
@@ -194,6 +198,7 @@ fn action(
                 err_message: format!("string or binary, not {}", other.get_type()),
                 span: other.span().unwrap_or(command_span),
             }),
+            span: other.span().unwrap_or(command_span),
         },
     }
 }

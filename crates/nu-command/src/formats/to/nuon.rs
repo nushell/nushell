@@ -85,6 +85,7 @@ impl Command for ToNuon {
                     span,
                     help: None,
                 }),
+                span,
             }
             .into_pipeline_data()),
         }
@@ -136,7 +137,7 @@ pub fn value_to_string(
                         "could not convert binary to string".into(),
                         "value originates from here".into(),
                         span,
-                        v.expect_span(),
+                        v.span(),
                     ));
                 }
             }
@@ -146,13 +147,13 @@ pub fn value_to_string(
             "blocks are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         SpannedValue::Closure { .. } => Err(ShellError::UnsupportedInput(
             "closures are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         SpannedValue::Bool { val, .. } => {
             if *val {
@@ -165,19 +166,19 @@ pub fn value_to_string(
             "cellpaths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         SpannedValue::CustomValue { .. } => Err(ShellError::UnsupportedInput(
             "custom values are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         SpannedValue::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
         SpannedValue::Duration { val, .. } => Ok(format!("{}ns", *val)),
         // Propagate existing errors
-        SpannedValue::Error { error } => Err(*error.clone()),
+        SpannedValue::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
         SpannedValue::Filesize { val, .. } => Ok(format!("{}b", *val)),
         SpannedValue::Float { val, .. } => {
@@ -246,7 +247,7 @@ pub fn value_to_string(
             "match patterns are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         SpannedValue::Nothing { .. } => Ok("null".to_string()),
         SpannedValue::Range { val, .. } => Ok(format!(

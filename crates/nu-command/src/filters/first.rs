@@ -164,12 +164,12 @@ fn first_helper(
                 }
             }
             // Propagate errors by explicitly matching them before the final case.
-            SpannedValue::Error { error } => Err(*error),
+            SpannedValue::Error { error, .. } => Err(*error),
             other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
         },
         PipelineData::ListStream(mut ls, metadata) => {

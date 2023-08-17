@@ -79,12 +79,12 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                     super::encoding::decode(head, encoding, &bytes)
                         .map(|val| val.into_pipeline_data())
                 }
-                SpannedValue::Error { error } => Err(*error),
+                SpannedValue::Error { error, .. } => Err(*error),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "binary".into(),
                     wrong_type: v.get_type().to_string(),
                     dst_span: head,
-                    src_span: v.expect_span(),
+                    src_span: v.span(),
                 }),
             },
             // This should be more precise, but due to difficulties in getting spans

@@ -55,13 +55,13 @@ impl Command for BytesCollect {
                     }
                 }
                 // Explicitly propagate errors instead of dropping them.
-                SpannedValue::Error { error } => return Err(*error),
+                SpannedValue::Error { error, .. } => return Err(*error),
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "binary".into(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: call.head,
-                        src_span: other.expect_span(),
+                        src_span: other.span(),
                     });
                 }
             }

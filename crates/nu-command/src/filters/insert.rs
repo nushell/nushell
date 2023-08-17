@@ -168,12 +168,18 @@ fn insert(
                             pd.into_value(span),
                             span,
                         ) {
-                            return SpannedValue::Error { error: Box::new(e) };
+                            return SpannedValue::Error {
+                                error: Box::new(e),
+                                span,
+                            };
                         }
 
                         input
                     }
-                    Err(e) => SpannedValue::Error { error: Box::new(e) },
+                    Err(e) => SpannedValue::Error {
+                        error: Box::new(e),
+                        span,
+                    },
                 }
             },
             ctrlc,
@@ -204,7 +210,10 @@ fn insert(
                 if let Err(e) =
                     input.insert_data_at_cell_path(&cell_path.members, replacement, span)
                 {
-                    return SpannedValue::Error { error: Box::new(e) };
+                    return SpannedValue::Error {
+                        error: Box::new(e),
+                        span,
+                    };
                 }
 
                 input

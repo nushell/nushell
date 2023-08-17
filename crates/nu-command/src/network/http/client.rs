@@ -278,7 +278,7 @@ pub fn request_set_timeout(
         if val.is_negative() || val < 1 {
             return Err(ShellError::TypeMismatch {
                 err_message: "Timeout value must be an integer and larger than 0".to_string(),
-                span: timeout.expect_span(),
+                span: timeout.span(),
             });
         }
 

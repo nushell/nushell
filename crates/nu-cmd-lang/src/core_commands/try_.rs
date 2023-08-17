@@ -56,7 +56,7 @@ impl Command for Try {
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
             }
-            Ok(PipelineData::Value(SpannedValue::Error { error }, ..)) => {
+            Ok(PipelineData::Value(SpannedValue::Error { error, .. }, ..)) => {
                 let error = intercept_block_control(*error)?;
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
@@ -143,6 +143,7 @@ fn err_to_record(error: ShellError, head: Span) -> SpannedValue {
         SpannedValue::string(format!("{error:?}"), head),
         SpannedValue::Error {
             error: Box::new(error),
+            span: head,
         },
     ];
     SpannedValue::record(cols, vals, head)

@@ -78,6 +78,7 @@ where
                         if let Err(error) = r {
                             return SpannedValue::Error {
                                 error: Box::new(error),
+                                span,
                             };
                         }
                     }

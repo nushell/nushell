@@ -117,11 +117,11 @@ impl Command for Move {
         let before_or_after = match (after, before) {
             (Some(v), None) => Spanned {
                 item: BeforeOrAfter::After(v.as_string()?),
-                span: v.span()?,
+                span: v.span(),
             },
             (None, Some(v)) => Spanned {
                 item: BeforeOrAfter::Before(v.as_string()?),
-                span: v.span()?,
+                span: v.span(),
             },
             (Some(_), Some(_)) => {
                 return Err(ShellError::GenericError(
@@ -161,10 +161,12 @@ impl Command for Move {
                         Ok(val) => val,
                         Err(error) => SpannedValue::Error {
                             error: Box::new(error),
+                            span: call.head,
                         },
                     },
                     Err(error) => SpannedValue::Error {
                         error: Box::new(error),
+                        span: call.head,
                     },
                 });
 
@@ -244,7 +246,7 @@ fn move_record_columns(
             return Err(ShellError::GenericError(
                 "Cannot move columns".to_string(),
                 "column does not exist".to_string(),
-                Some(column.span()?),
+                Some(column.span()),
                 None,
                 Vec::new(),
             ));

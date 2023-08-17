@@ -135,12 +135,14 @@ repeating this process with row 1, and so on."#
                                     }
                                     Err(error) => SpannedValue::Error {
                                         error: Box::new(error),
+                                        span: call.head,
                                     },
                                 }
                             }
                             (_, None) => inp,
                             (Err(error), _) => SpannedValue::Error {
                                 error: Box::new(error),
+                                span: call.head,
                             },
                         });
 

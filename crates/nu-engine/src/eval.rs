@@ -100,7 +100,7 @@ pub fn eval_call(
             }
 
             let span = if let Some(rest_item) = rest_items.first() {
-                rest_item.span()?
+                rest_item.span()
             } else {
                 call.head
             };
@@ -1165,6 +1165,7 @@ pub fn eval_block(
                     input = PipelineData::Value(
                         SpannedValue::Error {
                             error: Box::new(error),
+                            span: Span::unknown(), // FIXME: where does this span come from?
                         },
                         None,
                     )
@@ -1265,6 +1266,7 @@ pub fn eval_nu_variable(
     } else {
         vals.push(SpannedValue::Error {
             error: Box::new(ShellError::IOError("Could not get config directory".into())),
+            span,
         })
     }
 
@@ -1285,6 +1287,7 @@ pub fn eval_nu_variable(
     } else {
         vals.push(SpannedValue::Error {
             error: Box::new(ShellError::IOError("Could not get config directory".into())),
+            span,
         })
     }
 
@@ -1307,6 +1310,7 @@ pub fn eval_nu_variable(
             error: Box::new(ShellError::IOError(
                 "Could not find environment path".into(),
             )),
+            span,
         })
     }
 
@@ -1329,6 +1333,7 @@ pub fn eval_nu_variable(
     } else {
         vals.push(SpannedValue::Error {
             error: Box::new(ShellError::IOError("Could not find history path".into())),
+            span,
         })
     }
 
@@ -1346,6 +1351,7 @@ pub fn eval_nu_variable(
             error: Box::new(ShellError::IOError(
                 "Could not find login shell path".into(),
             )),
+            span,
         })
     }
 
@@ -1364,6 +1370,7 @@ pub fn eval_nu_variable(
                 error: Box::new(ShellError::IOError(
                     "Could not get plugin signature location".into(),
                 )),
+                span,
             })
         }
     }
@@ -1378,6 +1385,7 @@ pub fn eval_nu_variable(
     } else {
         vals.push(SpannedValue::Error {
             error: Box::new(ShellError::IOError("Could not get home path".into())),
+            span,
         })
     }
 
@@ -1443,6 +1451,7 @@ pub fn eval_nu_variable(
             error: Box::new(ShellError::IOError(
                 "Could not get current executable path".to_string(),
             )),
+            span,
         })
     }
 
@@ -1539,6 +1548,7 @@ fn collect_profiling_metadata(
             Ok((PipelineData::Empty, ..)) => SpannedValue::Nothing { span: element_span },
             Err(err) => SpannedValue::Error {
                 error: Box::new(err.clone()),
+                span: element_span,
             },
         };
 

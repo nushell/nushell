@@ -226,6 +226,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                                     span,
                                     help: None,
                                 }),
+                                span,
                             }
                         }
                     }
@@ -239,6 +240,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                     Ok(val) => SpannedValue::Int { val, span },
                     Err(error) => SpannedValue::Error {
                         error: Box::new(error),
+                        span,
                     },
                 }
             } else {
@@ -269,6 +271,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
                         span
                     }),
+                    span,
                 }
             } else {
                 SpannedValue::Int {
@@ -307,8 +310,9 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }
@@ -325,7 +329,12 @@ fn convert_int(input: &SpannedValue, head: Span, radix: u32) -> SpannedValue {
             {
                 match int_from_string(val, head) {
                     Ok(x) => return SpannedValue::int(x, head),
-                    Err(e) => return SpannedValue::Error { error: Box::new(e) },
+                    Err(e) => {
+                        return SpannedValue::Error {
+                            error: Box::new(e),
+                            span: head,
+                        }
+                    }
                 }
             } else if val.starts_with("00") {
                 // It's a padded string
@@ -339,6 +348,7 @@ fn convert_int(input: &SpannedValue, head: Span, radix: u32) -> SpannedValue {
                                 span: head,
                                 help: Some(e.to_string()),
                             }),
+                            span: head,
                         }
                     }
                 }
@@ -353,8 +363,9 @@ fn convert_int(input: &SpannedValue, head: Span, radix: u32) -> SpannedValue {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span: head,
             };
         }
     };
@@ -367,6 +378,7 @@ fn convert_int(input: &SpannedValue, head: Span, radix: u32) -> SpannedValue {
                 span: head,
                 help: None,
             }),
+            span: head,
         },
     }
 }
@@ -555,7 +567,7 @@ mod test {
             },
             Span::test_data(),
         );
-        if let SpannedValue::Error { error } = actual {
+        if let SpannedValue::Error { error, .. } = actual {
             if let ShellError::IncorrectValue { msg: e, .. } = *error {
                 assert!(
                     e.contains(err_expected),

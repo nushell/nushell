@@ -86,7 +86,7 @@ pub fn get_pipeline_elements(
             };
             let index = format!("{pipeline_idx}_{i}");
             let value_type = value.get_type();
-            let value_span = value.span()?;
+            let value_span = value.span();
             let value_span_start = value_span.start as i64;
             let value_span_end = value_span.end as i64;
             let command_name = command_name;
@@ -184,7 +184,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_type = "expr";
                     let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                     let arg_value_type = &evaluated_expression.get_type().to_string();
-                    let evaled_span = evaluated_expression.expect_span();
+                    let evaled_span = evaluated_expression.span();
                     let arg_value_name_span_start = evaled_span.start as i64;
                     let arg_value_name_span_end = evaled_span.end as i64;
 
@@ -213,7 +213,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.expect_span();
+                let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
 
@@ -241,7 +241,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);
                 let arg_value_type = &evaluated_expression.get_type().to_string();
-                let evaled_span = evaluated_expression.expect_span();
+                let evaled_span = evaluated_expression.span();
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
 
@@ -279,6 +279,7 @@ fn get_expression_as_value(
         Ok(v) => v,
         Err(error) => SpannedValue::Error {
             error: Box::new(error),
+            span: inner_expr.span,
         },
     }
 }
@@ -322,7 +323,7 @@ pub fn debug_string_without_formatting(value: &SpannedValue) -> String {
         SpannedValue::Block { val, .. } => format!("<Block {val}>"),
         SpannedValue::Closure { val, .. } => format!("<Closure {val}>"),
         SpannedValue::Nothing { .. } => String::new(),
-        SpannedValue::Error { error } => format!("{error:?}"),
+        SpannedValue::Error { error, .. } => format!("{error:?}"),
         SpannedValue::Binary { val, .. } => format!("{val:?}"),
         SpannedValue::CellPath { val, .. } => val.into_string(),
         SpannedValue::CustomValue { val, .. } => val.value_string(),

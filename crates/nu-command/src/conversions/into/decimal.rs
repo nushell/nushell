@@ -108,6 +108,7 @@ fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, head: Span) -> Spanned
                         span: *span,
                         help: None,
                     }),
+                    span: *span,
                 },
             }
         }
@@ -126,8 +127,9 @@ fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, head: Span) -> Spanned
                 exp_input_type: "string, integer or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

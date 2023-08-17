@@ -374,13 +374,7 @@ fn find_with_rest_and_highlight(
     let terms = call.rest::<SpannedValue>(&engine_state, stack, 0)?;
     let lower_terms = terms
         .iter()
-        .map(|v| {
-            if let Ok(span) = v.span() {
-                SpannedValue::string(v.into_string("", &config).to_lowercase(), span)
-            } else {
-                v.clone()
-            }
-        })
+        .map(|v| SpannedValue::string(v.into_string("", &config).to_lowercase(), span))
         .collect::<Vec<SpannedValue>>();
 
     let style_computer = StyleComputer::from_config(&engine_state, stack);
@@ -499,14 +493,14 @@ fn find_with_rest_and_highlight(
                             }
                         }
                         // Propagate errors by explicitly matching them before the final case.
-                        SpannedValue::Error { error } => return Err(*error),
+                        SpannedValue::Error { error, .. } => return Err(*error),
                         other => {
                             return Err(ShellError::UnsupportedInput(
                                 "unsupported type from raw stream".into(),
                                 format!("input: {:?}", other.get_type()),
                                 span,
                                 // This line requires the Value::Error match above.
-                                other.expect_span(),
+                                other.span(),
                             ));
                         }
                     },
@@ -527,11 +521,8 @@ fn value_should_be_printed(
     columns_to_search: &Vec<String>,
     invert: bool,
 ) -> bool {
-    let lower_value = if let Ok(span) = value.span() {
-        SpannedValue::string(value.into_string("", filter_config).to_lowercase(), span)
-    } else {
-        value.clone()
-    };
+    let lower_value =
+        SpannedValue::string(value.into_string("", filter_config).to_lowercase(), span);
 
     let mut match_found = lower_terms.iter().any(|term| match value {
         SpannedValue::Bool { .. }
@@ -597,7 +588,7 @@ fn record_matches_term(
         if !cols_to_search.contains(col) {
             return false;
         }
-        let lower_val = if val.span().is_ok() {
+        let lower_val = if !val.is_error() {
             SpannedValue::string(
                 val.into_string("", filter_config).to_lowercase(),
                 Span::test_data(),

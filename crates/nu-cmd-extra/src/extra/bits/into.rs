@@ -256,8 +256,9 @@ pub fn action(input: &SpannedValue, _args: &Arguments, span: Span) -> SpannedVal
                 exp_input_type: "integer, filesize, string, date, duration, binary or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

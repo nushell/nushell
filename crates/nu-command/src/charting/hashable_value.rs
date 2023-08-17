@@ -79,12 +79,12 @@ impl HashableValue {
             SpannedValue::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
 
             // Explicitly propagate errors instead of dropping them.
-            SpannedValue::Error { error } => Err(*error),
+            SpannedValue::Error { error, .. } => Err(*error),
             _ => Err(ShellError::UnsupportedInput(
                 "input value is not hashable".into(),
                 format!("input type: {:?}", value.get_type()),
                 span,
-                value.expect_span(),
+                value.span(),
             )),
         }
     }
@@ -237,6 +237,7 @@ mod test {
             SpannedValue::Nothing { span },
             SpannedValue::Error {
                 error: Box::new(ShellError::DidYouMean("what?".to_string(), span)),
+                span,
             },
             SpannedValue::CellPath {
                 val: CellPath {
