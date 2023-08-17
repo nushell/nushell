@@ -14,7 +14,7 @@ jobs:
 
   winget:
     name: Publish winget package
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Submit package to Windows Package Manager Community Repository
         uses: vedantmgoyal2009/winget-releaser@v2
