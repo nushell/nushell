@@ -240,9 +240,35 @@ fn correct_scope_externs_fields() {
 
         let inp = &[
             "use spam.nu",
+            "scope externs | where name == 'spam git' | get 0.usage | str contains (char nl)",
+        ];
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        assert_eq!(actual.out, "false");
+
+        let inp = &[
+            "use spam.nu",
             "scope externs | where name == 'spam git' | get 0.decl_id | is-empty",
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert_eq!(actual.out, "false");
     })
+}
+
+#[test]
+fn scope_externs_sorted() {
+    let module_setup = r#"
+        export extern a []
+        export extern b []
+        export extern c []
+    "#;
+
+    let inp = &[
+        "extern a []",
+        "extern b []",
+        "extern c []",
+        "scope externs | get name | str join ''",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "abc");
 }

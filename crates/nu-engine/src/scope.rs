@@ -73,6 +73,8 @@ impl<'e, 's> ScopeData<'e, 's> {
                 span,
             })
         }
+
+        sort_rows(&mut vars);
         vars
     }
 
@@ -201,23 +203,8 @@ impl<'e, 's> ScopeData<'e, 's> {
             }
         }
 
-        commands.sort_by(|a, b| match (a, b) {
-            (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
-                // Comparing the first value from the record
-                // It is expected that the first value is the name of the column
-                // The names of the commands should be a value string
-                match (rec_a.get(0), rec_b.get(0)) {
-                    (Some(val_a), Some(val_b)) => match (val_a, val_b) {
-                        (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
-                            str_a.cmp(str_b)
-                        }
-                        _ => Ordering::Equal,
-                    },
-                    _ => Ordering::Equal,
-                }
-            }
-            _ => Ordering::Equal,
-        });
+        sort_rows(&mut commands);
+
         commands
     }
 
@@ -474,6 +461,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             }
         }
 
+        sort_rows(&mut externals);
         externals
     }
 
@@ -518,7 +506,8 @@ impl<'e, 's> ScopeData<'e, 's> {
             }
         }
 
-        aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+        sort_rows(&mut aliases);
+        // aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         aliases
     }
 
@@ -527,7 +516,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         let all_decls = module.decls();
 
-        let export_commands: Vec<Value> = all_decls
+        let mut export_commands: Vec<Value> = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
@@ -547,7 +536,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
-        let export_aliases: Vec<Value> = all_decls
+        let mut export_aliases: Vec<Value> = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
@@ -567,7 +556,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
-        let export_externs: Vec<Value> = all_decls
+        let mut export_externs: Vec<Value> = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
@@ -587,13 +576,13 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
-        let export_submodules: Vec<Value> = module
+        let mut export_submodules: Vec<Value> = module
             .submodules()
             .iter()
             .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
             .collect();
 
-        let export_consts: Vec<Value> = module
+        let mut export_consts: Vec<Value> = module
             .vars()
             .iter()
             .map(|(name_bytes, var_id)| {
@@ -608,6 +597,12 @@ impl<'e, 's> ScopeData<'e, 's> {
                 )
             })
             .collect();
+
+        sort_rows(&mut export_commands);
+        sort_rows(&mut export_aliases);
+        sort_rows(&mut export_externs);
+        sort_rows(&mut export_submodules);
+        sort_rows(&mut export_consts);
 
         let export_env_block = module.env_block.map_or_else(
             || Value::nothing(span),
@@ -719,4 +714,23 @@ fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &Syntax
         }
         _ => "".to_string(),
     };
+}
+
+fn sort_rows(decls: &mut [Value]) {
+    decls.sort_by(|a, b| match (a, b) {
+        (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
+            // Comparing the first value from the record
+            // It is expected that the first value is the name of the entry (command, module, alias, etc.)
+            match (rec_a.get(0), rec_b.get(0)) {
+                (Some(val_a), Some(val_b)) => match (val_a, val_b) {
+                    (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
+                        str_a.cmp(str_b)
+                    }
+                    _ => Ordering::Equal,
+                },
+                _ => Ordering::Equal,
+            }
+        }
+        _ => Ordering::Equal,
+    });
 }
