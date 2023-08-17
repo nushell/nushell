@@ -66,6 +66,7 @@ fn get_compression(call: &Call) -> Result<Option<AvroCompression>, ShellError> {
             _ => Err(ShellError::IncorrectValue {
                 msg: "compression must be one of deflate or snappy".to_string(),
                 span,
+                orig_span: span,
             }),
         }
     } else {
