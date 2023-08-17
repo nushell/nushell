@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
+    SyntaxShape, Type,
 };
 
 struct Arguments {
@@ -87,7 +87,7 @@ impl Command for BytesRemove {
             Example {
                 description: "Remove contents",
                 example: "0x[10 AA FF AA FF] | bytes remove 0x[10 AA]",
-                result: Some(Value::Binary {
+                result: Some(SpannedValue::Binary {
                     val: vec![0xFF, 0xAA, 0xFF],
                     span: Span::test_data(),
                 }),
@@ -95,13 +95,13 @@ impl Command for BytesRemove {
             Example {
                 description: "Remove all occurrences of find binary in record field",
                 example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove -a 0x[10] data",
-                result: Some(Value::test_record(vec!["data"], 
-                    vec![Value::test_binary(vec![0xAA, 0xBB])])),
+                result: Some(SpannedValue::test_record(vec!["data"], 
+                    vec![SpannedValue::test_binary(vec![0xAA, 0xBB])])),
             },
             Example {
                 description: "Remove occurrences of find binary from end",
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove -e 0x[10]",
-                result: Some(Value::Binary {
+                result: Some(SpannedValue::Binary {
                     val: vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA],
                     span: Span::test_data(),
                 }),
@@ -109,19 +109,19 @@ impl Command for BytesRemove {
             Example {
                 description: "Remove all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            Value::Binary {
+                            SpannedValue::Binary {
                                 val: vec![0x12, 0x13],
                                 span: Span::test_data(),
                             },
-                            Value::Binary {
+                            SpannedValue::Binary {
                                 val: vec![0x14, 0x15, 0x16],
                                 span: Span::test_data(),
                             },
-                            Value::Binary {
+                            SpannedValue::Binary {
                                 val: vec![0x17, 0x18, 0x19],
                                 span: Span::test_data(),
                             },
@@ -135,15 +135,15 @@ impl Command for BytesRemove {
     }
 }
 
-fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
+fn remove(val: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
     match val {
-        Value::Binary {
+        SpannedValue::Binary {
             val,
             span: val_span,
         } => remove_impl(val, args, *val_span),
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => val.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => val.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
@@ -154,7 +154,7 @@ fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
+fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> SpannedValue {
     let mut result = vec![];
     let remove_all = arg.all;
     let input_len = input.len();
@@ -178,7 +178,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         let mut remain = input[..left as usize].iter().copied().rev().collect();
         result.append(&mut remain);
         result = result.into_iter().rev().collect();
-        Value::Binary { val: result, span }
+        SpannedValue::Binary { val: result, span }
     } else {
         let (mut left, mut right) = (0, arg.pattern.len());
         while right <= input_len {
@@ -198,7 +198,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         // we have something to remove and remove_all is False.
         let mut remain = input[left..].to_vec();
         result.append(&mut remain);
-        Value::Binary { val: result, span }
+        SpannedValue::Binary { val: result, span }
     }
 }
 

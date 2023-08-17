@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nu_protocol::{CustomValue, ShellError, Value};
+use nu_protocol::{CustomValue, ShellError, SpannedValue};
 use serde::Serialize;
 
 use crate::plugin::{call_plugin, create_command, get_plugin_encoding};
@@ -33,8 +33,8 @@ pub struct PluginCustomValue {
 }
 
 impl CustomValue for PluginCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> nu_protocol::Value {
-        Value::CustomValue {
+    fn clone_value(&self, span: nu_protocol::Span) -> nu_protocol::SpannedValue {
+        SpannedValue::CustomValue {
             val: Box::new(self.clone()),
             span,
         }
@@ -47,7 +47,7 @@ impl CustomValue for PluginCustomValue {
     fn to_base_value(
         &self,
         span: nu_protocol::Span,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+    ) -> Result<nu_protocol::SpannedValue, nu_protocol::ShellError> {
         let mut plugin_cmd = create_command(&self.filename, &self.shell);
 
         let mut child = plugin_cmd.spawn().map_err(|err| {

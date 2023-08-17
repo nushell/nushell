@@ -2,7 +2,7 @@ use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Matcher, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ impl Command for Match {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value: Value = call.req(engine_state, stack, 0)?;
+        let value: SpannedValue = call.req(engine_state, stack, 0)?;
         let block = call.positional_nth(1);
 
         if let Some(Expression {
@@ -53,7 +53,7 @@ impl Command for Match {
                     }
 
                     let guard_matches = if let Some(guard) = &match_.0.guard {
-                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)? else {
+                        let SpannedValue::Bool { val, .. } = eval_expression(engine_state, stack, guard)? else {
                             return Err(ShellError::MatchGuardNotBool { span: guard.span});
                         };
 
@@ -97,27 +97,27 @@ impl Command for Match {
             Example {
                 description: "Match on a value in range",
                 example: "match 3 { 1..10 => 'yes!' }",
-                result: Some(Value::test_string("yes!")),
+                result: Some(SpannedValue::test_string("yes!")),
             },
             Example {
                 description: "Match on a field in a record",
                 example: "match {a: 100} { {a: $my_value} => { $my_value } }",
-                result: Some(Value::test_int(100)),
+                result: Some(SpannedValue::test_int(100)),
             },
             Example {
                 description: "Match with a catch-all",
                 example: "match 3 { 1 => { 'yes!' }, _ => { 'no!' } }",
-                result: Some(Value::test_string("no!")),
+                result: Some(SpannedValue::test_string("no!")),
             },
             Example {
                 description: "Match against a list",
                 example: "match [1, 2, 3] { [$a, $b, $c] => { $a + $b + $c }, _ => 0 }",
-                result: Some(Value::test_int(6)),
+                result: Some(SpannedValue::test_int(6)),
             },
             Example {
                 description: "Match against pipeline input",
                 example: "{a: {b: 3}} | match $in {{a: { $b }} => ($b + 10) }",
-                result: Some(Value::test_int(13)),
+                result: Some(SpannedValue::test_int(13)),
             },
             Example {
                 description: "Match with a guard",
@@ -126,7 +126,7 @@ impl Command for Match {
         _ => { 'not a very good list' }
     }
     ",
-                result: Some(Value::test_string("good list")),
+                result: Some(SpannedValue::test_string("good list")),
             },
         ]
     }

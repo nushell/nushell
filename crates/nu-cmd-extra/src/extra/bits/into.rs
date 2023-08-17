@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 use num_traits::ToPrimitive;
 
@@ -71,7 +71,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert a binary value into a string, padded to 8 places with 0s",
                 example: "01b | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "00000001".to_string(),
                     span: Span::test_data(),
                 }),
@@ -79,7 +79,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert an int into a string, padded to 8 places with 0s",
                 example: "1 | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "00000001".to_string(),
                     span: Span::test_data(),
                 }),
@@ -87,7 +87,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert a filesize value into a string, padded to 8 places with 0s",
                 example: "1b | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "00000001".to_string(),
                     span: Span::test_data(),
                 }),
@@ -95,7 +95,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert a duration value into a string, padded to 8 places with 0s",
                 example: "1ns | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "00000001".to_string(),
                     span: Span::test_data(),
                 }),
@@ -103,7 +103,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert a boolean value into a string, padded to 8 places with 0s",
                 example: "true | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "00000001".to_string(),
                     span: Span::test_data(),
                 }),
@@ -111,7 +111,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert a datetime value into a string, padded to 8 places with 0s",
                 example: "2023-04-17T01:02:03 | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "01001101 01101111 01101110 00100000 01000001 01110000 01110010 00100000 00110001 00110111 00100000 00110000 00110001 00111010 00110000 00110010 00111010 00110000 00110011 00100000 00110010 00110000 00110010 00110011".to_string(),
                     span: Span::test_data(),
                 }),
@@ -119,7 +119,7 @@ impl Command for BitsInto {
             Example {
                 description: "convert a string into a raw binary string, padded with 0s to 8 places",
                 example: "'nushell.sh' | into bits",
-                result: Some(Value::String {
+                result: Some(SpannedValue::String {
                     val: "01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000".to_string(),
                     span: Span::test_data(),
                 }),
@@ -139,7 +139,7 @@ fn into_bits(
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(SpannedValue::Binary {
             val: vec![],
             span: head,
         }
@@ -150,7 +150,7 @@ fn into_bits(
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
-            Ok(Value::Binary {
+            Ok(SpannedValue::Binary {
                 val: output.item,
                 span: head,
             }
@@ -163,14 +163,14 @@ fn into_bits(
     }
 }
 
-fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
+fn convert_to_smallest_number_type(num: i64, span: Span) -> SpannedValue {
     if let Some(v) = num.to_i8() {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
             raw_string.push_str(&format!("{:08b} ", ch));
         }
-        Value::String {
+        SpannedValue::String {
             val: raw_string.trim().to_string(),
             span,
         }
@@ -180,7 +180,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
         for ch in bytes {
             raw_string.push_str(&format!("{:08b} ", ch));
         }
-        Value::String {
+        SpannedValue::String {
             val: raw_string.trim().to_string(),
             span,
         }
@@ -190,7 +190,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
         for ch in bytes {
             raw_string.push_str(&format!("{:08b} ", ch));
         }
-        Value::String {
+        SpannedValue::String {
             val: raw_string.trim().to_string(),
             span,
         }
@@ -200,58 +200,58 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
         for ch in bytes {
             raw_string.push_str(&format!("{:08b} ", ch));
         }
-        Value::String {
+        SpannedValue::String {
             val: raw_string.trim().to_string(),
             span,
         }
     }
 }
 
-pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+pub fn action(input: &SpannedValue, _args: &Arguments, span: Span) -> SpannedValue {
     match input {
-        Value::Binary { val, .. } => {
+        SpannedValue::Binary { val, .. } => {
             let mut raw_string = "".to_string();
             for ch in val {
                 raw_string.push_str(&format!("{:08b} ", ch));
             }
-            Value::String {
+            SpannedValue::String {
                 val: raw_string.trim().to_string(),
                 span,
             }
         }
-        Value::Int { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::Filesize { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::Duration { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::String { val, .. } => {
+        SpannedValue::Int { val, .. } => convert_to_smallest_number_type(*val, span),
+        SpannedValue::Filesize { val, .. } => convert_to_smallest_number_type(*val, span),
+        SpannedValue::Duration { val, .. } => convert_to_smallest_number_type(*val, span),
+        SpannedValue::String { val, .. } => {
             let raw_bytes = val.as_bytes();
             let mut raw_string = "".to_string();
             for ch in raw_bytes {
                 raw_string.push_str(&format!("{:08b} ", ch));
             }
-            Value::String {
+            SpannedValue::String {
                 val: raw_string.trim().to_string(),
                 span,
             }
         }
-        Value::Bool { val, .. } => {
+        SpannedValue::Bool { val, .. } => {
             let v = <i64 as From<bool>>::from(*val);
             convert_to_smallest_number_type(v, span)
         }
-        Value::Date { val, .. } => {
+        SpannedValue::Date { val, .. } => {
             let value = val.format("%c").to_string();
             let bytes = value.as_bytes();
             let mut raw_string = "".to_string();
             for ch in bytes {
                 raw_string.push_str(&format!("{:08b} ", ch));
             }
-            Value::String {
+            SpannedValue::String {
                 val: raw_string.trim().to_string(),
                 span,
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer, filesize, string, date, duration, binary or bool".into(),
                 wrong_type: other.get_type().to_string(),

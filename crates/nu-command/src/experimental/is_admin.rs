@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -34,7 +34,7 @@ impl Command for IsAdmin {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::bool(is_root(), call.head).into_pipeline_data())
+        Ok(SpannedValue::bool(is_root(), call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,7 +42,7 @@ impl Command for IsAdmin {
             Example {
                 description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
                 example: r#"if (is-admin) { "iamroot" } else { "iamnotroot" }"#,
-                result: Some(Value::test_string("iamnotroot")),
+                result: Some(SpannedValue::test_string("iamnotroot")),
             },
         ]
     }

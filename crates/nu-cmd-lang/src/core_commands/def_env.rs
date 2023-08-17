@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -49,7 +49,7 @@ impl Command for DefEnv {
         vec![Example {
             description: "Set environment variable by call a custom command",
             example: r#"def-env foo [] { $env.BAR = "BAZ" }; foo; $env.BAR"#,
-            result: Some(Value::test_string("BAZ")),
+            result: Some(SpannedValue::test_string("BAZ")),
         }]
     }
 }

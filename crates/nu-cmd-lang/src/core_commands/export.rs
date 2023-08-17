@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -39,7 +39,7 @@ impl Command for ExportCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
+        Ok(SpannedValue::String {
             val: get_full_help(
                 &ExportCommand.signature(),
                 &ExportCommand.examples(),
@@ -56,7 +56,7 @@ impl Command for ExportCommand {
         vec![Example {
             description: "Export a definition from a module",
             example: r#"module utils { export def my-command [] { "hello" } }; use utils my-command; my-command"#,
-            result: Some(Value::test_string("hello")),
+            result: Some(SpannedValue::test_string("hello")),
         }]
     }
 

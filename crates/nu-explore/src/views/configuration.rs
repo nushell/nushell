@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 use nu_table::TextStyle;
 use ratatui::{
@@ -301,7 +301,7 @@ impl View for ConfigurationView {
         }
     }
 
-    fn exit(&mut self) -> Option<Value> {
+    fn exit(&mut self) -> Option<SpannedValue> {
         None
     }
 

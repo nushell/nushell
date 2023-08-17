@@ -18,7 +18,7 @@ use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    SpannedValue,
 };
 use nu_utils::utils::perf;
 use reedline::{
@@ -87,10 +87,13 @@ pub fn evaluate_repl(
     // seed env vars
     stack.add_env_var(
         "CMD_DURATION_MS".into(),
-        Value::string("0823", Span::unknown()),
+        SpannedValue::string("0823", Span::unknown()),
     );
 
-    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
+    stack.add_env_var(
+        "LAST_EXIT_CODE".into(),
+        SpannedValue::int(0, Span::unknown()),
+    );
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
@@ -281,7 +284,8 @@ pub fn evaluate_repl(
         line_editor = if config.use_ansi_coloring {
             line_editor.with_hinter(Box::new({
                 // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-                let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+                let style =
+                    style_computer.compute("hints", &SpannedValue::nothing(Span::unknown()));
                 DefaultHinter::default().with_style(style)
             }))
         } else {
@@ -510,7 +514,7 @@ pub fn evaluate_repl(
 
                     stack.add_env_var(
                         "OLDPWD".into(),
-                        Value::String {
+                        SpannedValue::String {
                             val: cwd.clone(),
                             span: Span::unknown(),
                         },
@@ -520,12 +524,12 @@ pub fn evaluate_repl(
                     //should probably be a block that loads the information from the state in the overlay
                     stack.add_env_var(
                         "PWD".into(),
-                        Value::String {
+                        SpannedValue::String {
                             val: path.clone(),
                             span: Span::unknown(),
                         },
                     );
-                    let cwd = Value::String { val: cwd, span };
+                    let cwd = SpannedValue::String { val: cwd, span };
 
                     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
                     let mut shells = if let Some(v) = shells {
@@ -550,12 +554,15 @@ pub fn evaluate_repl(
                         0
                     };
 
-                    shells[current_shell] = Value::String { val: path, span };
+                    shells[current_shell] = SpannedValue::String { val: path, span };
 
-                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });
+                    stack.add_env_var(
+                        "NUSHELL_SHELLS".into(),
+                        SpannedValue::List { vals: shells, span },
+                    );
                     stack.add_env_var(
                         "NUSHELL_LAST_SHELL".into(),
-                        Value::Int {
+                        SpannedValue::Int {
                             val: last_shell as i64,
                             span,
                         },
@@ -601,7 +608,7 @@ pub fn evaluate_repl(
 
                 stack.add_env_var(
                     "CMD_DURATION_MS".into(),
-                    Value::String {
+                    SpannedValue::String {
                         val: format!("{}", cmd_duration.as_millis()),
                         span: Span::unknown(),
                     },

@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -55,18 +57,18 @@ impl Command for SubCommand {
             Example {
                 description: "Apply the cosine to π",
                 example: "math pi | math cos",
-                result: Some(Value::test_float(-1f64)),
+                result: Some(SpannedValue::test_float(-1f64)),
             },
             Example {
                 description: "Apply the cosine to a list of angles in degrees",
                 example: "[0 90 180 270 360] | math cos -d",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_float(1f64),
-                        Value::test_float(0f64),
-                        Value::test_float(-1f64),
-                        Value::test_float(0f64),
-                        Value::test_float(1f64),
+                        SpannedValue::test_float(1f64),
+                        SpannedValue::test_float(0f64),
+                        SpannedValue::test_float(-1f64),
+                        SpannedValue::test_float(0f64),
+                        SpannedValue::test_float(1f64),
                     ],
                     span: Span::test_data(),
                 }),
@@ -75,24 +77,24 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
+fn operate(value: SpannedValue, head: Span, use_degrees: bool) -> SpannedValue {
     match value {
-        numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+        numeric @ (SpannedValue::Int { .. } | SpannedValue::Float { .. }) => {
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                SpannedValue::Int { val, span } => (val as f64, span),
+                SpannedValue::Float { val, span } => (val, span),
                 _ => unreachable!(),
             };
 
             let val = if use_degrees { val.to_radians() } else { val };
 
-            Value::Float {
+            SpannedValue::Float {
                 val: val.cos(),
                 span,
             }
         }
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

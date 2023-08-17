@@ -1,10 +1,10 @@
-use nu_protocol::{IntoPipelineData, Span, Value};
+use nu_protocol::{IntoPipelineData, Span, SpannedValue};
 
 #[test]
 fn test_convert_pipeline_data_to_value() {
     // Setup PipelineData
     let value_val = 10;
-    let value = Value::Int {
+    let value = SpannedValue::Int {
         val: value_val,
         span: Span::new(1, 3),
     };
@@ -16,7 +16,7 @@ fn test_convert_pipeline_data_to_value() {
 
     assert_eq!(
         converted_value,
-        Value::Int {
+        SpannedValue::Int {
             val: value_val,
             span: new_span
         }

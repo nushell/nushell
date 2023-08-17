@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -62,10 +62,10 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to decimal in table",
                 example: "[[num]; ['5.01']] | into decimal num",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["num".to_string()],
-                        vals: vec![Value::test_float(5.01)],
+                        vals: vec![SpannedValue::test_float(5.01)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -74,34 +74,34 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to decimal",
                 example: "'1.345' | into decimal",
-                result: Some(Value::test_float(1.345)),
+                result: Some(SpannedValue::test_float(1.345)),
             },
             Example {
                 description: "Coerce list of ints and floats to float",
                 example: "[4 -5.9] | into decimal",
-                result: Some(Value::test_list(vec![
-                    Value::test_float(4.0),
-                    Value::test_float(-5.9),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_float(4.0),
+                    SpannedValue::test_float(-5.9),
                 ])),
             },
             Example {
                 description: "Convert boolean to decimal",
                 example: "true | into decimal",
-                result: Some(Value::test_float(1.0)),
+                result: Some(SpannedValue::test_float(1.0)),
             },
         ]
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, head: Span) -> SpannedValue {
     match input {
-        Value::Float { .. } => input.clone(),
-        Value::String { val: s, span } => {
+        SpannedValue::Float { .. } => input.clone(),
+        SpannedValue::String { val: s, span } => {
             let other = s.trim();
 
             match other.parse::<f64>() {
-                Ok(x) => Value::float(x, head),
-                Err(reason) => Value::Error {
+                Ok(x) => SpannedValue::float(x, head),
+                Err(reason) => SpannedValue::Error {
                     error: Box::new(ShellError::CantConvert {
                         to_type: "float".to_string(),
                         from_type: reason.to_string(),
@@ -111,8 +111,8 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 },
             }
         }
-        Value::Int { val: v, span } => Value::float(*v as f64, *span),
-        Value::Bool { val: b, span } => Value::Float {
+        SpannedValue::Int { val: v, span } => SpannedValue::float(*v as f64, *span),
+        SpannedValue::Bool { val: b, span } => SpannedValue::Float {
             val: match b {
                 true => 1.0,
                 false => 0.0,
@@ -120,8 +120,8 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
             span: *span,
         },
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string, integer or bool".into(),
                 wrong_type: other.get_type().to_string(),
@@ -147,8 +147,8 @@ mod tests {
     #[test]
     #[allow(clippy::approx_constant)]
     fn string_to_decimal() {
-        let word = Value::test_string("3.1415");
-        let expected = Value::test_float(3.1415);
+        let word = SpannedValue::test_string("3.1415");
+        let expected = SpannedValue::test_float(3.1415);
 
         let actual = action(&word, &CellPathOnlyArgs::from(vec![]), Span::test_data());
         assert_eq!(actual, expected);
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_decimallike_string() {
-        let decimal_str = Value::test_string("11.6anra");
+        let decimal_str = SpannedValue::test_string("11.6anra");
 
         let actual = action(
             &decimal_str,
@@ -169,8 +169,8 @@ mod tests {
 
     #[test]
     fn int_to_decimal() {
-        let decimal_str = Value::test_int(10);
-        let expected = Value::test_float(10.0);
+        let decimal_str = SpannedValue::test_int(10);
+        let expected = SpannedValue::test_float(10.0);
         let actual = action(
             &decimal_str,
             &CellPathOnlyArgs::from(vec![]),

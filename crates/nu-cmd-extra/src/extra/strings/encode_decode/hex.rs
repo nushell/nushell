@@ -2,7 +2,7 @@ use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, SpannedValue};
 
 enum HexDecodingError {
     InvalidLength(usize),
@@ -95,19 +95,19 @@ pub fn operate(
 }
 
 fn action(
-    input: &Value,
+    input: &SpannedValue,
     // only used for `decode` action
     args: &Arguments,
     command_span: Span,
-) -> Value {
+) -> SpannedValue {
     let hex_config = &args.encoding_config;
 
     match input {
         // Propagate existing errors.
-        Value::Error { .. } => input.clone(),
-        Value::Binary { val, .. } => match hex_config.action_type {
-            ActionType::Encode => Value::string(hex_encode(val.as_ref()), command_span),
-            ActionType::Decode => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        SpannedValue::Binary { val, .. } => match hex_config.action_type {
+            ActionType::Encode => SpannedValue::string(hex_encode(val.as_ref()), command_span),
+            ActionType::Decode => SpannedValue::Error {
                 error: Box::new(ShellError::UnsupportedInput(
                     "Binary data can only be encoded".to_string(),
                     "value originates from here".into(),
@@ -117,9 +117,9 @@ fn action(
                 )),
             },
         },
-        Value::String { val, .. } => {
+        SpannedValue::String { val, .. } => {
             match hex_config.action_type {
-                ActionType::Encode => Value::Error {
+                ActionType::Encode => SpannedValue::Error {
                     error: Box::new(ShellError::UnsupportedInput(
                         "String value can only be decoded".to_string(),
                         "value originates from here".into(),
@@ -130,8 +130,8 @@ fn action(
                 },
 
                 ActionType::Decode => match hex_decode(val.as_ref()) {
-                    Ok(decoded_value) => Value::binary(decoded_value, command_span),
-                    Err(HexDecodingError::InvalidLength(len)) => Value::Error {
+                    Ok(decoded_value) => SpannedValue::binary(decoded_value, command_span),
+                    Err(HexDecodingError::InvalidLength(len)) => SpannedValue::Error {
                         error: Box::new(ShellError::GenericError(
                             "value could not be hex decoded".to_string(),
                             format!("invalid hex input length: {len}. The length should be even"),
@@ -140,7 +140,7 @@ fn action(
                             Vec::new(),
                         )),
                     },
-                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::Error {
+                    Err(HexDecodingError::InvalidDigit(index, digit)) => SpannedValue::Error {
                         error: Box::new(ShellError::GenericError(
                             "value could not be hex decoded".to_string(),
                             format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
@@ -152,7 +152,7 @@ fn action(
                 },
             }
         }
-        other => Value::Error {
+        other => SpannedValue::Error {
             error: Box::new(ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
                 span: other.span().unwrap_or(command_span),
@@ -164,12 +164,12 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::{action, ActionType, Arguments, HexConfig};
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{Span, SpannedValue};
 
     #[test]
     fn hex_encode() {
-        let word = Value::binary([77, 97, 110], Span::test_data());
-        let expected = Value::test_string("4D616E");
+        let word = SpannedValue::binary([77, 97, 110], Span::test_data());
+        let expected = SpannedValue::test_string("4D616E");
 
         let actual = action(
             &word,
@@ -186,8 +186,8 @@ mod tests {
 
     #[test]
     fn hex_decode() {
-        let word = Value::test_string("4D 61\r\n\n6E");
-        let expected = Value::binary([77, 97, 110], Span::test_data());
+        let word = SpannedValue::test_string("4D 61\r\n\n6E");
+        let expected = SpannedValue::binary([77, 97, 110], Span::test_data());
 
         let actual = action(
             &word,

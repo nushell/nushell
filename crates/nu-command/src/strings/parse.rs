@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -43,10 +43,13 @@ impl Command for Parse {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let result = Value::List {
-            vals: vec![Value::Record {
+        let result = SpannedValue::List {
+            vals: vec![SpannedValue::Record {
                 cols: vec!["foo".to_string(), "bar".to_string()],
-                vals: vec![Value::test_string("hi"), Value::test_string("there")],
+                vals: vec![
+                    SpannedValue::test_string("hi"),
+                    SpannedValue::test_string("there"),
+                ],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),
@@ -66,10 +69,10 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
                 example: "\"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("bar")],
+                        vals: vec![SpannedValue::test_string("bar")],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -78,16 +81,22 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["capture0".to_string(), "capture1".to_string()],
-                            vals: vec![Value::test_string(""), Value::test_string("foo")],
+                            vals: vec![
+                                SpannedValue::test_string(""),
+                                SpannedValue::test_string("foo"),
+                            ],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["capture0".to_string(), "capture1".to_string()],
-                            vals: vec![Value::test_string("bar"), Value::test_string("")],
+                            vals: vec![
+                                SpannedValue::test_string("bar"),
+                                SpannedValue::test_string(""),
+                            ],
                             span: Span::test_data(),
                         },
                     ],
@@ -98,12 +107,12 @@ impl Command for Parse {
                 description: "Parse a string using fancy-regex look behind pattern",
                 example:
                     "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["capture0".to_string(), "capture1".to_string()],
                         vals: vec![
-                            Value::test_string("@another"),
-                            Value::test_string("(foo bar)"),
+                            SpannedValue::test_string("@another"),
+                            SpannedValue::test_string("(foo bar)"),
                         ],
                         span: Span::test_data(),
                     }],
@@ -113,10 +122,10 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
                 example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["capture0".to_string()],
-                        vals: vec![Value::test_string("b")],
+                        vals: vec![SpannedValue::test_string("b")],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -171,7 +180,7 @@ fn operate(
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(..) => {
-            let mut parsed: Vec<Value> = Vec::new();
+            let mut parsed: Vec<SpannedValue> = Vec::new();
 
             for v in input {
                 match v.as_string() {
@@ -197,13 +206,13 @@ fn operate(
                             for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
                                 let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
                                 cols.push(column_name.clone());
-                                vals.push(Value::String {
+                                vals.push(SpannedValue::String {
                                     val: cap_string,
                                     span: v.span()?,
                                 });
                             }
 
-                            parsed.push(Value::Record {
+                            parsed.push(SpannedValue::Record {
                                 cols,
                                 vals,
                                 span: head,
@@ -329,16 +338,16 @@ fn column_names(regex: &Regex) -> Vec<String> {
 
 pub struct ParseStreamer {
     span: Span,
-    excess: Vec<Value>,
+    excess: Vec<SpannedValue>,
     regex: Regex,
     columns: Vec<String>,
-    stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    stream: Box<dyn Iterator<Item = SpannedValue> + Send + 'static>,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl Iterator for ParseStreamer {
-    type Item = Value;
-    fn next(&mut self) -> Option<Value> {
+    type Item = SpannedValue;
+    fn next(&mut self) -> Option<SpannedValue> {
         if !self.excess.is_empty() {
             return Some(self.excess.remove(0));
         }
@@ -353,7 +362,7 @@ impl Iterator for ParseStreamer {
             let Some(v) = self.stream.next() else { return None };
 
             let Ok(s) = v.as_string() else {
-                return Some(Value::Error {
+                return Some(SpannedValue::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
@@ -381,15 +390,15 @@ impl Iterator for ParseStreamer {
 
 pub struct ParseStreamerExternal {
     span: Span,
-    excess: Vec<Value>,
+    excess: Vec<SpannedValue>,
     regex: Regex,
     columns: Vec<String>,
     stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
 }
 
 impl Iterator for ParseStreamerExternal {
-    type Item = Value;
-    fn next(&mut self) -> Option<Value> {
+    type Item = SpannedValue;
+    fn next(&mut self) -> Option<SpannedValue> {
         if !self.excess.is_empty() {
             return Some(self.excess.remove(0));
         }
@@ -412,7 +421,7 @@ impl Iterator for ParseStreamerExternal {
         let chunk = match chunk {
             Some(Ok(chunk)) => chunk,
             Some(Err(err)) => {
-                return Some(Value::Error {
+                return Some(SpannedValue::Error {
                     error: Box::new(err),
                 })
             }
@@ -420,7 +429,7 @@ impl Iterator for ParseStreamerExternal {
         };
 
         let Ok(chunk) = String::from_utf8(chunk) else {
-            return Some(Value::Error {
+            return Some(SpannedValue::Error {
                 error: Box::new(ShellError::PipelineMismatch {
                     exp_input_type: "string".into(),
                     dst_span: self.span,
@@ -444,8 +453,8 @@ fn stream_helper(
     span: Span,
     s: String,
     columns: Vec<String>,
-    excess: &mut Vec<Value>,
-) -> Option<Value> {
+    excess: &mut Vec<SpannedValue>,
+) -> Option<SpannedValue> {
     let results = regex.captures_iter(&s);
 
     for c in results {
@@ -453,7 +462,7 @@ fn stream_helper(
         let captures = match c {
             Ok(c) => c,
             Err(e) => {
-                return Some(Value::Error {
+                return Some(SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "Error with regular expression captures".into(),
                         e.to_string(),
@@ -469,13 +478,13 @@ fn stream_helper(
         for (column_name, cap) in columns.iter().zip(captures.iter().skip(1)) {
             let cap_string = cap.map(|v| v.as_str()).unwrap_or("").to_string();
             cols.push(column_name.clone());
-            vals.push(Value::String {
+            vals.push(SpannedValue::String {
                 val: cap_string,
                 span,
             });
         }
 
-        excess.push(Value::Record { cols, vals, span });
+        excess.push(SpannedValue::Record { cols, vals, span });
     }
 
     if !excess.is_empty() {

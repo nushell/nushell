@@ -2,8 +2,8 @@ use nu_engine::{eval_block, eval_expression_with_input};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
+    SyntaxShape, Type,
 };
 use std::time::Instant;
 
@@ -79,7 +79,7 @@ impl Command for TimeIt {
 
         let end_time = Instant::now();
 
-        let output = Value::Duration {
+        let output = SpannedValue::Duration {
             val: (end_time - start_time).as_nanos() as i64,
             span: call.head,
         };

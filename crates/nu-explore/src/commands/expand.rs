@@ -3,7 +3,7 @@ use std::{io::Result, vec};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 
 use crate::{
@@ -72,7 +72,7 @@ impl ViewCommand for ExpandCmd {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        value: Option<Value>,
+        value: Option<SpannedValue>,
     ) -> Result<Self::View> {
         let value = value
             .map(|v| convert_value_to_string(v, engine_state, stack))
@@ -82,7 +82,11 @@ impl ViewCommand for ExpandCmd {
     }
 }
 
-fn convert_value_to_string(value: Value, engine_state: &EngineState, stack: &mut Stack) -> String {
+fn convert_value_to_string(
+    value: SpannedValue,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> String {
     let (cols, vals) = collect_input(value.clone());
 
     let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());

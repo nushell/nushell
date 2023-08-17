@@ -4,7 +4,7 @@ use nu_protocol::Category;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -130,32 +130,32 @@ impl Command for SubCommand {
             Example {
                 description: "Trim whitespace",
                 example: "'Nu shell ' | str trim",
-                result: Some(Value::test_string("Nu shell")),
+                result: Some(SpannedValue::test_string("Nu shell")),
             },
             Example {
                 description: "Trim a specific character",
                 example: "'=== Nu shell ===' | str trim -c '=' | str trim",
-                result: Some(Value::test_string("Nu shell")),
+                result: Some(SpannedValue::test_string("Nu shell")),
             },
             Example {
                 description: "Trim whitespace from the beginning of string",
                 example: "' Nu shell ' | str trim -l",
-                result: Some(Value::test_string("Nu shell ")),
+                result: Some(SpannedValue::test_string("Nu shell ")),
             },
             Example {
                 description: "Trim a specific character",
                 example: "'=== Nu shell ===' | str trim -c '='",
-                result: Some(Value::test_string(" Nu shell ")),
+                result: Some(SpannedValue::test_string(" Nu shell ")),
             },
             Example {
                 description: "Trim whitespace from the end of string",
                 example: "' Nu shell ' | str trim -r",
-                result: Some(Value::test_string(" Nu shell")),
+                result: Some(SpannedValue::test_string(" Nu shell")),
             },
             Example {
                 description: "Trim a specific character",
                 example: "'=== Nu shell ===' | str trim -r -c '='",
-                result: Some(Value::test_string("=== Nu shell ")),
+                result: Some(SpannedValue::test_string("=== Nu shell ")),
             },
         ]
     }
@@ -167,32 +167,32 @@ pub enum ActionMode {
     Global,
 }
 
-fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
+fn action(input: &SpannedValue, arg: &Arguments, head: Span) -> SpannedValue {
     let char_ = arg.to_trim;
     let trim_side = &arg.trim_side;
     let mode = &arg.mode;
     match input {
-        Value::String { val: s, .. } => Value::String {
+        SpannedValue::String { val: s, .. } => SpannedValue::String {
             val: trim(s, char_, trim_side),
             span: head,
         },
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
+        SpannedValue::Error { .. } => input.clone(),
         other => match mode {
             ActionMode::Global => match other {
-                Value::Record { cols, vals, span } => {
+                SpannedValue::Record { cols, vals, span } => {
                     let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
 
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: cols.to_vec(),
                         vals: new_vals,
                         span: *span,
                     }
                 }
-                Value::List { vals, span } => {
+                SpannedValue::List { vals, span } => {
                     let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
 
-                    Value::List {
+                    SpannedValue::List {
                         vals: new_vals,
                         span: *span,
                     }
@@ -200,7 +200,7 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                 _ => input.clone(),
             },
             ActionMode::Local => {
-                Value::Error {
+                SpannedValue::Error {
                     error: Box::new(ShellError::UnsupportedInput(
                         "Only string values are supported".into(),
                         format!("input type: {:?}", other.get_type()),
@@ -239,7 +239,7 @@ fn trim(s: &str, char_: Option<char>, trim_side: &TrimSide) -> String {
 #[cfg(test)]
 mod tests {
     use crate::strings::str_::trim::trim_::*;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{Span, SpannedValue};
 
     #[test]
     fn test_examples() {
@@ -248,22 +248,22 @@ mod tests {
         test_examples(SubCommand {})
     }
 
-    fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> Value {
-        Value::Record {
+    fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> SpannedValue {
+        SpannedValue::Record {
             cols: cols.iter().map(|x| x.to_string()).collect(),
             vals: vals
                 .iter()
-                .map(|x| Value::test_string(x.to_string()))
+                .map(|x| SpannedValue::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
     }
 
-    fn make_list(vals: Vec<&str>) -> Value {
-        Value::List {
+    fn make_list(vals: Vec<&str>) -> SpannedValue {
+        SpannedValue::List {
             vals: vals
                 .iter()
-                .map(|x| Value::test_string(x.to_string()))
+                .map(|x| SpannedValue::test_string(x.to_string()))
                 .collect(),
             span: Span::test_data(),
         }
@@ -271,8 +271,8 @@ mod tests {
 
     #[test]
     fn trims() {
-        let word = Value::test_string("andres ");
-        let expected = Value::test_string("andres");
+        let word = SpannedValue::test_string("andres ");
+        let expected = SpannedValue::test_string("andres");
 
         let args = Arguments {
             to_trim: None,
@@ -286,8 +286,8 @@ mod tests {
 
     #[test]
     fn trims_global() {
-        let word = Value::test_string(" global   ");
-        let expected = Value::test_string("global");
+        let word = SpannedValue::test_string(" global   ");
+        let expected = SpannedValue::test_string("global");
         let args = Arguments {
             to_trim: None,
             trim_side: TrimSide::Both,
@@ -300,8 +300,8 @@ mod tests {
 
     #[test]
     fn global_trim_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = SpannedValue::test_int(2020);
+        let expected = SpannedValue::test_int(2020);
         let args = Arguments {
             to_trim: None,
             trim_side: TrimSide::Both,
@@ -346,8 +346,8 @@ mod tests {
 
     #[test]
     fn trims_custom_character_both_ends() {
-        let word = Value::test_string("!#andres#!");
-        let expected = Value::test_string("#andres#");
+        let word = SpannedValue::test_string("!#andres#!");
+        let expected = SpannedValue::test_string("#andres#");
 
         let args = Arguments {
             to_trim: Some('!'),
@@ -361,8 +361,8 @@ mod tests {
 
     #[test]
     fn trims_whitespace_from_left() {
-        let word = Value::test_string(" andres ");
-        let expected = Value::test_string("andres ");
+        let word = SpannedValue::test_string(" andres ");
+        let expected = SpannedValue::test_string("andres ");
 
         let args = Arguments {
             to_trim: None,
@@ -376,8 +376,8 @@ mod tests {
 
     #[test]
     fn global_trim_left_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = SpannedValue::test_int(2020);
+        let expected = SpannedValue::test_int(2020);
 
         let args = Arguments {
             to_trim: None,
@@ -391,8 +391,8 @@ mod tests {
 
     #[test]
     fn trims_left_global() {
-        let word = Value::test_string(" global   ");
-        let expected = Value::test_string("global   ");
+        let word = SpannedValue::test_string(" global   ");
+        let expected = SpannedValue::test_string("global   ");
 
         let args = Arguments {
             to_trim: None,
@@ -421,19 +421,19 @@ mod tests {
 
     #[test]
     fn global_trim_left_table() {
-        let row = Value::List {
+        let row = SpannedValue::List {
             vals: vec![
-                Value::test_string("  a  "),
-                Value::test_int(65),
-                Value::test_string(" d"),
+                SpannedValue::test_string("  a  "),
+                SpannedValue::test_int(65),
+                SpannedValue::test_string(" d"),
             ],
             span: Span::test_data(),
         };
-        let expected = Value::List {
+        let expected = SpannedValue::List {
             vals: vec![
-                Value::test_string("a  "),
-                Value::test_int(65),
-                Value::test_string("d"),
+                SpannedValue::test_string("a  "),
+                SpannedValue::test_int(65),
+                SpannedValue::test_string("d"),
             ],
             span: Span::test_data(),
         };
@@ -450,8 +450,8 @@ mod tests {
 
     #[test]
     fn trims_custom_chars_from_left() {
-        let word = Value::test_string("!!! andres !!!");
-        let expected = Value::test_string(" andres !!!");
+        let word = SpannedValue::test_string("!!! andres !!!");
+        let expected = SpannedValue::test_string(" andres !!!");
 
         let args = Arguments {
             to_trim: Some('!'),
@@ -464,8 +464,8 @@ mod tests {
     }
     #[test]
     fn trims_whitespace_from_right() {
-        let word = Value::test_string(" andres ");
-        let expected = Value::test_string(" andres");
+        let word = SpannedValue::test_string(" andres ");
+        let expected = SpannedValue::test_string(" andres");
 
         let args = Arguments {
             to_trim: None,
@@ -479,8 +479,8 @@ mod tests {
 
     #[test]
     fn trims_right_global() {
-        let word = Value::test_string(" global   ");
-        let expected = Value::test_string(" global");
+        let word = SpannedValue::test_string(" global   ");
+        let expected = SpannedValue::test_string(" global");
         let args = Arguments {
             to_trim: None,
             trim_side: TrimSide::Right,
@@ -493,8 +493,8 @@ mod tests {
 
     #[test]
     fn global_trim_right_ignores_numbers() {
-        let number = Value::test_int(2020);
-        let expected = Value::test_int(2020);
+        let number = SpannedValue::test_int(2020);
+        let expected = SpannedValue::test_int(2020);
         let args = Arguments {
             to_trim: None,
             trim_side: TrimSide::Right,
@@ -521,19 +521,19 @@ mod tests {
 
     #[test]
     fn global_trim_right_table() {
-        let row = Value::List {
+        let row = SpannedValue::List {
             vals: vec![
-                Value::test_string("  a  "),
-                Value::test_int(65),
-                Value::test_string(" d"),
+                SpannedValue::test_string("  a  "),
+                SpannedValue::test_int(65),
+                SpannedValue::test_string(" d"),
             ],
             span: Span::test_data(),
         };
-        let expected = Value::List {
+        let expected = SpannedValue::List {
             vals: vec![
-                Value::test_string("  a"),
-                Value::test_int(65),
-                Value::test_string(" d"),
+                SpannedValue::test_string("  a"),
+                SpannedValue::test_int(65),
+                SpannedValue::test_string(" d"),
             ],
             span: Span::test_data(),
         };
@@ -549,8 +549,8 @@ mod tests {
 
     #[test]
     fn trims_custom_chars_from_right() {
-        let word = Value::test_string("#@! andres !@#");
-        let expected = Value::test_string("#@! andres !@");
+        let word = SpannedValue::test_string("#@! andres !@#");
+        let expected = SpannedValue::test_string("#@! andres !@");
 
         let args = Arguments {
             to_trim: Some('#'),

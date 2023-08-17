@@ -1,11 +1,11 @@
-use crate::{Span, Type, Value};
+use crate::{Span, SpannedValue, Type};
 
 #[derive(Clone, Debug)]
 pub struct Variable {
     pub declaration_span: Span,
     pub ty: Type,
     pub mutable: bool,
-    pub const_val: Option<Value>,
+    pub const_val: Option<SpannedValue>,
 }
 
 impl Variable {

@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    ShellError, Signature, Span, Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -83,9 +83,12 @@ pub fn help_aliases(
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
-    let string_style = style_computer.compute("string", &Value::string("search result", head));
-    let highlight_style =
-        style_computer.compute("search_result", &Value::string("search result", head));
+    let string_style =
+        style_computer.compute("string", &SpannedValue::string("search result", head));
+    let highlight_style = style_computer.compute(
+        "search_result",
+        &SpannedValue::string("search result", head),
+    );
 
     if let Some(f) = find {
         let all_cmds_vec = build_help_aliases(engine_state, stack, head);
@@ -159,7 +162,7 @@ pub fn help_aliases(
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }
 
-        Ok(Value::String {
+        Ok(SpannedValue::String {
             val: long_desc,
             span: call.head,
         }
@@ -167,7 +170,7 @@ pub fn help_aliases(
     }
 }
 
-fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<SpannedValue> {
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_decls();
 

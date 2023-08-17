@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 struct Arguments {
@@ -73,20 +73,20 @@ impl Command for SubCommand {
             Example {
                 description: "Get basename of a path",
                 example: "'C:\\Users\\joe\\test.txt' | path basename",
-                result: Some(Value::test_string("test.txt")),
+                result: Some(SpannedValue::test_string("test.txt")),
             },
             Example {
                 description: "Get basename of a list of paths",
                 example: r"[ C:\Users\joe, C:\Users\doe ] | path basename",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("joe"),
-                    Value::test_string("doe"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_string("joe"),
+                    SpannedValue::test_string("doe"),
                 ])),
             },
             Example {
                 description: "Replace basename of a path",
                 example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
-                result: Some(Value::test_string("C:\\Users\\joe\\spam.png")),
+                result: Some(SpannedValue::test_string("C:\\Users\\joe\\spam.png")),
             },
         ]
     }
@@ -97,29 +97,31 @@ impl Command for SubCommand {
             Example {
                 description: "Get basename of a path",
                 example: "'/home/joe/test.txt' | path basename",
-                result: Some(Value::test_string("test.txt")),
+                result: Some(SpannedValue::test_string("test.txt")),
             },
             Example {
                 description: "Get basename of a list of paths",
                 example: "[ /home/joe, /home/doe ] | path basename",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("joe"),
-                    Value::test_string("doe"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_string("joe"),
+                    SpannedValue::test_string("doe"),
                 ])),
             },
             Example {
                 description: "Replace basename of a path",
                 example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
-                result: Some(Value::test_string("/home/joe/spam.png")),
+                result: Some(SpannedValue::test_string("/home/joe/spam.png")),
             },
         ]
     }
 }
 
-fn get_basename(path: &Path, span: Span, args: &Arguments) -> Value {
+fn get_basename(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
     match &args.replace {
-        Some(r) => Value::string(path.with_file_name(r.item.clone()).to_string_lossy(), span),
-        None => Value::string(
+        Some(r) => {
+            SpannedValue::string(path.with_file_name(r.item.clone()).to_string_lossy(), span)
+        }
+        None => SpannedValue::string(
             match path.file_name() {
                 Some(n) => n.to_string_lossy(),
                 None => "".into(),

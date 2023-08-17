@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -58,31 +58,31 @@ impl Command for SubCommand {
             Example {
                 description: "Convert value to boolean in table",
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(false, span)],
+                            vals: vec![SpannedValue::bool(false, span)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
+                            vals: vec![SpannedValue::bool(true, span)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(false, span)],
+                            vals: vec![SpannedValue::bool(false, span)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
+                            vals: vec![SpannedValue::bool(true, span)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
+                            vals: vec![SpannedValue::bool(true, span)],
                             span,
                         },
                     ],
@@ -92,27 +92,27 @@ impl Command for SubCommand {
             Example {
                 description: "Convert bool to boolean",
                 example: "true | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(SpannedValue::bool(true, span)),
             },
             Example {
                 description: "convert integer to boolean",
                 example: "1 | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(SpannedValue::bool(true, span)),
             },
             Example {
                 description: "convert decimal to boolean",
                 example: "0.3 | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(SpannedValue::bool(true, span)),
             },
             Example {
                 description: "convert decimal string to boolean",
                 example: "'0.0' | into bool",
-                result: Some(Value::bool(false, span)),
+                result: Some(SpannedValue::bool(false, span)),
             },
             Example {
                 description: "convert string to boolean",
                 example: "'true' | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(SpannedValue::bool(true, span)),
             },
         ]
     }
@@ -151,26 +151,26 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> SpannedValue {
     match input {
-        Value::Bool { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Bool {
+        SpannedValue::Bool { .. } => input.clone(),
+        SpannedValue::Int { val, .. } => SpannedValue::Bool {
             val: *val != 0,
             span,
         },
-        Value::Float { val, .. } => Value::Bool {
+        SpannedValue::Float { val, .. } => SpannedValue::Bool {
             val: val.abs() >= f64::EPSILON,
             span,
         },
-        Value::String { val, .. } => match string_to_boolean(val, span) {
-            Ok(val) => Value::Bool { val, span },
-            Err(error) => Value::Error {
+        SpannedValue::String { val, .. } => match string_to_boolean(val, span) {
+            Ok(val) => SpannedValue::Bool { val, span },
+            Err(error) => SpannedValue::Error {
                 error: Box::new(error),
             },
         },
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "bool, integer, float or string".into(),
                 wrong_type: other.get_type().to_string(),

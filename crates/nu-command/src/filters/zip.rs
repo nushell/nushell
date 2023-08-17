@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -35,18 +35,18 @@ impl Command for Zip {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let test_row_1 = Value::List {
-            vals: vec![Value::test_int(1), Value::test_int(4)],
+        let test_row_1 = SpannedValue::List {
+            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(4)],
             span: Span::test_data(),
         };
 
-        let test_row_2 = Value::List {
-            vals: vec![Value::test_int(2), Value::test_int(5)],
+        let test_row_2 = SpannedValue::List {
+            vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(5)],
             span: Span::test_data(),
         };
 
-        let test_row_3 = Value::List {
-            vals: vec![Value::test_int(3), Value::test_int(6)],
+        let test_row_3 = SpannedValue::List {
+            vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(6)],
             span: Span::test_data(),
         };
 
@@ -54,14 +54,14 @@ impl Command for Zip {
             Example {
                 example: "[1 2] | zip [3 4]",
                 description: "Zip two lists",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(3)],
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(3)],
                             span: Span::test_data(),
                         },
-                        Value::List {
-                            vals: vec![Value::test_int(2), Value::test_int(4)],
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(4)],
                             span: Span::test_data(),
                         },
                     ],
@@ -71,7 +71,7 @@ impl Command for Zip {
             Example {
                 example: "1..3 | zip 4..6",
                 description: "Zip two ranges",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![test_row_1, test_row_2, test_row_3],
                     span: Span::test_data(),
                 }),
@@ -91,7 +91,7 @@ impl Command for Zip {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let other: Value = call.req(engine_state, stack, 0)?;
+        let other: SpannedValue = call.req(engine_state, stack, 0)?;
         let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
@@ -99,7 +99,7 @@ impl Command for Zip {
         Ok(input
             .into_iter()
             .zip(other.into_pipeline_data())
-            .map(move |(x, y)| Value::List {
+            .map(move |(x, y)| SpannedValue::List {
                 vals: vec![x, y],
                 span: head,
             })

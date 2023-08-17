@@ -4,8 +4,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
-    Type, Value,
+    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -60,7 +60,7 @@ impl Command for Do {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let block: Closure = call.req(engine_state, stack, 0)?;
-        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
+        let rest: Vec<SpannedValue> = call.rest(engine_state, stack, 1)?;
         let ignore_all_errors = call.has_flag("ignore-errors");
         let ignore_shell_errors = ignore_all_errors || call.has_flag("ignore-shell-errors");
         let ignore_program_errors = ignore_all_errors || call.has_flag("ignore-program-errors");
@@ -100,7 +100,7 @@ impl Command for Do {
                     param
                         .var_id
                         .expect("Internal error: rest positional parameter lacks var_id"),
-                    Value::List {
+                    SpannedValue::List {
                         vals: rest_items,
                         span,
                     },
@@ -179,14 +179,14 @@ impl Command for Do {
                 };
 
                 let mut exit_code_ctrlc = None;
-                let exit_code: Vec<Value> = match exit_code {
+                let exit_code: Vec<SpannedValue> = match exit_code {
                     None => vec![],
                     Some(exit_code_stream) => {
                         exit_code_ctrlc = exit_code_stream.ctrlc.clone();
                         exit_code_stream.into_iter().collect()
                     }
                 };
-                if let Some(Value::Int { val: code, .. }) = exit_code.last() {
+                if let Some(SpannedValue::Int { val: code, .. }) = exit_code.last() {
                     if *code != 0 {
                         return Err(ShellError::ExternalCommand {
                             label: "External command failed".to_string(),
@@ -230,7 +230,9 @@ impl Command for Do {
                     trim_end_newline,
                 })
             }
-            Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
+            Ok(PipelineData::Value(SpannedValue::Error { .. }, ..)) | Err(_)
+                if ignore_shell_errors =>
+            {
                 Ok(PipelineData::empty())
             }
             Ok(PipelineData::ListStream(ls, metadata)) if ignore_shell_errors => {
@@ -238,8 +240,8 @@ impl Command for Do {
                 let mut values = vec![];
                 let ctrlc = ls.ctrlc.clone();
                 for v in ls {
-                    if let Value::Error { .. } = v {
-                        values.push(Value::nothing(call.head));
+                    if let SpannedValue::Error { .. } = v {
+                        values.push(SpannedValue::nothing(call.head));
                     } else {
                         values.push(v)
                     }
@@ -258,12 +260,12 @@ impl Command for Do {
             Example {
                 description: "Run the closure",
                 example: r#"do { echo hello }"#,
-                result: Some(Value::test_string("hello")),
+                result: Some(SpannedValue::test_string("hello")),
             },
             Example {
                 description: "Run a stored first-class closure",
                 example: r#"let text = "I am enclosed"; let hello = {|| echo $text}; do $hello"#,
-                result: Some(Value::test_string("I am enclosed")),
+                result: Some(SpannedValue::test_string("I am enclosed")),
             },
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
@@ -288,7 +290,7 @@ impl Command for Do {
             Example {
                 description: "Run the closure, with a positional parameter",
                 example: r#"do {|x| 100 + $x } 77"#,
-                result: Some(Value::test_int(177)),
+                result: Some(SpannedValue::test_int(177)),
             },
             Example {
                 description: "Run the closure, with input",

@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -53,7 +53,7 @@ Since this command has no output, there is no point in piping it with other comm
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let args: Vec<SpannedValue> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag("no-newline");
         let to_stderr = call.has_flag("stderr");
 

@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -43,25 +43,25 @@ impl Command for Wrap {
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
+            PipelineData::Value(SpannedValue::Range { .. }, ..)
+            | PipelineData::Value(SpannedValue::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
-                .map(move |x| Value::Record {
+                .map(move |x| SpannedValue::Record {
                     cols: vec![name.clone()],
                     vals: vec![x],
                     span,
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone())
                 .set_metadata(metadata)),
-            PipelineData::ExternalStream { .. } => Ok(Value::Record {
+            PipelineData::ExternalStream { .. } => Ok(SpannedValue::Record {
                 cols: vec![name],
                 vals: vec![input.into_value(call.head)],
                 span,
             }
             .into_pipeline_data()
             .set_metadata(metadata)),
-            PipelineData::Value(input, ..) => Ok(Value::Record {
+            PipelineData::Value(input, ..) => Ok(SpannedValue::Record {
                 cols: vec![name],
                 vals: vec![input],
                 span,
@@ -76,21 +76,21 @@ impl Command for Wrap {
             Example {
                 description: "Wrap a list into a table with a given column name",
                 example: "[1 2 3] | wrap num",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["num".into()],
-                            vals: vec![Value::test_int(1)],
+                            vals: vec![SpannedValue::test_int(1)],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["num".into()],
-                            vals: vec![Value::test_int(2)],
+                            vals: vec![SpannedValue::test_int(2)],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["num".into()],
-                            vals: vec![Value::test_int(3)],
+                            vals: vec![SpannedValue::test_int(3)],
                             span: Span::test_data(),
                         },
                     ],
@@ -100,21 +100,21 @@ impl Command for Wrap {
             Example {
                 description: "Wrap a range into a table with a given column name",
                 example: "1..3 | wrap num",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["num".into()],
-                            vals: vec![Value::test_int(1)],
+                            vals: vec![SpannedValue::test_int(1)],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["num".into()],
-                            vals: vec![Value::test_int(2)],
+                            vals: vec![SpannedValue::test_int(2)],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["num".into()],
-                            vals: vec![Value::test_int(3)],
+                            vals: vec![SpannedValue::test_int(3)],
                             span: Span::test_data(),
                         },
                     ],

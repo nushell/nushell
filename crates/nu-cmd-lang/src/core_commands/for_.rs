@@ -2,7 +2,8 @@ use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape,
+    Type,
 };
 
 #[derive(Clone)]
@@ -82,7 +83,7 @@ impl Command for For {
         let redirect_stderr = call.redirect_stderr;
 
         match values {
-            Value::List { vals, .. } => {
+            SpannedValue::List { vals, .. } => {
                 for (idx, x) in ListStream::from_stream(vals.into_iter(), ctrlc).enumerate() {
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
@@ -91,9 +92,9 @@ impl Command for For {
                     stack.add_var(
                         var_id,
                         if numbered {
-                            Value::Record {
+                            SpannedValue::Record {
                                 cols: vec!["index".into(), "item".into()],
-                                vals: vec![Value::int(idx as i64, head), x],
+                                vals: vec![SpannedValue::int(idx as i64, head), x],
                                 span: head,
                             }
                         } else {
@@ -130,14 +131,14 @@ impl Command for For {
                     }
                 }
             }
-            Value::Range { val, .. } => {
+            SpannedValue::Range { val, .. } => {
                 for (idx, x) in val.into_range_iter(ctrlc)?.enumerate() {
                     stack.add_var(
                         var_id,
                         if numbered {
-                            Value::Record {
+                            SpannedValue::Record {
                                 cols: vec!["index".into(), "item".into()],
-                                vals: vec![Value::int(idx as i64, head), x],
+                                vals: vec![SpannedValue::int(idx as i64, head), x],
                                 span: head,
                             }
                         } else {

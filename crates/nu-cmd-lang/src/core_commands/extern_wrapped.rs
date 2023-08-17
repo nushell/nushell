@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -49,7 +49,9 @@ impl Command for ExternWrapped {
         vec![Example {
             description: "Define a custom wrapper for an external command",
             example: r#"extern-wrapped my-echo [...rest] { echo $rest }; my-echo spam"#,
-            result: Some(Value::test_list(vec![Value::test_string("spam")])),
+            result: Some(SpannedValue::test_list(vec![SpannedValue::test_string(
+                "spam",
+            )])),
         }]
     }
 }

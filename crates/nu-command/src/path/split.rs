@@ -3,7 +3,8 @@ use std::path::{Component, Path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 use super::PathSubcommandArguments;
@@ -62,12 +63,12 @@ impl Command for SubCommand {
             Example {
                 description: "Split a path into parts",
                 example: r"'C:\Users\viking\spam.txt' | path split",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string(r"C:\"),
-                        Value::test_string("Users"),
-                        Value::test_string("viking"),
-                        Value::test_string("spam.txt"),
+                        SpannedValue::test_string(r"C:\"),
+                        SpannedValue::test_string("Users"),
+                        SpannedValue::test_string("viking"),
+                        SpannedValue::test_string("spam.txt"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -75,19 +76,19 @@ impl Command for SubCommand {
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_list(vec![
-                            Value::test_string(r"C:\"),
-                            Value::test_string("Users"),
-                            Value::test_string("viking"),
-                            Value::test_string("spam.txt"),
+                        SpannedValue::test_list(vec![
+                            SpannedValue::test_string(r"C:\"),
+                            SpannedValue::test_string("Users"),
+                            SpannedValue::test_string("viking"),
+                            SpannedValue::test_string("spam.txt"),
                         ]),
-                        Value::test_list(vec![
-                            Value::test_string(r"C:\"),
-                            Value::test_string("Users"),
-                            Value::test_string("viking"),
-                            Value::test_string("eggs.txt"),
+                        SpannedValue::test_list(vec![
+                            SpannedValue::test_string(r"C:\"),
+                            SpannedValue::test_string("Users"),
+                            SpannedValue::test_string("viking"),
+                            SpannedValue::test_string("eggs.txt"),
                         ]),
                     ],
                     span: Span::test_data(),
@@ -102,12 +103,12 @@ impl Command for SubCommand {
             Example {
                 description: "Split a path into parts",
                 example: r"'/home/viking/spam.txt' | path split",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("/"),
-                        Value::test_string("home"),
-                        Value::test_string("viking"),
-                        Value::test_string("spam.txt"),
+                        SpannedValue::test_string("/"),
+                        SpannedValue::test_string("home"),
+                        SpannedValue::test_string("viking"),
+                        SpannedValue::test_string("spam.txt"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -115,19 +116,19 @@ impl Command for SubCommand {
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_list(vec![
-                            Value::test_string("/"),
-                            Value::test_string("home"),
-                            Value::test_string("viking"),
-                            Value::test_string("spam.txt"),
+                        SpannedValue::test_list(vec![
+                            SpannedValue::test_string("/"),
+                            SpannedValue::test_string("home"),
+                            SpannedValue::test_string("viking"),
+                            SpannedValue::test_string("spam.txt"),
                         ]),
-                        Value::test_list(vec![
-                            Value::test_string("/"),
-                            Value::test_string("home"),
-                            Value::test_string("viking"),
-                            Value::test_string("eggs.txt"),
+                        SpannedValue::test_list(vec![
+                            SpannedValue::test_string("/"),
+                            SpannedValue::test_string("home"),
+                            SpannedValue::test_string("viking"),
+                            SpannedValue::test_string("eggs.txt"),
                         ]),
                     ],
                     span: Span::test_data(),
@@ -137,13 +138,13 @@ impl Command for SubCommand {
     }
 }
 
-fn split(path: &Path, span: Span, _: &Arguments) -> Value {
-    Value::List {
+fn split(path: &Path, span: Span, _: &Arguments) -> SpannedValue {
+    SpannedValue::List {
         vals: path
             .components()
             .filter_map(|comp| {
                 let comp = process_component(comp);
-                comp.map(|s| Value::string(s, span))
+                comp.map(|s| SpannedValue::string(s, span))
             })
             .collect(),
         span,

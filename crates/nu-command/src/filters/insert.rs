@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -60,12 +60,12 @@ impl Command for Insert {
         vec![Example {
             description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
-            result: Some(Value::Record {
+            result: Some(SpannedValue::Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
                 vals: vec![
-                    Value::test_string("nu"),
-                    Value::test_int(5),
-                    Value::test_string("Nushell"),
+                    SpannedValue::test_string("nu"),
+                    SpannedValue::test_int(5),
+                    SpannedValue::test_string("Nushell"),
                 ],
                 span: Span::test_data(),
             }),
@@ -73,35 +73,35 @@ impl Command for Insert {
         Example {
             description: "Insert a new column into a table, populating all rows",
             example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "lang".into(), "type".into()],
-            vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")], span: Span::test_data()}], span: Span::test_data()}),
+            result: Some(SpannedValue::List { vals: vec![SpannedValue::Record { cols: vec!["project".into(), "lang".into(), "type".into()],
+            vals: vec![SpannedValue::test_string("Nushell"), SpannedValue::test_string("Rust"), SpannedValue::test_string("shell")], span: Span::test_data()}], span: Span::test_data()}),
         },
         Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
             example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
-            result: Some(Value::List {
-                vals: vec![Value::Record {
+            result: Some(SpannedValue::List {
+                vals: vec![SpannedValue::Record {
                     cols: vec!["index".into(), "foo".into(), "bar".into()],
                     vals: vec![
-                        Value::test_int(0),
-                        Value::test_int(7),
-                        Value::test_int(7),
+                        SpannedValue::test_int(0),
+                        SpannedValue::test_int(7),
+                        SpannedValue::test_int(7),
                     ],
                     span: Span::test_data(),
-                }, Value::Record {
+                }, SpannedValue::Record {
                     cols: vec!["index".into(),"foo".into(), "bar".into()],
                     vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(8),
-                        Value::test_int(9),
+                        SpannedValue::test_int(1),
+                        SpannedValue::test_int(8),
+                        SpannedValue::test_int(9),
                     ],
                     span: Span::test_data(),
-                }, Value::Record {
+                }, SpannedValue::Record {
                     cols: vec!["index".into(), "foo".into(), "bar".into()],
                     vals: vec![
-                        Value::test_int(2),
-                        Value::test_int(9),
-                        Value::test_int(11),
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(9),
+                        SpannedValue::test_int(11),
                     ],
                     span: Span::test_data(),
                 }],
@@ -120,7 +120,7 @@ fn insert(
     let span = call.head;
 
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
-    let replacement: Value = call.req(engine_state, stack, 1)?;
+    let replacement: SpannedValue = call.req(engine_state, stack, 1)?;
 
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
@@ -168,12 +168,12 @@ fn insert(
                             pd.into_value(span),
                             span,
                         ) {
-                            return Value::Error { error: Box::new(e) };
+                            return SpannedValue::Error { error: Box::new(e) };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: Box::new(e) },
+                    Err(e) => SpannedValue::Error { error: Box::new(e) },
                 }
             },
             ctrlc,
@@ -187,7 +187,7 @@ fn insert(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else {
-                    pre_elems.push(Value::Nothing { span })
+                    pre_elems.push(SpannedValue::Nothing { span })
                 }
             }
 
@@ -204,7 +204,7 @@ fn insert(
                 if let Err(e) =
                     input.insert_data_at_cell_path(&cell_path.members, replacement, span)
                 {
-                    return Value::Error { error: Box::new(e) };
+                    return SpannedValue::Error { error: Box::new(e) };
                 }
 
                 input

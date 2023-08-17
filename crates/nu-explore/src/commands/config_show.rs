@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 use ratatui::layout::Rect;
 use std::collections::HashMap;
@@ -73,7 +73,12 @@ impl ViewCommand for ConfigShowCmd {
         Ok(())
     }
 
-    fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
+    fn spawn(
+        &mut self,
+        _: &EngineState,
+        _: &mut Stack,
+        _: Option<SpannedValue>,
+    ) -> Result<Self::View> {
         Ok(ConfigView {
             preview: Preview::new(""),
             format: self.format.clone(),
@@ -111,7 +116,7 @@ impl View for ConfigView {
             .set_value(map_into_value(config.config.clone()));
     }
 
-    fn exit(&mut self) -> Option<Value> {
+    fn exit(&mut self) -> Option<SpannedValue> {
         self.preview.exit()
     }
 
@@ -139,25 +144,25 @@ impl ConfigView {
     }
 }
 
-fn convert_styles(m: &mut HashMap<String, Value>) {
+fn convert_styles(m: &mut HashMap<String, SpannedValue>) {
     for value in m.values_mut() {
         convert_styles_value(value);
     }
 }
 
-fn convert_styles_value(value: &mut Value) {
+fn convert_styles_value(value: &mut SpannedValue) {
     match value {
-        Value::String { val, .. } => {
+        SpannedValue::String { val, .. } => {
             if let Some(v) = convert_style_from_string(val) {
                 *value = v;
             }
         }
-        Value::List { vals, .. } => {
+        SpannedValue::List { vals, .. } => {
             for value in vals {
                 convert_styles_value(value);
             }
         }
-        Value::Record { vals, .. } => {
+        SpannedValue::Record { vals, .. } => {
             for value in vals {
                 convert_styles_value(value);
             }
@@ -166,17 +171,17 @@ fn convert_styles_value(value: &mut Value) {
     }
 }
 
-fn convert_style_from_string(s: &str) -> Option<Value> {
+fn convert_style_from_string(s: &str) -> Option<SpannedValue> {
     let style = nu_json::from_str::<nu_color_config::NuStyle>(s).ok()?;
     let cols = vec![String::from("bg"), String::from("fg"), String::from("attr")];
 
     let vals = vec![
-        Value::string(style.bg.unwrap_or_default(), NuSpan::unknown()),
-        Value::string(style.fg.unwrap_or_default(), NuSpan::unknown()),
-        Value::string(style.attr.unwrap_or_default(), NuSpan::unknown()),
+        SpannedValue::string(style.bg.unwrap_or_default(), NuSpan::unknown()),
+        SpannedValue::string(style.fg.unwrap_or_default(), NuSpan::unknown()),
+        SpannedValue::string(style.attr.unwrap_or_default(), NuSpan::unknown()),
     ];
 
-    Some(Value::Record {
+    Some(SpannedValue::Record {
         cols,
         vals,
         span: NuSpan::unknown(),

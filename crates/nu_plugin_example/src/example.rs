@@ -1,5 +1,5 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::Value;
+use nu_protocol::SpannedValue;
 pub struct Example;
 
 impl Example {
@@ -7,7 +7,7 @@ impl Example {
         &self,
         index: u32,
         call: &EvaluatedCall,
-        input: &Value,
+        input: &SpannedValue,
     ) -> Result<(), LabeledError> {
         // Note. When debugging your plugin, you may want to print something to the console
         // Use the eprintln macro to print your messages. Trying to print to stdout will
@@ -50,13 +50,21 @@ impl Example {
         Ok(())
     }
 
-    pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    pub fn test1(
+        &self,
+        call: &EvaluatedCall,
+        input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         self.print_values(1, call, input)?;
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(SpannedValue::Nothing { span: call.head })
     }
 
-    pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    pub fn test2(
+        &self,
+        call: &EvaluatedCall,
+        input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         self.print_values(2, call, input)?;
 
         let cols = vec!["one".to_string(), "two".to_string(), "three".to_string()];
@@ -64,24 +72,28 @@ impl Example {
         let vals = (0..10i64)
             .map(|i| {
                 let vals = (0..3)
-                    .map(|v| Value::int(v * i, call.head))
-                    .collect::<Vec<Value>>();
+                    .map(|v| SpannedValue::int(v * i, call.head))
+                    .collect::<Vec<SpannedValue>>();
 
-                Value::Record {
+                SpannedValue::Record {
                     cols: cols.clone(),
                     vals,
                     span: call.head,
                 }
             })
-            .collect::<Vec<Value>>();
+            .collect::<Vec<SpannedValue>>();
 
-        Ok(Value::List {
+        Ok(SpannedValue::List {
             vals,
             span: call.head,
         })
     }
 
-    pub fn test3(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    pub fn test3(
+        &self,
+        call: &EvaluatedCall,
+        input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         self.print_values(3, call, input)?;
 
         Err(LabeledError {

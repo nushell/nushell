@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    IntoPipelineData, Span, Value,
+    IntoPipelineData, Span, SpannedValue,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
 use std::sync::Arc;
@@ -42,19 +42,19 @@ impl Completer for NuMenuCompleter {
 
         if let Some(buffer) = block.signature.get_positional(0) {
             if let Some(buffer_id) = &buffer.var_id {
-                let line_buffer = Value::string(parsed.remainder, self.span);
+                let line_buffer = SpannedValue::string(parsed.remainder, self.span);
                 self.stack.add_var(*buffer_id, line_buffer);
             }
         }
 
         if let Some(position) = block.signature.get_positional(1) {
             if let Some(position_id) = &position.var_id {
-                let line_buffer = Value::int(pos as i64, self.span);
+                let line_buffer = SpannedValue::int(pos as i64, self.span);
                 self.stack.add_var(*position_id, line_buffer);
             }
         }
 
-        let input = Value::nothing(self.span).into_pipeline_data();
+        let input = SpannedValue::nothing(self.span).into_pipeline_data();
         let res = eval_block(
             &self.engine_state,
             &mut self.stack,
@@ -74,13 +74,13 @@ impl Completer for NuMenuCompleter {
 }
 
 fn convert_to_suggestions(
-    value: Value,
+    value: SpannedValue,
     line: &str,
     pos: usize,
     only_buffer_difference: bool,
 ) -> Vec<Suggestion> {
     match value {
-        Value::Record { .. } => {
+        SpannedValue::Record { .. } => {
             let text = value
                 .get_data_by_key("value")
                 .and_then(|val| val.as_string().ok())
@@ -91,7 +91,7 @@ fn convert_to_suggestions(
                 .and_then(|val| val.as_string().ok());
 
             let span = match value.get_data_by_key("span") {
-                Some(span @ Value::Record { .. }) => {
+                Some(span @ SpannedValue::Record { .. }) => {
                     let start = span
                         .get_data_by_key("start")
                         .and_then(|val| val.as_int().ok());
@@ -127,11 +127,11 @@ fn convert_to_suggestions(
             };
 
             let extra = match value.get_data_by_key("extra") {
-                Some(Value::List { vals, .. }) => {
+                Some(SpannedValue::List { vals, .. }) => {
                     let extra: Vec<String> = vals
                         .into_iter()
                         .filter_map(|extra| match extra {
-                            Value::String { val, .. } => Some(val),
+                            SpannedValue::String { val, .. } => Some(val),
                             _ => None,
                         })
                         .collect();
@@ -149,7 +149,7 @@ fn convert_to_suggestions(
                 append_whitespace: false,
             }]
         }
-        Value::List { vals, .. } => vals
+        SpannedValue::List { vals, .. } => vals
             .into_iter()
             .flat_map(|val| convert_to_suggestions(val, line, pos, only_buffer_difference))
             .collect(),

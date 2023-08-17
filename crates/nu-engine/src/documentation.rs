@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpannedValue, SyntaxShape,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -46,7 +46,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
             engine_state,
             stack,
             &Call::new(Span::unknown()),
-            Value::string(code_string, Span::unknown()).into_pipeline_data(),
+            SpannedValue::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
             if let Ok(s) = result.as_string() {
@@ -210,11 +210,11 @@ fn get_documentation(
             let span = Span::unknown();
             let mut vals = vec![];
             for (input, output) in &sig.input_output_types {
-                vals.push(Value::Record {
+                vals.push(SpannedValue::Record {
                     cols: vec!["input".into(), "output".into()],
                     vals: vec![
-                        Value::string(input.to_string(), span),
-                        Value::string(output.to_string(), span),
+                        SpannedValue::string(input.to_string(), span),
+                        SpannedValue::string(output.to_string(), span),
                     ],
                     span,
                 });
@@ -232,7 +232,7 @@ fn get_documentation(
                     redirect_stderr: true,
                     parser_info: HashMap::new(),
                 },
-                PipelineData::Value(Value::List { vals, span }, None),
+                PipelineData::Value(SpannedValue::List { vals, span }, None),
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
                     let _ = writeln!(long_desc, "\n{G}Input/output types{RESET}:");
@@ -262,7 +262,7 @@ fn get_documentation(
                 engine_state,
                 stack,
                 &Call::new(Span::unknown()),
-                Value::string(example.example, Span::unknown()).into_pipeline_data(),
+                SpannedValue::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span::unknown());
@@ -332,7 +332,7 @@ pub fn get_flags_section<F>(
     mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
 ) -> String
 where
-    F: FnMut(&nu_protocol::Value) -> String,
+    F: FnMut(&nu_protocol::SpannedValue) -> String,
 {
     //todo make these configurable -- pull from enginestate.config
     const G: &str = "\x1b[32m"; // green

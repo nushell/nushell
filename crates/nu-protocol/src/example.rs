@@ -1,4 +1,4 @@
-use crate::Value;
+use crate::SpannedValue;
 #[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Example<'a> {
     pub example: &'a str,
     pub description: &'a str,
-    pub result: Option<Value>,
+    pub result: Option<SpannedValue>,
 }
 
 // PluginExample is somehow like struct `Example`, but it owned a String for `example`
@@ -17,5 +17,5 @@ pub struct Example<'a> {
 pub struct PluginExample {
     pub example: String,
     pub description: String,
-    pub result: Option<Value>,
+    pub result: Option<SpannedValue>,
 }

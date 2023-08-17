@@ -2,7 +2,7 @@ use nu_ansi_term::{build_all_gradient_text, gradient::TargetGround, Gradient, Rg
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -101,7 +101,7 @@ impl Command for SubCommand {
     }
 }
 
-fn value_to_color(v: Option<Value>) -> Result<Option<Rgb>, ShellError> {
+fn value_to_color(v: Option<SpannedValue>) -> Result<Option<Rgb>, ShellError> {
     let s = match v {
         None => return Ok(None),
         Some(x) => x.as_string()?,
@@ -115,10 +115,10 @@ fn operate(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let fgstart: Option<Value> = call.get_flag(engine_state, stack, "fgstart")?;
-    let fgend: Option<Value> = call.get_flag(engine_state, stack, "fgend")?;
-    let bgstart: Option<Value> = call.get_flag(engine_state, stack, "bgstart")?;
-    let bgend: Option<Value> = call.get_flag(engine_state, stack, "bgend")?;
+    let fgstart: Option<SpannedValue> = call.get_flag(engine_state, stack, "fgstart")?;
+    let fgend: Option<SpannedValue> = call.get_flag(engine_state, stack, "fgend")?;
+    let bgstart: Option<SpannedValue> = call.get_flag(engine_state, stack, "bgstart")?;
+    let bgend: Option<SpannedValue> = call.get_flag(engine_state, stack, "bgend")?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     let fgs_hex = value_to_color(fgstart)?;
@@ -138,7 +138,7 @@ fn operate(
                         Box::new(move |old| action(old, fgs_hex, fge_hex, bgs_hex, bge_hex, head)),
                     );
                     if let Err(error) = r {
-                        return Value::Error {
+                        return SpannedValue::Error {
                             error: Box::new(error),
                         };
                     }
@@ -151,20 +151,20 @@ fn operate(
 }
 
 fn action(
-    input: &Value,
+    input: &SpannedValue,
     fg_start: Option<Rgb>,
     fg_end: Option<Rgb>,
     bg_start: Option<Rgb>,
     bg_end: Option<Rgb>,
     command_span: Span,
-) -> Value {
+) -> SpannedValue {
     match input {
-        Value::String { val, span } => {
+        SpannedValue::String { val, span } => {
             let span = *span;
             match (fg_start, fg_end, bg_start, bg_end) {
                 (None, None, None, None) => {
                     // Error - no colors
-                    Value::Error {
+                    SpannedValue::Error {
                         error: Box::new(ShellError::MissingParameter {
                             param_name:
                                 "please supply foreground and/or background color parameters".into(),
@@ -177,27 +177,27 @@ fn action(
                     let bg_start = Rgb::new(0, 0, 0);
                     let gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = gradient.build(val, TargetGround::Background);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (None, None, Some(bg_start), None) => {
                     // Error - missing bg_end, so assume black
                     let bg_end = Rgb::new(0, 0, 0);
                     let gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = gradient.build(val, TargetGround::Background);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (None, None, Some(bg_start), Some(bg_end)) => {
                     // Background Only
                     let gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = gradient.build(val, TargetGround::Background);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (None, Some(fg_end), None, None) => {
                     // Error - missing fg_start, so assume black
                     let fg_start = Rgb::new(0, 0, 0);
                     let gradient = Gradient::new(fg_start, fg_end);
                     let gradient_string = gradient.build(val, TargetGround::Foreground);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (None, Some(fg_end), None, Some(bg_end)) => {
                     // missing fg_start and bg_start, so assume black
@@ -206,7 +206,7 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (None, Some(fg_end), Some(bg_start), None) => {
                     // Error - missing fg_start and bg_end
@@ -215,7 +215,7 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (None, Some(fg_end), Some(bg_start), Some(bg_end)) => {
                     // Error - missing fg_start, so assume black
@@ -223,14 +223,14 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), None, None, None) => {
                     // Error - missing fg_end, so assume black
                     let fg_end = Rgb::new(0, 0, 0);
                     let gradient = Gradient::new(fg_start, fg_end);
                     let gradient_string = gradient.build(val, TargetGround::Foreground);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), None, None, Some(bg_end)) => {
                     // Error - missing fg_end, bg_start, so assume black
@@ -239,7 +239,7 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), None, Some(bg_start), None) => {
                     // Error - missing fg_end, bg_end, so assume black
@@ -248,7 +248,7 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), None, Some(bg_start), Some(bg_end)) => {
                     // Error - missing fg_end, so assume black
@@ -256,13 +256,13 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), Some(fg_end), None, None) => {
                     // Foreground Only
                     let gradient = Gradient::new(fg_start, fg_end);
                     let gradient_string = gradient.build(val, TargetGround::Foreground);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), Some(fg_end), None, Some(bg_end)) => {
                     // Error - missing bg_start, so assume black
@@ -270,7 +270,7 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), Some(fg_end), Some(bg_start), None) => {
                     // Error - missing bg_end, so assume black
@@ -278,21 +278,21 @@ fn action(
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
                 (Some(fg_start), Some(fg_end), Some(bg_start), Some(bg_end)) => {
                     // Foreground and Background Gradient
                     let fg_gradient = Gradient::new(fg_start, fg_end);
                     let bg_gradient = Gradient::new(bg_start, bg_end);
                     let gradient_string = build_all_gradient_text(val, fg_gradient, bg_gradient);
-                    Value::string(gradient_string, span)
+                    SpannedValue::string(gradient_string, span)
                 }
             }
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());
 
-            Value::Error {
+            SpannedValue::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
                     span: other.span().unwrap_or(command_span),
@@ -306,7 +306,7 @@ fn action(
 mod tests {
     use super::{action, SubCommand};
     use nu_ansi_term::Rgb;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{Span, SpannedValue};
 
     #[test]
     fn examples_work_as_expected() {
@@ -317,8 +317,8 @@ mod tests {
 
     #[test]
     fn test_fg_gradient() {
-        let input_string = Value::test_string("Hello, World!");
-        let expected = Value::test_string("\u{1b}[38;2;64;201;255mH\u{1b}[38;2;76;187;254me\u{1b}[38;2;89;174;254ml\u{1b}[38;2;102;160;254ml\u{1b}[38;2;115;147;254mo\u{1b}[38;2;128;133;254m,\u{1b}[38;2;141;120;254m \u{1b}[38;2;153;107;254mW\u{1b}[38;2;166;94;254mo\u{1b}[38;2;179;80;254mr\u{1b}[38;2;192;67;254ml\u{1b}[38;2;205;53;254md\u{1b}[38;2;218;40;254m!\u{1b}[0m");
+        let input_string = SpannedValue::test_string("Hello, World!");
+        let expected = SpannedValue::test_string("\u{1b}[38;2;64;201;255mH\u{1b}[38;2;76;187;254me\u{1b}[38;2;89;174;254ml\u{1b}[38;2;102;160;254ml\u{1b}[38;2;115;147;254mo\u{1b}[38;2;128;133;254m,\u{1b}[38;2;141;120;254m \u{1b}[38;2;153;107;254mW\u{1b}[38;2;166;94;254mo\u{1b}[38;2;179;80;254mr\u{1b}[38;2;192;67;254ml\u{1b}[38;2;205;53;254md\u{1b}[38;2;218;40;254m!\u{1b}[0m");
         let fg_start = Rgb::from_hex_string("0x40c9ff".to_string());
         let fg_end = Rgb::from_hex_string("0xe81cff".to_string());
         let actual = action(

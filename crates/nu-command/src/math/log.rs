@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -73,16 +74,16 @@ impl Command for SubCommand {
             Example {
                 description: "Get the logarithm of 100 to the base 10",
                 example: "100 | math log 10",
-                result: Some(Value::test_float(2.0f64)),
+                result: Some(SpannedValue::test_float(2.0f64)),
             },
             Example {
                 example: "[16 8 4] | math log 2",
                 description: "Get the log2 of a list of values",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_float(4.0),
-                        Value::test_float(3.0),
-                        Value::test_float(2.0),
+                        SpannedValue::test_float(4.0),
+                        SpannedValue::test_float(3.0),
+                        SpannedValue::test_float(2.0),
                     ],
                     span: Span::test_data(),
                 }),
@@ -91,17 +92,17 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(value: Value, head: Span, base: f64) -> Value {
+fn operate(value: SpannedValue, head: Span, base: f64) -> SpannedValue {
     match value {
-        numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+        numeric @ (SpannedValue::Int { .. } | SpannedValue::Float { .. }) => {
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                SpannedValue::Int { val, span } => (val as f64, span),
+                SpannedValue::Float { val, span } => (val, span),
                 _ => unreachable!(),
             };
 
             if val <= 0.0 {
-                return Value::Error {
+                return SpannedValue::Error {
                     error: Box::new(ShellError::UnsupportedInput(
                         "'math log' undefined for values outside the open interval (0, Inf)."
                             .into(),
@@ -120,10 +121,10 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                 val.log(base)
             };
 
-            Value::Float { val, span }
+            SpannedValue::Float { val, span }
         }
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

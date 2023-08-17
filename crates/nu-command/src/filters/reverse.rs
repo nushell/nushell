@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Type, Value,
+    SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -38,12 +38,12 @@ impl Command for Reverse {
             Example {
                 example: "[0,1,2,3] | reverse",
                 description: "Reverse a list",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_int(3),
-                        Value::test_int(2),
-                        Value::test_int(1),
-                        Value::test_int(0),
+                        SpannedValue::test_int(3),
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(1),
+                        SpannedValue::test_int(0),
                     ],
                     span: Span::test_data(),
                 }),
@@ -51,10 +51,10 @@ impl Command for Reverse {
             Example {
                 example: "[{a: 1} {a: 2}] | reverse",
                 description: "Reverse a table",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(2)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(1)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(2)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(1)]),
                     ],
                     span: Span::test_data(),
                 }),

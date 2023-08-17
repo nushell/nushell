@@ -4,7 +4,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -50,23 +50,26 @@ impl Command for WithEnv {
             Example {
                 description: "Set the MYENV environment variable",
                 example: r#"with-env [MYENV "my env value"] { $env.MYENV }"#,
-                result: Some(Value::test_string("my env value")),
+                result: Some(SpannedValue::test_string("my env value")),
             },
             Example {
                 description: "Set by primitive value list",
                 example: r#"with-env [X Y W Z] { $env.X }"#,
-                result: Some(Value::test_string("Y")),
+                result: Some(SpannedValue::test_string("Y")),
             },
             Example {
                 description: "Set by single row table",
                 example: r#"with-env [[X W]; [Y Z]] { $env.W }"#,
-                result: Some(Value::test_string("Z")),
+                result: Some(SpannedValue::test_string("Z")),
             },
             Example {
                 description: "Set by key-value record",
                 example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
-                result: Some(Value::list(
-                    vec![Value::test_string("Y"), Value::test_string("Z")],
+                result: Some(SpannedValue::list(
+                    vec![
+                        SpannedValue::test_string("Y"),
+                        SpannedValue::test_string("Z"),
+                    ],
                     Span::test_data(),
                 )),
             },
@@ -81,20 +84,20 @@ fn with_env(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     // let external_redirection = args.call_info.args.external_redirection;
-    let variable: Value = call.req(engine_state, stack, 0)?;
+    let variable: SpannedValue = call.req(engine_state, stack, 0)?;
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack(&capture_block.captures);
 
-    let mut env: HashMap<String, Value> = HashMap::new();
+    let mut env: HashMap<String, SpannedValue> = HashMap::new();
 
     match &variable {
-        Value::List { vals: table, .. } => {
+        SpannedValue::List { vals: table, .. } => {
             if table.len() == 1 {
                 // single row([[X W]; [Y Z]])
                 match &table[0] {
-                    Value::Record { cols, vals, .. } => {
+                    SpannedValue::Record { cols, vals, .. } => {
                         for (k, v) in cols.iter().zip(vals.iter()) {
                             env.insert(k.to_string(), v.clone());
                         }
@@ -122,7 +125,7 @@ fn with_env(
             }
         }
         // when get object by `open x.json` or `from json`
-        Value::Record { cols, vals, .. } => {
+        SpannedValue::Record { cols, vals, .. } => {
             for (k, v) in cols.iter().zip(vals) {
                 env.insert(k.clone(), v.clone());
             }

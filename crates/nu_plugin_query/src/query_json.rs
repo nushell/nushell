@@ -1,13 +1,13 @@
 use gjson::Value as gjValue;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Spanned, Value};
+use nu_protocol::{Span, Spanned, SpannedValue};
 
 pub fn execute_json_query(
     _name: &str,
     call: &EvaluatedCall,
-    input: &Value,
+    input: &SpannedValue,
     query: Option<Spanned<String>>,
-) -> Result<Value, LabeledError> {
+) -> Result<SpannedValue, LabeledError> {
     let input_string = match &input.as_string() {
         Ok(s) => s.clone(),
         Err(e) => {
@@ -45,7 +45,7 @@ pub fn execute_json_query(
 
     if query_contains_modifiers(query_string) {
         let json_str = val.json();
-        Ok(Value::string(json_str, call.head))
+        Ok(SpannedValue::string(json_str, call.head))
     } else {
         Ok(convert_gjson_value_to_nu_value(&val, call.head))
     }
@@ -70,7 +70,7 @@ fn query_contains_modifiers(query: &str) -> bool {
     // @join: Joins multiple objects into a single object.
 }
 
-fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
+fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> SpannedValue {
     match v.kind() {
         gjson::Kind::Array => {
             let mut vals = vec![];
@@ -79,20 +79,20 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
                 true
             });
 
-            Value::List { vals, span }
+            SpannedValue::List { vals, span }
         }
-        gjson::Kind::Null => Value::nothing(span),
-        gjson::Kind::False => Value::bool(false, span),
+        gjson::Kind::Null => SpannedValue::nothing(span),
+        gjson::Kind::False => SpannedValue::bool(false, span),
         gjson::Kind::Number => {
             let str_value = v.str();
             if str_value.contains('.') {
-                Value::float(v.f64(), span)
+                SpannedValue::float(v.f64(), span)
             } else {
-                Value::int(v.i64(), span)
+                SpannedValue::int(v.i64(), span)
             }
         }
-        gjson::Kind::String => Value::string(v.str(), span),
-        gjson::Kind::True => Value::bool(true, span),
+        gjson::Kind::String => SpannedValue::string(v.str(), span),
+        gjson::Kind::True => SpannedValue::bool(true, span),
         gjson::Kind::Object => {
             let mut cols = vec![];
             let mut vals = vec![];
@@ -101,7 +101,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
                 vals.push(convert_gjson_value_to_nu_value(&v, span));
                 true
             });
-            Value::Record { cols, vals, span }
+            SpannedValue::Record { cols, vals, span }
         }
     }
 }

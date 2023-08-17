@@ -4,7 +4,7 @@ use nu_engine::eval_subexpression;
 use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Value,
+    Config, PipelineData, SpannedValue,
 };
 use reedline::Prompt;
 
@@ -29,7 +29,7 @@ fn get_prompt_string(
     stack
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
-            Value::Closure {
+            SpannedValue::Closure {
                 val: block_id,
                 captures,
                 ..
@@ -53,7 +53,7 @@ fn get_prompt_string(
                     })
                     .ok()
             }
-            Value::Block { val: block_id, .. } => {
+            SpannedValue::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
@@ -71,7 +71,7 @@ fn get_prompt_string(
                     })
                     .ok()
             }
-            Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
+            SpannedValue::String { .. } => Some(PipelineData::Value(v.clone(), None)),
             _ => None,
         })
         .and_then(|pipeline_data| {

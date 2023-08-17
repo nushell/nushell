@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -58,7 +58,7 @@ fn date(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
 
-    Ok(Value::String {
+    Ok(SpannedValue::String {
         val: get_full_help(
             &Date.signature(),
             &Date.examples(),

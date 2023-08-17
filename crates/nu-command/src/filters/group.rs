@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -34,12 +34,12 @@ impl Command for Group {
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                 span: Span::test_data(),
             },
-            Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(4)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
                 span: Span::test_data(),
             },
         ];
@@ -47,7 +47,7 @@ impl Command for Group {
         vec![Example {
             example: "[1 2 3 4] | group 2",
             description: "Group the a list by pairs",
-            result: Some(Value::List {
+            result: Some(SpannedValue::List {
                 vals: stream_test_1,
                 span: Span::test_data(),
             }),
@@ -81,12 +81,12 @@ impl Command for Group {
 
 struct EachGroupIterator {
     group_size: usize,
-    input: Box<dyn Iterator<Item = Value> + Send>,
+    input: Box<dyn Iterator<Item = SpannedValue> + Send>,
     span: Span,
 }
 
 impl Iterator for EachGroupIterator {
-    type Item = Value;
+    type Item = SpannedValue;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut group = vec![];
@@ -112,7 +112,7 @@ impl Iterator for EachGroupIterator {
             return None;
         }
 
-        Some(Value::List {
+        Some(SpannedValue::List {
             vals: group,
             span: self.span,
         })

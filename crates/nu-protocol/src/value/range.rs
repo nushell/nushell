@@ -12,33 +12,33 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Range {
-    pub from: Value,
-    pub incr: Value,
-    pub to: Value,
+    pub from: SpannedValue,
+    pub incr: SpannedValue,
+    pub to: SpannedValue,
     pub inclusion: RangeInclusion,
 }
 
 impl Range {
     pub fn new(
         expr_span: Span,
-        from: Value,
-        next: Value,
-        to: Value,
+        from: SpannedValue,
+        next: SpannedValue,
+        to: SpannedValue,
         operator: &RangeOperator,
     ) -> Result<Range, ShellError> {
         // Select from & to values if they're not specified
         // TODO: Replace the placeholder values with proper min/max for range based on data type
-        let from = if let Value::Nothing { .. } = from {
-            Value::int(0i64, expr_span)
+        let from = if let SpannedValue::Nothing { .. } = from {
+            SpannedValue::int(0i64, expr_span)
         } else {
             from
         };
 
-        let to = if let Value::Nothing { .. } = to {
-            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
-                Value::int(i64::MIN, expr_span)
+        let to = if let SpannedValue::Nothing { .. } = to {
+            if let Ok(SpannedValue::Bool { val: true, .. }) = next.lt(expr_span, &from, expr_span) {
+                SpannedValue::int(i64::MIN, expr_span)
             } else {
-                Value::int(i64::MAX, expr_span)
+                SpannedValue::int(i64::MAX, expr_span)
             }
         } else {
             to
@@ -47,32 +47,32 @@ impl Range {
         // Check if the range counts up or down
         let moves_up = matches!(
             from.lte(expr_span, &to, expr_span),
-            Ok(Value::Bool { val: true, .. })
+            Ok(SpannedValue::Bool { val: true, .. })
         );
 
         // Convert the next value into the increment
-        let incr = if let Value::Nothing { .. } = next {
+        let incr = if let SpannedValue::Nothing { .. } = next {
             if moves_up {
-                Value::int(1i64, expr_span)
+                SpannedValue::int(1i64, expr_span)
             } else {
-                Value::int(-1i64, expr_span)
+                SpannedValue::int(-1i64, expr_span)
             }
         } else {
             next.sub(operator.next_op_span, &from, expr_span)?
         };
 
-        let zero = Value::int(0i64, expr_span);
+        let zero = SpannedValue::int(0i64, expr_span);
 
         // Increment must be non-zero, otherwise we iterate forever
         if matches!(
             incr.eq(expr_span, &zero, expr_span),
-            Ok(Value::Bool { val: true, .. })
+            Ok(SpannedValue::Bool { val: true, .. })
         ) {
             return Err(ShellError::CannotCreateRange { span: expr_span });
         }
 
         // If to > from, then incr > 0, otherwise we iterate forever
-        if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
+        if let (SpannedValue::Bool { val: true, .. }, SpannedValue::Bool { val: false, .. }) = (
             to.gt(operator.span, &from, expr_span)?,
             incr.gt(operator.next_op_span, &zero, expr_span)?,
         ) {
@@ -80,7 +80,7 @@ impl Range {
         }
 
         // If to < from, then incr < 0, otherwise we iterate forever
-        if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
+        if let (SpannedValue::Bool { val: true, .. }, SpannedValue::Bool { val: false, .. }) = (
             to.lt(operator.span, &from, expr_span)?,
             incr.lt(operator.next_op_span, &zero, expr_span)?,
         ) {
@@ -117,7 +117,7 @@ impl Range {
         }
     }
 
-    pub fn contains(&self, item: &Value) -> bool {
+    pub fn contains(&self, item: &SpannedValue) -> bool {
         match (item.partial_cmp(&self.from), item.partial_cmp(&self.to)) {
             (Some(Ordering::Greater | Ordering::Equal), Some(Ordering::Less)) => self.moves_up(),
             (Some(Ordering::Less | Ordering::Equal), Some(Ordering::Greater)) => !self.moves_up(),
@@ -155,12 +155,12 @@ impl PartialOrd for Range {
 }
 
 pub struct RangeIterator {
-    curr: Value,
-    end: Value,
+    curr: SpannedValue,
+    end: SpannedValue,
     span: Span,
     is_end_inclusive: bool,
     moves_up: bool,
-    incr: Value,
+    incr: SpannedValue,
     done: bool,
     ctrlc: Option<Arc<AtomicBool>>,
 }
@@ -171,12 +171,12 @@ impl RangeIterator {
         let is_end_inclusive = range.is_end_inclusive();
 
         let start = match range.from {
-            Value::Nothing { .. } => Value::Int { val: 0, span },
+            SpannedValue::Nothing { .. } => SpannedValue::Int { val: 0, span },
             x => x,
         };
 
         let end = match range.to {
-            Value::Nothing { .. } => Value::Int {
+            SpannedValue::Nothing { .. } => SpannedValue::Int {
                 val: i64::MAX,
                 span,
             },
@@ -197,7 +197,7 @@ impl RangeIterator {
 }
 
 impl Iterator for RangeIterator {
-    type Item = Value;
+    type Item = SpannedValue;
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
             return None;
@@ -207,7 +207,7 @@ impl Iterator for RangeIterator {
             return None;
         }
 
-        let ordering = if matches!(self.end, Value::Nothing { .. }) {
+        let ordering = if matches!(self.end, SpannedValue::Nothing { .. }) {
             Some(Ordering::Less)
         } else {
             self.curr.partial_cmp(&self.end)
@@ -215,7 +215,7 @@ impl Iterator for RangeIterator {
 
         let Some(ordering) = ordering  else {
             self.done = true;
-            return Some(Value::Error {
+            return Some(SpannedValue::Error {
                 error: Box::new(ShellError::CannotCreateRange { span: self.span }),
             });
         };
@@ -235,7 +235,7 @@ impl Iterator for RangeIterator {
 
                 Err(error) => {
                     self.done = true;
-                    return Some(Value::Error {
+                    return Some(SpannedValue::Error {
                         error: Box::new(error),
                     });
                 }

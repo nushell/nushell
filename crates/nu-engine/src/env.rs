@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::{Call, Expr, PathMember};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
+use nu_protocol::{Config, PipelineData, ShellError, Span, SpannedValue, VarId};
 
 use nu_path::canonicalize_with;
 
@@ -19,7 +19,7 @@ const ENV_PATH_NAME: &str = "PATH";
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
 enum ConversionResult {
-    Ok(Value),
+    Ok(SpannedValue),
     ConversionError(ShellError), // Failure during the conversion itself
     GeneralError(ShellError),    // Other error not directly connected to running the conversion
     CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
@@ -92,7 +92,7 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
 /// Returns Ok(None) if the env var is not
 pub fn env_to_string(
     env_name: &str,
-    value: &Value,
+    value: &SpannedValue,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Result<String, ShellError> {
@@ -106,7 +106,7 @@ pub fn env_to_string(
                 if env_name == ENV_PATH_NAME {
                     // Try to convert PATH/Path list to a string
                     match value {
-                        Value::List { vals, .. } => {
+                        SpannedValue::List { vals, .. } => {
                             let paths = vals
                                 .iter()
                                 .map(|v| v.as_string())
@@ -272,7 +272,7 @@ pub fn find_in_dirs_env(
         current_dir_str(engine_state, stack)?
     };
 
-    let check_dir = |lib_dirs: Option<Value>| -> Option<PathBuf> {
+    let check_dir = |lib_dirs: Option<SpannedValue>| -> Option<PathBuf> {
         if let Ok(p) = canonicalize_with(filename, &cwd) {
             return Some(p);
         }
@@ -317,7 +317,7 @@ fn get_converted_value(
     engine_state: &EngineState,
     stack: &Stack,
     name: &str,
-    orig_val: &Value,
+    orig_val: &SpannedValue,
     direction: &str,
 ) -> ConversionResult {
     if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
@@ -347,7 +347,7 @@ fn get_converted_value(
             },
         ];
 
-        if let Ok(Value::Closure {
+        if let Ok(SpannedValue::Closure {
             val: block_id,
             span: from_span,
             ..
@@ -388,26 +388,35 @@ fn get_converted_value(
     }
 }
 
-fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Option<ShellError> {
+fn ensure_path(
+    scope: &mut HashMap<String, SpannedValue>,
+    env_path_name: &str,
+) -> Option<ShellError> {
     let mut error = None;
 
     // If PATH/Path is still a string, force-convert it to a list
     match scope.get(env_path_name) {
-        Some(Value::String { val, span }) => {
+        Some(SpannedValue::String { val, span }) => {
             // Force-split path into a list
             let span = *span;
             let paths = std::env::split_paths(val)
-                .map(|p| Value::String {
+                .map(|p| SpannedValue::String {
                     val: p.to_string_lossy().to_string(),
                     span,
                 })
                 .collect();
 
-            scope.insert(env_path_name.to_string(), Value::List { vals: paths, span });
+            scope.insert(
+                env_path_name.to_string(),
+                SpannedValue::List { vals: paths, span },
+            );
         }
-        Some(Value::List { vals, span }) => {
+        Some(SpannedValue::List { vals, span }) => {
             // Must be a list of strings
-            if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
+            if !vals
+                .iter()
+                .all(|v| matches!(v, SpannedValue::String { .. }))
+            {
                 error = error.or_else(|| {
                     Some(ShellError::GenericError(
                         format!("Wrong {env_path_name} environment variable value"),

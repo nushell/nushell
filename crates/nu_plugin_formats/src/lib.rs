@@ -2,7 +2,7 @@ mod from;
 
 use from::{eml, ics, ini, vcf};
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Type, Value};
+use nu_protocol::{Category, PluginSignature, SpannedValue, SyntaxShape, Type};
 
 pub struct FromCmds;
 
@@ -42,8 +42,8 @@ impl Plugin for FromCmds {
         &mut self,
         name: &str,
         call: &EvaluatedCall,
-        input: &Value,
-    ) -> Result<Value, LabeledError> {
+        input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         match name {
             eml::CMD_NAME => eml::from_eml_call(call, input),
             ics::CMD_NAME => ics::from_ics_call(call, input),

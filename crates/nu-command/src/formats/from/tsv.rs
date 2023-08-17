@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -75,12 +75,12 @@ impl Command for FromTsv {
             Example {
                 description: "Convert tab-separated data to a table",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
-                            Value::test_int(1),
-                            Value::test_int(2),
+                            SpannedValue::test_int(1),
+                            SpannedValue::test_int(2),
                         ],
                         span: Span::test_data(),
                     }],
@@ -126,16 +126,16 @@ fn from_tsv(
 
     let comment = call
         .get_flag(engine_state, stack, "comment")?
-        .map(|v: Value| v.as_char())
+        .map(|v: SpannedValue| v.as_char())
         .transpose()?;
     let quote = call
         .get_flag(engine_state, stack, "quote")?
-        .map(|v: Value| v.as_char())
+        .map(|v: SpannedValue| v.as_char())
         .transpose()?
         .unwrap_or('"');
     let escape = call
         .get_flag(engine_state, stack, "escape")?
-        .map(|v: Value| v.as_char())
+        .map(|v: SpannedValue| v.as_char())
         .transpose()?;
     let no_infer = call.has_flag("no-infer");
     let noheaders = call.has_flag("noheaders");

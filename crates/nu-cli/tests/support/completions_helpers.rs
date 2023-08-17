@@ -4,7 +4,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Span, Value,
+    PipelineData, ShellError, Span, SpannedValue,
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
@@ -34,14 +34,14 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::String {
+        SpannedValue::String {
             val: dir_str.clone(),
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::String {
+        SpannedValue::String {
             val: "NUSHELL".to_string(),
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
@@ -49,7 +49,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     #[cfg(windows)]
     stack.add_env_var(
         "Path".to_string(),
-        Value::String {
+        SpannedValue::String {
             val: "c:\\some\\path;c:\\some\\other\\path".to_string(),
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
@@ -57,7 +57,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     #[cfg(not(windows))]
     stack.add_env_var(
         "PATH".to_string(),
-        Value::String {
+        SpannedValue::String {
             val: "/some/path:/some/other/path".to_string(),
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
@@ -89,14 +89,14 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::String {
+        SpannedValue::String {
             val: dir_str.clone(),
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::String {
+        SpannedValue::String {
             val: "NUSHELL".to_string(),
             span: nu_protocol::Span::new(0, dir_str.len()),
         },
@@ -163,7 +163,7 @@ pub fn merge_input(
         stack,
         &block,
         PipelineData::Value(
-            Value::Nothing {
+            SpannedValue::Nothing {
                 span: Span::unknown(),
             },
             None

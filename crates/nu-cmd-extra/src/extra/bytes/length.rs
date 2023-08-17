@@ -4,7 +4,9 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct BytesLen;
@@ -59,13 +61,13 @@ impl Command for BytesLen {
             Example {
                 description: "Return the length of a binary",
                 example: "0x[1F FF AA AB] | bytes length",
-                result: Some(Value::test_int(4)),
+                result: Some(SpannedValue::test_int(4)),
             },
             Example {
                 description: "Return the lengths of multiple binaries",
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(1)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
@@ -73,15 +75,15 @@ impl Command for BytesLen {
     }
 }
 
-fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn length(val: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> SpannedValue {
     match val {
-        Value::Binary {
+        SpannedValue::Binary {
             val,
             span: val_span,
-        } => Value::int(val.len() as i64, *val_span),
+        } => SpannedValue::int(val.len() as i64, *val_span),
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => val.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => val.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),

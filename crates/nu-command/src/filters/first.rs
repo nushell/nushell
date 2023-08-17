@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -63,20 +63,20 @@ impl Command for First {
             Example {
                 description: "Return the first item of a list/table",
                 example: "[1 2 3] | first",
-                result: Some(Value::test_int(1)),
+                result: Some(SpannedValue::test_int(1)),
             },
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | first 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | first 2",
-                result: Some(Value::Binary {
+                result: Some(SpannedValue::Binary {
                     val: vec![0x01, 0x23],
                     span: Span::test_data(),
                 }),
@@ -109,14 +109,14 @@ fn first_helper(
 
     // early exit for `first 0`
     if rows_desired == 0 {
-        return Ok(Vec::<Value>::new()
+        return Ok(Vec::<SpannedValue>::new()
             .into_pipeline_data(ctrlc)
             .set_metadata(metadata));
     }
 
     match input {
         PipelineData::Value(val, _) => match val {
-            Value::List { vals, .. } => {
+            SpannedValue::List { vals, .. } => {
                 if return_single_element {
                     if vals.is_empty() {
                         Err(ShellError::AccessEmptyContent { span: head })
@@ -131,13 +131,13 @@ fn first_helper(
                         .set_metadata(metadata))
                 }
             }
-            Value::Binary { val, span } => {
+            SpannedValue::Binary { val, span } => {
                 if return_single_element {
                     if val.is_empty() {
                         Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         Ok(PipelineData::Value(
-                            Value::Int {
+                            SpannedValue::Int {
                                 val: val[0] as i64,
                                 span,
                             },
@@ -147,12 +147,12 @@ fn first_helper(
                 } else {
                     let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
                     Ok(PipelineData::Value(
-                        Value::Binary { val: slice, span },
+                        SpannedValue::Binary { val: slice, span },
                         metadata,
                     ))
                 }
             }
-            Value::Range { val, .. } => {
+            SpannedValue::Range { val, .. } => {
                 if return_single_element {
                     Ok(val.from.into_pipeline_data())
                 } else {
@@ -164,7 +164,7 @@ fn first_helper(
                 }
             }
             // Propagate errors by explicitly matching them before the final case.
-            Value::Error { error } => Err(*error),
+            SpannedValue::Error { error } => Err(*error),
             other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: other.get_type().to_string(),

@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -54,14 +54,18 @@ with 'transpose' first."#
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)];
+        let stream_test_1 = vec![
+            SpannedValue::test_int(2),
+            SpannedValue::test_int(4),
+            SpannedValue::test_int(6),
+        ];
 
         let stream_test_2 = vec![
-            Value::Nothing {
+            SpannedValue::Nothing {
                 span: Span::test_data(),
             },
-            Value::test_string("found 2!"),
-            Value::Nothing {
+            SpannedValue::test_string("found 2!"),
+            SpannedValue::Nothing {
                 span: Span::test_data(),
             },
         ];
@@ -70,7 +74,7 @@ with 'transpose' first."#
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
                 description: "Multiplies elements in the list",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: stream_test_1,
                     span: Span::test_data(),
                 }),
@@ -78,11 +82,11 @@ with 'transpose' first."#
             Example {
                 example: "{major:2, minor:1, patch:4} | values | each {|| into string }",
                 description: "Produce a list of values in the record, converted to string",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("2"),
-                        Value::test_string("1"),
-                        Value::test_string("4"),
+                        SpannedValue::test_string("2"),
+                        SpannedValue::test_string("1"),
+                        SpannedValue::test_string("4"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -90,8 +94,11 @@ with 'transpose' first."#
             Example {
                 example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
                 description: "Produce a list that has \"two\" for each 2 in the input",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("two"), Value::test_string("two")],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_string("two"),
+                        SpannedValue::test_string("two"),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -99,15 +106,15 @@ with 'transpose' first."#
                 example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("found 2 at 1!")],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_string("found 2 at 1!")],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping null results",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: stream_test_2,
                     span: Span::test_data(),
                 }),
@@ -140,8 +147,8 @@ with 'transpose' first."#
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
+            PipelineData::Value(SpannedValue::Range { .. }, ..)
+            | PipelineData::Value(SpannedValue::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map_while(move |x| {
@@ -166,11 +173,11 @@ with 'transpose' first."#
                         redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
+                        Err(ShellError::Continue(v)) => Some(SpannedValue::nothing(v)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, input_span);
-                            Some(Value::Error {
+                            Some(SpannedValue::Error {
                                 error: Box::new(error),
                             })
                         }
@@ -191,10 +198,10 @@ with 'transpose' first."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(ShellError::Continue(v)) => return Some(Value::nothing(v)),
+                        Err(ShellError::Continue(v)) => return Some(SpannedValue::nothing(v)),
                         Err(ShellError::Break(_)) => return None,
                         Err(err) => {
-                            return Some(Value::Error {
+                            return Some(SpannedValue::Error {
                                 error: Box::new(err),
                             })
                         }
@@ -216,11 +223,11 @@ with 'transpose' first."#
                         redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
+                        Err(ShellError::Continue(v)) => Some(SpannedValue::nothing(v)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
                             let error = Box::new(chain_error_with_input(error, input_span));
-                            Some(Value::Error { error })
+                            Some(SpannedValue::Error { error })
                         }
                     }
                 })

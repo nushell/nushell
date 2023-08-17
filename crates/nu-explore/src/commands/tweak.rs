@@ -2,7 +2,7 @@ use std::io::{self, Result};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 
 use crate::{
@@ -15,7 +15,7 @@ use super::{HelpExample, HelpManual, SimpleCommand};
 #[derive(Default, Clone)]
 pub struct TweakCmd {
     path: Vec<String>,
-    value: Value,
+    value: SpannedValue,
 }
 
 impl TweakCmd {
@@ -75,7 +75,7 @@ impl SimpleCommand for TweakCmd {
         _: &EngineState,
         _: &mut Stack,
         p: &mut Pager<'_>,
-        _: Option<Value>,
+        _: Option<SpannedValue>,
     ) -> Result<Transition> {
         p.set_config(&self.path, self.value.clone());
 
@@ -83,10 +83,10 @@ impl SimpleCommand for TweakCmd {
     }
 }
 
-fn parse_value(value: &str) -> Value {
+fn parse_value(value: &str) -> SpannedValue {
     match value {
-        "true" => Value::bool(true, NuSpan::unknown()),
-        "false" => Value::bool(false, NuSpan::unknown()),
-        s => Value::string(s.to_owned(), NuSpan::unknown()),
+        "true" => SpannedValue::bool(true, NuSpan::unknown()),
+        "false" => SpannedValue::bool(false, NuSpan::unknown()),
+        s => SpannedValue::string(s.to_owned(), NuSpan::unknown()),
     }
 }

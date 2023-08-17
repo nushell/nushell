@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 use shadow_rs::shadow;
 
@@ -67,67 +67,67 @@ pub fn version(
     let mut vals = Vec::with_capacity(12);
 
     cols.push("version".to_string());
-    vals.push(Value::string(env!("CARGO_PKG_VERSION"), call.head));
+    vals.push(SpannedValue::string(env!("CARGO_PKG_VERSION"), call.head));
 
     cols.push("branch".to_string());
-    vals.push(Value::string(build::BRANCH, call.head));
+    vals.push(SpannedValue::string(build::BRANCH, call.head));
 
     let commit_hash = option_env!("NU_COMMIT_HASH");
     if let Some(commit_hash) = commit_hash {
         cols.push("commit_hash".to_string());
-        vals.push(Value::string(commit_hash, call.head));
+        vals.push(SpannedValue::string(commit_hash, call.head));
     }
 
     let build_os = Some(build::BUILD_OS).filter(|x| !x.is_empty());
     if let Some(build_os) = build_os {
         cols.push("build_os".to_string());
-        vals.push(Value::string(build_os, call.head));
+        vals.push(SpannedValue::string(build_os, call.head));
     }
 
     let build_target = Some(build::BUILD_TARGET).filter(|x| !x.is_empty());
     if let Some(build_target) = build_target {
         cols.push("build_target".to_string());
-        vals.push(Value::string(build_target, call.head));
+        vals.push(SpannedValue::string(build_target, call.head));
     }
 
     let rust_version = Some(build::RUST_VERSION).filter(|x| !x.is_empty());
     if let Some(rust_version) = rust_version {
         cols.push("rust_version".to_string());
-        vals.push(Value::string(rust_version, call.head));
+        vals.push(SpannedValue::string(rust_version, call.head));
     }
 
     let rust_channel = Some(build::RUST_CHANNEL).filter(|x| !x.is_empty());
     if let Some(rust_channel) = rust_channel {
         cols.push("rust_channel".to_string());
-        vals.push(Value::string(rust_channel, call.head));
+        vals.push(SpannedValue::string(rust_channel, call.head));
     }
 
     let cargo_version = Some(build::CARGO_VERSION).filter(|x| !x.is_empty());
     if let Some(cargo_version) = cargo_version {
         cols.push("cargo_version".to_string());
-        vals.push(Value::string(cargo_version, call.head));
+        vals.push(SpannedValue::string(cargo_version, call.head));
     }
 
     let build_time = Some(build::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {
         cols.push("build_time".to_string());
-        vals.push(Value::string(build_time, call.head));
+        vals.push(SpannedValue::string(build_time, call.head));
     }
 
     let build_rust_channel = Some(build::BUILD_RUST_CHANNEL).filter(|x| !x.is_empty());
     if let Some(build_rust_channel) = build_rust_channel {
         cols.push("build_rust_channel".to_string());
-        vals.push(Value::string(build_rust_channel, call.head));
+        vals.push(SpannedValue::string(build_rust_channel, call.head));
     }
 
     cols.push("allocator".to_string());
-    vals.push(Value::String {
+    vals.push(SpannedValue::String {
         val: global_allocator().to_string(),
         span: call.head,
     });
 
     cols.push("features".to_string());
-    vals.push(Value::String {
+    vals.push(SpannedValue::String {
         val: features_enabled().join(", "),
         span: call.head,
     });
@@ -140,12 +140,12 @@ pub fn version(
         .collect::<Vec<_>>();
 
     cols.push("installed_plugins".to_string());
-    vals.push(Value::String {
+    vals.push(SpannedValue::String {
         val: installed_plugins.join(", "),
         span: call.head,
     });
 
-    Ok(Value::Record {
+    Ok(SpannedValue::Record {
         cols,
         vals,
         span: call.head,

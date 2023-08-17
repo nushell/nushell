@@ -2,7 +2,9 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -45,24 +47,28 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute the average of a list of numbers",
             example: "[-50 100.0 25] | math avg",
-            result: Some(Value::test_float(25.0)),
+            result: Some(SpannedValue::test_float(25.0)),
         }]
     }
 }
 
-pub fn average(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn average(
+    values: &[SpannedValue],
+    span: Span,
+    head: Span,
+) -> Result<SpannedValue, ShellError> {
     let sum = reducer_for(Reduce::Summation);
-    let total = &sum(Value::int(0, head), values.to_vec(), span, head)?;
+    let total = &sum(SpannedValue::int(0, head), values.to_vec(), span, head)?;
     match total {
-        Value::Filesize { val, span } => Ok(Value::Filesize {
+        SpannedValue::Filesize { val, span } => Ok(SpannedValue::Filesize {
             val: val / values.len() as i64,
             span: *span,
         }),
-        Value::Duration { val, span } => Ok(Value::Duration {
+        SpannedValue::Duration { val, span } => Ok(SpannedValue::Duration {
             val: val / values.len() as i64,
             span: *span,
         }),
-        _ => total.div(head, &Value::int(values.len() as i64, head), head),
+        _ => total.div(head, &SpannedValue::int(values.len() as i64, head), head),
     }
 }
 

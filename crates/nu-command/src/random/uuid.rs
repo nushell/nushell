@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SpannedValue, Type};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -50,7 +50,7 @@ fn uuid(call: &Call) -> Result<PipelineData, ShellError> {
     let uuid_4 = Uuid::new_v4().hyphenated().to_string();
 
     Ok(PipelineData::Value(
-        Value::String { val: uuid_4, span },
+        SpannedValue::String { val: uuid_4, span },
         None,
     ))
 }

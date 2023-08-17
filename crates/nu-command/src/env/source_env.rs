@@ -6,7 +6,8 @@ use nu_engine::{
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SpannedValue, SyntaxShape,
+    Type,
 };
 
 /// Source a file for environment variables.
@@ -59,14 +60,14 @@ impl Command for SourceEnv {
         };
 
         if let Some(parent) = file_path.parent() {
-            let file_pwd = Value::string(parent.to_string_lossy(), call.head);
+            let file_pwd = SpannedValue::string(parent.to_string_lossy(), call.head);
 
             caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
         }
 
         caller_stack.add_env_var(
             "CURRENT_FILE".to_string(),
-            Value::string(file_path.to_string_lossy(), call.head),
+            SpannedValue::string(file_path.to_string_lossy(), call.head),
         );
 
         // Evaluate the block

@@ -1,7 +1,9 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -80,23 +82,27 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the mode(s) of a list of numbers",
                 example: "[3 3 9 12 12 15] | math mode",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(12)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(12)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Compute the mode(s) of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::List {
-                            vals: vec![Value::test_int(1)],
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::test_int(1)],
                             span: Span::test_data(),
                         },
-                        Value::List {
-                            vals: vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
+                        SpannedValue::List {
+                            vals: vec![
+                                SpannedValue::test_int(-1),
+                                SpannedValue::test_int(3),
+                                SpannedValue::test_int(5),
+                            ],
                             span: Span::test_data(),
                         },
                     ],
@@ -107,7 +113,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[SpannedValue], _span: Span, head: Span) -> Result<SpannedValue, ShellError> {
     if let Some(Err(values)) = values
         .windows(2)
         .map(|elem| {
@@ -132,17 +138,19 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
     let hashable_values = values
         .iter()
         .map(|val| match val {
-            Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
-            Value::Duration { val, .. } => {
+            SpannedValue::Int { val, .. } => {
+                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int))
+            }
+            SpannedValue::Duration { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Duration))
             }
-            Value::Float { val, .. } => {
+            SpannedValue::Float { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
             }
-            Value::Filesize { val, .. } => {
+            SpannedValue::Filesize { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
-            Value::Error { error } => Err(*error.clone()),
+            SpannedValue::Error { error } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
                 "value originates from here".into(),
@@ -159,7 +167,7 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
     }
 
     let mut max_freq = -1;
-    let mut modes = Vec::<Value>::new();
+    let mut modes = Vec::<SpannedValue>::new();
     for (value, frequency) in &frequency_map {
         match max_freq.cmp(frequency) {
             Ordering::Less => {
@@ -175,22 +183,22 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
     }
 
     modes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    Ok(Value::List {
+    Ok(SpannedValue::List {
         vals: modes,
         span: head,
     })
 }
 
-fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
+fn recreate_value(hashable_value: &HashableType, head: Span) -> SpannedValue {
     let bytes = hashable_value.bytes;
     match &hashable_value.original_type {
-        NumberTypes::Int => Value::int(i64::from_ne_bytes(bytes), head),
-        NumberTypes::Float => Value::float(f64::from_ne_bytes(bytes), head),
-        NumberTypes::Duration => Value::Duration {
+        NumberTypes::Int => SpannedValue::int(i64::from_ne_bytes(bytes), head),
+        NumberTypes::Float => SpannedValue::float(f64::from_ne_bytes(bytes), head),
+        NumberTypes::Duration => SpannedValue::Duration {
             val: i64::from_ne_bytes(bytes),
             span: head,
         },
-        NumberTypes::Filesize => Value::Filesize {
+        NumberTypes::Filesize => SpannedValue::Filesize {
             val: i64::from_ne_bytes(bytes),
             span: head,
         },

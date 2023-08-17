@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
@@ -75,7 +75,7 @@ prints out the list properly."#
         let use_color: bool = color_param && config.use_ansi_coloring;
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
+            PipelineData::Value(SpannedValue::List { vals, .. }, ..) => {
                 // dbg!("value::list");
                 let data = convert_to_list(vals, config, call.head)?;
                 if let Some(items) = data {
@@ -110,7 +110,7 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            PipelineData::Value(SpannedValue::Record { cols, vals, .. }, ..) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 
@@ -141,27 +141,27 @@ prints out the list properly."#
             Example {
                 description: "Render a simple list to a grid",
                 example: "[1 2 3 a b c] | grid",
-                result: Some(Value::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
+                result: Some(SpannedValue::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
             },
             Example {
                 description: "The above example is the same as:",
                 example: "[1 2 3 a b c] | wrap name | grid",
-                result: Some(Value::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
+                result: Some(SpannedValue::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
             },
             Example {
                 description: "Render a record to a grid",
                 example: "{name: 'foo', b: 1, c: 2} | grid",
-                result: Some(Value::test_string("foo\n")),
+                result: Some(SpannedValue::test_string("foo\n")),
             },
             Example {
                 description: "Render a list of records to a grid",
                 example: "[{name: 'A', v: 1} {name: 'B', v: 2} {name: 'C', v: 3}] | grid",
-                result: Some(Value::test_string("A │ B │ C\n")),
+                result: Some(SpannedValue::test_string("A │ B │ C\n")),
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid",
                 example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
-                result: Some(Value::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
+                result: Some(SpannedValue::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
             },
         ]
     }
@@ -241,9 +241,9 @@ fn create_grid_output(
 
     Ok(
         if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-            Value::string(grid_display.to_string(), call.head)
+            SpannedValue::string(grid_display.to_string(), call.head)
         } else {
-            Value::String {
+            SpannedValue::String {
                 val: format!("Couldn't fit grid into {cols} columns!"),
                 span: call.head,
             }
@@ -254,7 +254,7 @@ fn create_grid_output(
 
 #[allow(clippy::type_complexity)]
 fn convert_to_list(
-    iter: impl IntoIterator<Item = Value>,
+    iter: impl IntoIterator<Item = SpannedValue>,
     config: &Config,
     head: Span,
 ) -> Result<Option<Vec<(usize, String, String)>>, ShellError> {
@@ -277,7 +277,7 @@ fn convert_to_list(
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
-                        Value::Record { .. } => item.clone().follow_cell_path(
+                        SpannedValue::Record { .. } => item.clone().follow_cell_path(
                             &[PathMember::String {
                                 val: header.into(),
                                 span: head,

@@ -1,4 +1,4 @@
-use crate::{ShellError, Span, Value};
+use crate::{ShellError, Span, SpannedValue};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,75 +32,75 @@ pub enum Unit {
 }
 
 impl Unit {
-    pub fn to_value(&self, size: i64, span: Span) -> Value {
+    pub fn to_value(&self, size: i64, span: Span) -> SpannedValue {
         match self {
-            Unit::Byte => Value::Filesize { val: size, span },
-            Unit::Kilobyte => Value::Filesize {
+            Unit::Byte => SpannedValue::Filesize { val: size, span },
+            Unit::Kilobyte => SpannedValue::Filesize {
                 val: size * 1000,
                 span,
             },
-            Unit::Megabyte => Value::Filesize {
+            Unit::Megabyte => SpannedValue::Filesize {
                 val: size * 1000 * 1000,
                 span,
             },
-            Unit::Gigabyte => Value::Filesize {
+            Unit::Gigabyte => SpannedValue::Filesize {
                 val: size * 1000 * 1000 * 1000,
                 span,
             },
-            Unit::Terabyte => Value::Filesize {
+            Unit::Terabyte => SpannedValue::Filesize {
                 val: size * 1000 * 1000 * 1000 * 1000,
                 span,
             },
-            Unit::Petabyte => Value::Filesize {
+            Unit::Petabyte => SpannedValue::Filesize {
                 val: size * 1000 * 1000 * 1000 * 1000 * 1000,
                 span,
             },
-            Unit::Exabyte => Value::Filesize {
+            Unit::Exabyte => SpannedValue::Filesize {
                 val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
                 span,
             },
 
-            Unit::Kibibyte => Value::Filesize {
+            Unit::Kibibyte => SpannedValue::Filesize {
                 val: size * 1024,
                 span,
             },
-            Unit::Mebibyte => Value::Filesize {
+            Unit::Mebibyte => SpannedValue::Filesize {
                 val: size * 1024 * 1024,
                 span,
             },
-            Unit::Gibibyte => Value::Filesize {
+            Unit::Gibibyte => SpannedValue::Filesize {
                 val: size * 1024 * 1024 * 1024,
                 span,
             },
-            Unit::Tebibyte => Value::Filesize {
+            Unit::Tebibyte => SpannedValue::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024,
                 span,
             },
-            Unit::Pebibyte => Value::Filesize {
+            Unit::Pebibyte => SpannedValue::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
             },
-            Unit::Exbibyte => Value::Filesize {
+            Unit::Exbibyte => SpannedValue::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
             },
 
-            Unit::Nanosecond => Value::Duration { val: size, span },
-            Unit::Microsecond => Value::Duration {
+            Unit::Nanosecond => SpannedValue::Duration { val: size, span },
+            Unit::Microsecond => SpannedValue::Duration {
                 val: size * 1000,
                 span,
             },
-            Unit::Millisecond => Value::Duration {
+            Unit::Millisecond => SpannedValue::Duration {
                 val: size * 1000 * 1000,
                 span,
             },
-            Unit::Second => Value::Duration {
+            Unit::Second => SpannedValue::Duration {
                 val: size * 1000 * 1000 * 1000,
                 span,
             },
             Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
+                Some(val) => SpannedValue::Duration { val, span },
+                None => SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "duration too large".into(),
                         "duration too large".into(),
@@ -111,8 +111,8 @@ impl Unit {
                 },
             },
             Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
+                Some(val) => SpannedValue::Duration { val, span },
+                None => SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "duration too large".into(),
                         "duration too large".into(),
@@ -123,8 +123,8 @@ impl Unit {
                 },
             },
             Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
+                Some(val) => SpannedValue::Duration { val, span },
+                None => SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "duration too large".into(),
                         "duration too large".into(),
@@ -135,8 +135,8 @@ impl Unit {
                 },
             },
             Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                Some(val) => Value::Duration { val, span },
-                None => Value::Error {
+                Some(val) => SpannedValue::Duration { val, span },
+                None => SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "duration too large".into(),
                         "duration too large".into(),

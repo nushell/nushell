@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -56,23 +58,23 @@ impl Command for SubCommand {
             Example {
                 description: "Get the arccosine of 1",
                 example: "1 | math arccos",
-                result: Some(Value::test_float(0.0f64)),
+                result: Some(SpannedValue::test_float(0.0f64)),
             },
             Example {
                 description: "Get the arccosine of -1 in degrees",
                 example: "-1 | math arccos -d",
-                result: Some(Value::test_float(180.0)),
+                result: Some(SpannedValue::test_float(180.0)),
             },
         ]
     }
 }
 
-fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
+fn operate(value: SpannedValue, head: Span, use_degrees: bool) -> SpannedValue {
     match value {
-        numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+        numeric @ (SpannedValue::Int { .. } | SpannedValue::Float { .. }) => {
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                SpannedValue::Int { val, span } => (val as f64, span),
+                SpannedValue::Float { val, span } => (val, span),
                 _ => unreachable!(),
             };
 
@@ -80,9 +82,9 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 let val = val.acos();
                 let val = if use_degrees { val.to_degrees() } else { val };
 
-                Value::Float { val, span }
+                SpannedValue::Float { val, span }
             } else {
-                Value::Error {
+                SpannedValue::Error {
                     error: Box::new(ShellError::UnsupportedInput(
                         "'arccos' undefined for values outside the closed interval [-1, 1].".into(),
                         "value originates from here".into(),
@@ -92,8 +94,8 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 }
             }
         }
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

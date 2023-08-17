@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 
 use std::thread;
@@ -61,12 +61,12 @@ impl Command for Complete {
                             .spawn(move || {
                                 let stderr = stderr.into_bytes()?;
                                 if let Ok(st) = String::from_utf8(stderr.item.clone()) {
-                                    Ok::<_, ShellError>(Value::String {
+                                    Ok::<_, ShellError>(SpannedValue::String {
                                         val: st,
                                         span: stderr.span,
                                     })
                                 } else {
-                                    Ok::<_, ShellError>(Value::Binary {
+                                    Ok::<_, ShellError>(SpannedValue::Binary {
                                         val: stderr.item,
                                         span: stderr.span,
                                     })
@@ -81,12 +81,12 @@ impl Command for Complete {
                     cols.push("stdout".to_string());
                     let stdout = stdout.into_bytes()?;
                     if let Ok(st) = String::from_utf8(stdout.item.clone()) {
-                        vals.push(Value::String {
+                        vals.push(SpannedValue::String {
                             val: st,
                             span: stdout.span,
                         })
                     } else {
-                        vals.push(Value::Binary {
+                        vals.push(SpannedValue::Binary {
                             val: stdout.item,
                             span: stdout.span,
                         })
@@ -112,7 +112,7 @@ impl Command for Complete {
                     }
                 }
 
-                Ok(Value::Record {
+                Ok(SpannedValue::Record {
                     cols,
                     vals,
                     span: call.head,

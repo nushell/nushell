@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -84,11 +85,11 @@ impl Command for BitsNot {
             Example {
                 description: "Apply logical negation to a list of numbers",
                 example: "[4 3 2] | bits not",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_int(140737488355323),
-                        Value::test_int(140737488355324),
-                        Value::test_int(140737488355325),
+                        SpannedValue::test_int(140737488355323),
+                        SpannedValue::test_int(140737488355324),
+                        SpannedValue::test_int(140737488355325),
                     ],
                     span: Span::test_data(),
                 }),
@@ -97,11 +98,11 @@ impl Command for BitsNot {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
                 example: "[4 3 2] | bits not -n '2'",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_int(65531),
-                        Value::test_int(65532),
-                        Value::test_int(65533),
+                        SpannedValue::test_int(65531),
+                        SpannedValue::test_int(65532),
+                        SpannedValue::test_int(65533),
                     ],
                     span: Span::test_data(),
                 }),
@@ -110,11 +111,11 @@ impl Command for BitsNot {
                 description:
                     "Apply logical negation to a list of numbers, treat input as signed number",
                 example: "[4 3 2] | bits not -s",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_int(-5),
-                        Value::test_int(-4),
-                        Value::test_int(-3),
+                        SpannedValue::test_int(-5),
+                        SpannedValue::test_int(-4),
+                        SpannedValue::test_int(-3),
                     ],
                     span: Span::test_data(),
                 }),
@@ -123,11 +124,16 @@ impl Command for BitsNot {
     }
 }
 
-fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+fn operate(
+    value: SpannedValue,
+    head: Span,
+    signed: bool,
+    number_size: NumberBytes,
+) -> SpannedValue {
     match value {
-        Value::Int { val, span } => {
+        SpannedValue::Int { val, span } => {
             if signed || val < 0 {
-                Value::Int { val: !val, span }
+                SpannedValue::Int { val: !val, span }
             } else {
                 use NumberBytes::*;
                 let out_val = match number_size {
@@ -149,13 +155,13 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                     // This case shouldn't happen here, as it's handled before
                     Invalid => 0,
                 };
-                Value::Int { val: out_val, span }
+                SpannedValue::Int { val: out_val, span }
             }
         }
         other => match other {
             // Propagate errors inside the value
-            Value::Error { .. } => other,
-            _ => Value::Error {
+            SpannedValue::Error { .. } => other,
+            _ => SpannedValue::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "integer".into(),
                     wrong_type: other.get_type().to_string(),

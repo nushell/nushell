@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl Command for ViewSpan {
             let bin_contents =
                 engine_state.get_span_contents(Span::new(start_span.item, end_span.item));
             Ok(
-                Value::string(String::from_utf8_lossy(bin_contents), call.head)
+                SpannedValue::string(String::from_utf8_lossy(bin_contents), call.head)
                     .into_pipeline_data(),
             )
         } else {

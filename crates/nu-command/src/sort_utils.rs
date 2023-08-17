@@ -1,6 +1,6 @@
 use alphanumeric_sort::compare_str;
 use nu_engine::column::nonexistent_column;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, SpannedValue};
 use std::cmp::Ordering;
 
 // This module includes sorting functionality that is useful in sort-by and elsewhere.
@@ -11,14 +11,14 @@ use std::cmp::Ordering;
 /// so for everything else we just return the value as-is.
 /// CustomValues are converted to their base value and then sorted.
 pub fn sort_value(
-    val: &Value,
+    val: &SpannedValue,
     sort_columns: Vec<String>,
     ascending: bool,
     insensitive: bool,
     natural: bool,
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     match val {
-        Value::List { vals, span } => {
+        SpannedValue::List { vals, span } => {
             let mut vals = vals.clone();
             sort(&mut vals, sort_columns, *span, insensitive, natural)?;
 
@@ -26,9 +26,9 @@ pub fn sort_value(
                 vals.reverse();
             }
 
-            Ok(Value::List { vals, span: *span })
+            Ok(SpannedValue::List { vals, span: *span })
         }
-        Value::CustomValue { val, span } => {
+        SpannedValue::CustomValue { val, span } => {
             let base_val = val.to_base_value(*span)?;
             sort_value(&base_val, sort_columns, ascending, insensitive, natural)
         }
@@ -39,13 +39,13 @@ pub fn sort_value(
 /// Sort a value in-place. This is more efficient than sort_value() because it
 /// avoids cloning, but it does not work for CustomValues; they are returned as-is.
 pub fn sort_value_in_place(
-    val: &mut Value,
+    val: &mut SpannedValue,
     sort_columns: Vec<String>,
     ascending: bool,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
-    if let Value::List { vals, span } = val {
+    if let SpannedValue::List { vals, span } = val {
         sort(vals, sort_columns, *span, insensitive, natural)?;
         if !ascending {
             vals.reverse();
@@ -55,14 +55,14 @@ pub fn sort_value_in_place(
 }
 
 pub fn sort(
-    vec: &mut [Value],
+    vec: &mut [SpannedValue],
     sort_columns: Vec<String>,
     span: Span,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
     match vec.first() {
-        Some(Value::Record {
+        Some(SpannedValue::Record {
             cols,
             vals: _input_vals,
             span: val_span,
@@ -95,7 +95,7 @@ pub fn sort(
                 for col in &sort_columns {
                     let val = item
                         .get_data_by_key(col)
-                        .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                        .unwrap_or_else(|| SpannedValue::nothing(Span::unknown()));
                     vals.push(val);
                 }
             }
@@ -125,7 +125,7 @@ pub fn sort(
             vec.sort_by(|a, b| {
                 if insensitive {
                     let lowercase_left = match a {
-                        Value::String { val, span } => Value::String {
+                        SpannedValue::String { val, span } => SpannedValue::String {
                             val: val.to_ascii_lowercase(),
                             span: *span,
                         },
@@ -133,7 +133,7 @@ pub fn sort(
                     };
 
                     let lowercase_right = match b {
-                        Value::String { val, span } => Value::String {
+                        SpannedValue::String { val, span } => SpannedValue::String {
                             val: val.to_ascii_lowercase(),
                             span: *span,
                         },
@@ -165,8 +165,8 @@ pub fn sort(
 }
 
 pub fn compare(
-    left: &Value,
-    right: &Value,
+    left: &SpannedValue,
+    right: &SpannedValue,
     columns: &[String],
     span: Span,
     insensitive: bool,
@@ -177,19 +177,19 @@ pub fn compare(
 
         let left_res = match left_value {
             Some(left_res) => left_res,
-            None => Value::Nothing { span },
+            None => SpannedValue::Nothing { span },
         };
 
         let right_value = right.get_data_by_key(column);
 
         let right_res = match right_value {
             Some(right_res) => right_res,
-            None => Value::Nothing { span },
+            None => SpannedValue::Nothing { span },
         };
 
         let result = if insensitive {
             let lowercase_left = match left_res {
-                Value::String { val, span } => Value::String {
+                SpannedValue::String { val, span } => SpannedValue::String {
                     val: val.to_ascii_lowercase(),
                     span,
                 },
@@ -197,7 +197,7 @@ pub fn compare(
             };
 
             let lowercase_right = match right_res {
-                Value::String { val, span } => Value::String {
+                SpannedValue::String { val, span } => SpannedValue::String {
                     val: val.to_ascii_lowercase(),
                     span,
                 },
@@ -231,19 +231,25 @@ pub fn compare(
 
 #[test]
 fn test_sort_value() {
-    let val = Value::List {
+    let val = SpannedValue::List {
         vals: vec![
-            Value::test_record(
+            SpannedValue::test_record(
                 vec!["fruit", "count"],
-                vec![Value::test_string("pear"), Value::test_int(3)],
+                vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
             ),
-            Value::test_record(
+            SpannedValue::test_record(
                 vec!["fruit", "count"],
-                vec![Value::test_string("orange"), Value::test_int(7)],
+                vec![
+                    SpannedValue::test_string("orange"),
+                    SpannedValue::test_int(7),
+                ],
             ),
-            Value::test_record(
+            SpannedValue::test_record(
                 vec!["fruit", "count"],
-                vec![Value::test_string("apple"), Value::test_int(9)],
+                vec![
+                    SpannedValue::test_string("apple"),
+                    SpannedValue::test_int(9),
+                ],
             ),
         ],
         span: Span::test_data(),
@@ -253,19 +259,25 @@ fn test_sort_value() {
         sort_value(&val, vec!["fruit".to_string()], true, false, false).unwrap();
     assert_eq!(
         sorted_alphabetically,
-        Value::List {
+        SpannedValue::List {
             vals: vec![
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
+                    vec![
+                        SpannedValue::test_string("apple"),
+                        SpannedValue::test_int(9)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
+                    vec![
+                        SpannedValue::test_string("orange"),
+                        SpannedValue::test_int(7)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
+                    vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
                 ),
             ],
             span: Span::test_data(),
@@ -276,19 +288,25 @@ fn test_sort_value() {
         sort_value(&val, vec!["count".to_string()], false, false, false).unwrap();
     assert_eq!(
         sorted_by_count_desc,
-        Value::List {
+        SpannedValue::List {
             vals: vec![
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
+                    vec![
+                        SpannedValue::test_string("apple"),
+                        SpannedValue::test_int(9)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
+                    vec![
+                        SpannedValue::test_string("orange"),
+                        SpannedValue::test_int(7)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
+                    vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
                 ),
             ],
             span: Span::test_data(),
@@ -298,19 +316,25 @@ fn test_sort_value() {
 
 #[test]
 fn test_sort_value_in_place() {
-    let mut val = Value::List {
+    let mut val = SpannedValue::List {
         vals: vec![
-            Value::test_record(
+            SpannedValue::test_record(
                 vec!["fruit", "count"],
-                vec![Value::test_string("pear"), Value::test_int(3)],
+                vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
             ),
-            Value::test_record(
+            SpannedValue::test_record(
                 vec!["fruit", "count"],
-                vec![Value::test_string("orange"), Value::test_int(7)],
+                vec![
+                    SpannedValue::test_string("orange"),
+                    SpannedValue::test_int(7),
+                ],
             ),
-            Value::test_record(
+            SpannedValue::test_record(
                 vec!["fruit", "count"],
-                vec![Value::test_string("apple"), Value::test_int(9)],
+                vec![
+                    SpannedValue::test_string("apple"),
+                    SpannedValue::test_int(9),
+                ],
             ),
         ],
         span: Span::test_data(),
@@ -319,19 +343,25 @@ fn test_sort_value_in_place() {
     sort_value_in_place(&mut val, vec!["fruit".to_string()], true, false, false).unwrap();
     assert_eq!(
         val,
-        Value::List {
+        SpannedValue::List {
             vals: vec![
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
+                    vec![
+                        SpannedValue::test_string("apple"),
+                        SpannedValue::test_int(9)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
+                    vec![
+                        SpannedValue::test_string("orange"),
+                        SpannedValue::test_int(7)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
+                    vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
                 ),
             ],
             span: Span::test_data(),
@@ -341,19 +371,25 @@ fn test_sort_value_in_place() {
     sort_value_in_place(&mut val, vec!["count".to_string()], false, false, false).unwrap();
     assert_eq!(
         val,
-        Value::List {
+        SpannedValue::List {
             vals: vec![
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("apple"), Value::test_int(9)],
+                    vec![
+                        SpannedValue::test_string("apple"),
+                        SpannedValue::test_int(9)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("orange"), Value::test_int(7)],
+                    vec![
+                        SpannedValue::test_string("orange"),
+                        SpannedValue::test_int(7)
+                    ],
                 ),
-                Value::test_record(
+                SpannedValue::test_record(
                     vec!["fruit", "count"],
-                    vec![Value::test_string("pear"), Value::test_int(3)],
+                    vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
                 ),
             ],
             span: Span::test_data(),

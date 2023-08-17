@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -420,7 +420,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                     engine_state,
                     stack,
                     &Call::new(span),
-                    Value::string(item, Span::unknown()).into_pipeline_data(),
+                    SpannedValue::string(item, Span::unknown()).into_pipeline_data(),
                 ) {
                     let result = output.into_value(Span::unknown());
                     match result.as_string() {
@@ -439,7 +439,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
         }
     }
 
-    Value::string(build, span).into_pipeline_data()
+    SpannedValue::string(build, span).into_pipeline_data()
 }
 
 #[cfg(test)]

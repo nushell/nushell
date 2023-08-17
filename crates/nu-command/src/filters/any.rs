@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
 };
 
 use super::utils;
@@ -41,22 +41,22 @@ impl Command for Any {
             Example {
                 description: "Check if any row's status is the string 'DOWN'",
                 example: "[[status]; [UP] [DOWN] [UP]] | any {|el| $el.status == DOWN }",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
             Example {
                 description: "Check that any item is a string",
                 example: "[1 2 3 4] | any {|| ($in | describe) == 'string' }",
-                result: Some(Value::test_bool(false)),
+                result: Some(SpannedValue::test_bool(false)),
             },
             Example {
                 description: "Check if any value is equal to twice its own index",
                 example: "[9 8 7 6] | enumerate | any {|i| $i.item == $i.index * 2 }",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
             Example {
                 description: "Check if any of the values are odd, using a stored closure",
                 example: "let cond = {|e| $e mod 2 == 1 }; [2 4 1 6 8] | any $cond",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
         ]
     }

@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 use ratatui::{layout::Rect, widgets::Block};
 
@@ -43,7 +43,7 @@ pub struct RecordView<'a> {
 impl<'a> RecordView<'a> {
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
+        records: impl Into<Cow<'a, [Vec<SpannedValue>]>>,
     ) -> Self {
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
@@ -196,7 +196,7 @@ impl<'a> RecordView<'a> {
         self.mode = UIMode::View;
     }
 
-    pub fn get_current_value(&self) -> Value {
+    pub fn get_current_value(&self) -> SpannedValue {
         let (row, column) = self.get_current_position();
         let layer = self.get_layer_last();
 
@@ -342,7 +342,7 @@ impl View for RecordView<'_> {
         false
     }
 
-    fn exit(&mut self) -> Option<Value> {
+    fn exit(&mut self) -> Option<SpannedValue> {
         Some(build_last_value(self))
     }
 
@@ -396,7 +396,7 @@ enum UIMode {
 #[derive(Debug, Clone)]
 pub struct RecordLayer<'a> {
     columns: Cow<'a, [String]>,
-    records: Cow<'a, [Vec<Value>]>,
+    records: Cow<'a, [Vec<SpannedValue>]>,
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
@@ -406,7 +406,7 @@ pub struct RecordLayer<'a> {
 impl<'a> RecordLayer<'a> {
     fn new(
         columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
+        records: impl Into<Cow<'a, [Vec<SpannedValue>]>>,
     ) -> Self {
         let columns = columns.into();
         let records = records.into();
@@ -566,7 +566,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         }
         KeyCode::Enter => {
             let value = view.get_current_value();
-            let is_record = matches!(value, Value::Record { .. });
+            let is_record = matches!(value, SpannedValue::Record { .. });
             let next_layer = create_layer(value);
 
             push_layer(view, next_layer);
@@ -585,7 +585,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
     }
 }
 
-fn create_layer(value: Value) -> RecordLayer<'static> {
+fn create_layer(value: SpannedValue) -> RecordLayer<'static> {
     let (columns, values) = collect_input(value);
 
     RecordLayer::new(columns, values)
@@ -622,7 +622,7 @@ fn state_reverse_data(state: &mut RecordView<'_>, page_size: usize) {
 }
 
 fn convert_records_to_string(
-    records: &[Vec<Value>],
+    records: &[Vec<SpannedValue>],
     cfg: &NuConfig,
     style_computer: &StyleComputer,
 ) -> Vec<Vec<NuText>> {
@@ -665,7 +665,7 @@ fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorSt
     }
 }
 
-fn build_last_value(v: &RecordView) -> Value {
+fn build_last_value(v: &RecordView) -> SpannedValue {
     if v.mode == UIMode::Cursor {
         v.get_current_value()
     } else if v.get_layer_last().count_rows() < 2 {
@@ -675,7 +675,7 @@ fn build_last_value(v: &RecordView) -> Value {
     }
 }
 
-fn build_table_as_list(v: &RecordView) -> Value {
+fn build_table_as_list(v: &RecordView) -> SpannedValue {
     let layer = v.get_layer_last();
 
     let headers = layer.columns.to_vec();
@@ -683,26 +683,26 @@ fn build_table_as_list(v: &RecordView) -> Value {
         .records
         .iter()
         .cloned()
-        .map(|vals| Value::Record {
+        .map(|vals| SpannedValue::Record {
             cols: headers.clone(),
             vals,
             span: NuSpan::unknown(),
         })
         .collect();
 
-    Value::List {
+    SpannedValue::List {
         vals,
         span: NuSpan::unknown(),
     }
 }
 
-fn build_table_as_record(v: &RecordView) -> Value {
+fn build_table_as_record(v: &RecordView) -> SpannedValue {
     let layer = v.get_layer_last();
 
     let cols = layer.columns.to_vec();
     let vals = layer.records.get(0).map_or(Vec::new(), |row| row.clone());
 
-    Value::Record {
+    SpannedValue::Record {
         cols,
         vals,
         span: NuSpan::unknown(),
@@ -754,7 +754,7 @@ fn transpose_table(layer: &mut RecordLayer<'_>) {
         let headers = headers
             .into_iter()
             .map(|value| match value {
-                Value::String { val, .. } => val,
+                SpannedValue::String { val, .. } => val,
                 _ => unreachable!("must never happen"),
             })
             .collect();
@@ -767,7 +767,7 @@ fn transpose_table(layer: &mut RecordLayer<'_>) {
         let mut data = _transpose_table(&layer.records, count_rows, count_columns);
 
         for (column, column_name) in layer.columns.iter().enumerate() {
-            let value = Value::string(column_name, NuSpan::unknown());
+            let value = SpannedValue::string(column_name, NuSpan::unknown());
 
             data[column].insert(0, value);
         }
@@ -779,8 +779,8 @@ fn transpose_table(layer: &mut RecordLayer<'_>) {
     layer.was_transposed = !layer.was_transposed;
 }
 
-fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
-    let mut data = vec![Value::default(); values.len()];
+fn pop_first_column(values: &mut [Vec<SpannedValue>]) -> Vec<SpannedValue> {
+    let mut data = vec![SpannedValue::default(); values.len()];
     for (row, values) in values.iter_mut().enumerate() {
         data[row] = values.remove(0);
     }
@@ -789,11 +789,11 @@ fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
 }
 
 fn _transpose_table(
-    values: &[Vec<Value>],
+    values: &[Vec<SpannedValue>],
     count_rows: usize,
     count_columns: usize,
-) -> Vec<Vec<Value>> {
-    let mut data = vec![vec![Value::default(); count_rows]; count_columns];
+) -> Vec<Vec<SpannedValue>> {
+    let mut data = vec![vec![SpannedValue::default(); count_rows]; count_columns];
     for (row, values) in values.iter().enumerate() {
         for (column, value) in values.iter().enumerate() {
             data[column][row] = value.to_owned();

@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -53,23 +55,27 @@ impl Command for SubCommand {
         vec![Example {
             description: "Apply the floor function to a list of numbers",
             example: "[1.5 2.3 -3.1] | math floor",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(-4)],
+            result: Some(SpannedValue::List {
+                vals: vec![
+                    SpannedValue::test_int(1),
+                    SpannedValue::test_int(2),
+                    SpannedValue::test_int(-4),
+                ],
                 span: Span::test_data(),
             }),
         }]
     }
 }
 
-fn operate(value: Value, head: Span) -> Value {
+fn operate(value: SpannedValue, head: Span) -> SpannedValue {
     match value {
-        Value::Int { .. } => value,
-        Value::Float { val, span } => Value::Int {
+        SpannedValue::Int { .. } => value,
+        SpannedValue::Float { val, span } => SpannedValue::Int {
             val: val.floor() as i64,
             span,
         },
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

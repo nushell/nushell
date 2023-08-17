@@ -9,7 +9,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 use std::collections::HashMap;
 
@@ -96,9 +96,9 @@ impl Command for Explore {
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
-            Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
+            Ok(None) => Ok(PipelineData::Value(SpannedValue::default(), None)),
             Err(err) => Ok(PipelineData::Value(
-                Value::Error {
+                SpannedValue::Error {
                     error: Box::new(err.into()),
                 },
                 None,
@@ -135,15 +135,15 @@ impl Command for Explore {
 
 // For now, this doesn't use StyleComputer.
 // As such, closures can't be given as styles for Explore.
-fn is_need_banner(config: &HashMap<String, Value>) -> Option<bool> {
+fn is_need_banner(config: &HashMap<String, SpannedValue>) -> Option<bool> {
     config.get("help_banner").and_then(|v| v.as_bool().ok())
 }
 
-fn is_need_esc_exit(config: &HashMap<String, Value>) -> Option<bool> {
+fn is_need_esc_exit(config: &HashMap<String, SpannedValue>) -> Option<bool> {
     config.get("exit_esc").and_then(|v| v.as_bool().ok())
 }
 
-fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_head: bool) {
+fn update_config(config: &mut HashMap<String, SpannedValue>, show_index: bool, show_head: bool) {
     let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
     if show_index {
         insert_bool(&mut hm, "show_index", show_index);
@@ -156,7 +156,7 @@ fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_hea
     config.insert(String::from("table"), map_into_value(hm));
 }
 
-fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
+fn style_from_config(config: &HashMap<String, SpannedValue>) -> StyleConfig {
     let mut style = StyleConfig::default();
 
     let colors = get_color_map(config);
@@ -196,7 +196,7 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
     style
 }
 
-fn prepare_default_config(config: &mut HashMap<String, Value>) {
+fn prepare_default_config(config: &mut HashMap<String, SpannedValue>) {
     const STATUS_BAR: Style = color(
         Some(Color::Rgb(29, 31, 33)),
         Some(Color::Rgb(196, 201, 198)),
@@ -295,7 +295,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     }
 }
 
-fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
+fn parse_hash_map(value: &SpannedValue) -> Option<HashMap<String, SpannedValue>> {
     value.as_record().ok().map(|(cols, vals)| {
         cols.iter()
             .take(vals.len())
@@ -321,7 +321,7 @@ const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
     }
 }
 
-fn insert_style(map: &mut HashMap<String, Value>, key: &str, value: Style) {
+fn insert_style(map: &mut HashMap<String, SpannedValue>, key: &str, value: Style) {
     if map.contains_key(key) {
         return;
     }
@@ -332,19 +332,25 @@ fn insert_style(map: &mut HashMap<String, Value>, key: &str, value: Style) {
 
     let value = nu_color_config::NuStyle::from(value);
     if let Ok(val) = nu_json::to_string_raw(&value) {
-        map.insert(String::from(key), Value::string(val, Span::unknown()));
+        map.insert(
+            String::from(key),
+            SpannedValue::string(val, Span::unknown()),
+        );
     }
 }
 
-fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
+fn insert_bool(map: &mut HashMap<String, SpannedValue>, key: &str, value: bool) {
     if map.contains_key(key) {
         return;
     }
 
-    map.insert(String::from(key), Value::bool(value, Span::unknown()));
+    map.insert(
+        String::from(key),
+        SpannedValue::bool(value, Span::unknown()),
+    );
 }
 
-fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
+fn include_nu_config(config: &mut HashMap<String, SpannedValue>, style_computer: &StyleComputer) {
     let line_color = lookup_color(style_computer, "separator");
     if line_color != nu_ansi_term::Style::default() {
         {
@@ -379,5 +385,5 @@ fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &Style
 }
 
 fn lookup_color(style_computer: &StyleComputer, key: &str) -> nu_ansi_term::Style {
-    style_computer.compute(key, &Value::nothing(Span::unknown()))
+    style_computer.compute(key, &SpannedValue::nothing(Span::unknown()))
 }

@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 use reedline::{
     get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
@@ -70,7 +71,7 @@ impl Command for KeybindingsList {
                 .collect()
         };
 
-        Ok(Value::List {
+        Ok(SpannedValue::List {
             vals: records,
             span: call.head,
         }
@@ -78,7 +79,7 @@ impl Command for KeybindingsList {
     }
 }
 
-fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
+fn get_records(entry_type: &str, span: Span) -> Vec<SpannedValue> {
     let values = match entry_type {
         "modifiers" => get_reedline_keybinding_modifiers().sorted(),
         "keycodes" => get_reedline_keycodes().sorted(),
@@ -95,12 +96,12 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
         .collect()
 }
 
-fn convert_to_record(edit: &str, entry_type: &str, span: Span) -> Value {
-    let entry_type = Value::string(entry_type, span);
+fn convert_to_record(edit: &str, entry_type: &str, span: Span) -> SpannedValue {
+    let entry_type = SpannedValue::string(entry_type, span);
 
-    let name = Value::string(edit, span);
+    let name = SpannedValue::string(edit, span);
 
-    Value::Record {
+    SpannedValue::Record {
         cols: vec!["type".to_string(), "name".to_string()],
         vals: vec![entry_type, name],
         span,

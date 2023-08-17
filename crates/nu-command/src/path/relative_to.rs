@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 use super::PathSubcommandArguments;
@@ -80,20 +80,20 @@ path."#
             Example {
                 description: "Find a relative path from two absolute paths",
                 example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
-                result: Some(Value::test_string(r"viking")),
+                result: Some(SpannedValue::test_string(r"viking")),
             },
             Example {
                 description: "Find a relative path from absolute paths in list",
                 example: r"[ C:\Users\viking, C:\Users\spam ] | path relative-to C:\Users",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("viking"),
-                    Value::test_string("spam"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_string("viking"),
+                    SpannedValue::test_string("spam"),
                 ])),
             },
             Example {
                 description: "Find a relative path from two relative paths",
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
-                result: Some(Value::test_string(r"spam")),
+                result: Some(SpannedValue::test_string(r"spam")),
             },
         ]
     }
@@ -104,31 +104,31 @@ path."#
             Example {
                 description: "Find a relative path from two absolute paths",
                 example: r"'/home/viking' | path relative-to '/home'",
-                result: Some(Value::test_string(r"viking")),
+                result: Some(SpannedValue::test_string(r"viking")),
             },
             Example {
                 description: "Find a relative path from absolute paths in list",
                 example: r"[ /home/viking, /home/spam ] | path relative-to '/home'",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("viking"),
-                    Value::test_string("spam"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_string("viking"),
+                    SpannedValue::test_string("spam"),
                 ])),
             },
             Example {
                 description: "Find a relative path from two relative paths",
                 example: r"'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'",
-                result: Some(Value::test_string(r"spam")),
+                result: Some(SpannedValue::test_string(r"spam")),
             },
         ]
     }
 }
 
-fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
+fn relative_to(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
     match lhs.strip_prefix(&rhs) {
-        Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(e) => Value::Error {
+        Ok(p) => SpannedValue::string(p.to_string_lossy(), span),
+        Err(e) => SpannedValue::Error {
             error: Box::new(ShellError::CantConvert {
                 to_type: e.to_string(),
                 from_type: "string".into(),

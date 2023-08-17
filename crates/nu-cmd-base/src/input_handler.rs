@@ -1,5 +1,5 @@
 use nu_protocol::ast::CellPath;
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, SpannedValue};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -46,14 +46,14 @@ pub fn operate<C, A>(
 ) -> Result<PipelineData, ShellError>
 where
     A: CmdArgument + Send + Sync + 'static,
-    C: Fn(&Value, &A, Span) -> Value + Send + Sync + 'static + Clone + Copy,
+    C: Fn(&SpannedValue, &A, Span) -> SpannedValue + Send + Sync + 'static + Clone + Copy,
 {
     match arg.take_cell_paths() {
         None => input.map(
             move |v| {
                 match v {
                     // Propagate errors inside the input
-                    Value::Error { .. } => v,
+                    SpannedValue::Error { .. } => v,
                     _ => cmd(&v, &arg, span),
                 }
             },
@@ -70,13 +70,13 @@ where
                             Box::new(move |old| {
                                 match old {
                                     // Propagate errors inside the input
-                                    Value::Error { .. } => old.clone(),
+                                    SpannedValue::Error { .. } => old.clone(),
                                     _ => cmd(old, &opt, span),
                                 }
                             }),
                         );
                         if let Err(error) = r {
-                            return Value::Error {
+                            return SpannedValue::Error {
                                 error: Box::new(error),
                             };
                         }

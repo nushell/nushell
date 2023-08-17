@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 use std::io::Cursor;
 
@@ -42,7 +42,7 @@ impl Command for FromXlsx {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
+        let sel_sheets = if let Some(SpannedValue::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
         {
             convert_columns(columns.as_slice(), call.head)?
@@ -69,11 +69,11 @@ impl Command for FromXlsx {
     }
 }
 
-fn convert_columns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_columns(columns: &[SpannedValue], span: Span) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
-            Value::String { val: s, .. } => Ok(s.clone()),
+            SpannedValue::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
                 span: value.span().unwrap_or(span),
@@ -90,7 +90,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
 
     loop {
         match values.next() {
-            Some(Value::Binary { val: b, .. }) => {
+            Some(SpannedValue::Binary { val: b, .. }) => {
                 bytes.extend_from_slice(&b);
             }
             Some(x) => {
@@ -140,12 +140,12 @@ fn from_xlsx(
                 let mut row_output = IndexMap::new();
                 for (i, cell) in row.iter().enumerate() {
                     let value = match cell {
-                        DataType::Empty => Value::nothing(head),
-                        DataType::String(s) => Value::string(s, head),
-                        DataType::Float(f) => Value::float(*f, head),
-                        DataType::Int(i) => Value::int(*i, head),
-                        DataType::Bool(b) => Value::bool(*b, head),
-                        _ => Value::nothing(head),
+                        DataType::Empty => SpannedValue::nothing(head),
+                        DataType::String(s) => SpannedValue::string(s, head),
+                        DataType::Float(f) => SpannedValue::float(*f, head),
+                        DataType::Int(i) => SpannedValue::int(*i, head),
+                        DataType::Bool(b) => SpannedValue::bool(*b, head),
+                        _ => SpannedValue::nothing(head),
                     };
 
                     row_output.insert(format!("column{i}"), value);
@@ -160,7 +160,7 @@ fn from_xlsx(
                             acc
                         });
 
-                let record = Value::Record {
+                let record = SpannedValue::Record {
                     cols,
                     vals,
                     span: head,
@@ -171,7 +171,7 @@ fn from_xlsx(
 
             dict.insert(
                 sheet_name,
-                Value::List {
+                SpannedValue::List {
                     vals: sheet_output,
                     span: head,
                 },
@@ -192,7 +192,7 @@ fn from_xlsx(
         acc
     });
 
-    let record = Value::Record {
+    let record = SpannedValue::Record {
         cols,
         vals,
         span: head,

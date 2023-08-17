@@ -3,7 +3,7 @@ use nu_protocol::ast::{Argument, Block, Call, Expr, Expression};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -61,7 +61,7 @@ pub fn get_pipeline_elements(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-) -> Result<Vec<Value>, ShellError> {
+) -> Result<Vec<SpannedValue>, ShellError> {
     let mut element_values = vec![];
     let span = Span::test_data();
 
@@ -73,7 +73,7 @@ pub fn get_pipeline_elements(
             let pipeline_span = pipeline_element.span();
             let element_str =
                 String::from_utf8_lossy(engine_state.get_span_contents(pipeline_span));
-            let value = Value::string(element_str.to_string(), pipeline_span);
+            let value = SpannedValue::string(element_str.to_string(), pipeline_span);
             let expr = pipeline_expression.expr.clone();
             let (command_name, command_args_value) = if let Expr::Call(call) = expr {
                 let command = engine_state.get_decl(call.decl_id);
@@ -91,7 +91,7 @@ pub fn get_pipeline_elements(
             let value_span_end = value_span.end as i64;
             let command_name = command_name;
 
-            let rec = Value::Record {
+            let rec = SpannedValue::Record {
                 cols: vec![
                     "cmd_index".to_string(),
                     "cmd_name".to_string(),
@@ -101,15 +101,15 @@ pub fn get_pipeline_elements(
                     "span_end".to_string(),
                 ],
                 vals: vec![
-                    Value::string(index, span),
-                    Value::string(command_name, value_span),
-                    Value::string(value_type.to_string(), span),
-                    Value::List {
+                    SpannedValue::string(index, span),
+                    SpannedValue::string(command_name, value_span),
+                    SpannedValue::string(value_type.to_string(), span),
+                    SpannedValue::List {
                         vals: command_args_value,
                         span: value_span,
                     },
-                    Value::int(value_span_start, span),
-                    Value::int(value_span_end, span),
+                    SpannedValue::int(value_span_start, span),
+                    SpannedValue::int(value_span_end, span),
                 ],
                 span: value_span,
             };
@@ -120,7 +120,7 @@ pub fn get_pipeline_elements(
     Ok(element_values)
 }
 
-fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> Vec<Value> {
+fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> Vec<SpannedValue> {
     let mut arg_value = vec![];
     let span = Span::test_data();
     for arg in &call.arguments {
@@ -133,7 +133,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_start = name.span.start as i64;
                 let arg_value_name_span_end = name.span.end as i64;
 
-                let rec = Value::Record {
+                let rec = SpannedValue::Record {
                     cols: vec![
                         "arg_type".to_string(),
                         "name".to_string(),
@@ -142,11 +142,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         "span_end".to_string(),
                     ],
                     vals: vec![
-                        Value::string(arg_type, span),
-                        Value::string(arg_value_name, name.span),
-                        Value::string("string".to_string(), span),
-                        Value::int(arg_value_name_span_start, span),
-                        Value::int(arg_value_name_span_end, span),
+                        SpannedValue::string(arg_type, span),
+                        SpannedValue::string(arg_value_name, name.span),
+                        SpannedValue::string("string".to_string(), span),
+                        SpannedValue::int(arg_value_name_span_start, span),
+                        SpannedValue::int(arg_value_name_span_end, span),
                     ],
                     span: name.span,
                 };
@@ -158,7 +158,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_value_name_span_start = shortcut.span.start as i64;
                     let arg_value_name_span_end = shortcut.span.end as i64;
 
-                    let rec = Value::Record {
+                    let rec = SpannedValue::Record {
                         cols: vec![
                             "arg_type".to_string(),
                             "name".to_string(),
@@ -167,11 +167,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                             "span_end".to_string(),
                         ],
                         vals: vec![
-                            Value::string(arg_type, span),
-                            Value::string(arg_value_name, shortcut.span),
-                            Value::string("string".to_string(), span),
-                            Value::int(arg_value_name_span_start, span),
-                            Value::int(arg_value_name_span_end, span),
+                            SpannedValue::string(arg_type, span),
+                            SpannedValue::string(arg_value_name, shortcut.span),
+                            SpannedValue::string("string".to_string(), span),
+                            SpannedValue::int(arg_value_name_span_start, span),
+                            SpannedValue::int(arg_value_name_span_end, span),
                         ],
                         span: name.span,
                     };
@@ -188,7 +188,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                     let arg_value_name_span_start = evaled_span.start as i64;
                     let arg_value_name_span_end = evaled_span.end as i64;
 
-                    let rec = Value::Record {
+                    let rec = SpannedValue::Record {
                         cols: vec![
                             "arg_type".to_string(),
                             "name".to_string(),
@@ -197,11 +197,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                             "span_end".to_string(),
                         ],
                         vals: vec![
-                            Value::string(arg_type, span),
-                            Value::string(arg_value_name, expression.span),
-                            Value::string(arg_value_type, span),
-                            Value::int(arg_value_name_span_start, span),
-                            Value::int(arg_value_name_span_end, span),
+                            SpannedValue::string(arg_type, span),
+                            SpannedValue::string(arg_value_name, expression.span),
+                            SpannedValue::string(arg_value_type, span),
+                            SpannedValue::int(arg_value_name_span_start, span),
+                            SpannedValue::int(arg_value_name_span_end, span),
                         ],
                         span: expression.span,
                     };
@@ -217,7 +217,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
 
-                let rec = Value::Record {
+                let rec = SpannedValue::Record {
                     cols: vec![
                         "arg_type".to_string(),
                         "name".to_string(),
@@ -226,11 +226,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         "span_end".to_string(),
                     ],
                     vals: vec![
-                        Value::string(arg_type, span),
-                        Value::string(arg_value_name, inner_expr.span),
-                        Value::string(arg_value_type, span),
-                        Value::int(arg_value_name_span_start, span),
-                        Value::int(arg_value_name_span_end, span),
+                        SpannedValue::string(arg_type, span),
+                        SpannedValue::string(arg_value_name, inner_expr.span),
+                        SpannedValue::string(arg_value_type, span),
+                        SpannedValue::int(arg_value_name_span_start, span),
+                        SpannedValue::int(arg_value_name_span_end, span),
                     ],
                     span: inner_expr.span,
                 };
@@ -245,7 +245,7 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 let arg_value_name_span_start = evaled_span.start as i64;
                 let arg_value_name_span_end = evaled_span.end as i64;
 
-                let rec = Value::Record {
+                let rec = SpannedValue::Record {
                     cols: vec![
                         "arg_type".to_string(),
                         "name".to_string(),
@@ -254,11 +254,11 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                         "span_end".to_string(),
                     ],
                     vals: vec![
-                        Value::string(arg_type, span),
-                        Value::string(arg_value_name, inner_expr.span),
-                        Value::string(arg_value_type, span),
-                        Value::int(arg_value_name_span_start, span),
-                        Value::int(arg_value_name_span_end, span),
+                        SpannedValue::string(arg_type, span),
+                        SpannedValue::string(arg_value_name, inner_expr.span),
+                        SpannedValue::string(arg_value_type, span),
+                        SpannedValue::int(arg_value_name_span_start, span),
+                        SpannedValue::int(arg_value_name_span_end, span),
                     ],
                     span: inner_expr.span,
                 };
@@ -274,39 +274,39 @@ fn get_expression_as_value(
     engine_state: &EngineState,
     stack: &mut Stack,
     inner_expr: &Expression,
-) -> Value {
+) -> SpannedValue {
     match eval_expression(engine_state, stack, inner_expr) {
         Ok(v) => v,
-        Err(error) => Value::Error {
+        Err(error) => SpannedValue::Error {
             error: Box::new(error),
         },
     }
 }
 
-pub fn debug_string_without_formatting(value: &Value) -> String {
+pub fn debug_string_without_formatting(value: &SpannedValue) -> String {
     match value {
-        Value::Bool { val, .. } => val.to_string(),
-        Value::Int { val, .. } => val.to_string(),
-        Value::Float { val, .. } => val.to_string(),
-        Value::Filesize { val, .. } => val.to_string(),
-        Value::Duration { val, .. } => val.to_string(),
-        Value::Date { val, .. } => format!("{val:?}"),
-        Value::Range { val, .. } => {
+        SpannedValue::Bool { val, .. } => val.to_string(),
+        SpannedValue::Int { val, .. } => val.to_string(),
+        SpannedValue::Float { val, .. } => val.to_string(),
+        SpannedValue::Filesize { val, .. } => val.to_string(),
+        SpannedValue::Duration { val, .. } => val.to_string(),
+        SpannedValue::Date { val, .. } => format!("{val:?}"),
+        SpannedValue::Range { val, .. } => {
             format!(
                 "{}..{}",
                 debug_string_without_formatting(&val.from),
                 debug_string_without_formatting(&val.to)
             )
         }
-        Value::String { val, .. } => val.clone(),
-        Value::List { vals: val, .. } => format!(
+        SpannedValue::String { val, .. } => val.clone(),
+        SpannedValue::List { vals: val, .. } => format!(
             "[{}]",
             val.iter()
                 .map(debug_string_without_formatting)
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
-        Value::Record { cols, vals, .. } => format!(
+        SpannedValue::Record { cols, vals, .. } => format!(
             "{{{}}}",
             cols.iter()
                 .zip(vals.iter())
@@ -314,18 +314,18 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
-        Value::LazyRecord { val, .. } => match val.collect() {
+        SpannedValue::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => debug_string_without_formatting(&val),
             Err(error) => format!("{error:?}"),
         },
         //TODO: It would be good to drill in deeper to blocks and closures.
-        Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
-        Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{error:?}"),
-        Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
-        Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
+        SpannedValue::Block { val, .. } => format!("<Block {val}>"),
+        SpannedValue::Closure { val, .. } => format!("<Closure {val}>"),
+        SpannedValue::Nothing { .. } => String::new(),
+        SpannedValue::Error { error } => format!("{error:?}"),
+        SpannedValue::Binary { val, .. } => format!("{val:?}"),
+        SpannedValue::CellPath { val, .. } => val.into_string(),
+        SpannedValue::CustomValue { val, .. } => val.value_string(),
+        SpannedValue::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }

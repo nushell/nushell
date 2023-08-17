@@ -4,7 +4,8 @@ use nu_path::expand_tilde;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 use super::PathSubcommandArguments;
@@ -68,7 +69,7 @@ If nothing is found, an empty string will be returned."#
             Example {
                 description: "Show type of a filepath",
                 example: "'.' | path type",
-                result: Some(Value::test_string("dir")),
+                result: Some(SpannedValue::test_string("dir")),
             },
             Example {
                 description: "Show type of a filepaths in a list",
@@ -79,7 +80,7 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
+fn r#type(path: &Path, span: Span, _: &Arguments) -> SpannedValue {
     let meta = if path.starts_with("~") {
         let p = expand_tilde(path);
         std::fs::symlink_metadata(p)
@@ -87,7 +88,7 @@ fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
         std::fs::symlink_metadata(path)
     };
 
-    Value::string(
+    SpannedValue::string(
         match &meta {
             Ok(data) => get_file_type(data),
             Err(_) => "",

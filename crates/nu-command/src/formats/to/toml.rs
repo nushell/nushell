@@ -1,7 +1,8 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 #[derive(Clone)]
@@ -26,7 +27,7 @@ impl Command for ToToml {
         vec![Example {
             description: "Outputs an TOML string representing the contents of this record",
             example: r#"{foo: 1 bar: 'qwe'} | to toml"#,
-            result: Some(Value::test_string("bar = \"qwe\"\nfoo = 1\n")),
+            result: Some(SpannedValue::test_string("bar = \"qwe\"\nfoo = 1\n")),
         }]
     }
 
@@ -44,46 +45,46 @@ impl Command for ToToml {
 
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
 // This shouldn't be called at the top-level
-fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellError> {
+fn helper(engine_state: &EngineState, v: &SpannedValue) -> Result<toml::Value, ShellError> {
     Ok(match &v {
-        Value::Bool { val, .. } => toml::Value::Boolean(*val),
-        Value::Int { val, .. } => toml::Value::Integer(*val),
-        Value::Filesize { val, .. } => toml::Value::Integer(*val),
-        Value::Duration { val, .. } => toml::Value::String(val.to_string()),
-        Value::Date { val, .. } => toml::Value::String(val.to_string()),
-        Value::Range { .. } => toml::Value::String("<Range>".to_string()),
-        Value::Float { val, .. } => toml::Value::Float(*val),
-        Value::String { val, .. } => toml::Value::String(val.clone()),
-        Value::Record { cols, vals, .. } => {
+        SpannedValue::Bool { val, .. } => toml::Value::Boolean(*val),
+        SpannedValue::Int { val, .. } => toml::Value::Integer(*val),
+        SpannedValue::Filesize { val, .. } => toml::Value::Integer(*val),
+        SpannedValue::Duration { val, .. } => toml::Value::String(val.to_string()),
+        SpannedValue::Date { val, .. } => toml::Value::String(val.to_string()),
+        SpannedValue::Range { .. } => toml::Value::String("<Range>".to_string()),
+        SpannedValue::Float { val, .. } => toml::Value::Float(*val),
+        SpannedValue::String { val, .. } => toml::Value::String(val.clone()),
+        SpannedValue::Record { cols, vals, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in cols.iter().zip(vals.iter()) {
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
         }
-        Value::LazyRecord { val, .. } => {
+        SpannedValue::LazyRecord { val, .. } => {
             let collected = val.collect()?;
             helper(engine_state, &collected)?
         }
-        Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
-        Value::Block { span, .. } => {
+        SpannedValue::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
+        SpannedValue::Block { span, .. } => {
             let code = engine_state.get_span_contents(*span);
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }
-        Value::Closure { span, .. } => {
+        SpannedValue::Closure { span, .. } => {
             let code = engine_state.get_span_contents(*span);
             let code = String::from_utf8_lossy(code).to_string();
             toml::Value::String(code)
         }
-        Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
-        Value::Error { error } => return Err(*error.clone()),
-        Value::Binary { val, .. } => toml::Value::Array(
+        SpannedValue::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
+        SpannedValue::Error { error } => return Err(*error.clone()),
+        SpannedValue::Binary { val, .. } => toml::Value::Array(
             val.iter()
                 .map(|x| toml::Value::Integer(*x as i64))
                 .collect(),
         ),
-        Value::CellPath { val, .. } => toml::Value::Array(
+        SpannedValue::CellPath { val, .. } => toml::Value::Array(
             val.members
                 .iter()
                 .map(|x| match &x {
@@ -92,12 +93,15 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
-        Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
-        Value::MatchPattern { .. } => toml::Value::String("<Match Pattern>".to_string()),
+        SpannedValue::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
+        SpannedValue::MatchPattern { .. } => toml::Value::String("<Match Pattern>".to_string()),
     })
 }
 
-fn toml_list(engine_state: &EngineState, input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
+fn toml_list(
+    engine_state: &EngineState,
+    input: &[SpannedValue],
+) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
@@ -113,12 +117,12 @@ fn toml_into_pipeline_data(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     match toml::to_string(&toml_value) {
-        Ok(serde_toml_string) => Ok(Value::String {
+        Ok(serde_toml_string) => Ok(SpannedValue::String {
             val: serde_toml_string,
             span,
         }
         .into_pipeline_data()),
-        _ => Ok(Value::Error {
+        _ => Ok(SpannedValue::Error {
             error: Box::new(ShellError::CantConvert {
                 to_type: "TOML".into(),
                 from_type: value_type.to_string(),
@@ -132,13 +136,13 @@ fn toml_into_pipeline_data(
 
 fn value_to_toml_value(
     engine_state: &EngineState,
-    v: &Value,
+    v: &SpannedValue,
     head: Span,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } => helper(engine_state, v),
+        SpannedValue::Record { .. } => helper(engine_state, v),
         // Propagate existing errors
-        Value::Error { error } => Err(*error.clone()),
+        SpannedValue::Error { error } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput(
             format!("{:?} is not valid top-level TOML", v.get_type()),
             "value originates from here".into(),
@@ -190,18 +194,21 @@ mod tests {
         let engine_state = EngineState::new();
 
         let mut m = indexmap::IndexMap::new();
-        m.insert("rust".to_owned(), Value::test_string("editor"));
-        m.insert("is".to_owned(), Value::nothing(Span::test_data()));
+        m.insert("rust".to_owned(), SpannedValue::test_string("editor"));
+        m.insert("is".to_owned(), SpannedValue::nothing(Span::test_data()));
         m.insert(
             "features".to_owned(),
-            Value::List {
-                vals: vec![Value::test_string("hello"), Value::test_string("array")],
+            SpannedValue::List {
+                vals: vec![
+                    SpannedValue::test_string("hello"),
+                    SpannedValue::test_string("array"),
+                ],
                 span: Span::test_data(),
             },
         );
         let tv = value_to_toml_value(
             &engine_state,
-            &Value::from(Spanned {
+            &SpannedValue::from(Spanned {
                 item: m,
                 span: Span::test_data(),
             }),
@@ -220,14 +227,14 @@ mod tests {
         //
         value_to_toml_value(
             &engine_state,
-            &Value::test_string("not_valid"),
+            &SpannedValue::test_string("not_valid"),
             Span::test_data(),
         )
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
             &engine_state,
-            &Value::List {
-                vals: vec![Value::test_string("1")],
+            &SpannedValue::List {
+                vals: vec![SpannedValue::test_string("1")],
                 span: Span::test_data(),
             },
             Span::test_data(),

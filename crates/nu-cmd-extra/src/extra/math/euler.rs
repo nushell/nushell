@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -31,7 +31,7 @@ impl Command for SubCommand {
         vec![Example {
             example: "math e | math round --precision 3",
             description: "Get the first three decimal digits of e",
-            result: Some(Value::test_float(2.718)),
+            result: Some(SpannedValue::test_float(2.718)),
         }]
     }
 
@@ -42,7 +42,7 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::float(std::f64::consts::E, call.head).into_pipeline_data())
+        Ok(SpannedValue::float(std::f64::consts::E, call.head).into_pipeline_data())
     }
 }
 

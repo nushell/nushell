@@ -7,7 +7,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 use num_traits::AsPrimitive;
 use std::io::stdout;
@@ -108,7 +109,7 @@ fn get_event_type_filter(
     call: &Call,
     head: Span,
 ) -> Result<EventTypeFilter, ShellError> {
-    let event_type_filter = call.get_flag::<Value>(engine_state, stack, "types")?;
+    let event_type_filter = call.get_flag::<SpannedValue>(engine_state, stack, "types")?;
     let event_type_filter = event_type_filter
         .map(|list| EventTypeFilter::from_value(list, head))
         .transpose()?
@@ -146,11 +147,11 @@ impl EventTypeFilter {
         }
     }
 
-    fn from_value(value: Value, head: Span) -> Result<EventTypeFilter, ShellError> {
-        if let Value::List { vals, .. } = value {
+    fn from_value(value: SpannedValue, head: Span) -> Result<EventTypeFilter, ShellError> {
+        if let SpannedValue::List { vals, .. } = value {
             let mut filter = Self::none();
             for event_type in vals {
-                if let Value::String { val, span } = event_type {
+                if let SpannedValue::String { val, span } = event_type {
                     match val.as_str() {
                         "focus" => filter.listen_focus = true,
                         "key" => filter.listen_key = true,
@@ -178,7 +179,7 @@ impl EventTypeFilter {
         )
     }
 
-    fn bad_list_error(head: Span, value: &Value) -> ShellError {
+    fn bad_list_error(head: Span, value: &SpannedValue) -> ShellError {
         ShellError::UnsupportedInput(
             "--types expects a list of strings".to_string(),
             "value originates from here".into(),
@@ -236,7 +237,7 @@ fn parse_event(
     event: &crossterm::event::Event,
     filter: &EventTypeFilter,
     add_raw: bool,
-) -> Option<Value> {
+) -> Option<SpannedValue> {
     match event {
         crossterm::event::Event::FocusGained => {
             create_focus_event(head, filter, FocusEventType::Gained)
@@ -271,15 +272,15 @@ fn create_focus_event(
     head: Span,
     filter: &EventTypeFilter,
     event_type: FocusEventType,
-) -> Option<Value> {
+) -> Option<SpannedValue> {
     if filter.listen_focus {
         let cols = vec!["type".to_string(), "event".to_string()];
         let vals = vec![
-            Value::string("focus", head),
-            Value::string(event_type.string(), head),
+            SpannedValue::string("focus", head),
+            SpannedValue::string(event_type.string(), head),
         ];
 
-        Some(Value::record(cols, vals, head))
+        Some(SpannedValue::record(cols, vals, head))
     } else {
         None
     }
@@ -290,7 +291,7 @@ fn create_key_event(
     filter: &EventTypeFilter,
     event: &crossterm::event::KeyEvent,
     add_raw: bool,
-) -> Option<Value> {
+) -> Option<SpannedValue> {
     if filter.listen_key {
         let crossterm::event::KeyEvent {
             code: raw_code,
@@ -315,7 +316,7 @@ fn create_key_event(
             "modifiers".to_string(),
         ];
 
-        let typ = Value::string("key".to_string(), head);
+        let typ = SpannedValue::string("key".to_string(), head);
         let (key, code) = get_keycode_name(head, raw_code);
         let modifiers = parse_modifiers(head, raw_modifiers);
         let mut vals = vec![typ, key, code, modifiers];
@@ -323,19 +324,19 @@ fn create_key_event(
         if add_raw {
             if let KeyCode::Char(c) = raw_code {
                 cols.push("raw_code".to_string());
-                vals.push(Value::int(c.as_(), head));
+                vals.push(SpannedValue::int(c.as_(), head));
             }
             cols.push("raw_modifiers".to_string());
-            vals.push(Value::int(raw_modifiers.bits() as i64, head));
+            vals.push(SpannedValue::int(raw_modifiers.bits() as i64, head));
         }
 
-        Some(Value::record(cols, vals, head))
+        Some(SpannedValue::record(cols, vals, head))
     } else {
         None
     }
 }
 
-fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
+fn get_keycode_name(head: Span, code: &KeyCode) -> (SpannedValue, SpannedValue) {
     let (typ, code) = match code {
         KeyCode::F(n) => ("f", n.to_string()),
         KeyCode::Char(c) => ("char", c.to_string()),
@@ -343,10 +344,13 @@ fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
         KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_lowercase()),
         _ => ("other", format!("{code:?}").to_lowercase()),
     };
-    (Value::string(typ, head), Value::string(code, head))
+    (
+        SpannedValue::string(typ, head),
+        SpannedValue::string(code, head),
+    )
 }
 
-fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
+fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> SpannedValue {
     const ALL_MODIFIERS: [KeyModifiers; 6] = [
         KeyModifiers::SHIFT,
         KeyModifiers::CONTROL,
@@ -360,10 +364,10 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
         .iter()
         .filter(|m| modifiers.contains(**m))
         .map(|m| format!("{m:?}").to_lowercase())
-        .map(|string| Value::string(string, head))
+        .map(|string| SpannedValue::string(string, head))
         .collect();
 
-    Value::list(parsed_modifiers, head)
+    SpannedValue::list(parsed_modifiers, head)
 }
 
 fn create_mouse_event(
@@ -371,7 +375,7 @@ fn create_mouse_event(
     filter: &EventTypeFilter,
     event: &MouseEvent,
     add_raw: bool,
-) -> Option<Value> {
+) -> Option<SpannedValue> {
     if filter.listen_mouse {
         let mut cols = vec![
             "type".to_string(),
@@ -381,9 +385,9 @@ fn create_mouse_event(
             "modifiers".to_string(),
         ];
 
-        let typ = Value::string("mouse".to_string(), head);
-        let col = Value::int(event.column as i64, head);
-        let row = Value::int(event.row as i64, head);
+        let typ = SpannedValue::string("mouse".to_string(), head);
+        let col = SpannedValue::int(event.column as i64, head);
+        let row = SpannedValue::int(event.row as i64, head);
 
         let kind = match event.kind {
             MouseEventKind::Down(btn) => format!("{btn:?}_down"),
@@ -393,28 +397,31 @@ fn create_mouse_event(
             MouseEventKind::ScrollDown => "scroll_down".to_string(),
             MouseEventKind::ScrollUp => "scroll_up".to_string(),
         };
-        let kind = Value::string(kind, head);
+        let kind = SpannedValue::string(kind, head);
         let modifiers = parse_modifiers(head, &event.modifiers);
 
         let mut vals = vec![typ, col, row, kind, modifiers];
 
         if add_raw {
             cols.push("raw_modifiers".to_string());
-            vals.push(Value::int(event.modifiers.bits() as i64, head));
+            vals.push(SpannedValue::int(event.modifiers.bits() as i64, head));
         }
 
-        Some(Value::record(cols, vals, head))
+        Some(SpannedValue::record(cols, vals, head))
     } else {
         None
     }
 }
 
-fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Option<Value> {
+fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Option<SpannedValue> {
     if filter.listen_paste {
         let cols = vec!["type".to_string(), "content".to_string()];
-        let vals = vec![Value::string("paste", head), Value::string(content, head)];
+        let vals = vec![
+            SpannedValue::string("paste", head),
+            SpannedValue::string(content, head),
+        ];
 
-        Some(Value::record(cols, vals, head))
+        Some(SpannedValue::record(cols, vals, head))
     } else {
         None
     }
@@ -425,16 +432,16 @@ fn create_resize_event(
     filter: &EventTypeFilter,
     columns: u16,
     rows: u16,
-) -> Option<Value> {
+) -> Option<SpannedValue> {
     if filter.listen_resize {
         let cols = vec!["type".to_string(), "col".to_string(), "row".to_string()];
         let vals = vec![
-            Value::string("resize", head),
-            Value::int(columns as i64, head),
-            Value::int(rows as i64, head),
+            SpannedValue::string("resize", head),
+            SpannedValue::int(columns as i64, head),
+            SpannedValue::int(rows as i64, head),
         ];
 
-        Some(Value::record(cols, vals, head))
+        Some(SpannedValue::record(cols, vals, head))
     } else {
         None
     }

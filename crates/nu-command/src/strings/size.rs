@@ -1,7 +1,9 @@
 use fancy_regex::Regex;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
@@ -46,7 +48,7 @@ impl Command for Size {
             Example {
                 description: "Count the number of words in a string",
                 example: r#""There are seven words in this sentence" | size"#,
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
@@ -55,11 +57,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(7),
-                        Value::test_int(38),
-                        Value::test_int(38),
-                        Value::test_int(38),
+                        SpannedValue::test_int(1),
+                        SpannedValue::test_int(7),
+                        SpannedValue::test_int(38),
+                        SpannedValue::test_int(38),
+                        SpannedValue::test_int(38),
                     ],
                     span: Span::test_data(),
                 }),
@@ -67,7 +69,7 @@ impl Command for Size {
             Example {
                 description: "Counts unicode characters",
                 example: r#"'今天天气真好' | size "#,
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
@@ -76,11 +78,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(6),
-                        Value::test_int(18),
-                        Value::test_int(6),
-                        Value::test_int(6),
+                        SpannedValue::test_int(1),
+                        SpannedValue::test_int(6),
+                        SpannedValue::test_int(18),
+                        SpannedValue::test_int(6),
+                        SpannedValue::test_int(6),
                     ],
                     span: Span::test_data(),
                 }),
@@ -88,7 +90,7 @@ impl Command for Size {
             Example {
                 description: "Counts Unicode characters correctly in a string",
                 example: r#""Amélie Amelie" | size"#,
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
@@ -97,11 +99,11 @@ impl Command for Size {
                         "graphemes".into(),
                     ],
                     vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(15),
-                        Value::test_int(14),
-                        Value::test_int(13),
+                        SpannedValue::test_int(1),
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(15),
+                        SpannedValue::test_int(14),
+                        SpannedValue::test_int(13),
                     ],
                     span: Span::test_data(),
                 }),
@@ -124,13 +126,13 @@ fn size(
         move |v| {
             // First, obtain the span. If this fails, propagate the error that results.
             let value_span = match v.span() {
-                Err(v) => return Value::Error { error: Box::new(v) },
+                Err(v) => return SpannedValue::Error { error: Box::new(v) },
                 Ok(v) => v,
             };
             // Now, check if it's a string.
             match v.as_string() {
                 Ok(s) => counter(&s, span),
-                Err(_) => Value::Error {
+                Err(_) => SpannedValue::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
@@ -143,13 +145,13 @@ fn size(
     )
 }
 
-fn counter(contents: &str, span: Span) -> Value {
+fn counter(contents: &str, span: Span) -> SpannedValue {
     let counts = uwc_count(&ALL_COUNTERS[..], contents);
     let mut cols = vec![];
     let mut vals = vec![];
 
     cols.push("lines".into());
-    vals.push(Value::Int {
+    vals.push(SpannedValue::Int {
         val: match counts.get(&Counter::Lines) {
             Some(c) => *c as i64,
             None => 0,
@@ -158,7 +160,7 @@ fn counter(contents: &str, span: Span) -> Value {
     });
 
     cols.push("words".into());
-    vals.push(Value::Int {
+    vals.push(SpannedValue::Int {
         val: match counts.get(&Counter::Words) {
             Some(c) => *c as i64,
             None => 0,
@@ -167,7 +169,7 @@ fn counter(contents: &str, span: Span) -> Value {
     });
 
     cols.push("bytes".into());
-    vals.push(Value::Int {
+    vals.push(SpannedValue::Int {
         val: match counts.get(&Counter::Bytes) {
             Some(c) => *c as i64,
             None => 0,
@@ -176,7 +178,7 @@ fn counter(contents: &str, span: Span) -> Value {
     });
 
     cols.push("chars".into());
-    vals.push(Value::Int {
+    vals.push(SpannedValue::Int {
         val: match counts.get(&Counter::CodePoints) {
             Some(c) => *c as i64,
             None => 0,
@@ -185,7 +187,7 @@ fn counter(contents: &str, span: Span) -> Value {
     });
 
     cols.push("graphemes".into());
-    vals.push(Value::Int {
+    vals.push(SpannedValue::Int {
         val: match counts.get(&Counter::GraphemeClusters) {
             Some(c) => *c as i64,
             None => 0,
@@ -193,7 +195,7 @@ fn counter(contents: &str, span: Span) -> Value {
         span,
     });
 
-    Value::Record { cols, vals, span }
+    SpannedValue::Record { cols, vals, span }
 }
 
 /// Take all the counts in `other_counts` and sum them into `accum`.

@@ -4,7 +4,7 @@ use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token,
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    print_if_stream, PipelineData, ShellError, Span, Value,
+    print_if_stream, PipelineData, ShellError, Span, SpannedValue,
 };
 use nu_protocol::{report_error, report_error_new};
 #[cfg(windows)]
@@ -185,7 +185,7 @@ fn gather_env_vars(
                     continue;
                 }
 
-                Value::String {
+                SpannedValue::String {
                     val: bytes,
                     span: *span,
                 }
@@ -313,7 +313,7 @@ pub fn eval_source(
 fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
     stack.add_env_var(
         "LAST_EXIT_CODE".to_string(),
-        Value::int(exit_code, Span::unknown()),
+        SpannedValue::int(exit_code, Span::unknown()),
     );
 }
 
@@ -340,13 +340,13 @@ mod test {
         let env = engine_state.render_env_vars();
 
         assert!(
-            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
+            matches!(env.get(&"FOO".to_string()), Some(&SpannedValue::String { val, .. }) if val == "foo")
         );
         assert!(
-            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
+            matches!(env.get(&"SYMBOLS".to_string()), Some(&SpannedValue::String { val, .. }) if val == symbols)
         );
         assert!(
-            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
+            matches!(env.get(&symbols.to_string()), Some(&SpannedValue::String { val, .. }) if val == "symbols")
         );
         assert!(env.get(&"PWD".to_string()).is_some());
         assert_eq!(env.len(), 4);

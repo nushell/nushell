@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -32,7 +32,7 @@ impl Command for Fmt {
         vec![Example {
             description: "Get a record containing multiple formats for the number 42",
             example: "42 | fmt",
-            result: Some(Value::Record {
+            result: Some(SpannedValue::Record {
                 cols: vec![
                     "binary".into(),
                     "debug".into(),
@@ -44,14 +44,14 @@ impl Command for Fmt {
                     "upperhex".into(),
                 ],
                 vals: vec![
-                    Value::test_string("0b101010"),
-                    Value::test_string("42"),
-                    Value::test_string("42"),
-                    Value::test_string("4.2e1"),
-                    Value::test_string("0x2a"),
-                    Value::test_string("0o52"),
-                    Value::test_string("4.2E1"),
-                    Value::test_string("0x2A"),
+                    SpannedValue::test_string("0b101010"),
+                    SpannedValue::test_string("42"),
+                    SpannedValue::test_string("42"),
+                    SpannedValue::test_string("4.2e1"),
+                    SpannedValue::test_string("0x2a"),
+                    SpannedValue::test_string("0o52"),
+                    SpannedValue::test_string("4.2E1"),
+                    SpannedValue::test_string("0x2A"),
                 ],
                 span: Span::test_data(),
             }),
@@ -80,14 +80,14 @@ fn fmt(
     operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> SpannedValue {
     match input {
-        Value::Float { val, .. } => fmt_it_64(*val, span),
-        Value::Int { val, .. } => fmt_it(*val, span),
-        Value::Filesize { val, .. } => fmt_it(*val, span),
+        SpannedValue::Float { val, .. } => fmt_it_64(*val, span),
+        SpannedValue::Int { val, .. } => fmt_it(*val, span),
+        SpannedValue::Filesize { val, .. } => fmt_it(*val, span),
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "float , integer or filesize".into(),
                 wrong_type: other.get_type().to_string(),
@@ -98,72 +98,72 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     }
 }
 
-fn fmt_it(num: i64, span: Span) -> Value {
+fn fmt_it(num: i64, span: Span) -> SpannedValue {
     let mut cols = vec![];
     let mut vals = vec![];
 
     cols.push("binary".into());
-    vals.push(Value::string(format!("{num:#b}"), span));
+    vals.push(SpannedValue::string(format!("{num:#b}"), span));
 
     cols.push("debug".into());
-    vals.push(Value::string(format!("{num:#?}"), span));
+    vals.push(SpannedValue::string(format!("{num:#?}"), span));
 
     cols.push("display".into());
-    vals.push(Value::string(format!("{num}"), span));
+    vals.push(SpannedValue::string(format!("{num}"), span));
 
     cols.push("lowerexp".into());
-    vals.push(Value::string(format!("{num:#e}"), span));
+    vals.push(SpannedValue::string(format!("{num:#e}"), span));
 
     cols.push("lowerhex".into());
-    vals.push(Value::string(format!("{num:#x}"), span));
+    vals.push(SpannedValue::string(format!("{num:#x}"), span));
 
     cols.push("octal".into());
-    vals.push(Value::string(format!("{num:#o}"), span));
+    vals.push(SpannedValue::string(format!("{num:#o}"), span));
 
     // cols.push("pointer".into());
     // vals.push(Value::string(format!("{:#p}", &num), span));
 
     cols.push("upperexp".into());
-    vals.push(Value::string(format!("{num:#E}"), span));
+    vals.push(SpannedValue::string(format!("{num:#E}"), span));
 
     cols.push("upperhex".into());
-    vals.push(Value::string(format!("{num:#X}"), span));
+    vals.push(SpannedValue::string(format!("{num:#X}"), span));
 
-    Value::Record { cols, vals, span }
+    SpannedValue::Record { cols, vals, span }
 }
 
-fn fmt_it_64(num: f64, span: Span) -> Value {
+fn fmt_it_64(num: f64, span: Span) -> SpannedValue {
     let mut cols = vec![];
     let mut vals = vec![];
 
     cols.push("binary".into());
-    vals.push(Value::string(format!("{:b}", num.to_bits()), span));
+    vals.push(SpannedValue::string(format!("{:b}", num.to_bits()), span));
 
     cols.push("debug".into());
-    vals.push(Value::string(format!("{num:#?}"), span));
+    vals.push(SpannedValue::string(format!("{num:#?}"), span));
 
     cols.push("display".into());
-    vals.push(Value::string(format!("{num}"), span));
+    vals.push(SpannedValue::string(format!("{num}"), span));
 
     cols.push("lowerexp".into());
-    vals.push(Value::string(format!("{num:#e}"), span));
+    vals.push(SpannedValue::string(format!("{num:#e}"), span));
 
     cols.push("lowerhex".into());
-    vals.push(Value::string(format!("{:0x}", num.to_bits()), span));
+    vals.push(SpannedValue::string(format!("{:0x}", num.to_bits()), span));
 
     cols.push("octal".into());
-    vals.push(Value::string(format!("{:0o}", num.to_bits()), span));
+    vals.push(SpannedValue::string(format!("{:0o}", num.to_bits()), span));
 
     // cols.push("pointer".into());
     // vals.push(Value::string(format!("{:#p}", &num), span));
 
     cols.push("upperexp".into());
-    vals.push(Value::string(format!("{num:#E}"), span));
+    vals.push(SpannedValue::string(format!("{num:#E}"), span));
 
     cols.push("upperhex".into());
-    vals.push(Value::string(format!("{:0X}", num.to_bits()), span));
+    vals.push(SpannedValue::string(format!("{:0X}", num.to_bits()), span));
 
-    Value::Record { cols, vals, span }
+    SpannedValue::Record { cols, vals, span }
 }
 
 #[cfg(test)]

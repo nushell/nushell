@@ -4,7 +4,9 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -59,16 +61,16 @@ impl Command for SubCommand {
             Example {
                 description: "Reverse a single string",
                 example: "'Nushell' | str reverse",
-                result: Some(Value::test_string("llehsuN")),
+                result: Some(SpannedValue::test_string("llehsuN")),
             },
             Example {
                 description: "Reverse multiple strings in a list",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("llehsuN"),
-                        Value::test_string("si"),
-                        Value::test_string("looc"),
+                        SpannedValue::test_string("llehsuN"),
+                        SpannedValue::test_string("si"),
+                        SpannedValue::test_string("looc"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -77,14 +79,14 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &SpannedValue, _arg: &CellPathOnlyArgs, head: Span) -> SpannedValue {
     match input {
-        Value::String { val, .. } => Value::String {
+        SpannedValue::String { val, .. } => SpannedValue::String {
             val: val.chars().rev().collect::<String>(),
             span: head,
         },
-        Value::Error { .. } => input.clone(),
-        _ => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        _ => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

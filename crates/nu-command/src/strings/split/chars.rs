@@ -2,7 +2,7 @@ use crate::grapheme_flags;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -46,13 +46,13 @@ impl Command for SubCommand {
             Example {
                 description: "Split the string into a list of characters",
                 example: "'hello' | split chars",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l"),
-                        Value::test_string("o"),
+                        SpannedValue::test_string("h"),
+                        SpannedValue::test_string("e"),
+                        SpannedValue::test_string("l"),
+                        SpannedValue::test_string("l"),
+                        SpannedValue::test_string("o"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -60,11 +60,11 @@ impl Command for SubCommand {
             Example {
                 description: "Split on grapheme clusters",
                 example: "'🇯🇵ほげ' | split chars -g",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("🇯🇵"),
-                        Value::test_string("ほ"),
-                        Value::test_string("げ"),
+                        SpannedValue::test_string("🇯🇵"),
+                        SpannedValue::test_string("ほ"),
+                        SpannedValue::test_string("げ"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -72,20 +72,20 @@ impl Command for SubCommand {
             Example {
                 description: "Split multiple strings into lists of characters",
                 example: "['hello', 'world'] | split chars",
-                result: Some(Value::test_list(vec![
-                    Value::test_list(vec![
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l"),
-                        Value::test_string("o"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_list(vec![
+                        SpannedValue::test_string("h"),
+                        SpannedValue::test_string("e"),
+                        SpannedValue::test_string("l"),
+                        SpannedValue::test_string("l"),
+                        SpannedValue::test_string("o"),
                     ]),
-                    Value::test_list(vec![
-                        Value::test_string("w"),
-                        Value::test_string("o"),
-                        Value::test_string("r"),
-                        Value::test_string("l"),
-                        Value::test_string("d"),
+                    SpannedValue::test_list(vec![
+                        SpannedValue::test_string("w"),
+                        SpannedValue::test_string("o"),
+                        SpannedValue::test_string("r"),
+                        SpannedValue::test_string("l"),
+                        SpannedValue::test_string("d"),
                     ]),
                 ])),
             },
@@ -117,28 +117,28 @@ fn split_chars(
     )
 }
 
-fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
+fn split_chars_helper(v: &SpannedValue, name: Span, graphemes: bool) -> SpannedValue {
     match v.span() {
         Ok(v_span) => {
             if let Ok(s) = v.as_string() {
-                Value::List {
+                SpannedValue::List {
                     vals: if graphemes {
                         s.graphemes(true)
                             .collect::<Vec<_>>()
                             .into_iter()
-                            .map(move |x| Value::string(x, v_span))
+                            .map(move |x| SpannedValue::string(x, v_span))
                             .collect()
                     } else {
                         s.chars()
                             .collect::<Vec<_>>()
                             .into_iter()
-                            .map(move |x| Value::string(x, v_span))
+                            .map(move |x| SpannedValue::string(x, v_span))
                             .collect()
                     },
                     span: v_span,
                 }
             } else {
-                Value::Error {
+                SpannedValue::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: name,
@@ -147,7 +147,7 @@ fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
                 }
             }
         }
-        Err(error) => Value::Error {
+        Err(error) => SpannedValue::Error {
             error: Box::new(error),
         },
     }

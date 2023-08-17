@@ -1,5 +1,5 @@
 use nu_plugin::LabeledError;
-use nu_protocol::{ast::CellPath, Span, Value};
+use nu_protocol::{ast::CellPath, Span, SpannedValue};
 use semver::{BuildMetadata, Prerelease, Version};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -27,12 +27,12 @@ impl Inc {
         Default::default()
     }
 
-    fn apply(&self, input: &str, head: Span) -> Value {
+    fn apply(&self, input: &str, head: Span) -> SpannedValue {
         match &self.action {
             Some(Action::SemVerAction(act_on)) => {
                 let mut ver = match semver::Version::parse(input) {
                     Ok(parsed_ver) => parsed_ver,
-                    Err(_) => return Value::string(input, head),
+                    Err(_) => return SpannedValue::string(input, head),
                 };
 
                 match act_on {
@@ -41,13 +41,13 @@ impl Inc {
                     SemVerAction::Patch => Self::increment_patch(&mut ver),
                 }
 
-                Value::string(ver.to_string(), head)
+                SpannedValue::string(ver.to_string(), head)
             }
             Some(Action::Default) | None => {
                 if let Ok(v) = input.parse::<u64>() {
-                    Value::string((v + 1).to_string(), head)
+                    SpannedValue::string((v + 1).to_string(), head)
                 } else {
-                    Value::string(input, head)
+                    SpannedValue::string(input, head)
                 }
             }
         }
@@ -94,7 +94,7 @@ impl Inc {
         "Usage: inc field [--major|--minor|--patch]"
     }
 
-    pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
+    pub fn inc(&self, head: Span, value: &SpannedValue) -> Result<SpannedValue, LabeledError> {
         if let Some(cell_path) = &self.cell_path {
             let working_value = value.clone();
             let cell_value = working_value.follow_cell_path(&cell_path.members, false)?;
@@ -114,10 +114,14 @@ impl Inc {
         }
     }
 
-    pub fn inc_value(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
+    pub fn inc_value(
+        &self,
+        head: Span,
+        value: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         match value {
-            Value::Int { val, span } => Ok(Value::int(val + 1, *span)),
-            Value::String { val, .. } => Ok(self.apply(val, head)),
+            SpannedValue::Int { val, span } => Ok(SpannedValue::int(val + 1, *span)),
+            SpannedValue::String { val, .. } => Ok(self.apply(val, head)),
             x => {
                 let msg = x.as_string().map_err(|e| LabeledError {
                     label: "Unable to extract string".into(),
@@ -138,14 +142,14 @@ impl Inc {
 #[cfg(test)]
 mod tests {
     mod semver {
-        use nu_protocol::{Span, Value};
+        use nu_protocol::{Span, SpannedValue};
 
         use crate::inc::SemVerAction;
         use crate::Inc;
 
         #[test]
         fn major() {
-            let expected = Value::test_string("1.0.0");
+            let expected = SpannedValue::test_string("1.0.0");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Major);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
@@ -153,7 +157,7 @@ mod tests {
 
         #[test]
         fn minor() {
-            let expected = Value::test_string("0.2.0");
+            let expected = SpannedValue::test_string("0.2.0");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Minor);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)
@@ -161,7 +165,7 @@ mod tests {
 
         #[test]
         fn patch() {
-            let expected = Value::test_string("0.1.4");
+            let expected = SpannedValue::test_string("0.1.4");
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Patch);
             assert_eq!(inc.apply("0.1.3", Span::test_data()), expected)

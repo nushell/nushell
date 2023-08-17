@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError, Signature,
-    Span, Type, Value,
+    Span, SpannedValue, Type,
 };
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
@@ -88,48 +88,48 @@ impl Command for Uniq {
             Example {
                 description: "Return the distinct values of a list/table (remove duplicates so that each value occurs once only)",
                 example: "[2 3 3 4] | uniq",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(3), SpannedValue::test_int(4)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Return the input values that occur more than once",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Return the input values that occur once only",
                 example: "[1 2 2] | uniq -u",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
                 example: "['hello' 'goodbye' 'Hello'] | uniq -i",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("hello"), Value::test_string("goodbye")],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_string("hello"), SpannedValue::test_string("goodbye")],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Return a table containing the distinct input values together with their counts",
                 example: "[1 2 2] | uniq -c",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(1)],
+                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(1)],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_int(2)],
+                            vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],
@@ -141,18 +141,18 @@ impl Command for Uniq {
 }
 
 pub struct ItemMapperState {
-    pub item: Value,
+    pub item: SpannedValue,
     pub flag_ignore_case: bool,
     pub index: usize,
 }
 
-fn item_mapper(item: Value, flag_ignore_case: bool, index: usize) -> ValueCounter {
+fn item_mapper(item: SpannedValue, flag_ignore_case: bool, index: usize) -> ValueCounter {
     ValueCounter::new(item, flag_ignore_case, index)
 }
 
 pub struct ValueCounter {
-    val: Value,
-    val_to_compare: Value,
+    val: SpannedValue,
+    val_to_compare: SpannedValue,
     count: i64,
     index: usize,
 }
@@ -164,13 +164,13 @@ impl PartialEq<Self> for ValueCounter {
 }
 
 impl ValueCounter {
-    fn new(val: Value, flag_ignore_case: bool, index: usize) -> Self {
+    fn new(val: SpannedValue, flag_ignore_case: bool, index: usize) -> Self {
         Self::new_vals_to_compare(val.clone(), flag_ignore_case, val, index)
     }
     pub fn new_vals_to_compare(
-        val: Value,
+        val: SpannedValue,
         flag_ignore_case: bool,
-        vals_to_compare: Value,
+        vals_to_compare: SpannedValue,
         index: usize,
     ) -> Self {
         ValueCounter {
@@ -186,13 +186,13 @@ impl ValueCounter {
     }
 }
 
-fn clone_to_lowercase(value: &Value) -> Value {
+fn clone_to_lowercase(value: &SpannedValue) -> SpannedValue {
     match value {
-        Value::String { val: s, span } => Value::String {
+        SpannedValue::String { val: s, span } => SpannedValue::String {
             val: s.clone().to_lowercase(),
             span: *span,
         },
-        Value::List { vals: vec, span } => Value::List {
+        SpannedValue::List { vals: vec, span } => SpannedValue::List {
             vals: vec
                 .clone()
                 .into_iter()
@@ -200,7 +200,7 @@ fn clone_to_lowercase(value: &Value) -> Value {
                 .collect(),
             span: *span,
         },
-        Value::Record { cols, vals, span } => Value::Record {
+        SpannedValue::Record { cols, vals, span } => SpannedValue::Record {
             cols: cols.clone(),
             vals: vals
                 .clone()
@@ -213,9 +213,9 @@ fn clone_to_lowercase(value: &Value) -> Value {
     }
 }
 
-fn sort_attributes(val: Value) -> Value {
+fn sort_attributes(val: SpannedValue) -> SpannedValue {
     match val {
-        Value::Record { cols, vals, span } => {
+        SpannedValue::Record { cols, vals, span } => {
             let sorted = cols
                 .into_iter()
                 .zip(vals)
@@ -228,13 +228,13 @@ fn sort_attributes(val: Value) -> Value {
                 .map(|a| sort_attributes(a.1))
                 .collect_vec();
 
-            Value::Record {
+            SpannedValue::Record {
                 cols: sorted_cols,
                 vals: sorted_vals,
                 span,
             }
         }
-        Value::List { vals, span } => Value::List {
+        SpannedValue::List { vals, span } => SpannedValue::List {
             vals: vals.into_iter().map(sort_attributes).collect_vec(),
             span,
         },
@@ -247,12 +247,12 @@ fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
     value_to_string(&value, Span::unknown(), 0, &None)
 }
 
-fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
+fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<SpannedValue> {
     uniq_values
         .into_iter()
-        .map(|item| Value::Record {
+        .map(|item| SpannedValue::Record {
             cols: vec!["value".to_string(), "count".to_string()],
-            vals: vec![item.val, Value::int(item.count, head)],
+            vals: vec![item.val, SpannedValue::int(item.count, head)],
             span: head,
         })
         .collect()
@@ -262,7 +262,7 @@ pub fn uniq(
     engine_state: &EngineState,
     _stack: &mut Stack,
     call: &Call,
-    input: Vec<Value>,
+    input: Vec<SpannedValue>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
     metadata: Option<Box<PipelineMetadata>>,
 ) -> Result<PipelineData, ShellError> {
@@ -324,7 +324,7 @@ pub fn uniq(
         uniq_values.into_iter().map(|v| v.val).collect()
     };
 
-    Ok(Value::List {
+    Ok(SpannedValue::List {
         vals: result,
         span: head,
     }

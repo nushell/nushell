@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    format_filesize, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    format_filesize, Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 
 struct Arguments {
@@ -63,7 +63,7 @@ impl Command for FormatFilesize {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let format_value = call
-            .req::<Value>(engine_state, stack, 0)?
+            .req::<SpannedValue>(engine_state, stack, 0)?
             .as_string()?
             .to_ascii_lowercase();
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
@@ -96,21 +96,21 @@ impl Command for FormatFilesize {
             Example {
                 description: "Convert the size data to MB",
                 example: "4Gb | format filesize MB",
-                result: Some(Value::test_string("4000.0 MB")),
+                result: Some(SpannedValue::test_string("4000.0 MB")),
             },
         ]
     }
 }
 
-fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
+fn format_value_impl(val: &SpannedValue, arg: &Arguments, span: Span) -> SpannedValue {
     match val {
-        Value::Filesize { val, span } => Value::String {
+        SpannedValue::Filesize { val, span } => SpannedValue::String {
             // don't need to concern about metric, we just format units by what user input.
             val: format_filesize(*val, &arg.format_value, None),
             span: *span,
         },
-        Value::Error { .. } => val.clone(),
-        _ => Value::Error {
+        SpannedValue::Error { .. } => val.clone(),
+        _ => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "filesize".into(),
                 wrong_type: val.get_type().to_string(),

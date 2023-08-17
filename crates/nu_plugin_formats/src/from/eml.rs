@@ -2,12 +2,15 @@ use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
+use nu_protocol::{PluginExample, ShellError, Span, Spanned, SpannedValue};
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 pub const CMD_NAME: &str = "from eml";
 
-pub fn from_eml_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+pub fn from_eml_call(
+    call: &EvaluatedCall,
+    input: &SpannedValue,
+) -> Result<SpannedValue, LabeledError> {
     let preview_body: usize = call
         .get_flag::<i64>("preview-body")?
         .map(|l| if l < 0 { 0 } else { l as usize })
@@ -24,7 +27,7 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml"
                 .into(),
-            result: Some(Value::Record {
+            result: Some(SpannedValue::Record {
                 cols: vec![
                     "Subject".to_string(),
                     "From".to_string(),
@@ -32,24 +35,24 @@ Test' | from eml"
                     "Body".to_string(),
                 ],
                 vals: vec![
-                    Value::test_string("Welcome"),
-                    Value::Record {
+                    SpannedValue::test_string("Welcome"),
+                    SpannedValue::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("test@email.com"),
+                            SpannedValue::nothing(Span::test_data()),
+                            SpannedValue::test_string("test@email.com"),
                         ],
                         span: Span::test_data(),
                     },
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("someone@somewhere.com"),
+                            SpannedValue::nothing(Span::test_data()),
+                            SpannedValue::test_string("someone@somewhere.com"),
                         ],
                         span: Span::test_data(),
                     },
-                    Value::test_string("Test"),
+                    SpannedValue::test_string("Test"),
                 ],
                 span: Span::test_data(),
             }),
@@ -61,7 +64,7 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml -b 1"
                 .into(),
-            result: Some(Value::Record {
+            result: Some(SpannedValue::Record {
                 cols: vec![
                     "Subject".to_string(),
                     "From".to_string(),
@@ -69,24 +72,24 @@ Test' | from eml -b 1"
                     "Body".to_string(),
                 ],
                 vals: vec![
-                    Value::test_string("Welcome"),
-                    Value::Record {
+                    SpannedValue::test_string("Welcome"),
+                    SpannedValue::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("test@email.com"),
+                            SpannedValue::nothing(Span::test_data()),
+                            SpannedValue::test_string("test@email.com"),
                         ],
                         span: Span::test_data(),
                     },
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("someone@somewhere.com"),
+                            SpannedValue::nothing(Span::test_data()),
+                            SpannedValue::test_string("someone@somewhere.com"),
                         ],
                         span: Span::test_data(),
                     },
-                    Value::test_string("T"),
+                    SpannedValue::test_string("T"),
                 ],
                 span: Span::test_data(),
             }),
@@ -94,52 +97,56 @@ Test' | from eml -b 1"
     ]
 }
 
-fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
+fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> SpannedValue {
     let (n, a) = match email_address {
         EmailAddress::AddressOnly { address } => (
-            Value::nothing(span),
-            Value::String {
+            SpannedValue::nothing(span),
+            SpannedValue::String {
                 val: address.to_string(),
                 span,
             },
         ),
         EmailAddress::NameAndEmailAddress { name, address } => (
-            Value::String {
+            SpannedValue::String {
                 val: name.to_string(),
                 span,
             },
-            Value::String {
+            SpannedValue::String {
                 val: address.to_string(),
                 span,
             },
         ),
     };
 
-    Value::Record {
+    SpannedValue::Record {
         cols: vec!["Name".to_string(), "Address".to_string()],
         vals: vec![n, a],
         span,
     }
 }
 
-fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
+fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> SpannedValue {
     use HeaderFieldValue::*;
 
     match value {
         SingleEmailAddress(address) => emailaddress_to_value(head, address),
-        MultipleEmailAddresses(addresses) => Value::List {
+        MultipleEmailAddresses(addresses) => SpannedValue::List {
             vals: addresses
                 .iter()
                 .map(|a| emailaddress_to_value(head, a))
                 .collect(),
             span: head,
         },
-        Unstructured(s) => Value::string(s, head),
-        Empty => Value::nothing(head),
+        Unstructured(s) => SpannedValue::string(s, head),
+        Empty => SpannedValue::nothing(head),
     }
 }
 
-fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, LabeledError> {
+fn from_eml(
+    input: &SpannedValue,
+    body_preview: usize,
+    head: Span,
+) -> Result<SpannedValue, LabeledError> {
     let value = input.as_string()?;
 
     let eml = EmlParser::from_string(value)
@@ -157,7 +164,7 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     if let Some(subj) = eml.subject {
         collected.insert(
             "Subject".to_string(),
-            Value::String {
+            SpannedValue::String {
                 val: subj,
                 span: head,
             },
@@ -179,14 +186,14 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     if let Some(body) = eml.body {
         collected.insert(
             "Body".to_string(),
-            Value::String {
+            SpannedValue::String {
                 val: body,
                 span: head,
             },
         );
     }
 
-    Ok(Value::from(Spanned {
+    Ok(SpannedValue::from(Spanned {
         item: collected,
         span: head,
     }))

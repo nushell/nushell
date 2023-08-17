@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -43,16 +43,20 @@ impl Command for Every {
             Example {
                 example: "[1 2 3 4 5] | every 2",
                 description: "Get every second row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_int(1),
+                        SpannedValue::test_int(3),
+                        SpannedValue::test_int(5),
+                    ],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[1 2 3 4 5] | every 2 --skip",
                 description: "Skip every second row",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(4)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(4)],
                     span: Span::test_data(),
                 }),
             },

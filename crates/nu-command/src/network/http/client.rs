@@ -5,7 +5,7 @@ use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+    BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, SpannedValue,
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
@@ -43,7 +43,7 @@ pub fn http_client(allow_insecure: bool) -> ureq::Agent {
 pub fn http_parse_url(
     call: &Call,
     span: Span,
-    raw_url: Value,
+    raw_url: SpannedValue,
 ) -> Result<(String, Url), ShellError> {
     let requested_url = raw_url.as_string()?;
     let url = match url::Url::parse(&requested_url) {
@@ -149,7 +149,7 @@ impl From<ShellError> for ShellErrorOrRequestError {
 
 pub fn send_request(
     request: Request,
-    body: Option<Value>,
+    body: Option<SpannedValue>,
     content_type: Option<String>,
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Response, ShellErrorOrRequestError> {
@@ -165,25 +165,25 @@ pub fn send_request(
         _ => BodyType::Unknown,
     };
     match body {
-        Value::Binary { val, .. } => send_cancellable_request(
+        SpannedValue::Binary { val, .. } => send_cancellable_request(
             &request_url,
             Box::new(move || request.send_bytes(&val)),
             ctrl_c,
         ),
-        Value::String { .. } if body_type == BodyType::Json => {
+        SpannedValue::String { .. } if body_type == BodyType::Json => {
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        Value::String { val, .. } => send_cancellable_request(
+        SpannedValue::String { val, .. } => send_cancellable_request(
             &request_url,
             Box::new(move || request.send_string(&val)),
             ctrl_c,
         ),
-        Value::Record { .. } if body_type == BodyType::Json => {
+        SpannedValue::Record { .. } if body_type == BodyType::Json => {
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
+        SpannedValue::Record { cols, vals, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
 
             for (col, val) in cols.iter().zip(vals.iter()) {
@@ -201,7 +201,7 @@ pub fn send_request(
             };
             send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
-        Value::List { vals, .. } if body_type == BodyType::Form => {
+        SpannedValue::List { vals, .. } if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
                 return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
                     "unsupported body input".into(),
@@ -270,7 +270,7 @@ fn send_cancellable_request(
 }
 
 pub fn request_set_timeout(
-    timeout: Option<Value>,
+    timeout: Option<SpannedValue>,
     mut request: Request,
 ) -> Result<Request, ShellError> {
     if let Some(timeout) = timeout {
@@ -289,24 +289,24 @@ pub fn request_set_timeout(
 }
 
 pub fn request_add_custom_headers(
-    headers: Option<Value>,
+    headers: Option<SpannedValue>,
     mut request: Request,
 ) -> Result<Request, ShellError> {
     if let Some(headers) = headers {
-        let mut custom_headers: HashMap<String, Value> = HashMap::new();
+        let mut custom_headers: HashMap<String, SpannedValue> = HashMap::new();
 
         match &headers {
-            Value::Record { cols, vals, .. } => {
+            SpannedValue::Record { cols, vals, .. } => {
                 for (k, v) in cols.iter().zip(vals.iter()) {
                     custom_headers.insert(k.to_string(), v.clone());
                 }
             }
 
-            Value::List { vals: table, .. } => {
+            SpannedValue::List { vals: table, .. } => {
                 if table.len() == 1 {
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
-                        Value::Record { cols, vals, .. } => {
+                        SpannedValue::Record { cols, vals, .. } => {
                             for (k, v) in cols.iter().zip(vals.iter()) {
                                 custom_headers.insert(k.to_string(), v.clone());
                             }
@@ -490,21 +490,21 @@ fn request_handle_response_content(
 
         let request_headers_value = match headers_to_nu(&extract_request_headers(&request), span) {
             Ok(headers) => headers.into_value(span),
-            Err(_) => Value::nothing(span),
+            Err(_) => SpannedValue::nothing(span),
         };
 
         let response_headers_value = match headers_to_nu(&extract_response_headers(&resp), span) {
             Ok(headers) => headers.into_value(span),
-            Err(_) => Value::nothing(span),
+            Err(_) => SpannedValue::nothing(span),
         };
 
-        let headers = Value::Record {
+        let headers = SpannedValue::Record {
             cols: vec!["request".to_string(), "response".to_string()],
             vals: vec![request_headers_value, response_headers_value],
             span,
         };
 
-        let full_response = Value::Record {
+        let full_response = SpannedValue::Record {
             cols: vec![
                 "headers".to_string(),
                 "body".to_string(),
@@ -513,7 +513,7 @@ fn request_handle_response_content(
             vals: vec![
                 headers,
                 consume_response_body(resp)?.into_value(span),
-                Value::int(response_status as i64, span),
+                SpannedValue::int(response_status as i64, span),
             ],
             span,
         };
@@ -602,8 +602,8 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
 
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
-            if let Value::Record { vals, .. } = val {
-                if let Some(Value::String {
+            if let SpannedValue::Record { vals, .. } = val {
+                if let Some(SpannedValue::String {
                     val: header_name, ..
                 }) = vals.get(0)
                 {
@@ -617,15 +617,15 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
             // This interface is why we needed to check if we've already parsed this header name.
             for str_value in values {
                 let header = vec![
-                    Value::string(name, span),
-                    Value::string(str_value.to_string(), span),
+                    SpannedValue::string(name, span),
+                    SpannedValue::string(str_value.to_string(), span),
                 ];
-                vals.push(Value::record(cols.clone(), header, span));
+                vals.push(SpannedValue::record(cols.clone(), header, span));
             }
         }
     }
 
-    Ok(Value::list(vals, span).into_pipeline_data())
+    Ok(SpannedValue::list(vals, span).into_pipeline_data())
 }
 
 pub fn request_handle_response_headers(

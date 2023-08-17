@@ -1,13 +1,13 @@
 use crate::web_tables::WebTable;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Value};
+use nu_protocol::{Span, SpannedValue};
 use scraper::{Html, Selector as ScraperSelector};
 
 pub struct Selector {
     pub query: String,
     pub as_html: bool,
     pub attribute: String,
-    pub as_table: Value,
+    pub as_table: SpannedValue,
     pub inspect: bool,
 }
 
@@ -17,7 +17,7 @@ impl Selector {
             query: String::new(),
             as_html: false,
             attribute: String::new(),
-            as_table: Value::string("".to_string(), Span::unknown()),
+            as_table: SpannedValue::string("".to_string(), Span::unknown()),
             inspect: false,
         }
     }
@@ -29,7 +29,10 @@ impl Default for Selector {
     }
 }
 
-pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+pub fn parse_selector_params(
+    call: &EvaluatedCall,
+    input: &SpannedValue,
+) -> Result<SpannedValue, LabeledError> {
     let head = call.head;
     let query: String = match call.get_flag("query")? {
         Some(q2) => q2,
@@ -37,9 +40,9 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     };
     let as_html = call.has_flag("as-html");
     let attribute = call.get_flag("attribute")?.unwrap_or_default();
-    let as_table: Value = call
+    let as_table: SpannedValue = call
         .get_flag("as-table")?
-        .unwrap_or_else(|| Value::nothing(head));
+        .unwrap_or_else(|| SpannedValue::nothing(head));
 
     let inspect = call.has_flag("inspect");
 
@@ -60,7 +63,9 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     };
 
     match input {
-        Value::String { val, span } => Ok(begin_selector_query(val.to_string(), selector, *span)),
+        SpannedValue::String { val, span } => {
+            Ok(begin_selector_query(val.to_string(), selector, *span))
+        }
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
@@ -69,8 +74,8 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     }
 }
 
-fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> Value {
-    if let Value::List { .. } = selector.as_table {
+fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> SpannedValue {
+    if let SpannedValue::List { .. } = selector.as_table {
         return retrieve_tables(
             input_html.as_str(),
             &selector.as_table,
@@ -98,16 +103,16 @@ fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> V
 
 pub fn retrieve_tables(
     input_string: &str,
-    columns: &Value,
+    columns: &SpannedValue,
     inspect_mode: bool,
     span: Span,
-) -> Value {
+) -> SpannedValue {
     let html = input_string;
     let mut cols: Vec<String> = Vec::new();
-    if let Value::List { vals, .. } = &columns {
+    if let SpannedValue::List { vals, .. } = &columns {
         for x in vals {
             // TODO Find a way to get the Config object here
-            if let Value::String { val, .. } = x {
+            if let SpannedValue::String { val, .. } = x {
                 cols.push(val.to_string())
             }
         }
@@ -140,15 +145,15 @@ pub fn retrieve_tables(
         .map(move |table| retrieve_table(table, columns, span))
         .collect();
 
-    Value::List { vals, span }
+    SpannedValue::List { vals, span }
 }
 
-fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
+fn retrieve_table(mut table: WebTable, columns: &SpannedValue, span: Span) -> SpannedValue {
     let mut cols: Vec<String> = Vec::new();
-    if let Value::List { vals, .. } = &columns {
+    if let SpannedValue::List { vals, .. } = &columns {
         for x in vals {
             // TODO Find a way to get the Config object here
-            if let Value::String { val, .. } = x {
+            if let SpannedValue::String { val, .. } = x {
                 cols.push(val.to_string())
             }
         }
@@ -175,10 +180,10 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
                 cols.push(format!("column{counter}"));
-                vals.push(Value::string(cell.to_string(), span))
+                vals.push(SpannedValue::string(cell.to_string(), span))
             }
         }
-        table_out.push(Value::Record { cols, vals, span })
+        table_out.push(SpannedValue::Record { cols, vals, span })
     } else {
         for row in &table {
             let mut vals = vec![];
@@ -192,9 +197,9 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
                 if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
                     at_least_one_row_filled = true;
                 }
-                vals.push(Value::string(val, span));
+                vals.push(SpannedValue::string(val, span));
             }
-            table_out.push(Value::Record {
+            table_out.push(SpannedValue::Record {
                 cols: record_cols.to_vec(),
                 vals,
                 span,
@@ -211,7 +216,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     }
     // table_out
 
-    Value::List {
+    SpannedValue::List {
         vals: table_out,
         span,
     }
@@ -223,19 +228,19 @@ fn execute_selector_query_with_attribute(
     attribute: &str,
     inspect: bool,
     span: Span,
-) -> Value {
+) -> SpannedValue {
     let doc = Html::parse_fragment(input_string);
 
-    let vals: Vec<Value> = doc
+    let vals: Vec<SpannedValue> = doc
         .select(&css(query_string, inspect))
         .map(|selection| {
-            Value::string(
+            SpannedValue::string(
                 selection.value().attr(attribute).unwrap_or("").to_string(),
                 span,
             )
         })
         .collect();
-    Value::List { vals, span }
+    SpannedValue::List { vals, span }
 }
 
 fn execute_selector_query(
@@ -244,18 +249,18 @@ fn execute_selector_query(
     as_html: bool,
     inspect: bool,
     span: Span,
-) -> Value {
+) -> SpannedValue {
     let doc = Html::parse_fragment(input_string);
 
-    let vals: Vec<Value> = match as_html {
+    let vals: Vec<SpannedValue> = match as_html {
         true => doc
             .select(&css(query_string, inspect))
-            .map(|selection| Value::string(selection.html(), span))
+            .map(|selection| SpannedValue::string(selection.html(), span))
             .collect(),
         false => doc
             .select(&css(query_string, inspect))
             .map(|selection| {
-                Value::string(
+                SpannedValue::string(
                     selection
                         .text()
                         .fold("".to_string(), |acc, x| format!("{acc}{x}")),
@@ -265,7 +270,7 @@ fn execute_selector_query(
             .collect(),
     };
 
-    Value::List { vals, span }
+    SpannedValue::List { vals, span }
 }
 
 pub fn css(selector: &str, inspect: bool) -> ScraperSelector {

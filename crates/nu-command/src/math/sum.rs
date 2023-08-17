@@ -2,7 +2,9 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -48,7 +50,7 @@ impl Command for SubCommand {
             Example {
                 description: "Sum a list of numbers",
                 example: "[1 2 3] | math sum",
-                result: Some(Value::test_int(6)),
+                result: Some(SpannedValue::test_int(6)),
             },
             Example {
                 description: "Get the disk usage for the current directory",
@@ -59,9 +61,13 @@ impl Command for SubCommand {
     }
 }
 
-pub fn summation(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn summation(
+    values: &[SpannedValue],
+    span: Span,
+    head: Span,
+) -> Result<SpannedValue, ShellError> {
     let sum_func = reducer_for(Reduce::Summation);
-    sum_func(Value::nothing(head), values.to_vec(), span, head)
+    sum_func(SpannedValue::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]

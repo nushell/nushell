@@ -2,7 +2,7 @@ use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -62,12 +62,12 @@ impl Command for DecodeBase64 {
             Example {
                 description: "Base64 decode a value and output as UTF-8 string",
                 example: "'U29tZSBEYXRh' | decode base64",
-                result: Some(Value::test_string("Some Data")),
+                result: Some(SpannedValue::test_string("Some Data")),
             },
             Example {
                 description: "Base64 decode a value and output as binary",
                 example: "'U29tZSBEYXRh' | decode base64 --binary",
-                result: Some(Value::binary(
+                result: Some(SpannedValue::binary(
                     [0x53, 0x6f, 0x6d, 0x65, 0x20, 0x44, 0x61, 0x74, 0x61],
                     Span::test_data(),
                 )),

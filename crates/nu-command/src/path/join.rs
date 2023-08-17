@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 use super::PathSubcommandArguments;
@@ -84,28 +84,30 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Append a filename to a path",
                 example: r"'C:\Users\viking' | path join spam.txt",
-                result: Some(Value::test_string(r"C:\Users\viking\spam.txt")),
+                result: Some(SpannedValue::test_string(r"C:\Users\viking\spam.txt")),
             },
             Example {
                 description: "Append a filename to a path",
                 example: r"'C:\Users\viking' | path join spams this_spam.txt",
-                result: Some(Value::test_string(r"C:\Users\viking\spams\this_spam.txt")),
+                result: Some(SpannedValue::test_string(
+                    r"C:\Users\viking\spams\this_spam.txt",
+                )),
             },
             Example {
                 description: "Join a list of parts into a path",
                 example: r"[ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
-                result: Some(Value::test_string(r"C:\Users\viking\spam.txt")),
+                result: Some(SpannedValue::test_string(r"C:\Users\viking\spam.txt")),
             },
             Example {
                 description: "Join a structured path into a path",
                 example: r"{ parent: 'C:\Users\viking', stem: 'spam', extension: 'txt' } | path join",
-                result: Some(Value::test_string(r"C:\Users\viking\spam.txt")),
+                result: Some(SpannedValue::test_string(r"C:\Users\viking\spam.txt")),
             },
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string(r"C:\Users\viking\spam.txt")],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_string(r"C:\Users\viking\spam.txt")],
                     span: Span::test_data(),
                 }),
             },
@@ -118,28 +120,30 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Append a filename to a path",
                 example: r"'/home/viking' | path join spam.txt",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                result: Some(SpannedValue::test_string(r"/home/viking/spam.txt")),
             },
             Example {
                 description: "Append a filename to a path",
                 example: r"'/home/viking' | path join spams this_spam.txt",
-                result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
+                result: Some(SpannedValue::test_string(
+                    r"/home/viking/spams/this_spam.txt",
+                )),
             },
             Example {
                 description: "Join a list of parts into a path",
                 example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                result: Some(SpannedValue::test_string(r"/home/viking/spam.txt")),
             },
             Example {
                 description: "Join a structured path into a path",
                 example: r"{ parent: '/home/viking', stem: 'spam', extension: 'txt' } | path join",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                result: Some(SpannedValue::test_string(r"/home/viking/spam.txt")),
             },
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string(r"/home/viking/spam.txt")],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_string(r"/home/viking/spam.txt")],
                     span: Span::test_data(),
                 }),
             },
@@ -147,32 +151,33 @@ the output of 'path parse' and 'path split' subcommands."#
     }
 }
 
-fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
+fn handle_value(v: SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
     match v {
-        Value::String { ref val, .. } => join_single(Path::new(val), head, args),
-        Value::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
-        Value::List { vals, span } => join_list(&vals, head, span, args),
+        SpannedValue::String { ref val, .. } => join_single(Path::new(val), head, args),
+        SpannedValue::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
+        SpannedValue::List { vals, span } => join_list(&vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
     }
 }
 
-fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
+fn join_single(path: &Path, head: Span, args: &Arguments) -> SpannedValue {
     let mut result = path.to_path_buf();
     for path_to_append in &args.append {
         result.push(&path_to_append.item)
     }
 
-    Value::string(result.to_string_lossy(), head)
+    SpannedValue::string(result.to_string_lossy(), head)
 }
 
-fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
-    let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
+fn join_list(parts: &[SpannedValue], head: Span, span: Span, args: &Arguments) -> SpannedValue {
+    let path: Result<PathBuf, ShellError> = parts.iter().map(SpannedValue::as_string).collect();
 
     match path {
         Ok(ref path) => join_single(path, head, args),
         Err(_) => {
-            let records: Result<Vec<_>, ShellError> = parts.iter().map(Value::as_record).collect();
+            let records: Result<Vec<_>, ShellError> =
+                parts.iter().map(SpannedValue::as_record).collect();
             match records {
                 Ok(vals) => {
                     let vals = vals
@@ -180,9 +185,9 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                         .map(|(k, v)| join_record(k, v, head, span, args))
                         .collect();
 
-                    Value::List { vals, span }
+                    SpannedValue::List { vals, span }
                 }
-                Err(_) => Value::Error {
+                Err(_) => SpannedValue::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string or record".into(),
                         dst_span: head,
@@ -194,10 +199,16 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
     }
 }
 
-fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
+fn join_record(
+    cols: &[String],
+    vals: &[SpannedValue],
+    head: Span,
+    span: Span,
+    args: &Arguments,
+) -> SpannedValue {
     match merge_record(cols, vals, head, span) {
         Ok(p) => join_single(p.as_path(), head, args),
-        Err(error) => Value::Error {
+        Err(error) => SpannedValue::Error {
             error: Box::new(error),
         },
     }
@@ -205,7 +216,7 @@ fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &A
 
 fn merge_record(
     cols: &[String],
-    vals: &[Value],
+    vals: &[SpannedValue],
     head: Span,
     span: Span,
 ) -> Result<PathBuf, ShellError> {
@@ -223,7 +234,7 @@ fn merge_record(
         }
     }
 
-    let entries: HashMap<&str, &Value> = cols.iter().map(String::as_str).zip(vals).collect();
+    let entries: HashMap<&str, &SpannedValue> = cols.iter().map(String::as_str).zip(vals).collect();
     let mut result = PathBuf::new();
 
     #[cfg(windows)]

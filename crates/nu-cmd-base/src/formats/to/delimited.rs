@@ -1,12 +1,12 @@
 use indexmap::{indexset, IndexSet};
-use nu_protocol::Value;
+use nu_protocol::SpannedValue;
 
-pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
+pub fn merge_descriptors(values: &[SpannedValue]) -> Vec<String> {
     let mut ret: Vec<String> = vec![];
     let mut seen: IndexSet<String> = indexset! {};
     for value in values {
         let data_descriptors = match value {
-            Value::Record { cols, .. } => cols.to_owned(),
+            SpannedValue::Record { cols, .. } => cols.to_owned(),
             _ => vec!["".to_string()],
         };
         for desc in data_descriptors {

@@ -4,8 +4,8 @@ use nu_protocol::{
     engine::Command,
     engine::EngineState,
     engine::Stack,
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -62,7 +62,7 @@ impl Command for SubCommand {
             Example {
                 description: "Create a link to open some file",
                 example: "'file:///file.txt' | ansi link --text 'Open Me!'",
-                result: Some(Value::string(
+                result: Some(SpannedValue::string(
                     "\u{1b}]8;;file:///file.txt\u{1b}\\Open Me!\u{1b}]8;;\u{1b}\\",
                     Span::unknown(),
                 )),
@@ -70,7 +70,7 @@ impl Command for SubCommand {
             Example {
                 description: "Create a link without text",
                 example: "'https://www.nushell.sh/' | ansi link",
-                result: Some(Value::string(
+                result: Some(SpannedValue::string(
                     "\u{1b}]8;;https://www.nushell.sh/\u{1b}\\https://www.nushell.sh/\u{1b}]8;;\u{1b}\\",
                     Span::unknown(),
                 )),
@@ -110,18 +110,18 @@ fn operate(
 }
 
 fn process_each_path(
-    mut value: Value,
+    mut value: SpannedValue,
     column_paths: &Vec<CellPath>,
     text: &Option<String>,
     command_span: Span,
-) -> Value {
+) -> SpannedValue {
     for path in column_paths {
         let ret = value.update_cell_path(
             &path.members,
             Box::new(|v| process_value(v, text, command_span)),
         );
         if let Err(error) = ret {
-            return Value::Error {
+            return SpannedValue::Error {
                 error: Box::new(error),
             };
         }
@@ -129,17 +129,17 @@ fn process_each_path(
     value
 }
 
-fn process_value(value: &Value, text: &Option<String>, command_span: Span) -> Value {
+fn process_value(value: &SpannedValue, text: &Option<String>, command_span: Span) -> SpannedValue {
     match value {
-        Value::String { val, span } => {
+        SpannedValue::String { val, span } => {
             let text = text.as_deref().unwrap_or(val.as_str());
             let result = add_osc_link(text, val.as_str());
-            Value::string(result, *span)
+            SpannedValue::string(result, *span)
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());
 
-            Value::Error {
+            SpannedValue::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
                     span: other.span().unwrap_or(command_span),

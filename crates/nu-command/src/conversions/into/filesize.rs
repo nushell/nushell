@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -79,30 +79,30 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to filesize in table",
                 example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
-                                Value::String {
+                                SpannedValue::String {
                                     val: "/dev/sda1".to_string(),
                                     span: Span::test_data(),
                                 },
-                                Value::Filesize {
+                                SpannedValue::Filesize {
                                     val: 200,
                                     span: Span::test_data(),
                                 },
                             ],
                             span: Span::test_data(),
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
-                                Value::String {
+                                SpannedValue::String {
                                     val: "/dev/loop0".to_string(),
                                     span: Span::test_data(),
                                 },
-                                Value::Filesize {
+                                SpannedValue::Filesize {
                                     val: 50,
                                     span: Span::test_data(),
                                 },
@@ -116,7 +116,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to filesize",
                 example: "'2' | into filesize",
-                result: Some(Value::Filesize {
+                result: Some(SpannedValue::Filesize {
                     val: 2,
                     span: Span::test_data(),
                 }),
@@ -124,7 +124,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert decimal to filesize",
                 example: "8.3 | into filesize",
-                result: Some(Value::Filesize {
+                result: Some(SpannedValue::Filesize {
                     val: 8,
                     span: Span::test_data(),
                 }),
@@ -132,7 +132,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert int to filesize",
                 example: "5 | into filesize",
-                result: Some(Value::Filesize {
+                result: Some(SpannedValue::Filesize {
                     val: 5,
                     span: Span::test_data(),
                 }),
@@ -140,7 +140,7 @@ impl Command for SubCommand {
             Example {
                 description: "Convert file size to filesize",
                 example: "4KB | into filesize",
-                result: Some(Value::Filesize {
+                result: Some(SpannedValue::Filesize {
                     val: 4000,
                     span: Span::test_data(),
                 }),
@@ -149,32 +149,32 @@ impl Command for SubCommand {
     }
 }
 
-pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+pub fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> SpannedValue {
     if let Ok(value_span) = input.span() {
         match input {
-            Value::Filesize { .. } => input.clone(),
-            Value::Int { val, .. } => Value::Filesize {
+            SpannedValue::Filesize { .. } => input.clone(),
+            SpannedValue::Int { val, .. } => SpannedValue::Filesize {
                 val: *val,
                 span: value_span,
             },
-            Value::Float { val, .. } => Value::Filesize {
+            SpannedValue::Float { val, .. } => SpannedValue::Filesize {
                 val: *val as i64,
                 span: value_span,
             },
-            Value::String { val, .. } => match int_from_string(val, value_span) {
-                Ok(val) => Value::Filesize {
+            SpannedValue::String { val, .. } => match int_from_string(val, value_span) {
+                Ok(val) => SpannedValue::Filesize {
                     val,
                     span: value_span,
                 },
-                Err(error) => Value::Error {
+                Err(error) => SpannedValue::Error {
                     error: Box::new(error),
                 },
             },
-            Value::Nothing { .. } => Value::Filesize {
+            SpannedValue::Nothing { .. } => SpannedValue::Filesize {
                 val: 0,
                 span: value_span,
             },
-            other => Value::Error {
+            other => SpannedValue::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),

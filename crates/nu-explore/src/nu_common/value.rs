@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_protocol::{ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
+use nu_protocol::{
+    ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, SpannedValue,
+};
 
 use super::NuSpan;
 
-pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
+pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<SpannedValue>>) {
     match input {
         PipelineData::Empty => (vec![], vec![]),
         PipelineData::Value(value, ..) => collect_input(value),
@@ -21,7 +23,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     }
 }
 
-fn collect_list_stream(mut stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
+fn collect_list_stream(mut stream: ListStream) -> (Vec<String>, Vec<Vec<SpannedValue>>) {
     let mut records = vec![];
     for item in stream.by_ref() {
         records.push(item);
@@ -47,15 +49,15 @@ fn collect_external_stream(
     exit_code: Option<ListStream>,
     metadata: Option<PipelineMetadata>,
     span: NuSpan,
-) -> (Vec<String>, Vec<Vec<Value>>) {
+) -> (Vec<String>, Vec<Vec<SpannedValue>>) {
     let mut columns = vec![];
     let mut data = vec![];
     if let Some(stdout) = stdout {
         let value = stdout.into_string().map_or_else(
-            |error| Value::Error {
+            |error| SpannedValue::Error {
                 error: Box::new(error),
             },
-            |string| Value::string(string.item, span),
+            |string| SpannedValue::string(string.item, span),
         );
 
         columns.push(String::from("stdout"));
@@ -63,10 +65,10 @@ fn collect_external_stream(
     }
     if let Some(stderr) = stderr {
         let value = stderr.into_string().map_or_else(
-            |error| Value::Error {
+            |error| SpannedValue::Error {
                 error: Box::new(error),
             },
-            |string| Value::string(string.item, span),
+            |string| SpannedValue::string(string.item, span),
         );
 
         columns.push(String::from("stderr"));
@@ -74,15 +76,15 @@ fn collect_external_stream(
     }
     if let Some(exit_code) = exit_code {
         let list = exit_code.collect::<Vec<_>>();
-        let val = Value::List { vals: list, span };
+        let val = SpannedValue::List { vals: list, span };
 
         columns.push(String::from("exit_code"));
         data.push(val);
     }
     if metadata.is_some() {
-        let val = Value::Record {
+        let val = SpannedValue::Record {
             cols: vec![String::from("data_source")],
-            vals: vec![Value::String {
+            vals: vec![SpannedValue::String {
                 val: String::from("ls"),
                 span,
             }],
@@ -96,10 +98,10 @@ fn collect_external_stream(
 }
 
 /// Try to build column names and a table grid.
-pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
+pub fn collect_input(value: SpannedValue) -> (Vec<String>, Vec<Vec<SpannedValue>>) {
     match value {
-        Value::Record { cols, vals, .. } => (cols, vec![vals]),
-        Value::List { vals, .. } => {
+        SpannedValue::Record { cols, vals, .. } => (cols, vec![vals]),
+        SpannedValue::List { vals, .. } => {
             let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
 
@@ -109,10 +111,10 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (columns, data)
         }
-        Value::String { val, span } => {
+        SpannedValue::String { val, span } => {
             let lines = val
                 .lines()
-                .map(|line| Value::String {
+                .map(|line| SpannedValue::String {
                     val: line.to_string(),
                     span,
                 })
@@ -121,19 +123,22 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
 
             (vec![String::from("")], lines)
         }
-        Value::LazyRecord { val, span } => match val.collect() {
+        SpannedValue::LazyRecord { val, span } => match val.collect() {
             Ok(value) => collect_input(value),
             Err(_) => (
                 vec![String::from("")],
-                vec![vec![Value::LazyRecord { val, span }]],
+                vec![vec![SpannedValue::LazyRecord { val, span }]],
             ),
         },
-        Value::Nothing { .. } => (vec![], vec![]),
+        SpannedValue::Nothing { .. } => (vec![], vec![]),
         value => (vec![String::from("")], vec![vec![value]]),
     }
 }
 
-fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<Value>> {
+fn convert_records_to_dataset(
+    cols: &Vec<String>,
+    records: Vec<SpannedValue>,
+) -> Vec<Vec<SpannedValue>> {
     if !cols.is_empty() {
         create_table_for_record(cols, &records)
     } else if cols.is_empty() && records.is_empty() {
@@ -151,7 +156,7 @@ fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Ve
     }
 }
 
-fn create_table_for_record(headers: &[String], items: &[Value]) -> Vec<Vec<Value>> {
+fn create_table_for_record(headers: &[String], items: &[SpannedValue]) -> Vec<Vec<SpannedValue>> {
     let mut data = vec![Vec::new(); items.len()];
 
     for (i, item) in items.iter().enumerate() {
@@ -162,8 +167,8 @@ fn create_table_for_record(headers: &[String], items: &[Value]) -> Vec<Vec<Value
     data
 }
 
-fn record_create_row(headers: &[String], item: &Value) -> Vec<Value> {
-    let mut rows = vec![Value::default(); headers.len()];
+fn record_create_row(headers: &[String], item: &SpannedValue) -> Vec<SpannedValue> {
+    let mut rows = vec![SpannedValue::default(); headers.len()];
 
     for (i, header) in headers.iter().enumerate() {
         let value = record_lookup_value(item, header);
@@ -173,9 +178,9 @@ fn record_create_row(headers: &[String], item: &Value) -> Vec<Value> {
     rows
 }
 
-fn record_lookup_value(item: &Value, header: &str) -> Value {
+fn record_lookup_value(item: &SpannedValue, header: &str) -> SpannedValue {
     match item {
-        Value::Record { .. } => {
+        SpannedValue::Record { .. } => {
             let path = PathMember::String {
                 val: header.to_owned(),
                 span: NuSpan::unknown(),
@@ -190,10 +195,10 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
     }
 }
 
-pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
+pub fn create_map(value: &SpannedValue) -> Option<HashMap<String, SpannedValue>> {
     let (cols, inner_vals) = value.as_record().ok()?;
 
-    let mut hm: HashMap<String, Value> = HashMap::new();
+    let mut hm: HashMap<String, SpannedValue> = HashMap::new();
     for (k, v) in cols.iter().zip(inner_vals) {
         hm.insert(k.to_string(), v.clone());
     }
@@ -201,7 +206,7 @@ pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
     Some(hm)
 }
 
-pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
+pub fn map_into_value(hm: HashMap<String, SpannedValue>) -> SpannedValue {
     let mut columns = Vec::with_capacity(hm.len());
     let mut values = Vec::with_capacity(hm.len());
 
@@ -210,17 +215,17 @@ pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
         values.push(value);
     }
 
-    Value::Record {
+    SpannedValue::Record {
         cols: columns,
         vals: values,
         span: NuSpan::unknown(),
     }
 }
 
-pub fn nu_str<S: AsRef<str>>(s: S) -> Value {
-    Value::string(s.as_ref().to_owned(), NuSpan::unknown())
+pub fn nu_str<S: AsRef<str>>(s: S) -> SpannedValue {
+    SpannedValue::string(s.as_ref().to_owned(), NuSpan::unknown())
 }
 
-fn unknown_error_value() -> Value {
-    Value::string(String::from("❎"), NuSpan::unknown())
+fn unknown_error_value() -> SpannedValue {
+    SpannedValue::string(String::from("❎"), NuSpan::unknown())
 }

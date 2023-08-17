@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -55,7 +55,7 @@ impl Command for ExportAlias {
         vec![Example {
             description: "Alias ll to ls -l and export it from a module",
             example: "module spam { export alias ll = ls -l }",
-            result: Some(Value::nothing(Span::test_data())),
+            result: Some(SpannedValue::nothing(Span::test_data())),
         }]
     }
 }

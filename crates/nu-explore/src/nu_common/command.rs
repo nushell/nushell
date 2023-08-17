@@ -2,12 +2,12 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Value,
+    PipelineData, ShellError, SpannedValue,
 };
 
 pub fn run_command_with_value(
     command: &str,
-    input: &Value,
+    input: &SpannedValue,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
@@ -17,7 +17,7 @@ pub fn run_command_with_value(
 
     let pipeline = PipelineData::Value(input.clone(), None);
     let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
-    if let PipelineData::Value(Value::Error { error }, ..) = pipeline {
+    if let PipelineData::Value(SpannedValue::Error { error }, ..) = pipeline {
         Err(ShellError::IOError(error.to_string()))
     } else {
         Ok(pipeline)

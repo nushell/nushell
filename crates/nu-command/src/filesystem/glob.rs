@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SpannedValue, SyntaxShape, Type,
 };
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -142,17 +142,17 @@ impl Command for Glob {
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
 
-        let (not_patterns, not_pattern_span): (Vec<String>, Span) = if let Some(Value::List {
-            vals: pats,
-            span: pat_span,
-        }) =
-            call.get_flag(engine_state, stack, "not")?
-        {
-            let p = convert_patterns(pats.as_slice(), span)?;
-            (p, pat_span)
-        } else {
-            (vec![], span)
-        };
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) =
+            if let Some(SpannedValue::List {
+                vals: pats,
+                span: pat_span,
+            }) = call.get_flag(engine_state, stack, "not")?
+            {
+                let p = convert_patterns(pats.as_slice(), span)?;
+                (p, pat_span)
+            } else {
+                (vec![], span)
+            };
 
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
@@ -226,11 +226,11 @@ impl Command for Glob {
     }
 }
 
-fn convert_patterns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_patterns(columns: &[SpannedValue], span: Span) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
-            Value::String { val: s, .. } => Ok(s.clone()),
+            SpannedValue::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
                 span: value.span().unwrap_or(span),
@@ -248,8 +248,8 @@ fn glob_to_value<'a>(
     no_files: bool,
     no_symlinks: bool,
     span: Span,
-) -> Result<Vec<Value>, ShellError> {
-    let mut result: Vec<Value> = Vec::new();
+) -> Result<Vec<SpannedValue>, ShellError> {
+    let mut result: Vec<SpannedValue> = Vec::new();
     for entry in glob_results {
         if nu_utils::ctrl_c::was_pressed(&ctrlc) {
             result.clear();
@@ -261,7 +261,7 @@ fn glob_to_value<'a>(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            result.push(Value::String {
+            result.push(SpannedValue::String {
                 val: entry.into_path().to_string_lossy().to_string(),
                 span,
             });

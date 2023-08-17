@@ -1,6 +1,6 @@
 use crate::{color_config::lookup_ansi_color_style, color_record_to_nustyle};
 use nu_ansi_term::{Color, Style};
-use nu_protocol::{Config, Value};
+use nu_protocol::{Config, SpannedValue};
 
 // The default colors for shapes, used when there is no config for them.
 pub fn default_shape_color(shape: String) -> Style {
@@ -48,8 +48,8 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
         Some(int_color) => {
             // Shapes do not use color_config closures, currently.
             match int_color {
-                Value::Record { .. } => color_record_to_nustyle(int_color),
-                Value::String { val, .. } => lookup_ansi_color_style(val),
+                SpannedValue::Record { .. } => color_record_to_nustyle(int_color),
+                SpannedValue::String { val, .. } => lookup_ansi_color_style(val),
                 // Defer to the default in the event of incorrect types being given
                 // (i.e. treat null, etc. as the value being unset)
                 _ => default_shape_color(shape),

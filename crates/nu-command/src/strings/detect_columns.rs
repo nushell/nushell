@@ -7,7 +7,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Span, Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -63,17 +63,17 @@ impl Command for DetectColumns {
             Example {
                 description: "Splits string across multiple columns",
                 example: "'a b c' | detect columns -n",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec![
                             "column0".to_string(),
                             "column1".to_string(),
                             "column2".to_string(),
                         ],
                         vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
+                            SpannedValue::test_string("a"),
+                            SpannedValue::test_string("b"),
+                            SpannedValue::test_string("c"),
                         ],
                         span,
                     }],
@@ -151,7 +151,7 @@ fn detect_columns(
             if headers.len() == row.len() {
                 for (header, val) in headers.iter().zip(row.iter()) {
                     cols.push(header.item.clone());
-                    vals.push(Value::String {
+                    vals.push(SpannedValue::String {
                         val: val.item.clone(),
                         span: name_span,
                     });
@@ -165,7 +165,7 @@ fn detect_columns(
                         if cell.span.start <= header.span.end && cell.span.end > header.span.start {
                             pre_output.push((
                                 header.item.to_string(),
-                                Value::string(&cell.item, name_span),
+                                SpannedValue::string(&cell.item, name_span),
                             ));
                         }
                     }
@@ -181,7 +181,8 @@ fn detect_columns(
                     }
 
                     if !found {
-                        pre_output.push((header.item.to_string(), Value::nothing(name_span)));
+                        pre_output
+                            .push((header.item.to_string(), SpannedValue::nothing(name_span)));
                     }
                 }
 
@@ -211,7 +212,7 @@ fn detect_columns(
                         };
 
                         if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
-                            return Value::Record {
+                            return SpannedValue::Record {
                                 cols,
                                 vals,
                                 span: name_span,
@@ -222,13 +223,13 @@ fn detect_columns(
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find range index", name_span);
-                        return Value::Error {
+                        return SpannedValue::Error {
                             error: Box::new(err),
                         };
                     }
                 }
             } else {
-                return Value::Record {
+                return SpannedValue::Record {
                     cols,
                     vals,
                     span: name_span,
@@ -248,13 +249,13 @@ fn detect_columns(
                 .skip(start_index)
                 .map(|v| v.as_string().unwrap_or(String::default()))
                 .join(" ");
-            let binding = Value::string(combined, Span::unknown());
+            let binding = SpannedValue::string(combined, Span::unknown());
             let last_seg = vals.split_off(end_index);
             vals.truncate(start_index);
             vals.push(binding);
             last_seg.into_iter().for_each(|v| vals.push(v));
 
-            Value::Record {
+            SpannedValue::Record {
                 cols,
                 vals,
                 span: name_span,

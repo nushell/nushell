@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -35,7 +37,7 @@ impl Command for FromUrl {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
             description: "Convert url encoded string into a record",
-            result: Some(Value::Record {
+            result: Some(SpannedValue::Record {
                 cols: vec![
                     "bread".to_string(),
                     "cheese".to_string(),
@@ -43,10 +45,10 @@ impl Command for FromUrl {
                     "fat".to_string(),
                 ],
                 vals: vec![
-                    Value::test_string("baguette"),
-                    Value::test_string("comté"),
-                    Value::test_string("ham"),
-                    Value::test_string("butter"),
+                    SpannedValue::test_string("baguette"),
+                    SpannedValue::test_string("comté"),
+                    SpannedValue::test_string("ham"),
+                    SpannedValue::test_string("butter"),
                 ],
                 span: Span::test_data(),
             }),
@@ -65,11 +67,11 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
             let mut vals = vec![];
             for (k, v) in result {
                 cols.push(k);
-                vals.push(Value::String { val: v, span: head })
+                vals.push(SpannedValue::String { val: v, span: head })
             }
 
             Ok(PipelineData::Value(
-                Value::Record {
+                SpannedValue::Record {
                     cols,
                     vals,
                     span: head,

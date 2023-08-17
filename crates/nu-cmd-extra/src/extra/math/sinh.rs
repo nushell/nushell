@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -54,27 +56,27 @@ impl Command for SubCommand {
         vec![Example {
             description: "Apply the hyperbolic sine to 1",
             example: "1 | math sinh",
-            result: Some(Value::test_float((e * e - 1.0) / (2.0 * e))),
+            result: Some(SpannedValue::test_float((e * e - 1.0) / (2.0 * e))),
         }]
     }
 }
 
-fn operate(value: Value, head: Span) -> Value {
+fn operate(value: SpannedValue, head: Span) -> SpannedValue {
     match value {
-        numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+        numeric @ (SpannedValue::Int { .. } | SpannedValue::Float { .. }) => {
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                SpannedValue::Int { val, span } => (val as f64, span),
+                SpannedValue::Float { val, span } => (val, span),
                 _ => unreachable!(),
             };
 
-            Value::Float {
+            SpannedValue::Float {
                 val: val.sinh(),
                 span,
             }
         }
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 use reedline::get_reedline_default_keybindings;
 
@@ -41,27 +41,27 @@ impl Command for KeybindingsDefault {
         let records = get_reedline_default_keybindings()
             .into_iter()
             .map(|(mode, modifier, code, event)| {
-                let mode = Value::String {
+                let mode = SpannedValue::String {
                     val: mode,
                     span: call.head,
                 };
 
-                let modifier = Value::String {
+                let modifier = SpannedValue::String {
                     val: modifier,
                     span: call.head,
                 };
 
-                let code = Value::String {
+                let code = SpannedValue::String {
                     val: code,
                     span: call.head,
                 };
 
-                let event = Value::String {
+                let event = SpannedValue::String {
                     val: event,
                     span: call.head,
                 };
 
-                Value::Record {
+                SpannedValue::Record {
                     cols: vec![
                         "mode".to_string(),
                         "modifier".to_string(),
@@ -74,7 +74,7 @@ impl Command for KeybindingsDefault {
             })
             .collect();
 
-        Ok(Value::List {
+        Ok(SpannedValue::List {
             vals: records,
             span: call.head,
         }

@@ -3,8 +3,8 @@ use std::time::Duration;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -86,19 +86,19 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
         let mut vals = vec![];
 
         cols.push("pid".to_string());
-        vals.push(Value::Int {
+        vals.push(SpannedValue::Int {
             val: proc.pid() as i64,
             span,
         });
 
         cols.push("ppid".to_string());
-        vals.push(Value::Int {
+        vals.push(SpannedValue::Int {
             val: proc.ppid() as i64,
             span,
         });
 
         cols.push("name".to_string());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: proc.name(),
             span,
         });
@@ -107,56 +107,56 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
         {
             // Hide status on Windows until we can find a good way to support it
             cols.push("status".to_string());
-            vals.push(Value::String {
+            vals.push(SpannedValue::String {
                 val: proc.status(),
                 span,
             });
         }
 
         cols.push("cpu".to_string());
-        vals.push(Value::Float {
+        vals.push(SpannedValue::Float {
             val: proc.cpu_usage(),
             span,
         });
 
         cols.push("mem".to_string());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: proc.mem_size() as i64,
             span,
         });
 
         cols.push("virtual".to_string());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: proc.virtual_size() as i64,
             span,
         });
 
         if long {
             cols.push("command".to_string());
-            vals.push(Value::String {
+            vals.push(SpannedValue::String {
                 val: proc.command(),
                 span,
             });
             #[cfg(windows)]
             {
                 cols.push("cwd".to_string());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: proc.cwd(),
                     span,
                 });
                 cols.push("environment".to_string());
-                vals.push(Value::List {
+                vals.push(SpannedValue::List {
                     vals: proc
                         .environ()
                         .iter()
-                        .map(|x| Value::string(x.to_string(), span))
+                        .map(|x| SpannedValue::string(x.to_string(), span))
                         .collect(),
                     span,
                 });
             }
         }
 
-        output.push(Value::Record { cols, vals, span });
+        output.push(SpannedValue::Record { cols, vals, span });
     }
 
     Ok(output

@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 #[derive(Clone)]
@@ -27,9 +28,9 @@ impl Command for FromToml {
             Example {
                 example: "'a = 1' | from toml",
                 description: "Converts toml formatted string to record",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::test_int(1)],
+                    vals: vec![SpannedValue::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
@@ -37,12 +38,12 @@ impl Command for FromToml {
                 example: "'a = 1
 b = [1, 2]' | from toml",
                 description: "Converts toml formatted string to record",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::test_int(1),
-                        Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                        SpannedValue::test_int(1),
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],
@@ -66,19 +67,19 @@ b = [1, 2]' | from toml",
     }
 }
 
-fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
+fn convert_toml_to_value(value: &toml::Value, span: Span) -> SpannedValue {
     match value {
         toml::Value::Array(array) => {
-            let v: Vec<Value> = array
+            let v: Vec<SpannedValue> = array
                 .iter()
                 .map(|x| convert_toml_to_value(x, span))
                 .collect();
 
-            Value::List { vals: v, span }
+            SpannedValue::List { vals: v, span }
         }
-        toml::Value::Boolean(b) => Value::Bool { val: *b, span },
-        toml::Value::Float(f) => Value::Float { val: *f, span },
-        toml::Value::Integer(i) => Value::Int { val: *i, span },
+        toml::Value::Boolean(b) => SpannedValue::Bool { val: *b, span },
+        toml::Value::Float(f) => SpannedValue::Float { val: *f, span },
+        toml::Value::Integer(i) => SpannedValue::Int { val: *i, span },
         toml::Value::Table(k) => {
             let mut cols = vec![];
             let mut vals = vec![];
@@ -88,20 +89,23 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
                 vals.push(convert_toml_to_value(item.1, span));
             }
 
-            Value::Record { cols, vals, span }
+            SpannedValue::Record { cols, vals, span }
         }
-        toml::Value::String(s) => Value::String {
+        toml::Value::String(s) => SpannedValue::String {
             val: s.clone(),
             span,
         },
-        toml::Value::Datetime(d) => Value::String {
+        toml::Value::Datetime(d) => SpannedValue::String {
             val: d.to_string(),
             span,
         },
     }
 }
 
-pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
+pub fn convert_string_to_value(
+    string_input: String,
+    span: Span,
+) -> Result<SpannedValue, ShellError> {
     let result: Result<toml::Value, toml::de::Error> = toml::from_str(&string_input);
     match result {
         Ok(value) => Ok(convert_toml_to_value(&value, span)),

@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 #[derive(Clone)]
@@ -47,7 +48,7 @@ impl Command for SubCommand {
             "illust_id": "99260204"
         }
     } | url join"#,
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=99260204",
                 )),
             },
@@ -62,7 +63,7 @@ impl Command for SubCommand {
         "query": "test=a",
         "fragment": ""
     } | url join"#,
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     "http://user:pwd@www.pixiv.net:1234?test=a",
                 )),
             },
@@ -75,7 +76,9 @@ impl Command for SubCommand {
         "path": "user",
         "fragment": "frag"
     } | url join"#,
-                result: Some(Value::test_string("http://www.pixiv.net:1234/user#frag")),
+                result: Some(SpannedValue::test_string(
+                    "http://www.pixiv.net:1234/user#frag",
+                )),
             },
         ]
     }
@@ -92,7 +95,7 @@ impl Command for SubCommand {
         let output: Result<String, ShellError> = input
             .into_iter()
             .map(move |value| match value {
-                Value::Record {
+                SpannedValue::Record {
                     ref cols,
                     ref vals,
                     span,
@@ -106,7 +109,7 @@ impl Command for SubCommand {
 
                     url_components?.to_url(span)
                 }
-                Value::Error { error } => Err(*error),
+                SpannedValue::Error { error } => Err(*error),
                 other => Err(ShellError::UnsupportedInput(
                     "Expected a record from pipeline".to_string(),
                     "value originates from here".into(),
@@ -116,7 +119,7 @@ impl Command for SubCommand {
             })
             .collect();
 
-        Ok(Value::string(output?, head).into_pipeline_data())
+        Ok(SpannedValue::string(output?, head).into_pipeline_data())
     }
 }
 
@@ -139,10 +142,15 @@ impl UrlComponents {
         Default::default()
     }
 
-    pub fn add_component(self, key: String, value: Value, _span: Span) -> Result<Self, ShellError> {
+    pub fn add_component(
+        self,
+        key: String,
+        value: SpannedValue,
+        _span: Span,
+    ) -> Result<Self, ShellError> {
         if key == "port" {
             return match value {
-                Value::String { val, span } => {
+                SpannedValue::String { val, span } => {
                     if val.trim().is_empty() {
                         Ok(self)
                     } else {
@@ -160,11 +168,11 @@ impl UrlComponents {
                         }
                     }
                 }
-                Value::Int { val, span: _ } => Ok(Self {
+                SpannedValue::Int { val, span: _ } => Ok(Self {
                     port: Some(val),
                     ..self
                 }),
-                Value::Error { error } => Err(*error),
+                SpannedValue::Error { error } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from(
                         "Port parameter should be an unsigned integer or a string representing it",
@@ -176,7 +184,7 @@ impl UrlComponents {
 
         if key == "params" {
             return match value {
-                Value::Record {
+                SpannedValue::Record {
                     ref cols,
                     ref vals,
                     span,
@@ -215,7 +223,7 @@ impl UrlComponents {
                         ..self
                     })
                 }
-                Value::Error { error } => Err(*error),
+                SpannedValue::Error { error } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from("Key params has to be a record"),
                     span: other.expect_span(),

@@ -3,8 +3,8 @@ use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SpannedValue, Type,
 };
 use serde::de::Deserialize;
 
@@ -80,7 +80,7 @@ fn convert_yaml_value_to_nu_value(
     v: &serde_yaml::Value,
     span: Span,
     val_span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     let err_not_compatible_number = ShellError::UnsupportedInput(
         "Expected a nu-compatible number in YAML input".to_string(),
         "value originates from here".into(),
@@ -88,25 +88,25 @@ fn convert_yaml_value_to_nu_value(
         val_span,
     );
     Ok(match v {
-        serde_yaml::Value::Bool(b) => Value::Bool { val: *b, span },
-        serde_yaml::Value::Number(n) if n.is_i64() => Value::Int {
+        serde_yaml::Value::Bool(b) => SpannedValue::Bool { val: *b, span },
+        serde_yaml::Value::Number(n) if n.is_i64() => SpannedValue::Int {
             val: n.as_i64().ok_or(err_not_compatible_number)?,
             span,
         },
-        serde_yaml::Value::Number(n) if n.is_f64() => Value::Float {
+        serde_yaml::Value::Number(n) if n.is_f64() => SpannedValue::Float {
             val: n.as_f64().ok_or(err_not_compatible_number)?,
             span,
         },
-        serde_yaml::Value::String(s) => Value::String {
+        serde_yaml::Value::String(s) => SpannedValue::String {
             val: s.to_string(),
             span,
         },
         serde_yaml::Value::Sequence(a) => {
-            let result: Result<Vec<Value>, ShellError> = a
+            let result: Result<Vec<SpannedValue>, ShellError> = a
                 .iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
                 .collect();
-            Value::List {
+            SpannedValue::List {
                 vals: result?,
                 span,
             }
@@ -158,7 +158,7 @@ fn convert_yaml_value_to_nu_value(
                             .first()
                             .and_then(|e| match e {
                                 (serde_yaml::Value::String(s), serde_yaml::Value::Null) => {
-                                    Some(Value::String {
+                                    Some(SpannedValue::String {
                                         val: "{{ ".to_owned() + s.as_str() + " }}",
                                         span,
                                     })
@@ -173,33 +173,33 @@ fn convert_yaml_value_to_nu_value(
                 }
             }
 
-            Value::from(collected)
+            SpannedValue::from(collected)
         }
         serde_yaml::Value::Tagged(t) => {
             let tag = &t.tag;
             let value = match &t.value {
                 serde_yaml::Value::String(s) => {
                     let val = format!("{} {}", tag, s).trim().to_string();
-                    Value::String { val, span }
+                    SpannedValue::String { val, span }
                 }
                 serde_yaml::Value::Number(n) => {
                     let val = format!("{} {}", tag, n).trim().to_string();
-                    Value::String { val, span }
+                    SpannedValue::String { val, span }
                 }
                 serde_yaml::Value::Bool(b) => {
                     let val = format!("{} {}", tag, b).trim().to_string();
-                    Value::String { val, span }
+                    SpannedValue::String { val, span }
                 }
                 serde_yaml::Value::Null => {
                     let val = format!("{}", tag).trim().to_string();
-                    Value::String { val, span }
+                    SpannedValue::String { val, span }
                 }
                 v => convert_yaml_value_to_nu_value(v, span, val_span)?,
             };
 
             value
         }
-        serde_yaml::Value::Null => Value::nothing(span),
+        serde_yaml::Value::Null => SpannedValue::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
     })
 }
@@ -208,7 +208,7 @@ pub fn from_yaml_string_to_value(
     s: String,
     span: Span,
     val_span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     let mut documents = vec![];
 
     for document in serde_yaml::Deserializer::from_str(&s) {
@@ -224,9 +224,9 @@ pub fn from_yaml_string_to_value(
     }
 
     match documents.len() {
-        0 => Ok(Value::nothing(span)),
+        0 => Ok(SpannedValue::nothing(span)),
         1 => Ok(documents.remove(0)),
-        _ => Ok(Value::List {
+        _ => Ok(SpannedValue::List {
             vals: documents,
             span,
         }),
@@ -238,26 +238,26 @@ pub fn get_examples() -> Vec<Example<'static>> {
         Example {
             example: "'a: 1' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::Record {
+            result: Some(SpannedValue::Record {
                 cols: vec!["a".to_string()],
-                vals: vec![Value::test_int(1)],
+                vals: vec![SpannedValue::test_int(1)],
                 span: Span::test_data(),
             }),
         },
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::List {
+            result: Some(SpannedValue::List {
                 vals: vec![
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(1)],
+                        vals: vec![SpannedValue::test_int(1)],
                         span: Span::test_data(),
                     },
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: vec!["b".to_string()],
-                        vals: vec![Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                        vals: vec![SpannedValue::List {
+                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                             span: Span::test_data(),
                         }],
                         span: Span::test_data(),
@@ -288,24 +288,24 @@ mod test {
         struct TestCase {
             description: &'static str,
             input: &'static str,
-            expected: Result<Value, ShellError>,
+            expected: Result<SpannedValue, ShellError>,
         }
         let tt: Vec<TestCase> = vec![
             TestCase {
                 description: "Double Curly Braces With Quotes",
                 input: r#"value: "{{ something }}""#,
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["value".to_string()],
-                    vals: vec![Value::test_string("{{ something }}")],
+                    vals: vec![SpannedValue::test_string("{{ something }}")],
                     span: Span::test_data(),
                 }),
             },
             TestCase {
                 description: "Double Curly Braces Without Quotes",
                 input: r#"value: {{ something }}"#,
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["value".to_string()],
-                    vals: vec![Value::test_string("{{ something }}")],
+                    vals: vec![SpannedValue::test_string("{{ something }}")],
                     span: Span::test_data(),
                 }),
             },
@@ -357,16 +357,22 @@ mod test {
                 Span::test_data(),
             );
 
-            let expected: Result<Value, ShellError> = Ok(Value::List {
+            let expected: Result<SpannedValue, ShellError> = Ok(SpannedValue::List {
                 vals: vec![
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_string("b"), Value::test_string("c")],
+                        vals: vec![
+                            SpannedValue::test_string("b"),
+                            SpannedValue::test_string("c"),
+                        ],
                         span: Span::test_data(),
                     },
-                    Value::Record {
+                    SpannedValue::Record {
                         cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_string("g"), Value::test_string("h")],
+                        vals: vec![
+                            SpannedValue::test_string("g"),
+                            SpannedValue::test_string("h"),
+                        ],
                         span: Span::test_data(),
                     },
                 ],
@@ -406,47 +412,47 @@ mod test {
     fn test_convert_yaml_value_to_nu_value_for_tagged_values() {
         struct TestCase {
             input: &'static str,
-            expected: Result<Value, ShellError>,
+            expected: Result<SpannedValue, ShellError>,
         }
 
         let test_cases: Vec<TestCase> = vec![
             TestCase {
                 input: "Key: !Value ${TEST}-Test-role",
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value ${TEST}-Test-role")],
+                    vals: vec![SpannedValue::test_string("!Value ${TEST}-Test-role")],
                     span: Span::test_data(),
                 }),
             },
             TestCase {
                 input: "Key: !Value test-${TEST}",
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value test-${TEST}")],
+                    vals: vec![SpannedValue::test_string("!Value test-${TEST}")],
                     span: Span::test_data(),
                 }),
             },
             TestCase {
                 input: "Key: !Value",
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value")],
+                    vals: vec![SpannedValue::test_string("!Value")],
                     span: Span::test_data(),
                 }),
             },
             TestCase {
                 input: "Key: !True",
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!True")],
+                    vals: vec![SpannedValue::test_string("!True")],
                     span: Span::test_data(),
                 }),
             },
             TestCase {
                 input: "Key: !123",
-                expected: Ok(Value::Record {
+                expected: Ok(SpannedValue::Record {
                     cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!123")],
+                    vals: vec![SpannedValue::test_string("!123")],
                     span: Span::test_data(),
                 }),
             },

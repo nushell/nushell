@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -99,7 +99,7 @@ not supported."#
                             None
                         }
                     }
-                    Err(err) => Some(Value::Error {
+                    Err(err) => Some(SpannedValue::Error {
                         error: Box::new(err),
                     }),
                 }
@@ -113,10 +113,10 @@ not supported."#
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(2)],
+                        vals: vec![SpannedValue::test_int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -125,8 +125,8 @@ not supported."#
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(2)],
                     span: Span::test_data(),
                 }),
             },

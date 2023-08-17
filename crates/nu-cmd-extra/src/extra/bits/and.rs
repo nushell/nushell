@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -63,13 +63,17 @@ impl Command for BitsAnd {
             Example {
                 description: "Apply bits and to two numbers",
                 example: "2 | bits and 2",
-                result: Some(Value::test_int(2)),
+                result: Some(SpannedValue::test_int(2)),
             },
             Example {
                 description: "Apply logical and to a list of numbers",
                 example: "[4 3 2] | bits and 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_int(0),
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(2),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -77,15 +81,15 @@ impl Command for BitsAnd {
     }
 }
 
-fn operate(value: Value, target: i64, head: Span) -> Value {
+fn operate(value: SpannedValue, target: i64, head: Span) -> SpannedValue {
     match value {
-        Value::Int { val, span } => Value::Int {
+        SpannedValue::Int { val, span } => SpannedValue::Int {
             val: val & target,
             span,
         },
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),

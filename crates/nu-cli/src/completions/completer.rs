@@ -7,7 +7,7 @@ use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     ast::PipelineElement,
     engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, PipelineData, Span, Value,
+    BlockId, PipelineData, Span, SpannedValue,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::str;
@@ -74,10 +74,10 @@ impl NuCompleter {
             if let Some(var_id) = pos_arg.var_id {
                 callee_stack.add_var(
                     var_id,
-                    Value::List {
+                    SpannedValue::List {
                         vals: spans
                             .iter()
-                            .map(|it| Value::string(it, Span::unknown()))
+                            .map(|it| SpannedValue::string(it, Span::unknown()))
                             .collect(),
                         span: Span::unknown(),
                     },
@@ -97,7 +97,7 @@ impl NuCompleter {
         match result {
             Ok(pd) => {
                 let value = pd.into_value(span);
-                if let Value::List { vals, span: _ } = value {
+                if let SpannedValue::List { vals, span: _ } = value {
                     let result =
                         map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
 
@@ -434,7 +434,7 @@ fn most_left_variable(
 }
 
 pub fn map_value_completions<'a>(
-    list: impl Iterator<Item = &'a Value>,
+    list: impl Iterator<Item = &'a SpannedValue>,
     span: Span,
     offset: usize,
 ) -> Vec<Suggestion> {

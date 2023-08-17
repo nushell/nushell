@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    ParseError, Span, Value,
+    ParseError, Span, SpannedValue,
 };
 
 /// Evaluate a constant value at parse time
@@ -10,16 +10,16 @@ use nu_protocol::{
 pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
-) -> Result<Value, ParseError> {
+) -> Result<SpannedValue, ParseError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
-        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
-        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::Binary {
+        Expr::Bool(b) => Ok(SpannedValue::bool(*b, expr.span)),
+        Expr::Int(i) => Ok(SpannedValue::int(*i, expr.span)),
+        Expr::Float(f) => Ok(SpannedValue::float(*f, expr.span)),
+        Expr::Binary(b) => Ok(SpannedValue::Binary {
             val: b.clone(),
             span: expr.span,
         }),
-        Expr::Filepath(path) => Ok(Value::String {
+        Expr::Filepath(path) => Ok(SpannedValue::String {
             val: path.clone(),
             span: expr.span,
         }),
@@ -27,7 +27,7 @@ pub fn eval_constant(
             Some(val) => Ok(val.clone()),
             None => Err(ParseError::NotAConstant(expr.span)),
         },
-        Expr::CellPath(cell_path) => Ok(Value::CellPath {
+        Expr::CellPath(cell_path) => Ok(SpannedValue::CellPath {
             val: cell_path.clone(),
             span: expr.span,
         }),
@@ -44,7 +44,7 @@ pub fn eval_constant(
                 )),
             }
         }
-        Expr::DateTime(dt) => Ok(Value::Date {
+        Expr::DateTime(dt) => Ok(SpannedValue::Date {
             val: *dt,
             span: expr.span,
         }),
@@ -53,7 +53,7 @@ pub fn eval_constant(
             for expr in x {
                 output.push(eval_constant(working_set, expr)?);
             }
-            Ok(Value::List {
+            Ok(SpannedValue::List {
                 vals: output,
                 span: expr.span,
             })
@@ -76,7 +76,7 @@ pub fn eval_constant(
                 }
             }
 
-            Ok(Value::Record {
+            Ok(SpannedValue::Record {
                 cols,
                 vals,
                 span: expr.span,
@@ -97,25 +97,25 @@ pub fn eval_constant(
                 for expr in val {
                     row.push(eval_constant(working_set, expr)?);
                 }
-                output_rows.push(Value::Record {
+                output_rows.push(SpannedValue::Record {
                     cols: output_headers.clone(),
                     vals: row,
                     span: expr.span,
                 });
             }
-            Ok(Value::List {
+            Ok(SpannedValue::List {
                 vals: output_rows,
                 span: expr.span,
             })
         }
         Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
-        Expr::String(s) => Ok(Value::String {
+        Expr::String(s) => Ok(SpannedValue::String {
             val: s.clone(),
             span: expr.span,
         }),
-        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::Nothing => Ok(SpannedValue::Nothing { span: expr.span }),
         Expr::ValueWithUnit(expr, unit) => {
-            if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
+            if let Ok(SpannedValue::Int { val, .. }) = eval_constant(working_set, expr) {
                 Ok(unit.item.to_value(val, unit.span))
             } else {
                 Err(ParseError::NotAConstant(expr.span))
@@ -126,9 +126,9 @@ pub fn eval_constant(
 }
 
 /// Get the value as a string
-pub fn value_as_string(value: Value, span: Span) -> Result<String, ParseError> {
+pub fn value_as_string(value: SpannedValue, span: Span) -> Result<String, ParseError> {
     match value {
-        Value::String { val, .. } => Ok(val),
+        SpannedValue::String { val, .. } => Ok(val),
         _ => Err(ParseError::NotAConstant(span)),
     }
 }

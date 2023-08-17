@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -88,17 +88,17 @@ impl Command for Ast {
             };
 
             // Create a new output record, merging the block and error
-            let output_record = Value::Record {
+            let output_record = SpannedValue::Record {
                 cols: vec!["block".to_string(), "error".to_string()],
                 vals: vec![
-                    Value::string(block_json, *block_span),
-                    Value::string(error_json, Span::test_data()),
+                    SpannedValue::string(block_json, *block_span),
+                    SpannedValue::string(error_json, Span::test_data()),
                 ],
                 span: pipeline.span,
             };
             Ok(output_record.into_pipeline_data())
         } else {
-            let block_value = Value::String {
+            let block_value = SpannedValue::String {
                 val: if minify {
                     format!("{block_output:?}")
                 } else {
@@ -106,7 +106,7 @@ impl Command for Ast {
                 },
                 span: pipeline.span,
             };
-            let error_value = Value::String {
+            let error_value = SpannedValue::String {
                 val: if minify {
                     format!("{error_output:?}")
                 } else {
@@ -114,7 +114,7 @@ impl Command for Ast {
                 },
                 span: pipeline.span,
             };
-            let output_record = Value::Record {
+            let output_record = SpannedValue::Record {
                 cols: vec!["block".to_string(), "error".to_string()],
                 vals: vec![block_value, error_value],
                 span: pipeline.span,

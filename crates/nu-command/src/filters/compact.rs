@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -54,7 +54,7 @@ impl Command for Compact {
             Example {
                 description: "Filter out all records where 'Hello' is null (returns nothing)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact Hello"#,
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![],
                     span: Span::test_data(),
                 }),
@@ -62,10 +62,13 @@ impl Command for Compact {
             Example {
                 description: "Filter out all records where 'World' is null (Returns the table)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["Hello".into(), "World".into()],
-                        vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
+                        vals: vec![
+                            SpannedValue::nothing(Span::test_data()),
+                            SpannedValue::test_int(3),
+                        ],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -74,8 +77,8 @@ impl Command for Compact {
             Example {
                 description: "Filter out all instances of nothing from a list (Returns [1,2])",
                 example: r#"[1, null, 2] | compact"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
@@ -96,13 +99,13 @@ pub fn compact(
             move |item| {
                 match item {
                     // Nothing is filtered out
-                    Value::Nothing { .. } => false,
-                    Value::Record { .. } => {
+                    SpannedValue::Nothing { .. } => false,
+                    SpannedValue::Record { .. } => {
                         for column in columns.iter() {
                             match item.get_data_by_key(column) {
                                 None => return false,
                                 Some(x) => {
-                                    if let Value::Nothing { .. } = x {
+                                    if let SpannedValue::Nothing { .. } = x {
                                         return false;
                                     }
                                 }

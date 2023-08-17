@@ -1,8 +1,8 @@
 use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Range, ShellError, Signature, Span, Type,
-    Unit, Value,
+    Category, Example, IntoPipelineData, PipelineData, Range, ShellError, Signature, Span,
+    SpannedValue, Type, Unit,
 };
 #[derive(Clone)]
 pub struct FromNuon;
@@ -27,21 +27,21 @@ impl Command for FromNuon {
             Example {
                 example: "'{ a:1 }' | from nuon",
                 description: "Converts nuon formatted string to table",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["a".to_string()],
-                    vals: vec![Value::test_int(1)],
+                    vals: vec![SpannedValue::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "'{ a:1, b: [1, 2] }' | from nuon",
                 description: "Converts nuon formatted string to table",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::test_int(1),
-                        Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
+                        SpannedValue::test_int(1),
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                             span: Span::test_data(),
                         },
                     ],
@@ -182,7 +182,7 @@ fn convert_to_value(
     expr: Expression,
     span: Span,
     original_text: &str,
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     match expr.expr {
         Expr::BinaryOp(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
@@ -208,8 +208,8 @@ fn convert_to_value(
             "closures not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Binary(val) => Ok(Value::Binary { val, span }),
-        Expr::Bool(val) => Ok(Value::Bool { val, span }),
+        Expr::Binary(val) => Ok(SpannedValue::Binary { val, span }),
+        Expr::Bool(val) => Ok(SpannedValue::Bool { val, span }),
         Expr::Call(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -222,16 +222,16 @@ fn convert_to_value(
             "subexpressions and cellpaths not supported in nuon".into(),
             expr.span,
         )),
-        Expr::DateTime(dt) => Ok(Value::Date { val: dt, span }),
+        Expr::DateTime(dt) => Ok(SpannedValue::Date { val: dt, span }),
         Expr::ExternalCall(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
             "calls not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Filepath(val) => Ok(Value::String { val, span }),
-        Expr::Directory(val) => Ok(Value::String { val, span }),
-        Expr::Float(val) => Ok(Value::Float { val, span }),
+        Expr::Filepath(val) => Ok(SpannedValue::String { val, span }),
+        Expr::Directory(val) => Ok(SpannedValue::String { val, span }),
+        Expr::Float(val) => Ok(SpannedValue::Float { val, span }),
         Expr::FullCellPath(full_cell_path) => {
             if !full_cell_path.tail.is_empty() {
                 Err(ShellError::OutsideSpannedLabeledError(
@@ -257,7 +257,7 @@ fn convert_to_value(
             "extra tokens in input file".into(),
             expr.span,
         )),
-        Expr::GlobPattern(val) => Ok(Value::String { val, span }),
+        Expr::GlobPattern(val) => Ok(SpannedValue::String { val, span }),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -270,7 +270,7 @@ fn convert_to_value(
             "overlays not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Int(val) => Ok(Value::Int { val, span }),
+        Expr::Int(val) => Ok(SpannedValue::Int { val, span }),
         Expr::Keyword(kw, ..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -283,7 +283,7 @@ fn convert_to_value(
                 output.push(convert_to_value(val, span, original_text)?);
             }
 
-            Ok(Value::List { vals: output, span })
+            Ok(SpannedValue::List { vals: output, span })
         }
         Expr::MatchBlock(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
@@ -291,7 +291,7 @@ fn convert_to_value(
             "match blocks not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Nothing => Ok(Value::Nothing { span }),
+        Expr::Nothing => Ok(SpannedValue::Nothing { span }),
         Expr::Operator(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -302,22 +302,22 @@ fn convert_to_value(
             let from = if let Some(f) = from {
                 convert_to_value(*f, span, original_text)?
             } else {
-                Value::Nothing { span: expr.span }
+                SpannedValue::Nothing { span: expr.span }
             };
 
             let next = if let Some(s) = next {
                 convert_to_value(*s, span, original_text)?
             } else {
-                Value::Nothing { span: expr.span }
+                SpannedValue::Nothing { span: expr.span }
             };
 
             let to = if let Some(t) = to {
                 convert_to_value(*t, span, original_text)?
             } else {
-                Value::Nothing { span: expr.span }
+                SpannedValue::Nothing { span: expr.span }
             };
 
-            Ok(Value::Range {
+            Ok(SpannedValue::Range {
                 val: Box::new(Range::new(expr.span, from, next, to, &operator)?),
                 span: expr.span,
             })
@@ -345,7 +345,7 @@ fn convert_to_value(
                 vals.push(value);
             }
 
-            Ok(Value::Record { cols, vals, span })
+            Ok(SpannedValue::Record { cols, vals, span })
         }
         Expr::RowCondition(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
@@ -359,7 +359,7 @@ fn convert_to_value(
             "signatures not supported in nuon".into(),
             expr.span,
         )),
-        Expr::String(s) => Ok(Value::String { val: s, span }),
+        Expr::String(s) => Ok(SpannedValue::String { val: s, span }),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -409,14 +409,14 @@ fn convert_to_value(
                     ));
                 }
 
-                output.push(Value::Record {
+                output.push(SpannedValue::Record {
                     cols: cols.clone(),
                     vals,
                     span,
                 });
             }
 
-            Ok(Value::List { vals: output, span })
+            Ok(SpannedValue::List { vals: output, span })
         }
         Expr::ValueWithUnit(val, unit) => {
             let size = match val.expr {
@@ -432,80 +432,80 @@ fn convert_to_value(
             };
 
             match unit.item {
-                Unit::Byte => Ok(Value::Filesize { val: size, span }),
-                Unit::Kilobyte => Ok(Value::Filesize {
+                Unit::Byte => Ok(SpannedValue::Filesize { val: size, span }),
+                Unit::Kilobyte => Ok(SpannedValue::Filesize {
                     val: size * 1000,
                     span,
                 }),
-                Unit::Megabyte => Ok(Value::Filesize {
+                Unit::Megabyte => Ok(SpannedValue::Filesize {
                     val: size * 1000 * 1000,
                     span,
                 }),
-                Unit::Gigabyte => Ok(Value::Filesize {
+                Unit::Gigabyte => Ok(SpannedValue::Filesize {
                     val: size * 1000 * 1000 * 1000,
                     span,
                 }),
-                Unit::Terabyte => Ok(Value::Filesize {
+                Unit::Terabyte => Ok(SpannedValue::Filesize {
                     val: size * 1000 * 1000 * 1000 * 1000,
                     span,
                 }),
-                Unit::Petabyte => Ok(Value::Filesize {
+                Unit::Petabyte => Ok(SpannedValue::Filesize {
                     val: size * 1000 * 1000 * 1000 * 1000 * 1000,
                     span,
                 }),
-                Unit::Exabyte => Ok(Value::Filesize {
+                Unit::Exabyte => Ok(SpannedValue::Filesize {
                     val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
                     span,
                 }),
 
-                Unit::Kibibyte => Ok(Value::Filesize {
+                Unit::Kibibyte => Ok(SpannedValue::Filesize {
                     val: size * 1024,
                     span,
                 }),
-                Unit::Mebibyte => Ok(Value::Filesize {
+                Unit::Mebibyte => Ok(SpannedValue::Filesize {
                     val: size * 1024 * 1024,
                     span,
                 }),
-                Unit::Gibibyte => Ok(Value::Filesize {
+                Unit::Gibibyte => Ok(SpannedValue::Filesize {
                     val: size * 1024 * 1024 * 1024,
                     span,
                 }),
-                Unit::Tebibyte => Ok(Value::Filesize {
+                Unit::Tebibyte => Ok(SpannedValue::Filesize {
                     val: size * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
-                Unit::Pebibyte => Ok(Value::Filesize {
+                Unit::Pebibyte => Ok(SpannedValue::Filesize {
                     val: size * 1024 * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
-                Unit::Exbibyte => Ok(Value::Filesize {
+                Unit::Exbibyte => Ok(SpannedValue::Filesize {
                     val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                     span,
                 }),
 
-                Unit::Nanosecond => Ok(Value::Duration { val: size, span }),
-                Unit::Microsecond => Ok(Value::Duration {
+                Unit::Nanosecond => Ok(SpannedValue::Duration { val: size, span }),
+                Unit::Microsecond => Ok(SpannedValue::Duration {
                     val: size * 1000,
                     span,
                 }),
-                Unit::Millisecond => Ok(Value::Duration {
+                Unit::Millisecond => Ok(SpannedValue::Duration {
                     val: size * 1000 * 1000,
                     span,
                 }),
-                Unit::Second => Ok(Value::Duration {
+                Unit::Second => Ok(SpannedValue::Duration {
                     val: size * 1000 * 1000 * 1000,
                     span,
                 }),
-                Unit::Minute => Ok(Value::Duration {
+                Unit::Minute => Ok(SpannedValue::Duration {
                     val: size * 1000 * 1000 * 1000 * 60,
                     span,
                 }),
-                Unit::Hour => Ok(Value::Duration {
+                Unit::Hour => Ok(SpannedValue::Duration {
                     val: size * 1000 * 1000 * 1000 * 60 * 60,
                     span,
                 }),
                 Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                    Some(val) => Ok(Value::Duration { val, span }),
+                    Some(val) => Ok(SpannedValue::Duration { val, span }),
                     None => Err(ShellError::OutsideSpannedLabeledError(
                         original_text.to_string(),
                         "day duration too large".into(),
@@ -515,7 +515,7 @@ fn convert_to_value(
                 },
 
                 Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                    Some(val) => Ok(Value::Duration { val, span }),
+                    Some(val) => Ok(SpannedValue::Duration { val, span }),
                     None => Err(ShellError::OutsideSpannedLabeledError(
                         original_text.to_string(),
                         "week duration too large".into(),

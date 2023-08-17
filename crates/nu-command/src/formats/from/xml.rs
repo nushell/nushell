@@ -3,8 +3,8 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SpannedValue, Type,
 };
 use roxmltree::NodeType;
 
@@ -69,28 +69,28 @@ string. This way content of every tag is always a table and is easier to parse"#
   <remember>Event</remember>
 </note>' | from xml"#,
             description: "Converts xml formatted string to record",
-            result: Some(Value::test_record(
+            result: Some(SpannedValue::test_record(
                 vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
                 vec![
-                    Value::test_string("note"),
-                    Value::test_record(Vec::<&str>::new(), vec![]),
-                    Value::list(
-                        vec![Value::test_record(
+                    SpannedValue::test_string("note"),
+                    SpannedValue::test_record(Vec::<&str>::new(), vec![]),
+                    SpannedValue::list(
+                        vec![SpannedValue::test_record(
                             vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
                             vec![
-                                Value::test_string("remember"),
-                                Value::test_record(Vec::<&str>::new(), vec![]),
-                                Value::list(
-                                    vec![Value::test_record(
+                                SpannedValue::test_string("remember"),
+                                SpannedValue::test_record(Vec::<&str>::new(), vec![]),
+                                SpannedValue::list(
+                                    vec![SpannedValue::test_record(
                                         vec![
                                             COLUMN_TAG_NAME,
                                             COLUMN_ATTRS_NAME,
                                             COLUMN_CONTENT_NAME,
                                         ],
                                         vec![
-                                            Value::test_nothing(),
-                                            Value::test_nothing(),
-                                            Value::test_string("Event"),
+                                            SpannedValue::test_nothing(),
+                                            SpannedValue::test_nothing(),
+                                            SpannedValue::test_string("Event"),
                                         ],
                                     )],
                                     Span::test_data(),
@@ -111,10 +111,16 @@ struct ParsingInfo {
     keep_processing_instructions: bool,
 }
 
-fn from_attributes_to_value(attributes: &[roxmltree::Attribute], info: &ParsingInfo) -> Value {
+fn from_attributes_to_value(
+    attributes: &[roxmltree::Attribute],
+    info: &ParsingInfo,
+) -> SpannedValue {
     let mut collected = IndexMap::new();
     for a in attributes {
-        collected.insert(String::from(a.name()), Value::string(a.value(), info.span));
+        collected.insert(
+            String::from(a.name()),
+            SpannedValue::string(a.value(), info.span),
+        );
     }
 
     let (cols, vals) = collected
@@ -125,25 +131,25 @@ fn from_attributes_to_value(attributes: &[roxmltree::Attribute], info: &ParsingI
             acc
         });
 
-    Value::Record {
+    SpannedValue::Record {
         cols,
         vals,
         span: info.span,
     }
 }
 
-fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
+fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> SpannedValue {
     let span = info.span;
     let mut node = IndexMap::new();
 
     let tag = n.tag_name().name().trim().to_string();
-    let tag = Value::string(tag, span);
+    let tag = SpannedValue::string(tag, span);
 
-    let content: Vec<Value> = n
+    let content: Vec<SpannedValue> = n
         .children()
         .filter_map(|node| from_node_to_value(&node, info))
         .collect();
-    let content = Value::list(content, span);
+    let content = SpannedValue::list(content, span);
 
     let attributes = from_attributes_to_value(&n.attributes().collect::<Vec<_>>(), info);
 
@@ -151,10 +157,10 @@ fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
     node.insert(String::from(COLUMN_ATTRS_NAME), attributes);
     node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-    Value::from(Spanned { item: node, span })
+    SpannedValue::from(Spanned { item: node, span })
 }
 
-fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<SpannedValue> {
     let span = info.span;
     let text = n.text().expect("Non-text node supplied to text_to_value");
     let text = text.trim();
@@ -162,19 +168,19 @@ fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
         None
     } else {
         let mut node = IndexMap::new();
-        let content = Value::string(String::from(text), span);
+        let content = SpannedValue::string(String::from(text), span);
 
-        node.insert(String::from(COLUMN_TAG_NAME), Value::nothing(span));
-        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_TAG_NAME), SpannedValue::nothing(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), SpannedValue::nothing(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        let result = Value::from(Spanned { item: node, span });
+        let result = SpannedValue::from(Spanned { item: node, span });
 
         Some(result)
     }
 }
 
-fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<SpannedValue> {
     if info.keep_comments {
         let span = info.span;
         let text = n
@@ -182,13 +188,16 @@ fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
             .expect("Non-comment node supplied to comment_to_value");
 
         let mut node = IndexMap::new();
-        let content = Value::string(String::from(text), span);
+        let content = SpannedValue::string(String::from(text), span);
 
-        node.insert(String::from(COLUMN_TAG_NAME), Value::string("!", span));
-        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(
+            String::from(COLUMN_TAG_NAME),
+            SpannedValue::string("!", span),
+        );
+        node.insert(String::from(COLUMN_ATTRS_NAME), SpannedValue::nothing(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        let result = Value::from(Spanned { item: node, span });
+        let result = SpannedValue::from(Spanned { item: node, span });
 
         Some(result)
     } else {
@@ -196,7 +205,10 @@ fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
     }
 }
 
-fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+fn processing_instruction_to_value(
+    n: &roxmltree::Node,
+    info: &ParsingInfo,
+) -> Option<SpannedValue> {
     if info.keep_processing_instructions {
         let span = info.span;
         let pi = n.pi()?;
@@ -204,16 +216,17 @@ fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> O
         let mut node = IndexMap::new();
         // Add '?' before target to differentiate tags from pi targets
         let tag = format!("?{}", pi.target);
-        let tag = Value::string(tag, span);
-        let content = pi
-            .value
-            .map_or_else(|| Value::nothing(span), |x| Value::string(x, span));
+        let tag = SpannedValue::string(tag, span);
+        let content = pi.value.map_or_else(
+            || SpannedValue::nothing(span),
+            |x| SpannedValue::string(x, span),
+        );
 
         node.insert(String::from(COLUMN_TAG_NAME), tag);
-        node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
+        node.insert(String::from(COLUMN_ATTRS_NAME), SpannedValue::nothing(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        let result = Value::from(Spanned { item: node, span });
+        let result = SpannedValue::from(Spanned { item: node, span });
 
         Some(result)
     } else {
@@ -221,7 +234,7 @@ fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> O
     }
 }
 
-fn from_node_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
+fn from_node_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<SpannedValue> {
     match n.node_type() {
         NodeType::Element => Some(element_to_value(n, info)),
         NodeType::Text => text_to_value(n, info),
@@ -231,11 +244,14 @@ fn from_node_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> 
     }
 }
 
-fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> Value {
+fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> SpannedValue {
     element_to_value(&d.root_element(), info)
 }
 
-fn from_xml_string_to_value(s: String, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
+fn from_xml_string_to_value(
+    s: String,
+    info: &ParsingInfo,
+) -> Result<SpannedValue, roxmltree::Error> {
     let parsed = roxmltree::Document::parse(&s)?;
     Ok(from_document_to_value(&parsed, info))
 }
@@ -332,24 +348,24 @@ mod tests {
 
     use indexmap::indexmap;
     use indexmap::IndexMap;
-    use nu_protocol::{Spanned, Value};
+    use nu_protocol::{Spanned, SpannedValue};
 
-    fn string(input: impl Into<String>) -> Value {
-        Value::test_string(input)
+    fn string(input: impl Into<String>) -> SpannedValue {
+        SpannedValue::test_string(input)
     }
 
-    fn attributes(entries: IndexMap<&str, &str>) -> Value {
-        Value::from(Spanned {
+    fn attributes(entries: IndexMap<&str, &str>) -> SpannedValue {
+        SpannedValue::from(Spanned {
             item: entries
                 .into_iter()
                 .map(|(k, v)| (k.into(), string(v)))
-                .collect::<IndexMap<String, Value>>(),
+                .collect::<IndexMap<String, SpannedValue>>(),
             span: Span::test_data(),
         })
     }
 
-    fn table(list: &[Value]) -> Value {
-        Value::List {
+    fn table(list: &[SpannedValue]) -> SpannedValue {
+        SpannedValue::List {
             vals: list.to_vec(),
             span: Span::test_data(),
         }
@@ -358,9 +374,9 @@ mod tests {
     fn content_tag(
         tag: impl Into<String>,
         attrs: IndexMap<&str, &str>,
-        content: &[Value],
-    ) -> Value {
-        Value::from(Spanned {
+        content: &[SpannedValue],
+    ) -> SpannedValue {
+        SpannedValue::from(Spanned {
             item: indexmap! {
                 COLUMN_TAG_NAME.into() => string(tag),
                 COLUMN_ATTRS_NAME.into() => attributes(attrs),
@@ -370,18 +386,18 @@ mod tests {
         })
     }
 
-    fn content_string(value: impl Into<String>) -> Value {
-        Value::from(Spanned {
+    fn content_string(value: impl Into<String>) -> SpannedValue {
+        SpannedValue::from(Spanned {
             item: indexmap! {
-                COLUMN_TAG_NAME.into() => Value::nothing(Span::test_data()),
-                COLUMN_ATTRS_NAME.into() => Value::nothing(Span::test_data()),
+                COLUMN_TAG_NAME.into() => SpannedValue::nothing(Span::test_data()),
+                COLUMN_ATTRS_NAME.into() => SpannedValue::nothing(Span::test_data()),
                 COLUMN_CONTENT_NAME.into() => string(value),
             },
             span: Span::test_data(),
         })
     }
 
-    fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
+    fn parse(xml: &str) -> Result<SpannedValue, roxmltree::Error> {
         let info = ParsingInfo {
             span: Span::test_data(),
             keep_comments: false,

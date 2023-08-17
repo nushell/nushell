@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -45,7 +45,7 @@ impl Command for ErrorMake {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let arg: Value = call.req(engine_state, stack, 0)?;
+        let arg: SpannedValue = call.req(engine_state, stack, 0)?;
         let unspanned = call.has_flag("unspanned");
 
         let throw_error = if unspanned { None } else { Some(span) };
@@ -65,7 +65,7 @@ impl Command for ErrorMake {
             Example {
                 description: "Create a simple custom error",
                 example: r#"error make {msg: "my custom error message"}"#,
-                result: Some(Value::Error {
+                result: Some(SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "my custom error message".to_string(),
                         "".to_string(),
@@ -85,7 +85,7 @@ impl Command for ErrorMake {
             end: 456  # not mandatory unless $.label.start is set
         }
     }"#,
-                result: Some(Value::Error {
+                result: Some(SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "my custom error message".to_string(),
                         "my custom label text".to_string(),
@@ -115,13 +115,13 @@ impl Command for ErrorMake {
     }
 }
 
-fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
-    if let Value::Record { span, .. } = &value {
+fn make_error(value: &SpannedValue, throw_span: Option<Span>) -> Option<ShellError> {
+    if let SpannedValue::Record { span, .. } = &value {
         let msg = value.get_data_by_key("msg");
         let label = value.get_data_by_key("label");
 
         match (msg, &label) {
-            (Some(Value::String { val: message, .. }), Some(label)) => {
+            (Some(SpannedValue::String { val: message, .. }), Some(label)) => {
                 let label_start = label.get_data_by_key("start");
                 let label_end = label.get_data_by_key("end");
                 let label_text = label.get_data_by_key("text");
@@ -133,9 +133,9 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
 
                 match (label_start, label_end, label_text) {
                     (
-                        Some(Value::Int { val: start, .. }),
-                        Some(Value::Int { val: end, .. }),
-                        Some(Value::String {
+                        Some(SpannedValue::Int { val: start, .. }),
+                        Some(SpannedValue::Int { val: end, .. }),
+                        Some(SpannedValue::String {
                             val: label_text, ..
                         }),
                     ) => {
@@ -160,7 +160,7 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                     (
                         None,
                         None,
-                        Some(Value::String {
+                        Some(SpannedValue::String {
                             val: label_text, ..
                         }),
                     ) => Some(ShellError::GenericError(
@@ -177,14 +177,14 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                         None,
                         Vec::new(),
                     )),
-                    (Some(Value::Int { .. }), None, _) => Some(ShellError::GenericError(
+                    (Some(SpannedValue::Int { .. }), None, _) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.end`".into(),
                         label_span,
                         Some("required because `$.label.start` is set".to_string()),
                         Vec::new(),
                     )),
-                    (None, Some(Value::Int { .. }), _) => Some(ShellError::GenericError(
+                    (None, Some(SpannedValue::Int { .. }), _) => Some(ShellError::GenericError(
                         "Unable to parse error format.".into(),
                         "missing required member `$.label.start`".into(),
                         label_span,
@@ -194,13 +194,15 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                     _ => None,
                 }
             }
-            (Some(Value::String { val: message, .. }), None) => Some(ShellError::GenericError(
-                message,
-                "originates from here".to_string(),
-                throw_span,
-                None,
-                Vec::new(),
-            )),
+            (Some(SpannedValue::String { val: message, .. }), None) => {
+                Some(ShellError::GenericError(
+                    message,
+                    "originates from here".to_string(),
+                    throw_span,
+                    None,
+                    Vec::new(),
+                ))
+            }
             (None, _) => Some(ShellError::GenericError(
                 "Unable to parse error format.".into(),
                 "missing required member `$.msg`".into(),

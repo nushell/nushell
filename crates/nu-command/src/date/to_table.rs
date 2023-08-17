@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError::DatetimeParseError, ShellError::PipelineEmpty,
-    Signature, Span, Value,
+    Signature, Span, SpannedValue,
 };
 use nu_protocol::{ShellError, Type};
 
@@ -63,20 +63,20 @@ impl Command for SubCommand {
                 "timezone".into(),
             ];
             let vals = vec![
-                Value::Int { val: 2020, span },
-                Value::Int { val: 4, span },
-                Value::Int { val: 12, span },
-                Value::Int { val: 22, span },
-                Value::Int { val: 10, span },
-                Value::Int { val: 57, span },
-                Value::Int { val: 789, span },
-                Value::String {
+                SpannedValue::Int { val: 2020, span },
+                SpannedValue::Int { val: 4, span },
+                SpannedValue::Int { val: 12, span },
+                SpannedValue::Int { val: 22, span },
+                SpannedValue::Int { val: 10, span },
+                SpannedValue::Int { val: 57, span },
+                SpannedValue::Int { val: 789, span },
+                SpannedValue::String {
                     val: "+02:00".to_string(),
                     span,
                 },
             ];
-            Some(Value::List {
-                vals: vec![Value::Record { cols, vals, span }],
+            Some(SpannedValue::List {
+                vals: vec![SpannedValue::Record { cols, vals, span }],
                 span,
             })
         };
@@ -109,7 +109,10 @@ impl Command for SubCommand {
     }
 }
 
-fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span) -> Value {
+fn parse_date_into_table(
+    date: Result<DateTime<FixedOffset>, SpannedValue>,
+    head: Span,
+) -> SpannedValue {
     let cols = vec![
         "year".into(),
         "month".into(),
@@ -123,17 +126,17 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
     match date {
         Ok(x) => {
             let vals = vec![
-                Value::int(x.year() as i64, head),
-                Value::int(x.month() as i64, head),
-                Value::int(x.day() as i64, head),
-                Value::int(x.hour() as i64, head),
-                Value::int(x.minute() as i64, head),
-                Value::int(x.second() as i64, head),
-                Value::int(x.nanosecond() as i64, head),
-                Value::string(x.offset().to_string(), head),
+                SpannedValue::int(x.year() as i64, head),
+                SpannedValue::int(x.month() as i64, head),
+                SpannedValue::int(x.day() as i64, head),
+                SpannedValue::int(x.hour() as i64, head),
+                SpannedValue::int(x.minute() as i64, head),
+                SpannedValue::int(x.second() as i64, head),
+                SpannedValue::int(x.nanosecond() as i64, head),
+                SpannedValue::string(x.offset().to_string(), head),
             ];
-            Value::List {
-                vals: vec![Value::Record {
+            SpannedValue::List {
+                vals: vec![SpannedValue::Record {
                     cols,
                     vals,
                     span: head,
@@ -145,22 +148,22 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
     }
 }
 
-fn helper(val: Value, head: Span) -> Value {
+fn helper(val: SpannedValue, head: Span) -> SpannedValue {
     match val {
-        Value::String {
+        SpannedValue::String {
             val,
             span: val_span,
         } => {
             let date = parse_date_from_string(&val, val_span);
             parse_date_into_table(date, head)
         }
-        Value::Nothing { span: _ } => {
+        SpannedValue::Nothing { span: _ } => {
             let now = Local::now();
             let n = now.with_timezone(now.offset());
             parse_date_into_table(Ok(n), head)
         }
-        Value::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
-        _ => Value::Error {
+        SpannedValue::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
+        _ => SpannedValue::Error {
             error: Box::new(DatetimeParseError(val.debug_value(), head)),
         },
     }

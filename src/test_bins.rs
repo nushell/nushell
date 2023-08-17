@@ -4,7 +4,7 @@ use nu_command::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, PipelineData, Value};
+use nu_protocol::{CliError, PipelineData, SpannedValue};
 use nu_std::load_standard_library;
 // use nu_test_support::fs::in_directory;
 
@@ -182,7 +182,10 @@ pub fn nu_repl() {
     let mut engine_state = get_engine_state();
     let mut stack = Stack::new();
 
-    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var(
+        "PWD".into(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     let mut last_output = String::new();
 

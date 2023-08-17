@@ -4,7 +4,9 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+};
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 #[derive(Clone)]
@@ -71,16 +73,16 @@ impl Command for SubCommand {
             Example {
                 description: "Encode a url with escape characters",
                 example: "'https://example.com/foo bar' | url encode",
-                result: Some(Value::test_string("https://example.com/foo%20bar")),
+                result: Some(SpannedValue::test_string("https://example.com/foo%20bar")),
             },
             Example {
                 description: "Encode multiple urls with escape characters in list",
                 example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | url encode",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("https://example.com/foo%20bar"),
-                        Value::test_string("https://example.com/a%3Eb"),
-                        Value::test_string("%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034"),
+                        SpannedValue::test_string("https://example.com/foo%20bar"),
+                        SpannedValue::test_string("https://example.com/a%3Eb"),
+                        SpannedValue::test_string("%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -88,23 +90,23 @@ impl Command for SubCommand {
             Example {
                 description: "Encode all non alphanumeric chars with all flag",
                 example: "'https://example.com/foo bar' | url encode --all",
-                result: Some(Value::test_string("https%3A%2F%2Fexample%2Ecom%2Ffoo%20bar")),
+                result: Some(SpannedValue::test_string("https%3A%2F%2Fexample%2Ecom%2Ffoo%20bar")),
             },
         ]
     }
 }
 
-fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action_all(input: &SpannedValue, _arg: &CellPathOnlyArgs, head: Span) -> SpannedValue {
     match input {
-        Value::String { val, .. } => {
+        SpannedValue::String { val, .. } => {
             const FRAGMENT: &AsciiSet = NON_ALPHANUMERIC;
-            Value::String {
+            SpannedValue::String {
                 val: utf8_percent_encode(val, FRAGMENT).to_string(),
                 span: head,
             }
         }
-        Value::Error { .. } => input.clone(),
-        _ => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        _ => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
@@ -115,17 +117,17 @@ fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     }
 }
 
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &SpannedValue, _arg: &CellPathOnlyArgs, head: Span) -> SpannedValue {
     match input {
-        Value::String { val, .. } => {
+        SpannedValue::String { val, .. } => {
             const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
-            Value::String {
+            SpannedValue::String {
                 val: utf8_percent_encode(val, FRAGMENT).to_string(),
                 span: head,
             }
         }
-        Value::Error { .. } => input.clone(),
-        _ => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        _ => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

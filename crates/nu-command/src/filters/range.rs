@@ -4,7 +4,7 @@ use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -38,24 +38,24 @@ impl Command for Range {
             Example {
                 example: "[0,1,2,3,4,5] | range 4..5",
                 description: "Get the last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(5)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(5)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[0,1,2,3,4,5] | range (-2)..",
                 description: "Get the last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(5)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(5)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[0,1,2,3,4,5] | range (-3)..-2",
                 description: "Get the next to last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(4)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
                     span: Span::test_data(),
                 }),
             },
@@ -100,7 +100,7 @@ impl Command for Range {
 
             if from > to {
                 Ok(PipelineData::Value(
-                    Value::Nothing { span: call.head },
+                    SpannedValue::Nothing { span: call.head },
                     None,
                 ))
             } else {
@@ -113,7 +113,7 @@ impl Command for Range {
 
             if from > to {
                 Ok(PipelineData::Value(
-                    Value::Nothing { span: call.head },
+                    SpannedValue::Nothing { span: call.head },
                     None,
                 ))
             } else {
@@ -125,9 +125,9 @@ impl Command for Range {
     }
 }
 
-fn get_range_val(rows_val: Value) -> i64 {
+fn get_range_val(rows_val: SpannedValue) -> i64 {
     match rows_val {
-        Value::Int { val: x, .. } => x,
+        SpannedValue::Int { val: x, .. } => x,
         _ => 0,
     }
 }

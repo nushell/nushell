@@ -8,7 +8,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 #[derive(Clone)]
 pub struct Help;
@@ -79,7 +79,7 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-            Ok(Value::string(msg, head).into_pipeline_data())
+            Ok(SpannedValue::string(msg, head).into_pipeline_data())
         } else if find.is_some() {
             help_commands(engine_state, stack, call)
         } else {
@@ -134,26 +134,27 @@ You can also learn more at https://www.nushell.sh/book/"#;
 }
 
 pub fn highlight_search_in_table(
-    table: Vec<Value>, // list of records
+    table: Vec<SpannedValue>, // list of records
     search_string: &str,
     searched_cols: &[&str],
     string_style: &Style,
     highlight_style: &Style,
-) -> Result<Vec<Value>, ShellError> {
+) -> Result<Vec<SpannedValue>, ShellError> {
     let orig_search_string = search_string;
     let search_string = search_string.to_lowercase();
     let mut matches = vec![];
 
     for record in table {
-        let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
-            (cols, vals, span)
-        } else {
-            return Err(ShellError::NushellFailedSpanned {
-                msg: "Expected record".to_string(),
-                label: format!("got {}", record.get_type()),
-                span: record.span()?,
-            });
-        };
+        let (cols, mut vals, record_span) =
+            if let SpannedValue::Record { cols, vals, span } = record {
+                (cols, vals, span)
+            } else {
+                return Err(ShellError::NushellFailedSpanned {
+                    msg: "Expected record".to_string(),
+                    label: format!("got {}", record.get_type()),
+                    span: record.span()?,
+                });
+            };
 
         let has_match = cols.iter().zip(vals.iter_mut()).try_fold(
             false,
@@ -162,9 +163,9 @@ pub fn highlight_search_in_table(
                     // don't search this column
                     return Ok(acc);
                 }
-                if let Value::String { val: s, span } = val {
+                if let SpannedValue::String { val: s, span } = val {
                     if s.to_lowercase().contains(&search_string) {
-                        *val = Value::String {
+                        *val = SpannedValue::String {
                             val: highlight_search_string(
                                 s,
                                 orig_search_string,
@@ -183,7 +184,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::Record {
+            matches.push(SpannedValue::Record {
                 cols,
                 vals,
                 span: record_span,

@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -55,7 +55,7 @@ impl Command for StrJoin {
 
         for value in input {
             match value {
-                Value::Error { error } => {
+                SpannedValue::Error { error } => {
                     return Err(*error);
                 }
                 value => {
@@ -70,7 +70,7 @@ impl Command for StrJoin {
             strings.join("")
         };
 
-        Ok(Value::String {
+        Ok(SpannedValue::String {
             val: output,
             span: call.head,
         }
@@ -82,12 +82,12 @@ impl Command for StrJoin {
             Example {
                 description: "Create a string from input",
                 example: "['nu', 'shell'] | str join",
-                result: Some(Value::test_string("nushell")),
+                result: Some(SpannedValue::test_string("nushell")),
             },
             Example {
                 description: "Create a string from input with a separator",
                 example: "['nu', 'shell'] | str join '-'",
-                result: Some(Value::test_string("nu-shell")),
+                result: Some(SpannedValue::test_string("nu-shell")),
             },
         ]
     }

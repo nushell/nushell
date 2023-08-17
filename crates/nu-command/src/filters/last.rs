@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -54,20 +54,20 @@ impl Command for Last {
             Example {
                 example: "[1,2,3] | last 2",
                 description: "Return the last 2 items of a list/table",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(3)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[1,2,3] | last",
                 description: "Return the last item of a list/table",
-                result: Some(Value::test_int(3)),
+                result: Some(SpannedValue::test_int(3)),
             },
             Example {
                 example: "0x[01 23 45] | last 2",
                 description: "Return the last 2 bytes of a binary value",
-                result: Some(Value::Binary {
+                result: Some(SpannedValue::Binary {
                     val: vec![0x23, 0x45],
                     span: Span::test_data(),
                 }),
@@ -99,13 +99,13 @@ impl Command for Last {
 
         // early exit for `last 0`
         if rows_desired == 0 {
-            return Ok(Vec::<Value>::new()
+            return Ok(Vec::<SpannedValue>::new()
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata));
         }
 
         match input {
-            PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
+            PipelineData::ListStream(_, _) | PipelineData::Value(SpannedValue::Range { .. }, _) => {
                 let iterator = input.into_iter_strict(head)?;
 
                 // only keep last `rows_desired` rows in memory
@@ -130,7 +130,7 @@ impl Command for Last {
                 }
             }
             PipelineData::Value(val, _) => match val {
-                Value::List { vals, .. } => {
+                SpannedValue::List { vals, .. } => {
                     if return_single_element {
                         if let Some(v) = vals.last() {
                             Ok(v.clone().into_pipeline_data())
@@ -147,11 +147,11 @@ impl Command for Last {
                             .set_metadata(metadata))
                     }
                 }
-                Value::Binary { val, span } => {
+                SpannedValue::Binary { val, span } => {
                     if return_single_element {
                         if let Some(b) = val.last() {
                             Ok(PipelineData::Value(
-                                Value::Int {
+                                SpannedValue::Int {
                                     val: *b as i64,
                                     span,
                                 },
@@ -164,13 +164,13 @@ impl Command for Last {
                         let slice: Vec<u8> =
                             val.into_iter().rev().take(rows_desired).rev().collect();
                         Ok(PipelineData::Value(
-                            Value::Binary { val: slice, span },
+                            SpannedValue::Binary { val: slice, span },
                             metadata,
                         ))
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error } => Err(*error),
+                SpannedValue::Error { error } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),
                     wrong_type: other.get_type().to_string(),

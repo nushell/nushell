@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
-    Type, Value,
+    SpannedValue, Type,
 };
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
@@ -38,7 +38,7 @@ impl Command for Sys {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.span();
-        let ret = Value::LazyRecord {
+        let ret = SpannedValue::LazyRecord {
             val: Box::new(SysResult { span }),
             span,
         };
@@ -77,7 +77,7 @@ impl LazyRecord<'_> for SysResult {
         vec!["host", "cpu", "disks", "mem", "temp", "net"]
     }
 
-    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
+    fn get_column_value(&self, column: &str) -> Result<SpannedValue, ShellError> {
         let span = self.span;
 
         match column {
@@ -99,8 +99,8 @@ impl LazyRecord<'_> for SysResult {
         self.span
     }
 
-    fn clone_value(&self, span: Span) -> Value {
-        Value::LazyRecord {
+    fn clone_value(&self, span: Span) -> SpannedValue {
+        SpannedValue::LazyRecord {
             val: Box::new((*self).clone()),
             span,
         }
@@ -111,7 +111,7 @@ pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()
 }
 
-pub fn disks(span: Span) -> Value {
+pub fn disks(span: Span) -> SpannedValue {
     let mut sys = System::new();
     sys.refresh_disks();
     sys.refresh_disks_list();
@@ -122,53 +122,53 @@ pub fn disks(span: Span) -> Value {
         let mut vals = vec![];
 
         cols.push("device".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(disk.name().to_string_lossy().to_string()),
             span,
         });
 
         cols.push("type".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(String::from_utf8_lossy(disk.file_system()).to_string()),
             span,
         });
 
         cols.push("mount".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: disk.mount_point().to_string_lossy().to_string(),
             span,
         });
 
         cols.push("total".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: disk.total_space() as i64,
             span,
         });
 
         cols.push("free".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: disk.available_space() as i64,
             span,
         });
 
         cols.push("removable".into());
-        vals.push(Value::Bool {
+        vals.push(SpannedValue::Bool {
             val: disk.is_removable(),
             span,
         });
 
         cols.push("kind".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: format!("{:?}", disk.kind()),
             span,
         });
 
-        output.push(Value::Record { cols, vals, span });
+        output.push(SpannedValue::Record { cols, vals, span });
     }
-    Value::List { vals: output, span }
+    SpannedValue::List { vals: output, span }
 }
 
-pub fn net(span: Span) -> Value {
+pub fn net(span: Span) -> SpannedValue {
     let mut sys = System::new();
     sys.refresh_networks();
     sys.refresh_networks_list();
@@ -179,29 +179,29 @@ pub fn net(span: Span) -> Value {
         let mut vals = vec![];
 
         cols.push("name".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(iface.to_string()),
             span,
         });
 
         cols.push("sent".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: data.total_transmitted() as i64,
             span,
         });
 
         cols.push("recv".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: data.total_received() as i64,
             span,
         });
 
-        output.push(Value::Record { cols, vals, span });
+        output.push(SpannedValue::Record { cols, vals, span });
     }
-    Value::List { vals: output, span }
+    SpannedValue::List { vals: output, span }
 }
 
-pub fn cpu(span: Span) -> Value {
+pub fn cpu(span: Span) -> SpannedValue {
     let mut sys = System::new();
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
     // We must refresh the CPU twice a while apart to get valid usage data.
@@ -216,19 +216,19 @@ pub fn cpu(span: Span) -> Value {
         let mut vals = vec![];
 
         cols.push("name".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(cpu.name().to_string()),
             span,
         });
 
         cols.push("brand".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(cpu.brand().to_string()),
             span,
         });
 
         cols.push("freq".into());
-        vals.push(Value::Int {
+        vals.push(SpannedValue::Int {
             val: cpu.frequency() as i64,
             span,
         });
@@ -238,14 +238,14 @@ pub fn cpu(span: Span) -> Value {
         // sysinfo CPU usage numbers are not very precise unless you wait a long time between refreshes.
         // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
         let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
-        vals.push(Value::Float {
+        vals.push(SpannedValue::Float {
             val: rounded_usage as f64,
             span,
         });
 
         let load_avg = sys.load_average();
         cols.push("load_average".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(format!(
                 "{:.2}, {:.2}, {:.2}",
                 load_avg.one, load_avg.five, load_avg.fifteen
@@ -254,18 +254,18 @@ pub fn cpu(span: Span) -> Value {
         });
 
         cols.push("vendor_id".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(cpu.vendor_id().to_string()),
             span,
         });
 
-        output.push(Value::Record { cols, vals, span });
+        output.push(SpannedValue::Record { cols, vals, span });
     }
 
-    Value::List { vals: output, span }
+    SpannedValue::List { vals: output, span }
 }
 
-pub fn mem(span: Span) -> Value {
+pub fn mem(span: Span) -> SpannedValue {
     let mut sys = System::new();
     sys.refresh_memory();
 
@@ -282,51 +282,51 @@ pub fn mem(span: Span) -> Value {
     let used_swap = sys.used_swap();
 
     cols.push("total".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: total_mem as i64,
         span,
     });
 
     cols.push("free".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: free_mem as i64,
         span,
     });
 
     cols.push("used".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: used_mem as i64,
         span,
     });
 
     cols.push("available".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: avail_mem as i64,
         span,
     });
 
     cols.push("swap total".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: total_swap as i64,
         span,
     });
 
     cols.push("swap free".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: free_swap as i64,
         span,
     });
 
     cols.push("swap used".into());
-    vals.push(Value::Filesize {
+    vals.push(SpannedValue::Filesize {
         val: used_swap as i64,
         span,
     });
 
-    Value::Record { cols, vals, span }
+    SpannedValue::Record { cols, vals, span }
 }
 
-pub fn host(span: Span) -> Value {
+pub fn host(span: Span) -> SpannedValue {
     let mut sys = System::new();
     sys.refresh_users_list();
 
@@ -335,14 +335,14 @@ pub fn host(span: Span) -> Value {
 
     if let Some(name) = sys.name() {
         cols.push("name".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(name),
             span,
         });
     }
     if let Some(version) = sys.os_version() {
         cols.push("os_version".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(version),
             span,
         });
@@ -350,7 +350,7 @@ pub fn host(span: Span) -> Value {
 
     if let Some(long_version) = sys.long_os_version() {
         cols.push("long_os_version".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(long_version),
             span,
         });
@@ -358,21 +358,21 @@ pub fn host(span: Span) -> Value {
 
     if let Some(version) = sys.kernel_version() {
         cols.push("kernel_version".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(version),
             span,
         });
     }
     if let Some(hostname) = sys.host_name() {
         cols.push("hostname".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(hostname),
             span,
         });
     }
 
     cols.push("uptime".into());
-    vals.push(Value::Duration {
+    vals.push(SpannedValue::Duration {
         val: 1000000000 * sys.uptime() as i64,
         span,
     });
@@ -385,7 +385,7 @@ pub fn host(span: Span) -> Value {
     let timestamp_str = datetime.with_timezone(datetime.offset()).to_rfc3339();
 
     cols.push("boot_time".into());
-    vals.push(Value::String {
+    vals.push(SpannedValue::String {
         val: timestamp_str,
         span,
     });
@@ -396,34 +396,34 @@ pub fn host(span: Span) -> Value {
         let mut vals = vec![];
 
         cols.push("name".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: trim_cstyle_null(user.name().to_string()),
             span,
         });
 
         let mut groups = vec![];
         for group in user.groups() {
-            groups.push(Value::String {
+            groups.push(SpannedValue::String {
                 val: trim_cstyle_null(group.to_string()),
                 span,
             });
         }
 
         cols.push("groups".into());
-        vals.push(Value::List { vals: groups, span });
+        vals.push(SpannedValue::List { vals: groups, span });
 
-        users.push(Value::Record { cols, vals, span });
+        users.push(SpannedValue::Record { cols, vals, span });
     }
 
     if !users.is_empty() {
         cols.push("sessions".into());
-        vals.push(Value::List { vals: users, span });
+        vals.push(SpannedValue::List { vals: users, span });
     }
 
-    Value::Record { cols, vals, span }
+    SpannedValue::Record { cols, vals, span }
 }
 
-pub fn temp(span: Span) -> Value {
+pub fn temp(span: Span) -> SpannedValue {
     let mut sys = System::new();
     sys.refresh_components();
     sys.refresh_components_list();
@@ -435,32 +435,32 @@ pub fn temp(span: Span) -> Value {
         let mut vals = vec![];
 
         cols.push("unit".into());
-        vals.push(Value::String {
+        vals.push(SpannedValue::String {
             val: component.label().to_string(),
             span,
         });
 
         cols.push("temp".into());
-        vals.push(Value::Float {
+        vals.push(SpannedValue::Float {
             val: component.temperature() as f64,
             span,
         });
 
         cols.push("high".into());
-        vals.push(Value::Float {
+        vals.push(SpannedValue::Float {
             val: component.max() as f64,
             span,
         });
 
         if let Some(critical) = component.critical() {
             cols.push("critical".into());
-            vals.push(Value::Float {
+            vals.push(SpannedValue::Float {
                 val: critical as f64,
                 span,
             });
         }
-        output.push(Value::Record { cols, vals, span });
+        output.push(SpannedValue::Record { cols, vals, span });
     }
 
-    Value::List { vals: output, span }
+    SpannedValue::List { vals: output, span }
 }

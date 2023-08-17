@@ -6,8 +6,8 @@ use nu_parser::escape_quote_string;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 use once_cell::sync::Lazy;
 
@@ -73,12 +73,12 @@ impl Command for ToNuon {
         };
 
         match nuon_result {
-            Ok(serde_nuon_string) => Ok(Value::String {
+            Ok(serde_nuon_string) => Ok(SpannedValue::String {
                 val: serde_nuon_string,
                 span,
             }
             .into_pipeline_data()),
-            _ => Ok(Value::Error {
+            _ => Ok(SpannedValue::Error {
                 error: Box::new(ShellError::CantConvert {
                     to_type: "NUON".into(),
                     from_type: value.get_type().to_string(),
@@ -95,29 +95,29 @@ impl Command for ToNuon {
             Example {
                 description: "Outputs a NUON string representing the contents of this list, compact by default",
                 example: "[1 2 3] | to nuon",
-                result: Some(Value::test_string("[1, 2, 3]"))
+                result: Some(SpannedValue::test_string("[1, 2, 3]"))
             },
             Example {
                 description: "Outputs a NUON array of integers, with pretty indentation",
                 example: "[1 2 3] | to nuon --indent 2",
-                result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
+                result: Some(SpannedValue::test_string("[\n  1,\n  2,\n  3\n]")),
             },
             Example {
                 description: "Overwrite any set option with --raw",
                 example: "[1 2 3] | to nuon --indent 2 --raw",
-                result: Some(Value::test_string("[1, 2, 3]"))
+                result: Some(SpannedValue::test_string("[1, 2, 3]"))
             },
             Example {
                 description: "A more complex record with multiple data types",
                 example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --indent 2",
-                result: Some(Value::test_string("{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}"))
+                result: Some(SpannedValue::test_string("{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}"))
             }
         ]
     }
 }
 
 pub fn value_to_string(
-    v: &Value,
+    v: &SpannedValue,
     span: Span,
     depth: usize,
     indent: &Option<String>,
@@ -128,7 +128,7 @@ pub fn value_to_string(
     let idt_pt = get_true_indentation(depth + 2, indent);
 
     match v {
-        Value::Binary { val, .. } => {
+        SpannedValue::Binary { val, .. } => {
             let mut s = String::with_capacity(2 * val.len());
             for byte in val {
                 if write!(s, "{byte:02X}").is_err() {
@@ -142,45 +142,45 @@ pub fn value_to_string(
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Block { .. } => Err(ShellError::UnsupportedInput(
+        SpannedValue::Block { .. } => Err(ShellError::UnsupportedInput(
             "blocks are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
             v.expect_span(),
         )),
-        Value::Closure { .. } => Err(ShellError::UnsupportedInput(
+        SpannedValue::Closure { .. } => Err(ShellError::UnsupportedInput(
             "closures are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
             v.expect_span(),
         )),
-        Value::Bool { val, .. } => {
+        SpannedValue::Bool { val, .. } => {
             if *val {
                 Ok("true".to_string())
             } else {
                 Ok("false".to_string())
             }
         }
-        Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
+        SpannedValue::CellPath { .. } => Err(ShellError::UnsupportedInput(
             "cellpaths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
             v.expect_span(),
         )),
-        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
+        SpannedValue::CustomValue { .. } => Err(ShellError::UnsupportedInput(
             "custom values are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
             v.expect_span(),
         )),
-        Value::Date { val, .. } => Ok(val.to_rfc3339()),
+        SpannedValue::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
-        Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
+        SpannedValue::Duration { val, .. } => Ok(format!("{}ns", *val)),
         // Propagate existing errors
-        Value::Error { error } => Err(*error.clone()),
+        SpannedValue::Error { error } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
-        Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
-        Value::Float { val, .. } => {
+        SpannedValue::Filesize { val, .. } => Ok(format!("{}b", *val)),
+        SpannedValue::Float { val, .. } => {
             // This serialises these as 'nan', 'inf' and '-inf', respectively.
             if &val.round() == val && val.is_finite() {
                 Ok(format!("{}.0", *val))
@@ -188,8 +188,8 @@ pub fn value_to_string(
                 Ok(format!("{}", *val))
             }
         }
-        Value::Int { val, .. } => Ok(format!("{}", *val)),
-        Value::List { vals, .. } => {
+        SpannedValue::Int { val, .. } => Ok(format!("{}", *val)),
+        SpannedValue::List { vals, .. } => {
             let headers = get_columns(vals);
             if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
                 // Table output
@@ -209,7 +209,7 @@ pub fn value_to_string(
                 for val in vals {
                     let mut row = vec![];
 
-                    if let Value::Record { vals, .. } = val {
+                    if let SpannedValue::Record { vals, .. } = val {
                         for val in vals {
                             row.push(value_to_string_without_quotes(
                                 val,
@@ -242,14 +242,14 @@ pub fn value_to_string(
                 ))
             }
         }
-        Value::MatchPattern { .. } => Err(ShellError::UnsupportedInput(
+        SpannedValue::MatchPattern { .. } => Err(ShellError::UnsupportedInput(
             "match patterns are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
             v.expect_span(),
         )),
-        Value::Nothing { .. } => Ok("null".to_string()),
-        Value::Range { val, .. } => Ok(format!(
+        SpannedValue::Nothing { .. } => Ok("null".to_string()),
+        SpannedValue::Range { val, .. } => Ok(format!(
             "{}..{}{}",
             value_to_string(&val.from, span, depth + 1, indent)?,
             if val.inclusion == RangeInclusion::RightExclusive {
@@ -259,7 +259,7 @@ pub fn value_to_string(
             },
             value_to_string(&val.to, span, depth + 1, indent)?
         )),
-        Value::Record { cols, vals, .. } => {
+        SpannedValue::Record { cols, vals, .. } => {
             let mut collection = vec![];
             for (col, val) in cols.iter().zip(vals) {
                 collection.push(if needs_quotes(col) {
@@ -281,13 +281,13 @@ pub fn value_to_string(
                 collection.join(&format!(",{sep}{nl}"))
             ))
         }
-        Value::LazyRecord { val, .. } => {
+        SpannedValue::LazyRecord { val, .. } => {
             let collected = val.collect()?;
             value_to_string(&collected, span, depth + 1, indent)
         }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
-        Value::String { val, .. } => Ok(escape_quote_string(val)),
+        SpannedValue::String { val, .. } => Ok(escape_quote_string(val)),
     }
 }
 
@@ -306,13 +306,13 @@ fn get_true_separators(indent: &Option<String>) -> (String, String) {
 }
 
 fn value_to_string_without_quotes(
-    v: &Value,
+    v: &SpannedValue,
     span: Span,
     depth: usize,
     indent: &Option<String>,
 ) -> Result<String, ShellError> {
     match v {
-        Value::String { val, .. } => Ok({
+        SpannedValue::String { val, .. } => Ok({
             if needs_quotes(val) {
                 escape_quote_string(val)
             } else {

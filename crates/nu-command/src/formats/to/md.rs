@@ -3,8 +3,8 @@ use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -40,26 +40,26 @@ impl Command for ToMd {
             Example {
                 description: "Outputs an MD string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to md",
-                result: Some(Value::test_string("|foo|bar|\n|-|-|\n|1|2|\n")),
+                result: Some(SpannedValue::test_string("|foo|bar|\n|-|-|\n|1|2|\n")),
             },
             Example {
                 description: "Optionally, output a formatted markdown string",
                 example: "[[foo bar]; [1 2]] | to md --pretty",
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     "| foo | bar |\n| --- | --- |\n| 1   | 2   |\n",
                 )),
             },
             Example {
                 description: "Treat each row as a markdown element",
                 example: r#"[{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per-element --pretty"#,
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     "# Welcome to Nushell\n| foo | bar |\n| --- | --- |\n| 1   | 2   |",
                 )),
             },
             Example {
                 description: "Render a list",
                 example: "[0 1 2] | to md --pretty",
-                result: Some(Value::test_string("0\n1\n2")),
+                result: Some(SpannedValue::test_string("0\n1\n2")),
             },
         ]
     }
@@ -88,11 +88,11 @@ fn to_md(
 ) -> Result<PipelineData, ShellError> {
     let (grouped_input, single_list) = group_by(input, head, config);
     if per_element || single_list {
-        return Ok(Value::string(
+        return Ok(SpannedValue::string(
             grouped_input
                 .into_iter()
                 .map(move |val| match val {
-                    Value::List { .. } => table(val.into_pipeline_data(), pretty, config),
+                    SpannedValue::List { .. } => table(val.into_pipeline_data(), pretty, config),
                     other => fragment(other, pretty, config),
                 })
                 .collect::<Vec<String>>()
@@ -101,12 +101,12 @@ fn to_md(
         )
         .into_pipeline_data());
     }
-    Ok(Value::string(table(grouped_input, pretty, config), head).into_pipeline_data())
+    Ok(SpannedValue::string(table(grouped_input, pretty, config), head).into_pipeline_data())
 }
 
-fn fragment(input: Value, pretty: bool, config: &Config) -> String {
+fn fragment(input: SpannedValue, pretty: bool, config: &Config) -> String {
     let headers = match input {
-        Value::Record { ref cols, .. } => cols.to_owned(),
+        SpannedValue::Record { ref cols, .. } => cols.to_owned(),
         _ => vec![],
     };
     let mut out = String::new();
@@ -127,7 +127,7 @@ fn fragment(input: Value, pretty: bool, config: &Config) -> String {
             None => input,
         };
         out.push_str(&data.into_string("|", config));
-    } else if let Value::Record { .. } = input {
+    } else if let SpannedValue::Record { .. } = input {
         out = table(input.into_pipeline_data(), pretty, config)
     } else {
         out = input.into_string("|", config)
@@ -155,7 +155,7 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 }
 
 fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
-    let vec_of_values = input.into_iter().collect::<Vec<Value>>();
+    let vec_of_values = input.into_iter().collect::<Vec<SpannedValue>>();
     let headers = merge_descriptors(&vec_of_values);
 
     let (escaped_headers, mut column_widths) = collect_headers(&headers);
@@ -166,11 +166,11 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
         let mut escaped_row: Vec<String> = Vec::new();
 
         match row.to_owned() {
-            Value::Record { span, .. } => {
+            SpannedValue::Record { span, .. } => {
                 for i in 0..headers.len() {
                     let data = row.get_data_by_key(&headers[i]);
                     let value_string = data
-                        .unwrap_or_else(|| Value::nothing(span))
+                        .unwrap_or_else(|| SpannedValue::nothing(span))
                         .into_string(", ", config);
                     let new_column_width = value_string.len();
 
@@ -207,24 +207,24 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
     let mut lists = IndexMap::new();
     let mut single_list = false;
     for val in values {
-        if let Value::Record { ref cols, .. } = val {
+        if let SpannedValue::Record { ref cols, .. } = val {
             lists
                 .entry(cols.concat())
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
+                .and_modify(|v: &mut Vec<SpannedValue>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         } else {
             lists
                 .entry(val.into_string(",", config))
-                .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
+                .and_modify(|v: &mut Vec<SpannedValue>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         }
     }
     let mut output = vec![];
     for (_, mut value) in lists {
         if value.len() == 1 {
-            output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
+            output.push(value.pop().unwrap_or_else(|| SpannedValue::nothing(head)))
         } else {
-            output.push(Value::List {
+            output.push(SpannedValue::List {
                 vals: value.to_vec(),
                 span: head,
             })
@@ -234,7 +234,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
         single_list = true;
     }
     (
-        Value::List {
+        SpannedValue::List {
             vals: output,
             span: head,
         }
@@ -329,7 +329,7 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{Config, IntoPipelineData, Span, Value};
+    use nu_protocol::{Config, IntoPipelineData, Span, SpannedValue};
 
     fn one(string: &str) -> String {
         string
@@ -351,9 +351,9 @@ mod tests {
 
     #[test]
     fn render_h1() {
-        let value = Value::Record {
+        let value = SpannedValue::Record {
             cols: vec!["H1".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![SpannedValue::test_string("Ecuador")],
             span: Span::test_data(),
         };
 
@@ -362,9 +362,9 @@ mod tests {
 
     #[test]
     fn render_h2() {
-        let value = Value::Record {
+        let value = SpannedValue::Record {
             cols: vec!["H2".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![SpannedValue::test_string("Ecuador")],
             span: Span::test_data(),
         };
 
@@ -373,9 +373,9 @@ mod tests {
 
     #[test]
     fn render_h3() {
-        let value = Value::Record {
+        let value = SpannedValue::Record {
             cols: vec!["H3".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![SpannedValue::test_string("Ecuador")],
             span: Span::test_data(),
         };
 
@@ -384,9 +384,9 @@ mod tests {
 
     #[test]
     fn render_blockquote() {
-        let value = Value::Record {
+        let value = SpannedValue::Record {
             cols: vec!["BLOCKQUOTE".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+            vals: vec![SpannedValue::test_string("Ecuador")],
             span: Span::test_data(),
         };
 
@@ -395,21 +395,21 @@ mod tests {
 
     #[test]
     fn render_table() {
-        let value = Value::List {
+        let value = SpannedValue::List {
             vals: vec![
-                Value::Record {
+                SpannedValue::Record {
                     cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("Ecuador")],
+                    vals: vec![SpannedValue::test_string("Ecuador")],
                     span: Span::test_data(),
                 },
-                Value::Record {
+                SpannedValue::Record {
                     cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("New Zealand")],
+                    vals: vec![SpannedValue::test_string("New Zealand")],
                     span: Span::test_data(),
                 },
-                Value::Record {
+                SpannedValue::Record {
                     cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("USA")],
+                    vals: vec![SpannedValue::test_string("USA")],
                     span: Span::test_data(),
                 },
             ],

@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -55,10 +55,10 @@ impl Command for Rename {
             Example {
                 description: "Rename a column",
                 example: "[[a, b]; [1, 2]] | rename my_column",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["my_column".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
+                        vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -67,10 +67,14 @@ impl Command for Rename {
             Example {
                 description: "Rename many columns",
                 example: "[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["eggs".to_string(), "ham".to_string(), "bacon".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        vals: vec![
+                            SpannedValue::test_int(1),
+                            SpannedValue::test_int(2),
+                            SpannedValue::test_int(3),
+                        ],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -79,10 +83,14 @@ impl Command for Rename {
             Example {
                 description: "Rename a specific column",
                 example: "[[a, b, c]; [1, 2, 3]] | rename -c [a ham]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        vals: vec![
+                            SpannedValue::test_int(1),
+                            SpannedValue::test_int(2),
+                            SpannedValue::test_int(3),
+                        ],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -91,18 +99,18 @@ impl Command for Rename {
             Example {
                 description: "Rename the fields of a record",
                 example: "{a: 1 b: 2} | rename x y",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["x".to_string(), "y".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                    vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Rename fields based on a given closure",
                 example: "{abc: 1, bbc: 2} | rename -b {str replace -a 'b' 'z'}",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["azc".to_string(), "zzc".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                    vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
@@ -118,7 +126,7 @@ fn rename(
 ) -> Result<PipelineData, ShellError> {
     let specified_column: Option<Vec<String>> = call.get_flag(engine_state, stack, "column")?;
     // get the span for the column's name to be changed and for the given list
-    let (specified_col_span, list_span) = if let Some(Value::List {
+    let (specified_col_span, list_span) = if let Some(SpannedValue::List {
         vals: columns,
         span: column_span,
     }) = call.get_flag(engine_state, stack, "column")?
@@ -161,7 +169,7 @@ fn rename(
     input
         .map(
             move |item| match item {
-                Value::Record {
+                SpannedValue::Record {
                     mut cols,
                     vals,
                     span,
@@ -174,21 +182,21 @@ fn rename(
 
                             if let Some(var) = block.signature.get_positional(0) {
                                 if let Some(var_id) = &var.var_id {
-                                    stack.add_var(*var_id, Value::string(c.clone(), span))
+                                    stack.add_var(*var_id, SpannedValue::string(c.clone(), span))
                                 }
                             }
                             let eval_result = eval_block_with_early_return(
                                 &engine_state,
                                 &mut stack,
                                 &block,
-                                Value::string(c.clone(), span).into_pipeline_data(),
+                                SpannedValue::string(c.clone(), span).into_pipeline_data(),
                                 redirect_stdout,
                                 redirect_stderr,
                             );
                             match eval_result {
-                                Err(e) => return Value::Error { error: Box::new(e) },
+                                Err(e) => return SpannedValue::Error { error: Box::new(e) },
                                 Ok(res) => match res.collect_string_strict(span) {
-                                    Err(e) => return Value::Error { error: Box::new(e) },
+                                    Err(e) => return SpannedValue::Error { error: Box::new(e) },
                                     Ok(new_c) => *c = new_c.0,
                                 },
                             }
@@ -198,7 +206,7 @@ fn rename(
                             Some(c) => {
                                 // check if the specified column to be renamed exists
                                 if !cols.contains(&c[0]) {
-                                    return Value::Error {
+                                    return SpannedValue::Error {
                                         error: Box::new(ShellError::UnsupportedInput(
                                             format!(
                                                 "The column '{}' does not exist in the input",
@@ -231,11 +239,11 @@ fn rename(
                         }
                     }
 
-                    Value::Record { cols, vals, span }
+                    SpannedValue::Record { cols, vals, span }
                 }
                 // Propagate errors by explicitly matching them before the final case.
-                Value::Error { .. } => item.clone(),
-                other => Value::Error {
+                SpannedValue::Error { .. } => item.clone(),
+                other => SpannedValue::Error {
                     error: Box::new(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),

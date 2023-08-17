@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     ast::Call, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -38,13 +38,13 @@ impl Command for SeqChar {
             Example {
                 description: "sequence a to e",
                 example: "seq char a e",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string('a'),
-                        Value::test_string('b'),
-                        Value::test_string('c'),
-                        Value::test_string('d'),
-                        Value::test_string('e'),
+                        SpannedValue::test_string('a'),
+                        SpannedValue::test_string('b'),
+                        SpannedValue::test_string('c'),
+                        SpannedValue::test_string('d'),
+                        SpannedValue::test_string('e'),
                     ],
                     span: Span::test_data(),
                 }),
@@ -127,9 +127,9 @@ fn run_seq_char(start_ch: char, end_ch: char, span: Span) -> Result<PipelineData
 
     let result = result_vec
         .into_iter()
-        .map(|x| Value::String { val: x, span })
-        .collect::<Vec<Value>>();
-    Ok(Value::List { vals: result, span }.into_pipeline_data())
+        .map(|x| SpannedValue::String { val: x, span })
+        .collect::<Vec<SpannedValue>>();
+    Ok(SpannedValue::List { vals: result, span }.into_pipeline_data())
 }
 
 #[cfg(test)]

@@ -53,7 +53,7 @@ mod tests {
     use crate::protocol::{
         CallInfo, CallInput, EvaluatedCall, LabeledError, PluginCall, PluginData, PluginResponse,
     };
-    use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
+    use nu_protocol::{PluginSignature, Span, Spanned, SpannedValue, SyntaxShape};
 
     #[test]
     fn callinfo_round_trip_signature() {
@@ -79,7 +79,7 @@ mod tests {
     fn callinfo_round_trip_callinfo() {
         let name = "test".to_string();
 
-        let input = Value::Bool {
+        let input = SpannedValue::Bool {
             val: false,
             span: Span::new(1, 20),
         };
@@ -87,11 +87,11 @@ mod tests {
         let call = EvaluatedCall {
             head: Span::new(0, 10),
             positional: vec![
-                Value::Float {
+                SpannedValue::Float {
                     val: 1.0,
                     span: Span::new(0, 10),
                 },
-                Value::String {
+                SpannedValue::String {
                     val: "something".into(),
                     span: Span::new(0, 10),
                 },
@@ -101,7 +101,7 @@ mod tests {
                     item: "name".to_string(),
                     span: Span::new(0, 10),
                 },
-                Some(Value::Float {
+                Some(SpannedValue::Float {
                     val: 1.0,
                     span: Span::new(0, 10),
                 }),
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn response_round_trip_value() {
-        let value = Value::Int {
+        let value = SpannedValue::Int {
             val: 10,
             span: Span::new(2, 30),
         };

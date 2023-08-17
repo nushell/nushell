@@ -2,7 +2,9 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -40,15 +42,19 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute the product of a list of numbers",
             example: "[2 3 3 4] | math product",
-            result: Some(Value::test_int(72)),
+            result: Some(SpannedValue::test_int(72)),
         }]
     }
 }
 
 /// Calculate product of given values
-pub fn product(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn product(
+    values: &[SpannedValue],
+    span: Span,
+    head: Span,
+) -> Result<SpannedValue, ShellError> {
     let product_func = reducer_for(Reduce::Product);
-    product_func(Value::nothing(head), values.to_vec(), span, head)
+    product_func(SpannedValue::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]

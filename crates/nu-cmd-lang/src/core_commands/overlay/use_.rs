@@ -3,7 +3,8 @@ use nu_parser::trim_quotes_str;
 use nu_protocol::ast::{Call, Expr};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SpannedValue, SyntaxShape,
+    Type,
 };
 
 use std::path::Path;
@@ -129,13 +130,13 @@ impl Command for OverlayUse {
                     let mut parent = path.clone();
                     parent.pop();
 
-                    let file_pwd = Value::string(parent.to_string_lossy(), call.head);
+                    let file_pwd = SpannedValue::string(parent.to_string_lossy(), call.head);
 
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }
 
                 if let Some(file_path) = &maybe_path {
-                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
+                    let file_path = SpannedValue::string(file_path.to_string_lossy(), call.head);
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 

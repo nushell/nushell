@@ -5,7 +5,8 @@ use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 use super::PathSubcommandArguments;
@@ -77,7 +78,7 @@ impl Command for SubCommand {
             Example {
                 description: "Expand an absolute path",
                 example: r"'C:\Users\joe\foo\..\bar' | path expand",
-                result: Some(Value::test_string(r"C:\Users\joe\bar")),
+                result: Some(SpannedValue::test_string(r"C:\Users\joe\bar")),
             },
             Example {
                 description: "Expand a relative path",
@@ -87,9 +88,9 @@ impl Command for SubCommand {
             Example {
                 description: "Expand a list of paths",
                 example: r"[ C:\foo\..\bar, C:\foo\..\baz ] | path expand",
-                result: Some(Value::test_list(vec![
-                    Value::test_string(r"C:\bar"),
-                    Value::test_string(r"C:\baz"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_string(r"C:\bar"),
+                    SpannedValue::test_string(r"C:\baz"),
                 ])),
             },
         ]
@@ -101,7 +102,7 @@ impl Command for SubCommand {
             Example {
                 description: "Expand an absolute path",
                 example: "'/home/joe/foo/../bar' | path expand",
-                result: Some(Value::test_string("/home/joe/bar")),
+                result: Some(SpannedValue::test_string("/home/joe/bar")),
             },
             Example {
                 description: "Expand a relative path",
@@ -111,26 +112,26 @@ impl Command for SubCommand {
             Example {
                 description: "Expand a list of paths",
                 example: "[ /foo/../bar, /foo/../baz ] | path expand",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("/bar"),
-                    Value::test_string("/baz"),
+                result: Some(SpannedValue::test_list(vec![
+                    SpannedValue::test_string("/bar"),
+                    SpannedValue::test_string("/baz"),
                 ])),
             },
         ]
     }
 }
 
-fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
+fn expand(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
     if args.strict {
         match canonicalize_with(path, &args.cwd) {
             Ok(p) => {
                 if args.not_follow_symlink {
-                    Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                    SpannedValue::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
                 } else {
-                    Value::string(p.to_string_lossy(), span)
+                    SpannedValue::string(p.to_string_lossy(), span)
                 }
             }
-            Err(_) => Value::Error {
+            Err(_) => SpannedValue::Error {
                 error: Box::new(ShellError::GenericError(
                     "Could not expand path".into(),
                     "could not be expanded (path might not exist, non-final \
@@ -143,12 +144,12 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
             },
         }
     } else if args.not_follow_symlink {
-        Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+        SpannedValue::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
     } else {
         canonicalize_with(path, &args.cwd)
-            .map(|p| Value::string(p.to_string_lossy(), span))
+            .map(|p| SpannedValue::string(p.to_string_lossy(), span))
             .unwrap_or_else(|_| {
-                Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
+                SpannedValue::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
             })
     }
 }

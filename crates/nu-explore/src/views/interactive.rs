@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, Value,
+    PipelineData, SpannedValue,
 };
 use ratatui::{
     layout::Rect,
@@ -25,7 +25,7 @@ use super::{
 };
 
 pub struct InteractiveView<'a> {
-    input: Value,
+    input: SpannedValue,
     command: String,
     immediate: bool,
     table: Option<RecordView<'a>>,
@@ -36,7 +36,7 @@ pub struct InteractiveView<'a> {
 }
 
 impl<'a> InteractiveView<'a> {
-    pub fn new(input: Value) -> Self {
+    pub fn new(input: SpannedValue) -> Self {
         Self {
             input,
             table: None,
@@ -233,7 +233,7 @@ impl View for InteractiveView<'_> {
         }
     }
 
-    fn exit(&mut self) -> Option<Value> {
+    fn exit(&mut self) -> Option<SpannedValue> {
         self.table.as_mut().and_then(|v| v.exit())
     }
 
@@ -283,14 +283,17 @@ impl View for InteractiveView<'_> {
 
 fn run_command(
     command: &str,
-    input: &Value,
+    input: &SpannedValue,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<RecordView<'static>, String> {
     let pipeline =
         run_command_with_value(command, input, engine_state, stack).map_err(|e| e.to_string())?;
 
-    let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
+    let is_record = matches!(
+        pipeline,
+        PipelineData::Value(SpannedValue::Record { .. }, ..)
+    );
 
     let (columns, values) = collect_pipeline(pipeline);
 

@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
 };
 use std::process::Command as CommandSys;
 
@@ -40,7 +40,8 @@ impl Command for Clear {
         } else if cfg!(unix) {
             let mut cmd = CommandSys::new("/bin/sh");
 
-            if let Some(Value::String { val, .. }) = stack.get_env_var(engine_state, "TERM") {
+            if let Some(SpannedValue::String { val, .. }) = stack.get_env_var(engine_state, "TERM")
+            {
                 cmd.env("TERM", val);
             }
 
@@ -49,7 +50,7 @@ impl Command for Clear {
                 .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
         }
 
-        Ok(Value::Nothing { span }.into_pipeline_data())
+        Ok(SpannedValue::Nothing { span }.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -88,16 +88,16 @@ impl Command for Transpose {
             Example {
                 description: "Transposes the table contents with default column names",
                 example: "[[c1 c2]; [1 2]] | transpose",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
+                            vals: vec![SpannedValue::test_string("c1"), SpannedValue::test_int(1)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
+                            vals: vec![SpannedValue::test_string("c2"), SpannedValue::test_int(2)],
                             span,
                         },
                     ],
@@ -107,16 +107,16 @@ impl Command for Transpose {
             Example {
                 description: "Transposes the table contents with specified column names",
                 example: "[[c1 c2]; [1 2]] | transpose key val",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
+                            vals: vec![SpannedValue::test_string("c1"), SpannedValue::test_int(1)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
+                            vals: vec![SpannedValue::test_string("c2"), SpannedValue::test_int(2)],
                             span,
                         },
                     ],
@@ -127,16 +127,16 @@ impl Command for Transpose {
                 description:
                     "Transposes the table without column names and specify a new column name",
                 example: "[[c1 c2]; [1 2]] | transpose -i val",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(1)],
+                            vals: vec![SpannedValue::test_int(1)],
                             span,
                         },
-                        Value::Record {
+                        SpannedValue::Record {
                             cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(2)],
+                            vals: vec![SpannedValue::test_int(2)],
                             span,
                         },
                     ],
@@ -146,9 +146,9 @@ impl Command for Transpose {
             Example {
                 description: "Transfer back to record with -d flag",
                 example: "{c1: 1, c2: 2} | transpose | transpose -i -r -d",
-                result: Some(Value::Record {
+                result: Some(SpannedValue::Record {
                     cols: vec!["c1".to_string(), "c2".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                    vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                     span,
                 }),
             },
@@ -253,7 +253,7 @@ pub fn transpose(
 
             if !args.ignore_titles && !args.header_row {
                 cols.push(headers[column_num].clone());
-                vals.push(Value::string(desc.clone(), name));
+                vals.push(SpannedValue::string(desc.clone(), name));
                 column_num += 1
             }
 
@@ -266,15 +266,15 @@ pub fn transpose(
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
                             let new_val = match &vals[index] {
-                                Value::List { vals, span } => {
+                                SpannedValue::List { vals, span } => {
                                     let mut vals = vals.clone();
                                     vals.push(x.clone());
-                                    Value::List {
+                                    SpannedValue::List {
                                         vals: vals.to_vec(),
                                         span: *span,
                                     }
                                 }
-                                v => Value::List {
+                                v => SpannedValue::List {
                                     vals: vec![v.clone(), x.clone()],
                                     span: v.expect_span(),
                                 },
@@ -305,16 +305,16 @@ pub fn transpose(
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
                             let new_val = match &vals[index] {
-                                Value::List { vals, span } => {
+                                SpannedValue::List { vals, span } => {
                                     let mut vals = vals.clone();
-                                    vals.push(Value::nothing(name));
-                                    Value::List {
+                                    vals.push(SpannedValue::nothing(name));
+                                    SpannedValue::List {
                                         vals: vals.to_vec(),
                                         span: *span,
                                     }
                                 }
-                                v => Value::List {
-                                    vals: vec![v.clone(), Value::nothing(name)],
+                                v => SpannedValue::List {
+                                    vals: vec![v.clone(), SpannedValue::nothing(name)],
                                     span: v.expect_span(),
                                 },
                             };
@@ -331,23 +331,23 @@ pub fn transpose(
                             cols.remove(index);
                             vals.remove(index);
                             cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
+                            vals.push(SpannedValue::nothing(name));
                         } else if !cols.contains(&headers[column_num]) {
                             cols.push(headers[column_num].clone());
-                            vals.push(Value::nothing(name));
+                            vals.push(SpannedValue::nothing(name));
                         }
                     }
                 }
                 column_num += 1;
             }
 
-            Value::Record {
+            SpannedValue::Record {
                 cols,
                 vals,
                 span: name,
             }
         })
-        .collect::<Vec<Value>>();
+        .collect::<Vec<SpannedValue>>();
     if result_data.len() == 1 && args.as_record {
         Ok(PipelineData::Value(
             result_data

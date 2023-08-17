@@ -3,7 +3,7 @@ use crate::{
     parse_nustyle, NuStyle,
 };
 use nu_ansi_term::Style;
-use nu_protocol::Value;
+use nu_protocol::SpannedValue;
 use std::collections::HashMap;
 
 pub fn lookup_ansi_color_style(s: &str) -> Style {
@@ -19,7 +19,7 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
     }
 }
 
-pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> {
+pub fn get_color_map(colors: &HashMap<String, SpannedValue>) -> HashMap<String, Style> {
     let mut hm: HashMap<String, Style> = HashMap::new();
 
     for (key, value) in colors {
@@ -29,10 +29,12 @@ pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> 
     hm
 }
 
-fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
+fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &SpannedValue) {
     let value = match value {
-        Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
-        Value::Record { cols, vals, .. } => get_style_from_value(cols, vals).map(parse_nustyle),
+        SpannedValue::String { val, .. } => Some(lookup_ansi_color_style(val)),
+        SpannedValue::Record { cols, vals, .. } => {
+            get_style_from_value(cols, vals).map(parse_nustyle)
+        }
         _ => None,
     };
     if let Some(value) = value {
@@ -40,25 +42,25 @@ fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
     }
 }
 
-fn get_style_from_value(cols: &[String], vals: &[Value]) -> Option<NuStyle> {
+fn get_style_from_value(cols: &[String], vals: &[SpannedValue]) -> Option<NuStyle> {
     let mut was_set = false;
     let mut style = NuStyle::from(Style::default());
     for (col, val) in cols.iter().zip(vals) {
         match col.as_str() {
             "bg" => {
-                if let Value::String { val, .. } = val {
+                if let SpannedValue::String { val, .. } = val {
                     style.bg = Some(val.clone());
                     was_set = true;
                 }
             }
             "fg" => {
-                if let Value::String { val, .. } = val {
+                if let SpannedValue::String { val, .. } = val {
                     style.fg = Some(val.clone());
                     was_set = true;
                 }
             }
             "attr" => {
-                if let Value::String { val, .. } = val {
+                if let SpannedValue::String { val, .. } = val {
                     style.attr = Some(val.clone());
                     was_set = true;
                 }
@@ -92,7 +94,7 @@ fn color_string_to_nustyle(color_string: String) -> Style {
 mod tests {
     use super::*;
     use nu_ansi_term::{Color, Style};
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{Span, SpannedValue};
 
     #[test]
     fn test_color_string_to_nustyle_empty_string() {
@@ -122,15 +124,15 @@ mod tests {
         // Test case 1: all values are valid
         let cols = vec!["bg".to_string(), "fg".to_string(), "attr".to_string()];
         let vals = vec![
-            Value::String {
+            SpannedValue::String {
                 val: "red".to_string(),
                 span: Span::unknown(),
             },
-            Value::String {
+            SpannedValue::String {
                 val: "blue".to_string(),
                 span: Span::unknown(),
             },
-            Value::String {
+            SpannedValue::String {
                 val: "bold".to_string(),
                 span: Span::unknown(),
             },
@@ -144,17 +146,17 @@ mod tests {
 
         // Test case 2: no values are valid
         let cols = vec!["invalid".to_string()];
-        let vals = vec![Value::nothing(Span::unknown())];
+        let vals = vec![SpannedValue::nothing(Span::unknown())];
         assert_eq!(get_style_from_value(&cols, &vals), None);
 
         // Test case 3: some values are valid
         let cols = vec!["bg".to_string(), "invalid".to_string()];
         let vals = vec![
-            Value::String {
+            SpannedValue::String {
                 val: "green".to_string(),
                 span: Span::unknown(),
             },
-            Value::nothing(Span::unknown()),
+            SpannedValue::nothing(Span::unknown()),
         ];
         let expected_style = NuStyle {
             bg: Some("green".to_string()),
@@ -168,7 +170,7 @@ mod tests {
     fn test_parse_map_entry() {
         let mut hm = HashMap::new();
         let key = "test_key".to_owned();
-        let value = Value::String {
+        let value = SpannedValue::String {
             val: "red".to_owned(),
             span: Span::unknown(),
         };

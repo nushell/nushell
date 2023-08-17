@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -44,27 +44,35 @@ impl Command for SkipWhile {
             Example {
                 description: "Skip while the element is negative",
                 example: "[-2 0 2 -1] | skip while {|x| $x < 0 }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_int(0),
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(-1),
+                    ],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Skip while the element is negative using stored condition",
                 example: "let cond = {|x| $x < 0 }; [-2 0 2 -1] | skip while $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_int(0),
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(-1),
+                    ],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Skip while the field value is negative",
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(0)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(2)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(-1)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(0)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(2)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(-1)]),
                     ],
                     span: Span::test_data(),
                 }),

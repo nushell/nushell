@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Signature, Span, SpannedValue, Type,
 };
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
@@ -95,20 +95,19 @@ impl Command for History {
                                 .ok()
                         })
                         .map(move |entries| {
-                            entries
-                                .into_iter()
-                                .enumerate()
-                                .map(move |(idx, entry)| Value::Record {
+                            entries.into_iter().enumerate().map(move |(idx, entry)| {
+                                SpannedValue::Record {
                                     cols: vec!["command".to_string(), "index".to_string()],
                                     vals: vec![
-                                        Value::String {
+                                        SpannedValue::String {
                                             val: entry.command_line,
                                             span: head,
                                         },
-                                        Value::int(idx as i64, head),
+                                        SpannedValue::int(idx as i64, head),
                                     ],
                                     span: head,
-                                })
+                                }
+                            })
                         })
                         .ok_or(ShellError::FileNotFound(head))?
                         .into_pipeline_data(ctrlc)),
@@ -152,11 +151,11 @@ impl Command for History {
     }
 }
 
-fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
+fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> SpannedValue {
     //1. Format all the values
     //2. Create a record of either short or long columns and values
 
-    let item_id_value = Value::Int {
+    let item_id_value = SpannedValue::Int {
         val: match entry.id {
             Some(id) => {
                 let ids = id.to_string();
@@ -169,18 +168,18 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
         },
         span: head,
     };
-    let start_timestamp_value = Value::String {
+    let start_timestamp_value = SpannedValue::String {
         val: match entry.start_timestamp {
             Some(time) => time.to_string(),
             None => "".into(),
         },
         span: head,
     };
-    let command_value = Value::String {
+    let command_value = SpannedValue::String {
         val: entry.command_line,
         span: head,
     };
-    let session_id_value = Value::Int {
+    let session_id_value = SpannedValue::Int {
         val: match entry.session_id {
             Some(sid) => {
                 let sids = sid.to_string();
@@ -193,31 +192,31 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
         },
         span: head,
     };
-    let hostname_value = Value::String {
+    let hostname_value = SpannedValue::String {
         val: match entry.hostname {
             Some(host) => host,
             None => "".into(),
         },
         span: head,
     };
-    let cwd_value = Value::String {
+    let cwd_value = SpannedValue::String {
         val: match entry.cwd {
             Some(cwd) => cwd,
             None => "".into(),
         },
         span: head,
     };
-    let duration_value = Value::Duration {
+    let duration_value = SpannedValue::Duration {
         val: match entry.duration {
             Some(d) => d.as_nanos().try_into().unwrap_or(0),
             None => 0,
         },
         span: head,
     };
-    let exit_status_value = Value::int(entry.exit_status.unwrap_or(0), head);
-    let index_value = Value::int(idx as i64, head);
+    let exit_status_value = SpannedValue::int(entry.exit_status.unwrap_or(0), head);
+    let index_value = SpannedValue::int(idx as i64, head);
     if long {
-        Value::Record {
+        SpannedValue::Record {
             cols: vec![
                 "item_id".into(),
                 "start_timestamp".into(),
@@ -243,7 +242,7 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
             span: head,
         }
     } else {
-        Value::Record {
+        SpannedValue::Record {
             cols: vec![
                 "start_timestamp".into(),
                 "command".to_string(),

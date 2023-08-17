@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
-    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    ShellError, Signature, Spanned, SpannedValue, SyntaxShape, Type,
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -122,21 +122,21 @@ impl Command for ToHtml {
             Example {
                 description: "Outputs an  HTML string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to html",
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     r#"<html><style>body { background-color:white;color:black; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
                 )),
             },
             Example {
                 description: "Optionally, only output the html for the content itself",
                 example: "[[foo bar]; [1 2]] | to html --partial",
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     r#"<div style="background-color:white;color:black;"><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></div>"#,
                 )),
             },
             Example {
                 description: "Optionally, output the string with a dark background",
                 example: "[[foo bar]; [1 2]] | to html --dark",
-                result: Some(Value::test_string(
+                result: Some(SpannedValue::test_string(
                     r#"<html><style>body { background-color:black;color:white; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
                 )),
             },
@@ -246,7 +246,7 @@ fn to_html(
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = engine_state.get_config();
 
-    let vec_of_values = input.into_iter().collect::<Vec<Value>>();
+    let vec_of_values = input.into_iter().collect::<Vec<SpannedValue>>();
     let headers = merge_descriptors(&vec_of_values);
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));
@@ -280,7 +280,7 @@ fn to_html(
             "foreground".into(),
         ];
 
-        let result: Vec<Value> = html_themes
+        let result: Vec<SpannedValue> = html_themes
             .themes
             .into_iter()
             .map(|n| {
@@ -306,17 +306,17 @@ fn to_html(
                     n.foreground,
                 ]
                 .into_iter()
-                .map(|val| Value::String { val, span: head })
+                .map(|val| SpannedValue::String { val, span: head })
                 .collect();
 
-                Value::Record {
+                SpannedValue::Record {
                     cols: cols.clone(),
                     vals,
                     span: head,
                 }
             })
             .collect();
-        return Ok(Value::List {
+        return Ok(SpannedValue::List {
             vals: result,
             span: head,
         }
@@ -402,10 +402,10 @@ fn to_html(
             output_string = run_regexes(&regex_hm, &output_string);
         }
     }
-    Ok(Value::string(output_string, head).into_pipeline_data())
+    Ok(SpannedValue::string(output_string, head).into_pipeline_data())
 }
 
-fn html_list(list: Vec<Value>, config: &Config) -> String {
+fn html_list(list: Vec<SpannedValue>, config: &Config) -> String {
     let mut output_string = String::new();
     output_string.push_str("<ol>");
     for value in list {
@@ -417,7 +417,7 @@ fn html_list(list: Vec<Value>, config: &Config) -> String {
     output_string
 }
 
-fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> String {
+fn html_table(table: Vec<SpannedValue>, headers: Vec<String>, config: &Config) -> String {
     let mut output_string = String::new();
 
     output_string.push_str("<table>");
@@ -431,13 +431,13 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("</tr></thead><tbody>");
 
     for row in table {
-        if let Value::Record { span, .. } = row {
+        if let SpannedValue::Record { span, .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
                 let data = row.get_data_by_key(header);
                 output_string.push_str("<td>");
                 output_string.push_str(&html_value(
-                    data.unwrap_or_else(|| Value::nothing(span)),
+                    data.unwrap_or_else(|| SpannedValue::nothing(span)),
                     config,
                 ));
                 output_string.push_str("</td>");
@@ -450,10 +450,10 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string
 }
 
-fn html_value(value: Value, config: &Config) -> String {
+fn html_value(value: SpannedValue, config: &Config) -> String {
     let mut output_string = String::new();
     match value {
-        Value::Binary { val, .. } => {
+        SpannedValue::Binary { val, .. } => {
             let output = nu_pretty_hex::pretty_hex(&val);
             output_string.push_str("<pre>");
             output_string.push_str(&output);

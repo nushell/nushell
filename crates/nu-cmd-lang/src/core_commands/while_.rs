@@ -2,7 +2,7 @@ use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -47,7 +47,7 @@ impl Command for While {
 
             let result = eval_expression(engine_state, stack, cond)?;
             match &result {
-                Value::Bool { val, .. } => {
+                SpannedValue::Bool { val, .. } => {
                     if *val {
                         let block = engine_state.get_block(block.block_id);
                         match eval_block(

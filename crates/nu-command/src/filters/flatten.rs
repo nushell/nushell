@@ -4,7 +4,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -52,15 +52,15 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("N"),
-                        Value::test_string("u"),
-                        Value::test_string("s"),
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l")],
+                        SpannedValue::test_string("N"),
+                        SpannedValue::test_string("u"),
+                        SpannedValue::test_string("s"),
+                        SpannedValue::test_string("h"),
+                        SpannedValue::test_string("e"),
+                        SpannedValue::test_string("l"),
+                        SpannedValue::test_string("l")],
                     span: Span::test_data()
                 })
             },
@@ -82,26 +82,26 @@ impl Command for Flatten {
             Example {
                 description: "Flatten inner table",
                 example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten d --all",
-                result: Some(Value::List{
+                result: Some(SpannedValue::List{
                     vals: vec![
-                        Value::Record{
+                        SpannedValue::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(1), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
+                            vals: vec![SpannedValue::test_string("b"), SpannedValue::test_int(1), SpannedValue::List{vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         },
-                        Value::Record{
+                        SpannedValue::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
+                            vals: vec![SpannedValue::test_string("b"), SpannedValue::test_int(2), SpannedValue::List{vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         },
-                        Value::Record{
+                        SpannedValue::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(3), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
+                            vals: vec![SpannedValue::test_string("b"), SpannedValue::test_int(3), SpannedValue::List{vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         },
-                        Value::Record{
+                        SpannedValue::Record{
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(4), Value::List{vals: vec![Value::test_int(4), Value::test_int(3)], span: Span::test_data()}                            ],
+                            vals: vec![SpannedValue::test_string("b"), SpannedValue::test_int(4), SpannedValue::List{vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(3)], span: Span::test_data()}                            ],
                             span: Span::test_data()
                         }
                     ],
@@ -134,7 +134,7 @@ fn flatten(
 enum TableInside<'a> {
     // handle for a column which contains a single list(but not list of records)
     // it contains (column, span, values in the column, column index).
-    Entries(&'a str, &'a Span, Vec<&'a Value>, usize),
+    Entries(&'a str, &'a Span, Vec<&'a SpannedValue>, usize),
     // handle for a column which contains a table, we can flatten the inner column to outer level
     // `columns` means that for the given row, it contains `len(columns)` nested rows, and each nested row contains a list of column name.
     // Likely, `values` means that for the given row, it contains `len(values)` nested rows, and each nested row contains a list of values.
@@ -145,33 +145,38 @@ enum TableInside<'a> {
     FlattenedRows {
         columns: Vec<Vec<String>>,
         _span: &'a Span,
-        values: Vec<Vec<Value>>,
+        values: Vec<Vec<SpannedValue>>,
         parent_column_name: &'a str,
         parent_column_index: usize,
     },
 }
 
-fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) -> Vec<Value> {
+fn flat_value(
+    columns: &[CellPath],
+    item: &SpannedValue,
+    _name_tag: Span,
+    all: bool,
+) -> Vec<SpannedValue> {
     let tag = match item.span() {
         Ok(x) => x,
-        Err(e) => return vec![Value::Error { error: Box::new(e) }],
+        Err(e) => return vec![SpannedValue::Error { error: Box::new(e) }],
     };
 
     let res = {
         if item.as_record().is_ok() {
-            let mut out = IndexMap::<String, Value>::new();
+            let mut out = IndexMap::<String, SpannedValue>::new();
             let mut inner_table = None;
 
             let records = match item {
-                Value::Record {
+                SpannedValue::Record {
                     cols,
                     vals,
                     span: _,
                 } => (cols, vals),
                 // Propagate errors by explicitly matching them before the final case.
-                Value::Error { .. } => return vec![item.clone()],
+                SpannedValue::Error { .. } => return vec![item.clone()],
                 other => {
-                    return vec![Value::Error {
+                    return vec![SpannedValue::Error {
                         error: Box::new(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),
                             wrong_type: other.get_type().to_string(),
@@ -184,7 +189,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
 
             let s = match item.span() {
                 Ok(x) => x,
-                Err(e) => return vec![Value::Error { error: Box::new(e) }],
+                Err(e) => return vec![SpannedValue::Error { error: Box::new(e) }],
             };
 
             let records_iterator = {
@@ -203,7 +208,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
 
                 match value {
-                    Value::Record {
+                    SpannedValue::Record {
                         cols,
                         vals,
                         span: _,
@@ -225,11 +230,11 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List { vals, span }
+                    SpannedValue::List { vals, span }
                         if all && vals.iter().all(|f| f.as_record().is_ok()) =>
                     {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::Error{ error: Box::new(ShellError::UnsupportedInput(
+                            return vec![SpannedValue::Error{ error: Box::new(ShellError::UnsupportedInput(
                                     "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     "value originates from here".into(),
                                     s,
@@ -265,9 +270,9 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             out.insert(column.to_string(), value.clone());
                         }
                     }
-                    Value::List { vals: values, span } => {
+                    SpannedValue::List { vals: values, span } => {
                         if need_flatten && inner_table.is_some() {
-                            return vec![Value::Error{ error: Box::new(ShellError::UnsupportedInput(
+                            return vec![SpannedValue::Error{ error: Box::new(ShellError::UnsupportedInput(
                                     "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     "value originates from here".into(),
                                     s,
@@ -331,7 +336,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                             record_cols.push(column.to_string());
                             record_vals.push(entry.clone());
                         }
-                        let record = Value::Record {
+                        let record = SpannedValue::Record {
                             cols: record_cols,
                             vals: record_vals,
                             span: tag,
@@ -381,7 +386,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                 record_vals.push(val.clone());
                             }
                         }
-                        let record = Value::Record {
+                        let record = SpannedValue::Record {
                             cols: record_cols,
                             vals: record_vals,
                             span: tag,
@@ -390,7 +395,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     }
                 }
                 None => {
-                    let record = Value::Record {
+                    let record = SpannedValue::Record {
                         cols: out.keys().map(|f| f.to_string()).collect::<Vec<_>>(),
                         vals: out.values().cloned().collect(),
                         span: tag,
@@ -400,7 +405,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
             }
             expanded
         } else if item.as_list().is_ok() {
-            if let Value::List { vals, span: _ } = item {
+            if let SpannedValue::List { vals, span: _ } = item {
                 vals.to_vec()
             } else {
                 vec![]

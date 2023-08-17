@@ -17,7 +17,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
@@ -428,7 +428,7 @@ fn rm(
 
                     if let Err(e) = result {
                         let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                        Value::Error {
+                        SpannedValue::Error {
                             error: Box::new(ShellError::RemoveNotPossible(msg, span)),
                         }
                     } else if verbose {
@@ -438,13 +438,13 @@ fn rm(
                             "deleted"
                         };
                         let val = format!("{} {:}", msg, f.to_string_lossy());
-                        Value::String { val, span }
+                        SpannedValue::String { val, span }
                     } else {
-                        Value::Nothing { span }
+                        SpannedValue::Nothing { span }
                     }
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                    Value::Error {
+                    SpannedValue::Error {
                         error: Box::new(ShellError::GenericError(
                             msg,
                             "cannot remove non-empty directory".into(),
@@ -456,7 +456,7 @@ fn rm(
                 }
             } else {
                 let msg = format!("no such file or directory: {:}", f.to_string_lossy());
-                Value::Error {
+                SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         msg,
                         "no such file or directory".into(),

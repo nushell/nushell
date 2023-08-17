@@ -1,11 +1,11 @@
 use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Spanned, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Spanned, SpannedValue};
 
 pub fn run_with_function(
     call: &Call,
     input: PipelineData,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
+    mf: impl Fn(&[SpannedValue], Span, Span) -> Result<SpannedValue, ShellError>,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let res = calculate(input, name, mf);
@@ -16,25 +16,25 @@ pub fn run_with_function(
 }
 
 fn helper_for_tables(
-    values: &[Value],
+    values: &[SpannedValue],
     val_span: Span,
     name: Span,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
-) -> Result<Value, ShellError> {
+    mf: impl Fn(&[SpannedValue], Span, Span) -> Result<SpannedValue, ShellError>,
+) -> Result<SpannedValue, ShellError> {
     // If we are not dealing with Primitives, then perhaps we are dealing with a table
     // Create a key for each column name
     let mut column_values = IndexMap::new();
     for val in values {
         match val {
-            Value::Record { cols, vals, .. } => {
+            SpannedValue::Record { cols, vals, .. } => {
                 for (key, value) in cols.iter().zip(vals.iter()) {
                     column_values
                         .entry(key.clone())
-                        .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
+                        .and_modify(|v: &mut Vec<SpannedValue>| v.push(value.clone()))
                         .or_insert_with(|| vec![value.clone()]);
                 }
             }
-            Value::Error { error } => return Err(*error.clone()),
+            SpannedValue::Error { error } => return Err(*error.clone()),
             _ => {
                 //Turns out we are not dealing with a table
                 return mf(values, val.expect_span(), name);
@@ -57,7 +57,7 @@ fn helper_for_tables(
         ));
     }
 
-    Ok(Value::from(Spanned {
+    Ok(SpannedValue::from(Spanned {
         item: column_totals,
         span: name,
     }))
@@ -66,16 +66,16 @@ fn helper_for_tables(
 pub fn calculate(
     values: PipelineData,
     name: Span,
-    mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
-) -> Result<Value, ShellError> {
+    mf: impl Fn(&[SpannedValue], Span, Span) -> Result<SpannedValue, ShellError>,
+) -> Result<SpannedValue, ShellError> {
     // TODO implement spans for ListStream, thus negating the need for unwrap_or().
     let span = values.span().unwrap_or(name);
     match values {
         PipelineData::ListStream(s, ..) => {
-            helper_for_tables(&s.collect::<Vec<Value>>(), span, name, mf)
+            helper_for_tables(&s.collect::<Vec<SpannedValue>>(), span, name, mf)
         }
-        PipelineData::Value(Value::List { ref vals, span }, ..) => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper_for_tables(
+        PipelineData::Value(SpannedValue::List { ref vals, span }, ..) => match &vals[..] {
+            [SpannedValue::Record { .. }, _end @ ..] => helper_for_tables(
                 vals,
                 values.span().expect("PipelineData::Value had no span"),
                 name,
@@ -83,11 +83,11 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { vals, cols, span }, ..) => {
-            let new_vals: Result<Vec<Value>, ShellError> =
+        PipelineData::Value(SpannedValue::Record { vals, cols, span }, ..) => {
+            let new_vals: Result<Vec<SpannedValue>, ShellError> =
                 vals.into_iter().map(|val| mf(&[val], span, name)).collect();
             match new_vals {
-                Ok(vec) => Ok(Value::Record {
+                Ok(vec) => Ok(SpannedValue::Record {
                     cols,
                     vals: vec,
                     span,
@@ -95,8 +95,8 @@ pub fn calculate(
                 Err(err) => Err(err),
             }
         }
-        PipelineData::Value(Value::Range { val, span, .. }, ..) => {
-            let new_vals: Result<Vec<Value>, ShellError> = val
+        PipelineData::Value(SpannedValue::Range { val, span, .. }, ..) => {
+            let new_vals: Result<Vec<SpannedValue>, ShellError> = val
                 .into_range_iter(None)?
                 .map(|val| mf(&[val], span, name))
                 .collect();

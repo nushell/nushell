@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, SpannedValue};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -183,22 +183,22 @@ impl DirInfo {
     }
 }
 
-impl From<DirInfo> for Value {
+impl From<DirInfo> for SpannedValue {
     fn from(d: DirInfo) -> Self {
         let mut cols = vec![];
         let mut vals = vec![];
 
         cols.push("path".into());
-        vals.push(Value::string(d.path.display().to_string(), d.tag));
+        vals.push(SpannedValue::string(d.path.display().to_string(), d.tag));
 
         cols.push("apparent".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: d.size as i64,
             span: d.tag,
         });
 
         cols.push("physical".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: d.blocks as i64,
             span: d.tag,
         });
@@ -223,7 +223,7 @@ impl From<DirInfo> for Value {
         //     })
         // }
 
-        Value::Record {
+        SpannedValue::Record {
             cols,
             vals,
             span: d.tag,
@@ -231,22 +231,22 @@ impl From<DirInfo> for Value {
     }
 }
 
-impl From<FileInfo> for Value {
+impl From<FileInfo> for SpannedValue {
     fn from(f: FileInfo) -> Self {
         let mut cols = vec![];
         let mut vals = vec![];
 
         cols.push("path".into());
-        vals.push(Value::string(f.path.display().to_string(), f.tag));
+        vals.push(SpannedValue::string(f.path.display().to_string(), f.tag));
 
         cols.push("apparent".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: f.size as i64,
             span: f.tag,
         });
 
         cols.push("physical".into());
-        vals.push(Value::Filesize {
+        vals.push(SpannedValue::Filesize {
             val: match f.blocks {
                 Some(b) => b as i64,
                 None => 0i64,
@@ -255,15 +255,15 @@ impl From<FileInfo> for Value {
         });
 
         cols.push("directories".into());
-        vals.push(Value::nothing(Span::unknown()));
+        vals.push(SpannedValue::nothing(Span::unknown()));
 
         cols.push("files".into());
-        vals.push(Value::nothing(Span::unknown()));
+        vals.push(SpannedValue::nothing(Span::unknown()));
 
         // cols.push("errors".into());
         // vals.push(Value::nothing(Span::unknown()));
 
-        Value::Record {
+        SpannedValue::Record {
             cols,
             vals,
             span: f.tag,
@@ -271,15 +271,18 @@ impl From<FileInfo> for Value {
     }
 }
 
-fn value_from_vec<V>(vec: Vec<V>, tag: Span) -> Value
+fn value_from_vec<V>(vec: Vec<V>, tag: Span) -> SpannedValue
 where
-    V: Into<Value>,
+    V: Into<SpannedValue>,
 {
     if vec.is_empty() {
-        Value::nothing(tag)
+        SpannedValue::nothing(tag)
     } else {
-        let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
-        Value::List {
+        let values = vec
+            .into_iter()
+            .map(Into::into)
+            .collect::<Vec<SpannedValue>>();
+        SpannedValue::List {
             vals: values,
             span: tag,
         }

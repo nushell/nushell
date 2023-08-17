@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -40,26 +40,26 @@ impl Command for TakeWhile {
             Example {
                 description: "Take while the element is negative",
                 example: "[-1 -2 9 1] | take while {|x| $x < 0 }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(-1), Value::test_int(-2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(-1), SpannedValue::test_int(-2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Take while the element is negative using stored condition",
                 example: "let cond = {|x| $x < 0 }; [-1 -2 9 1] | take while $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(-1), Value::test_int(-2)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(-1), SpannedValue::test_int(-2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Take while the field value is negative",
                 example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take while {|x| $x.a < 0 }",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(-1)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(-2)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(-1)]),
+                        SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_int(-2)]),
                     ],
                     span: Span::test_data(),
                 }),

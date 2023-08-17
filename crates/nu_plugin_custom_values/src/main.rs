@@ -4,7 +4,7 @@ mod second_custom_value;
 use cool_custom_value::CoolCustomValue;
 use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, PluginSignature, ShellError, Value};
+use nu_protocol::{Category, PluginSignature, ShellError, SpannedValue};
 use second_custom_value::SecondCustomValue;
 
 struct CustomValuePlugin;
@@ -28,8 +28,8 @@ impl Plugin for CustomValuePlugin {
         &mut self,
         name: &str,
         call: &EvaluatedCall,
-        input: &Value,
-    ) -> Result<Value, LabeledError> {
+        input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         match name {
             "custom-value generate" => self.generate(call, input),
             "custom-value generate2" => self.generate2(call, input),
@@ -44,15 +44,27 @@ impl Plugin for CustomValuePlugin {
 }
 
 impl CustomValuePlugin {
-    fn generate(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+    fn generate(
+        &mut self,
+        call: &EvaluatedCall,
+        _input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         Ok(CoolCustomValue::new("abc").into_value(call.head))
     }
 
-    fn generate2(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
+    fn generate2(
+        &mut self,
+        call: &EvaluatedCall,
+        _input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         Ok(SecondCustomValue::new("xyz").into_value(call.head))
     }
 
-    fn update(&mut self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    fn update(
+        &mut self,
+        call: &EvaluatedCall,
+        input: &SpannedValue,
+    ) -> Result<SpannedValue, LabeledError> {
         if let Ok(mut value) = CoolCustomValue::try_from_value(input) {
             value.cool += "xyz";
             return Ok(value.into_value(call.head));

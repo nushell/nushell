@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, SpannedValue, SyntaxShape,
+    Type,
 };
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
@@ -94,7 +95,7 @@ fn decimal(
             span,
         }),
         Some(Ordering::Equal) => Ok(PipelineData::Value(
-            Value::Float {
+            SpannedValue::Float {
                 val: min,
                 span: Span::new(64, 64),
             },
@@ -105,7 +106,7 @@ fn decimal(
             let result: f64 = thread_rng.gen_range(min..max);
 
             Ok(PipelineData::Value(
-                Value::Float {
+                SpannedValue::Float {
                     val: result,
                     span: Span::new(64, 64),
                 },

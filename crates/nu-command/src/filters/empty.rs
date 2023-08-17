@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -44,18 +44,18 @@ impl Command for Empty {
             Example {
                 description: "Check if a string is empty",
                 example: "'' | is-empty",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
             Example {
                 description: "Check if a list is empty",
                 example: "[] | is-empty",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
             Example {
                 // TODO: revisit empty cell path semantics for a record.
                 description: "Check if more than one column are empty",
                 example: "[[meal size]; [arepa small] [taco '']] | is-empty meal size",
-                result: Some(Value::test_bool(false)),
+                result: Some(SpannedValue::test_bool(false)),
             },
         ]
     }
@@ -75,14 +75,14 @@ fn empty(
             for column in &columns {
                 let val = val.clone();
                 match val.follow_cell_path(&column.members, false) {
-                    Ok(Value::Nothing { .. }) => {}
-                    Ok(_) => return Ok(Value::bool(false, head).into_pipeline_data()),
+                    Ok(SpannedValue::Nothing { .. }) => {}
+                    Ok(_) => return Ok(SpannedValue::bool(false, head).into_pipeline_data()),
                     Err(err) => return Err(err),
                 }
             }
         }
 
-        Ok(Value::bool(true, head).into_pipeline_data())
+        Ok(SpannedValue::bool(true, head).into_pipeline_data())
     } else {
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
@@ -91,17 +91,19 @@ fn empty(
                     let bytes = s.into_bytes();
 
                     match bytes {
-                        Ok(s) => Ok(Value::bool(s.item.is_empty(), head).into_pipeline_data()),
+                        Ok(s) => {
+                            Ok(SpannedValue::bool(s.item.is_empty(), head).into_pipeline_data())
+                        }
                         Err(err) => Err(err),
                     }
                 }
-                None => Ok(Value::bool(true, head).into_pipeline_data()),
+                None => Ok(SpannedValue::bool(true, head).into_pipeline_data()),
             },
             PipelineData::ListStream(s, ..) => {
-                Ok(Value::bool(s.count() == 0, head).into_pipeline_data())
+                Ok(SpannedValue::bool(s.count() == 0, head).into_pipeline_data())
             }
             PipelineData::Value(value, ..) => {
-                Ok(Value::bool(value.is_empty(), head).into_pipeline_data())
+                Ok(SpannedValue::bool(value.is_empty(), head).into_pipeline_data())
             }
         }
     }

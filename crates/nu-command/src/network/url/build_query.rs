@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 
 #[derive(Clone)]
@@ -34,17 +35,17 @@ impl Command for SubCommand {
             Example {
                 description: "Outputs a query string representing the contents of this record",
                 example: r#"{ mode:normal userid:31415 } | url build-query"#,
-                result: Some(Value::test_string("mode=normal&userid=31415")),
+                result: Some(SpannedValue::test_string("mode=normal&userid=31415")),
             },
             Example {
                 description: "Outputs a query string representing the contents of this 1-row table",
                 example: r#"[[foo bar]; ["1" "2"]] | url build-query"#,
-                result: Some(Value::test_string("foo=1&bar=2")),
+                result: Some(SpannedValue::test_string("foo=1&bar=2")),
             },
             Example {
                 description: "Outputs a query string representing the contents of this record",
                 example: r#"{a:"AT&T", b: "AT T"} | url build-query"#,
-                result: Some(Value::test_string("a=AT%26T&b=AT+T")),
+                result: Some(SpannedValue::test_string("a=AT%26T&b=AT+T")),
             },
         ]
     }
@@ -65,7 +66,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
     let output: Result<String, ShellError> = input
         .into_iter()
         .map(move |value| match value {
-            Value::Record {
+            SpannedValue::Record {
                 ref cols,
                 ref vals,
                 span,
@@ -98,7 +99,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 }
             }
             // Propagate existing errors
-            Value::Error { error } => Err(*error),
+            SpannedValue::Error { error } => Err(*error),
             other => Err(ShellError::UnsupportedInput(
                 "Expected a table from pipeline".to_string(),
                 "value originates from here".into(),
@@ -108,7 +109,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
         })
         .collect();
 
-    Ok(Value::string(output?, head).into_pipeline_data())
+    Ok(SpannedValue::string(output?, head).into_pipeline_data())
 }
 
 #[cfg(test)]

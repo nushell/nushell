@@ -4,7 +4,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, ShellError, Span, Value, VarId,
+    DeclId, ShellError, Span, SpannedValue, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -21,7 +21,7 @@ fn find_id(
     working_set: &mut StateWorkingSet,
     file_path: &str,
     file: &[u8],
-    location: &Value,
+    location: &SpannedValue,
 ) -> Option<(Id, usize, Span)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
     let offset = working_set.get_span_for_file(file_id).start;
@@ -74,9 +74,12 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
+pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &SpannedValue) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var(
+        "PWD".into(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
@@ -137,9 +140,12 @@ pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Va
     }
 }
 
-pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &SpannedValue) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var(
+        "PWD".into(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
@@ -191,9 +197,12 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
     println!("{{}}");
 }
 
-pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &SpannedValue) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var(
+        "PWD".into(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     let (file, mut working_set) = read_in_file(engine_state, file_path);
 
@@ -577,7 +586,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
     }
 }
 
-pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &Value) {
+pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &SpannedValue) {
     let stack = Stack::new();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
@@ -605,7 +614,10 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location
 
 pub fn ast(engine_state: &mut EngineState, file_path: &String) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var(
+        "PWD".into(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);

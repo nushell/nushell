@@ -3,7 +3,7 @@ use nu_protocol::ast::{Block, Call};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineIterator, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -51,8 +51,8 @@ impl Command for UpdateCells {
             $value
           }
     }"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec![
                             "2021-04-16".into(),
                             "2021-06-10".into(),
@@ -63,13 +63,13 @@ impl Command for UpdateCells {
                             "2021-11-18".into(),
                         ],
                         vals: vec![
-                            Value::test_int(37),
-                            Value::test_string(""),
-                            Value::test_string(""),
-                            Value::test_string(""),
-                            Value::test_int(37),
-                            Value::test_string(""),
-                            Value::test_string(""),
+                            SpannedValue::test_int(37),
+                            SpannedValue::test_string(""),
+                            SpannedValue::test_string(""),
+                            SpannedValue::test_string(""),
+                            SpannedValue::test_int(37),
+                            SpannedValue::test_string(""),
+                            SpannedValue::test_string(""),
                         ],
                         span: Span::test_data(),
                     }],
@@ -88,8 +88,8 @@ impl Command for UpdateCells {
               $value
             }
     }"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         cols: vec![
                             "2021-04-16".into(),
                             "2021-06-10".into(),
@@ -100,13 +100,13 @@ impl Command for UpdateCells {
                             "2021-11-18".into(),
                         ],
                         vals: vec![
-                            Value::test_int(37),
-                            Value::test_int(0),
-                            Value::test_int(0),
-                            Value::test_int(0),
-                            Value::test_int(37),
-                            Value::test_string(""),
-                            Value::test_string(""),
+                            SpannedValue::test_int(37),
+                            SpannedValue::test_int(0),
+                            SpannedValue::test_int(0),
+                            SpannedValue::test_int(0),
+                            SpannedValue::test_int(37),
+                            SpannedValue::test_string(""),
+                            SpannedValue::test_string(""),
                         ],
                         span: Span::test_data(),
                     }],
@@ -142,7 +142,7 @@ impl Command for UpdateCells {
         stack.with_env(&orig_env_vars, &orig_env_hidden);
 
         // the columns to update
-        let columns: Option<Value> = call.get_flag(&engine_state, &mut stack, "columns")?;
+        let columns: Option<SpannedValue> = call.get_flag(&engine_state, &mut stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
             Some(val) => {
                 let cols = val
@@ -182,7 +182,7 @@ struct UpdateCellIterator {
 }
 
 impl Iterator for UpdateCellIterator {
-    type Item = Value;
+    type Item = SpannedValue;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.input.next() {
@@ -194,7 +194,7 @@ impl Iterator for UpdateCellIterator {
                 }
 
                 match val {
-                    Value::Record { vals, cols, span } => Some(Value::Record {
+                    SpannedValue::Record { vals, cols, span } => Some(SpannedValue::Record {
                         vals: cols
                             .iter()
                             .zip(vals)
@@ -231,14 +231,14 @@ impl Iterator for UpdateCellIterator {
 }
 
 fn process_cell(
-    val: Value,
+    val: SpannedValue,
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     redirect_stdout: bool,
     redirect_stderr: bool,
     span: Span,
-) -> Value {
+) -> SpannedValue {
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {
             stack.add_var(*var_id, val.clone());
@@ -253,7 +253,7 @@ fn process_cell(
         redirect_stderr,
     ) {
         Ok(pd) => pd.into_value(span),
-        Err(e) => Value::Error { error: Box::new(e) },
+        Err(e) => SpannedValue::Error { error: Box::new(e) },
     }
 }
 

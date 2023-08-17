@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
+    SyntaxShape, Type,
 };
 use num_traits::CheckedShr;
 use std::fmt::Display;
@@ -86,13 +87,17 @@ impl Command for BitsShr {
             Example {
                 description: "Shift right a number with 2 bits",
                 example: "8 | bits shr 2",
-                result: Some(Value::test_int(2)),
+                result: Some(SpannedValue::test_int(2)),
             },
             Example {
                 description: "Shift right a list of numbers",
                 example: "[15 35 2] | bits shr 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(8), Value::test_int(0)],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_int(3),
+                        SpannedValue::test_int(8),
+                        SpannedValue::test_int(0),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -100,7 +105,7 @@ impl Command for BitsShr {
     }
 }
 
-fn get_shift_right<T: CheckedShr + Display + Copy>(val: T, bits: u32, span: Span) -> Value
+fn get_shift_right<T: CheckedShr + Display + Copy>(val: T, bits: u32, span: Span) -> SpannedValue
 where
     i64: std::convert::TryFrom<T>,
 {
@@ -108,8 +113,8 @@ where
         Some(val) => {
             let shift_result = i64::try_from(val);
             match shift_result {
-                Ok(val) => Value::Int { val, span },
-                Err(_) => Value::Error {
+                Ok(val) => SpannedValue::Int { val, span },
+                Err(_) => SpannedValue::Error {
                     error: Box::new(ShellError::GenericError(
                         "Shift right result beyond the range of 64 bit signed number".to_string(),
                         format!(
@@ -122,7 +127,7 @@ where
                 },
             }
         }
-        None => Value::Error {
+        None => SpannedValue::Error {
             error: Box::new(ShellError::GenericError(
                 "Shift right failed".to_string(),
                 format!("{val} shift right {bits} bits failed, you may shift too many bits"),
@@ -134,9 +139,15 @@ where
     }
 }
 
-fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+fn operate(
+    value: SpannedValue,
+    bits: usize,
+    head: Span,
+    signed: bool,
+    number_size: NumberBytes,
+) -> SpannedValue {
     match value {
-        Value::Int { val, span } => {
+        SpannedValue::Int { val, span } => {
             use InputNumType::*;
             // let bits = (((bits % 64) + 64) % 64) as u32;
             let bits = bits as u32;
@@ -153,8 +164,8 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => value,
-        other => Value::Error {
+        SpannedValue::Error { .. } => value,
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),

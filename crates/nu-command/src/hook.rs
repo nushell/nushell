@@ -5,16 +5,18 @@ use nu_parser::parse;
 use nu_protocol::ast::PathMember;
 use nu_protocol::cli_error::{report_error, report_error_new};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
+use nu_protocol::{
+    BlockId, PipelineData, PositionalArg, ShellError, Span, SpannedValue, Type, VarId,
+};
 
 pub fn eval_env_change_hook(
-    env_change_hook: Option<Value>,
+    env_change_hook: Option<SpannedValue>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
     if let Some(hook) = env_change_hook {
         match hook {
-            Value::Record {
+            SpannedValue::Record {
                 cols: env_names,
                 vals: hook_values,
                 ..
@@ -61,8 +63,8 @@ pub fn eval_hook(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: Option<PipelineData>,
-    arguments: Vec<(String, Value)>,
-    value: &Value,
+    arguments: Vec<(String, SpannedValue)>,
+    value: &SpannedValue,
 ) -> Result<PipelineData, ShellError> {
     let value_span = value.span()?;
 
@@ -87,11 +89,11 @@ pub fn eval_hook(
     };
 
     match value {
-        Value::String { val, span } => {
+        SpannedValue::String { val, span } => {
             let (block, delta, vars) = {
                 let mut working_set = StateWorkingSet::new(engine_state);
 
-                let mut vars: Vec<(VarId, Value)> = vec![];
+                let mut vars: Vec<(VarId, SpannedValue)> = vec![];
 
                 for (name, val) in arguments {
                     let var_id = working_set.add_variable(
@@ -146,21 +148,21 @@ pub fn eval_hook(
                 stack.remove_var(*var_id);
             }
         }
-        Value::List { vals, .. } => {
+        SpannedValue::List { vals, .. } => {
             for val in vals {
                 eval_hook(engine_state, stack, None, arguments.clone(), val)?;
             }
         }
-        Value::Record { .. } => {
+        SpannedValue::Record { .. } => {
             let do_run_hook =
                 if let Ok(condition) = value.clone().follow_cell_path(&[condition_path], false) {
                     match condition {
-                        Value::Block {
+                        SpannedValue::Block {
                             val: block_id,
                             span: block_span,
                             ..
                         }
-                        | Value::Closure {
+                        | SpannedValue::Closure {
                             val: block_id,
                             span: block_span,
                             ..
@@ -174,7 +176,7 @@ pub fn eval_hook(
                                 block_span,
                             ) {
                                 Ok(pipeline_data) => {
-                                    if let PipelineData::Value(Value::Bool { val, .. }, ..) =
+                                    if let PipelineData::Value(SpannedValue::Bool { val, .. }, ..) =
                                         pipeline_data
                                     {
                                         val
@@ -206,14 +208,14 @@ pub fn eval_hook(
 
             if do_run_hook {
                 match value.clone().follow_cell_path(&[code_path], false)? {
-                    Value::String {
+                    SpannedValue::String {
                         val,
                         span: source_span,
                     } => {
                         let (block, delta, vars) = {
                             let mut working_set = StateWorkingSet::new(engine_state);
 
-                            let mut vars: Vec<(VarId, Value)> = vec![];
+                            let mut vars: Vec<(VarId, SpannedValue)> = vec![];
 
                             for (name, val) in arguments {
                                 let var_id = working_set.add_variable(
@@ -265,7 +267,7 @@ pub fn eval_hook(
                             stack.remove_var(*var_id);
                         }
                     }
-                    Value::Block {
+                    SpannedValue::Block {
                         val: block_id,
                         span: block_span,
                         ..
@@ -279,7 +281,7 @@ pub fn eval_hook(
                             block_span,
                         )?;
                     }
-                    Value::Closure {
+                    SpannedValue::Closure {
                         val: block_id,
                         span: block_span,
                         ..
@@ -303,7 +305,7 @@ pub fn eval_hook(
                 }
             }
         }
-        Value::Block {
+        SpannedValue::Block {
             val: block_id,
             span: block_span,
             ..
@@ -317,7 +319,7 @@ pub fn eval_hook(
                 *block_span,
             )?;
         }
-        Value::Closure {
+        SpannedValue::Closure {
             val: block_id,
             span: block_span,
             ..
@@ -351,7 +353,7 @@ fn run_hook_block(
     stack: &mut Stack,
     block_id: BlockId,
     optional_input: Option<PipelineData>,
-    arguments: Vec<(String, Value)>,
+    arguments: Vec<(String, SpannedValue)>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let block = engine_state.get_block(block_id);
@@ -378,7 +380,7 @@ fn run_hook_block(
     let pipeline_data =
         eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
-    if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+    if let PipelineData::Value(SpannedValue::Error { error }, _) = pipeline_data {
         return Err(*error);
     }
 

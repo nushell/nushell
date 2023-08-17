@@ -3,7 +3,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, span};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Spanned, SyntaxShape, Type, Value,
+    Signature, Spanned, SpannedValue, SyntaxShape, Type,
 };
 use std::process::{Command as CommandSys, Stdio};
 
@@ -172,9 +172,9 @@ impl Command for Kill {
                 .trim_end(),
         );
         if val.is_empty() {
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(SpannedValue::Nothing { span: call.head }.into_pipeline_data())
         } else {
-            Ok(vec![Value::String {
+            Ok(vec![SpannedValue::String {
                 val,
                 span: call.head,
             }]

@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, Span, SpannedValue};
 use tabled::{
     grid::{
         color::{AnsiColor, StaticColor},
@@ -20,7 +20,7 @@ pub struct UnstructuredTable {
 }
 
 impl UnstructuredTable {
-    pub fn new(value: Value, config: &Config) -> Self {
+    pub fn new(value: SpannedValue, config: &Config) -> Self {
         let value = convert_nu_value_to_table_value(value, config);
         Self { value }
     }
@@ -65,7 +65,7 @@ fn build_table(
     ));
 
     // color_config closures for "separator" are just given a null.
-    let color = style_computer.compute("separator", &Value::nothing(Span::unknown()));
+    let color = style_computer.compute("separator", &SpannedValue::nothing(Span::unknown()));
     let color = color.paint(" ").to_string();
     if let Ok(color) = Color::try_from(color) {
         // # SAFETY
@@ -88,10 +88,10 @@ fn build_table(
     table.to_string()
 }
 
-fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue {
+fn convert_nu_value_to_table_value(value: SpannedValue, config: &Config) -> TableValue {
     match value {
-        Value::Record { cols, vals, .. } => build_vertical_map(cols, vals, config),
-        Value::List { vals, .. } => {
+        SpannedValue::Record { cols, vals, .. } => build_vertical_map(cols, vals, config),
+        SpannedValue::List { vals, .. } => {
             let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
             if rebuild_array_as_map {
                 build_map_from_record(vals, config)
@@ -110,7 +110,7 @@ fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue 
     }
 }
 
-fn build_vertical_map(cols: Vec<String>, vals: Vec<Value>, config: &Config) -> TableValue {
+fn build_vertical_map(cols: Vec<String>, vals: Vec<SpannedValue>, config: &Config) -> TableValue {
     let mut rows = Vec::with_capacity(cols.len());
     for (key, value) in cols.into_iter().zip(vals) {
         let val = convert_nu_value_to_table_value(value, config);
@@ -147,7 +147,7 @@ fn build_vertical_map(cols: Vec<String>, vals: Vec<Value>, config: &Config) -> T
     TableValue::Column(rows)
 }
 
-fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {
+fn build_vertical_array(vals: Vec<SpannedValue>, config: &Config) -> TableValue {
     let map = vals
         .into_iter()
         .map(|val| convert_nu_value_to_table_value(val, config))
@@ -156,11 +156,11 @@ fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {
     TableValue::Column(map)
 }
 
-fn is_valid_record(vals: &[Value]) -> bool {
+fn is_valid_record(vals: &[SpannedValue]) -> bool {
     let mut used_cols: Option<&[String]> = None;
     for val in vals {
         match val {
-            Value::Record { cols, .. } => {
+            SpannedValue::Record { cols, .. } => {
                 let cols_are_not_equal =
                     used_cols.is_some() && !matches!(used_cols, Some(used) if cols == used);
                 if cols_are_not_equal {
@@ -176,14 +176,14 @@ fn is_valid_record(vals: &[Value]) -> bool {
     true
 }
 
-fn count_columns_in_record(vals: &[Value]) -> usize {
+fn count_columns_in_record(vals: &[SpannedValue]) -> usize {
     match vals.iter().next() {
-        Some(Value::Record { cols, .. }) => cols.len(),
+        Some(SpannedValue::Record { cols, .. }) => cols.len(),
         _ => 0,
     }
 }
 
-fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
+fn build_map_from_record(vals: Vec<SpannedValue>, config: &Config) -> TableValue {
     let mut list = vec![];
 
     let head = get_columns_in_record(&vals);
@@ -194,7 +194,7 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
 
     for val in vals {
         match val {
-            Value::Record { vals, .. } => {
+            SpannedValue::Record { vals, .. } => {
                 for (i, cell) in vals.into_iter().take(count_columns).enumerate() {
                     let cell = convert_nu_value_to_table_value(cell, config);
                     list[i].push(cell);
@@ -209,9 +209,9 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     TableValue::Row(columns)
 }
 
-fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
+fn get_columns_in_record(vals: &[SpannedValue]) -> Vec<String> {
     match vals.iter().next() {
-        Some(Value::Record { cols, .. }) => cols.clone(),
+        Some(SpannedValue::Record { cols, .. }) => cols.clone(),
         _ => vec![],
     }
 }

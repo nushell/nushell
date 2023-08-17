@@ -1,11 +1,11 @@
 use encoding_rs::Encoding;
-use nu_protocol::{ShellError, Span, Spanned, Value};
+use nu_protocol::{ShellError, Span, Spanned, SpannedValue};
 
 pub fn decode(
     head: Span,
     encoding_name: Spanned<String>,
     bytes: &[u8],
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     // Workaround for a bug in the Encodings Specification.
     let encoding = if encoding_name.item.to_lowercase() == "utf16" {
         parse_encoding(encoding_name.span, "utf-16")
@@ -13,7 +13,7 @@ pub fn decode(
         parse_encoding(encoding_name.span, &encoding_name.item)
     }?;
     let (result, ..) = encoding.decode(bytes);
-    Ok(Value::String {
+    Ok(SpannedValue::String {
         val: result.into_owned(),
         span: head,
     })
@@ -25,7 +25,7 @@ pub fn encode(
     s: &str,
     s_span: Span,
     ignore_errors: bool,
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     // Workaround for a bug in the Encodings Specification.
     let encoding = if encoding_name.item.to_lowercase() == "utf16" {
         parse_encoding(encoding_name.span, "utf-16")
@@ -45,7 +45,7 @@ pub fn encode(
             vec![],
         ))
     } else {
-        Ok(Value::Binary {
+        Ok(SpannedValue::Binary {
             val: result.into_owned(),
             span: head,
         })

@@ -19,7 +19,7 @@ use nu_engine::CallExt;
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, SpannedValue};
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
     case_operation: &'static F,
@@ -51,18 +51,18 @@ where
     general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action<F>(input: &Value, args: &Arguments<F>, head: Span) -> Value
+fn action<F>(input: &SpannedValue, args: &Arguments<F>, head: Span) -> SpannedValue
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
     let case_operation = args.case_operation;
     match input {
-        Value::String { val, .. } => Value::String {
+        SpannedValue::String { val, .. } => SpannedValue::String {
             val: case_operation(val),
             span: head,
         },
-        Value::Error { .. } => input.clone(),
-        _ => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        _ => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

@@ -1,9 +1,12 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Value};
+use nu_protocol::{PluginExample, ShellError, Span, SpannedValue};
 
 pub const CMD_NAME: &str = "from ini";
 
-pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+pub fn from_ini_call(
+    call: &EvaluatedCall,
+    input: &SpannedValue,
+) -> Result<SpannedValue, LabeledError> {
     let span = input.span().unwrap_or(call.head);
     let input_string = input.as_string()?;
     let head = call.head;
@@ -12,11 +15,11 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
     match ini_config {
         Ok(config) => {
             let mut sections: Vec<String> = Vec::new();
-            let mut sections_key_value_pairs: Vec<Value> = Vec::new();
+            let mut sections_key_value_pairs: Vec<SpannedValue> = Vec::new();
 
             for (section, properties) in config.iter() {
                 let mut keys_for_section: Vec<String> = Vec::new();
-                let mut values_for_section: Vec<Value> = Vec::new();
+                let mut values_for_section: Vec<SpannedValue> = Vec::new();
 
                 // section
                 match section {
@@ -34,7 +37,7 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
                 // section's key value pairs
                 for (key, value) in properties.iter() {
                     keys_for_section.push(key.to_owned());
-                    values_for_section.push(Value::String {
+                    values_for_section.push(SpannedValue::String {
                         val: value.to_owned(),
                         span,
                     });
@@ -43,7 +46,7 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
                 // section with its key value pairs
                 // Only add section if contains key,value pair
                 if !properties.is_empty() {
-                    sections_key_value_pairs.push(Value::Record {
+                    sections_key_value_pairs.push(SpannedValue::Record {
                         cols: keys_for_section,
                         vals: values_for_section,
                         span,
@@ -52,7 +55,7 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
             }
 
             // all sections with all its key value pairs
-            Ok(Value::Record {
+            Ok(SpannedValue::Record {
                 cols: sections,
                 vals: sections_key_value_pairs,
                 span,
@@ -75,11 +78,14 @@ a=1
 b=2' | from ini"
             .into(),
         description: "Converts ini formatted string to record".into(),
-        result: Some(Value::Record {
+        result: Some(SpannedValue::Record {
             cols: vec!["foo".to_string()],
-            vals: vec![Value::Record {
+            vals: vec![SpannedValue::Record {
                 cols: vec!["a".to_string(), "b".to_string()],
-                vals: vec![Value::test_string("1"), Value::test_string("2")],
+                vals: vec![
+                    SpannedValue::test_string("1"),
+                    SpannedValue::test_string("2"),
+                ],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),

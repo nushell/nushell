@@ -2,7 +2,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},
-    IntoPipelineData, PipelineData, ShellError, Span, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, SpannedValue,
 };
 
 pub fn chain_error_with_input(
@@ -61,7 +61,7 @@ pub fn boolean_fold(
             }
             Ok(pipeline_data) => {
                 if pipeline_data.into_value(span).is_true() == accumulator {
-                    return Ok(Value::Bool {
+                    return Ok(SpannedValue::Bool {
                         val: accumulator,
                         span,
                     }
@@ -71,7 +71,7 @@ pub fn boolean_fold(
         }
     }
 
-    Ok(Value::Bool {
+    Ok(SpannedValue::Bool {
         val: !accumulator,
         span,
     }

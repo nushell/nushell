@@ -2,7 +2,7 @@ use std::io::Result;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 
 use crate::pager::{Pager, Transition};
@@ -45,7 +45,7 @@ impl SimpleCommand for QuitCmd {
         _: &EngineState,
         _: &mut Stack,
         _: &mut Pager<'_>,
-        _: Option<Value>,
+        _: Option<SpannedValue>,
     ) -> Result<Transition> {
         Ok(Transition::Exit)
     }

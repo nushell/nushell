@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Signature, Span, Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone, Debug)]
@@ -52,19 +52,19 @@ impl Command for Move {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
                 description: "Move a column before the first column",
                 result:
-                    Some(Value::List {
+                    Some(SpannedValue::List {
                         vals: vec![
-                            Value::test_record(
+                            SpannedValue::test_record(
                                 vec!["index", "name", "value"],
-                                vec![Value::test_int(1), Value::test_string("foo"), Value::test_string("a")],
+                                vec![SpannedValue::test_int(1), SpannedValue::test_string("foo"), SpannedValue::test_string("a")],
                             ),
-                            Value::test_record(
+                            SpannedValue::test_record(
                                 vec!["index", "name", "value"],
-                                vec![Value::test_int(2), Value::test_string("bar"), Value::test_string("b")],
+                                vec![SpannedValue::test_int(2), SpannedValue::test_string("bar"), SpannedValue::test_string("b")],
                             ),
-                            Value::test_record(
+                            SpannedValue::test_record(
                                 vec!["index", "name", "value"],
-                                vec![Value::test_int(3), Value::test_string("baz"), Value::test_string("c")],
+                                vec![SpannedValue::test_int(3), SpannedValue::test_string("baz"), SpannedValue::test_string("c")],
                             ),
                         ],
                         span: Span::test_data(),
@@ -74,19 +74,19 @@ impl Command for Move {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
                 description: "Move multiple columns after the last column and reorder them",
                 result:
-                    Some(Value::List {
+                    Some(SpannedValue::List {
                         vals: vec![
-                            Value::test_record(
+                            SpannedValue::test_record(
                                 vec!["index", "value", "name"],
-                                vec![Value::test_int(1), Value::test_string("a"), Value::test_string("foo")],
+                                vec![SpannedValue::test_int(1), SpannedValue::test_string("a"), SpannedValue::test_string("foo")],
                             ),
-                            Value::test_record(
+                            SpannedValue::test_record(
                                 vec!["index", "value", "name"],
-                                vec![Value::test_int(2), Value::test_string("b"), Value::test_string("bar")],
+                                vec![SpannedValue::test_int(2), SpannedValue::test_string("b"), SpannedValue::test_string("bar")],
                             ),
-                            Value::test_record(
+                            SpannedValue::test_record(
                                 vec!["index", "value", "name"],
-                                vec![Value::test_int(3), Value::test_string("c"), Value::test_string("baz")],
+                                vec![SpannedValue::test_int(3), SpannedValue::test_string("c"), SpannedValue::test_string("baz")],
                             ),
                         ],
                         span: Span::test_data(),
@@ -95,9 +95,9 @@ impl Command for Move {
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
                 description: "Move columns of a record",
-                result: Some(Value::test_record(
+                result: Some(SpannedValue::test_record(
                     vec!["value", "name", "index"],
-                    vec![Value::test_string("a"), Value::test_string("foo"), Value::test_int(1)],
+                    vec![SpannedValue::test_string("a"), SpannedValue::test_string("foo"), SpannedValue::test_int(1)],
                 ))
             },
         ]
@@ -110,9 +110,9 @@ impl Command for Move {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
-        let before: Option<Value> = call.get_flag(engine_state, stack, "before")?;
+        let columns: Vec<SpannedValue> = call.rest(engine_state, stack, 0)?;
+        let after: Option<SpannedValue> = call.get_flag(engine_state, stack, "after")?;
+        let before: Option<SpannedValue> = call.get_flag(engine_state, stack, "before")?;
 
         let before_or_after = match (after, before) {
             (Some(v), None) => Spanned {
@@ -148,7 +148,8 @@ impl Command for Move {
         let call = call.clone();
 
         match input {
-            PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
+            PipelineData::Value(SpannedValue::List { .. }, ..)
+            | PipelineData::ListStream { .. } => {
                 let res = input.into_iter().map(move |x| match x.as_record() {
                     Ok((inp_cols, inp_vals)) => match move_record_columns(
                         inp_cols,
@@ -158,11 +159,11 @@ impl Command for Move {
                         call.head,
                     ) {
                         Ok(val) => val,
-                        Err(error) => Value::Error {
+                        Err(error) => SpannedValue::Error {
                             error: Box::new(error),
                         },
                     },
-                    Err(error) => Value::Error {
+                    Err(error) => SpannedValue::Error {
                         error: Box::new(error),
                     },
                 });
@@ -174,7 +175,7 @@ impl Command for Move {
                 }
             }
             PipelineData::Value(
-                Value::Record {
+                SpannedValue::Record {
                     cols: inp_cols,
                     vals: inp_vals,
                     ..
@@ -200,11 +201,11 @@ impl Command for Move {
 // Move columns within a record
 fn move_record_columns(
     inp_cols: &[String],
-    inp_vals: &[Value],
-    columns: &[Value],
+    inp_vals: &[SpannedValue],
+    columns: &[SpannedValue],
     before_or_after: &Spanned<BeforeOrAfter>,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<SpannedValue, ShellError> {
     let mut column_idx: Vec<usize> = Vec::with_capacity(columns.len());
 
     // Check if before/after column exist
@@ -251,7 +252,7 @@ fn move_record_columns(
     }
 
     let mut out_cols: Vec<String> = Vec::with_capacity(inp_cols.len());
-    let mut out_vals: Vec<Value> = Vec::with_capacity(inp_vals.len());
+    let mut out_vals: Vec<SpannedValue> = Vec::with_capacity(inp_vals.len());
 
     for (i, (inp_col, inp_val)) in inp_cols.iter().zip(inp_vals).enumerate() {
         match &before_or_after.item {
@@ -298,7 +299,7 @@ fn move_record_columns(
         }
     }
 
-    Ok(Value::Record {
+    Ok(SpannedValue::Record {
         cols: out_cols,
         vals: out_vals,
         span,

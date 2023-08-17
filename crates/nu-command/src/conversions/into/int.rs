@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 struct Arguments {
@@ -99,9 +99,9 @@ impl Command for SubCommand {
         let cell_paths = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        let radix = call.get_flag::<Value>(engine_state, stack, "radix")?;
+        let radix = call.get_flag::<SpannedValue>(engine_state, stack, "radix")?;
         let radix: u32 = match radix {
-            Some(Value::Int { val, span }) => {
+            Some(SpannedValue::Int { val, span }) => {
                 if !(2..=36).contains(&val) {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Radix must lie in the range [2, 36]".to_string(),
@@ -131,84 +131,84 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to integer",
                 example: "'2' | into int",
-                result: Some(Value::test_int(2)),
+                result: Some(SpannedValue::test_int(2)),
             },
             Example {
                 description: "Convert decimal to integer",
                 example: "5.9 | into int",
-                result: Some(Value::test_int(5)),
+                result: Some(SpannedValue::test_int(5)),
             },
             Example {
                 description: "Convert decimal string to integer",
                 example: "'5.9' | into int",
-                result: Some(Value::test_int(5)),
+                result: Some(SpannedValue::test_int(5)),
             },
             Example {
                 description: "Convert file size to integer",
                 example: "4KB | into int",
-                result: Some(Value::test_int(4000)),
+                result: Some(SpannedValue::test_int(4000)),
             },
             Example {
                 description: "Convert bool to integer",
                 example: "[false, true] | into int",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1)],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_int(0), SpannedValue::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Convert date to integer (Unix nanosecond timestamp)",
                 example: "1983-04-13T12:09:14.123456789-05:00 | into int",
-                result: Some(Value::test_int(419101754123456789)),
+                result: Some(SpannedValue::test_int(419101754123456789)),
             },
             Example {
                 description: "Convert to integer from binary",
                 example: "'1101' | into int -r 2",
-                result: Some(Value::test_int(13)),
+                result: Some(SpannedValue::test_int(13)),
             },
             Example {
                 description: "Convert to integer from hex",
                 example: "'FF' |  into int -r 16",
-                result: Some(Value::test_int(255)),
+                result: Some(SpannedValue::test_int(255)),
             },
             Example {
                 description: "Convert octal string to integer",
                 example: "'0o10132' | into int",
-                result: Some(Value::test_int(4186)),
+                result: Some(SpannedValue::test_int(4186)),
             },
             Example {
                 description: "Convert 0 padded string to integer",
                 example: "'0010132' | into int",
-                result: Some(Value::test_int(10132)),
+                result: Some(SpannedValue::test_int(10132)),
             },
             Example {
                 description: "Convert 0 padded string to integer with radix",
                 example: "'0010132' | into int -r 8",
-                result: Some(Value::test_int(4186)),
+                result: Some(SpannedValue::test_int(4186)),
             },
         ]
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
     let radix = args.radix;
     let little_endian = args.little_endian;
     match input {
-        Value::Int { val: _, .. } => {
+        SpannedValue::Int { val: _, .. } => {
             if radix == 10 {
                 input.clone()
             } else {
                 convert_int(input, span, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::Int { val: *val, span },
-        Value::Float { val, .. } => Value::Int {
+        SpannedValue::Filesize { val, .. } => SpannedValue::Int { val: *val, span },
+        SpannedValue::Float { val, .. } => SpannedValue::Int {
             val: {
                 if radix == 10 {
                     *val as i64
                 } else {
                     match convert_int(
-                        &Value::Int {
+                        &SpannedValue::Int {
                             val: *val as i64,
                             span,
                         },
@@ -219,7 +219,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     {
                         Ok(v) => v,
                         _ => {
-                            return Value::Error {
+                            return SpannedValue::Error {
                                 error: Box::new(ShellError::CantConvert {
                                     to_type: "float".to_string(),
                                     from_type: "integer".to_string(),
@@ -233,11 +233,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         },
-        Value::String { val, .. } => {
+        SpannedValue::String { val, .. } => {
             if radix == 10 {
                 match int_from_string(val, span) {
-                    Ok(val) => Value::Int { val, span },
-                    Err(error) => Value::Error {
+                    Ok(val) => SpannedValue::Int { val, span },
+                    Err(error) => SpannedValue::Error {
                         error: Box::new(error),
                     },
                 }
@@ -245,14 +245,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 convert_int(input, span, radix)
             }
         }
-        Value::Bool { val, .. } => {
+        SpannedValue::Bool { val, .. } => {
             if *val {
-                Value::Int { val: 1, span }
+                SpannedValue::Int { val: 1, span }
             } else {
-                Value::Int { val: 0, span }
+                SpannedValue::Int { val: 0, span }
             }
         }
-        Value::Date { val, .. } => {
+        SpannedValue::Date { val, .. } => {
             if val
                 < &FixedOffset::east_opt(0)
                     .expect("constant")
@@ -264,21 +264,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
                         .unwrap()
             {
-                Value::Error {
+                SpannedValue::Error {
                     error: Box::new(ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
                         span
                     }),
                 }
             } else {
-                Value::Int {
+                SpannedValue::Int {
                     val: val.timestamp_nanos(),
                     span,
                 }
             }
         }
-        Value::Duration { val, .. } => Value::Int { val: *val, span },
-        Value::Binary { val, span } => {
+        SpannedValue::Duration { val, .. } => SpannedValue::Int { val: *val, span },
+        SpannedValue::Binary { val, span } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
             let mut val = val.to_vec();
@@ -289,19 +289,19 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 }
                 val.resize(8, 0);
 
-                Value::int(LittleEndian::read_i64(&val), *span)
+                SpannedValue::int(LittleEndian::read_i64(&val), *span)
             } else {
                 while val.len() < 8 {
                     val.insert(0, 0);
                 }
                 val.resize(8, 0);
 
-                Value::int(BigEndian::read_i64(&val), *span)
+                SpannedValue::int(BigEndian::read_i64(&val), *span)
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => input.clone(),
-        other => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        other => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer, float, filesize, date, string, binary, duration or bool"
                     .into(),
@@ -313,10 +313,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
+fn convert_int(input: &SpannedValue, head: Span, radix: u32) -> SpannedValue {
     let i = match input {
-        Value::Int { val, .. } => val.to_string(),
-        Value::String { val, .. } => {
+        SpannedValue::Int { val, .. } => val.to_string(),
+        SpannedValue::String { val, .. } => {
             let val = val.trim();
             if val.starts_with("0x") // hex
                 || val.starts_with("0b") // binary
@@ -324,15 +324,15 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             // octal
             {
                 match int_from_string(val, head) {
-                    Ok(x) => return Value::int(x, head),
-                    Err(e) => return Value::Error { error: Box::new(e) },
+                    Ok(x) => return SpannedValue::int(x, head),
+                    Err(e) => return SpannedValue::Error { error: Box::new(e) },
                 }
             } else if val.starts_with("00") {
                 // It's a padded string
                 match i64::from_str_radix(val, radix) {
-                    Ok(n) => return Value::int(n, head),
+                    Ok(n) => return SpannedValue::int(n, head),
                     Err(e) => {
-                        return Value::Error {
+                        return SpannedValue::Error {
                             error: Box::new(ShellError::CantConvert {
                                 to_type: "string".to_string(),
                                 from_type: "int".to_string(),
@@ -346,9 +346,9 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             val.to_string()
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => return input.clone(),
+        SpannedValue::Error { .. } => return input.clone(),
         other => {
-            return Value::Error {
+            return SpannedValue::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
@@ -359,8 +359,8 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         }
     };
     match i64::from_str_radix(i.trim(), radix) {
-        Ok(n) => Value::int(n, head),
-        Err(_reason) => Value::Error {
+        Ok(n) => SpannedValue::int(n, head),
+        Err(_reason) => SpannedValue::Error {
             error: Box::new(ShellError::CantConvert {
                 to_type: "string".to_string(),
                 from_type: "int".to_string(),
@@ -440,7 +440,7 @@ mod test {
     use chrono::{DateTime, FixedOffset};
     use rstest::rstest;
 
-    use super::Value;
+    use super::SpannedValue;
     use super::*;
     use nu_protocol::Type::Error;
 
@@ -453,8 +453,8 @@ mod test {
 
     #[test]
     fn turns_to_integer() {
-        let word = Value::test_string("10");
-        let expected = Value::test_int(10);
+        let word = SpannedValue::test_string("10");
+        let expected = SpannedValue::test_int(10);
 
         let actual = action(
             &word,
@@ -470,7 +470,7 @@ mod test {
 
     #[test]
     fn turns_binary_to_integer() {
-        let s = Value::test_string("0b101");
+        let s = SpannedValue::test_string("0b101");
         let actual = action(
             &s,
             &Arguments {
@@ -480,12 +480,12 @@ mod test {
             },
             Span::test_data(),
         );
-        assert_eq!(actual, Value::test_int(5));
+        assert_eq!(actual, SpannedValue::test_int(5));
     }
 
     #[test]
     fn turns_hex_to_integer() {
-        let s = Value::test_string("0xFF");
+        let s = SpannedValue::test_string("0xFF");
         let actual = action(
             &s,
             &Arguments {
@@ -495,12 +495,12 @@ mod test {
             },
             Span::test_data(),
         );
-        assert_eq!(actual, Value::test_int(255));
+        assert_eq!(actual, SpannedValue::test_int(255));
     }
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_integerlike_string() {
-        let integer_str = Value::test_string("36anra");
+        let integer_str = SpannedValue::test_string("36anra");
 
         let actual = action(
             &integer_str,
@@ -523,7 +523,7 @@ mod test {
         #[case] dt_in: DateTime<FixedOffset>,
         #[case] int_expected: i64,
     ) {
-        let s = Value::test_date(dt_in);
+        let s = SpannedValue::test_date(dt_in);
         let actual = action(
             &s,
             &Arguments {
@@ -535,7 +535,7 @@ mod test {
         );
         // ignore fractional seconds -- I don't want to hard code test values that might vary due to leap nanoseconds.
         let exp_truncated = (int_expected / 1_000_000_000) * 1_000_000_000;
-        assert_eq!(actual, Value::test_int(exp_truncated));
+        assert_eq!(actual, SpannedValue::test_int(exp_truncated));
     }
 
     #[rstest]
@@ -545,7 +545,7 @@ mod test {
         #[case] dt_in: DateTime<FixedOffset>,
         #[case] err_expected: &str,
     ) {
-        let s = Value::test_date(dt_in);
+        let s = SpannedValue::test_date(dt_in);
         let actual = action(
             &s,
             &Arguments {
@@ -555,7 +555,7 @@ mod test {
             },
             Span::test_data(),
         );
-        if let Value::Error { error } = actual {
+        if let SpannedValue::Error { error } = actual {
             if let ShellError::IncorrectValue { msg: e, .. } = *error {
                 assert!(
                     e.contains(err_expected),

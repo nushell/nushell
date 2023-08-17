@@ -3,7 +3,8 @@ use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    Type,
 };
 use std::io::{stdout, Write};
 
@@ -59,7 +60,7 @@ impl Command for KeybindingsListen {
     }
 }
 
-pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
+pub fn print_events(engine_state: &EngineState) -> Result<SpannedValue, ShellError> {
     let config = engine_state.get_config();
 
     stdout().flush()?;
@@ -78,7 +79,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         let v = print_events_helper(event)?;
         // Print out the record
         let o = match v {
-            Value::Record { cols, vals, .. } => cols
+            SpannedValue::Record { cols, vals, .. } => cols
                 .iter()
                 .zip(vals.iter())
                 .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
@@ -93,7 +94,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     }
     terminal::disable_raw_mode()?;
 
-    Ok(Value::nothing(Span::unknown()))
+    Ok(SpannedValue::nothing(Span::unknown()))
 }
 
 // this fn is totally ripped off from crossterm's examples
@@ -101,7 +102,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 // even seeing the events. if you press a key and no events
 // are printed, it's a good chance your terminal is eating
 // those events.
-fn print_events_helper(event: Event) -> Result<Value, ShellError> {
+fn print_events_helper(event: Event) -> Result<SpannedValue, ShellError> {
     if let Event::Key(KeyEvent {
         code,
         modifiers,
@@ -111,7 +112,7 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
     {
         match code {
             KeyCode::Char(c) => {
-                let record = Value::Record {
+                let record = SpannedValue::Record {
                     cols: vec![
                         "char".into(),
                         "code".into(),
@@ -121,19 +122,19 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                         "state".into(),
                     ],
                     vals: vec![
-                        Value::string(format!("{c}"), Span::unknown()),
-                        Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{c}"), Span::unknown()),
+                        SpannedValue::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
+                        SpannedValue::string(format!("{modifiers:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{modifiers:#08b}"), Span::unknown()),
+                        SpannedValue::string(format!("{kind:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{state:?}"), Span::unknown()),
                     ],
                     span: Span::unknown(),
                 };
                 Ok(record)
             }
             _ => {
-                let record = Value::Record {
+                let record = SpannedValue::Record {
                     cols: vec![
                         "code".into(),
                         "modifier".into(),
@@ -142,11 +143,11 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                         "state".into(),
                     ],
                     vals: vec![
-                        Value::string(format!("{code:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{code:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{modifiers:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{modifiers:#08b}"), Span::unknown()),
+                        SpannedValue::string(format!("{kind:?}"), Span::unknown()),
+                        SpannedValue::string(format!("{state:?}"), Span::unknown()),
                     ],
                     span: Span::unknown(),
                 };
@@ -154,9 +155,9 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
             }
         }
     } else {
-        let record = Value::Record {
+        let record = SpannedValue::Record {
             cols: vec!["event".into()],
-            vals: vec![Value::string(format!("{event:?}"), Span::unknown())],
+            vals: vec![SpannedValue::string(format!("{event:?}"), Span::unknown())],
             span: Span::unknown(),
         };
         Ok(record)

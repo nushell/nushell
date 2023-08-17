@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Signature, Span, SpannedValue, Type,
 };
 
 #[derive(Clone)]
@@ -52,12 +52,12 @@ impl Command for Length {
             Example {
                 description: "Count the number of items in a list",
                 example: "[1 2 3 4 5] | length",
-                result: Some(Value::test_int(5)),
+                result: Some(SpannedValue::test_int(5)),
             },
             Example {
                 description: "Count the number of columns in a table",
                 example: "[{columnA: A0 columnB: B0}] | length -c",
-                result: Some(Value::test_int(2)),
+                result: Some(SpannedValue::test_int(2)),
             },
         ]
     }
@@ -78,19 +78,19 @@ fn length_col(
 
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     match input {
-        PipelineData::Value(Value::Nothing { .. }, ..) => {
-            Ok(Value::int(0, call.head).into_pipeline_data())
+        PipelineData::Value(SpannedValue::Nothing { .. }, ..) => {
+            Ok(SpannedValue::int(0, call.head).into_pipeline_data())
         }
         _ => {
             let mut count: i64 = 0;
             // Check for and propagate errors
             for value in input.into_iter() {
-                if let Value::Error { error } = value {
+                if let SpannedValue::Error { error } = value {
                     return Err(*error);
                 }
                 count += 1
             }
-            Ok(Value::int(count, call.head).into_pipeline_data())
+            Ok(SpannedValue::int(count, call.head).into_pipeline_data())
         }
     }
 }
@@ -103,7 +103,7 @@ fn getcol(
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(
-            Value::List {
+            SpannedValue::List {
                 vals: input_vals,
                 span,
             },
@@ -112,7 +112,7 @@ fn getcol(
             let input_cols = get_columns(&input_vals);
             Ok(input_cols
                 .into_iter()
-                .map(move |x| Value::String { val: x, span })
+                .map(move |x| SpannedValue::String { val: x, span })
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
         PipelineData::ListStream(stream, ..) => {
@@ -121,13 +121,13 @@ fn getcol(
 
             Ok(input_cols
                 .into_iter()
-                .map(move |x| Value::String { val: x, span })
+                .map(move |x| SpannedValue::String { val: x, span })
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
         PipelineData::Value(..) | PipelineData::ExternalStream { .. } => {
             let cols = vec![];
             let vals = vec![];
-            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
+            Ok(SpannedValue::Record { cols, vals, span }.into_pipeline_data())
         }
     }
 }

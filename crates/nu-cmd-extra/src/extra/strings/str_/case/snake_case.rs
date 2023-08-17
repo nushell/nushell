@@ -2,7 +2,7 @@ use inflector::cases::snakecase::to_snake_case;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 use super::operate;
@@ -57,26 +57,29 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to snake_case",
                 example: r#" "NuShell" | str snake-case"#,
-                result: Some(Value::test_string("nu_shell")),
+                result: Some(SpannedValue::test_string("nu_shell")),
             },
             Example {
                 description: "convert a string to snake_case",
                 example: r#" "this_is_the_second_case" | str snake-case"#,
-                result: Some(Value::test_string("this_is_the_second_case")),
+                result: Some(SpannedValue::test_string("this_is_the_second_case")),
             },
             Example {
                 description: "convert a string to snake_case",
                 example: r#""this-is-the-first-case" | str snake-case"#,
-                result: Some(Value::test_string("this_is_the_first_case")),
+                result: Some(SpannedValue::test_string("this_is_the_first_case")),
             },
             Example {
                 description: "convert a column from a table to snake_case",
                 example: r#"[[lang, gems]; [nuTest, 100]] | str snake-case lang"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::Record {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![Value::test_string("nu_test"), Value::test_int(100)],
+                        vals: vec![
+                            SpannedValue::test_string("nu_test"),
+                            SpannedValue::test_int(100),
+                        ],
                     }],
                     span: Span::test_data(),
                 }),

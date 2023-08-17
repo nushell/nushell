@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -56,7 +56,7 @@ impl Command for Try {
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
             }
-            Ok(PipelineData::Value(Value::Error { error }, ..)) => {
+            Ok(PipelineData::Value(SpannedValue::Error { error }, ..)) => {
                 let error = intercept_block_control(*error)?;
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
@@ -68,7 +68,7 @@ impl Command for Try {
                     // Because external command errors aren't "real" errors,
                     // (unless do -c is in effect)
                     // they can't be passed in as Nushell values.
-                    let err_value = Value::nothing(call.head);
+                    let err_value = SpannedValue::nothing(call.head);
                     handle_catch(err_value, catch_block, engine_state, stack)
                 } else {
                     Ok(pipeline)
@@ -87,14 +87,14 @@ impl Command for Try {
             Example {
                 description: "Try to run a missing command",
                 example: "try { asdfasdf } catch { echo 'missing' } ",
-                result: Some(Value::test_string("missing")),
+                result: Some(SpannedValue::test_string("missing")),
             },
         ]
     }
 }
 
 fn handle_catch(
-    err_value: Value,
+    err_value: SpannedValue,
     catch_block: Option<Closure>,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -136,16 +136,16 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
 }
 
 /// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
-fn err_to_record(error: ShellError, head: Span) -> Value {
+fn err_to_record(error: ShellError, head: Span) -> SpannedValue {
     let cols = vec!["msg".to_string(), "debug".to_string(), "raw".to_string()];
     let vals = vec![
-        Value::string(error.to_string(), head),
-        Value::string(format!("{error:?}"), head),
-        Value::Error {
+        SpannedValue::string(error.to_string(), head),
+        SpannedValue::string(format!("{error:?}"), head),
+        SpannedValue::Error {
             error: Box::new(error),
         },
     ];
-    Value::record(cols, vals, head)
+    SpannedValue::record(cols, vals, head)
 }
 
 #[cfg(test)]

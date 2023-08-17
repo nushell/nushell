@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -41,42 +41,46 @@ impl Command for Window {
 
     fn examples(&self) -> Vec<Example> {
         let stream_test_1 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                 span: Span::test_data(),
             },
-            Value::List {
-                vals: vec![Value::test_int(2), Value::test_int(3)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(3)],
                 span: Span::test_data(),
             },
-            Value::List {
-                vals: vec![Value::test_int(3), Value::test_int(4)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
                 span: Span::test_data(),
             },
         ];
 
         let stream_test_2 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                 span: Span::test_data(),
             },
-            Value::List {
-                vals: vec![Value::test_int(4), Value::test_int(5)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(5)],
                 span: Span::test_data(),
             },
-            Value::List {
-                vals: vec![Value::test_int(7), Value::test_int(8)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(7), SpannedValue::test_int(8)],
                 span: Span::test_data(),
             },
         ];
 
         let stream_test_3 = vec![
-            Value::List {
-                vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+            SpannedValue::List {
+                vals: vec![
+                    SpannedValue::test_int(1),
+                    SpannedValue::test_int(2),
+                    SpannedValue::test_int(3),
+                ],
                 span: Span::test_data(),
             },
-            Value::List {
-                vals: vec![Value::test_int(4), Value::test_int(5)],
+            SpannedValue::List {
+                vals: vec![SpannedValue::test_int(4), SpannedValue::test_int(5)],
                 span: Span::test_data(),
             },
         ];
@@ -85,7 +89,7 @@ impl Command for Window {
             Example {
                 example: "[1 2 3 4] | window 2",
                 description: "A sliding window of two elements",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: stream_test_1,
                     span: Span::test_data(),
                 }),
@@ -93,7 +97,7 @@ impl Command for Window {
             Example {
                 example: "[1, 2, 3, 4, 5, 6, 7, 8] | window 2 --stride 3",
                 description: "A sliding window of two elements, with a stride of 3",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: stream_test_2,
                     span: Span::test_data(),
                 }),
@@ -101,7 +105,7 @@ impl Command for Window {
             Example {
                 example: "[1, 2, 3, 4, 5] | window 3 --stride 3 --remainder",
                 description: "A sliding window of equal stride that includes remainder. Equivalent to chunking",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: stream_test_3,
                     span: Span::test_data(),
                 }),
@@ -143,15 +147,15 @@ impl Command for Window {
 
 struct EachWindowIterator {
     group_size: usize,
-    input: Box<dyn Iterator<Item = Value> + Send>,
+    input: Box<dyn Iterator<Item = SpannedValue> + Send>,
     span: Span,
-    previous: Option<Vec<Value>>,
+    previous: Option<Vec<SpannedValue>>,
     stride: usize,
     remainder: bool,
 }
 
 impl Iterator for EachWindowIterator {
-    type Item = Value;
+    type Item = SpannedValue;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut group = self.previous.take().unwrap_or_else(|| {
@@ -224,7 +228,7 @@ impl Iterator for EachWindowIterator {
         let return_group = group.clone();
         self.previous = Some(group);
 
-        Some(Value::List {
+        Some(SpannedValue::List {
             vals: return_group,
             span: self.span,
         })

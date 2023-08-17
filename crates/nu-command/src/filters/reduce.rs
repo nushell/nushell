@@ -3,8 +3,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
+    SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -54,35 +54,35 @@ impl Command for Reduce {
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
                 description: "Sum values of a list (same as 'math sum')",
-                result: Some(Value::test_int(10)),
+                result: Some(SpannedValue::test_int(10)),
             },
             Example {
                 example:
                     "[ 8 7 6 ] | enumerate | reduce -f 0 {|it, acc| $acc + $it.item + $it.index }",
                 description: "Sum values of a list, plus their indexes",
-                result: Some(Value::test_int(24)),
+                result: Some(SpannedValue::test_int(24)),
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
-                result: Some(Value::test_int(20)),
+                result: Some(SpannedValue::test_int(20)),
             },
             Example {
                 example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
-                result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
+                result: Some(SpannedValue::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
             },
             Example {
                 example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | enumerate | reduce -f '' {|str all| $"($all)(if $str.index != 0 {'; '})($str.index + 1)-($str.item)" }"#,
                 description:
                     "Add ascending numbers to each of the filenames, and join with semicolons.",
-                result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
+                result: Some(SpannedValue::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
             Example {
                 example: r#"let s = "Str"; 0..2 | reduce -f '' {|it, acc| $acc + $s}"#,
                 description:
                     "Concatenate a string with itself, using a range to determine the number of times.",
-                result: Some(Value::test_string("StrStrStr")),
+                result: Some(SpannedValue::test_string("StrStrStr")),
             },
         ]
     }
@@ -96,7 +96,7 @@ impl Command for Reduce {
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
-        let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
+        let fold: Option<SpannedValue> = call.get_flag(engine_state, stack, "fold")?;
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);

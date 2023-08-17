@@ -2,7 +2,7 @@ use itertools::Itertools;
 use nu_protocol::{
     ast::Block,
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
-    Example, PipelineData, Signature, Span, Type, Value,
+    Example, PipelineData, Signature, Span, SpannedValue, Type,
 };
 use std::collections::HashSet;
 
@@ -71,7 +71,7 @@ fn eval_pipeline_without_terminal_expression(
     src: &str,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
-) -> Option<Value> {
+) -> Option<SpannedValue> {
     let (mut block, delta) = parse(src, engine_state);
     if block.pipelines.len() == 1 {
         let n_expressions = block.pipelines[0].elements.len();
@@ -81,7 +81,7 @@ fn eval_pipeline_without_terminal_expression(
             let empty_input = PipelineData::empty();
             Some(eval_block(block, empty_input, cwd, engine_state, delta))
         } else {
-            Some(Value::nothing(Span::test_data()))
+            Some(SpannedValue::nothing(Span::test_data()))
         }
     } else {
         // E.g. multiple semicolon-separated statements
@@ -106,14 +106,17 @@ pub fn eval_block(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
     delta: StateDelta,
-) -> Value {
+) -> SpannedValue {
     engine_state
         .merge_delta(delta)
         .expect("Error merging delta");
 
     let mut stack = Stack::new();
 
-    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
+    stack.add_env_var(
+        "PWD".to_string(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
         Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
@@ -129,7 +132,10 @@ pub fn check_example_evaluates_to_expected_output(
     let mut stack = Stack::new();
 
     // Set up PWD
-    stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
+    stack.add_env_var(
+        "PWD".to_string(),
+        SpannedValue::test_string(cwd.to_string_lossy()),
+    );
 
     engine_state
         .merge_env(&mut stack, cwd)
@@ -180,7 +186,7 @@ fn eval(
     input: PipelineData,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
-) -> Value {
+) -> SpannedValue {
     let (block, delta) = parse(contents, engine_state);
     eval_block(block, input, cwd, engine_state, delta)
 }

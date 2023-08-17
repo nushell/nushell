@@ -23,7 +23,7 @@ use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    SpannedValue,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
@@ -46,7 +46,7 @@ use events::UIEvents;
 
 pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
-pub type ConfigMap = HashMap<String, Value>;
+pub type ConfigMap = HashMap<String, SpannedValue>;
 
 #[derive(Debug, Clone)]
 pub struct Pager<'a> {
@@ -103,12 +103,12 @@ impl<'a> Pager<'a> {
         self.message = Some(text.into());
     }
 
-    pub fn set_config(&mut self, path: &[String], value: Value) -> bool {
+    pub fn set_config(&mut self, path: &[String], value: SpannedValue) -> bool {
         let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
 
         match &path[..] {
             ["exit_esc"] => {
-                if matches!(value, Value::Bool { .. }) {
+                if matches!(value, SpannedValue::Bool { .. }) {
                     self.config.exit_esc = value.is_true();
                     true
                 } else {
@@ -138,7 +138,7 @@ impl<'a> Pager<'a> {
         ctrlc: CtrlC,
         mut view: Option<Page>,
         commands: CommandRegistry,
-    ) -> Result<Option<Value>> {
+    ) -> Result<Option<SpannedValue>> {
         if let Some(page) = &mut view {
             page.view.setup(ViewConfig::new(
                 self.config.nu_config,
@@ -201,7 +201,7 @@ fn run_pager(
     pager: &mut Pager,
     view: Option<Page>,
     commands: CommandRegistry,
-) -> Result<Option<Value>> {
+) -> Result<Option<SpannedValue>> {
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -247,7 +247,7 @@ fn render_ui(
     info: &mut ViewInfo,
     mut view: Option<Page>,
     commands: CommandRegistry,
-) -> Result<Option<Value>> {
+) -> Result<Option<SpannedValue>> {
     let events = UIEvents::new();
     let mut view_stack = Vec::new();
 
@@ -496,7 +496,7 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     }
 }
 
-fn try_to_peek_value<V>(pager: &mut Pager, view: Option<&mut V>) -> Option<Value>
+fn try_to_peek_value<V>(pager: &mut Pager, view: Option<&mut V>) -> Option<SpannedValue>
 where
     V: View,
 {
@@ -970,7 +970,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
     }
 }
 
-fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
+fn value_as_style(style: &mut nu_ansi_term::Style, value: &SpannedValue) -> bool {
     match value.as_string() {
         Ok(s) => {
             *style = lookup_ansi_color_style(&s);
@@ -980,7 +980,7 @@ fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
     }
 }
 
-fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> bool {
+fn set_config(hm: &mut HashMap<String, SpannedValue>, path: &[&str], value: SpannedValue) -> bool {
     if path.is_empty() {
         return false;
     }
@@ -990,7 +990,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     if !hm.contains_key(key) {
         hm.insert(
             key.to_string(),
-            Value::Record {
+            SpannedValue::Record {
                 cols: vec![],
                 vals: vec![],
                 span: NuSpan::unknown(),
@@ -1006,7 +1006,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     }
 
     match val {
-        Value::Record { cols, vals, .. } => {
+        SpannedValue::Record { cols, vals, .. } => {
             if path.len() == 2 {
                 if cols.len() != vals.len() {
                     return false;
@@ -1025,7 +1025,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
                     }
                 }
             } else {
-                let mut hm2: HashMap<String, Value> = HashMap::new();
+                let mut hm2: HashMap<String, SpannedValue> = HashMap::new();
                 for (k, v) in cols.iter().zip(vals) {
                     hm2.insert(k.to_string(), v.clone());
                 }

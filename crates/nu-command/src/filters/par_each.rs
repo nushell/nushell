@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 use rayon::prelude::*;
 
@@ -57,11 +57,11 @@ impl Command for ParEach {
             Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
                 description: "Output can still be sorted afterward",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::test_string("bar!"),
-                        Value::test_string("baz!"),
-                        Value::test_string("foo!"),
+                        SpannedValue::test_string("bar!"),
+                        SpannedValue::test_string("baz!"),
+                        SpannedValue::test_string("foo!"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -69,8 +69,12 @@ impl Command for ParEach {
             Example {
                 example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
                 description: "Enumerate and sort-by can be used to reconstruct the original order",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
+                result: Some(SpannedValue::List {
+                    vals: vec![
+                        SpannedValue::test_int(2),
+                        SpannedValue::test_int(4),
+                        SpannedValue::test_int(6),
+                    ],
                     span: Span::test_data(),
                 }),
             },
@@ -78,8 +82,8 @@ impl Command for ParEach {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("found 2 at 1!")],
+                result: Some(SpannedValue::List {
+                    vals: vec![SpannedValue::test_string("found 2 at 1!")],
                     span: Span::test_data(),
                 }),
             },
@@ -125,8 +129,8 @@ impl Command for ParEach {
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(create_pool(max_threads)?
-                .install(|| {
+            PipelineData::Value(SpannedValue::Range { val, .. }, ..) => {
+                Ok(create_pool(max_threads)?.install(|| {
                     val.into_range_iter(ctrlc.clone())
                         .expect("unable to create a range iterator")
                         .par_bridge()
@@ -152,7 +156,7 @@ impl Command for ParEach {
                             ) {
                                 Ok(v) => v.into_value(span),
 
-                                Err(error) => Value::Error {
+                                Err(error) => SpannedValue::Error {
                                     error: Box::new(chain_error_with_input(error, val_span)),
                                 },
                             }
@@ -160,9 +164,10 @@ impl Command for ParEach {
                         .collect::<Vec<_>>()
                         .into_iter()
                         .into_pipeline_data(ctrlc)
-                })),
-            PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(create_pool(max_threads)?
-                .install(|| {
+                }))
+            }
+            PipelineData::Value(SpannedValue::List { vals: val, .. }, ..) => {
+                Ok(create_pool(max_threads)?.install(|| {
                     val.par_iter()
                         .map(move |x| {
                             let block = engine_state.get_block(block_id);
@@ -185,7 +190,7 @@ impl Command for ParEach {
                                 redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
-                                Err(error) => Value::Error {
+                                Err(error) => SpannedValue::Error {
                                     error: Box::new(chain_error_with_input(error, val_span)),
                                 },
                             }
@@ -193,7 +198,8 @@ impl Command for ParEach {
                         .collect::<Vec<_>>()
                         .into_iter()
                         .into_pipeline_data(ctrlc)
-                })),
+                }))
+            }
             PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
                 stream
                     .par_bridge()
@@ -218,7 +224,7 @@ impl Command for ParEach {
                             redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
-                            Err(error) => Value::Error {
+                            Err(error) => SpannedValue::Error {
                                 error: Box::new(chain_error_with_input(error, val_span)),
                             },
                         }
@@ -238,7 +244,7 @@ impl Command for ParEach {
                         let x = match x {
                             Ok(x) => x,
                             Err(err) => {
-                                return Value::Error {
+                                return SpannedValue::Error {
                                     error: Box::new(err),
                                 }
                             }
@@ -263,7 +269,7 @@ impl Command for ParEach {
                             redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
-                            Err(error) => Value::Error {
+                            Err(error) => SpannedValue::Error {
                                 error: Box::new(error),
                             },
                         }

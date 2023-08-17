@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
-    ModuleId, Signature, Span, SyntaxShape, Type, Value,
+    ModuleId, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -46,23 +46,25 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn collect_vars(&self, span: Span) -> Vec<Value> {
+    pub fn collect_vars(&self, span: Span) -> Vec<SpannedValue> {
         let mut vars = vec![];
 
         for (var_name, var_id) in &self.vars_map {
-            let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
+            let var_name =
+                SpannedValue::string(String::from_utf8_lossy(var_name).to_string(), span);
 
-            let var_type = Value::string(self.engine_state.get_var(**var_id).ty.to_string(), span);
+            let var_type =
+                SpannedValue::string(self.engine_state.get_var(**var_id).ty.to_string(), span);
 
             let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
                 val
             } else {
-                Value::nothing(span)
+                SpannedValue::nothing(span)
             };
 
-            let var_id_val = Value::int(**var_id as i64, span);
+            let var_id_val = SpannedValue::int(**var_id as i64, span);
 
-            vars.push(Value::Record {
+            vars.push(SpannedValue::Record {
                 cols: vec![
                     "name".to_string(),
                     "type".to_string(),
@@ -78,7 +80,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         vars
     }
 
-    pub fn collect_commands(&self, span: Span) -> Vec<Value> {
+    pub fn collect_commands(&self, span: Span) -> Vec<SpannedValue> {
         let mut commands = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
@@ -89,7 +91,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let mut vals = vec![];
 
                 cols.push("name".into());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: String::from_utf8_lossy(command_name).to_string(),
                     span,
                 });
@@ -98,7 +100,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let signature = decl.signature();
 
                 cols.push("category".to_string());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: signature.category.to_string(),
                     span,
                 });
@@ -107,31 +109,31 @@ impl<'e, 's> ScopeData<'e, 's> {
                 vals.push(self.collect_signatures(&signature, span));
 
                 cols.push("usage".to_string());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: decl.usage().into(),
                     span,
                 });
 
                 cols.push("examples".to_string());
-                vals.push(Value::List {
+                vals.push(SpannedValue::List {
                     vals: decl
                         .examples()
                         .into_iter()
-                        .map(|x| Value::Record {
+                        .map(|x| SpannedValue::Record {
                             cols: vec!["description".into(), "example".into(), "result".into()],
                             vals: vec![
-                                Value::String {
+                                SpannedValue::String {
                                     val: x.description.to_string(),
                                     span,
                                 },
-                                Value::String {
+                                SpannedValue::String {
                                     val: x.example.to_string(),
                                     span,
                                 },
                                 if let Some(result) = x.result {
                                     result
                                 } else {
-                                    Value::Nothing { span }
+                                    SpannedValue::Nothing { span }
                                 },
                             ],
                             span,
@@ -142,64 +144,64 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 cols.push("is_builtin".to_string());
                 // we can only be a is_builtin or is_custom, not both
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: !decl.is_custom_command(),
                     span,
                 });
 
                 cols.push("is_sub".to_string());
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: decl.is_sub(),
                     span,
                 });
 
                 cols.push("is_plugin".to_string());
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: decl.is_plugin().is_some(),
                     span,
                 });
 
                 cols.push("is_custom".to_string());
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: decl.is_custom_command(),
                     span,
                 });
 
                 cols.push("is_keyword".into());
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: decl.is_parser_keyword(),
                     span,
                 });
 
                 cols.push("is_extern".to_string());
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: decl.is_known_external(),
                     span,
                 });
 
                 cols.push("creates_scope".to_string());
-                vals.push(Value::Bool {
+                vals.push(SpannedValue::Bool {
                     val: signature.creates_scope,
                     span,
                 });
 
                 cols.push("extra_usage".to_string());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: decl.extra_usage().into(),
                     span,
                 });
 
                 let search_terms = decl.search_terms();
                 cols.push("search_terms".to_string());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: search_terms.join(", "),
                     span,
                 });
 
                 cols.push("decl_id".into());
-                vals.push(Value::int(**decl_id as i64, span));
+                vals.push(SpannedValue::int(**decl_id as i64, span));
 
-                commands.push(Value::Record { cols, vals, span })
+                commands.push(SpannedValue::Record { cols, vals, span })
             }
         }
 
@@ -208,14 +210,14 @@ impl<'e, 's> ScopeData<'e, 's> {
         commands
     }
 
-    fn collect_signatures(&self, signature: &Signature, span: Span) -> Value {
+    fn collect_signatures(&self, signature: &Signature, span: Span) -> SpannedValue {
         let mut sigs = signature
             .input_output_types
             .iter()
             .map(|(input_type, output_type)| {
                 (
                     input_type.to_shape().to_string(),
-                    Value::List {
+                    SpannedValue::List {
                         vals: self.collect_signature_entries(
                             input_type,
                             output_type,
@@ -226,7 +228,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     },
                 )
             })
-            .collect::<Vec<(String, Value)>>();
+            .collect::<Vec<(String, SpannedValue)>>();
 
         // Until we allow custom commands to have input and output types, let's just
         // make them Type::Any Type::Any so they can show up in our `scope commands`
@@ -236,7 +238,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             let any_type = &Type::Any;
             sigs.push((
                 any_type.to_shape().to_string(),
-                Value::List {
+                SpannedValue::List {
                     vals: self.collect_signature_entries(any_type, any_type, signature, span),
                     span,
                 },
@@ -253,7 +255,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         // remove them from the record.
         sigs.dedup_by(|(k1, _), (k2, _)| k1 == k2);
         let (cols, vals) = sigs.into_iter().unzip();
-        Value::Record { cols, vals, span }
+        SpannedValue::Record { cols, vals, span }
     }
 
     fn collect_signature_entries(
@@ -262,7 +264,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         output_type: &Type,
         signature: &Signature,
         span: Span,
-    ) -> Vec<Value> {
+    ) -> Vec<SpannedValue> {
         let mut sig_records = vec![];
 
         let sig_cols = vec![
@@ -277,17 +279,17 @@ impl<'e, 's> ScopeData<'e, 's> {
         ];
 
         // input
-        sig_records.push(Value::Record {
+        sig_records.push(SpannedValue::Record {
             cols: sig_cols.clone(),
             vals: vec![
-                Value::nothing(span),
-                Value::string("input", span),
-                Value::string(input_type.to_shape().to_string(), span),
-                Value::bool(false, span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
+                SpannedValue::nothing(span),
+                SpannedValue::string("input", span),
+                SpannedValue::string(input_type.to_shape().to_string(), span),
+                SpannedValue::bool(false, span),
+                SpannedValue::nothing(span),
+                SpannedValue::nothing(span),
+                SpannedValue::nothing(span),
+                SpannedValue::nothing(span),
             ],
             span,
         });
@@ -295,20 +297,20 @@ impl<'e, 's> ScopeData<'e, 's> {
         // required_positional
         for req in &signature.required_positional {
             let sig_vals = vec![
-                Value::string(&req.name, span),
-                Value::string("positional", span),
-                Value::string(req.shape.to_string(), span),
-                Value::bool(false, span),
-                Value::nothing(span),
-                Value::string(&req.desc, span),
-                Value::string(
+                SpannedValue::string(&req.name, span),
+                SpannedValue::string("positional", span),
+                SpannedValue::string(req.shape.to_string(), span),
+                SpannedValue::bool(false, span),
+                SpannedValue::nothing(span),
+                SpannedValue::string(&req.desc, span),
+                SpannedValue::string(
                     extract_custom_completion_from_arg(self.engine_state, &req.shape),
                     span,
                 ),
-                Value::nothing(span),
+                SpannedValue::nothing(span),
             ];
 
-            sig_records.push(Value::Record {
+            sig_records.push(SpannedValue::Record {
                 cols: sig_cols.clone(),
                 vals: sig_vals,
                 span,
@@ -318,24 +320,24 @@ impl<'e, 's> ScopeData<'e, 's> {
         // optional_positional
         for opt in &signature.optional_positional {
             let sig_vals = vec![
-                Value::string(&opt.name, span),
-                Value::string("positional", span),
-                Value::string(opt.shape.to_string(), span),
-                Value::bool(true, span),
-                Value::nothing(span),
-                Value::string(&opt.desc, span),
-                Value::string(
+                SpannedValue::string(&opt.name, span),
+                SpannedValue::string("positional", span),
+                SpannedValue::string(opt.shape.to_string(), span),
+                SpannedValue::bool(true, span),
+                SpannedValue::nothing(span),
+                SpannedValue::string(&opt.desc, span),
+                SpannedValue::string(
                     extract_custom_completion_from_arg(self.engine_state, &opt.shape),
                     span,
                 ),
                 if let Some(val) = &opt.default_value {
                     val.clone()
                 } else {
-                    Value::nothing(span)
+                    SpannedValue::nothing(span)
                 },
             ];
 
-            sig_records.push(Value::Record {
+            sig_records.push(SpannedValue::Record {
                 cols: sig_cols.clone(),
                 vals: sig_vals,
                 span,
@@ -345,20 +347,20 @@ impl<'e, 's> ScopeData<'e, 's> {
         // rest_positional
         if let Some(rest) = &signature.rest_positional {
             let sig_vals = vec![
-                Value::string(if rest.name == "rest" { "" } else { &rest.name }, span),
-                Value::string("rest", span),
-                Value::string(rest.shape.to_string(), span),
-                Value::bool(true, span),
-                Value::nothing(span),
-                Value::string(&rest.desc, span),
-                Value::string(
+                SpannedValue::string(if rest.name == "rest" { "" } else { &rest.name }, span),
+                SpannedValue::string("rest", span),
+                SpannedValue::string(rest.shape.to_string(), span),
+                SpannedValue::bool(true, span),
+                SpannedValue::nothing(span),
+                SpannedValue::string(&rest.desc, span),
+                SpannedValue::string(
                     extract_custom_completion_from_arg(self.engine_state, &rest.shape),
                     span,
                 ),
-                Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
+                SpannedValue::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
             ];
 
-            sig_records.push(Value::Record {
+            sig_records.push(SpannedValue::Record {
                 cols: sig_cols.clone(),
                 vals: sig_vals,
                 span,
@@ -376,37 +378,37 @@ impl<'e, 's> ScopeData<'e, 's> {
 
             let mut custom_completion_command_name: String = "".to_string();
             let shape = if let Some(arg) = &named.arg {
-                flag_type = Value::string("named", span);
+                flag_type = SpannedValue::string("named", span);
                 custom_completion_command_name =
                     extract_custom_completion_from_arg(self.engine_state, arg);
-                Value::string(arg.to_string(), span)
+                SpannedValue::string(arg.to_string(), span)
             } else {
-                flag_type = Value::string("switch", span);
-                Value::nothing(span)
+                flag_type = SpannedValue::string("switch", span);
+                SpannedValue::nothing(span)
             };
 
             let short_flag = if let Some(c) = named.short {
-                Value::string(c, span)
+                SpannedValue::string(c, span)
             } else {
-                Value::nothing(span)
+                SpannedValue::nothing(span)
             };
 
             let sig_vals = vec![
-                Value::string(&named.long, span),
+                SpannedValue::string(&named.long, span),
                 flag_type,
                 shape,
-                Value::bool(!named.required, span),
+                SpannedValue::bool(!named.required, span),
                 short_flag,
-                Value::string(&named.desc, span),
-                Value::string(custom_completion_command_name, span),
+                SpannedValue::string(&named.desc, span),
+                SpannedValue::string(custom_completion_command_name, span),
                 if let Some(val) = &named.default_value {
                     val.clone()
                 } else {
-                    Value::nothing(span)
+                    SpannedValue::nothing(span)
                 },
             ];
 
-            sig_records.push(Value::Record {
+            sig_records.push(SpannedValue::Record {
                 cols: sig_cols.clone(),
                 vals: sig_vals,
                 span,
@@ -414,17 +416,17 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
 
         // output
-        sig_records.push(Value::Record {
+        sig_records.push(SpannedValue::Record {
             cols: sig_cols,
             vals: vec![
-                Value::nothing(span),
-                Value::string("output", span),
-                Value::string(output_type.to_shape().to_string(), span),
-                Value::bool(false, span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
-                Value::nothing(span),
+                SpannedValue::nothing(span),
+                SpannedValue::string("output", span),
+                SpannedValue::string(output_type.to_shape().to_string(), span),
+                SpannedValue::bool(false, span),
+                SpannedValue::nothing(span),
+                SpannedValue::nothing(span),
+                SpannedValue::nothing(span),
+                SpannedValue::nothing(span),
             ],
             span,
         });
@@ -432,7 +434,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         sig_records
     }
 
-    pub fn collect_externs(&self, span: Span) -> Vec<Value> {
+    pub fn collect_externs(&self, span: Span) -> Vec<SpannedValue> {
         let mut externals = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
@@ -443,21 +445,21 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let mut vals = vec![];
 
                 cols.push("name".into());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: String::from_utf8_lossy(command_name).to_string(),
                     span,
                 });
 
                 cols.push("usage".to_string());
-                vals.push(Value::String {
+                vals.push(SpannedValue::String {
                     val: decl.usage().into(),
                     span,
                 });
 
                 cols.push("decl_id".into());
-                vals.push(Value::int(**decl_id as i64, span));
+                vals.push(SpannedValue::int(**decl_id as i64, span));
 
-                externals.push(Value::Record { cols, vals, span })
+                externals.push(SpannedValue::Record { cols, vals, span })
             }
         }
 
@@ -465,14 +467,14 @@ impl<'e, 's> ScopeData<'e, 's> {
         externals
     }
 
-    pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
+    pub fn collect_aliases(&self, span: Span) -> Vec<SpannedValue> {
         let mut aliases = vec![];
 
         for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    aliases.push(Value::Record {
+                    aliases.push(SpannedValue::Record {
                         cols: vec![
                             "name".into(),
                             "expansion".into(),
@@ -480,22 +482,22 @@ impl<'e, 's> ScopeData<'e, 's> {
                             "decl_id".into(),
                         ],
                         vals: vec![
-                            Value::String {
+                            SpannedValue::String {
                                 val: String::from_utf8_lossy(&decl_name).to_string(),
                                 span,
                             },
-                            Value::String {
+                            SpannedValue::String {
                                 val: String::from_utf8_lossy(
                                     self.engine_state.get_span_contents(alias.wrapped_call.span),
                                 )
                                 .to_string(),
                                 span,
                             },
-                            Value::String {
+                            SpannedValue::String {
                                 val: alias.usage().to_string(),
                                 span,
                             },
-                            Value::Int {
+                            SpannedValue::Int {
                                 val: decl_id as i64,
                                 span,
                             },
@@ -511,22 +513,22 @@ impl<'e, 's> ScopeData<'e, 's> {
         aliases
     }
 
-    fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> Value {
+    fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> SpannedValue {
         let module = self.engine_state.get_module(*module_id);
 
         let all_decls = module.decls();
 
-        let mut export_commands: Vec<Value> = all_decls
+        let mut export_commands: Vec<SpannedValue> = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
 
                 if !decl.is_alias() && !decl.is_known_external() {
-                    Some(Value::record(
+                    Some(SpannedValue::record(
                         vec!["name".into(), "decl_id".into()],
                         vec![
-                            Value::string(String::from_utf8_lossy(name_bytes), span),
-                            Value::int(*decl_id as i64, span),
+                            SpannedValue::string(String::from_utf8_lossy(name_bytes), span),
+                            SpannedValue::int(*decl_id as i64, span),
                         ],
                         span,
                     ))
@@ -536,17 +538,17 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
-        let mut export_aliases: Vec<Value> = all_decls
+        let mut export_aliases: Vec<SpannedValue> = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
 
                 if decl.is_alias() {
-                    Some(Value::record(
+                    Some(SpannedValue::record(
                         vec!["name".into(), "decl_id".into()],
                         vec![
-                            Value::string(String::from_utf8_lossy(name_bytes), span),
-                            Value::int(*decl_id as i64, span),
+                            SpannedValue::string(String::from_utf8_lossy(name_bytes), span),
+                            SpannedValue::int(*decl_id as i64, span),
                         ],
                         span,
                     ))
@@ -556,17 +558,17 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
-        let mut export_externs: Vec<Value> = all_decls
+        let mut export_externs: Vec<SpannedValue> = all_decls
             .iter()
             .filter_map(|(name_bytes, decl_id)| {
                 let decl = self.engine_state.get_decl(*decl_id);
 
                 if decl.is_known_external() {
-                    Some(Value::record(
+                    Some(SpannedValue::record(
                         vec!["name".into(), "decl_id".into()],
                         vec![
-                            Value::string(String::from_utf8_lossy(name_bytes), span),
-                            Value::int(*decl_id as i64, span),
+                            SpannedValue::string(String::from_utf8_lossy(name_bytes), span),
+                            SpannedValue::int(*decl_id as i64, span),
                         ],
                         span,
                     ))
@@ -576,22 +578,25 @@ impl<'e, 's> ScopeData<'e, 's> {
             })
             .collect();
 
-        let mut export_submodules: Vec<Value> = module
+        let mut export_submodules: Vec<SpannedValue> = module
             .submodules()
             .iter()
             .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
             .collect();
 
-        let mut export_consts: Vec<Value> = module
+        let mut export_consts: Vec<SpannedValue> = module
             .vars()
             .iter()
             .map(|(name_bytes, var_id)| {
-                Value::record(
+                SpannedValue::record(
                     vec!["name".into(), "type".into(), "var_id".into()],
                     vec![
-                        Value::string(String::from_utf8_lossy(name_bytes), span),
-                        Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
-                        Value::int(*var_id as i64, span),
+                        SpannedValue::string(String::from_utf8_lossy(name_bytes), span),
+                        SpannedValue::string(
+                            self.engine_state.get_var(*var_id).ty.to_string(),
+                            span,
+                        ),
+                        SpannedValue::int(*var_id as i64, span),
                     ],
                     span,
                 )
@@ -605,8 +610,8 @@ impl<'e, 's> ScopeData<'e, 's> {
         sort_rows(&mut export_consts);
 
         let export_env_block = module.env_block.map_or_else(
-            || Value::nothing(span),
-            |block_id| Value::Block {
+            || SpannedValue::nothing(span),
+            |block_id| SpannedValue::Block {
                 val: block_id,
                 span,
             },
@@ -618,7 +623,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             .map(|(usage, _)| usage)
             .unwrap_or_default();
 
-        Value::Record {
+        SpannedValue::Record {
             cols: vec![
                 "name".into(),
                 "commands".into(),
@@ -631,36 +636,36 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "module_id".into(),
             ],
             vals: vec![
-                Value::string(String::from_utf8_lossy(module_name), span),
-                Value::List {
+                SpannedValue::string(String::from_utf8_lossy(module_name), span),
+                SpannedValue::List {
                     vals: export_commands,
                     span,
                 },
-                Value::List {
+                SpannedValue::List {
                     vals: export_aliases,
                     span,
                 },
-                Value::List {
+                SpannedValue::List {
                     vals: export_externs,
                     span,
                 },
-                Value::List {
+                SpannedValue::List {
                     vals: export_submodules,
                     span,
                 },
-                Value::List {
+                SpannedValue::List {
                     vals: export_consts,
                     span,
                 },
                 export_env_block,
-                Value::string(module_usage, span),
-                Value::int(*module_id as i64, span),
+                SpannedValue::string(module_usage, span),
+                SpannedValue::int(*module_id as i64, span),
             ],
             span,
         }
     }
 
-    pub fn collect_modules(&self, span: Span) -> Vec<Value> {
+    pub fn collect_modules(&self, span: Span) -> Vec<SpannedValue> {
         let mut modules = vec![];
 
         for (module_name, module_id) in &self.modules_map {
@@ -671,7 +676,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         modules
     }
 
-    pub fn collect_engine_state(&self, span: Span) -> Value {
+    pub fn collect_engine_state(&self, span: Span) -> SpannedValue {
         let engine_state_cols = vec![
             "source_bytes".to_string(),
             "num_vars".to_string(),
@@ -682,12 +687,12 @@ impl<'e, 's> ScopeData<'e, 's> {
         ];
 
         let engine_state_vals = vec![
-            Value::int(self.engine_state.next_span_start() as i64, span),
-            Value::int(self.engine_state.num_vars() as i64, span),
-            Value::int(self.engine_state.num_decls() as i64, span),
-            Value::int(self.engine_state.num_blocks() as i64, span),
-            Value::int(self.engine_state.num_modules() as i64, span),
-            Value::int(
+            SpannedValue::int(self.engine_state.next_span_start() as i64, span),
+            SpannedValue::int(self.engine_state.num_vars() as i64, span),
+            SpannedValue::int(self.engine_state.num_decls() as i64, span),
+            SpannedValue::int(self.engine_state.num_blocks() as i64, span),
+            SpannedValue::int(self.engine_state.num_modules() as i64, span),
+            SpannedValue::int(
                 self.engine_state
                     .env_vars
                     .values()
@@ -697,7 +702,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ),
         ];
 
-        Value::Record {
+        SpannedValue::Record {
             cols: engine_state_cols,
             vals: engine_state_vals,
             span,
@@ -716,16 +721,17 @@ fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &Syntax
     };
 }
 
-fn sort_rows(decls: &mut [Value]) {
+fn sort_rows(decls: &mut [SpannedValue]) {
     decls.sort_by(|a, b| match (a, b) {
-        (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
+        (SpannedValue::Record { vals: rec_a, .. }, SpannedValue::Record { vals: rec_b, .. }) => {
             // Comparing the first value from the record
             // It is expected that the first value is the name of the entry (command, module, alias, etc.)
             match (rec_a.get(0), rec_b.get(0)) {
                 (Some(val_a), Some(val_b)) => match (val_a, val_b) {
-                    (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
-                        str_a.cmp(str_b)
-                    }
+                    (
+                        SpannedValue::String { val: str_a, .. },
+                        SpannedValue::String { val: str_b, .. },
+                    ) => str_a.cmp(str_b),
                     _ => Ordering::Equal,
                 },
                 _ => Ordering::Equal,

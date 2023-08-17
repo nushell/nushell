@@ -2,7 +2,7 @@ use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
 };
 
 #[derive(Clone)]
@@ -50,20 +50,20 @@ impl Command for SubCommand {
         vec![Example {
             description: "Strip ANSI escape sequences from a string",
             example: r#"$'(ansi green)(ansi cursor_on)hello' | ansi strip"#,
-            result: Some(Value::test_string("hello")),
+            result: Some(SpannedValue::test_string("hello")),
         }]
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value {
+fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, command_span: Span) -> SpannedValue {
     match input {
-        Value::String { val, span } => {
-            Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
+        SpannedValue::String { val, span } => {
+            SpannedValue::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());
 
-            Value::Error {
+            SpannedValue::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
                     span: other.span().unwrap_or(command_span),
@@ -76,7 +76,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value 
 #[cfg(test)]
 mod tests {
     use super::{action, SubCommand};
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{Span, SpannedValue};
 
     #[test]
     fn examples_work_as_expected() {
@@ -87,9 +87,10 @@ mod tests {
 
     #[test]
     fn test_stripping() {
-        let input_string =
-            Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld");
-        let expected = Value::test_string("Hello Nu World");
+        let input_string = SpannedValue::test_string(
+            "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld",
+        );
+        let expected = SpannedValue::test_string("Hello Nu World");
 
         let actual = action(&input_string, &vec![].into(), Span::test_data());
         assert_eq!(actual, expected);

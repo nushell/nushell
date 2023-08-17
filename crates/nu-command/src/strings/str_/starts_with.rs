@@ -5,7 +5,9 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+};
 
 struct Arguments {
     substring: String,
@@ -78,47 +80,47 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if input string starts with 'my'",
                 example: "'my_library.rb' | str starts-with 'my'",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
             Example {
                 description: "Checks if input string starts with 'Car'",
                 example: "'Cargo.toml' | str starts-with 'Car'",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
             Example {
                 description: "Checks if input string starts with '.toml'",
                 example: "'Cargo.toml' | str starts-with '.toml'",
-                result: Some(Value::test_bool(false)),
+                result: Some(SpannedValue::test_bool(false)),
             },
             Example {
                 description: "Checks if input string starts with 'cargo', case-insensitive",
                 example: "'Cargo.toml' | str starts-with -i 'cargo'",
-                result: Some(Value::test_bool(true)),
+                result: Some(SpannedValue::test_bool(true)),
             },
         ]
     }
 }
 
 fn action(
-    input: &Value,
+    input: &SpannedValue,
     Arguments {
         substring,
         case_insensitive,
         ..
     }: &Arguments,
     head: Span,
-) -> Value {
+) -> SpannedValue {
     match input {
-        Value::String { val: s, .. } => {
+        SpannedValue::String { val: s, .. } => {
             let starts_with = if *case_insensitive {
                 s.to_lowercase().starts_with(&substring.to_lowercase())
             } else {
                 s.starts_with(substring)
             };
-            Value::bool(starts_with, head)
+            SpannedValue::bool(starts_with, head)
         }
-        Value::Error { .. } => input.clone(),
-        _ => Value::Error {
+        SpannedValue::Error { .. } => input.clone(),
+        _ => SpannedValue::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

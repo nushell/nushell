@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
+    SyntaxShape, Type,
 };
 use regex::Regex;
 
@@ -56,21 +56,21 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of chars into two lists",
                 example: "[a, b, c, d, e, f, g] | split list d",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::List {
+                        SpannedValue::List {
                             vals: vec![
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
+                                SpannedValue::test_string("a"),
+                                SpannedValue::test_string("b"),
+                                SpannedValue::test_string("c"),
                             ],
                             span: Span::test_data(),
                         },
-                        Value::List {
+                        SpannedValue::List {
                             vals: vec![
-                                Value::test_string("e"),
-                                Value::test_string("f"),
-                                Value::test_string("g"),
+                                SpannedValue::test_string("e"),
+                                SpannedValue::test_string("f"),
+                                SpannedValue::test_string("g"),
                             ],
                             span: Span::test_data(),
                         },
@@ -81,18 +81,18 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of lists into two lists of lists",
                 example: "[[1,2], [2,3], [3,4]] | split list [2,3]",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::List {
-                            vals: vec![Value::List {
-                                vals: vec![Value::test_int(1), Value::test_int(2)],
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::List {
+                                vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
                                 span: Span::test_data(),
                             }],
                             span: Span::test_data(),
                         },
-                        Value::List {
-                            vals: vec![Value::List {
-                                vals: vec![Value::test_int(3), Value::test_int(4)],
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::List {
+                                vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
                                 span: Span::test_data(),
                             }],
                             span: Span::test_data(),
@@ -104,21 +104,21 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of chars into two lists",
                 example: "[a, b, c, d, a, e, f, g] | split list a",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::List {
+                        SpannedValue::List {
                             vals: vec![
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                                Value::test_string("d"),
+                                SpannedValue::test_string("b"),
+                                SpannedValue::test_string("c"),
+                                SpannedValue::test_string("d"),
                             ],
                             span: Span::test_data(),
                         },
-                        Value::List {
+                        SpannedValue::List {
                             vals: vec![
-                                Value::test_string("e"),
-                                Value::test_string("f"),
-                                Value::test_string("g"),
+                                SpannedValue::test_string("e"),
+                                SpannedValue::test_string("f"),
+                                SpannedValue::test_string("g"),
                             ],
                             span: Span::test_data(),
                         },
@@ -129,22 +129,25 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of chars into lists based on multiple characters",
                 example: r"[a, b, c, d, a, e, f, g] | split list -r '(b|e)'",
-                result: Some(Value::List {
+                result: Some(SpannedValue::List {
                     vals: vec![
-                        Value::List {
-                            vals: vec![Value::test_string("a")],
+                        SpannedValue::List {
+                            vals: vec![SpannedValue::test_string("a")],
                             span: Span::test_data(),
                         },
-                        Value::List {
+                        SpannedValue::List {
                             vals: vec![
-                                Value::test_string("c"),
-                                Value::test_string("d"),
-                                Value::test_string("a"),
+                                SpannedValue::test_string("c"),
+                                SpannedValue::test_string("d"),
+                                SpannedValue::test_string("a"),
                             ],
                             span: Span::test_data(),
                         },
-                        Value::List {
-                            vals: vec![Value::test_string("f"), Value::test_string("g")],
+                        SpannedValue::List {
+                            vals: vec![
+                                SpannedValue::test_string("f"),
+                                SpannedValue::test_string("g"),
+                            ],
                             span: Span::test_data(),
                         },
                     ],
@@ -157,11 +160,11 @@ impl Command for SubCommand {
 
 enum Matcher {
     Regex(Regex),
-    Direct(Value),
+    Direct(SpannedValue),
 }
 
 impl Matcher {
-    pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
+    pub fn new(regex: bool, lhs: SpannedValue) -> Result<Self, ShellError> {
         if regex {
             Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
                 |err| {
@@ -169,7 +172,7 @@ impl Matcher {
                         "Error with regular expression".into(),
                         err.to_string(),
                         match lhs {
-                            Value::Error { error: _ } => None,
+                            SpannedValue::Error { error: _ } => None,
                             _ => Some(lhs.expect_span()),
                         },
                         None,
@@ -182,7 +185,7 @@ impl Matcher {
         }
     }
 
-    pub fn compare(&self, rhs: &Value) -> Result<bool, ShellError> {
+    pub fn compare(&self, rhs: &SpannedValue) -> Result<bool, ShellError> {
         Ok(match self {
             Matcher::Regex(regex) => {
                 if let Ok(rhs_str) = rhs.as_string() {
@@ -202,7 +205,7 @@ fn split_list(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let separator: Value = call.req(engine_state, stack, 0)?;
+    let separator: SpannedValue = call.req(engine_state, stack, 0)?;
     let mut temp_list = Vec::new();
     let mut returned_list = Vec::new();
 
@@ -211,7 +214,7 @@ fn split_list(
     for val in iter {
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {
-                returned_list.push(Value::List {
+                returned_list.push(SpannedValue::List {
                     vals: temp_list.clone(),
                     span: call.head,
                 });
@@ -222,12 +225,12 @@ fn split_list(
         }
     }
     if !temp_list.is_empty() {
-        returned_list.push(Value::List {
+        returned_list.push(SpannedValue::List {
             vals: temp_list.clone(),
             span: call.head,
         });
     }
-    Ok(Value::List {
+    Ok(SpannedValue::List {
         vals: returned_list,
         span: call.head,
     }

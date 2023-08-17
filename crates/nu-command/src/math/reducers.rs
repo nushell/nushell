@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, SpannedValue};
 use std::cmp::Ordering;
 
 pub enum Reduce {
@@ -8,8 +8,12 @@ pub enum Reduce {
     Maximum,
 }
 
-pub type ReducerFunction =
-    Box<dyn Fn(Value, Vec<Value>, Span, Span) -> Result<Value, ShellError> + Send + Sync + 'static>;
+pub type ReducerFunction = Box<
+    dyn Fn(SpannedValue, Vec<SpannedValue>, Span, Span) -> Result<SpannedValue, ShellError>
+        + Send
+        + Sync
+        + 'static,
+>;
 
 pub fn reducer_for(command: Reduce) -> ReducerFunction {
     match command {
@@ -20,7 +24,7 @@ pub fn reducer_for(command: Reduce) -> ReducerFunction {
     }
 }
 
-pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn max(data: Vec<SpannedValue>, span: Span, head: Span) -> Result<SpannedValue, ShellError> {
     let mut biggest = data
         .first()
         .ok_or_else(|| {
@@ -51,7 +55,7 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(biggest)
 }
 
-pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn min(data: Vec<SpannedValue>, span: Span, head: Span) -> Result<SpannedValue, ShellError> {
     let mut smallest = data
         .first()
         .ok_or_else(|| {
@@ -82,37 +86,39 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(smallest)
 }
 
-pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn sum(data: Vec<SpannedValue>, span: Span, head: Span) -> Result<SpannedValue, ShellError> {
     let initial_value = data.get(0);
 
     let mut acc = match initial_value {
-        Some(Value::Filesize { span, .. }) => Ok(Value::Filesize {
+        Some(SpannedValue::Filesize { span, .. }) => Ok(SpannedValue::Filesize {
             val: 0,
             span: *span,
         }),
-        Some(Value::Duration { span, .. }) => Ok(Value::Duration {
+        Some(SpannedValue::Duration { span, .. }) => Ok(SpannedValue::Duration {
             val: 0,
             span: *span,
         }),
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(0, *span)),
+        Some(SpannedValue::Int { span, .. }) | Some(SpannedValue::Float { span, .. }) => {
+            Ok(SpannedValue::int(0, *span))
+        }
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
             "value originates from here".into(),
             head,
             span,
         )),
-        _ => Ok(Value::nothing(head)),
+        _ => Ok(SpannedValue::nothing(head)),
     }?;
 
     for value in &data {
         match value {
-            Value::Int { .. }
-            | Value::Float { .. }
-            | Value::Filesize { .. }
-            | Value::Duration { .. } => {
+            SpannedValue::Int { .. }
+            | SpannedValue::Float { .. }
+            | SpannedValue::Filesize { .. }
+            | SpannedValue::Duration { .. } => {
                 acc = acc.add(head, value, head)?;
             }
-            Value::Error { error } => return Err(*error.clone()),
+            SpannedValue::Error { error } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
@@ -126,26 +132,32 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     Ok(acc)
 }
 
-pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
+pub fn product(
+    data: Vec<SpannedValue>,
+    span: Span,
+    head: Span,
+) -> Result<SpannedValue, ShellError> {
     let initial_value = data.get(0);
 
     let mut acc = match initial_value {
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(1, *span)),
+        Some(SpannedValue::Int { span, .. }) | Some(SpannedValue::Float { span, .. }) => {
+            Ok(SpannedValue::int(1, *span))
+        }
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
             "value originates from here".into(),
             head,
             span,
         )),
-        _ => Ok(Value::nothing(head)),
+        _ => Ok(SpannedValue::nothing(head)),
     }?;
 
     for value in &data {
         match value {
-            Value::Int { .. } | Value::Float { .. } => {
+            SpannedValue::Int { .. } | SpannedValue::Float { .. } => {
                 acc = acc.mul(head, value, head)?;
             }
-            Value::Error { error } => return Err(*error.clone()),
+            SpannedValue::Error { error } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the product of a value that cannot be multiplied"
