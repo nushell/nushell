@@ -11,6 +11,7 @@ pub struct KnownExternal {
     pub name: String,
     pub signature: Box<Signature>,
     pub usage: String,
+    pub extra_usage: String,
 }
 
 impl Command for KnownExternal {

@@ -215,6 +215,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             let decl = KnownExternal {
                 name,
                 usage: "run external command".into(),
+                extra_usage: "".into(),
                 signature,
             };
 
@@ -650,7 +651,8 @@ pub fn parse_extern(
                 } else {
                     let decl = KnownExternal {
                         name: external_name,
-                        usage: [usage, extra_usage].join("\n"),
+                        usage,
+                        extra_usage,
                         signature,
                     };
 
