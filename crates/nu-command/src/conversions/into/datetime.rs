@@ -4,9 +4,8 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
-use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::report_error;
+use nu_protocol::report_error_new;
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
@@ -113,8 +112,8 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag("list") {
-            report_error(
-                &StateWorkingSet::new(engine_state),
+            report_error_new(
+                engine_state,
                 &ShellError::GenericError(
                     "Deprecated option".into(),
                     "`into datetime --list` is deprecated and will be removed in 0.85".into(),
@@ -144,8 +143,8 @@ impl Command for SubCommand {
                 };
 
             if call.has_flag("format") {
-                report_error(
-                    &StateWorkingSet::new(engine_state),
+                report_error_new(
+                    engine_state,
                     &ShellError::GenericError(
                         "Deprecated option".into(),
                         "`into datetime --format` is deprecated and will be removed in 0.85".into(),
