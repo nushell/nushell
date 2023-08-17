@@ -115,6 +115,8 @@ pub enum ShellError {
         msg: String,
         #[label = "{msg}"]
         span: Span,
+        #[label = "encountered here"]
+        orig_span: Span,
     },
 
     /// This value cannot be used with this operator.
