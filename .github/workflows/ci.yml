@@ -116,7 +116,7 @@ jobs:
           python-version: "3.10"
 
       - name: Install virtualenv
-        run: run: pip install virtualenv
+        run: pip install virtualenv
         shell: bash
 
       - name: Test Nushell in virtualenv
