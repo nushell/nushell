@@ -6,7 +6,7 @@ let test_lines = [
     $"overlay use '([$env.PWD $env_name bin activate.nu] | path join)'"
     "python -c 'import sys; print(sys.executable)'"                                  # 3
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'" # 4
-    "print $env.VIRTUAL_PROMPT"                                                      # 5
+    "print $env.VIRTUAL_ENV_PROMPT"                                                  # 5
     # "pydoc -w pydoc_test"
     "deactivate"
     "python -c 'import sys; print(sys.executable)'"                                  # 6
@@ -21,7 +21,7 @@ def main [] {
         "None"                                         # 2
         ([$env.PWD $env_name bin python] | path join)  # 3
         ([$env.PWD $env_name] | path join)             # 4
-        $"(char lparen)($env_name)(char rparen)"       # 5
+        $env_name                                      # 5
         $orig_python_interpreter                       # 6
         "None"                                         # 7
     ]
