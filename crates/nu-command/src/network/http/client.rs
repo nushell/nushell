@@ -466,37 +466,36 @@ fn request_handle_response_content(
     resp: Response,
     request: Request,
 ) -> Result<PipelineData, ShellError> {
-    // This must be set before "resp" is moved in #response_to_buffer
-    let response_headers: Option<PipelineData> = if flags.full {
-        Some(headers_to_nu(&extract_response_headers(&resp), span)?)
-    } else {
-        None
-    };
+    // #response_to_buffer moves "resp" making it impossible to read headers later.
+    // Wrapping it into a closure to call when needed
+    let mut consume_response_body = |response: Response| {
+        let content_type = response.header("content-type").map(|s| s.to_owned());
 
-    let response_status = resp.status();
-    let content_type = resp.header("content-type").map(|s| s.to_owned());
-    let formatted_content = match content_type {
-        Some(content_type) => transform_response_using_content_type(
-            engine_state,
-            stack,
-            span,
-            requested_url,
-            &flags,
-            resp,
-            &content_type,
-        ),
-        None => Ok(response_to_buffer(resp, engine_state, span)),
+        match content_type {
+            Some(content_type) => transform_response_using_content_type(
+                engine_state,
+                stack,
+                span,
+                requested_url,
+                &flags,
+                response,
+                &content_type,
+            ),
+            None => Ok(response_to_buffer(response, engine_state, span)),
+        }
     };
 
     if flags.full {
+        let response_status = resp.status();
+
         let request_headers_value = match headers_to_nu(&extract_request_headers(&request), span) {
             Ok(headers) => headers.into_value(span),
             Err(_) => Value::nothing(span),
         };
 
-        let response_headers_value = match response_headers {
-            Some(headers) => headers.into_value(span),
-            None => Value::nothing(span),
+        let response_headers_value = match headers_to_nu(&extract_response_headers(&resp), span) {
+            Ok(headers) => headers.into_value(span),
+            Err(_) => Value::nothing(span),
         };
 
         let headers = Value::Record {
@@ -513,15 +512,15 @@ fn request_handle_response_content(
             ],
             vals: vec![
                 headers,
-                formatted_content?.into_value(span),
+                consume_response_body(resp)?.into_value(span),
                 Value::int(response_status as i64, span),
             ],
             span,
-        }.into_pipeline_data();
+        };
 
-        Ok(full_response)
+        Ok(full_response.into_pipeline_data())
     } else {
-        Ok(formatted_content?)
+        Ok(consume_response_body(resp)?)
     }
 }
 
