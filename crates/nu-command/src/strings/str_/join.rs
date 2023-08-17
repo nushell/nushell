@@ -55,7 +55,7 @@ impl Command for StrJoin {
 
         for value in input {
             match value {
-                SpannedValue::Error { error } => {
+                SpannedValue::Error { error, .. } => {
                     return Err(*error);
                 }
                 value => {

@@ -71,21 +71,21 @@ produce a table, a list will produce a list, and a record will produce a record.
                 SpannedValue::List { vals, .. } => {
                     for val in vals {
                         match val {
-                            SpannedValue::String { val, .. } => {
+                            SpannedValue::String { val, span } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::String {
                                         val: val.clone(),
-                                        span: Span::unknown(),
+                                        span,
                                         optional: false,
                                     }],
                                 };
                                 new_columns.push(cv.clone());
                             }
-                            SpannedValue::Int { val, .. } => {
+                            SpannedValue::Int { val, span } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::Int {
                                         val: val as usize,
-                                        span: Span::unknown(),
+                                        span,
                                         optional: false,
                                     }],
                                 };
@@ -95,18 +95,18 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
                                     from_type: y.get_type().to_string(),
-                                    span: y.span()?,
+                                    span: y.span(),
                                     help: None,
                                 });
                             }
                         }
                     }
                 }
-                SpannedValue::String { val, .. } => {
+                SpannedValue::String { val, span } => {
                     let cv = CellPath {
                         members: vec![PathMember::String {
                             val: val.clone(),
-                            span: Span::unknown(),
+                            span,
                             optional: false,
                         }],
                     };
@@ -116,7 +116,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                     return Err(ShellError::CantConvert {
                         to_type: "cell path".into(),
                         from_type: x.get_type().to_string(),
-                        span: x.span()?,
+                        span: x.span(),
                         help: None,
                     });
                 }

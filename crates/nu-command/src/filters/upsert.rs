@@ -159,12 +159,18 @@ fn upsert(
                         if let Err(e) =
                             input.upsert_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return SpannedValue::Error { error: Box::new(e) };
+                            return SpannedValue::Error {
+                                error: Box::new(e),
+                                span,
+                            };
                         }
 
                         input
                     }
-                    Err(e) => SpannedValue::Error { error: Box::new(e) },
+                    Err(e) => SpannedValue::Error {
+                        error: Box::new(e),
+                        span,
+                    },
                 }
             },
             ctrlc,
@@ -200,7 +206,10 @@ fn upsert(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.upsert_data_at_cell_path(&cell_path.members, replacement) {
-                    return SpannedValue::Error { error: Box::new(e) };
+                    return SpannedValue::Error {
+                        error: Box::new(e),
+                        span,
+                    };
                 }
 
                 input

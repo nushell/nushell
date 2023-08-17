@@ -46,9 +46,9 @@ pub fn max(data: Vec<SpannedValue>, span: Span, head: Span) -> Result<SpannedVal
             return Err(ShellError::OperatorMismatch {
                 op_span: head,
                 lhs_ty: biggest.get_type().to_string(),
-                lhs_span: biggest.span()?,
+                lhs_span: biggest.span(),
                 rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span()?,
+                rhs_span: value.span(),
             });
         }
     }
@@ -77,9 +77,9 @@ pub fn min(data: Vec<SpannedValue>, span: Span, head: Span) -> Result<SpannedVal
             return Err(ShellError::OperatorMismatch {
                 op_span: head,
                 lhs_ty: smallest.get_type().to_string(),
-                lhs_span: smallest.span()?,
+                lhs_span: smallest.span(),
                 rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span()?,
+                rhs_span: value.span(),
             });
         }
     }

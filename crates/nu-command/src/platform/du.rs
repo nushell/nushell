@@ -179,7 +179,10 @@ impl Command for Du {
                     }
                 }
                 Err(e) => {
-                    output.push(SpannedValue::Error { error: Box::new(e) });
+                    output.push(SpannedValue::Error {
+                        error: Box::new(e),
+                        span: tag,
+                    });
                 }
             }
         }

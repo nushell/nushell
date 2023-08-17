@@ -76,7 +76,7 @@ fn convert_columns(columns: &[SpannedValue], span: Span) -> Result<Vec<String>, 
             SpannedValue::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
-                span: value.span().unwrap_or(span),
+                span: value.span(),
             }),
         })
         .collect::<Result<Vec<String>, _>>()?;

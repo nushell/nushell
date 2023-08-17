@@ -141,7 +141,7 @@ fn helper(
     args: Arguments,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<PipelineData, ShellError> {
-    let span = args.url.span()?;
+    let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure);

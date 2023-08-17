@@ -118,8 +118,13 @@ fn split_chars(
 }
 
 fn split_chars_helper(v: &SpannedValue, name: Span, graphemes: bool) -> SpannedValue {
-    match v.span() {
-        Ok(v_span) => {
+    match v {
+        SpannedValue::Error { error, span } => SpannedValue::Error {
+            error: error.clone(),
+            span: *span,
+        },
+        v => {
+            let v_span = v.span();
             if let Ok(s) = v.as_string() {
                 SpannedValue::List {
                     vals: if graphemes {
@@ -144,12 +149,10 @@ fn split_chars_helper(v: &SpannedValue, name: Span, graphemes: bool) -> SpannedV
                         dst_span: name,
                         src_span: v_span,
                     }),
+                    span: name,
                 }
             }
         }
-        Err(error) => SpannedValue::Error {
-            error: Box::new(error),
-        },
     }
 }
 

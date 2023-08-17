@@ -106,7 +106,7 @@ fn parse(
     let result_url = Url::parse(url_string.as_str());
 
     // This is the span of the original string, not the call head.
-    let span = value.span()?;
+    let span = value.span();
 
     match result_url {
         Ok(url) => {

@@ -55,6 +55,7 @@ impl Command for NuHighlight {
                 }
                 Err(err) => SpannedValue::Error {
                     error: Box::new(err),
+                    span: head,
                 },
             },
             ctrlc,

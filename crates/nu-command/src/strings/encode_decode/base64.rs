@@ -115,11 +115,11 @@ fn action(
                             error: Box::new(ShellError::GenericError(
                                 "Error encoding data".into(),
                                 err.to_string(),
-                                Some(span),
+                                Some(*span),
                                 None,
                                 Vec::new(),
                             )),
-                            span,
+                            span: *span,
                         }
                     }
                 };
@@ -196,9 +196,9 @@ fn action(
         other => SpannedValue::Error {
             error: Box::new(ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
-                span: other.span().unwrap_or(command_span),
+                span: other.span(),
             }),
-            span: other.span().unwrap_or(command_span),
+            span: other.span(),
         },
     }
 }

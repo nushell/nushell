@@ -193,6 +193,7 @@ fn join_list(parts: &[SpannedValue], head: Span, span: Span, args: &Arguments) -
                         dst_span: head,
                         src_span: span,
                     }),
+                    span,
                 },
             }
         }
@@ -210,6 +211,7 @@ fn join_record(
         Ok(p) => join_single(p.as_path(), head, args),
         Err(error) => SpannedValue::Error {
             error: Box::new(error),
+            span,
         },
     }
 }

@@ -184,7 +184,7 @@ impl EventTypeFilter {
             "--types expects a list of strings".to_string(),
             "value originates from here".into(),
             head,
-            value.span().unwrap_or(head),
+            value.span(),
         )
     }
 

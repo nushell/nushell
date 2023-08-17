@@ -76,6 +76,7 @@ impl Command for ToJson {
                     span,
                     help: None,
                 }),
+                span,
             }
             .into_pipeline_data()),
         }
@@ -126,7 +127,7 @@ pub fn value_to_json_value(v: &SpannedValue) -> Result<nu_json::Value, ShellErro
         ),
 
         SpannedValue::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
-        SpannedValue::Error { error } => return Err(*error.clone()),
+        SpannedValue::Error { error, .. } => return Err(*error.clone()),
         SpannedValue::Closure { .. }
         | SpannedValue::Block { .. }
         | SpannedValue::Range { .. }

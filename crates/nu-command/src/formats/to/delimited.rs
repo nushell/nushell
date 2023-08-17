@@ -166,7 +166,7 @@ pub fn to_delimited_data(
         Err(_) => Err(ShellError::CantConvert {
             to_type: format_name.into(),
             from_type: value.get_type().to_string(),
-            span: value.span().unwrap_or(span),
+            span: value.span(),
             help: None,
         }),
     }?;

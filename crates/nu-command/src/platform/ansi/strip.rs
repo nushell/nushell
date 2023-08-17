@@ -66,8 +66,9 @@ fn action(input: &SpannedValue, _args: &CellPathOnlyArgs, command_span: Span) ->
             SpannedValue::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(command_span),
+                    span: other.span(),
                 }),
+                span: other.span(),
             }
         }
     }

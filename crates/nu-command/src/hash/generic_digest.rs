@@ -158,15 +158,7 @@ where
         // Propagate existing errors
         SpannedValue::Error { .. } => return input.clone(),
         other => {
-            let span = match input.span() {
-                Ok(span) => span,
-                Err(error) => {
-                    return SpannedValue::Error {
-                        error: Box::new(error),
-                        span,
-                    }
-                }
-            };
+            let span = input.span();
 
             return SpannedValue::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {

@@ -182,10 +182,10 @@ repeating this process with row 1, and so on."#
             (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
                 // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
-                let span = if val.span()? == Span::test_data() {
+                let span = if val.span() == Span::test_data() {
                     Span::new(call.head.start, call.head.start)
                 } else {
-                    val.span()?
+                    val.span()
                 };
 
                 Err(ShellError::PipelineMismatch {

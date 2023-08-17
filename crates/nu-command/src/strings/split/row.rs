@@ -151,8 +151,16 @@ fn split_row_helper(
     max_split: Option<usize>,
     name: Span,
 ) -> Vec<SpannedValue> {
-    match v.span() {
-        Ok(v_span) => {
+    match v {
+        SpannedValue::Error { error, span } => {
+            vec![SpannedValue::Error {
+                error: Box::new(*error.clone()),
+                span: *span,
+            }]
+        }
+        v => {
+            let v_span = v.span();
+
             if let Ok(s) = v.as_string() {
                 match max_split {
                     Some(max_split) => regex
@@ -171,12 +179,10 @@ fn split_row_helper(
                         dst_span: name,
                         src_span: v_span,
                     }),
+                    span: name,
                 }]
             }
         }
-        Err(error) => vec![SpannedValue::Error {
-            error: Box::new(error),
-        }],
     }
 }
 

@@ -316,7 +316,7 @@ pub fn request_add_custom_headers(
                             return Err(ShellError::CantConvert {
                                 to_type: "string list or single row".into(),
                                 from_type: x.get_type().to_string(),
-                                span: headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                                span: headers.span(),
                                 help: None,
                             });
                         }
@@ -335,7 +335,7 @@ pub fn request_add_custom_headers(
                 return Err(ShellError::CantConvert {
                     to_type: "string list or single row".into(),
                     from_type: x.get_type().to_string(),
-                    span: headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                    span: headers.span(),
                     help: None,
                 });
             }

@@ -101,6 +101,7 @@ not supported."#
                     }
                     Err(err) => Some(SpannedValue::Error {
                         error: Box::new(err),
+                        span,
                     }),
                 }
             })

@@ -135,6 +135,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
                 span,
                 help: None,
             }),
+            span,
         },
     }
 }

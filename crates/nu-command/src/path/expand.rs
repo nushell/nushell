@@ -141,6 +141,7 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
                     None,
                     Vec::new(),
                 )),
+                span,
             },
         }
     } else if args.not_follow_symlink {

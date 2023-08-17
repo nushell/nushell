@@ -135,7 +135,7 @@ fn rename(
             return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
                         .to_string(), span: column_span });
         } else {
-            (Some(columns[0].span()?), column_span)
+            (Some(columns[0].span()), column_span)
         }
     } else {
         (None, call.head)

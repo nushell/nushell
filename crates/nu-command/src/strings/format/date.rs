@@ -136,6 +136,7 @@ where
                 err_message: "invalid format".to_string(),
                 span,
             }),
+            span,
         },
     }
 }
@@ -161,6 +162,7 @@ fn format_helper(
                 value.debug_value(),
                 head_span,
             )),
+            span: head_span,
         },
     }
 }
@@ -186,6 +188,7 @@ fn format_helper_rfc2822(value: SpannedValue, span: Span) -> SpannedValue {
         }
         _ => SpannedValue::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), span)),
+            span,
         },
     }
 }

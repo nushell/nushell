@@ -79,6 +79,7 @@ impl Command for FromJson {
                             Ok(v) => Some(v),
                             Err(error) => Some(SpannedValue::Error {
                                 error: Box::new(error),
+                                span,
                             }),
                         }
                     }
@@ -127,6 +128,7 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> SpannedValue {
                         span,
                         help: None,
                     }),
+                    span,
                 }
             } else {
                 SpannedValue::Int {

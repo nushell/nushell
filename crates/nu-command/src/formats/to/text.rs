@@ -149,7 +149,7 @@ fn local_into_string(value: SpannedValue, separator: &str, config: &Config) -> S
         SpannedValue::Block { val, .. } => format!("<Block {val}>"),
         SpannedValue::Closure { val, .. } => format!("<Closure {val}>"),
         SpannedValue::Nothing { .. } => String::new(),
-        SpannedValue::Error { error } => format!("{error:?}"),
+        SpannedValue::Error { error, .. } => format!("{error:?}"),
         SpannedValue::Binary { val, .. } => format!("{val:?}"),
         SpannedValue::CellPath { val, .. } => val.into_string(),
         SpannedValue::CustomValue { val, .. } => val.value_string(),

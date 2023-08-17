@@ -226,17 +226,24 @@ fn split_column_helper(
             span: head,
         }]
     } else {
-        match v.span() {
-            Ok(span) => vec![SpannedValue::Error {
-                error: Box::new(ShellError::PipelineMismatch {
-                    exp_input_type: "string".into(),
-                    dst_span: head,
-                    src_span: span,
-                }),
-            }],
-            Err(error) => vec![SpannedValue::Error {
-                error: Box::new(error),
-            }],
+        match v {
+            SpannedValue::Error { error, span } => {
+                vec![SpannedValue::Error {
+                    error: Box::new(*error.clone()),
+                    span: head,
+                }]
+            }
+            v => {
+                let span = v.span();
+                vec![SpannedValue::Error {
+                    error: Box::new(ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    }),
+                    span,
+                }]
+            }
         }
     }
 }

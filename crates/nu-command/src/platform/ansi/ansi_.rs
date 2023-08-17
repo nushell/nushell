@@ -732,7 +732,7 @@ Operating system commands:
                         return Err(ShellError::GenericError(
                             "error parsing hex color".to_string(),
                             format!("{err}"),
-                            Some(code.span()?),
+                            Some(code.span()),
                             None,
                             Vec::new(),
                         ));

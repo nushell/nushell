@@ -118,7 +118,7 @@ pub fn create_external_command(
     let env_vars_str = env_to_strings(engine_state, stack)?;
 
     fn value_as_spanned(value: SpannedValue) -> Result<Spanned<String>, ShellError> {
-        let span = value.span()?;
+        let span = value.span();
 
         value
             .as_string()
@@ -508,6 +508,7 @@ impl ExternalCommand {
                                     );
                                     let _ = exit_code_tx.send(SpannedValue::Error {
                                         error: Box::new(ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head }),
+                                        span: head,
                                     });
                                     return Ok(());
                                 }

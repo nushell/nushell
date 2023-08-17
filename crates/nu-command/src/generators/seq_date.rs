@@ -197,7 +197,7 @@ pub fn run_seq_dates(
         return Err(ShellError::GenericError(
             "increment cannot be 0".to_string(),
             "increment cannot be 0".to_string(),
-            Some(increment.span()?),
+            Some(increment.span()),
             None,
             Vec::new(),
         ));
