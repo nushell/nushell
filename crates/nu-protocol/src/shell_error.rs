@@ -114,9 +114,9 @@ pub enum ShellError {
     IncorrectValue {
         msg: String,
         #[label = "{msg}"]
-        span: Span,
+        val_span: Span,
         #[label = "encountered here"]
-        orig_span: Span,
+        call_span: Span,
     },
 
     /// This value cannot be used with this operator.

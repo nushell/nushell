@@ -258,8 +258,8 @@ fn action(
                     Err(e) => Value::Error {
                         error: Box::new(ShellError::IncorrectValue {
                             msg: format!("Regex error: {e}"),
-                            span: find.span,
-                            orig_span: head,
+                            val_span: find.span,
+                            call_span: head,
                         }),
                     },
                 }
