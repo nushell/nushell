@@ -240,6 +240,13 @@ fn correct_scope_externs_fields() {
 
         let inp = &[
             "use spam.nu",
+            "scope externs | where name == 'spam git' | get 0.usage | str contains (char nl)",
+        ];
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        assert_eq!(actual.out, "false");
+
+        let inp = &[
+            "use spam.nu",
             "scope externs | where name == 'spam git' | get 0.decl_id | is-empty",
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
