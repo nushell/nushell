@@ -253,3 +253,22 @@ fn correct_scope_externs_fields() {
         assert_eq!(actual.out, "false");
     })
 }
+
+#[test]
+fn scope_externs_sorted() {
+    let module_setup = r#"
+        export extern a []
+        export extern b []
+        export extern c []
+    "#;
+
+    let inp = &[
+        "extern a []",
+        "extern b []",
+        "extern c []",
+        "scope externs | get name | str join ''",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "abc");
+}
