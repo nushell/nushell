@@ -252,7 +252,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Int { val: 0, span }
             }
         }
-        Value::Date { val, .. } => {
+        Value::Date {
+            val,
+            span: val_span,
+        } => {
             if val
                 < &FixedOffset::east_opt(0)
                     .expect("constant")
@@ -267,7 +270,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Error {
                     error: Box::new(ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
-                        span,
+                        span: *val_span,
                         orig_span: span,
                     }),
                 }
