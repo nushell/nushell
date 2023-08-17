@@ -194,7 +194,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, args.data, args.content_type, ctrl_c);
+    let response = send_request(request.clone(), args.data, args.content_type, ctrl_c);
 
     let request_flags = RequestFlags {
         raw: args.raw,
@@ -209,6 +209,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
+        request,
     )
 }
 

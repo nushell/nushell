@@ -138,9 +138,44 @@ fn http_get_with_custom_headers_as_records() {
         "http get -H {{content-type: text/plain}} {url}",
         url = server.url()
     ));
+
     mock1.assert();
     mock2.assert();
 }
+
+#[test]
+fn http_get_full_response() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("GET", "/").with_body("foo").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http get --full {url} --headers [foo bar] | to json",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    let output: serde_json::Value = serde_json::from_str(&actual.out).unwrap();
+
+    assert_eq!(output["status"], 200);
+    assert_eq!(output["body"], "foo");
+
+    // There's only one request header, we can get it by index
+    assert_eq!(output["headers"]["request"][0]["name"], "foo");
+    assert_eq!(output["headers"]["request"][0]["value"], "bar");
+
+    // ... and multiple response headers, so have to search by name
+    let header = output["headers"]["response"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "connection")
+        .unwrap();
+    assert_eq!(header["value"], "close");
+}
+
 // These tests require network access; they use badssl.com which is a Google-affiliated site for testing various SSL errors.
 // Revisit this if these tests prove to be flaky or unstable.
 
