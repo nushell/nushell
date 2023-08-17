@@ -17,6 +17,7 @@ pub fn detect_encoding_name(
         ));
     }
     match encoding.to_uppercase().as_str() {
+        // these encodings are not supported by encoding_rs
         "UTF-32BE"
         | "UTF-32LE"
         | "X-ISO-100646-UCS-4-2143"
@@ -28,10 +29,12 @@ pub fn detect_encoding_name(
             head,
             input,
         )),
+        // chardet returns non-standard names for these encodings
         "MACCYRILLIC" => Ok(Spanned {
             item: "x-mac-cyrillic".into(),
             span: head,
         }),
+        // windows-31j extends shift_jis with some special characters
         "CP932" => Ok(Spanned {
             item: "windows-31j".into(),
             span: head,
