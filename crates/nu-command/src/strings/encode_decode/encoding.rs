@@ -15,7 +15,6 @@ pub fn detect_encoding_name(head: Span, input: Span, bytes: &[u8]) -> Result<&'s
             input,
         ));
     }
-
     Ok(encoding)
 }
 
