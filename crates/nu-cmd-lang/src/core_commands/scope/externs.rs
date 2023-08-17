@@ -1,25 +1,27 @@
 use nu_engine::scope::ScopeData;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
+};
 
 #[derive(Clone)]
-pub struct ScopeEngineStats;
+pub struct ScopeExterns;
 
-impl Command for ScopeEngineStats {
+impl Command for ScopeExterns {
     fn name(&self) -> &str {
-        "scope engine-stats"
+        "scope externs"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("scope engine-stats")
+        Signature::build("scope externs")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Output stats on the engine in the current state."
+        "Output info on the known externals in the current scope."
     }
 
     fn run(
@@ -30,16 +32,18 @@ impl Command for ScopeEngineStats {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
+        let ctrlc = engine_state.ctrlc.clone();
 
-        let scope_data = ScopeData::new(engine_state, stack);
+        let mut scope_data = ScopeData::new(engine_state, stack);
+        scope_data.populate_decls();
 
-        Ok(scope_data.collect_engine_state(span).into_pipeline_data())
+        Ok(scope_data.collect_externs(span).into_pipeline_data(ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Show the stats on the current engine state",
-            example: "scope engine-stats",
+            description: "Show the known externals in the current scope",
+            example: "scope externs",
             result: None,
         }]
     }
@@ -53,6 +57,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(ScopeEngineStats {})
+        test_examples(ScopeExterns {})
     }
 }

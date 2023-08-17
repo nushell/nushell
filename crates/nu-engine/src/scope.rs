@@ -1,52 +1,9 @@
 use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ModuleId, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-
-pub fn create_scope(
-    engine_state: &EngineState,
-    stack: &Stack,
-    span: Span,
-) -> Result<Value, ShellError> {
-    let mut scope_data = ScopeData::new(engine_state, stack);
-
-    scope_data.populate_all();
-
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("vars".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_vars(span),
-        span,
-    });
-
-    cols.push("commands".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_commands(span),
-        span,
-    });
-
-    cols.push("aliases".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_aliases(span),
-        span,
-    });
-
-    cols.push("modules".to_string());
-    vals.push(Value::List {
-        vals: scope_data.collect_modules(span),
-        span,
-    });
-
-    cols.push("engine_state".to_string());
-    vals.push(scope_data.collect_engine_state(span));
-
-    Ok(Value::Record { cols, vals, span })
-}
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
@@ -69,11 +26,16 @@ impl<'e, 's> ScopeData<'e, 's> {
         }
     }
 
-    pub fn populate_all(&mut self) {
+    pub fn populate_vars(&mut self) {
         for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.vars_map.extend(&overlay_frame.vars);
+        }
+    }
+
+    // decls include all commands, i.e., normal commands, aliases, and externals
+    pub fn populate_decls(&mut self) {
+        for overlay_frame in self.engine_state.active_overlays(&[]) {
             self.decls_map.extend(&overlay_frame.decls);
-            self.modules_map.extend(&overlay_frame.modules);
             self.visibility.merge_with(overlay_frame.visibility.clone());
         }
     }
@@ -86,20 +48,28 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_vars(&self, span: Span) -> Vec<Value> {
         let mut vars = vec![];
-        for var in &self.vars_map {
-            let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-            let var_type = Value::string(self.engine_state.get_var(**var.1).ty.to_string(), span);
+        for (var_name, var_id) in &self.vars_map {
+            let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
 
-            let var_value = if let Ok(val) = self.stack.get_var(**var.1, span) {
+            let var_type = Value::string(self.engine_state.get_var(**var_id).ty.to_string(), span);
+
+            let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
                 val
             } else {
                 Value::nothing(span)
             };
 
+            let var_id_val = Value::int(**var_id as i64, span);
+
             vars.push(Value::Record {
-                cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
-                vals: vec![var_name, var_type, var_value],
+                cols: vec![
+                    "name".to_string(),
+                    "type".to_string(),
+                    "value".to_string(),
+                    "var_id".to_string(),
+                ],
+                vals: vec![var_name, var_type, var_value, var_id_val],
                 span,
             })
         }
@@ -108,6 +78,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
         let mut commands = vec![];
+
         for (command_name, decl_id) in &self.decls_map {
             if self.visibility.is_decl_id_visible(decl_id)
                 && !self.engine_state.get_decl(**decl_id).is_alias()
@@ -115,26 +86,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                let mut module_commands = vec![];
-                for module in &self.modules_map {
-                    let module_name = String::from_utf8_lossy(module.0).to_string();
-                    let module_id = self.engine_state.find_module(module.0, &[]);
-                    if let Some(module_id) = module_id {
-                        let module = self.engine_state.get_module(module_id);
-                        if module.has_decl(command_name) {
-                            module_commands.push(module_name);
-                        }
-                    }
-                }
-
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: String::from_utf8_lossy(command_name).to_string(),
                     span,
                 });
-
-                cols.push("module_name".into());
-                vals.push(Value::string(module_commands.join(", "), span));
 
                 let decl = self.engine_state.get_decl(**decl_id);
                 let signature = decl.signature();
@@ -237,6 +193,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     val: search_terms.join(", "),
                     span,
                 });
+
+                cols.push("decl_id".into());
+                vals.push(Value::int(**decl_id as i64, span));
 
                 commands.push(Value::Record { cols, vals, span })
             }
@@ -488,6 +447,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
         let mut externals = vec![];
+
         for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
@@ -495,27 +455,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                let mut module_commands = vec![];
-                for module in &self.modules_map {
-                    let module_name = String::from_utf8_lossy(module.0).to_string();
-                    let module_id = self.engine_state.find_module(module.0, &[]);
-                    if let Some(module_id) = module_id {
-                        let module = self.engine_state.get_module(module_id);
-                        if module.has_decl(command_name) {
-                            module_commands.push(module_name);
-                        }
-                    }
-                }
-
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: String::from_utf8_lossy(command_name).to_string(),
-                    span,
-                });
-
-                cols.push("module_name".into());
-                vals.push(Value::String {
-                    val: module_commands.join(", "),
                     span,
                 });
 
@@ -524,6 +466,9 @@ impl<'e, 's> ScopeData<'e, 's> {
                     val: decl.usage().into(),
                     span,
                 });
+
+                cols.push("decl_id".into());
+                vals.push(Value::int(**decl_id as i64, span));
 
                 externals.push(Value::Record { cols, vals, span })
             }
@@ -534,17 +479,23 @@ impl<'e, 's> ScopeData<'e, 's> {
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
-        for (_, decl_id) in self.engine_state.get_decls_sorted(false) {
+
+        for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    let sig = decl.signature().update_from_command(decl.borrow());
-                    let key = sig.name;
-
                     aliases.push(Value::Record {
-                        cols: vec!["name".into(), "expansion".into(), "usage".into()],
+                        cols: vec![
+                            "name".into(),
+                            "expansion".into(),
+                            "usage".into(),
+                            "decl_id".into(),
+                        ],
                         vals: vec![
-                            Value::String { val: key, span },
+                            Value::String {
+                                val: String::from_utf8_lossy(&decl_name).to_string(),
+                                span,
+                            },
                             Value::String {
                                 val: String::from_utf8_lossy(
                                     self.engine_state.get_span_contents(alias.wrapped_call.span),
@@ -553,7 +504,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                                 span,
                             },
                             Value::String {
-                                val: alias.signature().usage,
+                                val: alias.usage().to_string(),
+                                span,
+                            },
+                            Value::Int {
+                                val: decl_id as i64,
                                 span,
                             },
                         ],
@@ -567,70 +522,156 @@ impl<'e, 's> ScopeData<'e, 's> {
         aliases
     }
 
+    fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> Value {
+        let module = self.engine_state.get_module(*module_id);
+
+        let all_decls = module.decls();
+
+        let export_commands: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if !decl.is_alias() && !decl.is_known_external() {
+                    Some(Value::record(
+                        vec!["name".into(), "decl_id".into()],
+                        vec![
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::int(*decl_id as i64, span),
+                        ],
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let export_aliases: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if decl.is_alias() {
+                    Some(Value::record(
+                        vec!["name".into(), "decl_id".into()],
+                        vec![
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::int(*decl_id as i64, span),
+                        ],
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let export_externs: Vec<Value> = all_decls
+            .iter()
+            .filter_map(|(name_bytes, decl_id)| {
+                let decl = self.engine_state.get_decl(*decl_id);
+
+                if decl.is_known_external() {
+                    Some(Value::record(
+                        vec!["name".into(), "decl_id".into()],
+                        vec![
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::int(*decl_id as i64, span),
+                        ],
+                        span,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let export_submodules: Vec<Value> = module
+            .submodules()
+            .iter()
+            .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
+            .collect();
+
+        let export_consts: Vec<Value> = module
+            .vars()
+            .iter()
+            .map(|(name_bytes, var_id)| {
+                Value::record(
+                    vec!["name".into(), "type".into(), "var_id".into()],
+                    vec![
+                        Value::string(String::from_utf8_lossy(name_bytes), span),
+                        Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
+                        Value::int(*var_id as i64, span),
+                    ],
+                    span,
+                )
+            })
+            .collect();
+
+        let export_env_block = module.env_block.map_or_else(
+            || Value::nothing(span),
+            |block_id| Value::Block {
+                val: block_id,
+                span,
+            },
+        );
+
+        let module_usage = self
+            .engine_state
+            .build_module_usage(*module_id)
+            .map(|(usage, _)| usage)
+            .unwrap_or_default();
+
+        Value::Record {
+            cols: vec![
+                "name".into(),
+                "commands".into(),
+                "aliases".into(),
+                "externs".into(),
+                "submodules".into(),
+                "constants".into(),
+                "env_block".into(),
+                "usage".into(),
+                "module_id".into(),
+            ],
+            vals: vec![
+                Value::string(String::from_utf8_lossy(module_name), span),
+                Value::List {
+                    vals: export_commands,
+                    span,
+                },
+                Value::List {
+                    vals: export_aliases,
+                    span,
+                },
+                Value::List {
+                    vals: export_externs,
+                    span,
+                },
+                Value::List {
+                    vals: export_submodules,
+                    span,
+                },
+                Value::List {
+                    vals: export_consts,
+                    span,
+                },
+                export_env_block,
+                Value::string(module_usage, span),
+                Value::int(*module_id as i64, span),
+            ],
+            span,
+        }
+    }
+
     pub fn collect_modules(&self, span: Span) -> Vec<Value> {
         let mut modules = vec![];
 
         for (module_name, module_id) in &self.modules_map {
-            let module = self.engine_state.get_module(**module_id);
-
-            let export_commands: Vec<Value> = module
-                .decls()
-                .iter()
-                .filter(|(_, id)| {
-                    self.visibility.is_decl_id_visible(id)
-                        && !self.engine_state.get_decl(*id).is_alias()
-                })
-                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
-                .collect();
-
-            let export_aliases: Vec<Value> = module
-                .decls()
-                .iter()
-                .filter(|(_, id)| {
-                    self.visibility.is_decl_id_visible(id)
-                        && self.engine_state.get_decl(*id).is_alias()
-                })
-                .map(|(bytes, _)| Value::string(String::from_utf8_lossy(bytes), span))
-                .collect();
-
-            let export_env_block = module.env_block.map_or_else(
-                || Value::nothing(span),
-                |block_id| Value::Block {
-                    val: block_id,
-                    span,
-                },
-            );
-
-            let module_usage = self
-                .engine_state
-                .build_module_usage(**module_id)
-                .map(|(usage, _)| usage)
-                .unwrap_or_default();
-
-            modules.push(Value::Record {
-                cols: vec![
-                    "name".into(),
-                    "commands".into(),
-                    "aliases".into(),
-                    "env_block".into(),
-                    "usage".into(),
-                ],
-                vals: vec![
-                    Value::string(String::from_utf8_lossy(module_name), span),
-                    Value::List {
-                        vals: export_commands,
-                        span,
-                    },
-                    Value::List {
-                        vals: export_aliases,
-                        span,
-                    },
-                    export_env_block,
-                    Value::string(module_usage, span),
-                ],
-                span,
-            });
+            modules.push(self.collect_module(module_name, module_id, span));
         }
+
         modules.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         modules
     }
@@ -660,6 +701,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 span,
             ),
         ];
+
         Value::Record {
             cols: engine_state_cols,
             vals: engine_state_vals,
