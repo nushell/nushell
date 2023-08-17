@@ -480,7 +480,7 @@ impl<'e, 's> ScopeData<'e, 's> {
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
         let mut aliases = vec![];
 
-        for (_, decl_id) in self.engine_state.get_decls_sorted(false) {
+        for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
@@ -493,7 +493,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                         ],
                         vals: vec![
                             Value::String {
-                                val: decl.name().to_string(),
+                                val: String::from_utf8_lossy(&decl_name).to_string(),
                                 span,
                             },
                             Value::String {
