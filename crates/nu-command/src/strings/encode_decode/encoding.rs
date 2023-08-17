@@ -8,7 +8,7 @@ pub fn detect_encoding_name(
     bytes: &[u8],
 ) -> Result<Spanned<String>, ShellError> {
     let (encoding, _, _) = detect(bytes);
-    if encoding.len() == 0 {
+    if encoding.is_empty() {
         return Err(ShellError::UnsupportedInput(
             "Input contains unknown encoding, try giving a encoding name".into(),
             "value originates from here".into(),
@@ -28,7 +28,7 @@ pub fn detect_encoding_name(
             head,
             input,
         )),
-        "MacCyrillic" => Ok(Spanned {
+        "MACCYRILLIC" => Ok(Spanned {
             item: "x-mac-cyrillic".into(),
             span: head,
         }),
@@ -41,7 +41,7 @@ pub fn detect_encoding_name(
             span: head,
         }),
         _ => Ok(Spanned {
-            item: encoding.into(),
+            item: encoding,
             span: head,
         }),
     }
