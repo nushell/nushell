@@ -98,7 +98,7 @@ fn operate(
 
     if column_paths.is_empty() {
         input.map(
-            move |v| process_value(&v, &text, command_span),
+            move |v| process_value(&v, &text),
             engine_state.ctrlc.clone(),
         )
     } else {
@@ -116,10 +116,7 @@ fn process_each_path(
     command_span: Span,
 ) -> Value {
     for path in column_paths {
-        let ret = value.update_cell_path(
-            &path.members,
-            Box::new(|v| process_value(v, text, command_span)),
-        );
+        let ret = value.update_cell_path(&path.members, Box::new(|v| process_value(v, text)));
         if let Err(error) = ret {
             return Value::Error {
                 error: Box::new(error),
@@ -130,7 +127,7 @@ fn process_each_path(
     value
 }
 
-fn process_value(value: &Value, text: &Option<String>, command_span: Span) -> Value {
+fn process_value(value: &Value, text: &Option<String>) -> Value {
     match value {
         Value::String { val, span } => {
             let text = text.as_deref().unwrap_or(val.as_str());

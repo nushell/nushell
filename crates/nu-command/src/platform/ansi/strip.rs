@@ -55,7 +55,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, _span: Span) -> Value {
     match input {
         Value::String { val, span } => {
             Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)

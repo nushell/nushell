@@ -148,7 +148,7 @@ impl Command for Glob {
         }) =
             call.get_flag(engine_state, stack, "not")?
         {
-            let p = convert_patterns(pats.as_slice(), span)?;
+            let p = convert_patterns(pats.as_slice())?;
             (p, pat_span)
         } else {
             (vec![], span)
@@ -226,7 +226,7 @@ impl Command for Glob {
     }
 }
 
-fn convert_patterns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {

@@ -45,7 +45,7 @@ impl Command for FromOds {
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
         {
-            convert_columns(columns.as_slice(), call.head)?
+            convert_columns(columns.as_slice())?
         } else {
             vec![]
         };
@@ -69,7 +69,7 @@ impl Command for FromOds {
     }
 }
 
-fn convert_columns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {

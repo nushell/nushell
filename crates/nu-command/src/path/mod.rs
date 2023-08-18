@@ -51,7 +51,7 @@ fn handle_invalid_values(rest: Value, name: Span) -> Value {
 
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest {
-        Value::Error { error, span } => *error.clone(),
+        Value::Error { error, .. } => *error.clone(),
         _ => {
             if rest.is_nothing() {
                 ShellError::OnlySupportsThisInputType {

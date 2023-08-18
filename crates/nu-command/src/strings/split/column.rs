@@ -215,7 +215,7 @@ fn split_column_helper(
         }]
     } else {
         match v {
-            Value::Error { error, span } => {
+            Value::Error { error, .. } => {
                 vec![Value::Error {
                     error: Box::new(*error.clone()),
                     span: head,

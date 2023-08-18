@@ -256,12 +256,6 @@ fn correct_scope_externs_fields() {
 
 #[test]
 fn scope_externs_sorted() {
-    let module_setup = r#"
-        export extern a []
-        export extern b []
-        export extern c []
-    "#;
-
     let inp = &[
         "extern a []",
         "extern b []",
