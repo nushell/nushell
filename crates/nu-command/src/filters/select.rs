@@ -64,18 +64,20 @@ produce a table, a list will produce a list, and a record will produce a record.
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let mut new_columns: Vec<CellPath> = vec![];
         for col_val in columns {
+            let col_span = &col_val.span()?;
             match col_val {
                 Value::CellPath { val, .. } => {
                     new_columns.push(val);
                 }
                 Value::List { vals, .. } => {
-                    for val in vals {
-                        match val {
+                    for value in vals {
+                        let val_span = &value.span()?;
+                        match value {
                             Value::String { val, .. } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::String {
                                         val: val.clone(),
-                                        span: Span::unknown(),
+                                        span: *val_span,
                                         optional: false,
                                     }],
                                 };
@@ -85,7 +87,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 let cv = CellPath {
                                     members: vec![PathMember::Int {
                                         val: val as usize,
-                                        span: Span::unknown(),
+                                        span: *val_span,
                                         optional: false,
                                     }],
                                 };
@@ -106,7 +108,17 @@ produce a table, a list will produce a list, and a record will produce a record.
                     let cv = CellPath {
                         members: vec![PathMember::String {
                             val: val.clone(),
-                            span: Span::unknown(),
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                Value::Int { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::Int {
+                            val: val as usize,
+                            span: *col_span,
                             optional: false,
                         }],
                     };
