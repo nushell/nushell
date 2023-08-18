@@ -211,7 +211,24 @@ fn correct_scope_aliases_fields() {
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert_eq!(actual.out, "false");
+
+        let inp = &[
+            "use spam.nu",
+            "scope aliases | where name == 'spam xaz' | get 0.wrapped_decl_id | is-empty",
+        ];
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        assert_eq!(actual.out, "false");
     })
+}
+
+#[test]
+fn scope_alias_wrapped_decl_id_external() {
+    let inp = &[
+        "alias c = cargo",
+        "scope aliases | where name == c | get 0.wrapped_decl_id | is-empty",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
