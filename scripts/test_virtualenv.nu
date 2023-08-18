@@ -1,10 +1,22 @@
+if $nu.os-info.family == 'windows' {
+    # fix encoding on Windows
+    # https://stackoverflow.com/a/63573649
+    load-env {
+        PYTHONIOENCODING: utf-8
+        PYTHONLEGACYWINDOWSSTDIO: utf-8
+    }
+}
+
 let env_name = 'e-$ èрт🚒♞中片-j'
 
-let subdir = if $nu.os-info.family == 'windows' {
-    'Scripts'
+let paths = if $nu.os-info.family == 'windows' {
+    ['Scripts', 'python.exe']
 } else {
-    'bin'
+    ['bin', 'python']
 }
+
+let subdir = $paths.0
+let exe = $paths.1
 
 let test_lines = [
     "python -c 'import sys; print(sys.executable)'"                                  # 1
@@ -25,7 +37,7 @@ def main [] {
     let expected = [
         $orig_python_interpreter                           # 1
         "None"                                             # 2
-        ([$env.PWD $env_name $subdir python] | path join)  # 3
+        ([$env.PWD $env_name $subdir $exe] | path join)    # 3
         ([$env.PWD $env_name] | path join)                 # 4
         $env_name                                          # 5
         $orig_python_interpreter                           # 6
