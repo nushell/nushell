@@ -3031,15 +3031,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                 // const x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let mut idx = span.0;
-                    // let rvalue = parse_multispan_value(
-                    //     working_set,
-                    //     spans,
-                    //     &mut idx,
-                    //     &SyntaxShape::Keyword(
-                    //         b"=".to_vec(),
-                    //         Box::new(SyntaxShape::MathExpression),
-                    //     ),
-                    // );
 
                     let rvalue = parse_multispan_value(
                         working_set,
