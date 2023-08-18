@@ -112,6 +112,16 @@ produce a table, a list will produce a list, and a record will produce a record.
                     };
                     new_columns.push(cv.clone());
                 }
+                Value::Int { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::Int {
+                            val: val as usize,
+                            span: Span::unknown(),
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
                 x => {
                     return Err(ShellError::CantConvert {
                         to_type: "cell path".into(),
