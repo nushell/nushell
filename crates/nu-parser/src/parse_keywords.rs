@@ -1407,7 +1407,8 @@ pub fn parse_export_in_module(
             }
             b"const" => {
                 let pipeline = parse_const(working_set, &spans[1..]);
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export const") {
+                let export_const_decl_id = if let Some(id) = working_set.find_decl(b"export const")
+                {
                     id
                 } else {
                     working_set.error(ParseError::InternalError(
@@ -1429,7 +1430,7 @@ pub fn parse_export_in_module(
                     call = def_call.clone();
 
                     call.head = span(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
+                    call.decl_id = export_const_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
@@ -1439,14 +1440,14 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                if let Some(decl_name_span) = spans.get(2) {
-                    let decl_name = working_set.get_span_contents(*decl_name_span);
-                    let decl_name = trim_quotes(decl_name);
+                if let Some(var_name_span) = spans.get(2) {
+                    let var_name = working_set.get_span_contents(*var_name_span);
+                    let var_name = trim_quotes(var_name);
 
-                    if let Some(decl_id) = working_set.find_variable(decl_name) {
+                    if let Some(var_id) = working_set.find_variable(var_name) {
                         result.push(Exportable::VarDecl {
-                            name: decl_name.to_vec(),
-                            id: decl_id,
+                            name: var_name.to_vec(),
+                            id: var_id,
                         });
                     } else {
                         working_set.error(ParseError::InternalError(
