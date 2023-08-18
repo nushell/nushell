@@ -3105,7 +3105,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                                 // Assign the constant value to the variable
                                 working_set.set_variable_const_val(var_id, val);
-                                // working_set.add_constant(var_id, val);
                             }
                             Err(err) => working_set.error(err),
                         }
