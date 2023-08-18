@@ -121,12 +121,21 @@ fn command_not_found_error_suggests_typo_fix() {
 }
 
 #[test]
-fn command_not_found_error_shows_not_found() {
+fn command_not_found_error_shows_not_found_1() {
     let actual = nu!(r#"
             export extern "foo" [];
             foo
         "#);
     assert!(actual.err.contains("'foo' was not found"));
+}
+
+#[test]
+fn command_not_found_error_shows_not_found_2() {
+    let actual = nu!(r#"
+            export extern-wrapped my-foo [...rest] { foo };
+            my-foo
+        "#);
+    assert!(actual.err.contains("did you mean"));
 }
 
 #[test]
