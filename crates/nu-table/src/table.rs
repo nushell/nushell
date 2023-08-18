@@ -247,8 +247,6 @@ fn draw_table(
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
-    println!("--> {widths:?}");
-
     let width_ctrl = TableWidthCtrl::new(widths, cfg, termwidth);
 
     if with_header && border_header {
