@@ -283,3 +283,41 @@ fn scope_externs_sorted() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "abc");
 }
+
+#[test]
+fn correct_scope_variables_fields() {
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.type",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "string");
+
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.value",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "x");
+
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.is_const",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "false");
+
+    let inp = &[
+        "const x = 'x'",
+        "scope variables | where name == '$x' | get 0.is_const",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.var_id | is-empty",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "false");
+}

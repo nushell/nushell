@@ -53,7 +53,9 @@ impl<'e, 's> ScopeData<'e, 's> {
         for (var_name, var_id) in &self.vars_map {
             let var_name = Value::string(String::from_utf8_lossy(var_name).to_string(), span);
 
-            let var_type = Value::string(self.engine_state.get_var(**var_id).ty.to_string(), span);
+            let var = self.engine_state.get_var(**var_id);
+            let var_type = Value::string(var.ty.to_string(), span);
+            let is_const = Value::bool(var.const_val.is_some(), span);
 
             let var_value = if let Ok(val) = self.stack.get_var(**var_id, span) {
                 val
@@ -68,9 +70,10 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "name".to_string(),
                     "type".to_string(),
                     "value".to_string(),
+                    "is_const".to_string(),
                     "var_id".to_string(),
                 ],
-                vals: vec![var_name, var_type, var_value, var_id_val],
+                vals: vec![var_name, var_type, var_value, is_const, var_id_val],
                 span,
             })
         }
