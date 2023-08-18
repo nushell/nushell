@@ -111,7 +111,7 @@ This command is a parser keyword. For details, check:
                 redirect_env(engine_state, caller_stack, &callee_stack);
             }
 
-            use_variables(
+            use_constants(
                 engine_state,
                 import_pattern,
                 module,
@@ -170,20 +170,20 @@ This command is a parser keyword. For details, check:
     }
 }
 
-fn use_variables(
+fn use_constants(
     engine_state: &EngineState,
     import_pattern: &ImportPattern,
     module: &Module,
     caller_stack: &mut Stack,
     head_span: Span,
 ) {
-    if !module.variables.is_empty() {
+    if !module.constants.is_empty() {
         if import_pattern.members.is_empty() {
             // add a record variable.
             if let Some(var_id) = import_pattern.module_name_var_id {
                 let mut cols = vec![];
                 let mut vals = vec![];
-                for (var_name, var_id) in module.variables.iter() {
+                for (var_name, var_id) in module.constants.iter() {
                     if let Some(val) = engine_state.get_var(*var_id).clone().const_val {
                         cols.push(String::from_utf8_lossy(var_name).to_string());
                         vals.push(val)
@@ -203,8 +203,8 @@ fn use_variables(
                 }
             }
             if have_glob {
-                // bring all variables into scope directly.
-                for (_, var_id) in module.variables.iter() {
+                // bring all constants into scope directly.
+                for (_, var_id) in module.constants.iter() {
                     if let Some(val) = engine_state.get_var(*var_id).clone().const_val {
                         caller_stack.add_var(*var_id, val);
                     }
@@ -215,13 +215,13 @@ fn use_variables(
                     match m {
                         ImportPatternMember::List { names, .. } => {
                             for (n, _) in names {
-                                if module.variables.contains_key(n) {
+                                if module.constants.contains_key(n) {
                                     members.push(n);
                                 }
                             }
                         }
                         ImportPatternMember::Name { name, .. } => {
-                            if module.variables.contains_key(name) {
+                            if module.constants.contains_key(name) {
                                 members.push(name)
                             }
                         }
@@ -229,7 +229,7 @@ fn use_variables(
                     }
                 }
                 for m in members {
-                    if let Some(var_id) = module.variables.get(m) {
+                    if let Some(var_id) = module.constants.get(m) {
                         if let Some(val) = engine_state.get_var(*var_id).clone().const_val {
                             caller_stack.add_var(*var_id, val);
                         }

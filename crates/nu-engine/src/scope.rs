@@ -583,7 +583,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             .collect();
 
         let mut export_consts: Vec<Value> = module
-            .vars()
+            .consts()
             .iter()
             .map(|(name_bytes, var_id)| {
                 Value::record(

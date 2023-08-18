@@ -2344,7 +2344,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         )
         .chain(
             definitions
-                .variables
+                .constants
                 .iter()
                 .map(|(name, variable_id)| Exportable::VarDecl {
                     name: name.clone(),
@@ -2356,7 +2356,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
     // Extend the current scope with the module's exportables
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
-    working_set.use_variables(definitions.variables);
+    working_set.use_variables(definitions.constants);
 
     let module_name_var_id = working_set.add_variable(
         module.name(),

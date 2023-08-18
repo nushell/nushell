@@ -8,19 +8,19 @@ use indexmap::IndexMap;
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
     pub modules: Vec<(Vec<u8>, ModuleId)>,
-    pub variables: Vec<(Vec<u8>, VarId)>,
+    pub constants: Vec<(Vec<u8>, VarId)>,
 }
 
 impl ResolvedImportPattern {
     pub fn new(
         decls: Vec<(Vec<u8>, DeclId)>,
         modules: Vec<(Vec<u8>, ModuleId)>,
-        variables: Vec<(Vec<u8>, VarId)>,
+        constants: Vec<(Vec<u8>, VarId)>,
     ) -> Self {
         ResolvedImportPattern {
             decls,
             modules,
-            variables,
+            constants,
         }
     }
 }
@@ -31,7 +31,7 @@ pub struct Module {
     pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub submodules: IndexMap<Vec<u8>, ModuleId>,
-    pub variables: IndexMap<Vec<u8>, VarId>,
+    pub constants: IndexMap<Vec<u8>, VarId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
@@ -43,7 +43,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
-            variables: IndexMap::new(),
+            constants: IndexMap::new(),
             env_block: None,
             main: None,
             span: None,
@@ -55,7 +55,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
-            variables: IndexMap::new(),
+            constants: IndexMap::new(),
             env_block: None,
             main: None,
             span: Some(span),
@@ -75,7 +75,7 @@ impl Module {
     }
 
     pub fn add_variable(&mut self, name: Vec<u8>, var_id: VarId) -> Option<VarId> {
-        self.variables.insert(name, var_id)
+        self.constants.insert(name, var_id)
     }
 
     pub fn add_env_block(&mut self, block_id: BlockId) {
@@ -105,7 +105,7 @@ impl Module {
         } else {
             // Import pattern was just name without any members
             let mut decls = vec![];
-            let mut vars = vec![];
+            let mut consts = vec![];
             let mut errors = vec![];
 
             for (_, id) in &self.submodules {
@@ -122,16 +122,16 @@ impl Module {
                     decls.push((new_name, sub_decl_id));
                 }
 
-                for (sub_name, sub_var_id) in sub_results.variables {
-                    vars.push((sub_name, sub_var_id));
+                for (sub_name, sub_var_id) in sub_results.constants {
+                    consts.push((sub_name, sub_var_id));
                 }
             }
 
             decls.extend(self.decls_with_head(&final_name));
-            vars.extend(self.vars());
+            consts.extend(self.consts());
 
             return (
-                ResolvedImportPattern::new(decls, vec![(final_name, self_id)], vars),
+                ResolvedImportPattern::new(decls, vec![(final_name, self_id)], consts),
                 errors,
             );
         };
@@ -159,7 +159,7 @@ impl Module {
                         ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![], vec![]),
                         vec![],
                     )
-                } else if let Some(var_id) = self.variables.get(name) {
+                } else if let Some(var_id) = self.constants.get(name) {
                     (
                         ResolvedImportPattern::new(vec![], vec![], vec![(name.clone(), *var_id)]),
                         vec![],
@@ -177,7 +177,7 @@ impl Module {
             ImportPatternMember::Glob { .. } => {
                 let mut decls = vec![];
                 let mut submodules = vec![];
-                let mut variables = vec![];
+                let mut constants = vec![];
                 let mut errors = vec![];
 
                 for (_, id) in &self.submodules {
@@ -187,23 +187,23 @@ impl Module {
                     decls.extend(sub_results.decls);
 
                     submodules.extend(sub_results.modules);
-                    variables.extend(sub_results.variables);
+                    constants.extend(sub_results.constants);
                     errors.extend(sub_errors);
                 }
 
                 decls.extend(self.decls());
-                variables.extend(self.variables.clone());
+                constants.extend(self.constants.clone());
                 submodules.extend(self.submodules());
 
                 (
-                    ResolvedImportPattern::new(decls, submodules, variables),
+                    ResolvedImportPattern::new(decls, submodules, constants),
                     errors,
                 )
             }
             ImportPatternMember::List { names } => {
                 let mut decls = vec![];
                 let mut submodules = vec![];
-                let mut variables = vec![];
+                let mut constants = vec![];
                 let mut errors = vec![];
 
                 for (name, span) in names {
@@ -215,8 +215,8 @@ impl Module {
                         }
                     } else if let Some(decl_id) = self.decls.get(name) {
                         decls.push((name.clone(), *decl_id));
-                    } else if let Some(var_id) = self.variables.get(name) {
-                        variables.push((name.clone(), *var_id));
+                    } else if let Some(var_id) = self.constants.get(name) {
+                        constants.push((name.clone(), *var_id));
                     } else if let Some(submodule_id) = self.submodules.get(name) {
                         submodules.push((name.clone(), *submodule_id));
                     } else {
@@ -225,7 +225,7 @@ impl Module {
                 }
 
                 (
-                    ResolvedImportPattern::new(decls, submodules, variables),
+                    ResolvedImportPattern::new(decls, submodules, constants),
                     errors,
                 )
             }
@@ -262,8 +262,8 @@ impl Module {
         result
     }
 
-    pub fn vars(&self) -> Vec<(Vec<u8>, VarId)> {
-        self.variables
+    pub fn consts(&self) -> Vec<(Vec<u8>, VarId)> {
+        self.constants
             .iter()
             .map(|(name, id)| (name.to_vec(), *id))
             .collect()
