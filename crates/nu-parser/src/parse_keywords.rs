@@ -1451,6 +1451,7 @@ pub fn parse_export_in_module(
                                 id: var_id,
                             });
                         } else {
+                            // should not happen
                             working_set.error(ParseError::InternalError(
                                 "exported constant is not a constant".into(),
                                 span(&spans[1..]),
