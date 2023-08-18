@@ -1,6 +1,5 @@
 if $nu.os-info.family == 'windows' {
-    # fix encoding on Windows
-    # https://stackoverflow.com/a/63573649
+    # fix encoding on Windows https://stackoverflow.com/a/63573649
     load-env {
         PYTHONIOENCODING: utf-8
         PYTHONLEGACYWINDOWSSTDIO: utf-8
