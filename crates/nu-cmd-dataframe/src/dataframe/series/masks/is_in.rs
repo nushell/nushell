@@ -74,7 +74,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let other_value: Value = call.req(engine_state, stack, 0)?;
-    let other_span = other_value.span()?;
+    let other_span = other_value.span();
     let other_df = NuDataFrame::try_from_value(other_value)?;
     let other = other_df.as_series(other_span)?;
 

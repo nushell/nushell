@@ -897,6 +897,7 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
@@ -912,6 +913,7 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
@@ -965,6 +967,7 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
@@ -980,6 +983,7 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
