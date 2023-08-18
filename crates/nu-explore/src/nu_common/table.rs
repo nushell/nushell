@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Span, SpannedValue};
+use nu_protocol::{Span, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
@@ -13,16 +13,14 @@ pub fn try_build_table(
     ctrlc: Option<Arc<AtomicBool>>,
     config: &NuConfig,
     style_computer: &StyleComputer,
-    value: SpannedValue,
+    value: Value,
 ) -> String {
     match value {
-        SpannedValue::List { vals, span } => {
-            try_build_list(vals, ctrlc, config, span, style_computer)
-        }
-        SpannedValue::Record { cols, vals, span } => {
+        Value::List { vals, span } => try_build_list(vals, ctrlc, config, span, style_computer),
+        Value::Record { cols, vals, span } => {
             try_build_map(cols, vals, span, style_computer, ctrlc, config)
         }
-        val if matches!(val, SpannedValue::String { .. }) => {
+        val if matches!(val, Value::String { .. }) => {
             nu_value_to_string_clean(&val, config, style_computer).0
         }
         val => nu_value_to_string(&val, config, style_computer).0,
@@ -31,7 +29,7 @@ pub fn try_build_table(
 
 fn try_build_map(
     cols: Vec<String>,
-    vals: Vec<SpannedValue>,
+    vals: Vec<Value>,
     span: Span,
     style_computer: &StyleComputer,
     ctrlc: Option<Arc<AtomicBool>>,
@@ -50,18 +48,13 @@ fn try_build_map(
     match result {
         Ok(Some(result)) => result,
         Ok(None) | Err(_) => {
-            nu_value_to_string(
-                &SpannedValue::Record { cols, vals, span },
-                config,
-                style_computer,
-            )
-            .0
+            nu_value_to_string(&Value::Record { cols, vals, span }, config, style_computer).0
         }
     }
 }
 
 fn try_build_list(
-    vals: Vec<SpannedValue>,
+    vals: Vec<Value>,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &NuConfig,
     span: Span,
@@ -81,7 +74,7 @@ fn try_build_list(
         Ok(Some(out)) => out,
         Ok(None) | Err(_) => {
             // it means that the list is empty
-            nu_value_to_string(&SpannedValue::List { vals, span }, config, style_computer).0
+            nu_value_to_string(&Value::List { vals, span }, config, style_computer).0
         }
     }
 }

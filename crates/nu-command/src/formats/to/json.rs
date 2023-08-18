@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -64,12 +64,12 @@ impl Command for ToJson {
         };
 
         match json_result {
-            Ok(serde_json_string) => Ok(SpannedValue::String {
+            Ok(serde_json_string) => Ok(Value::String {
                 val: serde_json_string,
                 span,
             }
             .into_pipeline_data()),
-            _ => Ok(SpannedValue::Error {
+            _ => Ok(Value::Error {
                 error: Box::new(ShellError::CantConvert {
                     to_type: "JSON".into(),
                     from_type: value.get_type().to_string(),
@@ -88,35 +88,35 @@ impl Command for ToJson {
                 description:
                     "Outputs a JSON string, with default indentation, representing the contents of this table",
                 example: "[a b c] | to json",
-                result: Some(SpannedValue::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
+                result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
             },
             Example {
                 description:
                     "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
                 example: "[Joe Bob Sam] | to json -i 4",
-                result: Some(SpannedValue::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
+                result: Some(Value::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
             },
             Example {
                 description:
                     "Outputs an unformatted JSON string representing the contents of this table",
                 example: "[1 2 3] | to json -r",
-                result: Some(SpannedValue::test_string("[1,2,3]")),
+                result: Some(Value::test_string("[1,2,3]")),
             },
         ]
     }
 }
 
-pub fn value_to_json_value(v: &SpannedValue) -> Result<nu_json::Value, ShellError> {
+pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
     Ok(match v {
-        SpannedValue::Bool { val, .. } => nu_json::Value::Bool(*val),
-        SpannedValue::Filesize { val, .. } => nu_json::Value::I64(*val),
-        SpannedValue::Duration { val, .. } => nu_json::Value::I64(*val),
-        SpannedValue::Date { val, .. } => nu_json::Value::String(val.to_string()),
-        SpannedValue::Float { val, .. } => nu_json::Value::F64(*val),
-        SpannedValue::Int { val, .. } => nu_json::Value::I64(*val),
-        SpannedValue::Nothing { .. } => nu_json::Value::Null,
-        SpannedValue::String { val, .. } => nu_json::Value::String(val.to_string()),
-        SpannedValue::CellPath { val, .. } => nu_json::Value::Array(
+        Value::Bool { val, .. } => nu_json::Value::Bool(*val),
+        Value::Filesize { val, .. } => nu_json::Value::I64(*val),
+        Value::Duration { val, .. } => nu_json::Value::I64(*val),
+        Value::Date { val, .. } => nu_json::Value::String(val.to_string()),
+        Value::Float { val, .. } => nu_json::Value::F64(*val),
+        Value::Int { val, .. } => nu_json::Value::I64(*val),
+        Value::Nothing { .. } => nu_json::Value::Null,
+        Value::String { val, .. } => nu_json::Value::String(val.to_string()),
+        Value::CellPath { val, .. } => nu_json::Value::Array(
             val.members
                 .iter()
                 .map(|x| match &x {
@@ -126,34 +126,34 @@ pub fn value_to_json_value(v: &SpannedValue) -> Result<nu_json::Value, ShellErro
                 .collect::<Result<Vec<nu_json::Value>, ShellError>>()?,
         ),
 
-        SpannedValue::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
-        SpannedValue::Error { error, .. } => return Err(*error.clone()),
-        SpannedValue::Closure { .. }
-        | SpannedValue::Block { .. }
-        | SpannedValue::Range { .. }
-        | SpannedValue::MatchPattern { .. } => nu_json::Value::Null,
-        SpannedValue::Binary { val, .. } => {
+        Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
+        Value::Error { error, .. } => return Err(*error.clone()),
+        Value::Closure { .. }
+        | Value::Block { .. }
+        | Value::Range { .. }
+        | Value::MatchPattern { .. } => nu_json::Value::Null,
+        Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
-        SpannedValue::Record { cols, vals, .. } => {
+        Value::Record { cols, vals, .. } => {
             let mut m = nu_json::Map::new();
             for (k, v) in cols.iter().zip(vals) {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)
         }
-        SpannedValue::LazyRecord { val, .. } => {
+        Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
             value_to_json_value(&collected)?
         }
-        SpannedValue::CustomValue { val, span } => {
+        Value::CustomValue { val, span } => {
             let collected = val.to_base_value(*span)?;
             value_to_json_value(&collected)?
         }
     })
 }
 
-fn json_list(input: &[SpannedValue]) -> Result<Vec<nu_json::Value>, ShellError> {
+fn json_list(input: &[Value]) -> Result<Vec<nu_json::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {

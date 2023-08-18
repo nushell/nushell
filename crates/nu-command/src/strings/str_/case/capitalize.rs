@@ -3,9 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -58,24 +56,21 @@ impl Command for SubCommand {
             Example {
                 description: "Capitalize contents",
                 example: "'good day' | str capitalize",
-                result: Some(SpannedValue::test_string("Good day")),
+                result: Some(Value::test_string("Good day")),
             },
             Example {
                 description: "Capitalize contents",
                 example: "'anton' | str capitalize",
-                result: Some(SpannedValue::test_string("Anton")),
+                result: Some(Value::test_string("Anton")),
             },
             Example {
                 description: "Capitalize a column in a table",
                 example: "[[lang, gems]; [nu_test, 100]] | str capitalize lang",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
-                        vals: vec![
-                            SpannedValue::test_string("Nu_test"),
-                            SpannedValue::test_int(100),
-                        ],
+                        vals: vec![Value::test_string("Nu_test"), Value::test_int(100)],
                     }],
                     span: Span::test_data(),
                 }),
@@ -102,7 +97,7 @@ fn operate(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return SpannedValue::Error {
+                        return Value::Error {
                             error: Box::new(error),
                             span: head,
                         };
@@ -115,14 +110,14 @@ fn operate(
     )
 }
 
-fn action(input: &SpannedValue, head: Span) -> SpannedValue {
+fn action(input: &Value, head: Span) -> Value {
     match input {
-        SpannedValue::String { val, .. } => SpannedValue::String {
+        Value::String { val, .. } => Value::String {
             val: uppercase_helper(val),
             span: head,
         },
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

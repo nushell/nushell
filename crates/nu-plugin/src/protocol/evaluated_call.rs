@@ -2,7 +2,7 @@ use nu_engine::eval_expression;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    FromValue, ShellError, Span, Spanned, SpannedValue,
+    FromValue, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,9 +22,9 @@ pub struct EvaluatedCall {
     /// Span of the command invocation
     pub head: Span,
     /// Values of positional arguments
-    pub positional: Vec<SpannedValue>,
+    pub positional: Vec<Value>,
     /// Names and values of named arguments
-    pub named: Vec<(Spanned<String>, Option<SpannedValue>)>,
+    pub named: Vec<(Spanned<String>, Option<Value>)>,
 }
 
 impl EvaluatedCall {
@@ -36,7 +36,7 @@ impl EvaluatedCall {
         let positional = call
             .positional_iter()
             .map(|expr| eval_expression(engine_state, stack, expr))
-            .collect::<Result<Vec<SpannedValue>, ShellError>>()?;
+            .collect::<Result<Vec<Value>, ShellError>>()?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
@@ -143,7 +143,7 @@ impl EvaluatedCall {
     /// };
     /// assert_eq!(opt_foo, None);
     /// ```
-    pub fn get_flag_value(&self, flag_name: &str) -> Option<SpannedValue> {
+    pub fn get_flag_value(&self, flag_name: &str) -> Option<Value> {
         for name in &self.named {
             if flag_name == name.0.item {
                 return name.1.clone();
@@ -179,7 +179,7 @@ impl EvaluatedCall {
     /// let arg = call.nth(7);
     /// assert!(arg.is_none());
     /// ```
-    pub fn nth(&self, pos: usize) -> Option<SpannedValue> {
+    pub fn nth(&self, pos: usize) -> Option<Value> {
         self.positional.get(pos).cloned()
     }
 
@@ -311,18 +311,18 @@ impl EvaluatedCall {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::{Span, Spanned, SpannedValue};
+    use nu_protocol::{Span, Spanned, Value};
 
     #[test]
     fn call_to_value() {
         let call = EvaluatedCall {
             head: Span::new(0, 10),
             positional: vec![
-                SpannedValue::Float {
+                Value::Float {
                     val: 1.0,
                     span: Span::new(0, 10),
                 },
-                SpannedValue::String {
+                Value::String {
                     val: "something".into(),
                     span: Span::new(0, 10),
                 },
@@ -333,7 +333,7 @@ mod test {
                         item: "name".to_string(),
                         span: Span::new(0, 10),
                     },
-                    Some(SpannedValue::Float {
+                    Some(Value::Float {
                         val: 1.0,
                         span: Span::new(0, 10),
                     }),

@@ -4,9 +4,7 @@ use crate::math::avg::average;
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -51,14 +49,14 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the median of a list of numbers",
                 example: "[3 8 9 12 12 15] | math median",
-                result: Some(SpannedValue::test_float(10.5)),
+                result: Some(Value::test_float(10.5)),
             },
             Example {
                 description: "Compute the medians of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: -3 b: 5}] | math median",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(3)],
+                    vals: vec![Value::test_int(1), Value::test_int(3)],
                     span: Span::test_data(),
                 }),
             },
@@ -71,7 +69,7 @@ enum Pick {
     Median,
 }
 
-pub fn median(values: &[SpannedValue], span: Span, head: Span) -> Result<SpannedValue, ShellError> {
+pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let take = if values.len() % 2 == 0 {
         Pick::MedianAverage
     } else {

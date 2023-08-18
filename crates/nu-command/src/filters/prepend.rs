@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -45,12 +45,12 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "0 | prepend [1 2 3]",
                 description: "prepend a list to an item",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                        SpannedValue::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(0),
                     ],
                     span: Span::test_data(),
                 }),
@@ -58,24 +58,21 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: r#""a" | prepend ["b"] "#,
                 description: "Prepend a list of strings to a string",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_string("b"),
-                        SpannedValue::test_string("a"),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("b"), Value::test_string("a")],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[1,2,3,4] | prepend 0",
                 description: "Prepend one integer item",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(0),
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                        SpannedValue::test_int(4),
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
                     ],
                     span: Span::test_data(),
                 }),
@@ -83,13 +80,13 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[2,3,4] | prepend [0,1]",
                 description: "Prepend two integer items",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(0),
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                        SpannedValue::test_int(4),
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
                     ],
                     span: Span::test_data(),
                 }),
@@ -97,15 +94,15 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[2,nu,4,shell] | prepend [0,1,rocks]",
                 description: "Prepend integers and strings",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(0),
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_string("rocks"),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_string("nu"),
-                        SpannedValue::test_int(4),
-                        SpannedValue::test_string("shell"),
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_string("rocks"),
+                        Value::test_int(2),
+                        Value::test_string("nu"),
+                        Value::test_int(4),
+                        Value::test_string("shell"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -120,8 +117,8 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let val: SpannedValue = call.req(engine_state, stack, 0)?;
-        let vec: Vec<SpannedValue> = process_value(val);
+        let val: Value = call.req(engine_state, stack, 0)?;
+        let vec: Vec<Value> = process_value(val);
         let metadata = input.metadata();
 
         Ok(vec
@@ -132,9 +129,9 @@ only unwrap the outer list, and leave the variable's contents untouched."#
     }
 }
 
-fn process_value(val: SpannedValue) -> Vec<SpannedValue> {
+fn process_value(val: Value) -> Vec<Value> {
     match val {
-        SpannedValue::List {
+        Value::List {
             vals: input_vals,
             span: _,
         } => {

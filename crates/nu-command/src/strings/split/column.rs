@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use regex::Regex;
 
@@ -63,17 +63,17 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into columns by the specified separator",
                 example: "'a--b--c' | split column '--'",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec![
                             "column1".to_string(),
                             "column2".to_string(),
                             "column3".to_string(),
                         ],
                         vals: vec![
-                            SpannedValue::test_string("a"),
-                            SpannedValue::test_string("b"),
-                            SpannedValue::test_string("c"),
+                            Value::test_string("a"),
+                            Value::test_string("b"),
+                            Value::test_string("c"),
                         ],
                         span: Span::test_data(),
                     }],
@@ -83,17 +83,17 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column -c ''",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec![
                             "column1".to_string(),
                             "column2".to_string(),
                             "column3".to_string(),
                         ],
                         vals: vec![
-                            SpannedValue::test_string("a"),
-                            SpannedValue::test_string("b"),
-                            SpannedValue::test_string("c"),
+                            Value::test_string("a"),
+                            Value::test_string("b"),
+                            Value::test_string("c"),
                         ],
                         span: Span::test_data(),
                     }],
@@ -103,22 +103,16 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of strings into a table",
                 example: "['a-b' 'c-d'] | split column -",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![
-                                SpannedValue::test_string("a"),
-                                SpannedValue::test_string("b"),
-                            ],
+                            vals: vec![Value::test_string("a"), Value::test_string("b")],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![
-                                SpannedValue::test_string("c"),
-                                SpannedValue::test_string("d"),
-                            ],
+                            vals: vec![Value::test_string("c"), Value::test_string("d")],
                             span: Span::test_data(),
                         },
                     ],
@@ -128,22 +122,16 @@ impl Command for SubCommand {
             Example {
                 description: "Split a list of strings into a table, ignoring padding",
                 example: r"['a -  b' 'c  -    d'] | split column -r '\s*-\s*'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![
-                                SpannedValue::test_string("a"),
-                                SpannedValue::test_string("b"),
-                            ],
+                            vals: vec![Value::test_string("a"), Value::test_string("b")],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![
-                                SpannedValue::test_string("c"),
-                                SpannedValue::test_string("d"),
-                            ],
+                            vals: vec![Value::test_string("c"), Value::test_string("d")],
                             span: Span::test_data(),
                         },
                     ],
@@ -188,12 +176,12 @@ fn split_column(
 }
 
 fn split_column_helper(
-    v: &SpannedValue,
+    v: &Value,
     separator: &Regex,
     rest: &[Spanned<String>],
     collapse_empty: bool,
     head: Span,
-) -> Vec<SpannedValue> {
+) -> Vec<Value> {
     if let Ok(s) = v.as_string() {
         let split_result: Vec<_> = separator
             .split(&s)
@@ -212,30 +200,30 @@ fn split_column_helper(
 
             for (&k, v) in split_result.iter().zip(&gen_columns) {
                 cols.push(v.to_string());
-                vals.push(SpannedValue::string(k, head));
+                vals.push(Value::string(k, head));
             }
         } else {
             for (&k, v) in split_result.iter().zip(&positional) {
                 cols.push(v.into());
-                vals.push(SpannedValue::string(k, head));
+                vals.push(Value::string(k, head));
             }
         }
-        vec![SpannedValue::Record {
+        vec![Value::Record {
             cols,
             vals,
             span: head,
         }]
     } else {
         match v {
-            SpannedValue::Error { error, span } => {
-                vec![SpannedValue::Error {
+            Value::Error { error, span } => {
+                vec![Value::Error {
                     error: Box::new(*error.clone()),
                     span: head,
                 }]
             }
             v => {
                 let span = v.span();
-                vec![SpannedValue::Error {
+                vec![Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: head,

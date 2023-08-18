@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
 use std::iter;
@@ -52,26 +52,26 @@ impl Command for Histogram {
             Example {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
-                result: Some(SpannedValue::List {
-                        vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                        vals: vec![Value::Record {
                             cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
                             vals: vec![
-                                SpannedValue::test_int(1),
-                                SpannedValue::test_int(2),
-                                SpannedValue::test_float(0.6666666666666666),
-                                SpannedValue::test_string("66.67%"),
-                                SpannedValue::test_string("******************************************************************"),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_float(0.6666666666666666),
+                                Value::test_string("66.67%"),
+                                Value::test_string("******************************************************************"),
                             ],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
                             vals: vec![
-                                SpannedValue::test_int(2),
-                                SpannedValue::test_int(1),
-                                SpannedValue::test_float(0.3333333333333333),
-                                SpannedValue::test_string("33.33%"),
-                                SpannedValue::test_string("*********************************"),
+                                Value::test_int(2),
+                                Value::test_int(1),
+                                Value::test_float(0.3333333333333333),
+                                Value::test_string("33.33%"),
+                                Value::test_string("*********************************"),
                             ],
                             span: Span::test_data(),
                         }],
@@ -151,7 +151,7 @@ impl Command for Histogram {
 }
 
 fn run_histogram(
-    values: Vec<SpannedValue>,
+    values: Vec<Value>,
     column_name: Option<Spanned<String>>,
     freq_column: String,
     calc_method: PercentageCalcMethod,
@@ -167,7 +167,7 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    SpannedValue::Error { error, .. } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     _ => {
                         let t = v.get_type();
                         let span = v.span();
@@ -195,7 +195,7 @@ fn run_histogram(
             for v in values {
                 match v {
                     // parse record, and fill valid value to actual input.
-                    SpannedValue::Record { cols, vals, .. } => {
+                    Value::Record { cols, vals, .. } => {
                         for (c, v) in iter::zip(cols, vals) {
                             if &c == col_name {
                                 if let Ok(v) = HashableValue::from_value(v, head_span) {
@@ -205,7 +205,7 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    SpannedValue::Error { error, .. } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     _ => continue,
                 }
             }
@@ -272,27 +272,27 @@ fn histogram_impl(
 
         result.push((
             count, // attach count first for easily sorting.
-            SpannedValue::Record {
+            Value::Record {
                 cols: result_cols.clone(),
                 vals: vec![
                     val.into_value(),
-                    SpannedValue::Int { val: count, span },
-                    SpannedValue::Float {
+                    Value::Int { val: count, span },
+                    Value::Float {
                         val: quantile,
                         span,
                     },
-                    SpannedValue::String {
+                    Value::String {
                         val: percentage,
                         span,
                     },
-                    SpannedValue::String { val: freq, span },
+                    Value::String { val: freq, span },
                 ],
                 span,
             },
         ));
     }
     result.sort_by(|a, b| b.0.cmp(&a.0));
-    SpannedValue::List {
+    Value::List {
         vals: result.into_iter().map(|x| x.1).collect(),
         span,
     }

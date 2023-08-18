@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -64,16 +64,16 @@ impl Command for DropColumn {
         vec![Example {
             description: "Remove the last column of a table",
             example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
-            result: Some(SpannedValue::List {
+            result: Some(Value::List {
                 vals: vec![
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["lib".into()],
-                        vals: vec![SpannedValue::test_string("nu-lib")],
+                        vals: vec![Value::test_string("nu-lib")],
                         span: Span::test_data(),
                     },
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["lib".into()],
-                        vals: vec![SpannedValue::test_string("nu-core")],
+                        vals: vec![Value::test_string("nu-core")],
                         span: Span::test_data(),
                     },
                 ],
@@ -93,7 +93,7 @@ fn dropcol(
 
     match input {
         PipelineData::Value(
-            SpannedValue::List {
+            Value::List {
                 vals: input_vals,
                 span,
             },
@@ -113,7 +113,7 @@ fn dropcol(
                     cols.push(path.into_string());
                     vals.push(fetcher);
                 }
-                output.push(SpannedValue::Record { cols, vals, span })
+                output.push(Value::Record { cols, vals, span })
             }
 
             Ok(output
@@ -137,7 +137,7 @@ fn dropcol(
                     cols.push(path.into_string());
                     vals.push(fetcher);
                 }
-                output.push(SpannedValue::Record { cols, vals, span })
+                output.push(Value::Record { cols, vals, span })
             }
 
             Ok(output
@@ -155,16 +155,16 @@ fn dropcol(
                 vals.push(result);
             }
 
-            Ok(SpannedValue::Record { cols, vals, span }.into_pipeline_data())
+            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
         x => Ok(x),
     }
 }
 
-fn get_input_cols(input: Vec<SpannedValue>) -> Vec<String> {
+fn get_input_cols(input: Vec<Value>) -> Vec<String> {
     let rec = input.first();
     match rec {
-        Some(SpannedValue::Record { cols, vals: _, .. }) => cols.to_vec(),
+        Some(Value::Record { cols, vals: _, .. }) => cols.to_vec(),
         _ => vec!["".to_string()],
     }
 }
@@ -172,7 +172,7 @@ fn get_input_cols(input: Vec<SpannedValue>) -> Vec<String> {
 fn get_cellpath_columns(keep_cols: Vec<String>, span: Span) -> Vec<CellPath> {
     let mut output = vec![];
     for keep_col in keep_cols {
-        let val = SpannedValue::String {
+        let val = Value::String {
             val: keep_col,
             span,
         };

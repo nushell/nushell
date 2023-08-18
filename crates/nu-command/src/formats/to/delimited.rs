@@ -1,31 +1,29 @@
 use csv::{Writer, WriterBuilder};
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
-use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, SpannedValue};
+use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Span, Value};
 use std::collections::VecDeque;
 use std::error::Error;
 
 fn from_value_to_delimited_string(
-    value: &SpannedValue,
+    value: &Value,
     separator: char,
     config: &Config,
     head: Span,
 ) -> Result<String, ShellError> {
     match value {
-        SpannedValue::Record { cols, vals, span } => {
+        Value::Record { cols, vals, span } => {
             record_to_delimited(cols, vals, *span, separator, config, head)
         }
-        SpannedValue::List { vals, span } => {
-            table_to_delimited(vals, *span, separator, config, head)
-        }
+        Value::List { vals, span } => table_to_delimited(vals, *span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(*error.clone()),
         v => Err(make_unsupported_input_error(v, head, v.span())),
     }
 }
 
 fn record_to_delimited(
     cols: &[String],
-    vals: &[SpannedValue],
+    vals: &[Value],
     span: Span,
     separator: char,
     config: &Config,
@@ -50,7 +48,7 @@ fn record_to_delimited(
 }
 
 fn table_to_delimited(
-    vals: &Vec<SpannedValue>,
+    vals: &Vec<Value>,
     span: Span,
     separator: char,
     config: &Config,
@@ -106,30 +104,30 @@ fn make_conversion_error(type_from: &str, span: Span) -> ShellError {
 }
 
 fn to_string_tagged_value(
-    v: &SpannedValue,
+    v: &Value,
     config: &Config,
     span: Span,
     head: Span,
 ) -> Result<String, ShellError> {
     match &v {
-        SpannedValue::String { .. }
-        | SpannedValue::Bool { .. }
-        | SpannedValue::Int { .. }
-        | SpannedValue::Duration { .. }
-        | SpannedValue::Binary { .. }
-        | SpannedValue::CustomValue { .. }
-        | SpannedValue::Filesize { .. }
-        | SpannedValue::CellPath { .. }
-        | SpannedValue::Float { .. } => Ok(v.clone().into_abbreviated_string(config)),
-        SpannedValue::Date { val, .. } => Ok(val.to_string()),
-        SpannedValue::Nothing { .. } => Ok(String::new()),
+        Value::String { .. }
+        | Value::Bool { .. }
+        | Value::Int { .. }
+        | Value::Duration { .. }
+        | Value::Binary { .. }
+        | Value::CustomValue { .. }
+        | Value::Filesize { .. }
+        | Value::CellPath { .. }
+        | Value::Float { .. } => Ok(v.clone().into_abbreviated_string(config)),
+        Value::Date { val, .. } => Ok(val.to_string()),
+        Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors
-        SpannedValue::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(make_unsupported_input_error(v, head, span)),
     }
 }
 
-fn make_unsupported_input_error(value: &SpannedValue, head: Span, span: Span) -> ShellError {
+fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellError {
     ShellError::UnsupportedInput(
         "Unexpected type".to_string(),
         format!("input type: {:?}", value.get_type()),
@@ -138,10 +136,10 @@ fn make_unsupported_input_error(value: &SpannedValue, head: Span, span: Span) ->
     )
 }
 
-pub fn find_non_record(values: &[SpannedValue]) -> Option<&SpannedValue> {
+pub fn find_non_record(values: &[Value]) -> Option<&Value> {
     values
         .iter()
-        .find(|val| !matches!(val, SpannedValue::Record { .. }))
+        .find(|val| !matches!(val, Value::Record { .. }))
 }
 
 pub fn to_delimited_data(
@@ -170,5 +168,5 @@ pub fn to_delimited_data(
             help: None,
         }),
     }?;
-    Ok(SpannedValue::string(output, span).into_pipeline_data())
+    Ok(Value::string(output, span).into_pipeline_data())
 }

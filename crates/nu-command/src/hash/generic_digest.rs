@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use nu_protocol::{IntoPipelineData, Span};
 use std::marker::PhantomData;
@@ -101,13 +101,13 @@ where
                 for item in stream {
                     match item {
                         // String and binary data are valid byte patterns
-                        Ok(SpannedValue::String { val, .. }) => hasher.update(val.as_bytes()),
-                        Ok(SpannedValue::Binary { val, .. }) => hasher.update(val),
+                        Ok(Value::String { val, .. }) => hasher.update(val.as_bytes()),
+                        Ok(Value::Binary { val, .. }) => hasher.update(val),
                         // If any Error value is output, echo it back
-                        Ok(v @ SpannedValue::Error { .. }) => return Ok(v.into_pipeline_data()),
+                        Ok(v @ Value::Error { .. }) => return Ok(v.into_pipeline_data()),
                         // Unsupported data
                         Ok(other) => {
-                            return Ok(SpannedValue::Error {
+                            return Ok(Value::Error {
                                 error: Box::new(ShellError::OnlySupportsThisInputType {
                                     exp_input_type: "string and binary".into(),
                                     wrong_type: other.get_type().to_string(),
@@ -123,13 +123,13 @@ where
                 }
                 let digest = hasher.finalize();
                 if args.binary {
-                    Ok(SpannedValue::Binary {
+                    Ok(Value::Binary {
                         val: digest.to_vec(),
                         span,
                     }
                     .into_pipeline_data())
                 } else {
-                    Ok(SpannedValue::String {
+                    Ok(Value::String {
                         val: format!("{digest:x}"),
                         span,
                     }
@@ -147,20 +147,20 @@ where
     }
 }
 
-pub(super) fn action<D>(input: &SpannedValue, args: &Arguments, _span: Span) -> SpannedValue
+pub(super) fn action<D>(input: &Value, args: &Arguments, _span: Span) -> Value
 where
     D: HashDigest,
     digest::Output<D>: core::fmt::LowerHex,
 {
     let (bytes, span) = match input {
-        SpannedValue::String { val, span } => (val.as_bytes(), *span),
-        SpannedValue::Binary { val, span } => (val.as_slice(), *span),
+        Value::String { val, span } => (val.as_bytes(), *span),
+        Value::Binary { val, span } => (val.as_slice(), *span),
         // Propagate existing errors
-        SpannedValue::Error { .. } => return input.clone(),
+        Value::Error { .. } => return input.clone(),
         other => {
             let span = input.span();
 
-            return SpannedValue::Error {
+            return Value::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string or binary".into(),
                     wrong_type: other.get_type().to_string(),
@@ -175,12 +175,12 @@ where
     let digest = D::digest(bytes);
 
     if args.binary {
-        SpannedValue::Binary {
+        Value::Binary {
             val: digest.to_vec(),
             span,
         }
     } else {
-        SpannedValue::String {
+        Value::String {
             val: format!("{digest:x}"),
             span,
         }

@@ -2,7 +2,7 @@ use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -39,7 +39,7 @@ impl Command for LoadEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Option<(Vec<String>, Vec<SpannedValue>)> = call.opt(engine_state, stack, 0)?;
+        let arg: Option<(Vec<String>, Vec<Value>)> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 
         match arg {
@@ -57,7 +57,7 @@ impl Command for LoadEnv {
                 Ok(PipelineData::empty())
             }
             None => match input {
-                PipelineData::Value(SpannedValue::Record { cols, vals, .. }, ..) => {
+                PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                     for (env_var, rhs) in cols.into_iter().zip(vals) {
                         let env_var_ = env_var.as_str();
                         if ["FILE_PWD", "CURRENT_FILE"].contains(&env_var_) {
@@ -73,7 +73,7 @@ impl Command for LoadEnv {
                             let rhs = nu_path::expand_path_with(rhs, cwd);
                             stack.add_env_var(
                                 env_var,
-                                SpannedValue::string(rhs.to_string_lossy(), call.head),
+                                Value::string(rhs.to_string_lossy(), call.head),
                             );
                         } else {
                             stack.add_env_var(env_var, rhs);
@@ -96,12 +96,12 @@ impl Command for LoadEnv {
             Example {
                 description: "Load variables from an input stream",
                 example: r#"{NAME: ABE, AGE: UNKNOWN} | load-env; $env.NAME"#,
-                result: Some(SpannedValue::test_string("ABE")),
+                result: Some(Value::test_string("ABE")),
             },
             Example {
                 description: "Load variables from an argument",
                 example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME"#,
-                result: Some(SpannedValue::test_string("ABE")),
+                result: Some(Value::test_string("ABE")),
             },
         ]
     }

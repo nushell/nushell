@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -598,31 +598,31 @@ Operating system commands:
             Example {
                 description: "Change color to green (see how the next example text will be green!)",
                 example: r#"ansi green"#,
-                result: Some(SpannedValue::test_string("\u{1b}[32m")),
+                result: Some(Value::test_string("\u{1b}[32m")),
             },
             Example {
                 description: "Reset the color",
                 example: r#"ansi reset"#,
-                result: Some(SpannedValue::test_string("\u{1b}[0m")),
+                result: Some(Value::test_string("\u{1b}[0m")),
             },
             Example {
                 description: "Use different colors and styles in the same text",
                 example: r#"$'(ansi red_bold)Hello(ansi reset) (ansi green_dimmed)Nu(ansi reset) (ansi purple_italic)World(ansi reset)'"#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
                 description: "The same example as above with short names",
                 example: r#"$'(ansi rb)Hello(ansi reset) (ansi gd)Nu(ansi reset) (ansi pi)World(ansi reset)'"#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
                 example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
-                result: Some(SpannedValue::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
+                result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
                 description: "Use structured escape codes",
@@ -632,7 +632,7 @@ Operating system commands:
         attr: b
     }
     $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
             },
@@ -662,7 +662,7 @@ Operating system commands:
         // The code can now be one of the ansi abbreviations like green_bold
         // or it can be a record like this: { fg: "#ff0000" bg: "#00ff00" attr: bli }
         // this record is defined in nu-color-config crate
-        let code: SpannedValue = match call.opt(engine_state, stack, 0)? {
+        let code: Value = match call.opt(engine_state, stack, 0)? {
             Some(c) => c,
             None => {
                 return Err(ShellError::MissingParameter {
@@ -672,7 +672,7 @@ Operating system commands:
             }
         };
 
-        let param_is_string = matches!(code, SpannedValue::String { val: _, span: _ });
+        let param_is_string = matches!(code, Value::String { val: _, span: _ });
 
         if escape && osc {
             return Err(ShellError::IncompatibleParameters {
@@ -782,7 +782,7 @@ Operating system commands:
             style.prefix().to_string()
         };
 
-        Ok(SpannedValue::string(output, call.head).into_pipeline_data())
+        Ok(Value::string(output, call.head).into_pipeline_data())
     }
 }
 
@@ -809,23 +809,22 @@ fn generate_ansi_code_list(
             } else {
                 vec!["name".into(), "short name".into(), "code".into()]
             };
-            let name: SpannedValue =
-                SpannedValue::string(String::from(ansi_code.long_name), call_span);
-            let short_name = SpannedValue::string(ansi_code.short_name.unwrap_or(""), call_span);
+            let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
+            let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 102 items in the ansi array are colors
             let preview = if i < 389 {
-                SpannedValue::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
+                Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
             } else {
-                SpannedValue::string("\u{1b}[0m", call_span)
+                Value::string("\u{1b}[0m", call_span)
             };
             let code_string = String::from(&ansi_code.code.replace('\u{1b}', "\\e"));
-            let code = SpannedValue::string(code_string, call_span);
+            let code = Value::string(code_string, call_span);
             let vals = if use_ansi_coloring {
                 vec![name, preview, short_name, code]
             } else {
                 vec![name, short_name, code]
             };
-            SpannedValue::Record {
+            Value::Record {
                 cols,
                 vals,
                 span: call_span,

@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -38,16 +38,16 @@ impl Command for Rotate {
             Example {
                 description: "Rotate a record clockwise, producing a table (like `transpose` but with column order reversed)",
                 example: "{a:1, b:2} | rotate",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_string("a")],
+                            vals: vec![Value::test_int(1), Value::test_string("a")],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![SpannedValue::test_int(2), SpannedValue::test_string("b")],
+                            vals: vec![Value::test_int(2), Value::test_string("b")],
                             span: Span::test_data(),
                         },
                     ],
@@ -57,9 +57,9 @@ impl Command for Rotate {
             Example {
                 description: "Rotate 2x3 table clockwise",
                 example: "[[a b]; [1 2] [3 4] [5 6]] | rotate",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec![
                                 "column0".to_string(),
                                 "column1".to_string(),
@@ -67,14 +67,14 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                SpannedValue::test_int(5),
-                                SpannedValue::test_int(3),
-                                SpannedValue::test_int(1),
-                                SpannedValue::test_string("a"),
+                                Value::test_int(5),
+                                Value::test_int(3),
+                                Value::test_int(1),
+                                Value::test_string("a"),
                             ],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec![
                                 "column0".to_string(),
                                 "column1".to_string(),
@@ -82,10 +82,10 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                SpannedValue::test_int(6),
-                                SpannedValue::test_int(4),
-                                SpannedValue::test_int(2),
-                                SpannedValue::test_string("b"),
+                                Value::test_int(6),
+                                Value::test_int(4),
+                                Value::test_int(2),
+                                Value::test_string("b"),
                             ],
                             span: Span::test_data(),
                         },
@@ -96,16 +96,16 @@ impl Command for Rotate {
             Example {
                 description: "Rotate table clockwise and change columns names",
                 example: "[[a b]; [1 2]] | rotate col_a col_b",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_string("a")],
+                            vals: vec![Value::test_int(1), Value::test_string("a")],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![SpannedValue::test_int(2), SpannedValue::test_string("b")],
+                            vals: vec![Value::test_int(2), Value::test_string("b")],
                             span: Span::test_data(),
                         },
                     ],
@@ -115,16 +115,16 @@ impl Command for Rotate {
             Example {
                 description: "Rotate table counter clockwise",
                 example: "[[a b]; [1 2]] | rotate --ccw",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![SpannedValue::test_string("b"), SpannedValue::test_int(2)],
+                            vals: vec![Value::test_string("b"), Value::test_int(2)],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![SpannedValue::test_string("a"), SpannedValue::test_int(1)],
+                            vals: vec![Value::test_string("a"), Value::test_int(1)],
                             span: Span::test_data(),
                         },
                     ],
@@ -134,9 +134,9 @@ impl Command for Rotate {
             Example {
                 description: "Rotate table counter-clockwise",
                 example: "[[a b]; [1 2] [3 4] [5 6]] | rotate --ccw",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec![
                                 "column0".to_string(),
                                 "column1".to_string(),
@@ -144,14 +144,14 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                SpannedValue::test_string("b"),
-                                SpannedValue::test_int(2),
-                                SpannedValue::test_int(4),
-                                SpannedValue::test_int(6),
+                                Value::test_string("b"),
+                                Value::test_int(2),
+                                Value::test_int(4),
+                                Value::test_int(6),
                             ],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec![
                                 "column0".to_string(),
                                 "column1".to_string(),
@@ -159,10 +159,10 @@ impl Command for Rotate {
                                 "column3".to_string(),
                             ],
                             vals: vec![
-                                SpannedValue::test_string("a"),
-                                SpannedValue::test_int(1),
-                                SpannedValue::test_int(3),
-                                SpannedValue::test_int(5),
+                                Value::test_string("a"),
+                                Value::test_int(1),
+                                Value::test_int(3),
+                                Value::test_int(5),
                             ],
                             span: Span::test_data(),
                         },
@@ -173,16 +173,16 @@ impl Command for Rotate {
             Example {
                 description: "Rotate table counter-clockwise and change columns names",
                 example: "[[a b]; [1 2]] | rotate --ccw col_a col_b",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![SpannedValue::test_string("b"), SpannedValue::test_int(2)],
+                            vals: vec![Value::test_string("b"), Value::test_int(2)],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![SpannedValue::test_string("a"), SpannedValue::test_int(1)],
+                            vals: vec![Value::test_string("a"), Value::test_int(1)],
                             span: Span::test_data(),
                         },
                     ],
@@ -226,21 +226,21 @@ pub fn rotate(
     if !values.is_empty() {
         for val in values.into_iter() {
             match val {
-                SpannedValue::Record { cols, vals, .. } => {
+                Value::Record { cols, vals, .. } => {
                     old_column_names = cols;
                     for v in vals {
                         new_values.push(v)
                     }
                 }
-                SpannedValue::List { vals, .. } => {
+                Value::List { vals, .. } => {
                     not_a_record = true;
                     for v in vals {
                         new_values.push(v);
                     }
                 }
-                SpannedValue::String { val, span } => {
+                Value::String { val, span } => {
                     not_a_record = true;
-                    new_values.push(SpannedValue::String { val, span })
+                    new_values.push(Value::String { val, span })
                 }
                 x => {
                     not_a_record = true;
@@ -285,8 +285,8 @@ pub fn rotate(
     }
 
     if not_a_record {
-        return Ok(SpannedValue::List {
-            vals: vec![SpannedValue::Record {
+        return Ok(Value::List {
+            vals: vec![Value::Record {
                 cols: new_column_names,
                 vals: new_values,
                 span: call.head,
@@ -316,7 +316,7 @@ pub fn rotate(
     for (idx, val) in columns_iter {
         // when rotating counter clockwise, the old columns names become the first column's values
         let mut res = if ccw {
-            vec![SpannedValue::string(val, call.head)]
+            vec![Value::string(val, call.head)]
         } else {
             vec![]
         };
@@ -329,18 +329,18 @@ pub fn rotate(
             }
             // when rotating clockwise, the old column names become the last column's values
             if !ccw {
-                res.push(SpannedValue::string(val, call.head));
+                res.push(Value::string(val, call.head));
             }
             res.to_vec()
         };
-        final_values.push(SpannedValue::Record {
+        final_values.push(Value::Record {
             cols: new_column_names.clone(),
             vals: new_vals,
             span: call.head,
         })
     }
 
-    Ok(SpannedValue::List {
+    Ok(Value::List {
         vals: final_values,
         span: call.head,
     }

@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -55,7 +55,7 @@ impl Command for ExportUse {
     use eggs foo
     foo
             "#,
-            result: Some(SpannedValue::test_string("foo")),
+            result: Some(Value::test_string("foo")),
         }]
     }
 

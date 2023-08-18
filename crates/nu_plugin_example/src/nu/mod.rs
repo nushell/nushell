@@ -1,6 +1,6 @@
 use crate::Example;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginExample, PluginSignature, SpannedValue, SyntaxShape};
+use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Value};
 
 impl Plugin for Example {
     fn signature(&self) -> Vec<PluginSignature> {
@@ -47,8 +47,8 @@ impl Plugin for Example {
         &mut self,
         name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
-    ) -> Result<SpannedValue, LabeledError> {
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
         // You can use the name to identify what plugin signature was called
         match name {
             "nu-example-1" => self.test1(call, input),

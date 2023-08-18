@@ -3,8 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use num_traits::int::PrimInt;
 use std::fmt::Display;
@@ -87,16 +86,16 @@ impl Command for BitsRor {
             Example {
                 description: "Rotate right a number with 60 bits",
                 example: "17 | bits ror 60",
-                result: Some(SpannedValue::test_int(272)),
+                result: Some(Value::test_int(272)),
             },
             Example {
                 description: "Rotate right a list of numbers of one byte",
                 example: "[15 33 92] | bits ror 2 -n '1'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(195),
-                        SpannedValue::test_int(72),
-                        SpannedValue::test_int(23),
+                        Value::test_int(195),
+                        Value::test_int(72),
+                        Value::test_int(23),
                     ],
                     span: Span::test_data(),
                 }),
@@ -105,14 +104,14 @@ impl Command for BitsRor {
     }
 }
 
-fn get_rotate_right<T: Display + PrimInt>(val: T, bits: u32, span: Span) -> SpannedValue
+fn get_rotate_right<T: Display + PrimInt>(val: T, bits: u32, span: Span) -> Value
 where
     i64: std::convert::TryFrom<T>,
 {
     let rotate_result = i64::try_from(val.rotate_right(bits));
     match rotate_result {
-        Ok(val) => SpannedValue::Int { val, span },
-        Err(_) => SpannedValue::Error {
+        Ok(val) => Value::Int { val, span },
+        Err(_) => Value::Error {
             error: Box::new(ShellError::GenericError(
                 "Rotate right result beyond the range of 64 bit signed number".to_string(),
                 format!(
@@ -127,15 +126,9 @@ where
     }
 }
 
-fn operate(
-    value: SpannedValue,
-    bits: usize,
-    head: Span,
-    signed: bool,
-    number_size: NumberBytes,
-) -> SpannedValue {
+fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
     match value {
-        SpannedValue::Int { val, span } => {
+        Value::Int { val, span } => {
             use InputNumType::*;
             // let bits = (((bits % 64) + 64) % 64) as u32;
             let bits = bits as u32;
@@ -152,8 +145,8 @@ fn operate(
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),

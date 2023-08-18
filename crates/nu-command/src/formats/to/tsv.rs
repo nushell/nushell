@@ -2,7 +2,7 @@ use crate::formats::to::delimited::to_delimited_data;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -36,12 +36,12 @@ impl Command for ToTsv {
             Example {
                 description: "Outputs an TSV string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to tsv",
-                result: Some(SpannedValue::test_string("foo\tbar\n1\t2\n")),
+                result: Some(Value::test_string("foo\tbar\n1\t2\n")),
             },
             Example {
                 description: "Outputs an TSV string representing the contents of this record",
                 example: "{a: 1 b: 2} | to tsv",
-                result: Some(SpannedValue::test_string("a\tb\n1\t2\n")),
+                result: Some(Value::test_string("a\tb\n1\t2\n")),
             },
         ]
     }

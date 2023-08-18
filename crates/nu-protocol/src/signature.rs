@@ -8,9 +8,9 @@ use crate::engine::Stack;
 use crate::BlockId;
 use crate::PipelineData;
 use crate::ShellError;
-use crate::SpannedValue;
 use crate::SyntaxShape;
 use crate::Type;
+use crate::Value;
 use crate::VarId;
 use std::fmt::Write;
 
@@ -24,7 +24,7 @@ pub struct Flag {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<SpannedValue>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ pub struct PositionalArg {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<SpannedValue>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

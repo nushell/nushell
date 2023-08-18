@@ -4,9 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     added_data: Vec<u8>,
@@ -93,7 +91,7 @@ impl Command for BytesAdd {
             Example {
                 description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA]",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0xAA, 0x1F, 0xFF, 0xAA, 0xAA],
                     span: Span::test_data(),
                 }),
@@ -101,7 +99,7 @@ impl Command for BytesAdd {
             Example {
                 description: "Add bytes `0x[AA BB]` to `0x[1F FF AA AA]` at index 1",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA BB] -i 1",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0x1F, 0xAA, 0xBB, 0xFF, 0xAA, 0xAA],
                     span: Span::test_data(),
                 }),
@@ -109,7 +107,7 @@ impl Command for BytesAdd {
             Example {
                 description: "Add bytes `0x[11]` to `0x[FF AA AA]` at the end",
                 example: "0x[FF AA AA] | bytes add 0x[11] -e",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0xFF, 0xAA, 0xAA, 0x11],
                     span: Span::test_data(),
                 }),
@@ -117,7 +115,7 @@ impl Command for BytesAdd {
             Example {
                 description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end)",
                 example: "0x[FF AA BB] | bytes add 0x[11 22 33] -e -i 1",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],
                     span: Span::test_data(),
                 }),
@@ -126,15 +124,15 @@ impl Command for BytesAdd {
     }
 }
 
-fn add(val: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
+fn add(val: &Value, args: &Arguments, span: Span) -> Value {
     match val {
-        SpannedValue::Binary {
+        Value::Binary {
             val,
             span: val_span,
         } => add_impl(val, args, *val_span),
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => val.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => val.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
@@ -146,19 +144,19 @@ fn add(val: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
     }
 }
 
-fn add_impl(input: &[u8], args: &Arguments, span: Span) -> SpannedValue {
+fn add_impl(input: &[u8], args: &Arguments, span: Span) -> Value {
     match args.index {
         None => {
             if args.end {
                 let mut added_data = args.added_data.clone();
                 let mut result = input.to_vec();
                 result.append(&mut added_data);
-                SpannedValue::Binary { val: result, span }
+                Value::Binary { val: result, span }
             } else {
                 let mut result = args.added_data.clone();
                 let mut input = input.to_vec();
                 result.append(&mut input);
-                SpannedValue::Binary { val: result, span }
+                Value::Binary { val: result, span }
             }
         }
         Some(mut indx) => {
@@ -177,7 +175,7 @@ fn add_impl(input: &[u8], args: &Arguments, span: Span) -> SpannedValue {
             result.append(&mut added_data);
             let mut after_data = input[inserted_index..].to_vec();
             result.append(&mut after_data);
-            SpannedValue::Binary { val: result, span }
+            Value::Binary { val: result, span }
         }
     }
 }

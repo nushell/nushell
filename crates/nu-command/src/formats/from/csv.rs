@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -81,12 +81,12 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
-                            SpannedValue::test_int(1),
-                            SpannedValue::test_int(2),
+                            Value::test_int(1),
+                            Value::test_int(2),
                         ],
                         span: Span::test_data(),
                     }],
@@ -137,21 +137,21 @@ fn from_csv(
 
     let separator = call
         .get_flag(engine_state, stack, "separator")?
-        .map(|v: SpannedValue| v.as_char())
+        .map(|v: Value| v.as_char())
         .transpose()?
         .unwrap_or(',');
     let comment = call
         .get_flag(engine_state, stack, "comment")?
-        .map(|v: SpannedValue| v.as_char())
+        .map(|v: Value| v.as_char())
         .transpose()?;
     let quote = call
         .get_flag(engine_state, stack, "quote")?
-        .map(|v: SpannedValue| v.as_char())
+        .map(|v: Value| v.as_char())
         .transpose()?
         .unwrap_or('"');
     let escape = call
         .get_flag(engine_state, stack, "escape")?
-        .map(|v: SpannedValue| v.as_char())
+        .map(|v: Value| v.as_char())
         .transpose()?;
     let no_infer = call.has_flag("no-infer");
     let noheaders = call.has_flag("noheaders");

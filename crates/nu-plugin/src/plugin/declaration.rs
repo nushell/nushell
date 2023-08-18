@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
-use nu_protocol::{Example, PipelineData, ShellError, SpannedValue};
+use nu_protocol::{Example, PipelineData, ShellError, Value};
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
@@ -85,7 +85,7 @@ impl Command for PluginDeclaration {
 
         let input = input.into_value(call.head);
         let input = match input {
-            SpannedValue::CustomValue { val, span } => {
+            Value::CustomValue { val, span } => {
                 match val.as_any().downcast_ref::<PluginCustomValue>() {
                     Some(plugin_data) if plugin_data.filename == self.filename => {
                         CallInput::Data(PluginData {
@@ -108,7 +108,7 @@ impl Command for PluginDeclaration {
                     }
                 }
             }
-            SpannedValue::LazyRecord { val, .. } => CallInput::Value(val.collect()?),
+            Value::LazyRecord { val, .. } => CallInput::Value(val.collect()?),
             value => CallInput::Value(value),
         };
 
@@ -145,7 +145,7 @@ impl Command for PluginDeclaration {
                 Ok(PipelineData::Value(value.as_ref().clone(), None))
             }
             Ok(PluginResponse::PluginData(name, plugin_data)) => Ok(PipelineData::Value(
-                SpannedValue::CustomValue {
+                Value::CustomValue {
                     val: Box::new(PluginCustomValue {
                         name,
                         data: plugin_data.data,

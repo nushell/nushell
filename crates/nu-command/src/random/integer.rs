@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, Range, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
@@ -93,18 +93,12 @@ fn integer(
             right_flank: max.to_string(),
             span,
         }),
-        Some(Ordering::Equal) => Ok(PipelineData::Value(
-            SpannedValue::Int { val: min, span },
-            None,
-        )),
+        Some(Ordering::Equal) => Ok(PipelineData::Value(Value::Int { val: min, span }, None)),
         _ => {
             let mut thread_rng = thread_rng();
             let result: i64 = thread_rng.gen_range(min..=max);
 
-            Ok(PipelineData::Value(
-                SpannedValue::Int { val: result, span },
-                None,
-            ))
+            Ok(PipelineData::Value(Value::Int { val: result, span }, None))
         }
     }
 }

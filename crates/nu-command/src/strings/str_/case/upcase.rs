@@ -3,9 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -57,7 +55,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Upcase contents",
             example: "'nu' | str upcase",
-            result: Some(SpannedValue::test_string("NU")),
+            result: Some(Value::test_string("NU")),
         }]
     }
 }
@@ -80,7 +78,7 @@ fn operate(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return SpannedValue::Error {
+                        return Value::Error {
                             error: Box::new(error),
                             span: head,
                         };
@@ -93,14 +91,14 @@ fn operate(
     )
 }
 
-fn action(input: &SpannedValue, head: Span) -> SpannedValue {
+fn action(input: &Value, head: Span) -> Value {
     match input {
-        SpannedValue::String { val: s, .. } => SpannedValue::String {
+        Value::String { val: s, .. } => Value::String {
             val: s.to_uppercase(),
             span: head,
         },
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
@@ -126,10 +124,10 @@ mod tests {
 
     #[test]
     fn upcases() {
-        let word = SpannedValue::test_string("andres");
+        let word = Value::test_string("andres");
 
         let actual = action(&word, Span::test_data());
-        let expected = SpannedValue::test_string("ANDRES");
+        let expected = Value::test_string("ANDRES");
         assert_eq!(actual, expected);
     }
 }

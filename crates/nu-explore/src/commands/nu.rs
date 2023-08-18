@@ -2,7 +2,7 @@ use std::io::{self, Result};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, SpannedValue,
+    PipelineData, Value,
 };
 use ratatui::layout::Rect;
 
@@ -78,17 +78,14 @@ impl ViewCommand for NuCmd {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        value: Option<SpannedValue>,
+        value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
         let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-        let is_record = matches!(
-            pipeline,
-            PipelineData::Value(SpannedValue::Record { .. }, ..)
-        );
+        let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
         let (columns, values) = collect_pipeline(pipeline);
 
@@ -148,7 +145,7 @@ impl View for NuView<'_> {
         }
     }
 
-    fn exit(&mut self) -> Option<SpannedValue> {
+    fn exit(&mut self) -> Option<Value> {
         match self {
             NuView::Records(v) => v.exit(),
             NuView::Preview(v) => v.exit(),

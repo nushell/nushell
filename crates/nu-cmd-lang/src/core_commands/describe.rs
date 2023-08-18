@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -46,7 +46,7 @@ impl Command for Describe {
                 } else {
                     let value = input.into_value(head);
                     let base_description = match value {
-                        SpannedValue::CustomValue { val, .. } => val.value_string(),
+                        Value::CustomValue { val, .. } => val.value_string(),
                         _ => value.get_type().to_string(),
                     };
 
@@ -56,13 +56,13 @@ impl Command for Describe {
             _ => {
                 let value = input.into_value(head);
                 match value {
-                    SpannedValue::CustomValue { val, .. } => val.value_string(),
+                    Value::CustomValue { val, .. } => val.value_string(),
                     _ => value.get_type().to_string(),
                 }
             }
         };
 
-        Ok(SpannedValue::String {
+        Ok(Value::String {
             val: description,
             span: head,
         }
@@ -74,7 +74,7 @@ impl Command for Describe {
             Example {
                 description: "Describe the type of a string",
                 example: "'hello' | describe",
-                result: Some(SpannedValue::test_string("string")),
+                result: Some(Value::test_string("string")),
             },
             /*
             Example {

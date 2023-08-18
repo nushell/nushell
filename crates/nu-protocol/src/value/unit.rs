@@ -1,4 +1,4 @@
-use crate::{ShellError, Span, SpannedValue};
+use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,123 +32,111 @@ pub enum Unit {
 }
 
 impl Unit {
-    pub fn to_value(&self, size: i64, span: Span) -> SpannedValue {
+    pub fn to_value(&self, size: i64, span: Span) -> Result<Value, ShellError> {
         match self {
-            Unit::Byte => SpannedValue::Filesize { val: size, span },
-            Unit::Kilobyte => SpannedValue::Filesize {
+            Unit::Byte => Ok(Value::Filesize { val: size, span }),
+            Unit::Kilobyte => Ok(Value::Filesize {
                 val: size * 1000,
                 span,
-            },
-            Unit::Megabyte => SpannedValue::Filesize {
+            }),
+            Unit::Megabyte => Ok(Value::Filesize {
                 val: size * 1000 * 1000,
                 span,
-            },
-            Unit::Gigabyte => SpannedValue::Filesize {
+            }),
+            Unit::Gigabyte => Ok(Value::Filesize {
                 val: size * 1000 * 1000 * 1000,
                 span,
-            },
-            Unit::Terabyte => SpannedValue::Filesize {
+            }),
+            Unit::Terabyte => Ok(Value::Filesize {
                 val: size * 1000 * 1000 * 1000 * 1000,
                 span,
-            },
-            Unit::Petabyte => SpannedValue::Filesize {
+            }),
+            Unit::Petabyte => Ok(Value::Filesize {
                 val: size * 1000 * 1000 * 1000 * 1000 * 1000,
                 span,
-            },
-            Unit::Exabyte => SpannedValue::Filesize {
+            }),
+            Unit::Exabyte => Ok(Value::Filesize {
                 val: size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
                 span,
-            },
+            }),
 
-            Unit::Kibibyte => SpannedValue::Filesize {
+            Unit::Kibibyte => Ok(Value::Filesize {
                 val: size * 1024,
                 span,
-            },
-            Unit::Mebibyte => SpannedValue::Filesize {
+            }),
+            Unit::Mebibyte => Ok(Value::Filesize {
                 val: size * 1024 * 1024,
                 span,
-            },
-            Unit::Gibibyte => SpannedValue::Filesize {
+            }),
+            Unit::Gibibyte => Ok(Value::Filesize {
                 val: size * 1024 * 1024 * 1024,
                 span,
-            },
-            Unit::Tebibyte => SpannedValue::Filesize {
+            }),
+            Unit::Tebibyte => Ok(Value::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024,
                 span,
-            },
-            Unit::Pebibyte => SpannedValue::Filesize {
+            }),
+            Unit::Pebibyte => Ok(Value::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
-            },
-            Unit::Exbibyte => SpannedValue::Filesize {
+            }),
+            Unit::Exbibyte => Ok(Value::Filesize {
                 val: size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
                 span,
-            },
+            }),
 
-            Unit::Nanosecond => SpannedValue::Duration { val: size, span },
-            Unit::Microsecond => SpannedValue::Duration {
+            Unit::Nanosecond => Ok(Value::Duration { val: size, span }),
+            Unit::Microsecond => Ok(Value::Duration {
                 val: size * 1000,
                 span,
-            },
-            Unit::Millisecond => SpannedValue::Duration {
+            }),
+            Unit::Millisecond => Ok(Value::Duration {
                 val: size * 1000 * 1000,
                 span,
-            },
-            Unit::Second => SpannedValue::Duration {
+            }),
+            Unit::Second => Ok(Value::Duration {
                 val: size * 1000 * 1000 * 1000,
                 span,
-            },
+            }),
             Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
-                Some(val) => SpannedValue::Duration { val, span },
-                None => SpannedValue::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
-                    span,
-                },
+                Some(val) => Ok(Value::Duration { val, span }),
+                None => Err(ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
             },
             Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
-                Some(val) => SpannedValue::Duration { val, span },
-                None => SpannedValue::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
-                    span,
-                },
+                Some(val) => Ok(Value::Duration { val, span }),
+                None => Err(ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
             },
             Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                Some(val) => SpannedValue::Duration { val, span },
-                None => SpannedValue::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
-                    span,
-                },
+                Some(val) => Ok(Value::Duration { val, span }),
+                None => Err(ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
             },
             Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                Some(val) => SpannedValue::Duration { val, span },
-                None => SpannedValue::Error {
-                    error: Box::new(ShellError::GenericError(
-                        "duration too large".into(),
-                        "duration too large".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
-                    span,
-                },
+                Some(val) => Ok(Value::Duration { val, span }),
+                None => Err(ShellError::GenericError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
             },
         }
     }

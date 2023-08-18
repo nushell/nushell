@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::TextStyle;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 use ratatui::layout::Rect;
 
@@ -18,7 +18,7 @@ use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConf
 // todo: Add wrap option
 #[derive(Debug)]
 pub struct Preview {
-    underlying_value: Option<SpannedValue>,
+    underlying_value: Option<Value>,
     lines: Vec<String>,
     cursor: XYCursor,
 }
@@ -38,7 +38,7 @@ impl Preview {
         }
     }
 
-    pub fn set_value(&mut self, value: SpannedValue) {
+    pub fn set_value(&mut self, value: Value) {
         self.underlying_value = Some(value);
     }
 }
@@ -138,12 +138,12 @@ impl View for Preview {
         true
     }
 
-    fn exit(&mut self) -> Option<SpannedValue> {
+    fn exit(&mut self) -> Option<Value> {
         match &self.underlying_value {
             Some(value) => Some(value.clone()),
             None => {
                 let text = self.lines.join("\n");
-                Some(SpannedValue::string(text, NuSpan::unknown()))
+                Some(Value::string(text, NuSpan::unknown()))
             }
         }
     }

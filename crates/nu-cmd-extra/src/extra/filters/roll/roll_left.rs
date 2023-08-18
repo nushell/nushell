@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 use super::{horizontal_rotate_value, HorizontalDirection};
@@ -51,37 +51,25 @@ impl Command for RollLeft {
             Example {
                 description: "Rolls columns of a record to the left",
                 example: "{a:1 b:2 c:3} | roll left",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: rotated_columns.clone(),
-                    vals: vec![
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                        SpannedValue::test_int(1),
-                    ],
+                    vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Rolls columns of a table to the left",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll left",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: rotated_columns.clone(),
-                            vals: vec![
-                                SpannedValue::test_int(2),
-                                SpannedValue::test_int(3),
-                                SpannedValue::test_int(1),
-                            ],
+                            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: rotated_columns,
-                            vals: vec![
-                                SpannedValue::test_int(5),
-                                SpannedValue::test_int(6),
-                                SpannedValue::test_int(4),
-                            ],
+                            vals: vec![Value::test_int(5), Value::test_int(6), Value::test_int(4)],
                             span: Span::test_data(),
                         },
                     ],
@@ -91,24 +79,16 @@ impl Command for RollLeft {
             Example {
                 description: "Rolls columns to the left without changing column names",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll left --cells-only",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: columns.clone(),
-                            vals: vec![
-                                SpannedValue::test_int(2),
-                                SpannedValue::test_int(3),
-                                SpannedValue::test_int(1),
-                            ],
+                            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: columns,
-                            vals: vec![
-                                SpannedValue::test_int(5),
-                                SpannedValue::test_int(6),
-                                SpannedValue::test_int(4),
-                            ],
+                            vals: vec![Value::test_int(5), Value::test_int(6), Value::test_int(4)],
                             span: Span::test_data(),
                         },
                     ],

@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, ProfilingConfig, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
-    Spanned, SpannedValue, SyntaxShape, Type,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -94,9 +94,9 @@ Current known limitations are:
         .metadata()
         .map(|m| *m)
         {
-            SpannedValue::list(values, call.head)
+            Value::list(values, call.head)
         } else {
-            SpannedValue::nothing(call.head)
+            Value::nothing(call.head)
         };
 
         Ok(result.into_pipeline_data())

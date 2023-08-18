@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 pub struct Arguments {
@@ -70,7 +70,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert string to a nushell binary primitive",
                 example: "'This is a string that is exactly 52 characters long.' | into binary",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: "This is a string that is exactly 52 characters long."
                         .to_string()
                         .as_bytes()
@@ -81,7 +81,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert a number to a nushell binary primitive",
                 example: "1 | into binary",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: i64::from(1).to_le_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
@@ -89,7 +89,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert a boolean to a nushell binary primitive",
                 example: "true | into binary",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: i64::from(1).to_le_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
@@ -107,7 +107,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert a decimal to a nushell binary primitive",
                 example: "1.234 | into binary",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: 1.234f64.to_le_bytes().to_vec(),
                     span: Span::test_data(),
                 }),
@@ -127,7 +127,7 @@ fn into_binary(
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(SpannedValue::Binary {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::Binary {
             val: vec![],
             span: head,
         }
@@ -138,7 +138,7 @@ fn into_binary(
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
-            Ok(SpannedValue::Binary {
+            Ok(Value::Binary {
                 val: output.item,
                 span: head,
             }
@@ -167,40 +167,40 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: &SpannedValue, _args: &Arguments, span: Span) -> SpannedValue {
+pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     match input {
-        SpannedValue::Binary { .. } => input.clone(),
-        SpannedValue::Int { val, .. } => SpannedValue::Binary {
+        Value::Binary { .. } => input.clone(),
+        Value::Int { val, .. } => Value::Binary {
             val: int_to_endian(*val),
             span,
         },
-        SpannedValue::Float { val, .. } => SpannedValue::Binary {
+        Value::Float { val, .. } => Value::Binary {
             val: float_to_endian(*val),
             span,
         },
-        SpannedValue::Filesize { val, .. } => SpannedValue::Binary {
+        Value::Filesize { val, .. } => Value::Binary {
             val: int_to_endian(*val),
             span,
         },
-        SpannedValue::String { val, .. } => SpannedValue::Binary {
+        Value::String { val, .. } => Value::Binary {
             val: val.as_bytes().to_vec(),
             span,
         },
-        SpannedValue::Bool { val, .. } => SpannedValue::Binary {
+        Value::Bool { val, .. } => Value::Binary {
             val: int_to_endian(i64::from(*val)),
             span,
         },
-        SpannedValue::Duration { val, .. } => SpannedValue::Binary {
+        Value::Duration { val, .. } => Value::Binary {
             val: int_to_endian(*val),
             span,
         },
-        SpannedValue::Date { val, .. } => SpannedValue::Binary {
+        Value::Date { val, .. } => Value::Binary {
             val: val.format("%c").to_string().as_bytes().to_vec(),
             span,
         },
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => input.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer, float, filesize, string, date, duration, binary or bool"
                     .into(),

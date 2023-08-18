@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value, Type,
 };
 
 #[derive(Clone)]
@@ -43,11 +43,11 @@ impl Command for SubCommand {
             Example {
                 description: "Define a range inside braces to produce a list of string.",
                 example: "\"{3..5}\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("3"),
-                        SpannedValue::test_string("4"),
-                        SpannedValue::test_string("5")
+                        Value::test_string("3"),
+                        Value::test_string("4"),
+                        Value::test_string("5")
                     ],
                     span: Span::test_data()
                 },)
@@ -56,10 +56,10 @@ impl Command for SubCommand {
             Example {
                 description: "Ignore the next character after the backslash ('\\')",
                 example: "'A{B\\,,C}' | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("AB,"),
-                        SpannedValue::test_string("AC"),
+                        Value::test_string("AB,"),
+                        Value::test_string("AC"),
                     ],
                     span: Span::test_data()
                 },)
@@ -68,10 +68,10 @@ impl Command for SubCommand {
             Example {
                 description: "Commas that are not inside any braces need to be skipped.",
                 example: "'Welcome\\, {home,mon ami}!' | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("Welcome, home!"),
-                        SpannedValue::test_string("Welcome, mon ami!"),
+                        Value::test_string("Welcome, home!"),
+                        Value::test_string("Welcome, mon ami!"),
                     ],
                     span: Span::test_data()
                 },)
@@ -80,10 +80,10 @@ impl Command for SubCommand {
             Example {
                 description: "Use double backslashes to add a backslash.",
                 example: "'A{B\\\\,C}' | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("AB\\"),
-                        SpannedValue::test_string("AC"),
+                        Value::test_string("AB\\"),
+                        Value::test_string("AC"),
                     ],
                     span: Span::test_data()
                 },)
@@ -92,11 +92,11 @@ impl Command for SubCommand {
             Example {
                 description: "Export comma separated values inside braces (`{}`) to a string list.",
                 example: "\"{apple,banana,cherry}\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("apple"),
-                        SpannedValue::test_string("banana"),
-                        SpannedValue::test_string("cherry")
+                        Value::test_string("apple"),
+                        Value::test_string("banana"),
+                        Value::test_string("cherry")
                     ],
                     span: Span::test_data()
                 },)
@@ -105,10 +105,10 @@ impl Command for SubCommand {
             Example {
                 description: "If the piped data is path, you may want to use --path flag, or else manually replace the backslashes with double backslashes.",
                 example: "'C:\\{Users,Windows}' | str expand --path",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("C:\\Users"),
-                        SpannedValue::test_string("C:\\Windows"),
+                        Value::test_string("C:\\Users"),
+                        Value::test_string("C:\\Windows"),
                     ],
                     span: Span::test_data()
                 },)
@@ -117,12 +117,12 @@ impl Command for SubCommand {
             Example {
                 description: "Brace expressions can be used one after another.",
                 example: "\"A{b,c}D{e,f}G\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("AbDeG"),
-                        SpannedValue::test_string("AbDfG"),
-                        SpannedValue::test_string("AcDeG"),
-                        SpannedValue::test_string("AcDfG"),
+                        Value::test_string("AbDeG"),
+                        Value::test_string("AbDfG"),
+                        Value::test_string("AcDeG"),
+                        Value::test_string("AcDfG"),
                     ],
                     span: Span::test_data()
                 },)
@@ -131,11 +131,11 @@ impl Command for SubCommand {
             Example {
                 description: "Collection may include an empty item. It can be put at the start of the list.",
                 example: "\"A{,B,C}\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("A"),
-                        SpannedValue::test_string("AB"),
-                        SpannedValue::test_string("AC"),
+                        Value::test_string("A"),
+                        Value::test_string("AB"),
+                        Value::test_string("AC"),
                     ],
                     span: Span::test_data()
                 },)
@@ -144,11 +144,11 @@ impl Command for SubCommand {
             Example {
                 description: "Empty item can be at the end of the collection.",
                 example: "\"A{B,C,}\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("AB"),
-                        SpannedValue::test_string("AC"),
-                        SpannedValue::test_string("A"),
+                        Value::test_string("AB"),
+                        Value::test_string("AC"),
+                        Value::test_string("A"),
                     ],
                     span: Span::test_data()
                 },)
@@ -157,11 +157,11 @@ impl Command for SubCommand {
             Example {
                 description: "Empty item can be in the middle of the collection.",
                 example: "\"A{B,,C}\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("AB"),
-                        SpannedValue::test_string("A"),
-                        SpannedValue::test_string("AC"),
+                        Value::test_string("AB"),
+                        Value::test_string("A"),
+                        Value::test_string("AC"),
                     ],
                     span: Span::test_data()
                 },)
@@ -170,12 +170,12 @@ impl Command for SubCommand {
             Example {
                 description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files:",
                 example: "\"A{B{1,3},C{2,5}}D\" | str expand",
-                result: Some(SpannedValue::List{
+                result: Some(Value::List{
                     vals: vec![
-                        SpannedValue::test_string("AB1D"),
-                        SpannedValue::test_string("AB3D"),
-                        SpannedValue::test_string("AC2D"),
-                        SpannedValue::test_string("AC5D"),
+                        Value::test_string("AB1D"),
+                        Value::test_string("AB3D"),
+                        Value::test_string("AC2D"),
+                        Value::test_string("AC5D"),
                     ],
                     span: Span::test_data()
                 },)
@@ -203,7 +203,7 @@ impl Command for SubCommand {
                         let contents = if is_path { s.replace('\\', "\\\\") } else { s };
                         str_expand(&contents, span, v.span())
                     }
-                    Err(_) => SpannedValue::Error {
+                    Err(_) => Value::Error {
                         error: Box::new(ShellError::PipelineMismatch {
                             exp_input_type: "string".into(),
                             dst_span: span,
@@ -218,7 +218,7 @@ impl Command for SubCommand {
     }
 }
 
-fn str_expand(contents: &str, span: Span, value_span: Span) -> SpannedValue {
+fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
     use bracoxide::{
         expand,
         parser::{parse, ParsingError},
@@ -230,10 +230,10 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> SpannedValue {
                 Ok(node) => {
                     match expand(&node) {
                         Ok(possibilities) => {
-                            SpannedValue::List { vals: possibilities.iter().map(|e| SpannedValue::string(e,span)).collect::<Vec<SpannedValue>>(), span }
+                            Value::List { vals: possibilities.iter().map(|e| Value::string(e,span)).collect::<Vec<Value>>(), span }
                         },
                         Err(e) => match e {
-                            bracoxide::ExpansionError::NumConversionFailed(s) => SpannedValue::Error { error:
+                            bracoxide::ExpansionError::NumConversionFailed(s) => Value::Error { error:
                                 Box::new(ShellError::GenericError("Number Conversion Failed".to_owned(), format!("Number conversion failed at {s}."), Some(value_span), Some("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits.".to_owned()), vec![])),
                             span,
                         },
@@ -241,7 +241,7 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> SpannedValue {
                         },
                     }
                 },
-                Err(e) => SpannedValue::Error { error: Box::new(
+                Err(e) => Value::Error { error: Box::new(
                     match e {
                         ParsingError::NoTokens => ShellError::PipelineEmpty { dst_span: value_span },
                         ParsingError::OBraExpected(s) => ShellError::GenericError("Opening Brace Expected".to_owned(), format!("Opening brace is expected at {s}."), Some(value_span), Some("In brace syntax, we use equal amount of opening (`{`) and closing (`}`). Please, take a look at the examples.".to_owned()), vec![]),
@@ -262,11 +262,11 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> SpannedValue {
             }
         },
         Err(e) => match e {
-            TokenizationError::EmptyContent => SpannedValue::Error {
+            TokenizationError::EmptyContent => Value::Error {
                 error: Box::new(ShellError::PipelineEmpty { dst_span: value_span }),
                 span: value_span,
             },
-            TokenizationError::FormatNotSupported => SpannedValue::Error {
+            TokenizationError::FormatNotSupported => Value::Error {
                 error: Box::new(
                     ShellError::GenericError(
                         "Format Not Supported".to_owned(),
@@ -277,7 +277,7 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> SpannedValue {
                 )),
                 span: value_span,
             },
-            TokenizationError::NoBraces => SpannedValue::Error {
+            TokenizationError::NoBraces => Value::Error {
                 error: Box::new(ShellError::GenericError("No Braces".to_owned(), "At least one `{}` brace expansion expected.".to_owned(), Some(value_span), Some("Please, examine the examples.".to_owned()), vec![])),
                 span: value_span,
             }
@@ -293,13 +293,13 @@ mod tests {
     fn dots() {
         assert_eq!(
             str_expand("{a.b.c,d}", Span::test_data(), Span::test_data()),
-            SpannedValue::List {
+            Value::List {
                 vals: vec![
-                    SpannedValue::String {
+                    Value::String {
                         val: String::from("a.b.c"),
                         span: Span::test_data(),
                     },
-                    SpannedValue::String {
+                    Value::String {
                         val: String::from("d"),
                         span: Span::test_data(),
                     },
@@ -309,13 +309,13 @@ mod tests {
         );
         assert_eq!(
             str_expand("{1.2.3,a}", Span::test_data(), Span::test_data()),
-            SpannedValue::List {
+            Value::List {
                 vals: vec![
-                    SpannedValue::String {
+                    Value::String {
                         val: String::from("1.2.3"),
                         span: Span::test_data(),
                     },
-                    SpannedValue::String {
+                    Value::String {
                         val: String::from("a"),
                         span: Span::test_data(),
                     },
@@ -325,13 +325,13 @@ mod tests {
         );
         assert_eq!(
             str_expand("{a-1.2,b}", Span::test_data(), Span::test_data()),
-            SpannedValue::List {
+            Value::List {
                 vals: vec![
-                    SpannedValue::String {
+                    Value::String {
                         val: String::from("a-1.2"),
                         span: Span::test_data(),
                     },
-                    SpannedValue::String {
+                    Value::String {
                         val: String::from("b"),
                         span: Span::test_data(),
                     },

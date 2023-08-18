@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 
 use super::pager::{Pager, Transition};
@@ -41,7 +41,7 @@ pub trait SimpleCommand {
         engine_state: &EngineState,
         stack: &mut Stack,
         pager: &mut Pager<'_>,
-        value: Option<SpannedValue>,
+        value: Option<Value>,
     ) -> Result<Transition>;
 }
 
@@ -62,7 +62,7 @@ pub trait ViewCommand {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        value: Option<SpannedValue>,
+        value: Option<Value>,
     ) -> Result<Self::View>;
 }
 

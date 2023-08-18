@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, Type,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -36,13 +36,13 @@ impl Command for Headers {
             Example {
                 description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: columns.clone(),
                         vals: vec![
-                            SpannedValue::test_string("1"),
-                            SpannedValue::test_string("2"),
-                            SpannedValue::test_string("3"),
+                            Value::test_string("1"),
+                            Value::test_string("2"),
+                            Value::test_string("3"),
                         ],
                         span: Span::test_data(),
                     }],
@@ -52,23 +52,23 @@ impl Command for Headers {
             Example {
                 description: "Columns which don't have data in their first row are removed",
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: columns.clone(),
                             vals: vec![
-                                SpannedValue::test_string("1"),
-                                SpannedValue::test_string("2"),
-                                SpannedValue::test_string("3"),
+                                Value::test_string("1"),
+                                Value::test_string("2"),
+                                Value::test_string("3"),
                             ],
                             span: Span::test_data(),
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: columns,
                             vals: vec![
-                                SpannedValue::test_string("1"),
-                                SpannedValue::test_string("2"),
-                                SpannedValue::test_string("3"),
+                                Value::test_string("1"),
+                                Value::test_string("2"),
+                                Value::test_string("3"),
                             ],
                             span: Span::test_data(),
                         },
@@ -97,12 +97,12 @@ impl Command for Headers {
 }
 
 fn replace_headers(
-    value: SpannedValue,
+    value: Value,
     old_headers: &[String],
     new_headers: &[String],
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     match value {
-        SpannedValue::Record { cols, vals, span } => {
+        Value::Record { cols, vals, span } => {
             let (cols, vals) = cols
                 .into_iter()
                 .zip(vals)
@@ -114,16 +114,16 @@ fn replace_headers(
                 })
                 .unzip();
 
-            Ok(SpannedValue::Record { cols, vals, span })
+            Ok(Value::Record { cols, vals, span })
         }
-        SpannedValue::List { vals, span } => {
+        Value::List { vals, span } => {
             let vals = vals
                 .into_iter()
                 .skip(1)
                 .map(|value| replace_headers(value, old_headers, new_headers))
-                .collect::<Result<Vec<SpannedValue>, ShellError>>()?;
+                .collect::<Result<Vec<Value>, ShellError>>()?;
 
-            Ok(SpannedValue::List { vals, span })
+            Ok(Value::List { vals, span })
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),
@@ -132,23 +132,23 @@ fn replace_headers(
     }
 }
 
-fn is_valid_header(value: &SpannedValue) -> bool {
+fn is_valid_header(value: &Value) -> bool {
     matches!(
         value,
-        SpannedValue::Nothing { span: _ }
-            | SpannedValue::String { val: _, span: _ }
-            | SpannedValue::Bool { val: _, span: _ }
-            | SpannedValue::Float { val: _, span: _ }
-            | SpannedValue::Int { val: _, span: _ }
+        Value::Nothing { span: _ }
+            | Value::String { val: _, span: _ }
+            | Value::Bool { val: _, span: _ }
+            | Value::Float { val: _, span: _ }
+            | Value::Int { val: _, span: _ }
     )
 }
 
 fn extract_headers(
-    value: &SpannedValue,
+    value: &Value,
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
     match value {
-        SpannedValue::Record { cols, vals, .. } => {
+        Value::Record { cols, vals, .. } => {
             for v in vals {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
@@ -175,7 +175,7 @@ fn extract_headers(
 
             Ok((old_headers, new_headers))
         }
-        SpannedValue::List { vals, span } => vals
+        Value::List { vals, span } => vals
             .iter()
             .map(|value| extract_headers(value, config))
             .next()

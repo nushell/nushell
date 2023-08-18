@@ -5,8 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use chrono::{FixedOffset, TimeZone};
@@ -72,7 +71,7 @@ impl Command for SubCommand {
             .expect("to timezone: help example is invalid")
             .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)
         {
-            LocalResult::Single(dt) => Some(SpannedValue::Date {
+            LocalResult::Single(dt) => Some(Value::Date {
                 val: dt,
                 span: Span::test_data(),
             }),
@@ -110,10 +109,10 @@ impl Command for SubCommand {
     }
 }
 
-fn helper(value: SpannedValue, head: Span, timezone: &Spanned<String>) -> SpannedValue {
+fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
     match value {
-        SpannedValue::Date { val, span: _ } => _to_timezone(val, timezone, head),
-        SpannedValue::String {
+        Value::Date { val, span: _ } => _to_timezone(val, timezone, head),
+        Value::String {
             val,
             span: val_span,
         } => {
@@ -124,21 +123,21 @@ fn helper(value: SpannedValue, head: Span, timezone: &Spanned<String>) -> Spanne
             }
         }
 
-        SpannedValue::Nothing { span: _ } => {
+        Value::Nothing { span: _ } => {
             let dt = Local::now();
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
-        _ => SpannedValue::Error {
+        _ => Value::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
             span: head,
         },
     }
 }
 
-fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> SpannedValue {
+fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
     match datetime_in_timezone(&dt, timezone.item.as_str()) {
-        Ok(dt) => SpannedValue::Date { val: dt, span },
-        Err(_) => SpannedValue::Error {
+        Ok(dt) => Value::Date { val: dt, span },
+        Err(_) => Value::Error {
             error: Box::new(ShellError::TypeMismatch {
                 err_message: String::from("invalid time zone"),
                 span: timezone.span,

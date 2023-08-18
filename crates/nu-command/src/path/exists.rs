@@ -5,8 +5,7 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue,
-    Type,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -73,14 +72,14 @@ If you need to distinguish dirs and files, please use `path type`."#
             Example {
                 description: "Check if a file exists",
                 example: "'C:\\Users\\joe\\todo.txt' | path exists",
-                result: Some(SpannedValue::test_bool(false)),
+                result: Some(Value::test_bool(false)),
             },
             Example {
                 description: "Check if files in list exist",
                 example: r"[ C:\joe\todo.txt, C:\Users\doe\todo.txt ] | path exists",
-                result: Some(SpannedValue::test_list(vec![
-                    SpannedValue::test_bool(false),
-                    SpannedValue::test_bool(false),
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(false),
                 ])),
             },
         ]
@@ -92,27 +91,27 @@ If you need to distinguish dirs and files, please use `path type`."#
             Example {
                 description: "Check if a file exists",
                 example: "'/home/joe/todo.txt' | path exists",
-                result: Some(SpannedValue::test_bool(false)),
+                result: Some(Value::test_bool(false)),
             },
             Example {
                 description: "Check if files in list exist",
                 example: "[ /home/joe/todo.txt, /home/doe/todo.txt ] | path exists",
-                result: Some(SpannedValue::test_list(vec![
-                    SpannedValue::test_bool(false),
-                    SpannedValue::test_bool(false),
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(false),
                 ])),
             },
         ]
     }
 }
 
-fn exists(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
+fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = expand_path_with(path, &args.pwd);
-    SpannedValue::Bool {
+    Value::Bool {
         val: match path.try_exists() {
             Ok(exists) => exists,
             Err(err) => {
-                return SpannedValue::Error {
+                return Value::Error {
                     error: Box::new(ShellError::IOErrorSpanned(err.to_string(), span)),
                     span,
                 }

@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
 
@@ -61,17 +61,17 @@ produce a table, a list will produce a list, and a record will produce a record.
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let columns: Vec<SpannedValue> = call.rest(engine_state, stack, 0)?;
+        let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let mut new_columns: Vec<CellPath> = vec![];
         for col_val in columns {
             match col_val {
-                SpannedValue::CellPath { val, .. } => {
+                Value::CellPath { val, .. } => {
                     new_columns.push(val);
                 }
-                SpannedValue::List { vals, .. } => {
+                Value::List { vals, .. } => {
                     for val in vals {
                         match val {
-                            SpannedValue::String { val, span } => {
+                            Value::String { val, span } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::String {
                                         val: val.clone(),
@@ -81,7 +81,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 };
                                 new_columns.push(cv.clone());
                             }
-                            SpannedValue::Int { val, span } => {
+                            Value::Int { val, span } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::Int {
                                         val: val as usize,
@@ -102,7 +102,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                         }
                     }
                 }
-                SpannedValue::String { val, span } => {
+                Value::String { val, span } => {
                     let cv = CellPath {
                         members: vec![PathMember::String {
                             val: val.clone(),
@@ -139,15 +139,15 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_string("a")])],
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(vec!["a"], vec![Value::test_string("a")])],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Select a field in a record",
                 example: "{a: a b: b} | select a",
-                result: Some(SpannedValue::test_record(vec!["a"], vec![SpannedValue::test_string("a")])),
+                result: Some(Value::test_record(vec!["a"], vec![Value::test_string("a")])),
             },
             Example {
                 description: "Select just the `name` column",
@@ -233,7 +233,7 @@ fn select(
 
     match input {
         PipelineData::Value(
-            SpannedValue::List {
+            Value::List {
                 vals: input_vals,
                 span,
             },
@@ -262,7 +262,7 @@ fn select(
                         }
                     }
 
-                    output.push(SpannedValue::Record { cols, vals, span })
+                    output.push(Value::Record { cols, vals, span })
                 } else {
                     output.push(input_val)
                 }
@@ -290,7 +290,7 @@ fn select(
                             Err(e) => return Err(e),
                         }
                     }
-                    values.push(SpannedValue::Record {
+                    values.push(Value::Record {
                         cols,
                         vals,
                         span: call_span,
@@ -320,7 +320,7 @@ fn select(
                     }
                 }
 
-                Ok(SpannedValue::Record {
+                Ok(Value::Record {
                     cols,
                     vals,
                     span: call_span,
@@ -343,7 +343,7 @@ struct NthIterator {
 }
 
 impl Iterator for NthIterator {
-    type Item = SpannedValue;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {

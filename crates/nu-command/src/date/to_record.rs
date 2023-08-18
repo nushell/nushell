@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError::DatetimeParseError, ShellError::PipelineEmpty,
-    Signature, Span, SpannedValue,
+    Signature, Span, Value,
 };
 use nu_protocol::{ShellError, Type};
 
@@ -63,22 +63,22 @@ impl Command for SubCommand {
                 "timezone".into(),
             ];
             let vals = vec![
-                SpannedValue::Int { val: 2020, span },
-                SpannedValue::Int { val: 4, span },
-                SpannedValue::Int { val: 12, span },
-                SpannedValue::Int { val: 22, span },
-                SpannedValue::Int { val: 10, span },
-                SpannedValue::Int { val: 57, span },
-                SpannedValue::Int {
+                Value::Int { val: 2020, span },
+                Value::Int { val: 4, span },
+                Value::Int { val: 12, span },
+                Value::Int { val: 22, span },
+                Value::Int { val: 10, span },
+                Value::Int { val: 57, span },
+                Value::Int {
                     val: 123_000_000,
                     span,
                 },
-                SpannedValue::String {
+                Value::String {
                     val: "+02:00".to_string(),
                     span,
                 },
             ];
-            Some(SpannedValue::Record { cols, vals, span })
+            Some(Value::Record { cols, vals, span })
         };
 
         vec![
@@ -107,10 +107,7 @@ impl Command for SubCommand {
     }
 }
 
-fn parse_date_into_table(
-    date: Result<DateTime<FixedOffset>, SpannedValue>,
-    head: Span,
-) -> SpannedValue {
+fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span) -> Value {
     let cols = vec![
         "year".into(),
         "month".into(),
@@ -124,16 +121,16 @@ fn parse_date_into_table(
     match date {
         Ok(x) => {
             let vals = vec![
-                SpannedValue::int(x.year() as i64, head),
-                SpannedValue::int(x.month() as i64, head),
-                SpannedValue::int(x.day() as i64, head),
-                SpannedValue::int(x.hour() as i64, head),
-                SpannedValue::int(x.minute() as i64, head),
-                SpannedValue::int(x.second() as i64, head),
-                SpannedValue::int(x.nanosecond() as i64, head),
-                SpannedValue::string(x.offset().to_string(), head),
+                Value::int(x.year() as i64, head),
+                Value::int(x.month() as i64, head),
+                Value::int(x.day() as i64, head),
+                Value::int(x.hour() as i64, head),
+                Value::int(x.minute() as i64, head),
+                Value::int(x.second() as i64, head),
+                Value::int(x.nanosecond() as i64, head),
+                Value::string(x.offset().to_string(), head),
             ];
-            SpannedValue::Record {
+            Value::Record {
                 cols,
                 vals,
                 span: head,
@@ -143,22 +140,22 @@ fn parse_date_into_table(
     }
 }
 
-fn helper(val: SpannedValue, head: Span) -> SpannedValue {
+fn helper(val: Value, head: Span) -> Value {
     match val {
-        SpannedValue::String {
+        Value::String {
             val,
             span: val_span,
         } => {
             let date = parse_date_from_string(&val, val_span);
             parse_date_into_table(date, head)
         }
-        SpannedValue::Nothing { span: _ } => {
+        Value::Nothing { span: _ } => {
             let now = Local::now();
             let n = now.with_timezone(now.offset());
             parse_date_into_table(Ok(n), head)
         }
-        SpannedValue::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
-        _ => SpannedValue::Error {
+        Value::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
+        _ => Value::Error {
             error: Box::new(DatetimeParseError(val.debug_value(), head)),
             span: head,
         },

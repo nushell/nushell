@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -85,50 +85,42 @@ impl Command for BytesIndexOf {
             Example {
                 description: "Returns index of pattern in bytes",
                 example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of 0x[44 55]",
-                result: Some(SpannedValue::test_int(1)),
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Returns index of pattern, search from end",
                 example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of -e 0x[44 55]",
-                result: Some(SpannedValue::test_int(6)),
+                result: Some(Value::test_int(6)),
             },
             Example {
                 description: "Returns all matched index",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a 0x[33 44]",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(0),
-                        SpannedValue::test_int(5),
-                        SpannedValue::test_int(7),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(5), Value::test_int(7)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Returns all matched index, searching from end",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a -e 0x[33 44]",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(7),
-                        SpannedValue::test_int(5),
-                        SpannedValue::test_int(0),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(7), Value::test_int(5), Value::test_int(0)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Returns index of pattern for specific column",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            SpannedValue::test_int(0),
-                            SpannedValue::Binary {
+                            Value::test_int(0),
+                            Value::Binary {
                                 val: vec![0x14, 0x15, 0x16],
                                 span: Span::test_data(),
                             },
-                            SpannedValue::test_int(-1),
+                            Value::test_int(-1),
                         ],
                         span: Span::test_data(),
                     }],
@@ -139,15 +131,15 @@ impl Command for BytesIndexOf {
     }
 }
 
-fn index_of(val: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
+fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
     match val {
-        SpannedValue::Binary {
+        Value::Binary {
             val,
             span: val_span,
         } => index_of_impl(val, args, *val_span),
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => val.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => val.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
@@ -159,14 +151,14 @@ fn index_of(val: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
     }
 }
 
-fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> SpannedValue {
+fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
     if arg.all {
         search_all_index(input, &arg.pattern, arg.end, span)
     } else {
         let mut iter = input.windows(arg.pattern.len());
 
         if arg.end {
-            SpannedValue::Int {
+            Value::Int {
                 val: iter
                     .rev()
                     .position(|sub_bytes| sub_bytes == arg.pattern)
@@ -175,7 +167,7 @@ fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> SpannedValue {
                 span,
             }
         } else {
-            SpannedValue::Int {
+            Value::Int {
                 val: iter
                     .position(|sub_bytes| sub_bytes == arg.pattern)
                     .map(|x| x as i64)
@@ -186,7 +178,7 @@ fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> SpannedValue {
     }
 }
 
-fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) -> SpannedValue {
+fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) -> Value {
     let mut result = vec![];
     if from_end {
         let (mut left, mut right) = (
@@ -195,7 +187,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
         );
         while left >= 0 {
             if &input[left as usize..right as usize] == pattern {
-                result.push(SpannedValue::Int {
+                result.push(Value::Int {
                     val: left as i64,
                     span,
                 });
@@ -206,7 +198,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
                 right -= 1;
             }
         }
-        SpannedValue::List { vals: result, span }
+        Value::List { vals: result, span }
     } else {
         // doing find stuff.
         let (mut left, mut right) = (0, pattern.len());
@@ -214,7 +206,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
         let pattern_len = pattern.len();
         while right <= input_len {
             if &input[left..right] == pattern {
-                result.push(SpannedValue::Int {
+                result.push(Value::Int {
                     val: left as i64,
                     span,
                 });
@@ -226,7 +218,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
             }
         }
 
-        SpannedValue::List { vals: result, span }
+        Value::List { vals: result, span }
     }
 }
 

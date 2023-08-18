@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -73,8 +73,8 @@ impl Command for SubCommand {
             Example {
                 description: "Split the string's words into separate rows",
                 example: "'hello world' | split words",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_string("hello"), SpannedValue::test_string("world")],
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("hello"), Value::test_string("world")],
                     span: Span::test_data(),
                 }),
             },
@@ -82,11 +82,11 @@ impl Command for SubCommand {
                 description:
                     "Split the string's words, of at least 3 characters, into separate rows",
                 example: "'hello to the world' | split words -l 3",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string("hello"),
-                        SpannedValue::test_string("the"),
-                        SpannedValue::test_string("world"),
+                        Value::test_string("hello"),
+                        Value::test_string("the"),
+                        Value::test_string("world"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -145,12 +145,7 @@ fn split_words(
     )
 }
 
-fn split_words_helper(
-    v: &SpannedValue,
-    word_length: Option<usize>,
-    span: Span,
-    graphemes: bool,
-) -> SpannedValue {
+fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphemes: bool) -> Value {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
@@ -159,7 +154,7 @@ fn split_words_helper(
     let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
 
     match v {
-        SpannedValue::Error { error, span } => SpannedValue::Error {
+        Value::Error { error, span } => Value::Error {
             error: Box::new(*error.clone()),
             span: *span,
         },
@@ -182,24 +177,24 @@ fn split_words_helper(
                                     s.len()
                                 } >= len
                                 {
-                                    Some(SpannedValue::string(s, v_span))
+                                    Some(Value::string(s, v_span))
                                 } else {
                                     None
                                 }
                             } else {
-                                Some(SpannedValue::string(s, v_span))
+                                Some(Value::string(s, v_span))
                             }
                         } else {
                             None
                         }
                     })
-                    .collect::<Vec<SpannedValue>>();
-                SpannedValue::List {
+                    .collect::<Vec<Value>>();
+                Value::List {
                     vals: words,
                     span: v_span,
                 }
             } else {
-                SpannedValue::Error {
+                Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,

@@ -1,4 +1,4 @@
-use nu_protocol::SpannedValue;
+use nu_protocol::Value;
 use nu_table::{string_width, string_wrap};
 use tabled::{
     grid::config::ColoredConfig,
@@ -10,7 +10,7 @@ use crate::debug::inspect_table::{
     global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
 };
 
-pub fn build_table(value: SpannedValue, description: String, termsize: usize) -> String {
+pub fn build_table(value: Value, description: String, termsize: usize) -> String {
     let (head, mut data) = util::collect_input(value);
     let count_columns = head.len();
     data.insert(0, head);
@@ -193,19 +193,19 @@ fn push_empty_column(data: &mut Vec<Vec<String>>) {
 mod util {
     use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
-    use nu_protocol::{ast::PathMember, Span, SpannedValue};
+    use nu_protocol::{ast::PathMember, Span, Value};
 
     /// Try to build column names and a table grid.
-    pub fn collect_input(value: SpannedValue) -> (Vec<String>, Vec<Vec<String>>) {
+    pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
         match value {
-            SpannedValue::Record { cols, vals, .. } => (
+            Value::Record { cols, vals, .. } => (
                 cols,
                 vec![vals
                     .into_iter()
                     .map(|s| debug_string_without_formatting(&s))
                     .collect()],
             ),
-            SpannedValue::List { vals, .. } => {
+            Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
                 let data = convert_records_to_dataset(&columns, vals);
 
@@ -215,10 +215,10 @@ mod util {
 
                 (columns, data)
             }
-            SpannedValue::String { val, span } => {
+            Value::String { val, span } => {
                 let lines = val
                     .lines()
-                    .map(|line| SpannedValue::String {
+                    .map(|line| Value::String {
                         val: line.to_string(),
                         span,
                     })
@@ -227,7 +227,7 @@ mod util {
 
                 (vec![String::from("")], lines)
             }
-            SpannedValue::Nothing { .. } => (vec![], vec![]),
+            Value::Nothing { .. } => (vec![], vec![]),
             value => (
                 vec![String::from("")],
                 vec![vec![debug_string_without_formatting(&value)]],
@@ -235,10 +235,7 @@ mod util {
         }
     }
 
-    fn convert_records_to_dataset(
-        cols: &Vec<String>,
-        records: Vec<SpannedValue>,
-    ) -> Vec<Vec<String>> {
+    fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<String>> {
         if !cols.is_empty() {
             create_table_for_record(cols, &records)
         } else if cols.is_empty() && records.is_empty() {
@@ -256,7 +253,7 @@ mod util {
         }
     }
 
-    fn create_table_for_record(headers: &[String], items: &[SpannedValue]) -> Vec<Vec<String>> {
+    fn create_table_for_record(headers: &[String], items: &[Value]) -> Vec<Vec<String>> {
         let mut data = vec![Vec::new(); items.len()];
 
         for (i, item) in items.iter().enumerate() {
@@ -267,7 +264,7 @@ mod util {
         data
     }
 
-    fn record_create_row(headers: &[String], item: &SpannedValue) -> Vec<String> {
+    fn record_create_row(headers: &[String], item: &Value) -> Vec<String> {
         let mut rows = vec![String::default(); headers.len()];
 
         for (i, header) in headers.iter().enumerate() {
@@ -278,9 +275,9 @@ mod util {
         rows
     }
 
-    fn record_lookup_value(item: &SpannedValue, header: &str) -> SpannedValue {
+    fn record_lookup_value(item: &Value, header: &str) -> Value {
         match item {
-            SpannedValue::Record { .. } => {
+            Value::Record { .. } => {
                 let path = PathMember::String {
                     val: header.to_owned(),
                     span: Span::unknown(),

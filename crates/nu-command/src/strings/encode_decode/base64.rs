@@ -6,7 +6,7 @@ use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Spanned, SpannedValue};
+use nu_protocol::{PipelineData, ShellError, Span, Spanned, Value};
 
 pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
                     \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
@@ -72,11 +72,11 @@ pub fn operate(
 }
 
 fn action(
-    input: &SpannedValue,
+    input: &Value,
     // only used for `decode` action
     args: &Arguments,
     command_span: Span,
-) -> SpannedValue {
+) -> Value {
     let base64_config = &args.encoding_config;
     let output_binary = args.binary;
 
@@ -90,7 +90,7 @@ fn action(
         "binhex" => GeneralPurpose::new(&alphabet::BIN_HEX, NO_PAD),
         "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
         "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
-        not_valid => return SpannedValue::Error { error:
+        not_valid => return Value::Error { error:
             Box::new(ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
@@ -103,15 +103,15 @@ fn action(
     };
     match input {
         // Propagate existing errors.
-        SpannedValue::Error { .. } => input.clone(),
-        SpannedValue::Binary { val, span } => match base64_config.action_type {
+        Value::Error { .. } => input.clone(),
+        Value::Binary { val, span } => match base64_config.action_type {
             ActionType::Encode => {
                 let mut enc_vec = Vec::new();
                 enc_vec.resize(val.len() * 4 / 3 + 4, 0);
                 let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
                     Ok(bytes_written) => bytes_written,
                     Err(err) => {
-                        return SpannedValue::Error {
+                        return Value::Error {
                             error: Box::new(ShellError::GenericError(
                                 "Error encoding data".into(),
                                 err.to_string(),
@@ -124,9 +124,9 @@ fn action(
                     }
                 };
                 enc_vec.truncate(bytes_written);
-                SpannedValue::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
+                Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
-            ActionType::Decode => SpannedValue::Error {
+            ActionType::Decode => Value::Error {
                 error: Box::new(ShellError::UnsupportedInput(
                     "Binary data can only be encoded".to_string(),
                     "value originates from here".into(),
@@ -137,7 +137,7 @@ fn action(
                 span: command_span,
             },
         },
-        SpannedValue::String {
+        Value::String {
             val,
             span: value_span,
         } => {
@@ -145,7 +145,7 @@ fn action(
                 ActionType::Encode => {
                     let mut enc_str = String::new();
                     base64_engine.encode_string(val, &mut enc_str);
-                    SpannedValue::string(enc_str, command_span)
+                    Value::string(enc_str, command_span)
                 }
 
                 ActionType::Decode => {
@@ -156,13 +156,11 @@ fn action(
                     match base64_engine.decode(val) {
                         Ok(decoded_value) => {
                             if output_binary {
-                                SpannedValue::binary(decoded_value, command_span)
+                                Value::binary(decoded_value, command_span)
                             } else {
                                 match String::from_utf8(decoded_value) {
-                                    Ok(string_value) => {
-                                        SpannedValue::string(string_value, command_span)
-                                    }
-                                    Err(e) => SpannedValue::Error {
+                                    Ok(string_value) => Value::string(string_value, command_span),
+                                    Err(e) => Value::Error {
                                         error: Box::new(ShellError::GenericError(
                                             "base64 payload isn't a valid utf-8 sequence"
                                                 .to_owned(),
@@ -176,7 +174,7 @@ fn action(
                                 }
                             }
                         }
-                        Err(_) => SpannedValue::Error {
+                        Err(_) => Value::Error {
                             error: Box::new(ShellError::GenericError(
                                 "value could not be base64 decoded".to_string(),
                                 format!(
@@ -193,7 +191,7 @@ fn action(
                 }
             }
         }
-        other => SpannedValue::Error {
+        other => Value::Error {
             error: Box::new(ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
                 span: other.span(),
@@ -206,12 +204,12 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::{action, ActionType, Arguments, Base64Config};
-    use nu_protocol::{Span, Spanned, SpannedValue};
+    use nu_protocol::{Span, Spanned, Value};
 
     #[test]
     fn base64_encode_standard() {
-        let word = SpannedValue::test_string("Some Data Padding");
-        let expected = SpannedValue::test_string("U29tZSBEYXRhIFBhZGRpbmc=");
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc=");
 
         let actual = action(
             &word,
@@ -233,8 +231,8 @@ mod tests {
 
     #[test]
     fn base64_encode_standard_no_padding() {
-        let word = SpannedValue::test_string("Some Data Padding");
-        let expected = SpannedValue::test_string("U29tZSBEYXRhIFBhZGRpbmc");
+        let word = Value::test_string("Some Data Padding");
+        let expected = Value::test_string("U29tZSBEYXRhIFBhZGRpbmc");
 
         let actual = action(
             &word,
@@ -256,8 +254,8 @@ mod tests {
 
     #[test]
     fn base64_encode_url_safe() {
-        let word = SpannedValue::test_string("this is for url");
-        let expected = SpannedValue::test_string("dGhpcyBpcyBmb3IgdXJs");
+        let word = Value::test_string("this is for url");
+        let expected = Value::test_string("dGhpcyBpcyBmb3IgdXJs");
 
         let actual = action(
             &word,
@@ -279,8 +277,8 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex() {
-        let word = SpannedValue::test_string("A5\"KC9jRB@IIF'8bF!");
-        let expected = SpannedValue::binary(b"a binhex test".as_slice(), Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB@IIF'8bF!");
+        let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
             &word,
@@ -302,8 +300,8 @@ mod tests {
 
     #[test]
     fn base64_decode_binhex_with_new_line_input() {
-        let word = SpannedValue::test_string("A5\"KC9jRB\n@IIF'8bF!");
-        let expected = SpannedValue::binary(b"a binhex test".as_slice(), Span::test_data());
+        let word = Value::test_string("A5\"KC9jRB\n@IIF'8bF!");
+        let expected = Value::binary(b"a binhex test".as_slice(), Span::test_data());
 
         let actual = action(
             &word,
@@ -325,11 +323,11 @@ mod tests {
 
     #[test]
     fn base64_encode_binary() {
-        let word = SpannedValue::Binary {
+        let word = Value::Binary {
             val: vec![77, 97, 110],
             span: Span::test_data(),
         };
-        let expected = SpannedValue::test_string("TWFu");
+        let expected = Value::test_string("TWFu");
 
         let actual = action(
             &word,
@@ -351,7 +349,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binary_expect_error() {
-        let word = SpannedValue::Binary {
+        let word = Value::Binary {
             val: vec![77, 97, 110],
             span: Span::test_data(),
         };
@@ -373,7 +371,7 @@ mod tests {
         );
 
         match actual {
-            SpannedValue::Error { .. } => {}
+            Value::Error { .. } => {}
             _ => panic!("the result should be Value::Error"),
         }
     }

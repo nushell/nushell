@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 use std::collections::VecDeque;
 
@@ -134,7 +134,7 @@ pub fn cal(
         current_day_option,
     )?;
 
-    Ok(SpannedValue::List {
+    Ok(Value::List {
         vals: calendar_vec_deque.into_iter().collect(),
         span: tag,
     }
@@ -206,7 +206,7 @@ fn get_current_date() -> (i32, u32, u32) {
 
 fn add_months_of_year_to_table(
     arguments: &Arguments,
-    calendar_vec_deque: &mut VecDeque<SpannedValue>,
+    calendar_vec_deque: &mut VecDeque<Value>,
     tag: Span,
     selected_year: i32,
     (start_month, end_month): (u32, u32),
@@ -239,7 +239,7 @@ fn add_months_of_year_to_table(
 
 fn add_month_to_table(
     arguments: &Arguments,
-    calendar_vec_deque: &mut VecDeque<SpannedValue>,
+    calendar_vec_deque: &mut VecDeque<Value>,
     tag: Span,
     selected_year: i32,
     current_month: u32,
@@ -311,25 +311,25 @@ fn add_month_to_table(
         if should_show_year_column {
             indexmap.insert(
                 "year".to_string(),
-                SpannedValue::int(month_helper.selected_year as i64, tag),
+                Value::int(month_helper.selected_year as i64, tag),
             );
         }
 
         if should_show_quarter_column {
             indexmap.insert(
                 "quarter".to_string(),
-                SpannedValue::int(month_helper.quarter_number as i64, tag),
+                Value::int(month_helper.quarter_number as i64, tag),
             );
         }
 
         if should_show_month_column || should_show_month_names {
             let month_value = if should_show_month_names {
-                SpannedValue::String {
+                Value::String {
                     val: month_helper.month_name.clone(),
                     span: tag,
                 }
             } else {
-                SpannedValue::int(month_helper.selected_month as i64, tag)
+                Value::int(month_helper.selected_month as i64, tag)
             };
 
             indexmap.insert("month".to_string(), month_value);
@@ -339,12 +339,12 @@ fn add_month_to_table(
             let should_add_day_number_to_table =
                 (day_number > total_start_offset) && (day_number <= day_limit);
 
-            let mut value = SpannedValue::Nothing { span: tag };
+            let mut value = Value::Nothing { span: tag };
 
             if should_add_day_number_to_table {
                 let adjusted_day_number = day_number - total_start_offset;
 
-                value = SpannedValue::int(adjusted_day_number as i64, tag);
+                value = Value::int(adjusted_day_number as i64, tag);
 
                 if let Some(current_day) = current_day_option {
                     if current_day == adjusted_day_number {
@@ -360,13 +360,13 @@ fn add_month_to_table(
         }
 
         let cols: Vec<String> = indexmap.keys().map(|f| f.to_string()).collect();
-        let mut vals: Vec<SpannedValue> = Vec::new();
+        let mut vals: Vec<Value> = Vec::new();
         for c in &cols {
             if let Some(x) = indexmap.get(c) {
                 vals.push(x.to_owned())
             }
         }
-        calendar_vec_deque.push_back(SpannedValue::Record {
+        calendar_vec_deque.push_back(Value::Record {
             cols,
             vals,
             span: tag,

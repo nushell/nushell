@@ -5,9 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -84,18 +82,18 @@ impl Command for SubCommand {
             Example {
                 description: "Return the lengths of a string",
                 example: "'hello' | str length",
-                result: Some(SpannedValue::test_int(5)),
+                result: Some(Value::test_int(5)),
             },
             Example {
                 description: "Count length using grapheme clusters",
                 example: "'🇯🇵ほげ ふが ぴよ' | str length -g",
-                result: Some(SpannedValue::test_int(9)),
+                result: Some(Value::test_int(9)),
             },
             Example {
                 description: "Return the lengths of multiple strings",
                 example: "['hi' 'there'] | str length",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(5)],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(5)],
                     span: Span::test_data(),
                 }),
             },
@@ -103,9 +101,9 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &SpannedValue, arg: &Arguments, head: Span) -> SpannedValue {
+fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
     match input {
-        SpannedValue::String { val, .. } => SpannedValue::int(
+        Value::String { val, .. } => Value::int(
             if arg.graphemes {
                 val.graphemes(true).count()
             } else {
@@ -113,8 +111,8 @@ fn action(input: &SpannedValue, arg: &Arguments, head: Span) -> SpannedValue {
             } as i64,
             head,
         ),
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
@@ -132,7 +130,7 @@ mod test {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = SpannedValue::String {
+        let word = Value::String {
             val: String::from("🇯🇵ほげ ふが ぴよ"),
             span: Span::test_data(),
         };
@@ -143,7 +141,7 @@ mod test {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_int(28));
+        assert_eq!(actual, Value::test_int(28));
     }
 
     #[test]

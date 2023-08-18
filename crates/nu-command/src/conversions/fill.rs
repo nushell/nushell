@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use print_positions::print_positions;
 
@@ -86,7 +86,7 @@ impl Command for Fill {
                 description:
                     "Fill a string on the left side to a width of 15 with the character '─'",
                 example: "'nushell' | fill -a l -c '─' -w 15",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "nushell────────".into(),
                     span: Span::test_data(),
                 }),
@@ -95,7 +95,7 @@ impl Command for Fill {
                 description:
                     "Fill a string on the right side to a width of 15 with the character '─'",
                 example: "'nushell' | fill -a r -c '─' -w 15",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "────────nushell".into(),
                     span: Span::test_data(),
                 }),
@@ -103,7 +103,7 @@ impl Command for Fill {
             Example {
                 description: "Fill a string on both sides to a width of 15 with the character '─'",
                 example: "'nushell' | fill -a m -c '─' -w 15",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "────nushell────".into(),
                     span: Span::test_data(),
                 }),
@@ -112,7 +112,7 @@ impl Command for Fill {
                 description:
                     "Fill a number on the left side to a width of 5 with the character '0'",
                 example: "1 | fill --alignment right --character '0' --width 5",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "00001".into(),
                     span: Span::test_data(),
                 }),
@@ -120,7 +120,7 @@ impl Command for Fill {
             Example {
                 description: "Fill a number on both sides to a width of 5 with the character '0'",
                 example: "1.1 | fill --alignment center --character '0' --width 5",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "01.10".into(),
                     span: Span::test_data(),
                 }),
@@ -129,7 +129,7 @@ impl Command for Fill {
                 description:
                     "Fill a filesize on the left side to a width of 5 with the character '0'",
                 example: "1kib | fill --alignment middle --character '0' --width 10",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "0001024000".into(),
                     span: Span::test_data(),
                 }),
@@ -190,15 +190,15 @@ fn fill(
     operate(action, arg, input, call.head, engine_state.ctrlc.clone())
 }
 
-fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
-        SpannedValue::Int { val, .. } => fill_int(*val, args, span),
-        SpannedValue::Filesize { val, .. } => fill_int(*val, args, span),
-        SpannedValue::Float { val, .. } => fill_float(*val, args, span),
-        SpannedValue::String { val, .. } => fill_string(val, args, span),
+        Value::Int { val, .. } => fill_int(*val, args, span),
+        Value::Filesize { val, .. } => fill_int(*val, args, span),
+        Value::Float { val, .. } => fill_float(*val, args, span),
+        Value::String { val, .. } => fill_string(val, args, span),
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => input.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "int, filesize, float, string".into(),
                 wrong_type: other.get_type().to_string(),
@@ -210,22 +210,22 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
     }
 }
 
-fn fill_float(num: f64, args: &Arguments, span: Span) -> SpannedValue {
+fn fill_float(num: f64, args: &Arguments, span: Span) -> Value {
     let s = num.to_string();
     let out_str = pad(&s, args.width, &args.character, args.alignment, false);
 
-    SpannedValue::String { val: out_str, span }
+    Value::String { val: out_str, span }
 }
-fn fill_int(num: i64, args: &Arguments, span: Span) -> SpannedValue {
+fn fill_int(num: i64, args: &Arguments, span: Span) -> Value {
     let s = num.to_string();
     let out_str = pad(&s, args.width, &args.character, args.alignment, false);
 
-    SpannedValue::String { val: out_str, span }
+    Value::String { val: out_str, span }
 }
-fn fill_string(s: &str, args: &Arguments, span: Span) -> SpannedValue {
+fn fill_string(s: &str, args: &Arguments, span: Span) -> Value {
     let out_str = pad(s, args.width, &args.character, args.alignment, false);
 
-    SpannedValue::String { val: out_str, span }
+    Value::String { val: out_str, span }
 }
 
 fn pad(s: &str, width: usize, pad_char: &str, alignment: FillAlignment, truncate: bool) -> String {

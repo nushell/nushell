@@ -5,8 +5,8 @@ use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -45,7 +45,7 @@ impl Command for Format {
     ) -> Result<PipelineData, ShellError> {
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let specified_pattern: Result<SpannedValue, ShellError> = call.req(engine_state, stack, 0);
+        let specified_pattern: Result<Value, ShellError> = call.req(engine_state, stack, 0);
         let input_val = input.into_value(call.head);
         // add '$it' variable to support format like this: $it.column1.column2.
         let it_id = working_set.add_variable(b"$it".to_vec(), call.head, Type::Any, false);
@@ -86,11 +86,8 @@ impl Command for Format {
             Example {
                 description: "Print elements from some columns of a table",
                 example: "[[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_string("v2"),
-                        SpannedValue::test_string("v4"),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("v2"), Value::test_string("v4")],
                     span: Span::test_data(),
                 }),
             },
@@ -192,7 +189,7 @@ fn extract_formatting_operations(
 
 /// Format the incoming PipelineData according to the pattern
 fn format(
-    input_data: SpannedValue,
+    input_data: Value,
     format_operations: &[FormatOperation],
     engine_state: &EngineState,
     working_set: &mut StateWorkingSet,
@@ -203,7 +200,7 @@ fn format(
 
     //  We can only handle a Record or a List of Records
     match data_as_value {
-        SpannedValue::Record { .. } => {
+        Value::Record { .. } => {
             match format_record(
                 format_operations,
                 &data_as_value,
@@ -211,19 +208,16 @@ fn format(
                 working_set,
                 stack,
             ) {
-                Ok(value) => Ok(PipelineData::Value(
-                    SpannedValue::string(value, head_span),
-                    None,
-                )),
+                Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
                 Err(value) => Err(value),
             }
         }
 
-        SpannedValue::List { vals, .. } => {
+        Value::List { vals, .. } => {
             let mut list = vec![];
             for val in vals.iter() {
                 match val {
-                    SpannedValue::Record { .. } => {
+                    Value::Record { .. } => {
                         match format_record(
                             format_operations,
                             val,
@@ -232,14 +226,14 @@ fn format(
                             stack,
                         ) {
                             Ok(value) => {
-                                list.push(SpannedValue::string(value, head_span));
+                                list.push(Value::string(value, head_span));
                             }
                             Err(value) => {
                                 return Err(value);
                             }
                         }
                     }
-                    SpannedValue::Error { error, .. } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(*error.clone()),
                     _ => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".to_string(),
@@ -258,7 +252,7 @@ fn format(
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.
-        SpannedValue::Error { error, .. } => Err(*error),
+        Value::Error { error, .. } => Err(*error),
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".to_string(),
             wrong_type: data_as_value.get_type().to_string(),
@@ -270,7 +264,7 @@ fn format(
 
 fn format_record(
     format_operations: &[FormatOperation],
-    data_as_value: &SpannedValue,
+    data_as_value: &Value,
     engine_state: &EngineState,
     working_set: &mut StateWorkingSet,
     stack: &mut Stack,

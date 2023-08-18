@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SpannedValue, SyntaxShape, Type,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 
@@ -64,12 +64,9 @@ pub fn help_commands(
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
-    let string_style =
-        style_computer.compute("string", &SpannedValue::string("search result", head));
-    let highlight_style = style_computer.compute(
-        "search_result",
-        &SpannedValue::string("search result", head),
-    );
+    let string_style = style_computer.compute("string", &Value::string("search result", head));
+    let highlight_style =
+        style_computer.compute("search_result", &Value::string("search result", head));
 
     if let Some(f) = find {
         let all_cmds_vec = build_help_commands(engine_state, head);
@@ -112,7 +109,7 @@ pub fn help_commands(
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
-            Ok(SpannedValue::String {
+            Ok(Value::String {
                 val: output.join("======================\n\n"),
                 span: call.head,
             }
@@ -126,7 +123,7 @@ pub fn help_commands(
     }
 }
 
-fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedValue> {
+fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 
@@ -142,19 +139,19 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
         let search_terms = sig.search_terms;
 
         cols.push("name".into());
-        vals.push(SpannedValue::String { val: key, span });
+        vals.push(Value::String { val: key, span });
 
         cols.push("category".into());
-        vals.push(SpannedValue::string(sig.category.to_string(), span));
+        vals.push(Value::string(sig.category.to_string(), span));
 
         cols.push("command_type".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: format!("{:?}", decl.command_type()).to_lowercase(),
             span,
         });
 
         cols.push("usage".into());
-        vals.push(SpannedValue::String { val: usage, span });
+        vals.push(Value::String { val: usage, span });
 
         cols.push("params".into());
 
@@ -163,7 +160,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
             let mut vals = vec![];
 
             for required_param in &sig.required_positional {
-                vals.push(SpannedValue::Record {
+                vals.push(Value::Record {
                     cols: vec![
                         "name".to_string(),
                         "type".to_string(),
@@ -171,17 +168,17 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                         "description".to_string(),
                     ],
                     vals: vec![
-                        SpannedValue::string(&required_param.name, span),
-                        SpannedValue::string(required_param.shape.to_string(), span),
-                        SpannedValue::bool(true, span),
-                        SpannedValue::string(&required_param.desc, span),
+                        Value::string(&required_param.name, span),
+                        Value::string(required_param.shape.to_string(), span),
+                        Value::bool(true, span),
+                        Value::string(&required_param.desc, span),
                     ],
                     span,
                 });
             }
 
             for optional_param in &sig.optional_positional {
-                vals.push(SpannedValue::Record {
+                vals.push(Value::Record {
                     cols: vec![
                         "name".to_string(),
                         "type".to_string(),
@@ -189,17 +186,17 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                         "description".to_string(),
                     ],
                     vals: vec![
-                        SpannedValue::string(&optional_param.name, span),
-                        SpannedValue::string(optional_param.shape.to_string(), span),
-                        SpannedValue::bool(false, span),
-                        SpannedValue::string(&optional_param.desc, span),
+                        Value::string(&optional_param.name, span),
+                        Value::string(optional_param.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::string(&optional_param.desc, span),
                     ],
                     span,
                 });
             }
 
             if let Some(rest_positional) = &sig.rest_positional {
-                vals.push(SpannedValue::Record {
+                vals.push(Value::Record {
                     cols: vec![
                         "name".to_string(),
                         "type".to_string(),
@@ -207,10 +204,10 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                         "description".to_string(),
                     ],
                     vals: vec![
-                        SpannedValue::string(format!("...{}", rest_positional.name), span),
-                        SpannedValue::string(rest_positional.shape.to_string(), span),
-                        SpannedValue::bool(false, span),
-                        SpannedValue::string(&rest_positional.desc, span),
+                        Value::string(format!("...{}", rest_positional.name), span),
+                        Value::string(rest_positional.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::string(&rest_positional.desc, span),
                     ],
                     span,
                 });
@@ -227,7 +224,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                     format!("--{}", named_param.long)
                 };
 
-                vals.push(SpannedValue::Record {
+                vals.push(Value::Record {
                     cols: vec![
                         "name".to_string(),
                         "type".to_string(),
@@ -235,8 +232,8 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                         "description".to_string(),
                     ],
                     vals: vec![
-                        SpannedValue::string(name, span),
-                        SpannedValue::string(
+                        Value::string(name, span),
+                        Value::string(
                             if let Some(arg) = &named_param.arg {
                                 arg.to_string()
                             } else {
@@ -244,14 +241,14 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                             },
                             span,
                         ),
-                        SpannedValue::bool(named_param.required, span),
-                        SpannedValue::string(&named_param.desc, span),
+                        Value::bool(named_param.required, span),
+                        Value::string(&named_param.desc, span),
                     ],
                     span,
                 });
             }
 
-            SpannedValue::List { vals, span }
+            Value::List { vals, span }
         };
         vals.push(param_table);
 
@@ -262,14 +259,14 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
             let mut vals = vec![];
 
             for (input_type, output_type) in sig.input_output_types {
-                vals.push(SpannedValue::Record {
+                vals.push(Value::Record {
                     cols: vec!["input".to_string(), "output".to_string()],
                     vals: vec![
-                        SpannedValue::String {
+                        Value::String {
                             val: input_type.to_string(),
                             span,
                         },
-                        SpannedValue::String {
+                        Value::String {
                             val: output_type.to_string(),
                             span,
                         },
@@ -278,17 +275,17 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<SpannedVal
                 });
             }
 
-            SpannedValue::List { vals, span }
+            Value::List { vals, span }
         };
         vals.push(input_output_table);
 
         cols.push("search_terms".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: search_terms.join(", "),
             span,
         });
 
-        found_cmds_vec.push(SpannedValue::Record { cols, vals, span });
+        found_cmds_vec.push(Value::Record { cols, vals, span });
     }
 
     found_cmds_vec

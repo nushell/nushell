@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SpannedValue, SyntaxShape, Type,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -83,12 +83,9 @@ pub fn help_externs(
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
-    let string_style =
-        style_computer.compute("string", &SpannedValue::string("search result", head));
-    let highlight_style = style_computer.compute(
-        "search_result",
-        &SpannedValue::string("search result", head),
-    );
+    let string_style = style_computer.compute("string", &Value::string("search result", head));
+    let highlight_style =
+        style_computer.compute("search_result", &Value::string("search result", head));
 
     if let Some(f) = find {
         let all_cmds_vec = build_help_externs(engine_state, stack, head);
@@ -131,7 +128,7 @@ pub fn help_externs(
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
-            Ok(SpannedValue::String {
+            Ok(Value::String {
                 val: output.join("======================\n\n"),
                 span: call.head,
             }
@@ -145,7 +142,7 @@ pub fn help_externs(
     }
 }
 
-fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<SpannedValue> {
+fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope = ScopeData::new(engine_state, stack);
     scope.populate_decls();
     scope.collect_externs(span)

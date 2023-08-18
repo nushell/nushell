@@ -2,7 +2,7 @@ use super::hex::{operate, ActionType};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -41,9 +41,7 @@ impl Command for EncodeHex {
         vec![Example {
             description: "Encode binary data",
             example: "0x[09 F9 11 02 9D 74 E3 5B D8 41 56 C5 63 56 88 C0] | encode hex",
-            result: Some(SpannedValue::test_string(
-                "09F911029D74E35BD84156C5635688C0",
-            )),
+            result: Some(Value::test_string("09F911029D74E35BD84156C5635688C0")),
         }]
     }
 

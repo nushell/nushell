@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 use crate::network::http::client::{
@@ -121,12 +121,12 @@ impl Command for SubCommand {
 }
 
 struct Arguments {
-    url: SpannedValue,
-    headers: Option<SpannedValue>,
+    url: Value,
+    headers: Option<Value>,
     insecure: bool,
     user: Option<String>,
     password: Option<String>,
-    timeout: Option<SpannedValue>,
+    timeout: Option<Value>,
     allow_errors: bool,
 }
 

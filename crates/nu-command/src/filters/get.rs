@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SpannedValue, SyntaxShape, Type,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -101,20 +101,20 @@ If multiple cell paths are given, this will produce a list of values."#
             Example {
                 description: "Get an item from a list",
                 example: "[0 1 2] | get 1",
-                result: Some(SpannedValue::test_int(1)),
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Get a column from a table",
                 example: "[{A: A0}] | get A",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_string("A0")],
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("A0")],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Get a cell from a table",
                 example: "[{A: A0}] | get 0.A",
-                result: Some(SpannedValue::test_string("A0")),
+                result: Some(Value::test_string("A0")),
             },
             Example {
                 description:

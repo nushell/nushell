@@ -1,7 +1,7 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{ast::CellPath, PluginSignature, SpannedValue, SyntaxShape};
+use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
 
 impl Plugin for Inc {
     fn signature(&self) -> Vec<PluginSignature> {
@@ -29,10 +29,10 @@ impl Plugin for Inc {
         &mut self,
         name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
-    ) -> Result<SpannedValue, LabeledError> {
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
         if name != "inc" {
-            return Ok(SpannedValue::Nothing { span: call.head });
+            return Ok(Value::Nothing { span: call.head });
         }
 
         let cell_path: Option<CellPath> = call.opt(0)?;

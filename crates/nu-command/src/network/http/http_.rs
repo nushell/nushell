@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,7 +40,7 @@ impl Command for Http {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(SpannedValue::String {
+        Ok(Value::String {
             val: get_full_help(
                 &Http.signature(),
                 &Http.examples(),

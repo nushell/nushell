@@ -1,6 +1,6 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
 use nu_plugin::LabeledError;
-use nu_protocol::{Span, Spanned, SpannedValue};
+use nu_protocol::{Span, Spanned, Value};
 use std::fmt::Write;
 use std::ops::BitAnd;
 use std::path::PathBuf;
@@ -25,10 +25,10 @@ impl GStat {
 
     pub fn gstat(
         &self,
-        value: &SpannedValue,
+        value: &Value,
         path: Option<Spanned<String>>,
         span: Span,
-    ) -> Result<SpannedValue, LabeledError> {
+    ) -> Result<Value, LabeledError> {
         // use std::any::Any;
         // eprintln!("input type: {:?} value: {:#?}", &value.type_id(), &value);
         // eprintln!("path type: {:?} value: {:#?}", &path.type_id(), &path);
@@ -146,49 +146,49 @@ impl GStat {
         let mut vals = vec![];
 
         cols.push("idx_added_staged".into());
-        vals.push(SpannedValue::int(stats.idx_added_staged as i64, span));
+        vals.push(Value::int(stats.idx_added_staged as i64, span));
         cols.push("idx_modified_staged".into());
-        vals.push(SpannedValue::int(stats.idx_modified_staged as i64, span));
+        vals.push(Value::int(stats.idx_modified_staged as i64, span));
         cols.push("idx_deleted_staged".into());
-        vals.push(SpannedValue::int(stats.idx_deleted_staged as i64, span));
+        vals.push(Value::int(stats.idx_deleted_staged as i64, span));
         cols.push("idx_renamed".into());
-        vals.push(SpannedValue::int(stats.idx_renamed as i64, span));
+        vals.push(Value::int(stats.idx_renamed as i64, span));
         cols.push("idx_type_changed".into());
-        vals.push(SpannedValue::int(stats.idx_type_changed as i64, span));
+        vals.push(Value::int(stats.idx_type_changed as i64, span));
         cols.push("wt_untracked".into());
-        vals.push(SpannedValue::int(stats.wt_untracked as i64, span));
+        vals.push(Value::int(stats.wt_untracked as i64, span));
         cols.push("wt_modified".into());
-        vals.push(SpannedValue::int(stats.wt_modified as i64, span));
+        vals.push(Value::int(stats.wt_modified as i64, span));
         cols.push("wt_deleted".into());
-        vals.push(SpannedValue::int(stats.wt_deleted as i64, span));
+        vals.push(Value::int(stats.wt_deleted as i64, span));
         cols.push("wt_type_changed".into());
-        vals.push(SpannedValue::int(stats.wt_type_changed as i64, span));
+        vals.push(Value::int(stats.wt_type_changed as i64, span));
         cols.push("wt_renamed".into());
-        vals.push(SpannedValue::int(stats.wt_renamed as i64, span));
+        vals.push(Value::int(stats.wt_renamed as i64, span));
         cols.push("ignored".into());
-        vals.push(SpannedValue::int(stats.ignored as i64, span));
+        vals.push(Value::int(stats.ignored as i64, span));
         cols.push("conflicts".into());
-        vals.push(SpannedValue::int(stats.conflicts as i64, span));
+        vals.push(Value::int(stats.conflicts as i64, span));
         cols.push("ahead".into());
-        vals.push(SpannedValue::int(stats.ahead as i64, span));
+        vals.push(Value::int(stats.ahead as i64, span));
         cols.push("behind".into());
-        vals.push(SpannedValue::int(stats.behind as i64, span));
+        vals.push(Value::int(stats.behind as i64, span));
         cols.push("stashes".into());
-        vals.push(SpannedValue::int(stats.stashes as i64, span));
+        vals.push(Value::int(stats.stashes as i64, span));
         cols.push("repo_name".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: repo_name,
             span,
         });
         cols.push("tag".into());
-        vals.push(SpannedValue::String { val: tag, span });
+        vals.push(Value::String { val: tag, span });
         cols.push("branch".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: stats.branch,
             span,
         });
         cols.push("remote".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: stats.remote,
             span,
         });
@@ -203,53 +203,53 @@ impl GStat {
         //     span: *span,
         // })
 
-        Ok(SpannedValue::Record { cols, vals, span })
+        Ok(Value::Record { cols, vals, span })
     }
 
-    fn create_empty_git_status(&self, span: Span) -> SpannedValue {
+    fn create_empty_git_status(&self, span: Span) -> Value {
         let mut cols = vec![];
         let mut vals = vec![];
 
         cols.push("idx_added_staged".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_modified_staged".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_deleted_staged".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_renamed".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("idx_type_changed".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_untracked".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_modified".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_deleted".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_type_changed".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("wt_renamed".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("ignored".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("conflicts".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("ahead".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("behind".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("stashes".into());
-        vals.push(SpannedValue::int(-1, span));
+        vals.push(Value::int(-1, span));
         cols.push("repo_name".into());
-        vals.push(SpannedValue::string("no_repository", span));
+        vals.push(Value::string("no_repository", span));
         cols.push("tag".into());
-        vals.push(SpannedValue::string("no_tag", span));
+        vals.push(Value::string("no_tag", span));
         cols.push("branch".into());
-        vals.push(SpannedValue::string("no_branch", span));
+        vals.push(Value::string("no_branch", span));
         cols.push("remote".into());
-        vals.push(SpannedValue::string("no_remote", span));
+        vals.push(Value::string("no_remote", span));
 
-        SpannedValue::Record { cols, vals, span }
+        Value::Record { cols, vals, span }
     }
 }
 

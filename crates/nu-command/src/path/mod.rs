@@ -22,7 +22,7 @@ pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
 pub use split::SubCommand as PathSplit;
 
-use nu_protocol::{ShellError, Span, SpannedValue};
+use nu_protocol::{ShellError, Span, Value};
 
 #[cfg(windows)]
 const ALLOWED_COLUMNS: [&str; 4] = ["prefix", "parent", "stem", "extension"];
@@ -31,27 +31,27 @@ const ALLOWED_COLUMNS: [&str; 3] = ["parent", "stem", "extension"];
 
 trait PathSubcommandArguments {}
 
-fn operate<F, A>(cmd: &F, args: &A, v: SpannedValue, name: Span) -> SpannedValue
+fn operate<F, A>(cmd: &F, args: &A, v: Value, name: Span) -> Value
 where
-    F: Fn(&StdPath, Span, &A) -> SpannedValue + Send + Sync + 'static,
+    F: Fn(&StdPath, Span, &A) -> Value + Send + Sync + 'static,
     A: PathSubcommandArguments + Send + Sync + 'static,
 {
     match v {
-        SpannedValue::String { val, span } => cmd(StdPath::new(&val), span, args),
+        Value::String { val, span } => cmd(StdPath::new(&val), span, args),
         _ => handle_invalid_values(v, name),
     }
 }
 
-fn handle_invalid_values(rest: SpannedValue, name: Span) -> SpannedValue {
-    SpannedValue::Error {
+fn handle_invalid_values(rest: Value, name: Span) -> Value {
+    Value::Error {
         error: Box::new(err_from_value(&rest, name)),
         span: name,
     }
 }
 
-fn err_from_value(rest: &SpannedValue, name: Span) -> ShellError {
+fn err_from_value(rest: &Value, name: Span) -> ShellError {
     match rest {
-        SpannedValue::Error { error, span } => *error.clone(),
+        Value::Error { error, span } => *error.clone(),
         _ => {
             if rest.is_nothing() {
                 ShellError::OnlySupportsThisInputType {

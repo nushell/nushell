@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -56,33 +54,33 @@ impl Command for SubCommand {
             Example {
                 description: "Get e raised to the power of zero",
                 example: "0 | math exp",
-                result: Some(SpannedValue::test_float(1.0f64)),
+                result: Some(Value::test_float(1.0f64)),
             },
             Example {
                 description: "Get e (same as 'math e')",
                 example: "1 | math exp",
-                result: Some(SpannedValue::test_float(1.0f64.exp())),
+                result: Some(Value::test_float(1.0f64.exp())),
             },
         ]
     }
 }
 
-fn operate(value: SpannedValue, head: Span) -> SpannedValue {
+fn operate(value: Value, head: Span) -> Value {
     match value {
-        numeric @ (SpannedValue::Int { .. } | SpannedValue::Float { .. }) => {
+        numeric @ (Value::Int { .. } | Value::Float { .. }) => {
             let (val, span) = match numeric {
-                SpannedValue::Int { val, span } => (val as f64, span),
-                SpannedValue::Float { val, span } => (val, span),
+                Value::Int { val, span } => (val as f64, span),
+                Value::Float { val, span } => (val, span),
                 _ => unreachable!(),
             };
 
-            SpannedValue::Float {
+            Value::Float {
                 val: val.exp(),
                 span,
             }
         }
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

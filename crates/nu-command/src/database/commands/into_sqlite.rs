@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 use std::iter;
 use std::path::Path;
@@ -99,11 +99,11 @@ fn operate(
 }
 
 fn action(
-    input: &SpannedValue,
+    input: &Value,
     table: Option<Spanned<String>>,
     file: Spanned<String>,
     span: Span,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     let table_name = if let Some(table_name) = table {
         table_name.item
     } else {
@@ -111,7 +111,7 @@ fn action(
     };
 
     match input {
-        SpannedValue::List { vals, span } => {
+        Value::List { vals, span } => {
             // find the column names, and sqlite data types
             let columns = get_columns_with_sqlite_types(vals);
 
@@ -127,7 +127,7 @@ fn action(
                     format!(
                         "({})",
                         match list_value {
-                            SpannedValue::Record {
+                            Value::Record {
                                 cols: _,
                                 vals,
                                 span: _,
@@ -139,10 +139,10 @@ fn action(
                                     .join(",")
                             }
                             // Number formats so keep them without quotes
-                            SpannedValue::Int { val: _, span: _ }
-                            | SpannedValue::Float { val: _, span: _ }
-                            | SpannedValue::Filesize { val: _, span: _ }
-                            | SpannedValue::Duration { val: _, span: _ } =>
+                            Value::Int { val: _, span: _ }
+                            | Value::Float { val: _, span: _ }
+                            | Value::Filesize { val: _, span: _ }
+                            | Value::Duration { val: _, span: _ } =>
                                 nu_value_to_string(list_value.clone(), ""),
                             _ =>
                             // String formats so add quotes around them
@@ -214,10 +214,10 @@ fn action(
             })?;
 
             // and we're done
-            Ok(SpannedValue::Nothing { span: *span })
+            Ok(Value::Nothing { span: *span })
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { error, .. } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(*error.clone()),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list".into(),
             wrong_type: other.get_type().to_string(),
@@ -228,49 +228,49 @@ fn action(
 }
 
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
-fn nu_value_to_string(value: SpannedValue, separator: &str) -> String {
+fn nu_value_to_string(value: Value, separator: &str) -> String {
     match value {
-        SpannedValue::Bool { val, .. } => val.to_string(),
-        SpannedValue::Int { val, .. } => val.to_string(),
-        SpannedValue::Float { val, .. } => val.to_string(),
-        SpannedValue::Filesize { val, .. } => val.to_string(),
-        SpannedValue::Duration { val, .. } => val.to_string(),
-        SpannedValue::Date { val, .. } => val.to_string(),
-        SpannedValue::Range { val, .. } => {
+        Value::Bool { val, .. } => val.to_string(),
+        Value::Int { val, .. } => val.to_string(),
+        Value::Float { val, .. } => val.to_string(),
+        Value::Filesize { val, .. } => val.to_string(),
+        Value::Duration { val, .. } => val.to_string(),
+        Value::Date { val, .. } => val.to_string(),
+        Value::Range { val, .. } => {
             format!(
                 "{}..{}",
                 nu_value_to_string(val.from, ", "),
                 nu_value_to_string(val.to, ", ")
             )
         }
-        SpannedValue::String { val, .. } => {
+        Value::String { val, .. } => {
             // don't store ansi escape sequences in the database
             // escape single quotes
             nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
-        SpannedValue::List { vals: val, .. } => val
+        Value::List { vals: val, .. } => val
             .iter()
             .map(|x| nu_value_to_string(x.clone(), ", "))
             .collect::<Vec<_>>()
             .join(separator),
-        SpannedValue::Record { cols, vals, .. } => cols
+        Value::Record { cols, vals, .. } => cols
             .iter()
             .zip(vals.iter())
             .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
             .collect::<Vec<_>>()
             .join(separator),
-        SpannedValue::LazyRecord { val, .. } => match val.collect() {
+        Value::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => nu_value_to_string(val, separator),
             Err(error) => format!("{error:?}"),
         },
-        SpannedValue::Block { val, .. } => format!("<Block {val}>"),
-        SpannedValue::Closure { val, .. } => format!("<Closure {val}>"),
-        SpannedValue::Nothing { .. } => String::new(),
-        SpannedValue::Error { error, .. } => format!("{error:?}"),
-        SpannedValue::Binary { val, .. } => format!("{val:?}"),
-        SpannedValue::CellPath { val, .. } => val.into_string(),
-        SpannedValue::CustomValue { val, .. } => val.value_string(),
-        SpannedValue::MatchPattern { val, .. } => format!("{:?}", val),
+        Value::Block { val, .. } => format!("<Block {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Nothing { .. } => String::new(),
+        Value::Error { error, .. } => format!("{error:?}"),
+        Value::Binary { val, .. } => format!("{val:?}"),
+        Value::CellPath { val, .. } => val.into_string(),
+        Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 
@@ -293,7 +293,7 @@ fn nu_type_to_sqlite_type(nu_type: Type) -> &'static str {
     }
 }
 
-fn get_columns_with_sqlite_types(input: &[SpannedValue]) -> Vec<(String, String)> {
+fn get_columns_with_sqlite_types(input: &[Value]) -> Vec<(String, String)> {
     let mut columns: Vec<(String, String)> = vec![];
     let mut added = false;
 
@@ -305,7 +305,7 @@ fn get_columns_with_sqlite_types(input: &[SpannedValue]) -> Vec<(String, String)
         //     sqlite_type
         // );
 
-        if let SpannedValue::Record { cols, vals, .. } = item {
+        if let Value::Record { cols, vals, .. } = item {
             for (c, v) in iter::zip(cols, vals) {
                 if !columns.iter().any(|(name, _)| name == c) {
                     columns.push((

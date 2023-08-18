@@ -5,8 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 use std::fmt::{Display, Formatter};
 
@@ -18,7 +18,7 @@ enum InteractMode {
 #[derive(Clone)]
 struct Options {
     name: String,
-    value: SpannedValue,
+    value: Value,
 }
 
 impl Display for Options {
@@ -80,10 +80,10 @@ impl Command for InputList {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
 
         let options: Vec<Options> = match input {
-            PipelineData::Value(SpannedValue::Range { .. }, ..)
-            | PipelineData::Value(SpannedValue::List { .. }, ..)
+            PipelineData::Value(Value::Range { .. }, ..)
+            | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. }
-            | PipelineData::Value(SpannedValue::Record { .. }, ..) => {
+            | PipelineData::Value(Value::Record { .. }, ..) => {
                 let mut lentable = Vec::<usize>::new();
                 let rows = input.into_iter().collect::<Vec<_>>();
                 rows.iter().for_each(|row| {
@@ -232,18 +232,18 @@ impl Command for InputList {
 
         Ok(match ans {
             InteractMode::Multi(res) => match res {
-                Some(opts) => SpannedValue::List {
+                Some(opts) => Value::List {
                     vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
                     span: head,
                 },
-                None => SpannedValue::List {
+                None => Value::List {
                     vals: vec![],
                     span: head,
                 },
             },
             InteractMode::Single(res) => match res {
                 Some(opt) => options[opt].value.clone(),
-                None => SpannedValue::String {
+                None => Value::String {
                     val: "".to_string(),
                     span: head,
                 },

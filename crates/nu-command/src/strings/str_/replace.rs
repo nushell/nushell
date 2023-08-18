@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 struct Arguments {
@@ -111,24 +111,24 @@ impl Command for SubCommand {
             Example {
                 description: "Find and replace contents with capture group",
                 example: "'my_library.rb' | str replace '(.+).rb' '$1.nu'",
-                result: Some(SpannedValue::test_string("my_library.nu")),
+                result: Some(Value::test_string("my_library.nu")),
             },
             Example {
                 description: "Find and replace all occurrences of find string",
                 example: "'abc abc abc' | str replace -a 'b' 'z'",
-                result: Some(SpannedValue::test_string("azc azc azc")),
+                result: Some(Value::test_string("azc azc azc")),
             },
             Example {
                 description: "Find and replace all occurrences of find string in table",
                 example:
                     "[[ColA ColB ColC]; [abc abc ads]] | str replace -a 'b' 'z' ColA ColC",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            SpannedValue::test_string("azc"),
-                            SpannedValue::test_string("abc"),
-                            SpannedValue::test_string("ads"),
+                            Value::test_string("azc"),
+                            Value::test_string("abc"),
+                            Value::test_string("ads"),
                         ],
                         span: Span::test_data(),
                     }],
@@ -139,12 +139,12 @@ impl Command for SubCommand {
                 description: "Find and replace all occurrences of find string in record",
                 example:
                     "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace -a 'b' 'z' KeyA KeyC",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                         cols: vec!["KeyA".to_string(), "KeyB".to_string(), "KeyC".to_string()],
                         vals: vec![
-                            SpannedValue::test_string("azc"),
-                            SpannedValue::test_string("abc"),
-                            SpannedValue::test_string("ads"),
+                            Value::test_string("azc"),
+                            Value::test_string("abc"),
+                            Value::test_string("ads"),
                         ],
                         span: Span::test_data(),
                     }),
@@ -152,37 +152,37 @@ impl Command for SubCommand {
             Example {
                 description: "Find and replace contents without using the replace parameter as a regular expression",
                 example: r"'dogs_$1_cats' | str replace '\$1' '$2' -n",
-                result: Some(SpannedValue::test_string("dogs_$2_cats")),
+                result: Some(Value::test_string("dogs_$2_cats")),
             },
             Example {
                 description: "Find and replace the first occurrence using string replacement *not* regular expressions",
                 example: r"'c:\some\cool\path' | str replace 'c:\some\cool' '~' -s",
-                result: Some(SpannedValue::test_string("~\\path")),
+                result: Some(Value::test_string("~\\path")),
             },
             Example {
                 description: "Find and replace all occurrences using string replacement *not* regular expressions",
                 example: r#"'abc abc abc' | str replace -a 'b' 'z' -s"#,
-                result: Some(SpannedValue::test_string("azc azc azc")),
+                result: Some(Value::test_string("azc azc azc")),
             },
             Example {
                 description: "Use captures to manipulate the input text",
                 example: r#""abc-def" | str replace "(.+)-(.+)" "${2}_${1}""#,
-                result: Some(SpannedValue::test_string("def_abc")),
+                result: Some(Value::test_string("def_abc")),
             },
             Example {
                 description: "Find and replace with fancy-regex",
                 example: r"'a successful b' | str replace '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'",
-                result: Some(SpannedValue::test_string("a successful b")),
+                result: Some(Value::test_string("a successful b")),
             },
             Example {
                 description: "Find and replace with fancy-regex",
                 example: r#"'GHIKK-9+*' | str replace '[*[:xdigit:]+]' 'z'"#,
-                result: Some(SpannedValue::test_string("GHIKK-z+*")),
+                result: Some(Value::test_string("GHIKK-z+*")),
             },
             Example {
                 description: "Find and replace on individual lines (multiline)",
                 example: r#""non-matching line\n123. one line\n124. another line\n" | str replace -am '^[0-9]+\. ' ''"#,
-                result: Some(SpannedValue::test_string("non-matching line\none line\nanother line\n")),
+                result: Some(Value::test_string("non-matching line\none line\nanother line\n")),
             },
 
         ]
@@ -192,7 +192,7 @@ impl Command for SubCommand {
 struct FindReplace<'a>(&'a str, &'a str);
 
 fn action(
-    input: &SpannedValue,
+    input: &Value,
     Arguments {
         find,
         replace,
@@ -203,19 +203,19 @@ fn action(
         ..
     }: &Arguments,
     head: Span,
-) -> SpannedValue {
+) -> Value {
     match input {
-        SpannedValue::String { val, .. } => {
+        Value::String { val, .. } => {
             let FindReplace(find_str, replace_str) = FindReplace(&find.item, &replace.item);
             if *no_regex {
                 // just use regular string replacement vs regular expressions
                 if *all {
-                    SpannedValue::String {
+                    Value::String {
                         val: val.replace(find_str, replace_str),
                         span: head,
                     }
                 } else {
-                    SpannedValue::String {
+                    Value::String {
                         val: val.replacen(find_str, replace_str, 1),
                         span: head,
                     }
@@ -232,7 +232,7 @@ fn action(
                 match regex {
                     Ok(re) => {
                         if *all {
-                            SpannedValue::String {
+                            Value::String {
                                 val: {
                                     if *literal_replace {
                                         re.replace_all(val, NoExpand(replace_str)).to_string()
@@ -243,7 +243,7 @@ fn action(
                                 span: head,
                             }
                         } else {
-                            SpannedValue::String {
+                            Value::String {
                                 val: {
                                     if *literal_replace {
                                         re.replace(val, NoExpand(replace_str)).to_string()
@@ -255,7 +255,7 @@ fn action(
                             }
                         }
                     }
-                    Err(e) => SpannedValue::Error {
+                    Err(e) => Value::Error {
                         error: Box::new(ShellError::IncorrectValue {
                             msg: format!("Regex error: {e}"),
                             span: find.span,
@@ -265,8 +265,8 @@ fn action(
                 }
             }
         }
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn can_have_capture_groups() {
-        let word = SpannedValue::test_string("Cargo.toml");
+        let word = Value::test_string("Cargo.toml");
 
         let options = Arguments {
             find: test_spanned_string("Cargo.(.+)"),
@@ -312,6 +312,6 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_string("Carga.toml"));
+        assert_eq!(actual, Value::test_string("Carga.toml"));
     }
 }

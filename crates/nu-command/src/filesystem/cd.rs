@@ -5,8 +5,7 @@ use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SpannedValue, SyntaxShape,
-    Type,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::path::Path;
 
@@ -160,7 +159,7 @@ impl Command for Cd {
             }
         };
 
-        let path_value = SpannedValue::String {
+        let path_value = Value::String {
             val: path.clone(),
             span,
         };

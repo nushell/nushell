@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 use std::fmt::Write;
 
@@ -33,25 +33,22 @@ impl Command for ViewSource {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: SpannedValue = call.req(engine_state, stack, 0)?;
+        let arg: Value = call.req(engine_state, stack, 0)?;
         let arg_span = arg.span();
 
         match arg {
-            SpannedValue::Block { val: block_id, .. }
-            | SpannedValue::Closure { val: block_id, .. } => {
+            Value::Block { val: block_id, .. } | Value::Closure { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
 
                 if let Some(span) = block.span {
                     let contents = engine_state.get_span_contents(span);
-                    Ok(
-                        SpannedValue::string(String::from_utf8_lossy(contents), call.head)
-                            .into_pipeline_data(),
-                    )
+                    Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                        .into_pipeline_data())
                 } else {
-                    Ok(SpannedValue::string("<internal command>", call.head).into_pipeline_data())
+                    Ok(Value::string("<internal command>", call.head).into_pipeline_data())
                 }
             }
-            SpannedValue::String { val, .. } => {
+            Value::String { val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
@@ -97,10 +94,7 @@ impl Command for ViewSource {
                             }
                             final_contents.push_str("] ");
                             final_contents.push_str(&String::from_utf8_lossy(contents));
-                            Ok(
-                                SpannedValue::string(final_contents, call.head)
-                                    .into_pipeline_data(),
-                            )
+                            Ok(Value::string(final_contents, call.head).into_pipeline_data())
                         } else {
                             Err(ShellError::GenericError(
                                 "Cannot view value".to_string(),
@@ -124,10 +118,8 @@ impl Command for ViewSource {
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
                         let contents = engine_state.get_span_contents(module_span);
-                        Ok(
-                            SpannedValue::string(String::from_utf8_lossy(contents), call.head)
-                                .into_pipeline_data(),
-                        )
+                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                            .into_pipeline_data())
                     } else {
                         Err(ShellError::GenericError(
                             "Cannot view value".to_string(),
@@ -162,32 +154,32 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a code block",
                 example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
-                result: Some(SpannedValue::test_string("{|| echo 'hi' }")),
+                result: Some(Value::test_string("{|| echo 'hi' }")),
             },
             Example {
                 description: "View the source of a custom command",
                 example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
-                result: Some(SpannedValue::test_string("def hi [] { echo 'Hi!' }")),
+                result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
                 example: r#"def-env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
-                result: Some(SpannedValue::test_string("def foo [] { $env.BAR = 'BAZ' }")),
+                result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a custom command with flags and arguments",
                 example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
-                result: Some(SpannedValue::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
+                result: Some(Value::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
             },
             Example {
                 description: "View the source of a module",
                 example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
-                result: Some(SpannedValue::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
+                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
             },
             Example {
                 description: "View the source of an alias",
                 example: r#"alias hello = echo hi; view source hello"#,
-                result: Some(SpannedValue::test_string("echo hi")),
+                result: Some(Value::test_string("echo hi")),
             },
         ]
     }

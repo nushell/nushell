@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::io::Cursor;
 
@@ -42,7 +42,7 @@ impl Command for FromOds {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let sel_sheets = if let Some(SpannedValue::List { vals: columns, .. }) =
+        let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
         {
             convert_columns(columns.as_slice(), call.head)?
@@ -69,11 +69,11 @@ impl Command for FromOds {
     }
 }
 
-fn convert_columns(columns: &[SpannedValue], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_columns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
-            SpannedValue::String { val: s, .. } => Ok(s.clone()),
+            Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
                 span: value.span(),
@@ -90,10 +90,10 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
 
     loop {
         match values.next() {
-            Some(SpannedValue::Binary { val: b, .. }) => {
+            Some(Value::Binary { val: b, .. }) => {
                 bytes.extend_from_slice(&b);
             }
-            Some(SpannedValue::Error { error, .. }) => return Err(*error),
+            Some(Value::Error { error, .. }) => return Err(*error),
             Some(x) => {
                 return Err(ShellError::UnsupportedInput(
                     "Expected binary from pipeline".to_string(),
@@ -141,12 +141,12 @@ fn from_ods(
                 let mut row_output = IndexMap::new();
                 for (i, cell) in row.iter().enumerate() {
                     let value = match cell {
-                        DataType::Empty => SpannedValue::nothing(head),
-                        DataType::String(s) => SpannedValue::string(s, head),
-                        DataType::Float(f) => SpannedValue::float(*f, head),
-                        DataType::Int(i) => SpannedValue::int(*i, head),
-                        DataType::Bool(b) => SpannedValue::bool(*b, head),
-                        _ => SpannedValue::nothing(head),
+                        DataType::Empty => Value::nothing(head),
+                        DataType::String(s) => Value::string(s, head),
+                        DataType::Float(f) => Value::float(*f, head),
+                        DataType::Int(i) => Value::int(*i, head),
+                        DataType::Bool(b) => Value::bool(*b, head),
+                        _ => Value::nothing(head),
                     };
 
                     row_output.insert(format!("column{i}"), value);
@@ -161,7 +161,7 @@ fn from_ods(
                             acc
                         });
 
-                let record = SpannedValue::Record {
+                let record = Value::Record {
                     cols,
                     vals,
                     span: head,
@@ -172,7 +172,7 @@ fn from_ods(
 
             dict.insert(
                 sheet_name,
-                SpannedValue::List {
+                Value::List {
                     vals: sheet_output,
                     span: head,
                 },
@@ -193,7 +193,7 @@ fn from_ods(
         acc
     });
 
-    let record = SpannedValue::Record {
+    let record = Value::Record {
         cols,
         vals,
         span: head,

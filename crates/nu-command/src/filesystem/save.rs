@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 use std::fs::File;
 use std::io::Write;
@@ -188,7 +188,7 @@ fn input_to_bytes(
     // if is extern stream , in other words , not value
     } else if let PipelineData::ExternalStream { .. } = input {
         None
-    } else if let PipelineData::Value(SpannedValue::String { .. }, ..) = input {
+    } else if let PipelineData::Value(Value::String { .. }, ..) = input {
         None
     } else {
         path.extension()
@@ -235,11 +235,11 @@ fn convert_to_extension(
 /// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
 ///
 /// Propagates [`Value::Error`] and creates error otherwise
-fn value_to_bytes(value: SpannedValue) -> Result<Vec<u8>, ShellError> {
+fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     match value {
-        SpannedValue::String { val, .. } => Ok(val.into_bytes()),
-        SpannedValue::Binary { val, .. } => Ok(val),
-        SpannedValue::List { vals, .. } => {
+        Value::String { val, .. } => Ok(val.into_bytes()),
+        Value::Binary { val, .. } => Ok(val),
+        Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
                 .map(|it| it.as_string())
@@ -250,7 +250,7 @@ fn value_to_bytes(value: SpannedValue) -> Result<Vec<u8>, ShellError> {
             Ok(val.into_bytes())
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { error, .. } => Err(*error),
+        Value::Error { error, .. } => Err(*error),
         other => Ok(other.as_string()?.into_bytes()),
     }
 }
@@ -369,10 +369,10 @@ fn stream_to_file(
         .try_for_each(move |result| {
             let buf = match result {
                 Ok(v) => match v {
-                    SpannedValue::String { val, .. } => val.into_bytes(),
-                    SpannedValue::Binary { val, .. } => val,
+                    Value::String { val, .. } => val.into_bytes(),
+                    Value::Binary { val, .. } => val,
                     // Propagate errors by explicitly matching them before the final case.
-                    SpannedValue::Error { error, .. } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "string or binary".into(),

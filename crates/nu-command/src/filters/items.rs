@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 use super::utils::chain_error_with_input;
@@ -57,7 +57,7 @@ impl Command for Items {
         let redirect_stderr = call.redirect_stderr;
 
         let input_span = input.span().unwrap_or(call.head);
-        let run_for_each_item = move |keyval: (String, SpannedValue)| -> Option<SpannedValue> {
+        let run_for_each_item = move |keyval: (String, Value)| -> Option<Value> {
             // with_env() is used here to ensure that each iteration uses
             // a different set of environment variables.
             // Hence, a 'cd' in the first loop won't affect the next loop.
@@ -65,7 +65,7 @@ impl Command for Items {
 
             if let Some(var) = block.signature.get_positional(0) {
                 if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, SpannedValue::string(keyval.0.clone(), span));
+                    stack.add_var(*var_id, Value::string(keyval.0.clone(), span));
                 }
             }
 
@@ -87,7 +87,7 @@ impl Command for Items {
                 Err(ShellError::Break(_)) => None,
                 Err(error) => {
                     let error = chain_error_with_input(error, false, input_span);
-                    Some(SpannedValue::Error {
+                    Some(Value::Error {
                         error: Box::new(error),
                         span,
                     })
@@ -96,7 +96,7 @@ impl Command for Items {
         };
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(SpannedValue::Record { cols, vals, .. }, ..) => Ok(cols
+            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => Ok(cols
                 .into_iter()
                 .zip(vals)
                 .map_while(run_for_each_item)
@@ -108,7 +108,7 @@ impl Command for Items {
                 dst_span: call.head,
                 src_span: input_span,
             }),
-            PipelineData::Value(SpannedValue::Error { error, .. }, ..) => Err(*error),
+            PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
             PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: other.get_type().to_string(),
@@ -130,10 +130,10 @@ impl Command for Items {
             example:
                 "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
             description: "Iterate over each key-value pair of a record",
-            result: Some(SpannedValue::List {
+            result: Some(Value::List {
                 vals: vec![
-                    SpannedValue::test_string("new york"),
-                    SpannedValue::test_string("san francisco"),
+                    Value::test_string("new york"),
+                    Value::test_string("san francisco"),
                 ],
                 span: Span::test_data(),
             }),

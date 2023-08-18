@@ -18,7 +18,7 @@ use commands::{
 use nu_common::{collect_pipeline, has_simple_value, CtrlC};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, SpannedValue,
+    PipelineData, Value,
 };
 use pager::{Page, Pager};
 use registry::{Command, CommandRegistry};
@@ -37,10 +37,10 @@ fn run_pager(
     ctrlc: CtrlC,
     input: PipelineData,
     config: PagerConfig,
-) -> io::Result<Option<SpannedValue>> {
+) -> io::Result<Option<Value>> {
     let mut p = Pager::new(config.clone());
 
-    let is_record = matches!(input, PipelineData::Value(SpannedValue::Record { .. }, ..));
+    let is_record = matches!(input, PipelineData::Value(Value::Record { .. }, ..));
     let (columns, data) = collect_pipeline(input);
 
     let commands = create_command_registry();
@@ -66,7 +66,7 @@ fn run_pager(
 
 fn create_record_view(
     columns: Vec<String>,
-    data: Vec<Vec<SpannedValue>>,
+    data: Vec<Vec<Value>>,
     is_record: bool,
     config: PagerConfig,
 ) -> Option<Page> {

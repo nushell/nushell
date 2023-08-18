@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -47,7 +47,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             Example {
                 description: "Decode an UTF-16 string into nushell UTF-8 string",
                 example: r#"0x[00 53 00 6F 00 6D 00 65 00 20 00 44 00 61 00 74 00 61] | decode utf-16be"#,
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "Some Data".to_owned(),
                     span: Span::test_data(),
                 }),
@@ -75,11 +75,9 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                 super::encoding::decode(head, encoding, &bytes).map(|val| val.into_pipeline_data())
             }
             PipelineData::Value(v, ..) => match v {
-                SpannedValue::Binary { val: bytes, .. } => {
-                    super::encoding::decode(head, encoding, &bytes)
-                        .map(|val| val.into_pipeline_data())
-                }
-                SpannedValue::Error { error, .. } => Err(*error),
+                Value::Binary { val: bytes, .. } => super::encoding::decode(head, encoding, &bytes)
+                    .map(|val| val.into_pipeline_data()),
+                Value::Error { error, .. } => Err(*error),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "binary".into(),
                     wrong_type: v.get_type().to_string(),

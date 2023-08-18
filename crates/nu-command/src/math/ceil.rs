@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -55,27 +53,23 @@ impl Command for SubCommand {
         vec![Example {
             description: "Apply the ceil function to a list of numbers",
             example: "[1.5 2.3 -3.1] | math ceil",
-            result: Some(SpannedValue::List {
-                vals: vec![
-                    SpannedValue::test_int(2),
-                    SpannedValue::test_int(3),
-                    SpannedValue::test_int(-3),
-                ],
+            result: Some(Value::List {
+                vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(-3)],
                 span: Span::test_data(),
             }),
         }]
     }
 }
 
-fn operate(value: SpannedValue, head: Span) -> SpannedValue {
+fn operate(value: Value, head: Span) -> Value {
     match value {
-        SpannedValue::Int { .. } => value,
-        SpannedValue::Float { val, span } => SpannedValue::Int {
+        Value::Int { .. } => value,
+        Value::Float { val, span } => Value::Int {
             val: val.ceil() as i64,
             span,
         },
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

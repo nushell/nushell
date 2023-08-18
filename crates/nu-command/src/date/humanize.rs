@@ -3,9 +3,7 @@ use chrono::{DateTime, FixedOffset, Local};
 use chrono_humanize::HumanTime;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -65,33 +63,33 @@ impl Command for SubCommand {
     }
 }
 
-fn helper(value: SpannedValue, head: Span) -> SpannedValue {
+fn helper(value: Value, head: Span) -> Value {
     match value {
-        SpannedValue::Nothing { span: _ } => {
+        Value::Nothing { span: _ } => {
             let dt = Local::now();
-            SpannedValue::String {
+            Value::String {
                 val: humanize_date(dt.with_timezone(dt.offset())),
                 span: head,
             }
         }
-        SpannedValue::String {
+        Value::String {
             val,
             span: val_span,
         } => {
             let dt = parse_date_from_string(&val, val_span);
             match dt {
-                Ok(x) => SpannedValue::String {
+                Ok(x) => Value::String {
                     val: humanize_date(x),
                     span: head,
                 },
                 Err(e) => e,
             }
         }
-        SpannedValue::Date { val, span: _ } => SpannedValue::String {
+        Value::Date { val, span: _ } => Value::String {
             val: humanize_date(val),
             span: head,
         },
-        _ => SpannedValue::Error {
+        _ => Value::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
             span: head,
         },

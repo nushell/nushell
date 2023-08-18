@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     format_duration, format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
-    ListStream, PipelineData, RawStream, ShellError, Signature, SpannedValue, Type,
+    ListStream, PipelineData, RawStream, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -64,7 +64,7 @@ impl Command for ToText {
             // Even if the data is collected when it arrives at `to text`, we should be able to stream it out
             let collected_input = local_into_string(input.into_value(span), line_ending, config);
 
-            Ok(SpannedValue::String {
+            Ok(Value::String {
                 val: collected_input,
                 span,
             }
@@ -77,7 +77,7 @@ impl Command for ToText {
             Example {
                 description: "Outputs data as simple text",
                 example: "1 | to text",
-                result: Some(SpannedValue::test_string("1")),
+                result: Some(Value::test_string("1")),
             },
             Example {
                 description: "Outputs external data as simple text",
@@ -113,47 +113,47 @@ impl Iterator for ListStreamIterator {
     }
 }
 
-fn local_into_string(value: SpannedValue, separator: &str, config: &Config) -> String {
+fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
     match value {
-        SpannedValue::Bool { val, .. } => val.to_string(),
-        SpannedValue::Int { val, .. } => val.to_string(),
-        SpannedValue::Float { val, .. } => val.to_string(),
-        SpannedValue::Filesize { val, .. } => format_filesize_from_conf(val, config),
-        SpannedValue::Duration { val, .. } => format_duration(val),
-        SpannedValue::Date { val, .. } => {
+        Value::Bool { val, .. } => val.to_string(),
+        Value::Int { val, .. } => val.to_string(),
+        Value::Float { val, .. } => val.to_string(),
+        Value::Filesize { val, .. } => format_filesize_from_conf(val, config),
+        Value::Duration { val, .. } => format_duration(val),
+        Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))
         }
-        SpannedValue::Range { val, .. } => {
+        Value::Range { val, .. } => {
             format!(
                 "{}..{}",
                 local_into_string(val.from, ", ", config),
                 local_into_string(val.to, ", ", config)
             )
         }
-        SpannedValue::String { val, .. } => val,
-        SpannedValue::List { vals: val, .. } => val
+        Value::String { val, .. } => val,
+        Value::List { vals: val, .. } => val
             .iter()
             .map(|x| local_into_string(x.clone(), ", ", config))
             .collect::<Vec<_>>()
             .join(separator),
-        SpannedValue::Record { cols, vals, .. } => cols
+        Value::Record { cols, vals, .. } => cols
             .iter()
             .zip(vals.iter())
             .map(|(x, y)| format!("{}: {}", x, local_into_string(y.clone(), ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
-        SpannedValue::LazyRecord { val, .. } => match val.collect() {
+        Value::LazyRecord { val, .. } => match val.collect() {
             Ok(val) => local_into_string(val, separator, config),
             Err(error) => format!("{error:?}"),
         },
-        SpannedValue::Block { val, .. } => format!("<Block {val}>"),
-        SpannedValue::Closure { val, .. } => format!("<Closure {val}>"),
-        SpannedValue::Nothing { .. } => String::new(),
-        SpannedValue::Error { error, .. } => format!("{error:?}"),
-        SpannedValue::Binary { val, .. } => format!("{val:?}"),
-        SpannedValue::CellPath { val, .. } => val.into_string(),
-        SpannedValue::CustomValue { val, .. } => val.value_string(),
-        SpannedValue::MatchPattern { val, .. } => format!("{:?}", val),
+        Value::Block { val, .. } => format!("<Block {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Nothing { .. } => String::new(),
+        Value::Error { error, .. } => format!("{error:?}"),
+        Value::Binary { val, .. } => format!("{val:?}"),
+        Value::CellPath { val, .. } => val.into_string(),
+        Value::CustomValue { val, .. } => val.value_string(),
+        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 

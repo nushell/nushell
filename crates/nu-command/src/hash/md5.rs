@@ -1,6 +1,6 @@
 use super::generic_digest::{GenericDigest, HashDigest};
 use ::md5::Md5;
-use nu_protocol::{Example, Span, SpannedValue};
+use nu_protocol::{Example, Span, Value};
 
 pub type HashMd5 = GenericDigest<Md5>;
 
@@ -14,7 +14,7 @@ impl HashDigest for Md5 {
             Example {
                 description: "Return the md5 hash of a string, hex-encoded",
                 example: "'abcdefghijklmnopqrstuvwxyz' | hash md5",
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
                     span: Span::test_data(),
                 }),
@@ -22,7 +22,7 @@ impl HashDigest for Md5 {
             Example {
                 description: "Return the md5 hash of a string, as binary",
                 example: "'abcdefghijklmnopqrstuvwxyz' | hash md5 --binary",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![
                         0xc3, 0xfc, 0xd3, 0xd7, 0x61, 0x92, 0xe4, 0x00, 0x7d, 0xfb, 0x49, 0x6c,
                         0xca, 0x67, 0xe1, 0x3b,
@@ -51,11 +51,11 @@ mod tests {
 
     #[test]
     fn hash_string() {
-        let binary = SpannedValue::String {
+        let binary = Value::String {
             val: "abcdefghijklmnopqrstuvwxyz".to_owned(),
             span: Span::test_data(),
         };
-        let expected = SpannedValue::String {
+        let expected = Value::String {
             val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
             span: Span::test_data(),
         };
@@ -72,11 +72,11 @@ mod tests {
 
     #[test]
     fn hash_bytes() {
-        let binary = SpannedValue::Binary {
+        let binary = Value::Binary {
             val: vec![0xC0, 0xFF, 0xEE],
             span: Span::test_data(),
         };
-        let expected = SpannedValue::String {
+        let expected = Value::String {
             val: "5f80e231382769b0102b1164cf722d83".to_owned(),
             span: Span::test_data(),
         };

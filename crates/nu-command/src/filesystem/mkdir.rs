@@ -6,7 +6,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl Command for Mkdir {
             .peekable();
 
         let is_verbose = call.has_flag("verbose");
-        let mut stream: VecDeque<SpannedValue> = VecDeque::new();
+        let mut stream: VecDeque<Value> = VecDeque::new();
 
         if directories.peek().is_none() {
             return Err(ShellError::MissingParameter {
@@ -79,7 +79,7 @@ impl Command for Mkdir {
 
             if is_verbose {
                 let val = format!("{:}", dir.to_string_lossy());
-                stream.push_back(SpannedValue::String { val, span });
+                stream.push_back(Value::String { val, span });
             }
         }
 

@@ -4,9 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 
@@ -58,7 +56,7 @@ impl Command for BytesReverse {
             Example {
                 description: "Reverse bytes `0x[1F FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes reverse",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0xAA, 0xAA, 0xFF, 0x1F],
                     span: Span::test_data(),
                 }),
@@ -66,7 +64,7 @@ impl Command for BytesReverse {
             Example {
                 description: "Reverse bytes `0x[FF AA AA]`",
                 example: "0x[FF AA AA] | bytes reverse",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0xAA, 0xAA, 0xFF],
                     span: Span::test_data(),
                 }),
@@ -75,22 +73,22 @@ impl Command for BytesReverse {
     }
 }
 
-fn reverse(val: &SpannedValue, _args: &CellPathOnlyArgs, span: Span) -> SpannedValue {
+fn reverse(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match val {
-        SpannedValue::Binary {
+        Value::Binary {
             val,
             span: val_span,
         } => {
             let mut reversed_input = val.to_vec();
             reversed_input.reverse();
-            SpannedValue::Binary {
+            Value::Binary {
                 val: reversed_input,
                 span: *val_span,
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => val.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => val.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),

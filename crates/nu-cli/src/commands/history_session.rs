@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -37,6 +37,6 @@ impl Command for HistorySession {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(SpannedValue::int(engine_state.history_session_id, call.head).into_pipeline_data())
+        Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
     }
 }

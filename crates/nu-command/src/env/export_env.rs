@@ -2,7 +2,7 @@ use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -58,14 +58,14 @@ impl Command for ExportEnv {
             Example {
                 description: "Set an environment variable",
                 example: r#"export-env { $env.SPAM = 'eggs' }"#,
-                result: Some(SpannedValue::Nothing {
+                result: Some(Value::Nothing {
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Set an environment variable and examine its value",
                 example: r#"export-env { $env.SPAM = 'eggs' }; $env.SPAM"#,
-                result: Some(SpannedValue::test_string("eggs")),
+                result: Some(Value::test_string("eggs")),
             },
         ]
     }

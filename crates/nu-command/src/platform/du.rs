@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -166,7 +166,7 @@ impl Command for Du {
             all,
         };
 
-        let mut output: Vec<SpannedValue> = vec![];
+        let mut output: Vec<Value> = vec![];
         for p in paths.by_ref() {
             match p {
                 Ok(a) => {
@@ -179,7 +179,7 @@ impl Command for Du {
                     }
                 }
                 Err(e) => {
-                    output.push(SpannedValue::Error {
+                    output.push(Value::Error {
                         error: Box::new(e),
                         span: tag,
                     });

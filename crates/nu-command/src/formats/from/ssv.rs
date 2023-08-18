@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -44,13 +44,13 @@ impl Command for FromSsv {
             example: r#"'FOO   BAR
 1   2' | from ssv"#,
             description: "Converts ssv formatted string to table",
-            result: Some(SpannedValue::List { vals: vec![SpannedValue::Record { cols: vec!["FOO".to_string(), "BAR".to_string()], vals: vec![SpannedValue::test_string("1"), SpannedValue::test_string("2")], span: Span::test_data() }], span: Span::test_data() }),
+            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["FOO".to_string(), "BAR".to_string()], vals: vec![Value::test_string("1"), Value::test_string("2")], span: Span::test_data() }], span: Span::test_data() }),
         }, Example {
             example: r#"'FOO   BAR
 1   2' | from ssv -n"#,
             description: "Converts ssv formatted string to table but not treating the first row as column names",
             result: Some(
-                SpannedValue::List { vals: vec![SpannedValue::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![SpannedValue::test_string("FOO"), SpannedValue::test_string("BAR")], span: Span::test_data() }, SpannedValue::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![SpannedValue::test_string("1"), SpannedValue::test_string("2")], span: Span::test_data() }], span: Span::test_data() }),
+                Value::List { vals: vec![Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::test_string("FOO"), Value::test_string("BAR")], span: Span::test_data() }, Value::Record { cols: vec!["column1".to_string(), "column2".to_string()], vals: vec![Value::test_string("1"), Value::test_string("2")], span: Span::test_data() }], span: Span::test_data() }),
         }]
     }
 
@@ -249,7 +249,7 @@ fn from_ssv_string_to_value(
     aligned_columns: bool,
     split_at: usize,
     span: Span,
-) -> SpannedValue {
+) -> Value {
     let rows = string_to_table(s, noheaders, aligned_columns, split_at)
         .iter()
         .map(|row| {
@@ -257,17 +257,17 @@ fn from_ssv_string_to_value(
             for (col, entry) in row {
                 dict.insert(
                     col.to_string(),
-                    SpannedValue::String {
+                    Value::String {
                         val: entry.to_string(),
                         span,
                     },
                 );
             }
-            SpannedValue::from(Spanned { item: dict, span })
+            Value::from(Spanned { item: dict, span })
         })
         .collect();
 
-    SpannedValue::List { vals: rows, span }
+    Value::List { vals: rows, span }
 }
 
 fn from_ssv(

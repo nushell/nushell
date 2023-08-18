@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -48,7 +48,7 @@ impl Command for ExportDef {
         vec![Example {
             description: "Define a custom command in a module and call it",
             example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-            result: Some(SpannedValue::test_string("foo")),
+            result: Some(Value::test_string("foo")),
         }]
     }
 

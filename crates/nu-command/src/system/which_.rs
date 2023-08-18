@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SpannedValue, SyntaxShape, Type,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 use std::ffi::OsStr;
@@ -62,27 +62,23 @@ fn entry(
     path: impl Into<String>,
     cmd_type: impl Into<String>,
     span: Span,
-) -> SpannedValue {
+) -> Value {
     let mut cols = vec![];
     let mut vals = vec![];
 
     cols.push("command".to_string());
-    vals.push(SpannedValue::string(arg.into(), span));
+    vals.push(Value::string(arg.into(), span));
 
     cols.push("path".to_string());
-    vals.push(SpannedValue::string(path.into(), span));
+    vals.push(Value::string(path.into(), span));
 
     cols.push("type".to_string());
-    vals.push(SpannedValue::string(cmd_type.into(), span));
+    vals.push(Value::string(cmd_type.into(), span));
 
-    SpannedValue::Record { cols, vals, span }
+    Value::Record { cols, vals, span }
 }
 
-fn get_entry_in_commands(
-    engine_state: &EngineState,
-    name: &str,
-    span: Span,
-) -> Option<SpannedValue> {
+fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
         let cmd_type = if engine_state.get_decl(decl_id).is_custom_command() {
             "custom"
@@ -105,7 +101,7 @@ fn get_entries_in_nu(
     name: &str,
     span: Span,
     skip_after_first_found: bool,
-) -> Vec<SpannedValue> {
+) -> Vec<Value> {
     let mut all_entries = vec![];
 
     if !all_entries.is_empty() && skip_after_first_found {
@@ -125,7 +121,7 @@ fn get_first_entry_in_path(
     span: Span,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
-) -> Option<SpannedValue> {
+) -> Option<Value> {
     which::which_in(item, Some(paths), cwd)
         .map(|path| entry(item, path.to_string_lossy().to_string(), "external", span))
         .ok()
@@ -137,7 +133,7 @@ fn get_first_entry_in_path(
     _span: Span,
     _cwd: impl AsRef<Path>,
     _paths: impl AsRef<OsStr>,
-) -> Option<SpannedValue> {
+) -> Option<Value> {
     None
 }
 
@@ -147,7 +143,7 @@ fn get_all_entries_in_path(
     span: Span,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
-) -> Vec<SpannedValue> {
+) -> Vec<Value> {
     which::which_in_all(&item, Some(paths), cwd)
         .map(|iter| {
             iter.map(|path| entry(item, path.to_string_lossy().to_string(), "external", span))
@@ -162,7 +158,7 @@ fn get_all_entries_in_path(
     _span: Span,
     _cwd: impl AsRef<Path>,
     _paths: impl AsRef<OsStr>,
-) -> Vec<SpannedValue> {
+) -> Vec<Value> {
     vec![]
 }
 
@@ -178,7 +174,7 @@ fn which_single(
     engine_state: &EngineState,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
-) -> Vec<SpannedValue> {
+) -> Vec<Value> {
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
@@ -192,7 +188,7 @@ fn which_single(
     match (all, external) {
         (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
         (true, false) => {
-            let mut output: Vec<SpannedValue> = vec![];
+            let mut output: Vec<Value> = vec![];
             output.extend(get_entries_in_nu(
                 engine_state,
                 &prog_name,

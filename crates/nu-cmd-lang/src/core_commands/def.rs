@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -49,12 +49,12 @@ impl Command for Def {
             Example {
                 description: "Define a command and run it",
                 example: r#"def say-hi [] { echo 'hi' }; say-hi"#,
-                result: Some(SpannedValue::test_string("hi")),
+                result: Some(Value::test_string("hi")),
             },
             Example {
                 description: "Define a command and run it with parameter(s)",
                 example: r#"def say-sth [sth: string] { echo $sth }; say-sth hi"#,
-                result: Some(SpannedValue::test_string("hi")),
+                result: Some(Value::test_string("hi")),
             },
         ]
     }

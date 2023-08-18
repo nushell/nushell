@@ -2,8 +2,8 @@ use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -47,7 +47,7 @@ impl Command for Collect {
         let mut stack_captures = stack.captures_to_stack(&capture_block.captures);
 
         let metadata = input.metadata();
-        let input: SpannedValue = input.into_value(call.head);
+        let input: Value = input.into_value(call.head);
 
         let mut saved_positional = None;
         if let Some(var) = block.signature.get_positional(0) {
@@ -87,7 +87,7 @@ impl Command for Collect {
         vec![Example {
             description: "Use the second value in the stream",
             example: "[1 2 3] | collect { |x| $x.1 }",
-            result: Some(SpannedValue::test_int(2)),
+            result: Some(Value::test_int(2)),
         }]
     }
 }

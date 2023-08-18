@@ -10,7 +10,7 @@ use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, ShellError, Span, SpannedValue,
+    Config, PipelineData, ShellError, Span, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
 
@@ -92,11 +92,11 @@ pub fn evaluate_file(
 
     stack.add_env_var(
         "FILE_PWD".to_string(),
-        SpannedValue::string(parent.to_string_lossy(), Span::unknown()),
+        Value::string(parent.to_string_lossy(), Span::unknown()),
     );
     stack.add_env_var(
         "CURRENT_FILE".to_string(),
-        SpannedValue::string(file_path.to_string_lossy(), Span::unknown()),
+        Value::string(file_path.to_string_lossy(), Span::unknown()),
     );
 
     let source_filename = file_path
@@ -185,7 +185,7 @@ pub(crate) fn print_table_or_error(
     // Change the engine_state config to use the passed in configuration
     engine_state.set_config(config);
 
-    if let PipelineData::Value(SpannedValue::Error { error, .. }, ..) = &pipeline_data {
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &**error);
         std::process::exit(1);
@@ -222,7 +222,7 @@ pub(crate) fn print_table_or_error(
         exit_code
             .pop()
             .and_then(|last_exit_code| match last_exit_code {
-                SpannedValue::Int { val: code, .. } => Some(code),
+                Value::Int { val: code, .. } => Some(code),
                 _ => None,
             })
     } else {
@@ -232,7 +232,7 @@ pub(crate) fn print_table_or_error(
 
 fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
     for item in pipeline_data {
-        if let SpannedValue::Error { error, .. } = item {
+        if let Value::Error { error, .. } = item {
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &*error);

@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 use std::io::{Read, Write};
 use std::time::Duration;
@@ -112,7 +112,7 @@ impl Command for Input {
                     }
                 }
 
-                Ok(SpannedValue::Binary {
+                Ok(Value::Binary {
                     val: buffer,
                     span: call.head,
                 }
@@ -183,7 +183,7 @@ impl Command for Input {
                     }
                 }
                 crossterm::terminal::disable_raw_mode()?;
-                return Ok(SpannedValue::String {
+                return Ok(Value::String {
                     val: buf,
                     span: call.head,
                 }
@@ -200,7 +200,7 @@ impl Command for Input {
             }
 
             match input {
-                Ok(_) => Ok(SpannedValue::String {
+                Ok(_) => Ok(Value::String {
                     val: buf,
                     span: call.head,
                 }

@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
@@ -23,7 +22,7 @@ enum IncludeInner {
     Yes,
 }
 
-type RowEntries<'a> = Vec<(&'a Vec<String>, &'a Vec<SpannedValue>)>;
+type RowEntries<'a> = Vec<(&'a Vec<String>, &'a Vec<Value>)>;
 
 const EMPTY_COL_NAMES: &Vec<String> = &vec![];
 
@@ -72,9 +71,9 @@ impl Command for Join {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let table_2: SpannedValue = call.req(engine_state, stack, 0)?;
-        let l_on: SpannedValue = call.req(engine_state, stack, 1)?;
-        let r_on: SpannedValue = call
+        let table_2: Value = call.req(engine_state, stack, 0)?;
+        let l_on: Value = call.req(engine_state, stack, 1)?;
+        let r_on: Value = call
             .opt(engine_state, stack, 2)?
             .unwrap_or_else(|| l_on.clone());
         let span = call.head;
@@ -85,10 +84,10 @@ impl Command for Join {
 
         match (&collected_input, &table_2, &l_on, &r_on) {
             (
-                SpannedValue::List { vals: rows_1, .. },
-                SpannedValue::List { vals: rows_2, .. },
-                SpannedValue::String { val: l_on, .. },
-                SpannedValue::String { val: r_on, .. },
+                Value::List { vals: rows_1, .. },
+                Value::List { vals: rows_2, .. },
+                Value::String { val: l_on, .. },
+                Value::String { val: r_on, .. },
             ) => {
                 let result = join(rows_1, rows_2, l_on, r_on, join_type, span);
                 Ok(PipelineData::Value(result, None))
@@ -112,19 +111,19 @@ impl Command for Join {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
-            result: Some(SpannedValue::List {
-                vals: vec![SpannedValue::Record {
+            result: Some(Value::List {
+                vals: vec![Value::Record {
                     cols: vec!["a".into(), "b".into(), "c".into()],
                     vals: vec![
-                        SpannedValue::Int {
+                        Value::Int {
                             val: 1,
                             span: Span::test_data(),
                         },
-                        SpannedValue::Int {
+                        Value::Int {
                             val: 2,
                             span: Span::test_data(),
                         },
-                        SpannedValue::Int {
+                        Value::Int {
                             val: 3,
                             span: Span::test_data(),
                         },
@@ -158,13 +157,13 @@ fn join_type(call: &Call) -> Result<JoinType, nu_protocol::ShellError> {
 }
 
 fn join(
-    left: &Vec<SpannedValue>,
-    right: &Vec<SpannedValue>,
+    left: &Vec<Value>,
+    right: &Vec<Value>,
     left_join_key: &str,
     right_join_key: &str,
     join_type: JoinType,
     span: Span,
-) -> SpannedValue {
+) -> Value {
     // Inner / Right Join
     // ------------------
     // Make look-up table from rows on left
@@ -201,7 +200,7 @@ fn join(
 
     // For the "other" table, create a map from value in `on` column to a list of the
     // rows having that value.
-    let mut result: Vec<SpannedValue> = Vec::new();
+    let mut result: Vec<Value> = Vec::new();
     let is_outer = matches!(join_type, JoinType::Outer);
     let (this, this_join_key, other, other_keys, join_type) = match join_type {
         JoinType::Left | JoinType::Outer => (
@@ -256,15 +255,15 @@ fn join(
             span,
         );
     }
-    SpannedValue::List { vals: result, span }
+    Value::List { vals: result, span }
 }
 
 // Join rows of `this` (a nushell table) to rows of `other` (a lookup-table
 // containing rows of a nushell table).
 #[allow(clippy::too_many_arguments)]
 fn join_rows(
-    result: &mut Vec<SpannedValue>,
-    this: &Vec<SpannedValue>,
+    result: &mut Vec<Value>,
+    this: &Vec<Value>,
     this_join_key: &str,
     other: HashMap<String, RowEntries>,
     other_keys: &Vec<String>,
@@ -276,7 +275,7 @@ fn join_rows(
     span: Span,
 ) {
     for this_row in this {
-        if let SpannedValue::Record {
+        if let Value::Record {
             cols: this_cols,
             vals: this_vals,
             ..
@@ -300,7 +299,7 @@ fn join_rows(
                                 ),
                                 _ => panic!("not implemented"),
                             };
-                            result.push(SpannedValue::Record {
+                            result.push(Value::Record {
                                 cols: res_cols,
                                 vals: res_vals,
                                 span,
@@ -317,9 +316,9 @@ fn join_rows(
                             if Some(key.as_ref()) == shared_join_key {
                                 this_row
                                     .get_data_by_key(key)
-                                    .unwrap_or_else(|| SpannedValue::nothing(span))
+                                    .unwrap_or_else(|| Value::nothing(span))
                             } else {
-                                SpannedValue::nothing(span)
+                                Value::nothing(span)
                             }
                         })
                         .collect();
@@ -337,7 +336,7 @@ fn join_rows(
                         _ => panic!("not implemented"),
                     };
 
-                    result.push(SpannedValue::Record {
+                    result.push(Value::Record {
                         cols: res_cols,
                         vals: res_vals,
                         span,
@@ -350,11 +349,11 @@ fn join_rows(
 
 // Return column names (i.e. ordered keys from the first row; we assume that
 // these are the same for all rows).
-fn column_names(table: &[SpannedValue]) -> &Vec<String> {
+fn column_names(table: &[Value]) -> &Vec<String> {
     table
         .iter()
         .find_map(|val| match val {
-            SpannedValue::Record { cols, .. } => Some(cols),
+            Value::Record { cols, .. } => Some(cols),
             _ => None,
         })
         .unwrap_or(EMPTY_COL_NAMES)
@@ -363,7 +362,7 @@ fn column_names(table: &[SpannedValue]) -> &Vec<String> {
 // Create a map from value in `on` column to a list of the rows having that
 // value.
 fn lookup_table<'a>(
-    rows: &'a Vec<SpannedValue>,
+    rows: &'a Vec<Value>,
     on: &str,
     sep: &str,
     cap: usize,
@@ -371,7 +370,7 @@ fn lookup_table<'a>(
 ) -> HashMap<String, RowEntries<'a>> {
     let mut map = HashMap::<String, RowEntries>::with_capacity(cap);
     for row in rows {
-        if let SpannedValue::Record { cols, vals, .. } = row {
+        if let Value::Record { cols, vals, .. } = row {
             if let Some(val) = &row.get_data_by_key(on) {
                 let valkey = val.into_string(sep, config);
                 map.entry(valkey).or_default().push((cols, vals));
@@ -385,10 +384,10 @@ fn lookup_table<'a>(
 // with keys in `left`. If `shared_key` is supplied then it is the name of a key
 // that should not be renamed (its values are guaranteed to be equal).
 fn merge_records(
-    left: (&Vec<String>, &Vec<SpannedValue>),
-    right: (&Vec<String>, &Vec<SpannedValue>),
+    left: (&Vec<String>, &Vec<Value>),
+    right: (&Vec<String>, &Vec<Value>),
     shared_key: Option<&str>,
-) -> (Vec<String>, Vec<SpannedValue>) {
+) -> (Vec<String>, Vec<Value>) {
     let ((l_keys, l_vals), (r_keys, r_vals)) = (left, right);
     let cap = max(l_keys.len(), r_keys.len());
     let mut seen = HashSet::with_capacity(cap);

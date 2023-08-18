@@ -2,7 +2,7 @@ use super::hex::{operate, ActionType};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl Command for DecodeHex {
             Example {
                 description: "Hex decode a value and output as binary",
                 example: "'0102030A0a0B' | decode hex",
-                result: Some(SpannedValue::binary(
+                result: Some(Value::binary(
                     [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
                     Span::test_data(),
                 )),
@@ -50,7 +50,7 @@ impl Command for DecodeHex {
             Example {
                 description: "Whitespaces are allowed to be between hex digits",
                 example: "'01 02  03 0A 0a 0B' | decode hex",
-                result: Some(SpannedValue::binary(
+                result: Some(Value::binary(
                     [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
                     Span::test_data(),
                 )),

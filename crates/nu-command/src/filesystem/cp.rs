@@ -11,7 +11,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SpannedValue, SyntaxShape, Type,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 use super::util::try_interaction;
@@ -343,7 +343,7 @@ impl Command for Cp {
             // filter to only errors
             result
                 .into_iter()
-                .filter(|v| matches!(v, SpannedValue::Error { .. }))
+                .filter(|v| matches!(v, Value::Error { .. }))
                 .into_pipeline_data(ctrlc)
                 .print_not_formatted(engine_state, false, true)?;
         }
@@ -387,14 +387,14 @@ fn interactive_copy(
     dst: PathBuf,
     span: Span,
     _ctrl_status: &Option<Arc<AtomicBool>>,
-    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>) -> SpannedValue,
-) -> SpannedValue {
+    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>) -> Value,
+) -> Value {
     let (interaction, confirmed) = try_interaction(
         interactive,
         format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
     );
     if let Err(e) = interaction {
-        SpannedValue::Error {
+        Value::Error {
             error: Box::new(ShellError::GenericError(
                 e.to_string(),
                 e.to_string(),
@@ -406,7 +406,7 @@ fn interactive_copy(
         }
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
-        SpannedValue::String { val: msg, span }
+        Value::String { val: msg, span }
     } else {
         copy_impl(src, dst, span, &None)
     }
@@ -421,11 +421,11 @@ fn copy_file(
     dst: PathBuf,
     span: Span,
     _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> SpannedValue {
+) -> Value {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            SpannedValue::String { val: msg, span }
+            Value::String { val: msg, span }
         }
         Err(e) => convert_io_error(e, src, dst, span),
     }
@@ -439,7 +439,7 @@ fn copy_file_with_progressbar(
     dst: PathBuf,
     span: Span,
     ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> SpannedValue {
+) -> Value {
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
 
@@ -521,7 +521,7 @@ fn copy_file_with_progressbar(
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
     bar.finished_msg(format!(" {} copied!", &file_name));
 
-    SpannedValue::String { val: msg, span }
+    Value::String { val: msg, span }
 }
 
 fn copy_symlink(
@@ -529,12 +529,12 @@ fn copy_symlink(
     dst: PathBuf,
     span: Span,
     _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> SpannedValue {
+) -> Value {
     let target_path = read_link(src.as_path());
     let target_path = match target_path {
         Ok(p) => p,
         Err(err) => {
-            return SpannedValue::Error {
+            return Value::Error {
                 error: Box::new(ShellError::GenericError(
                     err.to_string(),
                     err.to_string(),
@@ -566,9 +566,9 @@ fn copy_symlink(
     match create_symlink(target_path.as_path(), dst.as_path()) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            SpannedValue::String { val: msg, span }
+            Value::String { val: msg, span }
         }
-        Err(e) => SpannedValue::Error {
+        Err(e) => Value::Error {
             error: Box::new(ShellError::GenericError(
                 e.to_string(),
                 e.to_string(),
@@ -582,7 +582,7 @@ fn copy_symlink(
 }
 
 // Function to convert io::Errors to more specific ShellErrors
-fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> SpannedValue {
+fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
     let message_src = format!(
         "copying file '{src_display}' failed: {error}",
         src_display = src.display()
@@ -618,7 +618,7 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         _ => ShellError::IOErrorSpanned(message_src, span),
     };
 
-    SpannedValue::Error {
+    Value::Error {
         error: Box::new(shell_error),
         span,
     }

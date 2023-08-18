@@ -4,9 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -80,29 +78,29 @@ impl Command for SubCommand {
             Example {
                 description: "Check if input contains string",
                 example: "'my_library.rb' | str contains '.rb'",
-                result: Some(SpannedValue::test_bool(true)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if input contains string case insensitive",
                 example: "'my_library.rb' | str contains -i '.RB'",
-                result: Some(SpannedValue::test_bool(true)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if input contains string in a record",
                 example: "{ ColA: test, ColB: 100 } | str contains 'e' ColA",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["ColA".to_string(), "ColB".to_string()],
-                    vals: vec![SpannedValue::test_bool(true), SpannedValue::test_int(100)],
+                    vals: vec![Value::test_bool(true), Value::test_int(100)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![SpannedValue::test_bool(true), SpannedValue::test_int(100)],
+                        vals: vec![Value::test_bool(true), Value::test_int(100)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -111,10 +109,10 @@ impl Command for SubCommand {
             Example {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![SpannedValue::test_bool(true), SpannedValue::test_bool(true)],
+                        vals: vec![Value::test_bool(true), Value::test_bool(true)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -123,16 +121,16 @@ impl Command for SubCommand {
             Example {
                 description: "Check if input string contains 'banana'",
                 example: "'hello' | str contains 'banana'",
-                result: Some(SpannedValue::test_bool(false)),
+                result: Some(Value::test_bool(false)),
             },
             Example {
                 description: "Check if list contains string",
                 example: "[one two three] | str contains o",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_bool(true),
-                        SpannedValue::test_bool(true),
-                        SpannedValue::test_bool(false),
+                        Value::test_bool(true),
+                        Value::test_bool(true),
+                        Value::test_bool(false),
                     ],
                     span: Span::test_data(),
                 }),
@@ -140,11 +138,11 @@ impl Command for SubCommand {
             Example {
                 description: "Check if list does not contain string",
                 example: "[one two three] | str contains -n o",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_bool(false),
-                        SpannedValue::test_bool(false),
-                        SpannedValue::test_bool(true),
+                        Value::test_bool(false),
+                        Value::test_bool(false),
+                        Value::test_bool(true),
                     ],
                     span: Span::test_data(),
                 }),
@@ -154,7 +152,7 @@ impl Command for SubCommand {
 }
 
 fn action(
-    input: &SpannedValue,
+    input: &Value,
     Arguments {
         case_insensitive,
         not_contain,
@@ -162,9 +160,9 @@ fn action(
         ..
     }: &Arguments,
     head: Span,
-) -> SpannedValue {
+) -> Value {
     match input {
-        SpannedValue::String { val, .. } => SpannedValue::bool(
+        Value::String { val, .. } => Value::bool(
             match case_insensitive {
                 true => {
                     if *not_contain {
@@ -185,8 +183,8 @@ fn action(
             },
             head,
         ),
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

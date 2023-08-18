@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -57,19 +57,19 @@ impl Command for Update {
             Example {
                 description: "Update a column value",
                 example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["name".into(), "stars".into()],
-                    vals: vec![SpannedValue::test_string("Nushell"), SpannedValue::test_int(5)],
+                    vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Use in closure form for more involved updating logic",
                 example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["count".into(), "fruit".into()],
-                        vals: vec![SpannedValue::test_int(5), SpannedValue::test_string("apple")],
+                        vals: vec![Value::test_int(5), Value::test_string("apple")],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -78,12 +78,12 @@ impl Command for Update {
             Example {
                 description: "Alter each value in the 'authors' column to use a single string instead of a list",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
-                result: Some(SpannedValue::List { vals: vec![SpannedValue::Record { cols: vec!["project".into(), "authors".into()], vals: vec![SpannedValue::test_string("nu"), SpannedValue::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
             },
             Example {
                 description: "You can also use a simple command to update 'authors' to a single string",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
-                result: Some(SpannedValue::List { vals: vec![SpannedValue::Record { cols: vec!["project".into(), "authors".into()], vals: vec![SpannedValue::test_string("nu"), SpannedValue::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
+                result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
             }
         ]
     }
@@ -98,7 +98,7 @@ fn update(
     let span = call.head;
 
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
-    let replacement: SpannedValue = call.req(engine_state, stack, 1)?;
+    let replacement: Value = call.req(engine_state, stack, 1)?;
 
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
@@ -131,7 +131,7 @@ fn update(
                 let input_at_path = match input.clone().follow_cell_path(&cell_path.members, false)
                 {
                     Err(e) => {
-                        return SpannedValue::Error {
+                        return Value::Error {
                             error: Box::new(e),
                             span,
                         }
@@ -152,7 +152,7 @@ fn update(
                         if let Err(e) =
                             input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return SpannedValue::Error {
+                            return Value::Error {
                                 error: Box::new(e),
                                 span,
                             };
@@ -160,7 +160,7 @@ fn update(
 
                         input
                     }
-                    Err(e) => SpannedValue::Error {
+                    Err(e) => Value::Error {
                         error: Box::new(e),
                         span,
                     },
@@ -200,7 +200,7 @@ fn update(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
-                    return SpannedValue::Error {
+                    return Value::Error {
                         error: Box::new(e),
                         span,
                     };

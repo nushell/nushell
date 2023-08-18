@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -58,12 +57,12 @@ impl Command for Default {
             Example {
                 description: "Replace the `null` value in a list",
                 example: "[1, 2, null, 4] | default 3",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                        SpannedValue::test_int(4),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
                     ],
                     span: Span::test_data(),
                 }),
@@ -78,7 +77,7 @@ fn default(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value: SpannedValue = call.req(engine_state, stack, 0)?;
+    let value: Value = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     let ctrlc = engine_state.ctrlc.clone();
@@ -86,7 +85,7 @@ fn default(
     if let Some(column) = column {
         input.map(
             move |item| match item {
-                SpannedValue::Record {
+                Value::Record {
                     mut cols,
                     mut vals,
                     span,
@@ -97,7 +96,7 @@ fn default(
                     while idx < cols.len() {
                         if cols[idx] == column.item {
                             found = true;
-                            if matches!(vals[idx], SpannedValue::Nothing { .. }) {
+                            if matches!(vals[idx], Value::Nothing { .. }) {
                                 vals[idx] = value.clone();
                             }
                         }
@@ -109,7 +108,7 @@ fn default(
                         vals.push(value.clone());
                     }
 
-                    SpannedValue::Record { cols, vals, span }
+                    Value::Record { cols, vals, span }
                 }
                 _ => item,
             },
@@ -118,7 +117,7 @@ fn default(
     } else {
         input.map(
             move |item| match item {
-                SpannedValue::Nothing { .. } => value.clone(),
+                Value::Nothing { .. } => value.clone(),
                 x => x,
             },
             ctrlc,

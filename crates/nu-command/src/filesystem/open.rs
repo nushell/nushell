@@ -4,7 +4,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Spanned, SpannedValue, SyntaxShape, Type,
+    Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::io::BufReader;
 
@@ -67,7 +67,7 @@ impl Command for Open {
             path_params.insert(0, filename);
         } else {
             let filename = match input {
-                PipelineData::Value(SpannedValue::Nothing { .. }, ..) => {
+                PipelineData::Value(Value::Nothing { .. }, ..) => {
                     return Err(ShellError::MissingParameter {
                         param_name: "needs filename".to_string(),
                         span: call.head,

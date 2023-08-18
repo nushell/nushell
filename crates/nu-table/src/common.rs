@@ -1,6 +1,6 @@
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::TrimStrategy;
-use nu_protocol::{Config, FooterMode, ShellError, Span, SpannedValue};
+use nu_protocol::{Config, FooterMode, ShellError, Span, Value};
 
 use crate::{clean_charset, string_wrap, NuTableConfig, TableOutput, TableTheme};
 
@@ -28,13 +28,13 @@ pub fn create_nu_table_config(
     }
 }
 
-pub fn nu_value_to_string(val: &SpannedValue, cfg: &Config, style: &StyleComputer) -> NuText {
+pub fn nu_value_to_string(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
     let float_precision = cfg.float_precision as usize;
     let text = val.into_abbreviated_string(cfg);
     make_styled_string(style, text, Some(val), float_precision)
 }
 
-pub fn nu_value_to_string_clean(val: &SpannedValue, cfg: &Config, style: &StyleComputer) -> NuText {
+pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
     let (text, style) = nu_value_to_string(val, cfg, style);
     let text = clean_charset(&text);
     (text, style)
@@ -51,25 +51,21 @@ pub fn wrap_text(text: &str, width: usize, config: &Config) -> String {
 pub fn get_header_style(style_computer: &StyleComputer) -> TextStyle {
     TextStyle::with_style(
         Alignment::Center,
-        style_computer.compute("header", &SpannedValue::string("", Span::unknown())),
+        style_computer.compute("header", &Value::string("", Span::unknown())),
     )
 }
 
 pub fn get_index_style(style_computer: &StyleComputer) -> TextStyle {
     TextStyle::with_style(
         Alignment::Right,
-        style_computer.compute("row_index", &SpannedValue::string("", Span::unknown())),
+        style_computer.compute("row_index", &Value::string("", Span::unknown())),
     )
 }
 
-pub fn get_value_style(
-    value: &SpannedValue,
-    config: &Config,
-    style_computer: &StyleComputer,
-) -> NuText {
+pub fn get_value_style(value: &Value, config: &Config, style_computer: &StyleComputer) -> NuText {
     match value {
         // Float precision is required here.
-        SpannedValue::Float { val, .. } => (
+        Value::Float { val, .. } => (
             format!("{:.prec$}", val, prec = config.float_precision as usize),
             style_computer.style_primitive(value),
         ),
@@ -85,7 +81,7 @@ pub fn get_empty_style(style_computer: &StyleComputer) -> NuText {
         String::from("❎"),
         TextStyle::with_style(
             Alignment::Right,
-            style_computer.compute("empty", &SpannedValue::nothing(Span::unknown())),
+            style_computer.compute("empty", &Value::nothing(Span::unknown())),
         ),
     )
 }
@@ -93,13 +89,13 @@ pub fn get_empty_style(style_computer: &StyleComputer) -> NuText {
 fn make_styled_string(
     style_computer: &StyleComputer,
     text: String,
-    value: Option<&SpannedValue>, // None represents table holes.
+    value: Option<&Value>, // None represents table holes.
     float_precision: usize,
 ) -> NuText {
     match value {
         Some(value) => {
             match value {
-                SpannedValue::Float { .. } => {
+                Value::Float { .. } => {
                     // set dynamic precision from config
                     let precise_number = match convert_with_precision(&text, float_precision) {
                         Ok(num) => num,
@@ -116,7 +112,7 @@ fn make_styled_string(
                 text,
                 TextStyle::with_style(
                     Alignment::Center,
-                    style_computer.compute("empty", &SpannedValue::nothing(Span::unknown())),
+                    style_computer.compute("empty", &Value::nothing(Span::unknown())),
                 ),
             )
         }
@@ -166,7 +162,7 @@ pub fn load_theme_from_config(config: &Config) -> TableTheme {
 }
 
 fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
-    style_computer.compute("separator", &SpannedValue::nothing(Span::unknown()))
+    style_computer.compute("separator", &Value::nothing(Span::unknown()))
 }
 
 fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {

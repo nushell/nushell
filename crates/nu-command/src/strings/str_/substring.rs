@@ -7,7 +7,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{
-    Example, PipelineData, Range, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::cmp::Ordering;
 use unicode_segmentation::UnicodeSegmentation;
@@ -113,21 +113,21 @@ impl Command for SubCommand {
                 description:
                     "Get a substring \"nushell\" from the text \"good nushell\" using a range",
                 example: " 'good nushell' | str substring 5..12",
-                result: Some(SpannedValue::test_string("nushell")),
+                result: Some(Value::test_string("nushell")),
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
                 example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
-                result: Some(SpannedValue::test_string("ふが")),
+                result: Some(Value::test_string("ふが")),
             },
         ]
     }
 }
 
-fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let options = &args.indexes;
     match input {
-        SpannedValue::String { val: s, .. } => {
+        Value::String { val: s, .. } => {
             let len: isize = s.len() as isize;
 
             let start: isize = if options.0 < 0 {
@@ -143,15 +143,15 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
 
             if start < len && end >= 0 {
                 match start.cmp(&end) {
-                    Ordering::Equal => SpannedValue::string("", head),
-                    Ordering::Greater => SpannedValue::Error {
+                    Ordering::Equal => Value::string("", head),
+                    Ordering::Greater => Value::Error {
                         error: Box::new(ShellError::TypeMismatch {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
                         }),
                         span: head,
                     },
-                    Ordering::Less => SpannedValue::String {
+                    Ordering::Less => Value::String {
                         val: {
                             if end == isize::max_value() {
                                 if args.graphemes {
@@ -185,12 +185,12 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                     },
                 }
             } else {
-                SpannedValue::string("", head)
+                Value::string("", head)
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => input.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::UnsupportedInput(
                 "Only string values are supported".into(),
                 format!("input type: {:?}", other.get_type()),
@@ -205,7 +205,7 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, Arguments, Span, SpannedValue, SubCommand, Substring};
+    use super::{action, Arguments, Span, SubCommand, Substring, Value};
 
     #[test]
     fn test_examples() {
@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn substrings_indexes() {
-        let word = SpannedValue::test_string("andres");
+        let word = Value::test_string("andres");
 
         let cases = vec![
             expectation("a", (0, 1)),
@@ -273,13 +273,13 @@ mod tests {
                 Span::test_data(),
             );
 
-            assert_eq!(actual, SpannedValue::test_string(expected));
+            assert_eq!(actual, Value::test_string(expected));
         }
     }
 
     #[test]
     fn use_utf8_bytes() {
-        let word = SpannedValue::String {
+        let word = Value::String {
             val: String::from("🇯🇵ほげ ふが ぴよ"),
             span: Span::test_data(),
         };
@@ -291,6 +291,6 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_string("�"));
+        assert_eq!(actual, Value::test_string("�"));
     }
 }

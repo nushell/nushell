@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    did_you_mean, Category, Example, PipelineData, ShellError, Signature, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    did_you_mean, Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -73,7 +73,7 @@ impl Command for HideEnv {
         vec![Example {
             description: "Hide an environment variable",
             example: r#"$env.HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
-            result: Some(SpannedValue::test_bool(false)),
+            result: Some(Value::test_bool(false)),
         }]
     }
 }

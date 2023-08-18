@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct Debug;
@@ -46,12 +44,12 @@ impl Command for Debug {
         input.map(
             move |x| {
                 if raw {
-                    SpannedValue::String {
+                    Value::String {
                         val: x.debug_value(),
                         span: head,
                     }
                 } else {
-                    SpannedValue::String {
+                    Value::String {
                         val: x.debug_string(", ", &config),
                         span: head,
                     }
@@ -66,13 +64,13 @@ impl Command for Debug {
             Example {
                 description: "Debug print a string",
                 example: "'hello' | debug",
-                result: Some(SpannedValue::test_string("hello")),
+                result: Some(Value::test_string("hello")),
             },
             Example {
                 description: "Debug print a list",
                 example: "['hello'] | debug",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_string("hello")],
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("hello")],
                     span: Span::test_data(),
                 }),
             },
@@ -80,11 +78,11 @@ impl Command for Debug {
                 description: "Debug print a table",
                 example:
                     "[[version patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | debug",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string("{version: 0.1.0, patch: false}"),
-                        SpannedValue::test_string("{version: 0.1.1, patch: true}"),
-                        SpannedValue::test_string("{version: 0.2.0, patch: false}"),
+                        Value::test_string("{version: 0.1.0, patch: false}"),
+                        Value::test_string("{version: 0.1.1, patch: true}"),
+                        Value::test_string("{version: 0.2.0, patch: false}"),
                     ],
                     span: Span::test_data(),
                 }),

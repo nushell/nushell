@@ -3,8 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use num_traits::CheckedShl;
 use std::fmt::Display;
@@ -87,27 +86,23 @@ impl Command for BitsShl {
             Example {
                 description: "Shift left a number by 7 bits",
                 example: "2 | bits shl 7",
-                result: Some(SpannedValue::test_int(256)),
+                result: Some(Value::test_int(256)),
             },
             Example {
                 description: "Shift left a number with 1 byte by 7 bits",
                 example: "2 | bits shl 7 -n '1'",
-                result: Some(SpannedValue::test_int(0)),
+                result: Some(Value::test_int(0)),
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
                 example: "0x7F | bits shl 1 -s",
-                result: Some(SpannedValue::test_int(254)),
+                result: Some(Value::test_int(254)),
             },
             Example {
                 description: "Shift left a list of numbers",
                 example: "[5 3 2] | bits shl 2",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(20),
-                        SpannedValue::test_int(12),
-                        SpannedValue::test_int(8),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
                     span: Span::test_data(),
                 }),
             },
@@ -115,7 +110,7 @@ impl Command for BitsShl {
     }
 }
 
-fn get_shift_left<T: CheckedShl + Display + Copy>(val: T, bits: u32, span: Span) -> SpannedValue
+fn get_shift_left<T: CheckedShl + Display + Copy>(val: T, bits: u32, span: Span) -> Value
 where
     i64: std::convert::TryFrom<T>,
 {
@@ -123,8 +118,8 @@ where
         Some(val) => {
             let shift_result = i64::try_from(val);
             match shift_result {
-                Ok(val) => SpannedValue::Int { val, span },
-                Err(_) => SpannedValue::Error {
+                Ok(val) => Value::Int { val, span },
+                Err(_) => Value::Error {
                     error: Box::new(ShellError::GenericError(
                         "Shift left result beyond the range of 64 bit signed number".to_string(),
                         format!(
@@ -138,7 +133,7 @@ where
                 },
             }
         }
-        None => SpannedValue::Error {
+        None => Value::Error {
             error: Box::new(ShellError::GenericError(
                 "Shift left failed".to_string(),
                 format!("{val} shift left {bits} bits failed, you may shift too many bits"),
@@ -151,15 +146,9 @@ where
     }
 }
 
-fn operate(
-    value: SpannedValue,
-    bits: usize,
-    head: Span,
-    signed: bool,
-    number_size: NumberBytes,
-) -> SpannedValue {
+fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
     match value {
-        SpannedValue::Int { val, span } => {
+        Value::Int { val, span } => {
             use InputNumType::*;
             // let bits = (((bits % 64) + 64) % 64) as u32;
             let bits = bits as u32;
@@ -176,8 +165,8 @@ fn operate(
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),

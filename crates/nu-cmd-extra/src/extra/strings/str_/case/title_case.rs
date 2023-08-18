@@ -2,7 +2,7 @@ use inflector::cases::titlecase::to_title_case;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::operate;
@@ -58,24 +58,21 @@ impl Command for SubCommand {
             Example {
                 description: "convert a string to Title Case",
                 example: "'nu-shell' | str title-case",
-                result: Some(SpannedValue::test_string("Nu Shell")),
+                result: Some(Value::test_string("Nu Shell")),
             },
             Example {
                 description: "convert a string to Title Case",
                 example: "'this is a test case' | str title-case",
-                result: Some(SpannedValue::test_string("This Is A Test Case")),
+                result: Some(Value::test_string("This Is A Test Case")),
             },
             Example {
                 description: "convert a column from a table to Title Case",
                 example: r#"[[title, count]; ['nu test', 100]] | str title-case title"#,
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         span: Span::test_data(),
                         cols: vec!["title".to_string(), "count".to_string()],
-                        vals: vec![
-                            SpannedValue::test_string("Nu Test"),
-                            SpannedValue::test_int(100),
-                        ],
+                        vals: vec![Value::test_string("Nu Test"), Value::test_int(100)],
                     }],
                     span: Span::test_data(),
                 }),

@@ -1,8 +1,7 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,7 +26,7 @@ impl Command for ToYaml {
         vec![Example {
             description: "Outputs an YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yaml"#,
-            result: Some(SpannedValue::test_string("- foo: '1'\n  bar: '2'\n")),
+            result: Some(Value::test_string("- foo: '1'\n  bar: '2'\n")),
         }]
     }
 
@@ -44,21 +43,17 @@ impl Command for ToYaml {
     }
 }
 
-pub fn value_to_yaml_value(v: &SpannedValue) -> Result<serde_yaml::Value, ShellError> {
+pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v {
-        SpannedValue::Bool { val, .. } => serde_yaml::Value::Bool(*val),
-        SpannedValue::Int { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        SpannedValue::Filesize { val, .. } => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(*val))
-        }
-        SpannedValue::Duration { val, .. } => serde_yaml::Value::String(val.to_string()),
-        SpannedValue::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
-        SpannedValue::Range { .. } => serde_yaml::Value::Null,
-        SpannedValue::Float { val, .. } => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(*val))
-        }
-        SpannedValue::String { val, .. } => serde_yaml::Value::String(val.clone()),
-        SpannedValue::Record { cols, vals, .. } => {
+        Value::Bool { val, .. } => serde_yaml::Value::Bool(*val),
+        Value::Int { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Filesize { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Duration { val, .. } => serde_yaml::Value::String(val.to_string()),
+        Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
+        Value::Range { .. } => serde_yaml::Value::Null,
+        Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::String { val, .. } => serde_yaml::Value::String(val.clone()),
+        Value::Record { cols, vals, .. } => {
             let mut m = serde_yaml::Mapping::new();
             for (k, v) in cols.iter().zip(vals.iter()) {
                 m.insert(
@@ -68,11 +63,11 @@ pub fn value_to_yaml_value(v: &SpannedValue) -> Result<serde_yaml::Value, ShellE
             }
             serde_yaml::Value::Mapping(m)
         }
-        SpannedValue::LazyRecord { val, .. } => {
+        Value::LazyRecord { val, .. } => {
             let collected = val.collect()?;
             value_to_yaml_value(&collected)?
         }
-        SpannedValue::List { vals, .. } => {
+        Value::List { vals, .. } => {
             let mut out = vec![];
 
             for value in vals {
@@ -81,16 +76,16 @@ pub fn value_to_yaml_value(v: &SpannedValue) -> Result<serde_yaml::Value, ShellE
 
             serde_yaml::Value::Sequence(out)
         }
-        SpannedValue::Block { .. } => serde_yaml::Value::Null,
-        SpannedValue::Closure { .. } => serde_yaml::Value::Null,
-        SpannedValue::Nothing { .. } => serde_yaml::Value::Null,
-        SpannedValue::Error { error, .. } => return Err(*error.clone()),
-        SpannedValue::Binary { val, .. } => serde_yaml::Value::Sequence(
+        Value::Block { .. } => serde_yaml::Value::Null,
+        Value::Closure { .. } => serde_yaml::Value::Null,
+        Value::Nothing { .. } => serde_yaml::Value::Null,
+        Value::Error { error, .. } => return Err(*error.clone()),
+        Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
                 .collect(),
         ),
-        SpannedValue::CellPath { val, .. } => serde_yaml::Value::Sequence(
+        Value::CellPath { val, .. } => serde_yaml::Value::Sequence(
             val.members
                 .iter()
                 .map(|x| match &x {
@@ -101,8 +96,8 @@ pub fn value_to_yaml_value(v: &SpannedValue) -> Result<serde_yaml::Value, ShellE
                 })
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
-        SpannedValue::CustomValue { .. } => serde_yaml::Value::Null,
-        SpannedValue::MatchPattern { .. } => serde_yaml::Value::Null,
+        Value::CustomValue { .. } => serde_yaml::Value::Null,
+        Value::MatchPattern { .. } => serde_yaml::Value::Null,
     })
 }
 
@@ -111,12 +106,12 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
 
     let yaml_value = value_to_yaml_value(&value)?;
     match serde_yaml::to_string(&yaml_value) {
-        Ok(serde_yaml_string) => Ok(SpannedValue::String {
+        Ok(serde_yaml_string) => Ok(Value::String {
             val: serde_yaml_string,
             span: head,
         }
         .into_pipeline_data()),
-        _ => Ok(SpannedValue::Error {
+        _ => Ok(Value::Error {
             error: Box::new(ShellError::CantConvert {
                 to_type: "YAML".into(),
                 from_type: value.get_type().to_string(),

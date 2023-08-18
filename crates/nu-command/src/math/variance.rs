@@ -1,9 +1,7 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -48,25 +46,25 @@ impl Command for SubCommand {
             Example {
                 description: "Get the variance of a list of numbers",
                 example: "[1 2 3 4 5] | math variance",
-                result: Some(SpannedValue::test_float(2.0)),
+                result: Some(Value::test_float(2.0)),
             },
             Example {
                 description: "Get the sample variance of a list of numbers",
                 example: "[1 2 3 4 5] | math variance -s",
-                result: Some(SpannedValue::test_float(2.5)),
+                result: Some(Value::test_float(2.5)),
             },
         ]
     }
 }
 
-fn sum_of_squares(values: &[SpannedValue], span: Span) -> Result<SpannedValue, ShellError> {
-    let n = SpannedValue::int(values.len() as i64, span);
-    let mut sum_x = SpannedValue::int(0, span);
-    let mut sum_x2 = SpannedValue::int(0, span);
+fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
+    let n = Value::int(values.len() as i64, span);
+    let mut sum_x = Value::int(0, span);
+    let mut sum_x2 = Value::int(0, span);
     for value in values {
         let v = match &value {
-            SpannedValue::Int { .. } | SpannedValue::Float { .. } => Ok(value),
-            SpannedValue::Error { error, .. } => Err(*error.clone()),
+            Value::Int { .. } | Value::Float { .. } => Ok(value),
+            Value::Error { error, .. } => Err(*error.clone()),
             _ => Err(ShellError::UnsupportedInput(
                 "Attempted to compute the sum of squares of a non-integer, non-float value"
                     .to_string(),
@@ -90,8 +88,8 @@ fn sum_of_squares(values: &[SpannedValue], span: Span) -> Result<SpannedValue, S
 
 pub fn compute_variance(
     sample: bool,
-) -> impl Fn(&[SpannedValue], Span, Span) -> Result<SpannedValue, ShellError> {
-    move |values: &[SpannedValue], span: Span, head: Span| {
+) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, head: Span| {
         let n = if sample {
             values.len() - 1
         } else {
@@ -99,7 +97,7 @@ pub fn compute_variance(
         };
         // sum_of_squares() needs the span of the original value, not the call head.
         let ss = sum_of_squares(values, span)?;
-        let n = SpannedValue::int(n as i64, head);
+        let n = Value::int(n as i64, head);
         ss.div(head, &n, head)
     }
 }

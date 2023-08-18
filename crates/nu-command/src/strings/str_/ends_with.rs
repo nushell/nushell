@@ -4,9 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     substring: String,
@@ -77,37 +75,37 @@ impl Command for SubCommand {
             Example {
                 description: "Checks if string ends with '.rb'",
                 example: "'my_library.rb' | str ends-with '.rb'",
-                result: Some(SpannedValue::test_bool(true)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if strings end with '.txt'",
                 example: "['my_library.rb', 'README.txt'] | str ends-with '.txt'",
-                result: Some(SpannedValue::test_list(vec![
-                    SpannedValue::test_bool(false),
-                    SpannedValue::test_bool(true),
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(true),
                 ])),
             },
             Example {
                 description: "Checks if string ends with '.RB', case-insensitive",
                 example: "'my_library.rb' | str ends-with -i '.RB'",
-                result: Some(SpannedValue::test_bool(true)),
+                result: Some(Value::test_bool(true)),
             },
         ]
     }
 }
 
-fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
-        SpannedValue::String { val: s, .. } => {
+        Value::String { val: s, .. } => {
             let ends_with = if args.case_insensitive {
                 s.to_lowercase().ends_with(&args.substring.to_lowercase())
             } else {
                 s.ends_with(&args.substring)
             };
-            SpannedValue::bool(ends_with, head)
+            Value::bool(ends_with, head)
         }
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

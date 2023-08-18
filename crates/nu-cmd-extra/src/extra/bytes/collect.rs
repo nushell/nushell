@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone, Copy)]
@@ -45,7 +45,7 @@ impl Command for BytesCollect {
         let mut output_binary = vec![];
         for value in input {
             match value {
-                SpannedValue::Binary { mut val, .. } => {
+                Value::Binary { mut val, .. } => {
                     output_binary.append(&mut val);
                     // manually concat
                     // TODO: make use of std::slice::Join when it's available in stable.
@@ -55,7 +55,7 @@ impl Command for BytesCollect {
                     }
                 }
                 // Explicitly propagate errors instead of dropping them.
-                SpannedValue::Error { error, .. } => return Err(*error),
+                Value::Error { error, .. } => return Err(*error),
                 other => {
                     return Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "binary".into(),
@@ -68,14 +68,14 @@ impl Command for BytesCollect {
         }
 
         match separator {
-            None => Ok(SpannedValue::Binary {
+            None => Ok(Value::Binary {
                 val: output_binary,
                 span: call.head,
             }
             .into_pipeline_data()),
             Some(sep) => {
                 if output_binary.is_empty() {
-                    Ok(SpannedValue::Binary {
+                    Ok(Value::Binary {
                         val: output_binary,
                         span: call.head,
                     }
@@ -85,7 +85,7 @@ impl Command for BytesCollect {
                     for _ in sep {
                         let _ = output_binary.pop();
                     }
-                    Ok(SpannedValue::Binary {
+                    Ok(Value::Binary {
                         val: output_binary,
                         span: call.head,
                     }
@@ -100,7 +100,7 @@ impl Command for BytesCollect {
             Example {
                 description: "Create a byte array from input",
                 example: "[0x[11] 0x[13 15]] | bytes collect",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0x11, 0x13, 0x15],
                     span: Span::test_data(),
                 }),
@@ -108,7 +108,7 @@ impl Command for BytesCollect {
             Example {
                 description: "Create a byte array from input with a separator",
                 example: "[0x[11] 0x[33] 0x[44]] | bytes collect 0x[01]",
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0x11, 0x01, 0x33, 0x01, 0x44],
                     span: Span::test_data(),
                 }),

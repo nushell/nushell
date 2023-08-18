@@ -2,15 +2,12 @@ use ical::parser::ical::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, SpannedValue};
+use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
 use std::io::BufReader;
 
 pub const CMD_NAME: &str = "from ics";
 
-pub fn from_ics_call(
-    call: &EvaluatedCall,
-    input: &SpannedValue,
-) -> Result<SpannedValue, LabeledError> {
+pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
     let span = input.span();
     let input_string = input.as_string()?;
     let head = call.head;
@@ -30,7 +27,7 @@ pub fn from_ics_call(
     for calendar in parser {
         match calendar {
             Ok(c) => output.push(calendar_to_value(c, head)),
-            Err(e) => output.push(SpannedValue::Error {
+            Err(e) => output.push(Value::Error {
                 error: Box::new(ShellError::UnsupportedInput(
                     format!("input cannot be parsed as .ics ({e})"),
                     "value originates from here".into(),
@@ -41,7 +38,7 @@ pub fn from_ics_call(
             }),
         }
     }
-    Ok(SpannedValue::List {
+    Ok(Value::List {
         vals: output,
         span: head,
     })
@@ -53,8 +50,8 @@ pub fn examples() -> Vec<PluginExample> {
             END:VCALENDAR' | from ics"
             .into(),
         description: "Converts ics formatted string to table".into(),
-        result: Some(SpannedValue::List {
-            vals: vec![SpannedValue::Record {
+        result: Some(Value::List {
+            vals: vec![Value::Record {
                 cols: vec![
                     "properties".to_string(),
                     "events".to_string(),
@@ -65,31 +62,31 @@ pub fn examples() -> Vec<PluginExample> {
                     "timezones".to_string(),
                 ],
                 vals: vec![
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
-                    SpannedValue::List {
+                    Value::List {
                         vals: vec![],
                         span: Span::test_data(),
                     },
@@ -101,7 +98,7 @@ pub fn examples() -> Vec<PluginExample> {
     }]
 }
 
-fn calendar_to_value(calendar: IcalCalendar, span: Span) -> SpannedValue {
+fn calendar_to_value(calendar: IcalCalendar, span: Span) -> Value {
     let mut row = IndexMap::new();
 
     row.insert(
@@ -124,11 +121,11 @@ fn calendar_to_value(calendar: IcalCalendar, span: Span) -> SpannedValue {
         timezones_to_value(calendar.timezones, span),
     );
 
-    SpannedValue::from(Spanned { item: row, span })
+    Value::from(Spanned { item: row, span })
 }
 
-fn events_to_value(events: Vec<IcalEvent>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn events_to_value(events: Vec<IcalEvent>, span: Span) -> Value {
+    Value::List {
         vals: events
             .into_iter()
             .map(|event| {
@@ -138,15 +135,15 @@ fn events_to_value(events: Vec<IcalEvent>, span: Span) -> SpannedValue {
                     properties_to_value(event.properties, span),
                 );
                 row.insert("alarms".to_string(), alarms_to_value(event.alarms, span));
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> Value {
+    Value::List {
         vals: alarms
             .into_iter()
             .map(|alarm| {
@@ -155,15 +152,15 @@ fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> SpannedValue {
                     "properties".to_string(),
                     properties_to_value(alarm.properties, span),
                 );
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> Value {
+    Value::List {
         vals: todos
             .into_iter()
             .map(|todo| {
@@ -173,15 +170,15 @@ fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> SpannedValue {
                     properties_to_value(todo.properties, span),
                 );
                 row.insert("alarms".to_string(), alarms_to_value(todo.alarms, span));
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> Value {
+    Value::List {
         vals: journals
             .into_iter()
             .map(|journal| {
@@ -190,15 +187,15 @@ fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> SpannedValue {
                     "properties".to_string(),
                     properties_to_value(journal.properties, span),
                 );
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> Value {
+    Value::List {
         vals: free_busys
             .into_iter()
             .map(|free_busy| {
@@ -207,15 +204,15 @@ fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> SpannedValu
                     "properties".to_string(),
                     properties_to_value(free_busy.properties, span),
                 );
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> Value {
+    Value::List {
         vals: timezones
             .into_iter()
             .map(|timezone| {
@@ -228,18 +225,15 @@ fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> SpannedValue 
                     "transitions".to_string(),
                     timezone_transitions_to_value(timezone.transitions, span),
                 );
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn timezone_transitions_to_value(
-    transitions: Vec<IcalTimeZoneTransition>,
-    span: Span,
-) -> SpannedValue {
-    SpannedValue::List {
+fn timezone_transitions_to_value(transitions: Vec<IcalTimeZoneTransition>, span: Span) -> Value {
+    Value::List {
         vals: transitions
             .into_iter()
             .map(|transition| {
@@ -248,54 +242,54 @@ fn timezone_transitions_to_value(
                     "properties".to_string(),
                     properties_to_value(transition.properties, span),
                 );
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn properties_to_value(properties: Vec<Property>, span: Span) -> SpannedValue {
-    SpannedValue::List {
+fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
+    Value::List {
         vals: properties
             .into_iter()
             .map(|prop| {
                 let mut row = IndexMap::new();
 
-                let name = SpannedValue::String {
+                let name = Value::String {
                     val: prop.name,
                     span,
                 };
                 let value = match prop.value {
-                    Some(val) => SpannedValue::String { val, span },
-                    None => SpannedValue::nothing(span),
+                    Some(val) => Value::String { val, span },
+                    None => Value::nothing(span),
                 };
                 let params = match prop.params {
                     Some(param_list) => params_to_value(param_list, span),
-                    None => SpannedValue::nothing(span),
+                    None => Value::nothing(span),
                 };
 
                 row.insert("name".to_string(), name);
                 row.insert("value".to_string(), value);
                 row.insert("params".to_string(), params);
-                SpannedValue::from(Spanned { item: row, span })
+                Value::from(Spanned { item: row, span })
             })
-            .collect::<Vec<SpannedValue>>(),
+            .collect::<Vec<Value>>(),
         span,
     }
 }
 
-fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> SpannedValue {
+fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     let mut row = IndexMap::new();
 
     for (param_name, param_values) in params {
-        let values: Vec<SpannedValue> = param_values
+        let values: Vec<Value> = param_values
             .into_iter()
-            .map(|val| SpannedValue::string(val, span))
+            .map(|val| Value::string(val, span))
             .collect();
-        let values = SpannedValue::List { vals: values, span };
+        let values = Value::List { vals: values, span };
         row.insert(param_name, values);
     }
 
-    SpannedValue::from(Spanned { item: row, span })
+    Value::from(Spanned { item: row, span })
 }

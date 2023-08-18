@@ -1,27 +1,27 @@
 use crate::{
     ast::{Expr, MatchPattern, Pattern, RangeInclusion},
-    Span, SpannedValue, VarId,
+    Span, Value, VarId,
 };
 
 pub trait Matcher {
-    fn match_value(&self, value: &SpannedValue, matches: &mut Vec<(VarId, SpannedValue)>) -> bool;
+    fn match_value(&self, value: &Value, matches: &mut Vec<(VarId, Value)>) -> bool;
 }
 
 impl Matcher for MatchPattern {
-    fn match_value(&self, value: &SpannedValue, matches: &mut Vec<(VarId, SpannedValue)>) -> bool {
+    fn match_value(&self, value: &Value, matches: &mut Vec<(VarId, Value)>) -> bool {
         self.pattern.match_value(value, matches)
     }
 }
 
 impl Matcher for Pattern {
-    fn match_value(&self, value: &SpannedValue, matches: &mut Vec<(VarId, SpannedValue)>) -> bool {
+    fn match_value(&self, value: &Value, matches: &mut Vec<(VarId, Value)>) -> bool {
         match self {
             Pattern::Garbage => false,
             Pattern::IgnoreValue => true,
             Pattern::IgnoreRest => false, // `..` and `..$foo` only match in specific contexts
             Pattern::Rest(_) => false,    // so we return false here and handle them elsewhere
             Pattern::Record(field_patterns) => match value {
-                SpannedValue::Record { cols, vals, .. } => {
+                Value::Record { cols, vals, .. } => {
                     'top: for field_pattern in field_patterns {
                         for (col_idx, col) in cols.iter().enumerate() {
                             if col == &field_pattern.0 {
@@ -46,14 +46,15 @@ impl Matcher for Pattern {
                 true
             }
             Pattern::List(items) => match &value {
-                SpannedValue::List { vals, .. } => {
+                Value::List { vals, .. } => {
                     if items.len() > vals.len() {
                         // The only we we allow this is to have a rest pattern in the n+1 position
                         if items.len() == (vals.len() + 1) {
                             match &items[vals.len()].pattern {
                                 Pattern::IgnoreRest => {}
-                                Pattern::Rest(var_id) => matches
-                                    .push((*var_id, SpannedValue::nothing(items[vals.len()].span))),
+                                Pattern::Rest(var_id) => {
+                                    matches.push((*var_id, Value::nothing(items[vals.len()].span)))
+                                }
                                 _ => {
                                     // There is a pattern which can't skip missing values, so we fail
                                     return false;
@@ -76,7 +77,7 @@ impl Matcher for Pattern {
                                     let rest_vals = vals[val_idx..].to_vec();
                                     matches.push((
                                         *var_id,
-                                        SpannedValue::List {
+                                        Value::List {
                                             vals: rest_vals,
                                             span: pattern.span,
                                         },
@@ -102,42 +103,42 @@ impl Matcher for Pattern {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {
                     Expr::Int(x) => {
-                        if let SpannedValue::Int { val, .. } = &value {
+                        if let Value::Int { val, .. } = &value {
                             x == val
                         } else {
                             false
                         }
                     }
                     Expr::Float(x) => {
-                        if let SpannedValue::Float { val, .. } = &value {
+                        if let Value::Float { val, .. } = &value {
                             x == val
                         } else {
                             false
                         }
                     }
                     Expr::Binary(x) => {
-                        if let SpannedValue::Binary { val, .. } = &value {
+                        if let Value::Binary { val, .. } = &value {
                             x == val
                         } else {
                             false
                         }
                     }
                     Expr::Bool(x) => {
-                        if let SpannedValue::Bool { val, .. } = &value {
+                        if let Value::Bool { val, .. } = &value {
                             x == val
                         } else {
                             false
                         }
                     }
                     Expr::String(x) => {
-                        if let SpannedValue::String { val, .. } = &value {
+                        if let Value::String { val, .. } = &value {
                             x == val
                         } else {
                             false
                         }
                     }
                     Expr::DateTime(x) => {
-                        if let SpannedValue::Date { val, .. } = &value {
+                        if let Value::Date { val, .. } = &value {
                             x == val
                         } else {
                             false
@@ -147,7 +148,10 @@ impl Matcher for Pattern {
                         let span = unit.span;
 
                         if let Expr::Int(size) = amount.expr {
-                            &unit.item.to_value(size, span) == value
+                            match &unit.item.to_value(size, span) {
+                                Ok(v) => v == value,
+                                _ => false,
+                            }
                         } else {
                             false
                         }
@@ -190,7 +194,7 @@ impl Matcher for Pattern {
                             (start, end)
                         };
 
-                        if let SpannedValue::Int { val, .. } = &value {
+                        if let Value::Int { val, .. } = &value {
                             if matches!(inclusion.inclusion, RangeInclusion::RightExclusive) {
                                 *val >= start && *val < end && ((*val - start) % step) == 0
                             } else {
@@ -226,7 +230,7 @@ impl Matcher for Pattern {
 
                                 if !found {
                                     // FIXME: don't use Span::unknown()
-                                    matches.push((*var, SpannedValue::nothing(Span::unknown())))
+                                    matches.push((*var, Value::nothing(Span::unknown())))
                                 }
                             }
                         }
@@ -244,7 +248,7 @@ impl Matcher for Pattern {
 
                             if !found {
                                 // FIXME: don't use Span::unknown()
-                                matches.push((*var, SpannedValue::nothing(Span::unknown())))
+                                matches.push((*var, Value::nothing(Span::unknown())))
                             }
                         }
                     }

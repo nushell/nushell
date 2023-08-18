@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SpannedValue, SyntaxShape, Type,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,17 +40,17 @@ impl Command for EachWhile {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![SpannedValue::test_int(2), SpannedValue::test_int(4)];
+        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4)];
         let stream_test_2 = vec![
-            SpannedValue::test_string("Output: 1"),
-            SpannedValue::test_string("Output: 2"),
+            Value::test_string("Output: 1"),
+            Value::test_string("Output: 2"),
         ];
 
         vec![
             Example {
                 example: "[1 2 3 2 1] | each while {|e| if $e < 3 { $e * 2 } }",
                 description: "Produces a list of each element before the 3, doubled",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: stream_test_1,
                     span: Span::test_data(),
                 }),
@@ -58,7 +58,7 @@ impl Command for EachWhile {
             Example {
                 example: r#"[1 2 stop 3 4] | each while {|e| if $e != 'stop' { $"Output: ($e)" } }"#,
                 description: "Output elements until reaching 'stop'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: stream_test_2,
                     span: Span::test_data(),
                 }),
@@ -66,8 +66,8 @@ impl Command for EachWhile {
             Example {
                 example: r#"[1 2 3] | enumerate | each while {|e| if $e.item < 2 { $"value ($e.item) at ($e.index)!"} }"#,
                 description: "Iterate over each element, printing the matching value and its index",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_string("value 1 at 0!")],
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("value 1 at 0!")],
                     span: Span::test_data(),
                 }),
             },
@@ -96,8 +96,8 @@ impl Command for EachWhile {
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(SpannedValue::Range { .. }, ..)
-            | PipelineData::Value(SpannedValue::List { .. }, ..)
+            PipelineData::Value(Value::Range { .. }, ..)
+            | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
                 // TODO: Could this be changed to .into_interruptible_iter(ctrlc) ?
                 .into_iter()

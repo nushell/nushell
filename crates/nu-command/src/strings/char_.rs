@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 
@@ -187,7 +187,7 @@ impl Command for Char {
             Example {
                 description: "Output newline",
                 example: r#"char newline"#,
-                result: Some(SpannedValue::test_string("\n")),
+                result: Some(Value::test_string("\n")),
             },
             Example {
                 description: "List available characters",
@@ -197,22 +197,22 @@ impl Command for Char {
             Example {
                 description: "Output prompt character, newline and a hamburger menu character",
                 example: r#"(char prompt) + (char newline) + (char hamburger)"#,
-                result: Some(SpannedValue::test_string("\u{25b6}\n\u{2261}")),
+                result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
             },
             Example {
                 description: "Output Unicode character",
                 example: r#"char -u 1f378"#,
-                result: Some(SpannedValue::test_string("\u{1f378}")),
+                result: Some(Value::test_string("\u{1f378}")),
             },
             Example {
                 description: "Create Unicode from integer codepoint values",
                 example: r#"char -i (0x60 + 1) (0x60 + 2)"#,
-                result: Some(SpannedValue::test_string("ab")),
+                result: Some(Value::test_string("ab")),
             },
             Example {
                 description: "Output multi-byte Unicode character",
                 example: r#"char -u 1F468 200D 1F466 200D 1F466"#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "\u{1F468}\u{200D}\u{1F466}\u{200D}\u{1F466}",
                 )),
             },
@@ -233,9 +233,9 @@ impl Command for Char {
                 .iter()
                 .map(move |(name, s)| {
                     let cols = vec!["name".into(), "character".into(), "unicode".into()];
-                    let name: SpannedValue = SpannedValue::string(String::from(*name), call_span);
-                    let character = SpannedValue::string(s, call_span);
-                    let unicode = SpannedValue::string(
+                    let name: Value = Value::string(String::from(*name), call_span);
+                    let character = Value::string(s, call_span);
+                    let unicode = Value::string(
                         s.chars()
                             .map(|c| format!("{:x}", c as u32))
                             .collect::<Vec<String>>()
@@ -243,7 +243,7 @@ impl Command for Char {
                         call_span,
                     );
                     let vals = vec![name, character, unicode];
-                    SpannedValue::Record {
+                    Value::Record {
                         cols,
                         vals,
                         span: call_span,
@@ -268,7 +268,7 @@ impl Command for Char {
                     .span;
                 multi_byte.push(integer_to_unicode_char(arg, span)?)
             }
-            Ok(SpannedValue::string(multi_byte, call_span).into_pipeline_data())
+            Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else if call.has_flag("unicode") {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
@@ -285,7 +285,7 @@ impl Command for Char {
                     .span;
                 multi_byte.push(string_to_unicode_char(arg, span)?)
             }
-            Ok(SpannedValue::string(multi_byte, call_span).into_pipeline_data())
+            Ok(Value::string(multi_byte, call_span).into_pipeline_data())
         } else {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
@@ -296,7 +296,7 @@ impl Command for Char {
             }
             let special_character = str_to_character(&args[0]);
             if let Some(output) = special_character {
-                Ok(SpannedValue::string(output, call_span).into_pipeline_data())
+                Ok(Value::string(output, call_span).into_pipeline_data())
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "error finding named character".into(),

@@ -2,7 +2,7 @@ use nu_protocol::report_error;
 use nu_protocol::{
     ast::RangeInclusion,
     engine::{EngineState, Stack, StateWorkingSet},
-    Range, ShellError, Span, SpannedValue,
+    Range, ShellError, Span, Value,
 };
 use std::path::PathBuf;
 
@@ -26,8 +26,8 @@ type MakeRangeError = fn(&str, Span) -> ShellError;
 
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     let start = match &range.from {
-        SpannedValue::Int { val, .. } => isize::try_from(*val).unwrap_or_default(),
-        SpannedValue::Nothing { .. } => 0,
+        Value::Int { val, .. } => isize::try_from(*val).unwrap_or_default(),
+        Value::Nothing { .. } => 0,
         _ => {
             return Err(|msg, span| ShellError::TypeMismatch {
                 err_message: msg.to_string(),
@@ -37,14 +37,14 @@ pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     };
 
     let end = match &range.to {
-        SpannedValue::Int { val, .. } => {
+        Value::Int { val, .. } => {
             if matches!(range.inclusion, RangeInclusion::Inclusive) {
                 isize::try_from(*val).unwrap_or(isize::max_value())
             } else {
                 isize::try_from(*val).unwrap_or(isize::max_value()) - 1
             }
         }
-        SpannedValue::Nothing { .. } => isize::max_value(),
+        Value::Nothing { .. } => isize::max_value(),
         _ => {
             return Err(|msg, span| ShellError::TypeMismatch {
                 err_message: msg.to_string(),

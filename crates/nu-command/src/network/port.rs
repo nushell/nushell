@@ -5,7 +5,7 @@ use nu_protocol::IntoPipelineData;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -51,7 +51,7 @@ impl Command for SubCommand {
             Example {
                 description: "get a free port between 3121 and 4000",
                 example: "port 3121 4000",
-                result: Some(SpannedValue::test_int(3121)),
+                result: Some(Value::test_int(3121)),
             },
             Example {
                 description: "get a free port from system",
@@ -99,5 +99,5 @@ fn get_free_port(
     };
 
     let free_port = listener.local_addr()?.port();
-    Ok(SpannedValue::int(free_port as i64, call.head).into_pipeline_data())
+    Ok(Value::int(free_port as i64, call.head).into_pipeline_data())
 }

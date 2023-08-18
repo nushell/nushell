@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -64,23 +64,19 @@ impl Command for SubCommand {
             Example {
                 description: "Apply the round function to a list of numbers",
                 example: "[1.5 2.3 -3.1] | math round",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(-3),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2), Value::test_int(2), Value::test_int(-3)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Apply the round function with precision specified",
                 example: "[1.555 2.333 -3.111] | math round -p 2",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_float(1.56),
-                        SpannedValue::test_float(2.33),
-                        SpannedValue::test_float(-3.11),
+                        Value::test_float(1.56),
+                        Value::test_float(2.33),
+                        Value::test_float(-3.11),
                     ],
                     span: Span::test_data(),
                 }),
@@ -88,11 +84,11 @@ impl Command for SubCommand {
             Example {
                 description: "Apply negative precision to a list of numbers",
                 example: "[123, 123.3, -123.4] | math round -p -1",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(120),
-                        SpannedValue::test_int(120),
-                        SpannedValue::test_int(-120),
+                        Value::test_int(120),
+                        Value::test_int(120),
+                        Value::test_int(-120),
                     ],
                     span: Span::test_data(),
                 }),
@@ -101,10 +97,10 @@ impl Command for SubCommand {
     }
 }
 
-fn operate(value: SpannedValue, head: Span, precision: Option<i64>) -> SpannedValue {
+fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
     // We treat int values as float values in order to avoid code repetition in the match closure
-    let value = if let SpannedValue::Int { val, span } = value {
-        SpannedValue::Float {
+    let value = if let Value::Int { val, span } = value {
+        Value::Float {
             val: val as f64,
             span,
         }
@@ -113,19 +109,19 @@ fn operate(value: SpannedValue, head: Span, precision: Option<i64>) -> SpannedVa
     };
 
     match value {
-        SpannedValue::Float { val, span } => match precision {
-            Some(precision_number) => SpannedValue::Float {
+        Value::Float { val, span } => match precision {
+            Some(precision_number) => Value::Float {
                 val: ((val * ((10_f64).powf(precision_number as f64))).round()
                     / (10_f64).powf(precision_number as f64)),
                 span,
             },
-            None => SpannedValue::Int {
+            None => Value::Int {
                 val: val.round() as i64,
                 span,
             },
         },
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

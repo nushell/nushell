@@ -7,7 +7,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SpannedValue, SyntaxShape, Type,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
@@ -200,7 +200,7 @@ impl Command for Mv {
                     update_mode,
                 );
                 if let Err(error) = result {
-                    Some(SpannedValue::Error {
+                    Some(Value::Error {
                         error: Box::new(error),
                         span: spanned_source.span,
                     })
@@ -217,7 +217,7 @@ impl Command for Mv {
                             destination.to_string_lossy()
                         ),
                     };
-                    Some(SpannedValue::String { val, span })
+                    Some(Value::String { val, span })
                 } else {
                     None
                 }

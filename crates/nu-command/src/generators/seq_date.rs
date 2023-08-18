@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -78,18 +78,18 @@ impl Command for SeqDate {
             Example {
                 description: "print the first 10 days in January, 2020",
                 example: "seq date -b '2020-01-01' -e '2020-01-10'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string("2020-01-01"),
-                        SpannedValue::test_string("2020-01-02"),
-                        SpannedValue::test_string("2020-01-03"),
-                        SpannedValue::test_string("2020-01-04"),
-                        SpannedValue::test_string("2020-01-05"),
-                        SpannedValue::test_string("2020-01-06"),
-                        SpannedValue::test_string("2020-01-07"),
-                        SpannedValue::test_string("2020-01-08"),
-                        SpannedValue::test_string("2020-01-09"),
-                        SpannedValue::test_string("2020-01-10"),
+                        Value::test_string("2020-01-01"),
+                        Value::test_string("2020-01-02"),
+                        Value::test_string("2020-01-03"),
+                        Value::test_string("2020-01-04"),
+                        Value::test_string("2020-01-05"),
+                        Value::test_string("2020-01-06"),
+                        Value::test_string("2020-01-07"),
+                        Value::test_string("2020-01-08"),
+                        Value::test_string("2020-01-09"),
+                        Value::test_string("2020-01-10"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -97,15 +97,15 @@ impl Command for SeqDate {
             Example {
                 description: "print every fifth day between January 1st 2020 and January 31st 2020",
                 example: "seq date -b '2020-01-01' -e '2020-01-31' -n 5",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                    vals: vec![
-                    SpannedValue::test_string("2020-01-01"),
-                    SpannedValue::test_string("2020-01-06"),
-                    SpannedValue::test_string("2020-01-11"),
-                    SpannedValue::test_string("2020-01-16"),
-                    SpannedValue::test_string("2020-01-21"),
-                    SpannedValue::test_string("2020-01-26"),
-                    SpannedValue::test_string("2020-01-31"),
+                    Value::test_string("2020-01-01"),
+                    Value::test_string("2020-01-06"),
+                    Value::test_string("2020-01-11"),
+                    Value::test_string("2020-01-16"),
+                    Value::test_string("2020-01-21"),
+                    Value::test_string("2020-01-26"),
+                    Value::test_string("2020-01-31"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -132,12 +132,12 @@ impl Command for SeqDate {
         let reverse = call.has_flag("reverse");
 
         let outformat = match output_format {
-            Some(s) => Some(SpannedValue::string(s.item, s.span)),
+            Some(s) => Some(Value::string(s.item, s.span)),
             _ => None,
         };
 
         let informat = match input_format {
-            Some(s) => Some(SpannedValue::string(s.item, s.span)),
+            Some(s) => Some(Value::string(s.item, s.span)),
             _ => None,
         };
 
@@ -152,11 +152,11 @@ impl Command for SeqDate {
         };
 
         let inc = match increment {
-            Some(i) => SpannedValue::int(i.item, i.span),
-            _ => SpannedValue::int(1_i64, call.head),
+            Some(i) => Value::int(i.item, i.span),
+            _ => Value::int(1_i64, call.head),
         };
 
-        let day_count = days.map(|i| SpannedValue::int(i.item, i.span));
+        let day_count = days.map(|i| Value::int(i.item, i.span));
 
         let mut rev = false;
         if reverse {
@@ -180,15 +180,15 @@ pub fn parse_date_string(s: &str, format: &str) -> Result<NaiveDate, &'static st
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_seq_dates(
-    output_format: Option<SpannedValue>,
-    input_format: Option<SpannedValue>,
+    output_format: Option<Value>,
+    input_format: Option<Value>,
     beginning_date: Option<String>,
     ending_date: Option<String>,
-    increment: SpannedValue,
-    day_count: Option<SpannedValue>,
+    increment: Value,
+    day_count: Option<Value>,
     reverse: bool,
     call_span: Span,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     let today = Local::now().date_naive();
     // if cannot convert , it will return error
     let mut step_size: i64 = increment.as_i64()?;
@@ -316,7 +316,7 @@ pub fn run_seq_dates(
     let mut ret = vec![];
     loop {
         let date_string = &next.format(&out_format).to_string();
-        ret.push(SpannedValue::string(date_string, call_span));
+        ret.push(Value::string(date_string, call_span));
         next += Duration::days(step_size);
 
         if is_out_of_range(next) {
@@ -324,7 +324,7 @@ pub fn run_seq_dates(
         }
     }
 
-    Ok(SpannedValue::List {
+    Ok(Value::List {
         vals: ret,
         span: call_span,
     })

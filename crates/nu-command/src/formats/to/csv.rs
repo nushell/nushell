@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,17 +40,17 @@ impl Command for ToCsv {
             Example {
                 description: "Outputs an CSV string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to csv",
-                result: Some(SpannedValue::test_string("foo,bar\n1,2\n")),
+                result: Some(Value::test_string("foo,bar\n1,2\n")),
             },
             Example {
                 description: "Outputs an CSV string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to csv -s ';' ",
-                result: Some(SpannedValue::test_string("foo;bar\n1;2\n")),
+                result: Some(Value::test_string("foo;bar\n1;2\n")),
             },
             Example {
                 description: "Outputs an CSV string representing the contents of this record",
                 example: "{a: 1 b: 2} | to csv",
-                result: Some(SpannedValue::test_string("a,b\n1,2\n")),
+                result: Some(Value::test_string("a,b\n1,2\n")),
             },
         ]
     }

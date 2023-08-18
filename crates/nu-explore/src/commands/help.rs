@@ -4,7 +4,7 @@ use std::io::{self, Result};
 use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 use ratatui::layout::Rect;
 
@@ -114,12 +114,7 @@ impl ViewCommand for HelpCmd {
         Ok(())
     }
 
-    fn spawn(
-        &mut self,
-        _: &EngineState,
-        _: &mut Stack,
-        _: Option<SpannedValue>,
-    ) -> Result<Self::View> {
+    fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
         if self.input_command.is_empty() {
             return Ok(HelpView::Preview(Preview::new(Self::HELP_MESSAGE)));
         }
@@ -163,7 +158,7 @@ impl ViewCommand for HelpCmd {
 fn help_frame_data(
     supported_commands: &[HelpManual],
     aliases: &HashMap<String, Vec<String>>,
-) -> (Vec<String>, Vec<Vec<SpannedValue>>) {
+) -> (Vec<String>, Vec<Vec<Value>>) {
     let commands = supported_commands
         .iter()
         .map(|manual| {
@@ -174,14 +169,14 @@ fn help_frame_data(
 
             let (cols, mut vals) = help_manual_data(manual, aliases);
             let vals = vals.remove(0);
-            SpannedValue::Record {
+            Value::Record {
                 cols,
                 vals,
                 span: NuSpan::unknown(),
             }
         })
         .collect();
-    let commands = SpannedValue::List {
+    let commands = Value::List {
         vals: commands,
         span: NuSpan::unknown(),
     };
@@ -189,25 +184,22 @@ fn help_frame_data(
     collect_input(commands)
 }
 
-fn help_manual_data(
-    manual: &HelpManual,
-    aliases: &[String],
-) -> (Vec<String>, Vec<Vec<SpannedValue>>) {
-    fn nu_str(s: &impl ToString) -> SpannedValue {
-        SpannedValue::string(s.to_string(), NuSpan::unknown())
+fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {
+    fn nu_str(s: &impl ToString) -> Value {
+        Value::string(s.to_string(), NuSpan::unknown())
     }
 
     let arguments = manual
         .arguments
         .iter()
-        .map(|e| SpannedValue::Record {
+        .map(|e| Value::Record {
             cols: vec![String::from("example"), String::from("description")],
             vals: vec![nu_str(&e.example), nu_str(&e.description)],
             span: NuSpan::unknown(),
         })
         .collect();
 
-    let arguments = SpannedValue::List {
+    let arguments = Value::List {
         vals: arguments,
         span: NuSpan::unknown(),
     };
@@ -215,13 +207,13 @@ fn help_manual_data(
     let examples = manual
         .examples
         .iter()
-        .map(|e| SpannedValue::Record {
+        .map(|e| Value::Record {
             cols: vec![String::from("example"), String::from("description")],
             vals: vec![nu_str(&e.example), nu_str(&e.description)],
             span: NuSpan::unknown(),
         })
         .collect();
-    let examples = SpannedValue::List {
+    let examples = Value::List {
         vals: examples,
         span: NuSpan::unknown(),
     };
@@ -229,7 +221,7 @@ fn help_manual_data(
     let inputs = manual
         .input
         .iter()
-        .map(|e| SpannedValue::Record {
+        .map(|e| Value::Record {
             cols: vec![
                 String::from("name"),
                 String::from("context"),
@@ -239,7 +231,7 @@ fn help_manual_data(
             span: NuSpan::unknown(),
         })
         .collect();
-    let inputs = SpannedValue::List {
+    let inputs = Value::List {
         vals: inputs,
         span: NuSpan::unknown(),
     };
@@ -251,18 +243,18 @@ fn help_manual_data(
             let values = o
                 .values
                 .iter()
-                .map(|v| SpannedValue::Record {
+                .map(|v| Value::Record {
                     cols: vec![String::from("example"), String::from("description")],
                     vals: vec![nu_str(&v.example), nu_str(&v.description)],
                     span: NuSpan::unknown(),
                 })
                 .collect();
-            let values = SpannedValue::List {
+            let values = Value::List {
                 vals: values,
                 span: NuSpan::unknown(),
             };
 
-            SpannedValue::Record {
+            Value::Record {
                 cols: vec![
                     String::from("name"),
                     String::from("context"),
@@ -279,7 +271,7 @@ fn help_manual_data(
             }
         })
         .collect();
-    let configuration = SpannedValue::List {
+    let configuration = Value::List {
         vals: configuration,
         span: NuSpan::unknown(),
     };
@@ -351,7 +343,7 @@ impl View for HelpView<'_> {
         }
     }
 
-    fn exit(&mut self) -> Option<SpannedValue> {
+    fn exit(&mut self) -> Option<Value> {
         match self {
             HelpView::Records(v) => v.exit(),
             HelpView::Preview(v) => v.exit(),

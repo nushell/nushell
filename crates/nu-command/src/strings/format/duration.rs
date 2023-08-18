@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -66,7 +66,7 @@ impl Command for FormatDuration {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let format_value = call
-            .req::<SpannedValue>(engine_state, stack, 0)?
+            .req::<Value>(engine_state, stack, 0)?
             .as_string()?
             .to_ascii_lowercase();
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
@@ -91,28 +91,28 @@ impl Command for FormatDuration {
             Example {
                 description: "Convert µs duration to the requested second duration as a string",
                 example: "1000000µs | format duration sec",
-                result: Some(SpannedValue::test_string("1 sec")),
+                result: Some(Value::test_string("1 sec")),
             },
             Example {
                 description: "Convert durations to µs duration as strings",
                 example: "[1sec 2sec] | format duration µs",
-                result: Some(SpannedValue::test_list(vec![
-                    SpannedValue::test_string("1000000 µs"),
-                    SpannedValue::test_string("2000000 µs"),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("1000000 µs"),
+                    Value::test_string("2000000 µs"),
                 ])),
             },
             Example {
                 description: "Convert duration to µs as a string if unit asked for was us",
                 example: "1sec | format duration us",
-                result: Some(SpannedValue::test_string("1000000 µs")),
+                result: Some(Value::test_string("1000000 µs")),
             },
         ]
     }
 }
 
-fn format_value_impl(val: &SpannedValue, arg: &Arguments, span: Span) -> SpannedValue {
+fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     match val {
-        SpannedValue::Duration {
+        Value::Duration {
             val: inner,
             span: inner_span,
         } => {
@@ -126,25 +126,25 @@ fn format_value_impl(val: &SpannedValue, arg: &Arguments, span: Span) -> Spanned
                         &arg.format_value
                     };
                     if d.fract() == 0.0 {
-                        SpannedValue::String {
+                        Value::String {
                             val: format!("{} {}", d, unit),
                             span: *inner_span,
                         }
                     } else {
-                        SpannedValue::String {
+                        Value::String {
                             val: format!("{:.float_precision$} {}", d, unit),
                             span: *inner_span,
                         }
                     }
                 }
-                Err(e) => SpannedValue::Error {
+                Err(e) => Value::Error {
                     error: Box::new(e),
                     span: *inner_span,
                 },
             }
         }
-        SpannedValue::Error { .. } => val.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => val.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "filesize".into(),
                 wrong_type: val.get_type().to_string(),

@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SpannedValue, SyntaxShape, Type,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -46,22 +46,18 @@ impl Command for Skip {
             Example {
                 description: "Skip the first value of a list",
                 example: "[2 4 6 8] | skip 1",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(4),
-                        SpannedValue::test_int(6),
-                        SpannedValue::test_int(8),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Skip two rows of a table",
                 example: "[[editions]; [2015] [2018] [2021]] | skip 2",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["editions".to_owned()],
-                        vals: vec![SpannedValue::test_int(2021)],
+                        vals: vec![Value::test_int(2021)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -77,12 +73,12 @@ impl Command for Skip {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let n: Option<SpannedValue> = call.opt(engine_state, stack, 0)?;
+        let n: Option<Value> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
         let metadata = input.metadata();
 
         let n: usize = match n {
-            Some(SpannedValue::Int { val, span }) => {
+            Some(Value::Int { val, span }) => {
                 val.try_into().map_err(|err| ShellError::TypeMismatch {
                     err_message: format!("Could not convert {val} to unsigned integer: {err}"),
                     span,
@@ -113,7 +109,7 @@ impl Command for Skip {
                     let frame = frame?;
 
                     match frame {
-                        SpannedValue::String { val, .. } => {
+                        Value::String { val, .. } => {
                             let bytes = val.as_bytes();
                             if bytes.len() < remaining {
                                 remaining -= bytes.len();
@@ -123,7 +119,7 @@ impl Command for Skip {
                                 break;
                             }
                         }
-                        SpannedValue::Binary { val: bytes, .. } => {
+                        Value::Binary { val: bytes, .. } => {
                             if bytes.len() < remaining {
                                 remaining -= bytes.len();
                             } else {
@@ -135,17 +131,17 @@ impl Command for Skip {
                     }
                 }
 
-                Ok(SpannedValue::Binary {
+                Ok(Value::Binary {
                     val: output,
                     span: bytes_span,
                 }
                 .into_pipeline_data()
                 .set_metadata(metadata))
             }
-            PipelineData::Value(SpannedValue::Binary { val, span }, metadata) => {
+            PipelineData::Value(Value::Binary { val, span }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
 
-                Ok(SpannedValue::Binary { val: bytes, span }
+                Ok(Value::Binary { val: bytes, span }
                     .into_pipeline_data()
                     .set_metadata(metadata))
             }

@@ -1,5 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use nu_protocol::SpannedValue;
+use nu_protocol::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
@@ -95,7 +95,7 @@ pub fn parse_nustyle(nu_style: NuStyle) -> Style {
 }
 
 // Converts the color_config records, { fg, bg, attr }, into a Style.
-pub fn color_record_to_nustyle(value: &SpannedValue) -> Style {
+pub fn color_record_to_nustyle(value: &Value) -> Style {
     let mut fg = None;
     let mut bg = None;
     let mut attr = None;

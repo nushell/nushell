@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -92,25 +92,19 @@ impl Command for UniqBy {
         vec![Example {
             description: "Get rows from table filtered by column uniqueness ",
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
-            result: Some(SpannedValue::List {
+            result: Some(Value::List {
                 vals: vec![
-                    SpannedValue::test_record(
+                    Value::test_record(
                         vec!["fruit", "count"],
-                        vec![
-                            SpannedValue::test_string("apple"),
-                            SpannedValue::test_int(9),
-                        ],
+                        vec![Value::test_string("apple"), Value::test_int(9)],
                     ),
-                    SpannedValue::test_record(
+                    Value::test_record(
                         vec!["fruit", "count"],
-                        vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
+                        vec![Value::test_string("pear"), Value::test_int(3)],
                     ),
-                    SpannedValue::test_record(
+                    Value::test_record(
                         vec!["fruit", "count"],
-                        vec![
-                            SpannedValue::test_string("orange"),
-                            SpannedValue::test_int(7),
-                        ],
+                        vec![Value::test_string("orange"), Value::test_int(7)],
                     ),
                 ],
                 span: Span::test_data(),
@@ -119,8 +113,8 @@ impl Command for UniqBy {
     }
 }
 
-fn validate(vec: Vec<SpannedValue>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
-    if let Some(SpannedValue::Record {
+fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
+    if let Some(Value::Record {
         cols,
         vals: _input_vals,
         span: val_span,
@@ -149,7 +143,7 @@ fn validate(vec: Vec<SpannedValue>, columns: &Vec<String>, span: Span) -> Result
     Ok(())
 }
 
-fn get_data_by_columns(columns: &[String], item: &SpannedValue) -> Vec<SpannedValue> {
+fn get_data_by_columns(columns: &[String], item: &Value) -> Vec<Value> {
     columns
         .iter()
         .filter_map(|col| item.get_data_by_key(col))
@@ -162,7 +156,7 @@ fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> c
     Box::new(move |ms: crate::ItemMapperState| -> crate::ValueCounter {
         let item_column_values = get_data_by_columns(&columns, &ms.item);
 
-        let col_vals = SpannedValue::List {
+        let col_vals = Value::List {
             vals: item_column_values,
             span: Span::unknown(),
         };

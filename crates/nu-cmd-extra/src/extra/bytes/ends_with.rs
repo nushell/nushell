@@ -4,9 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -74,31 +72,31 @@ impl Command for BytesEndsWith {
             Example {
                 description: "Checks if binary ends with `0x[AA]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[AA]",
-                result: Some(SpannedValue::test_bool(true)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if binary ends with `0x[FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[FF AA AA]",
-                result: Some(SpannedValue::test_bool(true)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Checks if binary ends with `0x[11]`",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[11]",
-                result: Some(SpannedValue::test_bool(false)),
+                result: Some(Value::test_bool(false)),
             },
         ]
     }
 }
 
-fn ends_with(val: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
+fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
     match val {
-        SpannedValue::Binary {
+        Value::Binary {
             val,
             span: val_span,
-        } => SpannedValue::bool(val.ends_with(&args.pattern), *val_span),
+        } => Value::bool(val.ends_with(&args.pattern), *val_span),
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => val.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => val.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),

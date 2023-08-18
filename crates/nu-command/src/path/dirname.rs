@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -82,28 +82,26 @@ impl Command for SubCommand {
             Example {
                 description: "Get dirname of a path",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname",
-                result: Some(SpannedValue::test_string("C:\\Users\\joe\\code")),
+                result: Some(Value::test_string("C:\\Users\\joe\\code")),
             },
             Example {
                 description: "Get dirname of a list of paths",
                 example: r"[ C:\Users\joe\test.txt, C:\Users\doe\test.txt ] | path dirname",
-                result: Some(SpannedValue::test_list(vec![
-                    SpannedValue::test_string(r"C:\Users\joe"),
-                    SpannedValue::test_string(r"C:\Users\doe"),
+                result: Some(Value::test_list(vec![
+                    Value::test_string(r"C:\Users\joe"),
+                    Value::test_string(r"C:\Users\doe"),
                 ])),
             },
             Example {
                 description: "Walk up two levels",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
-                result: Some(SpannedValue::test_string("C:\\Users\\joe")),
+                result: Some(Value::test_string("C:\\Users\\joe")),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
                 example:
                     "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
-                result: Some(SpannedValue::test_string(
-                    "C:\\Users\\viking\\code\\test.txt",
-                )),
+                result: Some(Value::test_string("C:\\Users\\viking\\code\\test.txt")),
             },
         ]
     }
@@ -114,31 +112,31 @@ impl Command for SubCommand {
             Example {
                 description: "Get dirname of a path",
                 example: "'/home/joe/code/test.txt' | path dirname",
-                result: Some(SpannedValue::test_string("/home/joe/code")),
+                result: Some(Value::test_string("/home/joe/code")),
             },
             Example {
                 description: "Get dirname of a list of paths",
                 example: "[ /home/joe/test.txt, /home/doe/test.txt ] | path dirname",
-                result: Some(SpannedValue::test_list(vec![
-                    SpannedValue::test_string("/home/joe"),
-                    SpannedValue::test_string("/home/doe"),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("/home/joe"),
+                    Value::test_string("/home/doe"),
                 ])),
             },
             Example {
                 description: "Walk up two levels",
                 example: "'/home/joe/code/test.txt' | path dirname -n 2",
-                result: Some(SpannedValue::test_string("/home/joe")),
+                result: Some(Value::test_string("/home/joe")),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
                 example: "'/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
-                result: Some(SpannedValue::test_string("/home/viking/code/test.txt")),
+                result: Some(Value::test_string("/home/viking/code/test.txt")),
             },
         ]
     }
 }
 
-fn get_dirname(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
+fn get_dirname(path: &Path, span: Span, args: &Arguments) -> Value {
     let num_levels = args.num_levels.as_ref().map_or(1, |val| *val);
 
     let mut dirname = path;
@@ -165,7 +163,7 @@ fn get_dirname(path: &Path, span: Span, args: &Arguments) -> SpannedValue {
         None => dirname.to_path_buf(),
     };
 
-    SpannedValue::string(path.to_string_lossy(), span)
+    Value::string(path.to_string_lossy(), span)
 }
 
 #[cfg(test)]

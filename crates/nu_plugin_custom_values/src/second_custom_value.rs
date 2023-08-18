@@ -1,4 +1,4 @@
-use nu_protocol::{CustomValue, ShellError, Span, SpannedValue};
+use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -13,16 +13,16 @@ impl SecondCustomValue {
         }
     }
 
-    pub fn into_value(self, span: Span) -> SpannedValue {
-        SpannedValue::CustomValue {
+    pub fn into_value(self, span: Span) -> Value {
+        Value::CustomValue {
             val: Box::new(self),
             span,
         }
     }
 
-    pub fn try_from_value(value: &SpannedValue) -> Result<Self, ShellError> {
+    pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         match value {
-            SpannedValue::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
                 Some(value) => Ok(value.clone()),
                 None => Err(ShellError::CantConvert {
                     to_type: "cool".into(),
@@ -43,8 +43,8 @@ impl SecondCustomValue {
 
 #[typetag::serde]
 impl CustomValue for SecondCustomValue {
-    fn clone_value(&self, span: nu_protocol::Span) -> SpannedValue {
-        SpannedValue::CustomValue {
+    fn clone_value(&self, span: nu_protocol::Span) -> Value {
+        Value::CustomValue {
             val: Box::new(self.clone()),
             span,
         }
@@ -54,8 +54,8 @@ impl CustomValue for SecondCustomValue {
         self.typetag_name().to_string()
     }
 
-    fn to_base_value(&self, span: nu_protocol::Span) -> Result<SpannedValue, ShellError> {
-        Ok(SpannedValue::String {
+    fn to_base_value(&self, span: nu_protocol::Span) -> Result<Value, ShellError> {
+        Ok(Value::String {
             val: format!(
                 "I used to be a DIFFERENT custom value! ({})",
                 self.something

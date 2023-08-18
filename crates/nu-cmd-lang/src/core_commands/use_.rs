@@ -2,8 +2,7 @@ use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_e
 use nu_protocol::ast::{Call, Expr, Expression, ImportPattern, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, Module, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, Module, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -89,12 +88,12 @@ This command is a parser keyword. For details, check:
 
                 // If so, set the currently evaluated directory (file-relative PWD)
                 if let Some(parent) = maybe_parent {
-                    let file_pwd = SpannedValue::string(parent.to_string_lossy(), call.head);
+                    let file_pwd = Value::string(parent.to_string_lossy(), call.head);
                     callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
                 }
 
                 if let Some(file_path) = maybe_file_path {
-                    let file_path = SpannedValue::string(file_path.to_string_lossy(), call.head);
+                    let file_path = Value::string(file_path.to_string_lossy(), call.head);
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
@@ -140,32 +139,32 @@ This command is a parser keyword. For details, check:
             Example {
                 description: "Define a custom command in a module and call it",
                 example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
-                result: Some(SpannedValue::test_string("foo")),
+                result: Some(Value::test_string("foo")),
             },
             Example {
                 description: "Define a custom command that participates in the environment in a module and call it",
                 example: r#"module foo { export def-env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
-                result: Some(SpannedValue::test_string("BAZ")),
+                result: Some(Value::test_string("BAZ")),
             },
             Example {
                 description: "Use a plain module name to import its definitions qualified by the module name",
                 example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam; (spam foo) + (spam bar)"#,
-                result: Some(SpannedValue::test_string("foobar")),
+                result: Some(Value::test_string("foobar")),
             },
             Example {
                 description: "Specify * to use all definitions in a module",
                 example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam *; (foo) + (bar)"#,
-                result: Some(SpannedValue::test_string("foobar")),
+                result: Some(Value::test_string("foobar")),
             },
             Example {
                 description: "To use commands with spaces, like subcommands, surround them with quotes",
                 example: r#"module spam { export def 'foo bar' [] { "baz" } }; use spam 'foo bar'; foo bar"#,
-                result: Some(SpannedValue::test_string("baz")),
+                result: Some(Value::test_string("baz")),
             },
             Example {
                 description: "To use multiple definitions from a module, wrap them in a list",
                 example: r#"module spam { export def foo [] { "foo" }; export def 'foo bar' [] { "baz" } }; use spam ['foo', 'foo bar']; (foo) + (foo bar)"#,
-                result: Some(SpannedValue::test_string("foobaz")),
+                result: Some(Value::test_string("foobaz")),
             },
         ]
     }
@@ -192,7 +191,7 @@ fn use_variables(
                 }
                 caller_stack.add_var(
                     var_id,
-                    SpannedValue::record(cols, vals, module.span.unwrap_or(head_span)),
+                    Value::record(cols, vals, module.span.unwrap_or(head_span)),
                 )
             }
         } else {

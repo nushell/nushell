@@ -4,7 +4,7 @@ use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    CliError, IntoPipelineData, SpannedValue,
+    CliError, IntoPipelineData, Value,
 };
 use std::collections::HashMap;
 
@@ -16,7 +16,7 @@ use std::fmt::{Debug, Formatter, Result};
 #[derive(Debug, Clone)]
 pub enum ComputableStyle {
     Static(Style),
-    Closure(SpannedValue),
+    Closure(Value),
 }
 
 // An alias for the mapping used internally by StyleComputer.
@@ -49,12 +49,12 @@ impl<'a> StyleComputer<'a> {
     }
     // The main method. Takes a string name which maps to a color_config style name,
     // and a Nu value to pipe into any closures that may have been defined there.
-    pub fn compute(&self, style_name: &str, value: &SpannedValue) -> Style {
+    pub fn compute(&self, style_name: &str, value: &Value) -> Style {
         match self.map.get(style_name) {
             // Static values require no computation.
             Some(ComputableStyle::Static(s)) => *s,
             // Closures are run here.
-            Some(ComputableStyle::Closure(SpannedValue::Closure {
+            Some(ComputableStyle::Closure(Value::Closure {
                 val: block_id,
                 captures,
                 span,
@@ -84,8 +84,8 @@ impl<'a> StyleComputer<'a> {
                         let value = v.into_value(*span);
                         // These should be the same color data forms supported by color_config.
                         match value {
-                            SpannedValue::Record { .. } => color_record_to_nustyle(&value),
-                            SpannedValue::String { val, .. } => lookup_ansi_color_style(&val),
+                            Value::Record { .. } => color_record_to_nustyle(&value),
+                            Value::String { val, .. } => lookup_ansi_color_style(&val),
                             _ => Style::default(),
                         }
                     }
@@ -108,29 +108,29 @@ impl<'a> StyleComputer<'a> {
     }
 
     // Used only by the `table` command.
-    pub fn style_primitive(&self, value: &SpannedValue) -> TextStyle {
+    pub fn style_primitive(&self, value: &Value) -> TextStyle {
         use Alignment::*;
         let s = self.compute(&value.get_type().get_non_specified_string(), value);
         match *value {
-            SpannedValue::Bool { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Int { .. } => TextStyle::with_style(Right, s),
-            SpannedValue::Filesize { .. } => TextStyle::with_style(Right, s),
-            SpannedValue::Duration { .. } => TextStyle::with_style(Right, s),
-            SpannedValue::Date { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Range { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Float { .. } => TextStyle::with_style(Right, s),
-            SpannedValue::String { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Nothing { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Binary { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::CellPath { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Record { .. }
-            | SpannedValue::List { .. }
-            | SpannedValue::Block { .. } => TextStyle::with_style(Left, s),
-            SpannedValue::Closure { .. }
-            | SpannedValue::CustomValue { .. }
-            | SpannedValue::Error { .. }
-            | SpannedValue::LazyRecord { .. }
-            | SpannedValue::MatchPattern { .. } => TextStyle::basic_left(),
+            Value::Bool { .. } => TextStyle::with_style(Left, s),
+            Value::Int { .. } => TextStyle::with_style(Right, s),
+            Value::Filesize { .. } => TextStyle::with_style(Right, s),
+            Value::Duration { .. } => TextStyle::with_style(Right, s),
+            Value::Date { .. } => TextStyle::with_style(Left, s),
+            Value::Range { .. } => TextStyle::with_style(Left, s),
+            Value::Float { .. } => TextStyle::with_style(Right, s),
+            Value::String { .. } => TextStyle::with_style(Left, s),
+            Value::Nothing { .. } => TextStyle::with_style(Left, s),
+            Value::Binary { .. } => TextStyle::with_style(Left, s),
+            Value::CellPath { .. } => TextStyle::with_style(Left, s),
+            Value::Record { .. } | Value::List { .. } | Value::Block { .. } => {
+                TextStyle::with_style(Left, s)
+            }
+            Value::Closure { .. }
+            | Value::CustomValue { .. }
+            | Value::Error { .. }
+            | Value::LazyRecord { .. }
+            | Value::MatchPattern { .. } => TextStyle::basic_left(),
         }
     }
 
@@ -166,16 +166,16 @@ impl<'a> StyleComputer<'a> {
 
         for (key, value) in &config.color_config {
             match value {
-                SpannedValue::Closure { .. } => {
+                Value::Closure { .. } => {
                     map.insert(key.to_string(), ComputableStyle::Closure(value.clone()));
                 }
-                SpannedValue::Record { .. } => {
+                Value::Record { .. } => {
                     map.insert(
                         key.to_string(),
                         ComputableStyle::Static(color_record_to_nustyle(value)),
                     );
                 }
-                SpannedValue::String { val, .. } => {
+                Value::String { val, .. } => {
                     // update the stylemap with the found key
                     let color = lookup_ansi_color_style(val.as_str());
                     if let Some(v) = map.get_mut(key) {
@@ -222,11 +222,11 @@ fn test_computable_style_static() {
         .collect(),
     );
     assert_eq!(
-        style_computer.compute("string", &SpannedValue::nothing(Span::unknown())),
+        style_computer.compute("string", &Value::nothing(Span::unknown())),
         style1
     );
     assert_eq!(
-        style_computer.compute("row_index", &SpannedValue::nothing(Span::unknown())),
+        style_computer.compute("row_index", &Value::nothing(Span::unknown())),
         style2
     );
 }

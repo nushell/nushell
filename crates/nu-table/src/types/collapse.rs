@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, SpannedValue};
+use nu_protocol::{Config, Span, Value};
 
 use crate::UnstructuredTable;
 
@@ -12,13 +12,13 @@ use crate::{
 pub struct CollapsedTable;
 
 impl CollapsedTable {
-    pub fn build(value: SpannedValue, opts: TableOpts<'_>) -> StringResult {
+    pub fn build(value: Value, opts: TableOpts<'_>) -> StringResult {
         collapsed_table(value, opts.config, opts.width, opts.style_computer)
     }
 }
 
 fn collapsed_table(
-    mut value: SpannedValue,
+    mut value: Value,
     config: &Config,
     term_width: usize,
     style_computer: &StyleComputer,
@@ -38,9 +38,9 @@ fn collapsed_table(
     Ok(Some(table))
 }
 
-fn colorize_value(value: &mut SpannedValue, config: &Config, style_computer: &StyleComputer) {
+fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
     match value {
-        SpannedValue::Record { cols, vals, .. } => {
+        Value::Record { cols, vals, .. } => {
             for val in vals {
                 colorize_value(val, config, style_computer);
             }
@@ -52,7 +52,7 @@ fn colorize_value(value: &mut SpannedValue, config: &Config, style_computer: &St
                 }
             }
         }
-        SpannedValue::List { vals, .. } => {
+        Value::List { vals, .. } => {
             for val in vals {
                 colorize_value(val, config, style_computer);
             }
@@ -62,7 +62,7 @@ fn colorize_value(value: &mut SpannedValue, config: &Config, style_computer: &St
             if let Some(color) = style.color_style {
                 let text = color.paint(text).to_string();
                 let span = value.span();
-                *value = SpannedValue::string(text, span);
+                *value = Value::string(text, span);
             }
         }
     }

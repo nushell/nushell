@@ -1,10 +1,10 @@
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
-use nu_protocol::{ShellError, Span, SpannedValue};
+use nu_protocol::{ShellError, Span, Value};
 
 pub(crate) fn parse_date_from_string(
     input: &str,
     span: Span,
-) -> Result<DateTime<FixedOffset>, SpannedValue> {
+) -> Result<DateTime<FixedOffset>, Value> {
     match dtparse::parse(input) {
         Ok((native_dt, fixed_offset)) => {
             let offset = match fixed_offset {
@@ -14,13 +14,13 @@ pub(crate) fn parse_date_from_string(
             match offset.from_local_datetime(&native_dt) {
                 LocalResult::Single(d) => Ok(d),
                 LocalResult::Ambiguous(d, _) => Ok(d),
-                LocalResult::None => Err(SpannedValue::Error {
+                LocalResult::None => Err(Value::Error {
                     error: Box::new(ShellError::DatetimeParseError(input.to_string(), span)),
                     span,
                 }),
             }
         }
-        Err(_) => Err(SpannedValue::Error {
+        Err(_) => Err(Value::Error {
             error: Box::new(ShellError::DatetimeParseError(input.to_string(), span)),
             span,
         }),
@@ -32,7 +32,7 @@ pub(crate) fn parse_date_from_string(
 /// # Arguments
 /// * `head` - use the call's head
 /// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `format date`
-pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> SpannedValue {
+pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
     let column_names = vec![
         "Specification".into(),
         "Example".into(),
@@ -260,16 +260,16 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 
     let mut records = specifications
         .iter()
-        .map(|s| SpannedValue::Record {
+        .map(|s| Value::Record {
             cols: column_names.clone(),
             vals: vec![
-                SpannedValue::string(s.spec, head),
-                SpannedValue::string(now.format(s.spec).to_string(), head),
-                SpannedValue::string(s.description, head),
+                Value::string(s.spec, head),
+                Value::string(now.format(s.spec).to_string(), head),
+                Value::string(s.description, head),
             ],
             span: head,
         })
-        .collect::<Vec<SpannedValue>>();
+        .collect::<Vec<Value>>();
 
     if show_parse_only_formats {
         // now.format("%#z") will panic since it is parse-only
@@ -281,15 +281,15 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             .unwrap_or("")
             .to_string();
 
-        records.push(SpannedValue::Record {
+        records.push(Value::Record {
             cols: column_names,
             vals: vec![
-                SpannedValue::string("%#z", head),
-                SpannedValue::String {
+                Value::string("%#z", head),
+                Value::String {
                     val: example,
                     span: head,
                 },
-                SpannedValue::string(
+                Value::string(
                     "Parsing only: Same as %z but allows minutes to be missing or present.",
                     head,
                 ),
@@ -298,7 +298,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         });
     }
 
-    SpannedValue::List {
+    Value::List {
         vals: records,
         span: head,
     }

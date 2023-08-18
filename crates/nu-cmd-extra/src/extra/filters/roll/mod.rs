@@ -4,7 +4,7 @@ mod roll_left;
 mod roll_right;
 mod roll_up;
 
-use nu_protocol::{ShellError, SpannedValue};
+use nu_protocol::{ShellError, Value};
 pub use roll_::Roll;
 pub use roll_down::RollDown;
 pub use roll_left::RollLeft;
@@ -17,12 +17,12 @@ enum VerticalDirection {
 }
 
 fn vertical_rotate_value(
-    value: SpannedValue,
+    value: Value,
     by: Option<usize>,
     direction: VerticalDirection,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     match value {
-        SpannedValue::List { mut vals, span } => {
+        Value::List { mut vals, span } => {
             let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
             let values = vals.as_mut_slice();
 
@@ -31,7 +31,7 @@ fn vertical_rotate_value(
                 VerticalDirection::Down => values.rotate_right(rotations),
             }
 
-            Ok(SpannedValue::List {
+            Ok(Value::List {
                 vals: values.to_owned(),
                 span,
             })
@@ -49,13 +49,13 @@ enum HorizontalDirection {
 }
 
 fn horizontal_rotate_value(
-    value: SpannedValue,
+    value: Value,
     by: &Option<usize>,
     cells_only: bool,
     direction: &HorizontalDirection,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     match value {
-        SpannedValue::Record {
+        Value::Record {
             mut cols,
             mut vals,
             span,
@@ -82,19 +82,19 @@ fn horizontal_rotate_value(
                 HorizontalDirection::Left => values.rotate_left(rotations),
             }
 
-            Ok(SpannedValue::Record {
+            Ok(Value::Record {
                 cols: columns,
                 vals: values.to_owned(),
                 span,
             })
         }
-        SpannedValue::List { vals, span } => {
+        Value::List { vals, span } => {
             let values = vals
                 .into_iter()
                 .map(|value| horizontal_rotate_value(value, by, cells_only, direction))
-                .collect::<Result<Vec<SpannedValue>, ShellError>>()?;
+                .collect::<Result<Vec<Value>, ShellError>>()?;
 
-            Ok(SpannedValue::List { vals: values, span })
+            Ok(Value::List { vals: values, span })
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),

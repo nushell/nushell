@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SpannedValue, SyntaxShape, Type,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -67,8 +67,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
 
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(SpannedValue::Range { .. }, ..)
-            | PipelineData::Value(SpannedValue::List { .. }, ..)
+            PipelineData::Value(Value::Range { .. }, ..)
+            | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
                 // To enumerate over the input (for the index argument),
                 // it must be converted into an iterator using into_iter().
@@ -101,7 +101,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 None
                             }
                         }
-                        Err(error) => Some(SpannedValue::Error {
+                        Err(error) => Some(Value::Error {
                             error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
                             span: x.span(),
                         }),
@@ -121,7 +121,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     let x = match x {
                         Ok(x) => x,
                         Err(err) => {
-                            return Some(SpannedValue::Error {
+                            return Some(Value::Error {
                                 error: Box::new(err),
                                 span,
                             })
@@ -150,7 +150,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 None
                             }
                         }
-                        Err(error) => Some(SpannedValue::Error {
+                        Err(error) => Some(Value::Error {
                             error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
                             span: x.span(),
                         }),
@@ -184,7 +184,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             None
                         }
                     }
-                    Err(error) => Some(SpannedValue::Error {
+                    Err(error) => Some(Value::Error {
                         error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
                         span: x.span(),
                     }),
@@ -200,18 +200,18 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | filter {|x| $x > 1}",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_int(2)],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | filter {|x| $x.a > 1}",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["a".to_string()],
-                        vals: vec![SpannedValue::test_int(2)],
+                        vals: vec![Value::test_int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -220,10 +220,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "Filter rows of a table according to a stored condition",
                 example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | filter $cond",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["a".to_string()],
-                        vals: vec![SpannedValue::test_int(2)],
+                        vals: vec![Value::test_int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -232,12 +232,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "Filter items of a range according to a condition",
                 example: "9..13 | filter {|el| $el mod 2 != 0}",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(9),
-                        SpannedValue::test_int(11),
-                        SpannedValue::test_int(13),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(9), Value::test_int(11), Value::test_int(13)],
                     span: Span::test_data(),
                 }),
             },

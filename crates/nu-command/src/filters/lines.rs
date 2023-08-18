@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Span, SpannedValue, Type,
+    Signature, Span, Type, Value,
 };
 use once_cell::sync::Lazy;
 // regex can be replaced with fancy-regex once it supports `split()`
@@ -47,7 +47,7 @@ impl Command for Lines {
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
-            PipelineData::Value(SpannedValue::String { val, span }, ..) => {
+            PipelineData::Value(Value::String { val, span }, ..) => {
                 let mut lines = LINE_BREAK_REGEX
                     .split(&val)
                     .map(|s| s.to_string())
@@ -65,7 +65,7 @@ impl Command for Lines {
                     if skip_empty && s.trim().is_empty() {
                         None
                     } else {
-                        Some(SpannedValue::string(s, span))
+                        Some(Value::string(s, span))
                     }
                 });
 
@@ -76,7 +76,7 @@ impl Command for Lines {
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
-                        if let SpannedValue::String { val, span } = value {
+                        if let Value::String { val, span } = value {
                             let mut lines = LINE_BREAK_REGEX
                                 .split(&val)
                                 .filter_map(|s| {
@@ -99,7 +99,7 @@ impl Command for Lines {
                             Some(
                                 lines
                                     .into_iter()
-                                    .map(move |x| SpannedValue::String { val: x, span }),
+                                    .map(move |x| Value::String { val: x, span }),
                             )
                         } else {
                             None
@@ -112,7 +112,7 @@ impl Command for Lines {
             PipelineData::Value(val, ..) => {
                 match val {
                     // Propagate existing errors
-                    SpannedValue::Error { error, .. } => Err(*error),
+                    Value::Error { error, .. } => Err(*error),
                     _ => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string or raw data".into(),
                         wrong_type: val.get_type().to_string(),
@@ -129,7 +129,7 @@ impl Command for Lines {
                 .enumerate()
                 .map(move |(_idx, x)| match x {
                     Ok(x) => x,
-                    Err(err) => SpannedValue::Error {
+                    Err(err) => Value::Error {
                         error: Box::new(err),
                         span: head,
                     },
@@ -142,11 +142,8 @@ impl Command for Lines {
         vec![Example {
             description: "Split multi-line string into lines",
             example: r#"$"two\nlines" | lines"#,
-            result: Some(SpannedValue::List {
-                vals: vec![
-                    SpannedValue::test_string("two"),
-                    SpannedValue::test_string("lines"),
-                ],
+            result: Some(Value::List {
+                vals: vec![Value::test_string("two"), Value::test_string("lines")],
                 span: Span::test_data(),
             }),
         }]
@@ -164,7 +161,7 @@ struct RawStreamLinesAdapter {
 }
 
 impl Iterator for RawStreamLinesAdapter {
-    type Item = Result<SpannedValue, ShellError>;
+    type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         static LINE_BREAK_REGEX: Lazy<Regex> =
@@ -178,7 +175,7 @@ impl Iterator for RawStreamLinesAdapter {
                     continue;
                 }
 
-                return Some(Ok(SpannedValue::String {
+                return Some(Ok(Value::String {
                     val: s,
                     span: self.span,
                 }));
@@ -186,7 +183,7 @@ impl Iterator for RawStreamLinesAdapter {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
                     if !self.incomplete_line.is_empty() {
-                        let r = Some(Ok(SpannedValue::string(
+                        let r = Some(Ok(Value::string(
                             self.incomplete_line.to_string(),
                             self.span,
                         )));
@@ -203,7 +200,7 @@ impl Iterator for RawStreamLinesAdapter {
                         Ok(v) => {
                             match v {
                                 // TODO: Value::Binary support required?
-                                SpannedValue::String { val, span } => {
+                                Value::String { val, span } => {
                                     self.span = span;
 
                                     let mut lines = LINE_BREAK_REGEX
@@ -238,7 +235,7 @@ impl Iterator for RawStreamLinesAdapter {
                                     self.queue.append(&mut lines);
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
-                                SpannedValue::Error { error, .. } => return Some(Err(*error)),
+                                Value::Error { error, .. } => return Some(Err(*error)),
                                 other => {
                                     return Some(Err(ShellError::OnlySupportsThisInputType {
                                         exp_input_type: "string".into(),

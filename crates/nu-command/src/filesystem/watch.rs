@@ -14,7 +14,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Spanned, SpannedValue, SyntaxShape, Type,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 // durations chosen mostly arbitrarily
@@ -168,71 +168,69 @@ impl Command for Watch {
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
-        let event_handler = |operation: &str,
-                             path: PathBuf,
-                             new_path: Option<PathBuf>|
-         -> Result<(), ShellError> {
-            let glob_pattern = glob_pattern.clone();
-            let matches_glob = match glob_pattern.clone() {
-                Some(glob) => glob.matches_path(&path),
-                None => true,
+        let event_handler =
+            |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {
+                let glob_pattern = glob_pattern.clone();
+                let matches_glob = match glob_pattern.clone() {
+                    Some(glob) => glob.matches_path(&path),
+                    None => true,
+                };
+                if verbose && glob_pattern.is_some() {
+                    eprintln!("Matches glob: {matches_glob}");
+                }
+
+                if matches_glob {
+                    let stack = &mut stack.clone();
+
+                    if let Some(position) = block.signature.get_positional(0) {
+                        if let Some(position_id) = &position.var_id {
+                            stack.add_var(*position_id, Value::string(operation, call.span()));
+                        }
+                    }
+
+                    if let Some(position) = block.signature.get_positional(1) {
+                        if let Some(position_id) = &position.var_id {
+                            stack.add_var(
+                                *position_id,
+                                Value::string(path.to_string_lossy(), call.span()),
+                            );
+                        }
+                    }
+
+                    if let Some(position) = block.signature.get_positional(2) {
+                        if let Some(position_id) = &position.var_id {
+                            stack.add_var(
+                                *position_id,
+                                Value::string(
+                                    new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
+                                    call.span(),
+                                ),
+                            );
+                        }
+                    }
+
+                    let eval_result = eval_block(
+                        engine_state,
+                        stack,
+                        &block,
+                        Value::Nothing { span: call.span() }.into_pipeline_data(),
+                        call.redirect_stdout,
+                        call.redirect_stderr,
+                    );
+
+                    match eval_result {
+                        Ok(val) => {
+                            val.print(engine_state, stack, false, false)?;
+                        }
+                        Err(err) => {
+                            let working_set = StateWorkingSet::new(engine_state);
+                            eprintln!("{}", format_error(&working_set, &err));
+                        }
+                    }
+                }
+
+                Ok(())
             };
-            if verbose && glob_pattern.is_some() {
-                eprintln!("Matches glob: {matches_glob}");
-            }
-
-            if matches_glob {
-                let stack = &mut stack.clone();
-
-                if let Some(position) = block.signature.get_positional(0) {
-                    if let Some(position_id) = &position.var_id {
-                        stack.add_var(*position_id, SpannedValue::string(operation, call.span()));
-                    }
-                }
-
-                if let Some(position) = block.signature.get_positional(1) {
-                    if let Some(position_id) = &position.var_id {
-                        stack.add_var(
-                            *position_id,
-                            SpannedValue::string(path.to_string_lossy(), call.span()),
-                        );
-                    }
-                }
-
-                if let Some(position) = block.signature.get_positional(2) {
-                    if let Some(position_id) = &position.var_id {
-                        stack.add_var(
-                            *position_id,
-                            SpannedValue::string(
-                                new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
-                                call.span(),
-                            ),
-                        );
-                    }
-                }
-
-                let eval_result = eval_block(
-                    engine_state,
-                    stack,
-                    &block,
-                    SpannedValue::Nothing { span: call.span() }.into_pipeline_data(),
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                );
-
-                match eval_result {
-                    Ok(val) => {
-                        val.print(engine_state, stack, false, false)?;
-                    }
-                    Err(err) => {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_error(&working_set, &err));
-                    }
-                }
-            }
-
-            Ok(())
-        };
 
         loop {
             match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {

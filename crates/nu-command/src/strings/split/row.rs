@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use regex::Regex;
 #[derive(Clone)]
@@ -62,13 +62,13 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into rows of char",
                 example: "'abc' | split row ''",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string(""),
-                        SpannedValue::test_string("a"),
-                        SpannedValue::test_string("b"),
-                        SpannedValue::test_string("c"),
-                        SpannedValue::test_string(""),
+                        Value::test_string(""),
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                        Value::test_string(""),
                     ],
                     span: Span::test_data(),
                 }),
@@ -76,11 +76,11 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into rows by the specified separator",
                 example: "'a--b--c' | split row '--'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string("a"),
-                        SpannedValue::test_string("b"),
-                        SpannedValue::test_string("c"),
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -88,13 +88,13 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string by '-'",
                 example: "'-a-b-c-' | split row '-'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string(""),
-                        SpannedValue::test_string("a"),
-                        SpannedValue::test_string("b"),
-                        SpannedValue::test_string("c"),
-                        SpannedValue::test_string(""),
+                        Value::test_string(""),
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
+                        Value::test_string(""),
                     ],
                     span: Span::test_data(),
                 }),
@@ -102,11 +102,11 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string by regex",
                 example: r"'a   b       c' | split row -r '\s+'",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_string("a"),
-                        SpannedValue::test_string("b"),
-                        SpannedValue::test_string("c"),
+                        Value::test_string("a"),
+                        Value::test_string("b"),
+                        Value::test_string("c"),
                     ],
                     span: Span::test_data(),
                 }),
@@ -145,15 +145,10 @@ fn split_row(
     )
 }
 
-fn split_row_helper(
-    v: &SpannedValue,
-    regex: &Regex,
-    max_split: Option<usize>,
-    name: Span,
-) -> Vec<SpannedValue> {
+fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
     match v {
-        SpannedValue::Error { error, span } => {
-            vec![SpannedValue::Error {
+        Value::Error { error, span } => {
+            vec![Value::Error {
                 error: Box::new(*error.clone()),
                 span: *span,
             }]
@@ -165,15 +160,15 @@ fn split_row_helper(
                 match max_split {
                     Some(max_split) => regex
                         .splitn(&s, max_split)
-                        .map(|x: &str| SpannedValue::string(x, v_span))
+                        .map(|x: &str| Value::string(x, v_span))
                         .collect(),
                     None => regex
                         .split(&s)
-                        .map(|x: &str| SpannedValue::string(x, v_span))
+                        .map(|x: &str| Value::string(x, v_span))
                         .collect(),
                 }
             } else {
-                vec![SpannedValue::Error {
+                vec![Value::Error {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: name,

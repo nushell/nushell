@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, SpannedValue};
+use crate::{ast::Operator, Span, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -1029,10 +1029,7 @@ pub enum ShellError {
 
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
-    Return(
-        #[label = "used outside of function"] Span,
-        Box<SpannedValue>,
-    ),
+    Return(#[label = "used outside of function"] Span, Box<Value>),
 
     /// The code being executed called itself too many times.
     ///

@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, SpannedValue};
+use nu_protocol::{ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [Value](crate::Value), which is hashable.
@@ -64,22 +64,22 @@ impl HashableValue {
     /// A `span` is required because when there is an error in value, it may not contain `span` field.
     ///
     /// If the given value is not hashable(mainly because of it is structured data), an error will returned.
-    pub fn from_value(value: SpannedValue, span: Span) -> Result<Self, ShellError> {
+    pub fn from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         match value {
-            SpannedValue::Bool { val, span } => Ok(HashableValue::Bool { val, span }),
-            SpannedValue::Int { val, span } => Ok(HashableValue::Int { val, span }),
-            SpannedValue::Filesize { val, span } => Ok(HashableValue::Filesize { val, span }),
-            SpannedValue::Duration { val, span } => Ok(HashableValue::Duration { val, span }),
-            SpannedValue::Date { val, span } => Ok(HashableValue::Date { val, span }),
-            SpannedValue::Float { val, span } => Ok(HashableValue::Float {
+            Value::Bool { val, span } => Ok(HashableValue::Bool { val, span }),
+            Value::Int { val, span } => Ok(HashableValue::Int { val, span }),
+            Value::Filesize { val, span } => Ok(HashableValue::Filesize { val, span }),
+            Value::Duration { val, span } => Ok(HashableValue::Duration { val, span }),
+            Value::Date { val, span } => Ok(HashableValue::Date { val, span }),
+            Value::Float { val, span } => Ok(HashableValue::Float {
                 val: val.to_ne_bytes(),
                 span,
             }),
-            SpannedValue::String { val, span } => Ok(HashableValue::String { val, span }),
-            SpannedValue::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
+            Value::String { val, span } => Ok(HashableValue::String { val, span }),
+            Value::Binary { val, span } => Ok(HashableValue::Binary { val, span }),
 
             // Explicitly propagate errors instead of dropping them.
-            SpannedValue::Error { error, .. } => Err(*error),
+            Value::Error { error, .. } => Err(*error),
             _ => Err(ShellError::UnsupportedInput(
                 "input value is not hashable".into(),
                 format!("input type: {:?}", value.get_type()),
@@ -90,19 +90,19 @@ impl HashableValue {
     }
 
     /// Convert from self to nu's core data type `Value`.
-    pub fn into_value(self) -> SpannedValue {
+    pub fn into_value(self) -> Value {
         match self {
-            HashableValue::Bool { val, span } => SpannedValue::Bool { val, span },
-            HashableValue::Int { val, span } => SpannedValue::Int { val, span },
-            HashableValue::Filesize { val, span } => SpannedValue::Filesize { val, span },
-            HashableValue::Duration { val, span } => SpannedValue::Duration { val, span },
-            HashableValue::Date { val, span } => SpannedValue::Date { val, span },
-            HashableValue::Float { val, span } => SpannedValue::Float {
+            HashableValue::Bool { val, span } => Value::Bool { val, span },
+            HashableValue::Int { val, span } => Value::Int { val, span },
+            HashableValue::Filesize { val, span } => Value::Filesize { val, span },
+            HashableValue::Duration { val, span } => Value::Duration { val, span },
+            HashableValue::Date { val, span } => Value::Date { val, span },
+            HashableValue::Float { val, span } => Value::Float {
                 val: f64::from_ne_bytes(val),
                 span,
             },
-            HashableValue::String { val, span } => SpannedValue::String { val, span },
-            HashableValue::Binary { val, span } => SpannedValue::Binary { val, span },
+            HashableValue::String { val, span } => Value::String { val, span },
+            HashableValue::Binary { val, span } => Value::Binary { val, span },
         }
     }
 }
@@ -167,23 +167,23 @@ mod test {
         let span = Span::test_data();
         let values = vec![
             (
-                SpannedValue::Bool { val: true, span },
+                Value::Bool { val: true, span },
                 HashableValue::Bool { val: true, span },
             ),
             (
-                SpannedValue::Int { val: 1, span },
+                Value::Int { val: 1, span },
                 HashableValue::Int { val: 1, span },
             ),
             (
-                SpannedValue::Filesize { val: 1, span },
+                Value::Filesize { val: 1, span },
                 HashableValue::Filesize { val: 1, span },
             ),
             (
-                SpannedValue::Duration { val: 1, span },
+                Value::Duration { val: 1, span },
                 HashableValue::Duration { val: 1, span },
             ),
             (
-                SpannedValue::Date {
+                Value::Date {
                     val: DateTime::<FixedOffset>::parse_from_rfc2822(
                         "Wed, 18 Feb 2015 23:16:09 GMT",
                     )
@@ -199,7 +199,7 @@ mod test {
                 },
             ),
             (
-                SpannedValue::String {
+                Value::String {
                     val: "1".to_string(),
                     span,
                 },
@@ -209,7 +209,7 @@ mod test {
                 },
             ),
             (
-                SpannedValue::Binary { val: vec![1], span },
+                Value::Binary { val: vec![1], span },
                 HashableValue::Binary { val: vec![1], span },
             ),
         ];
@@ -225,21 +225,21 @@ mod test {
     fn from_unhashable_value() {
         let span = Span::test_data();
         let values = [
-            SpannedValue::List {
-                vals: vec![SpannedValue::Bool { val: true, span }],
+            Value::List {
+                vals: vec![Value::Bool { val: true, span }],
                 span,
             },
-            SpannedValue::Closure {
+            Value::Closure {
                 val: 0,
                 captures: HashMap::new(),
                 span,
             },
-            SpannedValue::Nothing { span },
-            SpannedValue::Error {
+            Value::Nothing { span },
+            Value::Error {
                 error: Box::new(ShellError::DidYouMean("what?".to_string(), span)),
                 span,
             },
-            SpannedValue::CellPath {
+            Value::CellPath {
                 val: CellPath {
                     members: vec![PathMember::Int {
                         val: 0,
@@ -259,15 +259,15 @@ mod test {
     fn from_to_tobe_same() {
         let span = Span::test_data();
         let values = vec![
-            SpannedValue::Bool { val: true, span },
-            SpannedValue::Int { val: 1, span },
-            SpannedValue::Filesize { val: 1, span },
-            SpannedValue::Duration { val: 1, span },
-            SpannedValue::String {
+            Value::Bool { val: true, span },
+            Value::Int { val: 1, span },
+            Value::Filesize { val: 1, span },
+            Value::Duration { val: 1, span },
+            Value::String {
                 val: "1".to_string(),
                 span,
             },
-            SpannedValue::Binary { val: vec![1], span },
+            Value::Binary { val: vec![1], span },
         ];
         for val in values.into_iter() {
             let expected_val = val.clone();

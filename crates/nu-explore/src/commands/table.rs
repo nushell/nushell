@@ -4,7 +4,7 @@ use nu_ansi_term::Style;
 use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 
 use crate::{
@@ -175,10 +175,10 @@ impl ViewCommand for TableCmd {
         &mut self,
         _: &EngineState,
         _: &mut Stack,
-        value: Option<SpannedValue>,
+        value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
-        let is_record = matches!(value, SpannedValue::Record { .. });
+        let is_record = matches!(value, Value::Record { .. });
 
         let (columns, data) = collect_input(value);
 

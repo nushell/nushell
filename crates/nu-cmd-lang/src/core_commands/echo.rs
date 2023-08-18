@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -51,9 +51,7 @@ little reason to use this over just writing the values as-is."#
                 std::cmp::Ordering::Equal => PipelineData::Value(to_be_echoed[0].clone(), None),
 
                 //  When there are no elements, we echo the empty string
-                std::cmp::Ordering::Less => {
-                    PipelineData::Value(SpannedValue::string("", call.head), None)
-                }
+                std::cmp::Ordering::Less => PipelineData::Value(Value::string("", call.head), None),
             }
         })
     }
@@ -63,12 +61,8 @@ little reason to use this over just writing the values as-is."#
             Example {
                 description: "Put a list of numbers in the pipeline. This is the same as [1 2 3].",
                 example: "echo 1 2 3",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
                     span: Span::test_data(),
                 }),
             },

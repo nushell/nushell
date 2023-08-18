@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,13 +33,13 @@ impl Command for OverlayList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let active_overlays_engine: Vec<SpannedValue> = stack
+        let active_overlays_engine: Vec<Value> = stack
             .active_overlays
             .iter()
-            .map(|s| SpannedValue::string(s, call.head))
+            .map(|s| Value::string(s, call.head))
             .collect();
 
-        Ok(SpannedValue::List {
+        Ok(Value::List {
             vals: active_overlays_engine,
             span: call.head,
         }
@@ -52,7 +52,7 @@ impl Command for OverlayList {
             example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     overlay list | last"#,
-            result: Some(SpannedValue::test_string("spam")),
+            result: Some(Value::test_string("spam")),
         }]
     }
 }

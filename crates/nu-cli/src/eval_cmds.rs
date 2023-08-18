@@ -6,7 +6,7 @@ use nu_protocol::engine::Stack;
 use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    PipelineData, Spanned, SpannedValue,
+    PipelineData, Spanned, Value,
 };
 
 /// Run a command (or commands) given to us by the user
@@ -15,7 +15,7 @@ pub fn evaluate_commands(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
-    table_mode: Option<SpannedValue>,
+    table_mode: Option<Value>,
 ) -> Result<Option<i64>> {
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {

@@ -2,7 +2,7 @@ use chrono::Local;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 #[derive(Clone)]
 pub struct SubCommand;
@@ -35,7 +35,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let dt = Local::now();
-        Ok(SpannedValue::Date {
+        Ok(Value::Date {
             val: dt.with_timezone(dt.offset()),
             span: head,
         }

@@ -2,8 +2,8 @@ use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,7 +33,7 @@ impl Command for BytesBuild {
         vec![Example {
             example: "bytes build 0x[01 02] 0x[03] 0x[04]",
             description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
-            result: Some(SpannedValue::Binary {
+            result: Some(Value::Binary {
                 val: vec![0x01, 0x02, 0x03, 0x04],
                 span: Span::test_data(),
             }),
@@ -51,9 +51,9 @@ impl Command for BytesBuild {
         for expr in call.positional_iter() {
             let val = eval_expression(engine_state, stack, expr)?;
             match val {
-                SpannedValue::Binary { mut val, .. } => output.append(&mut val),
+                Value::Binary { mut val, .. } => output.append(&mut val),
                 // Explicitly propagate errors instead of dropping them.
-                SpannedValue::Error { error, .. } => return Err(*error),
+                Value::Error { error, .. } => return Err(*error),
                 other => {
                     return Err(ShellError::TypeMismatch {
                         err_message: "only binary data arguments are supported".to_string(),
@@ -63,7 +63,7 @@ impl Command for BytesBuild {
             }
         }
 
-        Ok(SpannedValue::Binary {
+        Ok(Value::Binary {
             val: output,
             span: call.head,
         }

@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Signature, Span, SpannedValue, SyntaxShape, Type,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -58,18 +58,18 @@ impl Command for Metadata {
                                 .into_pipeline_data())
                         }
                         _ => {
-                            let val: SpannedValue = call.req(engine_state, stack, 0)?;
+                            let val: Value = call.req(engine_state, stack, 0)?;
                             Ok(build_metadata_record(&val, &input.metadata(), head)
                                 .into_pipeline_data())
                         }
                     }
                 } else {
-                    let val: SpannedValue = call.req(engine_state, stack, 0)?;
+                    let val: Value = call.req(engine_state, stack, 0)?;
                     Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
                 }
             }
             Some(_) => {
-                let val: SpannedValue = call.req(engine_state, stack, 0)?;
+                let val: Value = call.req(engine_state, stack, 0)?;
                 Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
             }
             None => {
@@ -81,24 +81,24 @@ impl Command for Metadata {
                             data_source: DataSource::Ls,
                         } => {
                             cols.push("source".into());
-                            vals.push(SpannedValue::string("ls", head))
+                            vals.push(Value::string("ls", head))
                         }
                         PipelineMetadata {
                             data_source: DataSource::HtmlThemes,
                         } => {
                             cols.push("source".into());
-                            vals.push(SpannedValue::string("into html --list", head))
+                            vals.push(Value::string("into html --list", head))
                         }
                         PipelineMetadata {
                             data_source: DataSource::Profiling(values),
                         } => {
                             cols.push("profiling".into());
-                            vals.push(SpannedValue::list(values.clone(), head))
+                            vals.push(Value::list(values.clone(), head))
                         }
                     }
                 }
 
-                Ok(SpannedValue::Record {
+                Ok(Value::Record {
                     cols,
                     vals,
                     span: head,
@@ -125,23 +125,23 @@ impl Command for Metadata {
 }
 
 fn build_metadata_record(
-    arg: &SpannedValue,
+    arg: &Value,
     metadata: &Option<Box<PipelineMetadata>>,
     head: Span,
-) -> SpannedValue {
+) -> Value {
     let mut cols = vec![];
     let mut vals = vec![];
 
     let span = arg.span();
     cols.push("span".into());
-    vals.push(SpannedValue::Record {
+    vals.push(Value::Record {
         cols: vec!["start".into(), "end".into()],
         vals: vec![
-            SpannedValue::Int {
+            Value::Int {
                 val: span.start as i64,
                 span,
             },
-            SpannedValue::Int {
+            Value::Int {
                 val: span.end as i64,
                 span,
             },
@@ -155,24 +155,24 @@ fn build_metadata_record(
                 data_source: DataSource::Ls,
             } => {
                 cols.push("source".into());
-                vals.push(SpannedValue::string("ls", head))
+                vals.push(Value::string("ls", head))
             }
             PipelineMetadata {
                 data_source: DataSource::HtmlThemes,
             } => {
                 cols.push("source".into());
-                vals.push(SpannedValue::string("into html --list", head))
+                vals.push(Value::string("into html --list", head))
             }
             PipelineMetadata {
                 data_source: DataSource::Profiling(values),
             } => {
                 cols.push("profiling".into());
-                vals.push(SpannedValue::list(values.clone(), head))
+                vals.push(Value::list(values.clone(), head))
             }
         }
     }
 
-    SpannedValue::Record {
+    Value::Record {
         cols,
         vals,
         span: head,

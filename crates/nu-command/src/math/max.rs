@@ -2,9 +2,7 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -47,14 +45,14 @@ impl Command for SubCommand {
             Example {
                 description: "Find the maximum of list of numbers",
                 example: "[-50 100 25] | math max",
-                result: Some(SpannedValue::test_int(100)),
+                result: Some(Value::test_int(100)),
             },
             Example {
                 description: "Find the maxima of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1}] | math max",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![SpannedValue::test_int(2), SpannedValue::test_int(3)],
+                    vals: vec![Value::test_int(2), Value::test_int(3)],
                     span: Span::test_data(),
                 }),
             },
@@ -62,13 +60,9 @@ impl Command for SubCommand {
     }
 }
 
-pub fn maximum(
-    values: &[SpannedValue],
-    span: Span,
-    head: Span,
-) -> Result<SpannedValue, ShellError> {
+pub fn maximum(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
-    max_func(SpannedValue::nothing(head), values.to_vec(), span, head)
+    max_func(Value::nothing(head), values.to_vec(), span, head)
 }
 
 #[cfg(test)]

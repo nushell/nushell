@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
-use crate::{ShellError, Span, SpannedValue, VarId};
+use crate::{ShellError, Span, Value, VarId};
 
 /// Environment variables per overlay
-pub type EnvVars = HashMap<String, HashMap<String, SpannedValue>>;
+pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
 #[derive(Debug, Clone)]
 pub struct ProfilingConfig {
@@ -65,7 +65,7 @@ impl ProfilingConfig {
 #[derive(Debug, Clone)]
 pub struct Stack {
     /// Variables
-    pub vars: Vec<(VarId, SpannedValue)>,
+    pub vars: Vec<(VarId, Value)>,
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
     pub env_vars: Vec<EnvVars>,
     /// Tells which environment variables from engine state are hidden, per overlay.
@@ -103,7 +103,7 @@ impl Stack {
         }
     }
 
-    pub fn get_var(&self, var_id: VarId, span: Span) -> Result<SpannedValue, ShellError> {
+    pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
         for (id, val) in &self.vars {
             if var_id == *id {
                 return Ok(val.clone().with_span(span));
@@ -113,11 +113,7 @@ impl Stack {
         Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
-    pub fn get_var_with_origin(
-        &self,
-        var_id: VarId,
-        span: Span,
-    ) -> Result<SpannedValue, ShellError> {
+    pub fn get_var_with_origin(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
         for (id, val) in &self.vars {
             if var_id == *id {
                 return Ok(val.clone());
@@ -127,7 +123,7 @@ impl Stack {
         Err(ShellError::VariableNotFoundAtRuntime { span })
     }
 
-    pub fn add_var(&mut self, var_id: VarId, value: SpannedValue) {
+    pub fn add_var(&mut self, var_id: VarId, value: Value) {
         //self.vars.insert(var_id, value);
         for (id, val) in &mut self.vars {
             if *id == var_id {
@@ -147,7 +143,7 @@ impl Stack {
         }
     }
 
-    pub fn add_env_var(&mut self, var: String, value: SpannedValue) {
+    pub fn add_env_var(&mut self, var: String, value: Value) {
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = self.env_hidden.get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
@@ -182,7 +178,7 @@ impl Stack {
             })
     }
 
-    pub fn captures_to_stack(&self, captures: &HashMap<VarId, SpannedValue>) -> Stack {
+    pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
         // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
         env_vars.push(HashMap::new());
@@ -230,7 +226,7 @@ impl Stack {
     }
 
     /// Flatten the env var scope frames into one frame
-    pub fn get_env_vars(&self, engine_state: &EngineState) -> HashMap<String, SpannedValue> {
+    pub fn get_env_vars(&self, engine_state: &EngineState) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
         for active_overlay in self.active_overlays.iter() {
@@ -247,7 +243,7 @@ impl Stack {
                             }
                         })
                         .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect::<HashMap<String, SpannedValue>>(),
+                        .collect::<HashMap<String, Value>>(),
                 );
             }
         }
@@ -258,7 +254,7 @@ impl Stack {
     }
 
     /// Get flattened environment variables only from the stack
-    pub fn get_stack_env_vars(&self) -> HashMap<String, SpannedValue> {
+    pub fn get_stack_env_vars(&self) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
@@ -273,7 +269,7 @@ impl Stack {
     }
 
     /// Get flattened environment variables only from the stack and one overlay
-    pub fn get_stack_overlay_env_vars(&self, overlay_name: &str) -> HashMap<String, SpannedValue> {
+    pub fn get_stack_overlay_env_vars(&self, overlay_name: &str) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
@@ -321,7 +317,7 @@ impl Stack {
         result
     }
 
-    pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<SpannedValue> {
+    pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {

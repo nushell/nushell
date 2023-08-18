@@ -7,7 +7,7 @@ use nu_protocol::{
     },
     engine::{EngineState, ProfilingConfig, Stack},
     DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
-    Range, ShellError, Span, Spanned, SpannedValue, Unit, VarId, ENV_VARIABLE_ID,
+    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::time::Instant;
 use std::{collections::HashMap, path::PathBuf};
@@ -33,7 +33,7 @@ pub fn eval_call(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-        return Ok(SpannedValue::Nothing { span: call.head }.into_pipeline_data());
+        return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
     }
     let decl = engine_state.get_decl(call.decl_id);
 
@@ -49,7 +49,7 @@ pub fn eval_call(
             caller_stack,
             decl.is_parser_keyword(),
         );
-        Ok(SpannedValue::String {
+        Ok(Value::String {
             val: full_help,
             span: call.head,
         }
@@ -84,7 +84,7 @@ pub fn eval_call(
             } else if let Some(value) = &param.default_value {
                 callee_stack.add_var(var_id, value.to_owned());
             } else {
-                callee_stack.add_var(var_id, SpannedValue::nothing(call.head));
+                callee_stack.add_var(var_id, Value::nothing(call.head));
             }
         }
 
@@ -109,7 +109,7 @@ pub fn eval_call(
                 rest_positional
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
-                SpannedValue::List {
+                Value::List {
                     vals: rest_items,
                     span,
                 },
@@ -129,7 +129,7 @@ pub fn eval_call(
                             } else if let Some(value) = &named.default_value {
                                 callee_stack.add_var(var_id, value.to_owned());
                             } else {
-                                callee_stack.add_var(var_id, SpannedValue::bool(true, call.head))
+                                callee_stack.add_var(var_id, Value::bool(true, call.head))
                             }
                             found = true;
                         }
@@ -141,7 +141,7 @@ pub fn eval_call(
                         } else if let Some(value) = &named.default_value {
                             callee_stack.add_var(var_id, value.to_owned());
                         } else {
-                            callee_stack.add_var(var_id, SpannedValue::bool(true, call.head))
+                            callee_stack.add_var(var_id, Value::bool(true, call.head))
                         }
                         found = true;
                     }
@@ -149,11 +149,11 @@ pub fn eval_call(
 
                 if !found {
                     if named.arg.is_none() {
-                        callee_stack.add_var(var_id, SpannedValue::bool(false, call.head))
+                        callee_stack.add_var(var_id, Value::bool(false, call.head))
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);
                     } else {
-                        callee_stack.add_var(var_id, SpannedValue::Nothing { span: call.head })
+                        callee_stack.add_var(var_id, Value::Nothing { span: call.head })
                     }
                 }
             }
@@ -281,17 +281,17 @@ pub fn eval_expression(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(SpannedValue::bool(*b, expr.span)),
-        Expr::Int(i) => Ok(SpannedValue::int(*i, expr.span)),
-        Expr::Float(f) => Ok(SpannedValue::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(SpannedValue::Binary {
+        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
+        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
+        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
+        Expr::Binary(b) => Ok(Value::Binary {
             val: b.clone(),
             span: expr.span,
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
-            SpannedValue::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
+            Value::Int { val, .. } => compute(val, unit.item, unit.span),
             x => Err(ShellError::CantConvert {
                 to_type: "unit value".into(),
                 from_type: x.get_type().to_string(),
@@ -303,29 +303,29 @@ pub fn eval_expression(
             let from = if let Some(f) = from {
                 eval_expression(engine_state, stack, f)?
             } else {
-                SpannedValue::Nothing { span: expr.span }
+                Value::Nothing { span: expr.span }
             };
 
             let next = if let Some(s) = next {
                 eval_expression(engine_state, stack, s)?
             } else {
-                SpannedValue::Nothing { span: expr.span }
+                Value::Nothing { span: expr.span }
             };
 
             let to = if let Some(t) = to {
                 eval_expression(engine_state, stack, t)?
             } else {
-                SpannedValue::Nothing { span: expr.span }
+                Value::Nothing { span: expr.span }
             };
 
-            Ok(SpannedValue::Range {
+            Ok(Value::Range {
                 val: Box::new(Range::new(expr.span, from, next, to, operator)?),
                 span: expr.span,
             })
         }
         Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
-        Expr::VarDecl(_) => Ok(SpannedValue::Nothing { span: expr.span }),
-        Expr::CellPath(cell_path) => Ok(SpannedValue::CellPath {
+        Expr::VarDecl(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::CellPath(cell_path) => Ok(Value::CellPath {
             val: cell_path.clone(),
             span: expr.span,
         }),
@@ -334,12 +334,12 @@ pub fn eval_expression(
 
             value.follow_cell_path(&cell_path.tail, false)
         }
-        Expr::ImportPattern(_) => Ok(SpannedValue::Nothing { span: expr.span }),
+        Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Overlay(_) => {
             let name =
                 String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
 
-            Ok(SpannedValue::String {
+            Ok(Value::String {
                 val: name,
                 span: expr.span,
             })
@@ -362,20 +362,20 @@ pub fn eval_expression(
             )?
             .into_value(span))
         }
-        Expr::DateTime(dt) => Ok(SpannedValue::Date {
+        Expr::DateTime(dt) => Ok(Value::Date {
             val: *dt,
             span: expr.span,
         }),
-        Expr::Operator(_) => Ok(SpannedValue::Nothing { span: expr.span }),
-        Expr::MatchPattern(pattern) => Ok(SpannedValue::MatchPattern {
+        Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::MatchPattern(pattern) => Ok(Value::MatchPattern {
             val: pattern.clone(),
             span: expr.span,
         }),
-        Expr::MatchBlock(_) => Ok(SpannedValue::Nothing { span: expr.span }), // match blocks are handled by `match`
+        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
-                SpannedValue::Bool { val, .. } => Ok(SpannedValue::bool(!val, expr.span)),
+                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                 _ => Err(ShellError::TypeMismatch {
                     err_message: "bool".to_string(),
                     span: expr.span,
@@ -392,7 +392,7 @@ pub fn eval_expression(
                     match boolean {
                         Boolean::And => {
                             if lhs.is_false() {
-                                Ok(SpannedValue::bool(false, expr.span))
+                                Ok(Value::bool(false, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.and(op_span, &rhs, expr.span)
@@ -400,7 +400,7 @@ pub fn eval_expression(
                         }
                         Boolean::Or => {
                             if lhs.is_true() {
-                                Ok(SpannedValue::bool(true, expr.span))
+                                Ok(Value::bool(true, expr.span))
                             } else {
                                 let rhs = eval_expression(engine_state, stack, rhs)?;
                                 lhs.or(op_span, &rhs, expr.span)
@@ -492,7 +492,7 @@ pub fn eval_expression(
                             let var_info = engine_state.get_var(*var_id);
                             if var_info.mutable {
                                 stack.add_var(*var_id, rhs);
-                                Ok(SpannedValue::nothing(lhs.span))
+                                Ok(Value::nothing(lhs.span))
                             } else {
                                 Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
                             }
@@ -544,7 +544,7 @@ pub fn eval_expression(
                                         } else {
                                             stack.add_var(*var_id, lhs);
                                         }
-                                        Ok(SpannedValue::nothing(cell_path.head.span))
+                                        Ok(Value::nothing(cell_path.head.span))
                                     } else {
                                         Err(ShellError::AssignmentRequiresMutableVar {
                                             lhs_span: lhs.span,
@@ -575,13 +575,13 @@ pub fn eval_expression(
             for var_id in &block.captures {
                 captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
-            Ok(SpannedValue::Closure {
+            Ok(Value::Closure {
                 val: *block_id,
                 captures,
                 span: expr.span,
             })
         }
-        Expr::Block(block_id) => Ok(SpannedValue::Block {
+        Expr::Block(block_id) => Ok(Value::Block {
             val: *block_id,
             span: expr.span,
         }),
@@ -590,7 +590,7 @@ pub fn eval_expression(
             for expr in x {
                 output.push(eval_expression(engine_state, stack, expr)?);
             }
-            Ok(SpannedValue::List {
+            Ok(Value::List {
                 vals: output,
                 span: expr.span,
             })
@@ -616,7 +616,7 @@ pub fn eval_expression(
                 }
             }
 
-            Ok(SpannedValue::Record {
+            Ok(Value::Record {
                 cols,
                 vals,
                 span: expr.span,
@@ -634,13 +634,13 @@ pub fn eval_expression(
                 for expr in val {
                     row.push(eval_expression(engine_state, stack, expr)?);
                 }
-                output_rows.push(SpannedValue::Record {
+                output_rows.push(Value::Record {
                     cols: output_headers.clone(),
                     vals: row,
                     span: expr.span,
                 });
             }
-            Ok(SpannedValue::List {
+            Ok(Value::List {
                 vals: output_rows,
                 span: expr.span,
             })
@@ -658,12 +658,12 @@ pub fn eval_expression(
                 .into_iter()
                 .into_pipeline_data(None)
                 .collect_string("", config)
-                .map(|x| SpannedValue::String {
+                .map(|x| Value::String {
                     val: x,
                     span: expr.span,
                 })
         }
-        Expr::String(s) => Ok(SpannedValue::String {
+        Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,
         }),
@@ -671,27 +671,27 @@ pub fn eval_expression(
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(SpannedValue::string(path.to_string_lossy(), expr.span))
+            Ok(Value::string(path.to_string_lossy(), expr.span))
         }
         Expr::Directory(s) => {
             if s == "-" {
-                Ok(SpannedValue::string("-", expr.span))
+                Ok(Value::string("-", expr.span))
             } else {
                 let cwd = current_dir_str(engine_state, stack)?;
                 let path = expand_path_with(s, cwd);
 
-                Ok(SpannedValue::string(path.to_string_lossy(), expr.span))
+                Ok(Value::string(path.to_string_lossy(), expr.span))
             }
         }
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
-            Ok(SpannedValue::string(path.to_string_lossy(), expr.span))
+            Ok(Value::string(path.to_string_lossy(), expr.span))
         }
-        Expr::Signature(_) => Ok(SpannedValue::Nothing { span: expr.span }),
-        Expr::Garbage => Ok(SpannedValue::Nothing { span: expr.span }),
-        Expr::Nothing => Ok(SpannedValue::Nothing { span: expr.span }),
+        Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
+        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
     }
 }
 
@@ -1163,7 +1163,7 @@ pub fn eval_block(
                 }
                 (Err(error), true) => {
                     input = PipelineData::Value(
-                        SpannedValue::Error {
+                        Value::Error {
                             error: Box::new(error),
                             span: Span::unknown(), // FIXME: where does this span come from?
                         },
@@ -1190,7 +1190,7 @@ pub fn eval_block(
 
         if pipeline_idx < (num_pipelines) - 1 {
             match input {
-                PipelineData::Value(SpannedValue::Nothing { .. }, ..) => {}
+                PipelineData::Value(Value::Nothing { .. }, ..) => {}
                 PipelineData::ExternalStream {
                     ref mut exit_code, ..
                 } => {
@@ -1236,10 +1236,7 @@ pub fn eval_subexpression(
     Ok(input)
 }
 
-pub fn eval_nu_variable(
-    engine_state: &EngineState,
-    span: Span,
-) -> Result<SpannedValue, ShellError> {
+pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
         let cwd = engine_state.current_work_dir();
 
@@ -1259,12 +1256,12 @@ pub fn eval_nu_variable(
     cols.push("default-config-dir".to_string());
     if let Some(mut path) = nu_path::config_dir() {
         path.push("nushell");
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: path.to_string_lossy().to_string(),
             span,
         })
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError("Could not get config directory".into())),
             span,
         })
@@ -1273,19 +1270,19 @@ pub fn eval_nu_variable(
     cols.push("config-path".to_string());
     if let Some(path) = engine_state.get_config_path("config-path") {
         let canon_config_path = canonicalize_path(engine_state, path);
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: canon_config_path.to_string_lossy().to_string(),
             span,
         })
     } else if let Some(mut path) = nu_path::config_dir() {
         path.push("nushell");
         path.push("config.nu");
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: path.to_string_lossy().to_string(),
             span,
         })
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError("Could not get config directory".into())),
             span,
         })
@@ -1294,19 +1291,19 @@ pub fn eval_nu_variable(
     cols.push("env-path".to_string());
     if let Some(path) = engine_state.get_config_path("env-path") {
         let canon_env_path = canonicalize_path(engine_state, path);
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: canon_env_path.to_string_lossy().to_string(),
             span,
         })
     } else if let Some(mut path) = nu_path::config_dir() {
         path.push("nushell");
         path.push("env.nu");
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: path.to_string_lossy().to_string(),
             span,
         })
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError(
                 "Could not find environment path".into(),
             )),
@@ -1326,12 +1323,12 @@ pub fn eval_nu_variable(
             }
         }
         let canon_hist_path = canonicalize_path(engine_state, &path);
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: canon_hist_path.to_string_lossy().to_string(),
             span,
         })
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError("Could not find history path".into())),
             span,
         })
@@ -1342,12 +1339,12 @@ pub fn eval_nu_variable(
         path.push("nushell");
         path.push("login.nu");
         let canon_login_path = canonicalize_path(engine_state, &path);
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: canon_login_path.to_string_lossy().to_string(),
             span,
         })
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError(
                 "Could not find login shell path".into(),
             )),
@@ -1361,12 +1358,12 @@ pub fn eval_nu_variable(
 
         if let Some(path) = &engine_state.plugin_signatures {
             let canon_plugin_path = canonicalize_path(engine_state, path);
-            vals.push(SpannedValue::String {
+            vals.push(Value::String {
                 val: canon_plugin_path.to_string_lossy().to_string(),
                 span,
             })
         } else {
-            vals.push(SpannedValue::Error {
+            vals.push(Value::Error {
                 error: Box::new(ShellError::IOError(
                     "Could not get plugin signature location".into(),
                 )),
@@ -1378,12 +1375,12 @@ pub fn eval_nu_variable(
     cols.push("home-path".to_string());
     if let Some(path) = nu_path::home_dir() {
         let canon_home_path = canonicalize_path(engine_state, &path);
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: canon_home_path.to_string_lossy().into(),
             span,
         })
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError("Could not get home path".into())),
             span,
         })
@@ -1391,13 +1388,13 @@ pub fn eval_nu_variable(
 
     cols.push("temp-path".to_string());
     let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
-    vals.push(SpannedValue::String {
+    vals.push(Value::String {
         val: canon_temp_path.to_string_lossy().into(),
         span,
     });
 
     cols.push("pid".to_string());
-    vals.push(SpannedValue::int(std::process::id().into(), span));
+    vals.push(Value::int(std::process::id().into(), span));
 
     cols.push("os-info".to_string());
     let sys = sysinfo::System::new();
@@ -1405,7 +1402,7 @@ pub fn eval_nu_variable(
         Some(v) => v,
         None => "unknown".into(),
     };
-    let os_record = SpannedValue::Record {
+    let os_record = Value::Record {
         cols: vec![
             "name".into(),
             "arch".into(),
@@ -1413,41 +1410,41 @@ pub fn eval_nu_variable(
             "kernel_version".into(),
         ],
         vals: vec![
-            SpannedValue::string(std::env::consts::OS, span),
-            SpannedValue::string(std::env::consts::ARCH, span),
-            SpannedValue::string(std::env::consts::FAMILY, span),
-            SpannedValue::string(ver, span),
+            Value::string(std::env::consts::OS, span),
+            Value::string(std::env::consts::ARCH, span),
+            Value::string(std::env::consts::FAMILY, span),
+            Value::string(ver, span),
         ],
         span,
     };
     vals.push(os_record);
 
     cols.push("startup-time".to_string());
-    vals.push(SpannedValue::Duration {
+    vals.push(Value::Duration {
         val: engine_state.get_startup_time(),
         span,
     });
 
     cols.push("is-interactive".to_string());
-    vals.push(SpannedValue::Bool {
+    vals.push(Value::Bool {
         val: engine_state.is_interactive,
         span,
     });
 
     cols.push("is-login".to_string());
-    vals.push(SpannedValue::Bool {
+    vals.push(Value::Bool {
         val: engine_state.is_login,
         span,
     });
 
     cols.push("current-exe".to_string());
     if let Ok(current_exe) = std::env::current_exe() {
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: current_exe.to_string_lossy().into(),
             span,
         });
     } else {
-        vals.push(SpannedValue::Error {
+        vals.push(Value::Error {
             error: Box::new(ShellError::IOError(
                 "Could not get current executable path".to_string(),
             )),
@@ -1455,7 +1452,7 @@ pub fn eval_nu_variable(
         })
     }
 
-    Ok(SpannedValue::Record { cols, vals, span })
+    Ok(Value::Record { cols, vals, span })
 }
 
 pub fn eval_variable(
@@ -1463,7 +1460,7 @@ pub fn eval_variable(
     stack: &Stack,
     var_id: VarId,
     span: Span,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     match var_id {
         // $nu
         nu_protocol::NU_VARIABLE_ID => eval_nu_variable(engine_state, span),
@@ -1475,13 +1472,13 @@ pub fn eval_variable(
             let mut pairs = env_columns
                 .map(|x| x.to_string())
                 .zip(env_values.cloned())
-                .collect::<Vec<(String, SpannedValue)>>();
+                .collect::<Vec<(String, Value)>>();
 
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
 
             let (env_columns, env_values) = pairs.into_iter().unzip();
 
-            Ok(SpannedValue::Record {
+            Ok(Value::Record {
                 cols: env_columns,
                 vals: env_values,
                 span,
@@ -1491,7 +1488,7 @@ pub fn eval_variable(
     }
 }
 
-fn compute(size: i64, unit: Unit, span: Span) -> SpannedValue {
+fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
 }
 
@@ -1507,7 +1504,7 @@ fn collect_profiling_metadata(
     eval_result: &Result<(PipelineData, bool), ShellError>,
     input_metadata: &mut PipelineMetadata,
 ) {
-    let element_str = SpannedValue::string(element_str, element_span);
+    let element_str = Value::string(element_str, element_span);
     let time_ns = (end_time - start_time).as_nanos() as i64;
 
     let mut cols = vec![
@@ -1518,14 +1515,14 @@ fn collect_profiling_metadata(
     ];
 
     let mut vals = vec![
-        SpannedValue::int(pipeline_idx as i64, element_span),
-        SpannedValue::int(element_idx as i64, element_span),
-        SpannedValue::int(profiling_config.depth, element_span),
-        SpannedValue::record(
+        Value::int(pipeline_idx as i64, element_span),
+        Value::int(element_idx as i64, element_span),
+        Value::int(profiling_config.depth, element_span),
+        Value::record(
             vec!["start".to_string(), "end".to_string()],
             vec![
-                SpannedValue::int(element_span.start as i64, element_span),
-                SpannedValue::int(element_span.end as i64, element_span),
+                Value::int(element_span.start as i64, element_span),
+                Value::int(element_span.end as i64, element_span),
             ],
             element_span,
         ),
@@ -1539,14 +1536,12 @@ fn collect_profiling_metadata(
     if profiling_config.collect_values {
         let value = match &eval_result {
             Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
-            Ok((PipelineData::ListStream(..), ..)) => {
-                SpannedValue::string("list stream", element_span)
-            }
+            Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", element_span),
             Ok((PipelineData::ExternalStream { .. }, ..)) => {
-                SpannedValue::string("raw stream", element_span)
+                Value::string("raw stream", element_span)
             }
-            Ok((PipelineData::Empty, ..)) => SpannedValue::Nothing { span: element_span },
-            Err(err) => SpannedValue::Error {
+            Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
+            Err(err) => Value::Error {
                 error: Box::new(err.clone()),
                 span: element_span,
             },
@@ -1557,12 +1552,12 @@ fn collect_profiling_metadata(
     }
 
     cols.push("time".to_string());
-    vals.push(SpannedValue::Duration {
+    vals.push(Value::Duration {
         val: time_ns,
         span: element_span,
     });
 
-    let record = SpannedValue::Record {
+    let record = Value::Record {
         cols,
         vals,
         span: element_span,

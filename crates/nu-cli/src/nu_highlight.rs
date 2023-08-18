@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SpannedValue, Type};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type, Value};
 use reedline::Highlighter;
 
 #[derive(Clone)]
@@ -48,12 +48,12 @@ impl Command for NuHighlight {
                 Ok(line) => {
                     let highlights = highlighter.highlight(&line, line.len());
 
-                    SpannedValue::String {
+                    Value::String {
                         val: highlights.render_simple(),
                         span: head,
                     }
                 }
-                Err(err) => SpannedValue::Error {
+                Err(err) => Value::Error {
                     error: Box::new(err),
                     span: head,
                 },

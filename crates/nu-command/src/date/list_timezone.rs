@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, Type,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -41,11 +41,11 @@ impl Command for SubCommand {
             .iter()
             .map(move |x| {
                 let cols = vec!["timezone".into()];
-                let vals = vec![SpannedValue::String {
+                let vals = vec![Value::String {
                     val: x.name().to_string(),
                     span,
                 }];
-                SpannedValue::Record { cols, vals, span }
+                Value::Record { cols, vals, span }
             })
             .into_pipeline_data(engine_state.ctrlc.clone()))
     }
@@ -54,10 +54,10 @@ impl Command for SubCommand {
         vec![Example {
             example: "date list-timezone | where timezone =~ Shanghai",
             description: "Show timezone(s) that contains 'Shanghai'",
-            result: Some(SpannedValue::List {
-                vals: vec![SpannedValue::Record {
+            result: Some(Value::List {
+                vals: vec![Value::Record {
                     cols: vec!["timezone".into()],
-                    vals: vec![SpannedValue::test_string("Asia/Shanghai")],
+                    vals: vec![Value::test_string("Asia/Shanghai")],
                     span: Span::test_data(),
                 }],
                 span: Span::test_data(),

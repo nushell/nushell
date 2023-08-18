@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use nu_utils::locale::get_system_locale_string;
 use std::fmt::{Display, Write};
@@ -89,7 +89,7 @@ impl Command for FormatDate {
                 description:
                     "Format a given date-time as a string using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
-                result: Some(SpannedValue::String {
+                result: Some(Value::String {
                     val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
                     span: Span::test_data(),
                 }),
@@ -107,13 +107,13 @@ impl Command for FormatDate {
             Example {
                 description: "Format a given date using a given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date "%Y-%m-%d""#,
-                result: Some(SpannedValue::test_string("2021-10-22")),
+                result: Some(Value::test_string("2021-10-22")),
             },
         ]
     }
 }
 
-fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> SpannedValue
+fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> Value
 where
     Tz::Offset: Display,
 {
@@ -127,11 +127,11 @@ where
     let format = date_time.format_localized(formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
-        Ok(_) => SpannedValue::String {
+        Ok(_) => Value::String {
             val: formatter_buf,
             span,
         },
-        Err(_) => SpannedValue::Error {
+        Err(_) => Value::Error {
             error: Box::new(ShellError::TypeMismatch {
                 err_message: "invalid format".to_string(),
                 span,
@@ -141,15 +141,10 @@ where
     }
 }
 
-fn format_helper(
-    value: SpannedValue,
-    formatter: &str,
-    formatter_span: Span,
-    head_span: Span,
-) -> SpannedValue {
+fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span: Span) -> Value {
     match value {
-        SpannedValue::Date { val, .. } => format_from(val, formatter, formatter_span),
-        SpannedValue::String { val, .. } => {
+        Value::Date { val, .. } => format_from(val, formatter, formatter_span),
+        Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, formatter_span);
 
             match dt {
@@ -157,7 +152,7 @@ fn format_helper(
                 Err(e) => e,
             }
         }
-        _ => SpannedValue::Error {
+        _ => Value::Error {
             error: Box::new(ShellError::DatetimeParseError(
                 value.debug_value(),
                 head_span,
@@ -167,26 +162,26 @@ fn format_helper(
     }
 }
 
-fn format_helper_rfc2822(value: SpannedValue, span: Span) -> SpannedValue {
+fn format_helper_rfc2822(value: Value, span: Span) -> Value {
     match value {
-        SpannedValue::Date { val, span: _ } => SpannedValue::String {
+        Value::Date { val, span: _ } => Value::String {
             val: val.to_rfc2822(),
             span,
         },
-        SpannedValue::String {
+        Value::String {
             val,
             span: val_span,
         } => {
             let dt = parse_date_from_string(&val, val_span);
             match dt {
-                Ok(x) => SpannedValue::String {
+                Ok(x) => Value::String {
                     val: x.to_rfc2822(),
                     span,
                 },
                 Err(e) => e,
             }
         }
-        _ => SpannedValue::Error {
+        _ => Value::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), span)),
             span,
         },

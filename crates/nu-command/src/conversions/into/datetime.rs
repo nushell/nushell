@@ -7,7 +7,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -154,7 +154,7 @@ impl Command for SubCommand {
 
     fn examples(&self) -> Vec<Example> {
         let example_result_1 = |nanos: i64| {
-            Some(SpannedValue::Date {
+            Some(Value::Date {
                 val: Utc.timestamp_nanos(nanos).into(),
                 span: Span::test_data(),
             })
@@ -195,9 +195,9 @@ impl Command for SubCommand {
             Example {
                 description: "Convert list of timestamps to datetimes",
                 example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Date {
+                        Value::Date {
                             val: DateTime::parse_from_str(
                                 "2023-03-30 10:10:07 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
@@ -205,7 +205,7 @@ impl Command for SubCommand {
                             .expect("date calculation should not fail in test"),
                             span: Span::test_data(),
                         },
-                        SpannedValue::Date {
+                        Value::Date {
                             val: DateTime::parse_from_str(
                                 "2023-05-05 13:43:49 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
@@ -213,7 +213,7 @@ impl Command for SubCommand {
                             .expect("date calculation should not fail in test"),
                             span: Span::test_data(),
                         },
-                        SpannedValue::Date {
+                        Value::Date {
                             val: DateTime::parse_from_str(
                                 "2023-06-05 01:37:42 -05:00",
                                 "%Y-%m-%d %H:%M:%S %z",
@@ -232,7 +232,7 @@ impl Command for SubCommand {
 #[derive(Clone)]
 struct DatetimeFormat(String);
 
-fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
@@ -240,12 +240,12 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
     let timestamp = match input {
-        SpannedValue::Int { val, .. } => Ok(*val),
-        SpannedValue::String { val, .. } => val.parse::<i64>(),
+        Value::Int { val, .. } => Ok(*val),
+        Value::String { val, .. } => val.parse::<i64>(),
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => return input.clone(),
+        Value::Error { .. } => return input.clone(),
         other => {
-            return SpannedValue::Error {
+            return Value::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
@@ -261,7 +261,7 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
         macro_rules! match_datetime {
             ($expr:expr) => {
                 match $expr {
-                    dt => SpannedValue::Date {
+                    dt => Value::Date {
                         val: dt.into(),
                         span: head,
                     },
@@ -273,7 +273,7 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
             // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
 
             // default to UTC
-            None => SpannedValue::Date {
+            None => Value::Date {
                 val: Utc.timestamp_nanos(ts).into(),
                 span: head,
             },
@@ -282,19 +282,19 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                 Zone::Local => match_datetime!(Local.timestamp_nanos(ts)),
                 Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
                     Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
-                    None => SpannedValue::Error {
+                    None => Value::Error {
                         error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
                         span: *span,
                     },
                 },
                 Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
                     Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
-                    None => SpannedValue::Error {
+                    None => Value::Error {
                         error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
                         span: *span,
                     },
                 },
-                Zone::Error => SpannedValue::Error {
+                Zone::Error => Value::Error {
                     // This is an argument error, not an input error
                     error: Box::new(ShellError::TypeMismatch {
                         err_message: "Invalid timezone or offset".to_string(),
@@ -308,12 +308,12 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
 
     // If input is not a timestamp, try parsing it as a string
     match input {
-        SpannedValue::String { val, span } => {
+        Value::String { val, span } => {
             match dateformat {
                 Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
-                    Ok(d) => SpannedValue::Date { val: d, span: head },
+                    Ok(d) => Value::Date { val: d, span: head },
                     Err(reason) => {
-                        SpannedValue::Error {
+                        Value::Error {
                             error: Box::new(ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) }),
                             span: head,
                         }
@@ -323,7 +323,7 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
                 // (i.e. without a format string)
                 // and assumes the system's local timezone if none is specified
                 None => match parse_date_from_string(val, *span) {
-                    Ok(date) => SpannedValue::Date {
+                    Ok(date) => Value::Date {
                         val: date,
                         span: *span,
                     },
@@ -332,8 +332,8 @@ fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
             }
         }
         // Propagate errors by explicitly matching them before the final case.
-        SpannedValue::Error { .. } => input.clone(),
-        other => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
@@ -360,7 +360,7 @@ mod tests {
 
     #[test]
     fn takes_a_date_format() {
-        let date_str = SpannedValue::test_string("16.11.1984 8:00 am +0000");
+        let date_str = Value::test_string("16.11.1984 8:00 am +0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
         let args = Arguments {
             zone_options: None,
@@ -368,7 +368,7 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = SpannedValue::Date {
+        let expected = Value::Date {
             val: DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z")
                 .unwrap(),
             span: Span::test_data(),
@@ -378,14 +378,14 @@ mod tests {
 
     #[test]
     fn takes_iso8601_date_format() {
-        let date_str = SpannedValue::test_string("2020-08-04T16:39:18+00:00");
+        let date_str = Value::test_string("2020-08-04T16:39:18+00:00");
         let args = Arguments {
             zone_options: None,
             format_options: None,
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = SpannedValue::Date {
+        let expected = Value::Date {
             val: DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z")
                 .unwrap(),
             span: Span::test_data(),
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset() {
-        let date_str = SpannedValue::test_string("1614434140000000000");
+        let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -406,7 +406,7 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = SpannedValue::Date {
+        let expected = Value::Date {
             val: DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z")
                 .unwrap(),
             span: Span::test_data(),
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_offset_as_int() {
-        let date_int = SpannedValue::test_int(1_614_434_140_000_000_000);
+        let date_int = Value::test_int(1_614_434_140_000_000_000);
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
             span: Span::test_data(),
@@ -428,7 +428,7 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_int, &args, Span::test_data());
-        let expected = SpannedValue::Date {
+        let expected = Value::Date {
             val: DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z")
                 .unwrap(),
             span: Span::test_data(),
@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp() {
-        let date_str = SpannedValue::test_string("1614434140000000000");
+        let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
             item: Zone::Local,
             span: Span::test_data(),
@@ -450,7 +450,7 @@ mod tests {
             cell_paths: None,
         };
         let actual = action(&date_str, &args, Span::test_data());
-        let expected = SpannedValue::Date {
+        let expected = Value::Date {
             val: Local.timestamp_opt(1614434140, 0).unwrap().into(),
             span: Span::test_data(),
         };
@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn takes_timestamp_without_timezone() {
-        let date_str = SpannedValue::test_string("1614434140000000000");
+        let date_str = Value::test_string("1614434140000000000");
         let args = Arguments {
             zone_options: None,
             format_options: None,
@@ -468,7 +468,7 @@ mod tests {
         };
         let actual = action(&date_str, &args, Span::test_data());
 
-        let expected = SpannedValue::Date {
+        let expected = Value::Date {
             val: Utc.timestamp_opt(1614434140, 0).unwrap().into(),
             span: Span::test_data(),
         };
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
-        let date_str = SpannedValue::test_string("16.11.1984 8:00 am Oops0000");
+        let date_str = Value::test_string("16.11.1984 8:00 am Oops0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
         let args = Arguments {
             zone_options: None,

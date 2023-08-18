@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Span, SpannedValue, SyntaxShape, Type,
+    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_table::common::create_nu_table_config;
 use nu_table::{
@@ -129,7 +129,7 @@ impl Command for Table {
 
         // if list argument is present we just need to return a list of supported table themes
         if list {
-            let val = SpannedValue::List {
+            let val = Value::List {
                 vals: supported_table_modes(),
                 span: Span::test_data(),
             };
@@ -165,16 +165,16 @@ impl Command for Table {
             Example {
                 description: "Render data in table view",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span,
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
                             span,
                         },
                     ],
@@ -184,16 +184,16 @@ impl Command for Table {
             Example {
                 description: "Render data in table view (expanded)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span,
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
                             span,
                         },
                     ],
@@ -203,16 +203,16 @@ impl Command for Table {
             Example {
                 description: "Render data in table view (collapsed)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
+                            vals: vec![Value::test_int(1), Value::test_int(2)],
                             span,
                         },
-                        SpannedValue::Record {
+                        Value::Record {
                             cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
+                            vals: vec![Value::test_int(3), Value::test_int(4)],
                             span,
                         },
                     ],
@@ -237,30 +237,28 @@ fn handle_table_command(
 
     match input {
         PipelineData::ExternalStream { .. } => Ok(input),
-        PipelineData::Value(SpannedValue::Binary { val, .. }, ..) => {
-            Ok(PipelineData::ExternalStream {
-                stdout: Some(RawStream::new(
-                    Box::new(if call.redirect_stdout {
-                        vec![Ok(val)].into_iter()
-                    } else {
-                        vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                            .as_bytes()
-                            .to_vec())]
-                        .into_iter()
-                    }),
-                    ctrlc,
-                    call.head,
-                    None,
-                )),
-                stderr: None,
-                exit_code: None,
-                span: call.head,
-                metadata: None,
-                trim_end_newline: false,
-            })
-        }
+        PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
+            stdout: Some(RawStream::new(
+                Box::new(if call.redirect_stdout {
+                    vec![Ok(val)].into_iter()
+                } else {
+                    vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                        .as_bytes()
+                        .to_vec())]
+                    .into_iter()
+                }),
+                ctrlc,
+                call.head,
+                None,
+            )),
+            stderr: None,
+            exit_code: None,
+            span: call.head,
+            metadata: None,
+            trim_end_newline: false,
+        }),
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
-        PipelineData::Value(SpannedValue::List { vals, .. }, metadata) => handle_row_stream(
+        PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
             engine_state,
             stack,
             ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
@@ -278,7 +276,7 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(SpannedValue::Record { cols, vals, span }, ..) => {
+        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
             let term_width = get_width_param(term_width);
 
             handle_record(
@@ -294,7 +292,7 @@ fn handle_table_command(
                 &config,
             )
         }
-        PipelineData::Value(SpannedValue::LazyRecord { val, .. }, ..) => {
+        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
             let collected = val.collect()?.into_pipeline_data();
             handle_table_command(
                 engine_state,
@@ -306,16 +304,16 @@ fn handle_table_command(
                 term_width,
             )
         }
-        PipelineData::Value(SpannedValue::Error { error, .. }, ..) => {
+        PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(SpannedValue::CustomValue { val, span }, ..) => {
+        PipelineData::Value(Value::CustomValue { val, span }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
             Table.run(engine_state, stack, call, base_pipeline)
         }
-        PipelineData::Value(SpannedValue::Range { val, .. }, metadata) => handle_row_stream(
+        PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
             engine_state,
             stack,
             ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
@@ -328,26 +326,26 @@ fn handle_table_command(
     }
 }
 
-fn supported_table_modes() -> Vec<SpannedValue> {
+fn supported_table_modes() -> Vec<Value> {
     vec![
-        SpannedValue::test_string("basic"),
-        SpannedValue::test_string("compact"),
-        SpannedValue::test_string("compact_double"),
-        SpannedValue::test_string("default"),
-        SpannedValue::test_string("heavy"),
-        SpannedValue::test_string("light"),
-        SpannedValue::test_string("none"),
-        SpannedValue::test_string("reinforced"),
-        SpannedValue::test_string("rounded"),
-        SpannedValue::test_string("thin"),
-        SpannedValue::test_string("with_love"),
+        Value::test_string("basic"),
+        Value::test_string("compact"),
+        Value::test_string("compact_double"),
+        Value::test_string("default"),
+        Value::test_string("heavy"),
+        Value::test_string("light"),
+        Value::test_string("none"),
+        Value::test_string("reinforced"),
+        Value::test_string("rounded"),
+        Value::test_string("thin"),
+        Value::test_string("with_love"),
     ]
 }
 
 #[allow(clippy::too_many_arguments)]
 fn handle_record(
     cols: Vec<String>,
-    vals: Vec<SpannedValue>,
+    vals: Vec<Value>,
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -373,7 +371,7 @@ fn handle_record(
         }
     };
 
-    let val = SpannedValue::String {
+    let val = Value::String {
         val: result,
         span: call.head,
     };
@@ -393,7 +391,7 @@ fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize
 
 fn build_table_kv(
     cols: Vec<String>,
-    vals: Vec<SpannedValue>,
+    vals: Vec<Value>,
     table_view: TableView,
     opts: TableOpts<'_>,
     span: Span,
@@ -409,14 +407,14 @@ fn build_table_kv(
             ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
         }
         TableView::Collapsed => {
-            let value = SpannedValue::Record { cols, vals, span };
+            let value = Value::Record { cols, vals, span };
             CollapsedTable::build(value, opts)
         }
     }
 }
 
 fn build_table_batch(
-    vals: Vec<SpannedValue>,
+    vals: Vec<Value>,
     table_view: TableView,
     opts: TableOpts<'_>,
     span: Span,
@@ -432,7 +430,7 @@ fn build_table_batch(
             ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
         }
         TableView::Collapsed => {
-            let value = SpannedValue::List { vals, span };
+            let value = Value::List { vals, span };
             CollapsedTable::build(value, opts)
         }
     }
@@ -462,13 +460,13 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    SpannedValue::Record { cols, vals, .. } => {
+                    Value::Record { cols, vals, .. } => {
                         let mut idx = 0;
 
                         while idx < cols.len() {
                             // Only the name column gets special colors, for now
                             if cols[idx] == "name" {
-                                if let Some(SpannedValue::String { val, span }) = vals.get(idx) {
+                                if let Some(Value::String { val, span }) = vals.get(idx) {
                                     let val = render_path_name(val, &config, &ls_colors, *span);
                                     if let Some(val) = val {
                                         vals[idx] = val;
@@ -494,14 +492,14 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    SpannedValue::Record { cols, vals, .. } => {
+                    Value::Record { cols, vals, .. } => {
                         let mut idx = 0;
                         // Every column in the HTML theme table except 'name' is colored
                         while idx < cols.len() {
                             if cols[idx] != "name" {
                                 // Simple routine to grab the hex code, convert to a style,
                                 // then place it in a new Value::String.
-                                if let Some(SpannedValue::String { val, span }) = vals.get(idx) {
+                                if let Some(Value::String { val, span }) = vals.get(idx) {
                                     let s = match color_from_hex(val) {
                                         Ok(c) => match c {
                                             // .normal() just sets the text foreground color.
@@ -510,7 +508,7 @@ fn handle_row_stream(
                                         },
                                         Err(_) => nu_ansi_term::Style::default(),
                                     };
-                                    vals[idx] = SpannedValue::String {
+                                    vals[idx] = Value::String {
                                         // Apply the style (ANSI codes) to the string
                                         val: s.paint(val).to_string(),
                                         span: *span,
@@ -641,7 +639,7 @@ impl PagingTableCreator {
 
     fn build_extended(
         &mut self,
-        batch: Vec<SpannedValue>,
+        batch: Vec<Value>,
         limit: Option<usize>,
         flatten: bool,
         flatten_separator: Option<String>,
@@ -662,7 +660,7 @@ impl PagingTableCreator {
         build_table_batch(batch, view, opts, self.head)
     }
 
-    fn build_collapsed(&mut self, batch: Vec<SpannedValue>) -> StringResult {
+    fn build_collapsed(&mut self, batch: Vec<Value>) -> StringResult {
         if batch.is_empty() {
             return Ok(None);
         }
@@ -674,7 +672,7 @@ impl PagingTableCreator {
         build_table_batch(batch, TableView::Collapsed, opts, self.head)
     }
 
-    fn build_general(&mut self, batch: Vec<SpannedValue>) -> StringResult {
+    fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
         let cfg = get_config(&self.engine_state, &self.stack);
         let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
         let opts = self.create_table_opts(&cfg, &style_comp);
@@ -793,7 +791,7 @@ fn render_path_name(
     config: &Config,
     ls_colors: &LsColors,
     span: Span,
-) -> Option<SpannedValue> {
+) -> Option<Value> {
     if !config.use_ls_colors {
         return None;
     }
@@ -825,7 +823,7 @@ fn render_path_name(
     );
 
     let val = ansi_style.paint(full_path_link).to_string();
-    Some(SpannedValue::String { val, span })
+    Some(Value::String { val, span })
 }
 
 #[derive(Debug)]

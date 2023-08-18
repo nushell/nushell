@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, ShellError, Span, SpannedValue, TableIndexMode};
+use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
 use tabled::grid::config::Position;
 
 use crate::{
@@ -31,20 +31,15 @@ impl ExpandedTable {
         }
     }
 
-    pub fn build_value(self, item: &SpannedValue, opts: TableOpts<'_>) -> NuText {
+    pub fn build_value(self, item: &Value, opts: TableOpts<'_>) -> NuText {
         expanded_table_entry2(item, Cfg { opts, format: self })
     }
 
-    pub fn build_map(
-        self,
-        cols: &[String],
-        vals: &[SpannedValue],
-        opts: TableOpts<'_>,
-    ) -> StringResult {
+    pub fn build_map(self, cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
         expanded_table_kv(cols, vals, Cfg { opts, format: self })
     }
 
-    pub fn build_list(self, vals: &[SpannedValue], opts: TableOpts<'_>) -> StringResult {
+    pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
         let cfg = Cfg {
             opts: opts.clone(),
             format: self,
@@ -64,7 +59,7 @@ struct Cfg<'a> {
     format: ExpandedTable,
 }
 
-fn expanded_table_list(input: &[SpannedValue], cfg: Cfg<'_>) -> TableResult {
+fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     const PADDING_SPACE: usize = 2;
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
@@ -115,12 +110,12 @@ fn expanded_table_list(input: &[SpannedValue], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let SpannedValue::Error { error, .. } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
             let index = row + cfg.opts.row_offset;
-            let text = matches!(item, SpannedValue::Record { .. })
+            let text = matches!(item, Value::Record { .. })
                 .then(|| {
                     lookup_index_value(item, cfg.opts.config).unwrap_or_else(|| index.to_string())
                 })
@@ -155,7 +150,7 @@ fn expanded_table_list(input: &[SpannedValue], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let SpannedValue::Error { error, .. } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -243,7 +238,7 @@ fn expanded_table_list(input: &[SpannedValue], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let SpannedValue::Error { error, .. } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -345,7 +340,7 @@ fn expanded_table_list(input: &[SpannedValue], cfg: Cfg<'_>) -> TableResult {
     Ok(Some(TableOutput::new(table, true, with_index)))
 }
 
-fn expanded_table_kv(cols: &[String], vals: &[SpannedValue], cfg: Cfg<'_>) -> StringResult {
+fn expanded_table_kv(cols: &[String], vals: &[Value], cfg: Cfg<'_>) -> StringResult {
     let theme = load_theme_from_config(cfg.opts.config);
     let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
     let count_borders =
@@ -394,7 +389,7 @@ fn expanded_table_kv(cols: &[String], vals: &[SpannedValue], cfg: Cfg<'_>) -> St
 
 // the flag is used as an optimization to not do `value.lines().count()` search.
 fn expand_table_value(
-    value: &SpannedValue,
+    value: &Value,
     value_width: usize,
     cfg: &Cfg<'_>,
 ) -> Result<Option<(String, bool)>, ShellError> {
@@ -404,7 +399,7 @@ fn expand_table_value(
     }
 
     match value {
-        SpannedValue::List { vals, span } => {
+        Value::List { vals, span } => {
             let mut inner_cfg = dive_options(cfg, *span);
             inner_cfg.opts.width = value_width;
             let table = expanded_table_list(vals, inner_cfg)?;
@@ -427,7 +422,7 @@ fn expand_table_value(
                 }
             }
         }
-        SpannedValue::Record { cols, vals, span } => {
+        Value::Record { cols, vals, span } => {
             if cols.is_empty() {
                 // Like list case return styled string instead of empty value
                 return Ok(Some((
@@ -458,9 +453,9 @@ fn get_key_style(cfg: &Cfg<'_>) -> TextStyle {
     get_header_style(cfg.opts.style_computer).alignment(Alignment::Left)
 }
 
-fn expanded_table_entry(item: &SpannedValue, header: &str, cfg: Cfg<'_>) -> NuText {
+fn expanded_table_entry(item: &Value, header: &str, cfg: Cfg<'_>) -> NuText {
     match item {
-        SpannedValue::Record { .. } => {
+        Value::Record { .. } => {
             let val = header.to_owned();
             let path = PathMember::String {
                 val,
@@ -478,14 +473,14 @@ fn expanded_table_entry(item: &SpannedValue, header: &str, cfg: Cfg<'_>) -> NuTe
     }
 }
 
-fn expanded_table_entry2(item: &SpannedValue, cfg: Cfg<'_>) -> NuText {
+fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> NuText {
     let is_limit_reached = matches!(cfg.format.expand_limit, Some(0));
     if is_limit_reached {
         return nu_value_to_string_clean(item, cfg.opts.config, cfg.opts.style_computer);
     }
 
     match &item {
-        SpannedValue::Record { cols, vals, span } => {
+        Value::Record { cols, vals, span } => {
             if cols.is_empty() && vals.is_empty() {
                 return nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
             }
@@ -499,7 +494,7 @@ fn expanded_table_entry2(item: &SpannedValue, cfg: Cfg<'_>) -> NuText {
                 _ => nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer),
             }
         }
-        SpannedValue::List { vals, span } => {
+        Value::List { vals, span } => {
             if cfg.format.flatten && is_simple_list(vals) {
                 return value_list_to_string(
                     vals,
@@ -528,13 +523,13 @@ fn expanded_table_entry2(item: &SpannedValue, cfg: Cfg<'_>) -> NuText {
     }
 }
 
-fn is_simple_list(vals: &[SpannedValue]) -> bool {
+fn is_simple_list(vals: &[Value]) -> bool {
     vals.iter()
-        .all(|v| !matches!(v, SpannedValue::Record { .. } | SpannedValue::List { .. }))
+        .all(|v| !matches!(v, Value::Record { .. } | Value::List { .. }))
 }
 
 fn value_list_to_string(
-    vals: &[SpannedValue],
+    vals: &[Value],
     config: &Config,
     style_computer: &StyleComputer,
     flatten_sep: &str,
@@ -562,7 +557,7 @@ fn dive_options<'b>(cfg: &Cfg<'b>, span: Span) -> Cfg<'b> {
     cfg
 }
 
-fn lookup_index_value(item: &SpannedValue, config: &Config) -> Option<String> {
+fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
     item.get_data_by_key(INDEX_COLUMN_NAME)
         .map(|value| value.into_string("", config))
 }
@@ -592,23 +587,19 @@ fn create_table_cfg(cfg: &Cfg<'_>, out: &TableOutput) -> crate::NuTableConfig {
     create_nu_table_config(cfg.opts.config, cfg.opts.style_computer, out, false)
 }
 
-fn value_to_string(value: &SpannedValue, cfg: &Cfg<'_>) -> String {
+fn value_to_string(value: &Value, cfg: &Cfg<'_>) -> String {
     nu_value_to_string(value, cfg.opts.config, cfg.opts.style_computer).0
 }
 
-fn value_to_string_clean(value: &SpannedValue, cfg: &Cfg<'_>) -> String {
+fn value_to_string_clean(value: &Value, cfg: &Cfg<'_>) -> String {
     nu_value_to_string_clean(value, cfg.opts.config, cfg.opts.style_computer).0
 }
 
-fn value_to_wrapped_string(value: &SpannedValue, cfg: &Cfg<'_>, value_width: usize) -> String {
+fn value_to_wrapped_string(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> String {
     wrap_text(&value_to_string(value, cfg), value_width, cfg.opts.config)
 }
 
-fn value_to_wrapped_string_clean(
-    value: &SpannedValue,
-    cfg: &Cfg<'_>,
-    value_width: usize,
-) -> String {
+fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> String {
     wrap_text(
         &value_to_string_clean(value, cfg),
         value_width,

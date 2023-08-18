@@ -76,7 +76,7 @@ impl RawStream {
         for next in self {
             match next {
                 Ok(val) => {
-                    if let SpannedValue::Error { error, .. } = val {
+                    if let Value::Error { error, .. } = val {
                         return Err(*error);
                     }
                 }
@@ -92,7 +92,7 @@ impl Debug for RawStream {
     }
 }
 impl Iterator for RawStream {
-    type Item = Result<SpannedValue, ShellError>;
+    type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
@@ -108,7 +108,7 @@ impl Iterator for RawStream {
                             v.insert(0, b);
                         }
                     }
-                    SpannedValue::Binary {
+                    Value::Binary {
                         val: v,
                         span: self.span,
                     }
@@ -129,7 +129,7 @@ impl Iterator for RawStream {
                         match String::from_utf8(v.clone()) {
                             Ok(s) => {
                                 // Great, we have a complete string, let's output it
-                                Some(Ok(SpannedValue::String {
+                                Some(Ok(Value::String {
                                     val: s,
                                     span: self.span,
                                 }))
@@ -146,7 +146,7 @@ impl Iterator for RawStream {
                                     // that it's not just a character spanning two frames.
                                     // We now know we are definitely binary, so switch to binary and stay there.
                                     self.is_binary = true;
-                                    Some(Ok(SpannedValue::Binary {
+                                    Some(Ok(Value::Binary {
                                         val: v,
                                         span: self.span,
                                     }))
@@ -159,14 +159,14 @@ impl Iterator for RawStream {
                                     let buf = v[0..err.utf8_error().valid_up_to()].to_vec();
 
                                     match String::from_utf8(buf) {
-                                        Ok(s) => Some(Ok(SpannedValue::String {
+                                        Ok(s) => Some(Ok(Value::String {
                                             val: s,
                                             span: self.span,
                                         })),
                                         Err(_) => {
                                             // Something is definitely wrong. Switch to binary, and stay there
                                             self.is_binary = true;
-                                            Some(Ok(SpannedValue::Binary {
+                                            Some(Ok(Value::Binary {
                                                 val: v,
                                                 span: self.span,
                                             }))
@@ -179,7 +179,7 @@ impl Iterator for RawStream {
                     Err(e) => Some(Err(e)),
                 }
             } else if !self.leftover.is_empty() {
-                let output = Ok(SpannedValue::Binary {
+                let output = Ok(Value::Binary {
                     val: self.leftover.clone(),
                     span: self.span,
                 });
@@ -200,20 +200,20 @@ impl Iterator for RawStream {
 /// Like other iterators in Rust, observing values from this stream will drain the items as you view them
 /// and the stream cannot be replayed.
 pub struct ListStream {
-    pub stream: Box<dyn Iterator<Item = SpannedValue> + Send + 'static>,
+    pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
 impl ListStream {
     pub fn into_string(self, separator: &str, config: &Config) -> String {
-        self.map(|x: SpannedValue| x.into_string(", ", config))
+        self.map(|x: Value| x.into_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
         for next in self {
-            if let SpannedValue::Error { error, .. } = next {
+            if let Value::Error { error, .. } = next {
                 return Err(*error);
             }
         }
@@ -221,7 +221,7 @@ impl ListStream {
     }
 
     pub fn from_stream(
-        input: impl Iterator<Item = SpannedValue> + Send + 'static,
+        input: impl Iterator<Item = Value> + Send + 'static,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> ListStream {
         ListStream {
@@ -238,7 +238,7 @@ impl Debug for ListStream {
 }
 
 impl Iterator for ListStream {
-    type Item = SpannedValue;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {

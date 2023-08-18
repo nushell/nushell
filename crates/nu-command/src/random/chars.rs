@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use rand::{
     distributions::{Alphanumeric, Distribution},
@@ -79,7 +79,7 @@ fn chars(
         .collect::<String>();
 
     Ok(PipelineData::Value(
-        SpannedValue::String {
+        Value::String {
             val: random_string,
             span,
         },

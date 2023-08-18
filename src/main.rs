@@ -24,7 +24,7 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
-use nu_protocol::{engine::EngineState, report_error_new, SpannedValue};
+use nu_protocol::{engine::EngineState, report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -162,13 +162,13 @@ fn main() -> Result<()> {
         let vals: Vec<_> = include_path
             .item
             .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
-            .map(|x| SpannedValue::String {
+            .map(|x| Value::String {
                 val: x.trim().to_string(),
                 span,
             })
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), SpannedValue::List { vals, span });
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
     }
 
     start_time = std::time::Instant::now();
@@ -198,10 +198,7 @@ fn main() -> Result<()> {
         return Ok(());
     } else if let Some(ide_complete) = parsed_nu_cli_args.ide_complete {
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var(
-            "PWD".into(),
-            SpannedValue::test_string(cwd.to_string_lossy()),
-        );
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
         ide::complete(Arc::new(engine_state), &script_name, &ide_complete);
 

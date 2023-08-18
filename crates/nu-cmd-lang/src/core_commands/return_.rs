@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,13 +40,13 @@ impl Command for Return {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let return_value: Option<SpannedValue> = call.opt(engine_state, stack, 0)?;
+        let return_value: Option<Value> = call.opt(engine_state, stack, 0)?;
         if let Some(value) = return_value {
             Err(ShellError::Return(call.head, Box::new(value)))
         } else {
             Err(ShellError::Return(
                 call.head,
-                Box::new(SpannedValue::nothing(call.head)),
+                Box::new(Value::nothing(call.head)),
             ))
         }
     }

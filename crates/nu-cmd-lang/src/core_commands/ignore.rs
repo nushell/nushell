@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct Ignore;
@@ -41,7 +39,7 @@ impl Command for Ignore {
         vec![Example {
             description: "Ignore the output of an echo command",
             example: "echo done | ignore",
-            result: Some(SpannedValue::nothing(Span::test_data())),
+            result: Some(Value::nothing(Span::test_data())),
         }]
     }
 }

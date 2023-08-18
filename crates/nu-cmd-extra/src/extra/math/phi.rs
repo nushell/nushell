@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[allow(clippy::excessive_precision)]
@@ -35,7 +35,7 @@ impl Command for SubCommand {
         vec![Example {
             example: "math phi | math round --precision 3",
             description: "Get the first two decimal digits of φ",
-            result: Some(SpannedValue::test_float(1.618)),
+            result: Some(Value::test_float(1.618)),
         }]
     }
 
@@ -47,7 +47,7 @@ impl Command for SubCommand {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // TODO: replace with std::f64::consts::PHI when available https://github.com/rust-lang/rust/issues/103883
-        Ok(SpannedValue::float(PHI, call.head).into_pipeline_data())
+        Ok(Value::float(PHI, call.head).into_pipeline_data())
     }
 }
 

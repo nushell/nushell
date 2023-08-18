@@ -7,8 +7,7 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, ShellError, Span,
-    SpannedValue,
+    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -131,7 +130,7 @@ fn add_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    if let SpannedValue::Record { cols, vals, span } = &menu.menu_type {
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
         let layout = extract_value("layout", cols, vals, *span)?.into_string("", config);
 
         match layout.as_str() {
@@ -159,8 +158,8 @@ macro_rules! add_style {
         $menu = match extract_value($name, $cols, $vals, *$span) {
             Ok(text) => {
                 let style = match text {
-                    SpannedValue::String { val, .. } => lookup_ansi_color_style(&val),
-                    SpannedValue::Record { .. } => color_record_to_nustyle(&text),
+                    Value::String { val, .. } => lookup_ansi_color_style(&val),
+                    Value::Record { .. } => color_record_to_nustyle(&text),
                     _ => lookup_ansi_color_style("green"),
                 };
                 $f($menu, style)
@@ -181,7 +180,7 @@ pub(crate) fn add_columnar_menu(
     let name = menu.name.into_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
-    if let SpannedValue::Record { cols, vals, span } = &menu.menu_type {
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
         columnar_menu = match extract_value("columns", cols, vals, *span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
@@ -207,7 +206,7 @@ pub(crate) fn add_columnar_menu(
         };
     }
 
-    if let SpannedValue::Record { cols, vals, span } = &menu.style {
+    if let Value::Record { cols, vals, span } = &menu.style {
         add_style!(
             "text",
             cols,
@@ -244,10 +243,10 @@ pub(crate) fn add_columnar_menu(
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
 
     match &menu.source {
-        SpannedValue::Nothing { .. } => {
+        Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        SpannedValue::Closure {
+        Value::Closure {
             val,
             captures,
             span,
@@ -283,7 +282,7 @@ pub(crate) fn add_list_menu(
     let name = menu.name.into_string("", config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
-    if let SpannedValue::Record { cols, vals, span } = &menu.menu_type {
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
         list_menu = match extract_value("page_size", cols, vals, *span) {
             Ok(page_size) => {
                 let page_size = page_size.as_int()?;
@@ -293,7 +292,7 @@ pub(crate) fn add_list_menu(
         };
     }
 
-    if let SpannedValue::Record { cols, vals, span } = &menu.style {
+    if let Value::Record { cols, vals, span } = &menu.style {
         add_style!(
             "text",
             cols,
@@ -330,10 +329,10 @@ pub(crate) fn add_list_menu(
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
 
     match &menu.source {
-        SpannedValue::Nothing { .. } => {
+        Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        SpannedValue::Closure {
+        Value::Closure {
             val,
             captures,
             span,
@@ -369,7 +368,7 @@ pub(crate) fn add_description_menu(
     let name = menu.name.into_string("", config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
-    if let SpannedValue::Record { cols, vals, span } = &menu.menu_type {
+    if let Value::Record { cols, vals, span } = &menu.menu_type {
         description_menu = match extract_value("columns", cols, vals, *span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
@@ -411,7 +410,7 @@ pub(crate) fn add_description_menu(
         };
     }
 
-    if let SpannedValue::Record { cols, vals, span } = &menu.style {
+    if let Value::Record { cols, vals, span } = &menu.style {
         add_style!(
             "text",
             cols,
@@ -448,14 +447,14 @@ pub(crate) fn add_description_menu(
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
 
     match &menu.source {
-        SpannedValue::Nothing { .. } => {
+        Value::Nothing { .. } => {
             let completer = Box::new(NuHelpCompleter::new(engine_state));
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
                 menu: Box::new(description_menu),
                 completer,
             }))
         }
-        SpannedValue::Closure {
+        Value::Closure {
             val,
             captures,
             span,
@@ -577,7 +576,7 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
 }
 
 fn add_keybinding(
-    mode: &SpannedValue,
+    mode: &Value,
     keybinding: &ParsedKeybinding,
     config: &Config,
     emacs_keybindings: &mut Keybindings,
@@ -585,7 +584,7 @@ fn add_keybinding(
     normal_keybindings: &mut Keybindings,
 ) -> Result<(), ShellError> {
     match &mode {
-        SpannedValue::String { val, span } => match val.as_str() {
+        Value::String { val, span } => match val.as_str() {
             "emacs" => add_parsed_keybinding(emacs_keybindings, keybinding, config),
             "vi_insert" => add_parsed_keybinding(insert_keybindings, keybinding, config),
             "vi_normal" => add_parsed_keybinding(normal_keybindings, keybinding, config),
@@ -595,7 +594,7 @@ fn add_keybinding(
                 *span,
             )),
         },
-        SpannedValue::List { vals, .. } => {
+        Value::List { vals, .. } => {
             for inner_mode in vals {
                 add_keybinding(
                     inner_mode,
@@ -717,15 +716,15 @@ fn add_parsed_keybinding(
 }
 
 enum EventType<'config> {
-    Send(&'config SpannedValue),
-    Edit(&'config SpannedValue),
-    Until(&'config SpannedValue),
+    Send(&'config Value),
+    Edit(&'config Value),
+    Until(&'config Value),
 }
 
 impl<'config> EventType<'config> {
     fn try_from_columns(
         cols: &'config [String],
-        vals: &'config [SpannedValue],
+        vals: &'config [Value],
         span: Span,
     ) -> Result<Self, ShellError> {
         extract_value("send", cols, vals, span)
@@ -736,9 +735,9 @@ impl<'config> EventType<'config> {
     }
 }
 
-fn parse_event(value: &SpannedValue, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
+fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
     match value {
-        SpannedValue::Record { cols, vals, span } => {
+        Value::Record { cols, vals, span } => {
             match EventType::try_from_columns(cols, vals, *span)? {
                 EventType::Send(value) => event_from_record(
                     value.into_string("", config).to_lowercase().as_str(),
@@ -759,7 +758,7 @@ fn parse_event(value: &SpannedValue, config: &Config) -> Result<Option<ReedlineE
                     Ok(Some(ReedlineEvent::Edit(vec![edit])))
                 }
                 EventType::Until(value) => match value {
-                    SpannedValue::List { vals, .. } => {
+                    Value::List { vals, .. } => {
                         let events = vals
                             .iter()
                             .map(|value| match parse_event(value, config) {
@@ -785,7 +784,7 @@ fn parse_event(value: &SpannedValue, config: &Config) -> Result<Option<ReedlineE
                 },
             }
         }
-        SpannedValue::List { vals, .. } => {
+        Value::List { vals, .. } => {
             let events = vals
                 .iter()
                 .map(|value| match parse_event(value, config) {
@@ -803,7 +802,7 @@ fn parse_event(value: &SpannedValue, config: &Config) -> Result<Option<ReedlineE
 
             Ok(Some(ReedlineEvent::Multiple(events)))
         }
-        SpannedValue::Nothing { .. } => Ok(None),
+        Value::Nothing { .. } => Ok(None),
         v => Err(ShellError::UnsupportedConfigValue(
             "record or list of records, null to unbind key".to_string(),
             v.into_abbreviated_string(config),
@@ -815,7 +814,7 @@ fn parse_event(value: &SpannedValue, config: &Config) -> Result<Option<ReedlineE
 fn event_from_record(
     name: &str,
     cols: &[String],
-    vals: &[SpannedValue],
+    vals: &[Value],
     config: &Config,
     span: Span,
 ) -> Result<ReedlineEvent, ShellError> {
@@ -871,7 +870,7 @@ fn event_from_record(
 fn edit_from_record(
     name: &str,
     cols: &[String],
-    vals: &[SpannedValue],
+    vals: &[Value],
     config: &Config,
     span: Span,
 ) -> Result<EditCommand, ShellError> {
@@ -983,7 +982,7 @@ fn edit_from_record(
     Ok(edit)
 }
 
-fn extract_char(value: &SpannedValue, config: &Config) -> Result<char, ShellError> {
+fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
     let span = value.span();
     value
         .into_string("", config)
@@ -999,13 +998,13 @@ mod test {
     #[test]
     fn test_send_event() {
         let cols = vec!["send".to_string()];
-        let vals = vec![SpannedValue::test_string("Enter")];
+        let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
-        let event = SpannedValue::Record {
+        let event = Value::Record {
             vals,
             cols,
             span: Span::test_data(),
@@ -1019,13 +1018,13 @@ mod test {
     #[test]
     fn test_edit_event() {
         let cols = vec!["edit".to_string()];
-        let vals = vec![SpannedValue::test_string("Clear")];
+        let vals = vec![Value::test_string("Clear")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Edit(_)));
 
-        let event = SpannedValue::Record {
+        let event = Value::Record {
             vals,
             cols,
             span: Span::test_data(),
@@ -1043,15 +1042,15 @@ mod test {
     fn test_send_menu() {
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            SpannedValue::test_string("Menu"),
-            SpannedValue::test_string("history_menu"),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
-        let event = SpannedValue::Record {
+        let event = Value::Record {
             vals,
             cols,
             span: Span::test_data(),
@@ -1070,11 +1069,11 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            SpannedValue::test_string("Menu"),
-            SpannedValue::test_string("history_menu"),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
-        let menu_event = SpannedValue::Record {
+        let menu_event = Value::Record {
             cols,
             vals,
             span: Span::test_data(),
@@ -1082,9 +1081,9 @@ mod test {
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![SpannedValue::test_string("Enter")];
+        let vals = vec![Value::test_string("Enter")];
 
-        let enter_event = SpannedValue::Record {
+        let enter_event = Value::Record {
             cols,
             vals,
             span: Span::test_data(),
@@ -1092,7 +1091,7 @@ mod test {
 
         // Until event
         let cols = vec!["until".to_string()];
-        let vals = vec![SpannedValue::List {
+        let vals = vec![Value::List {
             vals: vec![menu_event, enter_event],
             span: Span::test_data(),
         }];
@@ -1101,7 +1100,7 @@ mod test {
         let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
         assert!(matches!(b, EventType::Until(_)));
 
-        let event = SpannedValue::Record {
+        let event = Value::Record {
             cols,
             vals,
             span: Span::test_data(),
@@ -1123,11 +1122,11 @@ mod test {
         // Menu event
         let cols = vec!["send".to_string(), "name".to_string()];
         let vals = vec![
-            SpannedValue::test_string("Menu"),
-            SpannedValue::test_string("history_menu"),
+            Value::test_string("Menu"),
+            Value::test_string("history_menu"),
         ];
 
-        let menu_event = SpannedValue::Record {
+        let menu_event = Value::Record {
             cols,
             vals,
             span: Span::test_data(),
@@ -1135,16 +1134,16 @@ mod test {
 
         // Enter event
         let cols = vec!["send".to_string()];
-        let vals = vec![SpannedValue::test_string("Enter")];
+        let vals = vec![Value::test_string("Enter")];
 
-        let enter_event = SpannedValue::Record {
+        let enter_event = Value::Record {
             cols,
             vals,
             span: Span::test_data(),
         };
 
         // Multiple event
-        let event = SpannedValue::List {
+        let event = Value::List {
             vals: vec![menu_event, enter_event],
             span: Span::test_data(),
         };
@@ -1163,7 +1162,7 @@ mod test {
     #[test]
     fn test_error() {
         let cols = vec!["not_exist".to_string()];
-        let vals = vec![SpannedValue::test_string("Enter")];
+        let vals = vec![Value::test_string("Enter")];
 
         let span = Span::test_data();
         let b = EventType::try_from_columns(&cols, &vals, span);

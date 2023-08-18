@@ -2,7 +2,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, Type,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -31,21 +31,21 @@ impl Command for Enumerate {
         vec![Example {
             description: "Add an index to each element of a list",
             example: r#"[a, b, c] | enumerate "#,
-            result: Some(SpannedValue::List {
+            result: Some(Value::List {
                 vals: vec![
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["index".into(), "item".into()],
-                        vals: vec![SpannedValue::test_int(0), SpannedValue::test_string("a")],
+                        vals: vec![Value::test_int(0), Value::test_string("a")],
                         span: Span::test_data(),
                     },
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["index".into(), "item".into()],
-                        vals: vec![SpannedValue::test_int(1), SpannedValue::test_string("b")],
+                        vals: vec![Value::test_int(1), Value::test_string("b")],
                         span: Span::test_data(),
                     },
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["index".into(), "item".into()],
-                        vals: vec![SpannedValue::test_int(2), SpannedValue::test_string("c")],
+                        vals: vec![Value::test_int(2), Value::test_string("c")],
                         span: Span::test_data(),
                     },
                 ],
@@ -68,10 +68,10 @@ impl Command for Enumerate {
         Ok(input
             .into_iter()
             .enumerate()
-            .map(move |(idx, x)| SpannedValue::Record {
+            .map(move |(idx, x)| Value::Record {
                 cols: vec!["index".into(), "item".into()],
                 vals: vec![
-                    SpannedValue::Int {
+                    Value::Int {
                         val: idx as i64,
                         span,
                     },

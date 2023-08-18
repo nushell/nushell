@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -65,7 +65,7 @@ impl Command for LazyMake {
             .get_flag(engine_state, stack, "get-value")?
             .expect("required flag");
 
-        Ok(SpannedValue::LazyRecord {
+        Ok(Value::LazyRecord {
             val: Box::new(NuLazyRecord {
                 engine_state: engine_state.clone(),
                 stack: Arc::new(Mutex::new(stack.clone())),
@@ -115,10 +115,10 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
         self.columns.iter().map(|column| column.as_str()).collect()
     }
 
-    fn get_column_value(&self, column: &str) -> Result<SpannedValue, ShellError> {
+    fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
         let block = self.engine_state.get_block(self.get_value.block_id);
         let mut stack = self.stack.lock().expect("lock must not be poisoned");
-        let column_value = SpannedValue::String {
+        let column_value = Value::String {
             val: column.into(),
             span: self.span,
         };
@@ -141,7 +141,7 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
         pipeline_result.map(|data| match data {
             PipelineData::Value(value, ..) => value,
             // TODO: Proper error handling.
-            _ => SpannedValue::Nothing { span: self.span },
+            _ => Value::Nothing { span: self.span },
         })
     }
 
@@ -149,8 +149,8 @@ impl<'a> LazyRecord<'a> for NuLazyRecord {
         self.span
     }
 
-    fn clone_value(&self, span: Span) -> SpannedValue {
-        SpannedValue::LazyRecord {
+    fn clone_value(&self, span: Span) -> Value {
+        Value::LazyRecord {
             val: Box::new((*self).clone()),
             span,
         }

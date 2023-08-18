@@ -11,7 +11,7 @@ use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
-use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, SpannedValue};
+use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
 
 use super::EvaluatedCall;
 
@@ -244,8 +244,8 @@ pub trait Plugin {
         &mut self,
         name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
-    ) -> Result<SpannedValue, LabeledError>;
+        input: &Value,
+    ) -> Result<Value, LabeledError>;
 }
 
 /// Function used to implement the communication protocol between
@@ -320,7 +320,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         CallInput::Value(value) => Ok(value),
                         CallInput::Data(plugin_data) => {
                             bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                                .map(|custom_value| SpannedValue::CustomValue {
+                                .map(|custom_value| Value::CustomValue {
                                     val: custom_value,
                                     span: plugin_data.span,
                                 })
@@ -334,17 +334,15 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     };
 
                     let response = match value {
-                        Ok(SpannedValue::CustomValue { val, span }) => {
-                            match bincode::serialize(&val) {
-                                Ok(data) => {
-                                    let name = val.value_string();
-                                    PluginResponse::PluginData(name, PluginData { data, span })
-                                }
-                                Err(err) => PluginResponse::Error(
-                                    ShellError::PluginFailedToEncode(err.to_string()).into(),
-                                ),
+                        Ok(Value::CustomValue { val, span }) => match bincode::serialize(&val) {
+                            Ok(data) => {
+                                let name = val.value_string();
+                                PluginResponse::PluginData(name, PluginData { data, span })
                             }
-                        }
+                            Err(err) => PluginResponse::Error(
+                                ShellError::PluginFailedToEncode(err.to_string()).into(),
+                            ),
+                        },
                         Ok(value) => PluginResponse::Value(Box::new(value)),
                         Err(err) => PluginResponse::Error(err),
                     };

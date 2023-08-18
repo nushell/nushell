@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -55,26 +53,26 @@ impl Command for SubCommand {
         vec![Example {
             description: "Get the natural logarithm of e",
             example: "math e | math ln",
-            result: Some(SpannedValue::test_float(1.0f64)),
+            result: Some(Value::test_float(1.0f64)),
         }]
     }
 }
 
-fn operate(value: SpannedValue, head: Span) -> SpannedValue {
+fn operate(value: Value, head: Span) -> Value {
     match value {
-        numeric @ (SpannedValue::Int { .. } | SpannedValue::Float { .. }) => {
+        numeric @ (Value::Int { .. } | Value::Float { .. }) => {
             let (val, span) = match numeric {
-                SpannedValue::Int { val, span } => (val as f64, span),
-                SpannedValue::Float { val, span } => (val, span),
+                Value::Int { val, span } => (val as f64, span),
+                Value::Float { val, span } => (val, span),
                 _ => unreachable!(),
             };
 
             if val > 0.0 {
                 let val = val.ln();
 
-                SpannedValue::Float { val, span }
+                Value::Float { val, span }
             } else {
-                SpannedValue::Error {
+                Value::Error {
                     error: Box::new(ShellError::UnsupportedInput(
                         "'ln' undefined for values outside the open interval (0, Inf).".into(),
                         "value originates from here".into(),
@@ -85,8 +83,8 @@ fn operate(value: SpannedValue, head: Span) -> SpannedValue {
                 }
             }
         }
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

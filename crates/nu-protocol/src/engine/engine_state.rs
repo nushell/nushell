@@ -6,7 +6,7 @@ use crate::{
     ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
     Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
-use crate::{Category, ParseError, SpannedValue};
+use crate::{Category, ParseError, Value};
 use core::panic;
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
@@ -121,7 +121,7 @@ pub struct EngineState {
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: EnvVars,
-    pub previous_env_vars: HashMap<String, SpannedValue>,
+    pub previous_env_vars: HashMap<String, Value>,
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
@@ -419,7 +419,7 @@ impl EngineState {
             .1
     }
 
-    pub fn render_env_vars(&self) -> HashMap<&String, &SpannedValue> {
+    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
         let mut result = HashMap::new();
 
         for overlay_name in self.active_overlay_names(&[]) {
@@ -432,7 +432,7 @@ impl EngineState {
         result
     }
 
-    pub fn add_env_var(&mut self, name: String, val: SpannedValue) {
+    pub fn add_env_var(&mut self, name: String, val: Value) {
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
         if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
@@ -443,7 +443,7 @@ impl EngineState {
         }
     }
 
-    pub fn get_env_var(&self, name: &str) -> Option<&SpannedValue> {
+    pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
@@ -457,7 +457,7 @@ impl EngineState {
     }
 
     // Get the path environment variable in a platform agnostic way
-    pub fn get_path_env_var(&self) -> Option<&SpannedValue> {
+    pub fn get_path_env_var(&self) -> Option<&Value> {
         let env_path_name_windows: &str = "Path";
         let env_path_name_nix: &str = "PATH";
 
@@ -1613,7 +1613,7 @@ impl<'a> StateWorkingSet<'a> {
         pwd.as_string().expect("internal error: PWD not a string")
     }
 
-    pub fn get_env_var(&self, name: &str) -> Option<&SpannedValue> {
+    pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         self.permanent_state.get_env_var(name)
     }
 
@@ -1644,7 +1644,7 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn set_variable_const_val(&mut self, var_id: VarId, val: SpannedValue) {
+    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
         let num_permanent_vars = self.permanent_state.num_vars();
         if var_id < num_permanent_vars {
             panic!("Internal error: attempted to set into permanent state from working set")

@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SpannedValue, SyntaxShape, Type,
+    Span, SyntaxShape, Type, Value,
 };
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
@@ -86,22 +86,22 @@ impl Command for SubCommand {
             Example {
                 description: "convert integer to string and append three decimal places",
                 example: "5 | into string -d 3",
-                result: Some(SpannedValue::test_string("5.000")),
+                result: Some(Value::test_string("5.000")),
             },
             Example {
                 description: "convert decimal to string and round to nearest integer",
                 example: "1.7 | into string -d 0",
-                result: Some(SpannedValue::test_string("2")),
+                result: Some(Value::test_string("2")),
             },
             Example {
                 description: "convert decimal to string",
                 example: "1.7 | into string -d 1",
-                result: Some(SpannedValue::test_string("1.7")),
+                result: Some(Value::test_string("1.7")),
             },
             Example {
                 description: "convert decimal to string and limit to 2 decimals",
                 example: "1.734 | into string -d 2",
-                result: Some(SpannedValue::test_string("1.73")),
+                result: Some(Value::test_string("1.73")),
             },
             Example {
                 description: "try to convert decimal to string and provide negative decimal points",
@@ -118,17 +118,17 @@ impl Command for SubCommand {
             Example {
                 description: "convert decimal to string",
                 example: "4.3 | into string",
-                result: Some(SpannedValue::test_string("4.3")),
+                result: Some(Value::test_string("4.3")),
             },
             Example {
                 description: "convert string to string",
                 example: "'1234' | into string",
-                result: Some(SpannedValue::test_string("1234")),
+                result: Some(Value::test_string("1234")),
             },
             Example {
                 description: "convert boolean to string",
                 example: "true | into string",
-                result: Some(SpannedValue::test_string("true")),
+                result: Some(Value::test_string("true")),
             },
             // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
             // Example {
@@ -144,12 +144,12 @@ impl Command for SubCommand {
             Example {
                 description: "convert filesize to string",
                 example: "1KiB | into string",
-                result: Some(SpannedValue::test_string("1,024 B")),
+                result: Some(Value::test_string("1,024 B")),
             },
             Example {
                 description: "convert duration to string",
                 example: "9day | into string",
-                result: Some(SpannedValue::test_string("1wk 2day")),
+                result: Some(Value::test_string("1wk 2day")),
             },
         ]
     }
@@ -183,7 +183,7 @@ fn string_helper(
     };
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(SpannedValue::String {
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::String {
             val: String::new(),
             span: head,
         }
@@ -194,7 +194,7 @@ fn string_helper(
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
-            Ok(SpannedValue::String {
+            Ok(Value::String {
                 val: output.item,
                 span: head,
             }
@@ -204,65 +204,65 @@ fn string_helper(
     }
 }
 
-fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let decimals = args.decimals;
     let digits = args.decimals_value;
     let config = &args.config;
     match input {
-        SpannedValue::Int { val, .. } => {
+        Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
             let res = format_int(*val, false, decimal_value);
-            SpannedValue::String { val: res, span }
+            Value::String { val: res, span }
         }
-        SpannedValue::Float { val, .. } => {
+        Value::Float { val, .. } => {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
-                SpannedValue::String {
+                Value::String {
                     val: format!("{val:.decimal_value$}"),
                     span,
                 }
             } else {
-                SpannedValue::String {
+                Value::String {
                     val: val.to_string(),
                     span,
                 }
             }
         }
-        SpannedValue::Bool { val, .. } => SpannedValue::String {
+        Value::Bool { val, .. } => Value::String {
             val: val.to_string(),
             span,
         },
-        SpannedValue::Date { val, .. } => SpannedValue::String {
+        Value::Date { val, .. } => Value::String {
             val: val.format("%c").to_string(),
             span,
         },
-        SpannedValue::String { val, .. } => SpannedValue::String {
+        Value::String { val, .. } => Value::String {
             val: val.to_string(),
             span,
         },
 
-        SpannedValue::Filesize { val: _, .. } => SpannedValue::String {
+        Value::Filesize { val: _, .. } => Value::String {
             val: input.into_string(", ", config),
             span,
         },
-        SpannedValue::Duration { val: _, .. } => SpannedValue::String {
+        Value::Duration { val: _, .. } => Value::String {
             val: input.into_string("", config),
             span,
         },
 
-        SpannedValue::Error { error, .. } => SpannedValue::String {
+        Value::Error { error, .. } => Value::String {
             val: into_code(error).unwrap_or_default(),
             span,
         },
-        SpannedValue::Nothing { .. } => SpannedValue::String {
+        Value::Nothing { .. } => Value::String {
             val: "".to_string(),
             span,
         },
-        SpannedValue::Record {
+        Value::Record {
             cols: _,
             vals: _,
             span: _,
-        } => SpannedValue::Error {
+        } => Value::Error {
             // Watch out for CantConvert's argument order
             error: Box::new(ShellError::CantConvert {
                 to_type: "string".into(),
@@ -272,7 +272,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
             }),
             span,
         },
-        SpannedValue::Binary { .. } => SpannedValue::Error {
+        Value::Binary { .. } => Value::Error {
             error: Box::new(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: "binary".into(),
@@ -281,7 +281,7 @@ fn action(input: &SpannedValue, args: &Arguments, span: Span) -> SpannedValue {
             }),
             span,
         },
-        x => SpannedValue::Error {
+        x => Value::Error {
             error: Box::new(ShellError::CantConvert {
                 to_type: String::from("string"),
                 from_type: x.get_type().to_string(),

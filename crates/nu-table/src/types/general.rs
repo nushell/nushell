@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, ShellError, Span, SpannedValue, TableIndexMode};
+use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
 
 use crate::{
     clean_charset,
@@ -14,16 +14,16 @@ use crate::{
 pub struct JustTable;
 
 impl JustTable {
-    pub fn table(input: &[SpannedValue], opts: TableOpts<'_>) -> StringResult {
+    pub fn table(input: &[Value], opts: TableOpts<'_>) -> StringResult {
         create_table(input, opts)
     }
 
-    pub fn kv_table(cols: &[String], vals: &[SpannedValue], opts: TableOpts<'_>) -> StringResult {
+    pub fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
         kv_table(cols, vals, opts)
     }
 }
 
-fn create_table(input: &[SpannedValue], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
+fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
     match table(input, opts.row_offset, opts.clone())? {
         Some(mut out) => {
             let left = opts.config.table_indent.left;
@@ -38,14 +38,14 @@ fn create_table(input: &[SpannedValue], opts: TableOpts<'_>) -> Result<Option<St
     }
 }
 
-fn kv_table(cols: &[String], vals: &[SpannedValue], opts: TableOpts<'_>) -> StringResult {
+fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
     let mut data = vec![Vec::with_capacity(2); cols.len()];
     for ((column, value), row) in cols.iter().zip(vals.iter()).zip(data.iter_mut()) {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
             return Ok(None);
         }
 
-        let is_string_value = matches!(value, SpannedValue::String { .. });
+        let is_string_value = matches!(value, Value::String { .. });
         let mut value = value.into_abbreviated_string(opts.config);
         if is_string_value {
             value = clean_charset(&value);
@@ -72,7 +72,7 @@ fn kv_table(cols: &[String], vals: &[SpannedValue], opts: TableOpts<'_>) -> Stri
     Ok(table)
 }
 
-fn table(input: &[SpannedValue], row_offset: usize, opts: TableOpts<'_>) -> TableResult {
+fn table(input: &[Value], row_offset: usize, opts: TableOpts<'_>) -> TableResult {
     if input.is_empty() {
         return Ok(None);
     }
@@ -109,7 +109,7 @@ fn table(input: &[SpannedValue], row_offset: usize, opts: TableOpts<'_>) -> Tabl
 }
 
 fn to_table_with_header(
-    input: &[SpannedValue],
+    input: &[Value],
     headers: Vec<String>,
     with_index: bool,
     row_offset: usize,
@@ -130,7 +130,7 @@ fn to_table_with_header(
             return Ok(None);
         }
 
-        if let SpannedValue::Error { error, .. } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 
@@ -152,7 +152,7 @@ fn to_table_with_header(
 }
 
 fn to_table_with_no_header(
-    input: &[SpannedValue],
+    input: &[Value],
     with_index: bool,
     row_offset: usize,
     opts: TableOpts<'_>,
@@ -165,7 +165,7 @@ fn to_table_with_no_header(
             return Ok(None);
         }
 
-        if let SpannedValue::Error { error, .. } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 
@@ -184,9 +184,9 @@ fn to_table_with_no_header(
     Ok(Some(table))
 }
 
-fn get_string_value_with_header(item: &SpannedValue, header: &str, opts: &TableOpts) -> NuText {
+fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) -> NuText {
     match item {
-        SpannedValue::Record { .. } => {
+        Value::Record { .. } => {
             let path = PathMember::String {
                 val: header.to_owned(),
                 span: Span::unknown(),
@@ -203,9 +203,9 @@ fn get_string_value_with_header(item: &SpannedValue, header: &str, opts: &TableO
     }
 }
 
-fn get_string_value(item: &SpannedValue, opts: &TableOpts) -> NuText {
+fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
     let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
-    let is_string_value = matches!(item, SpannedValue::String { .. });
+    let is_string_value = matches!(item, Value::String { .. });
     if is_string_value {
         text = clean_charset(&text);
     }
@@ -213,9 +213,9 @@ fn get_string_value(item: &SpannedValue, opts: &TableOpts) -> NuText {
     (text, style)
 }
 
-fn get_table_row_index(item: &SpannedValue, config: &Config, row: usize, offset: usize) -> String {
+fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize) -> String {
     match item {
-        SpannedValue::Record { .. } => item
+        Value::Record { .. } => item
             .get_data_by_key(INDEX_COLUMN_NAME)
             .map(|value| value.into_string("", config))
             .unwrap_or_else(|| (row + offset).to_string()),

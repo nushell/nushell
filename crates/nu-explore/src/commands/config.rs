@@ -2,7 +2,7 @@ use std::io::Result;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 
 use crate::{
@@ -90,7 +90,7 @@ impl ViewCommand for ConfigCmd {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        _: Option<SpannedValue>,
+        _: Option<Value>,
     ) -> Result<Self::View> {
         let mut options = vec![];
 
@@ -155,16 +155,16 @@ impl ViewCommand for ConfigCmd {
     }
 }
 
-fn create_default_value() -> SpannedValue {
+fn create_default_value() -> Value {
     let span = NuSpan::unknown();
 
-    let record = |i: usize| SpannedValue::Record {
+    let record = |i: usize| Value::Record {
         cols: vec![String::from("key"), String::from("value")],
         vals: vec![nu_str(format!("key-{i}")), nu_str(format!("{i}"))],
         span,
     };
 
-    SpannedValue::List {
+    Value::List {
         vals: vec![record(0), record(1), record(2)],
         span,
     }

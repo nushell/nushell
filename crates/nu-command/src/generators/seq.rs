@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -40,18 +40,18 @@ impl Command for Seq {
             Example {
                 description: "sequence 1 to 10",
                 example: "seq 1 10",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                        SpannedValue::test_int(4),
-                        SpannedValue::test_int(5),
-                        SpannedValue::test_int(6),
-                        SpannedValue::test_int(7),
-                        SpannedValue::test_int(8),
-                        SpannedValue::test_int(9),
-                        SpannedValue::test_int(10),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
+                        Value::test_int(5),
+                        Value::test_int(6),
+                        Value::test_int(7),
+                        Value::test_int(8),
+                        Value::test_int(9),
+                        Value::test_int(10),
                     ],
                     span: Span::test_data(),
                 }),
@@ -59,19 +59,19 @@ impl Command for Seq {
             Example {
                 description: "sequence 1.0 to 2.0 by 0.1s",
                 example: "seq 1.0 0.1 2.0",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_float(1.0000),
-                        SpannedValue::test_float(1.1000),
-                        SpannedValue::test_float(1.2000),
-                        SpannedValue::test_float(1.3000),
-                        SpannedValue::test_float(1.4000),
-                        SpannedValue::test_float(1.5000),
-                        SpannedValue::test_float(1.6000),
-                        SpannedValue::test_float(1.7000),
-                        SpannedValue::test_float(1.8000),
-                        SpannedValue::test_float(1.9000),
-                        SpannedValue::test_float(2.0000),
+                        Value::test_float(1.0000),
+                        Value::test_float(1.1000),
+                        Value::test_float(1.2000),
+                        Value::test_float(1.3000),
+                        Value::test_float(1.4000),
+                        Value::test_float(1.5000),
+                        Value::test_float(1.6000),
+                        Value::test_float(1.7000),
+                        Value::test_float(1.8000),
+                        Value::test_float(1.9000),
+                        Value::test_float(2.0000),
                     ],
                     span: Span::test_data(),
                 }),
@@ -178,8 +178,8 @@ struct FloatSeq {
 }
 
 impl Iterator for FloatSeq {
-    type Item = SpannedValue;
-    fn next(&mut self) -> Option<SpannedValue> {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
         let count = self.first + self.index as f64 * self.step;
         // Accuracy guaranteed as far as possible; each time, the value is re-evaluated from the
         // base arguments
@@ -187,7 +187,7 @@ impl Iterator for FloatSeq {
             return None;
         }
         self.index += 1;
-        Some(SpannedValue::float(count, self.span))
+        Some(Value::float(count, self.span))
     }
 }
 
@@ -199,13 +199,13 @@ struct IntSeq {
 }
 
 impl Iterator for IntSeq {
-    type Item = SpannedValue;
-    fn next(&mut self) -> Option<SpannedValue> {
+    type Item = Value;
+    fn next(&mut self) -> Option<Value> {
         if (self.count > self.last && self.step >= 0) || (self.count < self.last && self.step <= 0)
         {
             return None;
         }
-        let ret = Some(SpannedValue::int(self.count, self.span));
+        let ret = Some(Value::int(self.count, self.span));
         self.count += self.step;
         ret
     }

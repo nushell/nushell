@@ -3,7 +3,7 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, SpannedValue, Type,
+    PipelineData, Span, Type, Value,
 };
 use reedline::Suggestion;
 use std::collections::HashMap;
@@ -79,7 +79,7 @@ impl Completer for CustomCompletion {
             .map(|pd| {
                 let value = pd.into_value(span);
                 match &value {
-                    SpannedValue::Record { .. } => {
+                    Value::Record { .. } => {
                         let completions = value
                             .get_data_by_key("completions")
                             .and_then(|val| {
@@ -90,7 +90,7 @@ impl Completer for CustomCompletion {
                             .unwrap_or_default();
                         let options = value.get_data_by_key("options");
 
-                        if let Some(SpannedValue::Record { .. }) = &options {
+                        if let Some(Value::Record { .. }) = &options {
                             let options = options.unwrap_or_default();
                             let should_sort = options
                                 .get_data_by_key("sort")
@@ -130,9 +130,7 @@ impl Completer for CustomCompletion {
 
                         completions
                     }
-                    SpannedValue::List { vals, .. } => {
-                        map_value_completions(vals.iter(), span, offset)
-                    }
+                    Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
                     _ => vec![],
                 }
             })

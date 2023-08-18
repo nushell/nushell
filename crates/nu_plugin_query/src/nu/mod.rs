@@ -1,6 +1,6 @@
 use crate::Query;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginExample, PluginSignature, Spanned, SpannedValue, SyntaxShape};
+use nu_protocol::{Category, PluginExample, PluginSignature, Spanned, SyntaxShape, Value};
 
 impl Plugin for Query {
     fn signature(&self) -> Vec<PluginSignature> {
@@ -49,8 +49,8 @@ impl Plugin for Query {
         &mut self,
         name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
-    ) -> Result<SpannedValue, LabeledError> {
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
         // You can use the name to identify what plugin signature was called
         let path: Option<Spanned<String>> = call.opt(0)?;
 

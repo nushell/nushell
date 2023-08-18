@@ -3,8 +3,7 @@ use nu_parser::{parse, parse_module_block, unescape_unquote_string};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -62,7 +61,7 @@ impl Command for NuCheck {
         }
 
         match input {
-            PipelineData::Value(SpannedValue::String { val, span }, ..) => {
+            PipelineData::Value(Value::String { val, span }, ..) => {
                 let contents = Vec::from(val);
                 if is_all {
                     heuristic_parse(&mut working_set, None, &contents, is_debug, call.head)
@@ -247,7 +246,7 @@ fn heuristic_parse(
                             Vec::new(),
                         ))
                     } else {
-                        Ok(PipelineData::Value(SpannedValue::bool(false, span), None))
+                        Ok(PipelineData::Value(Value::bool(false, span), None))
                     }
                 }
             }
@@ -292,10 +291,7 @@ fn heuristic_parse_file(
                                     Vec::new(),
                                 ))
                             } else {
-                                Ok(PipelineData::Value(
-                                    SpannedValue::bool(false, call.head),
-                                    None,
-                                ))
+                                Ok(PipelineData::Value(Value::bool(false, call.head), None))
                             }
                         }
                     }
@@ -341,16 +337,10 @@ fn parse_module(
                 Vec::new(),
             ))
         } else {
-            Ok(PipelineData::Value(
-                SpannedValue::bool(false, new_span),
-                None,
-            ))
+            Ok(PipelineData::Value(Value::bool(false, new_span), None))
         }
     } else {
-        Ok(PipelineData::Value(
-            SpannedValue::bool(true, new_span),
-            None,
-        ))
+        Ok(PipelineData::Value(Value::bool(true, new_span), None))
     }
 }
 
@@ -380,10 +370,10 @@ fn parse_script(
                 Vec::new(),
             ))
         } else {
-            Ok(PipelineData::Value(SpannedValue::bool(false, span), None))
+            Ok(PipelineData::Value(Value::bool(false, span), None))
         }
     } else {
-        Ok(PipelineData::Value(SpannedValue::bool(true, span), None))
+        Ok(PipelineData::Value(Value::bool(true, span), None))
     }
 }
 

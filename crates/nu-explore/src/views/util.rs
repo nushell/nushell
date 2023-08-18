@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nu_color_config::{Alignment, StyleComputer};
-use nu_protocol::{ShellError, SpannedValue};
+use nu_protocol::{ShellError, Value};
 use nu_table::{string_width, TextStyle};
 use ratatui::{
     buffer::Buffer,
@@ -117,13 +117,13 @@ pub fn text_style_to_tui_style(style: TextStyle) -> ratatui::style::Style {
 pub fn make_styled_string(
     style_computer: &StyleComputer,
     text: String,
-    value: Option<&SpannedValue>, // None represents table holes.
+    value: Option<&Value>, // None represents table holes.
     float_precision: usize,
 ) -> NuText {
     match value {
         Some(value) => {
             match value {
-                SpannedValue::Float { .. } => {
+                Value::Float { .. } => {
                     // set dynamic precision from config
                     let precise_number = match convert_with_precision(&text, float_precision) {
                         Ok(num) => num,
@@ -140,10 +140,7 @@ pub fn make_styled_string(
                 text,
                 TextStyle::with_style(
                     Alignment::Center,
-                    style_computer.compute(
-                        "empty",
-                        &SpannedValue::nothing(nu_protocol::Span::unknown()),
-                    ),
+                    style_computer.compute("empty", &Value::nothing(nu_protocol::Span::unknown())),
                 ),
             )
         }

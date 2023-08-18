@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -62,10 +62,10 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["b".to_string()],
-                        vals: vec![SpannedValue::test_int(2)],
+                        vals: vec![Value::test_int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),
@@ -74,20 +74,20 @@ impl Command for Reject {
             Example {
                 description: "Reject the specified field in a record",
                 example: "{a: 1, b: 2} | reject a",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["b".into()],
-                    vals: vec![SpannedValue::test_int(2)],
+                    vals: vec![Value::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Reject a nested field in a record",
                 example: "{a: {b: 3, c: 5}} | reject a.b",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["a".into()],
-                    vals: vec![SpannedValue::Record {
+                    vals: vec![Value::Record {
                         cols: vec!["c".into()],
-                        vals: vec![SpannedValue::test_int(5)],
+                        vals: vec![Value::test_int(5)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

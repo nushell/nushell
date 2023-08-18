@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ impl Command for ViewFiles {
         let mut records = vec![];
 
         for (file, start, end) in engine_state.files() {
-            records.push(SpannedValue::Record {
+            records.push(Value::Record {
                 cols: vec![
                     "filename".to_string(),
                     "start".to_string(),
@@ -44,16 +44,16 @@ impl Command for ViewFiles {
                     "size".to_string(),
                 ],
                 vals: vec![
-                    SpannedValue::string(file, call.head),
-                    SpannedValue::int(*start as i64, call.head),
-                    SpannedValue::int(*end as i64, call.head),
-                    SpannedValue::int(*end as i64 - *start as i64, call.head),
+                    Value::string(file, call.head),
+                    Value::int(*start as i64, call.head),
+                    Value::int(*end as i64, call.head),
+                    Value::int(*end as i64 - *start as i64, call.head),
                 ],
                 span: call.head,
             });
         }
 
-        Ok(SpannedValue::List {
+        Ok(Value::List {
             vals: records,
             span: call.head,
         }

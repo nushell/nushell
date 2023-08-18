@@ -1,9 +1,7 @@
 use nu_engine::get_full_help;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, SpannedValue, Type,
-};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
 
 #[derive(Clone)]
 pub struct Roll;
@@ -38,7 +36,7 @@ impl Command for Roll {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(SpannedValue::String {
+        Ok(Value::String {
             val: get_full_help(
                 &Roll.signature(),
                 &Roll.examples(),

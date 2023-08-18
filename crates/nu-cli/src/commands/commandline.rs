@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::IntoPipelineData;
-use nu_protocol::{PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -63,7 +63,7 @@ impl Command for Commandline {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if let Some(cmd) = call.opt::<SpannedValue>(engine_state, stack, 0)? {
+        if let Some(cmd) = call.opt::<Value>(engine_state, stack, 0)? {
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
             if call.has_flag("cursor") {
@@ -102,7 +102,7 @@ impl Command for Commandline {
                 repl.buffer = cmd.as_string()?;
                 repl.cursor_pos = repl.buffer.len();
             }
-            Ok(SpannedValue::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
         } else {
             let repl = engine_state.repl_state.lock().expect("repl state mutex");
             if call.has_flag("cursor") {
@@ -112,13 +112,13 @@ impl Command for Commandline {
                     .chain(std::iter::once((repl.buffer.len(), "")))
                     .position(|(i, _c)| i == repl.cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
-                Ok(SpannedValue::String {
+                Ok(Value::String {
                     val: char_pos.to_string(),
                     span: call.head,
                 }
                 .into_pipeline_data())
             } else {
-                Ok(SpannedValue::String {
+                Ok(Value::String {
                     val: repl.buffer.to_string(),
                     span: call.head,
                 }

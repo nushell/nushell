@@ -4,7 +4,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -41,24 +41,20 @@ impl Command for Drop {
             Example {
                 example: "[0,1,2,3] | drop",
                 description: "Remove the last item of a list",
-                result: Some(SpannedValue::List {
-                    vals: vec![
-                        SpannedValue::test_int(0),
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                    ],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[0,1,2,3] | drop 0",
                 description: "Remove zero item of a list",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_int(0),
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
                     ],
                     span: Span::test_data(),
                 }),
@@ -66,18 +62,18 @@ impl Command for Drop {
             Example {
                 example: "[0,1,2,3] | drop 2",
                 description: "Remove the last two items of a list",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_int(0), SpannedValue::test_int(1)],
+                result: Some(Value::List {
+                    vals: vec![Value::test_int(0), Value::test_int(1)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Remove the last row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | drop 1",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::Record {
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
                         cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(2)],
+                        vals: vec![Value::test_int(1), Value::test_int(2)],
                         span: Span::test_data(),
                     }],
                     span: Span::test_data(),

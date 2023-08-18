@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SpannedValue, SyntaxShape, Type,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -46,19 +46,19 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "[a b c] | wrap name | merge ( [1 2 3] | wrap index )",
                 description: "Add an 'index' column to the input table",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_record(
+                        Value::test_record(
                             vec!["name", "index"],
-                            vec![SpannedValue::test_string("a"), SpannedValue::test_int(1)],
+                            vec![Value::test_string("a"), Value::test_int(1)],
                         ),
-                        SpannedValue::test_record(
+                        Value::test_record(
                             vec!["name", "index"],
-                            vec![SpannedValue::test_string("b"), SpannedValue::test_int(2)],
+                            vec![Value::test_string("b"), Value::test_int(2)],
                         ),
-                        SpannedValue::test_record(
+                        Value::test_record(
                             vec!["name", "index"],
-                            vec![SpannedValue::test_string("c"), SpannedValue::test_int(3)],
+                            vec![Value::test_string("c"), Value::test_int(3)],
                         ),
                     ],
                     span: Span::test_data(),
@@ -67,26 +67,19 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
                 description: "Merge two records",
-                result: Some(SpannedValue::Record {
+                result: Some(Value::Record {
                     cols: vec!["a".to_string(), "b".to_string(), "c".to_string()],
-                    vals: vec![
-                        SpannedValue::test_int(1),
-                        SpannedValue::test_int(2),
-                        SpannedValue::test_int(3),
-                    ],
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
                 description: "Merge two tables, overwriting overlapping columns",
-                result: Some(SpannedValue::List {
-                    vals: vec![SpannedValue::test_record(
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(
                         vec!["columnA", "columnB"],
-                        vec![
-                            SpannedValue::test_string("A0*"),
-                            SpannedValue::test_string("B0"),
-                        ],
+                        vec![Value::test_string("A0*"), Value::test_string("B0")],
                     )],
                     span: Span::test_data(),
                 }),
@@ -101,7 +94,7 @@ repeating this process with row 1, and so on."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let merge_value: SpannedValue = call.req(engine_state, stack, 0)?;
+        let merge_value: Value = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
@@ -110,9 +103,8 @@ repeating this process with row 1, and so on."#
         match (&input, merge_value) {
             // table (list of records)
             (
-                PipelineData::Value(SpannedValue::List { .. }, ..)
-                | PipelineData::ListStream { .. },
-                SpannedValue::List { vals, .. },
+                PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. },
+                Value::List { vals, .. },
             ) => {
                 let mut table_iter = vals.into_iter();
 
@@ -127,20 +119,20 @@ repeating this process with row 1, and so on."#
                                             (inp_cols.to_vec(), inp_vals.to_vec()),
                                             (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
                                         );
-                                        SpannedValue::Record {
+                                        Value::Record {
                                             cols,
                                             vals,
                                             span: call.head,
                                         }
                                     }
-                                    Err(error) => SpannedValue::Error {
+                                    Err(error) => Value::Error {
                                         error: Box::new(error),
                                         span: call.head,
                                     },
                                 }
                             }
                             (_, None) => inp,
-                            (Err(error), _) => SpannedValue::Error {
+                            (Err(error), _) => Value::Error {
                                 error: Box::new(error),
                                 span: call.head,
                             },
@@ -155,14 +147,14 @@ repeating this process with row 1, and so on."#
             // record
             (
                 PipelineData::Value(
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: inp_cols,
                         vals: inp_vals,
                         ..
                     },
                     ..,
                 ),
-                SpannedValue::Record {
+                Value::Record {
                     cols: to_merge_cols,
                     vals: to_merge_vals,
                     ..
@@ -172,7 +164,7 @@ repeating this process with row 1, and so on."#
                     (inp_cols.to_vec(), inp_vals.to_vec()),
                     (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
                 );
-                Ok(SpannedValue::Record {
+                Ok(Value::Record {
                     cols,
                     vals,
                     span: call.head,
@@ -205,9 +197,9 @@ repeating this process with row 1, and so on."#
 }
 
 fn do_merge(
-    input_record: (Vec<String>, Vec<SpannedValue>),
-    to_merge_record: (Vec<String>, Vec<SpannedValue>),
-) -> (Vec<String>, Vec<SpannedValue>) {
+    input_record: (Vec<String>, Vec<Value>),
+    to_merge_record: (Vec<String>, Vec<Value>),
+) -> (Vec<String>, Vec<Value>) {
     let (mut result_cols, mut result_vals) = input_record;
     let (to_merge_cols, to_merge_vals) = to_merge_record;
 

@@ -1,8 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SpannedValue,
-    Type,
+    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -39,16 +38,16 @@ impl Command for HelpOperators {
             let mut cols = vec![];
             let mut vals = vec![];
             cols.push("type".into());
-            vals.push(SpannedValue::string(op.op_type, head));
+            vals.push(Value::string(op.op_type, head));
             cols.push("operator".into());
-            vals.push(SpannedValue::string(op.operator, head));
+            vals.push(Value::string(op.operator, head));
             cols.push("name".into());
-            vals.push(SpannedValue::string(op.name, head));
+            vals.push(Value::string(op.name, head));
             cols.push("description".into());
-            vals.push(SpannedValue::string(op.description, head));
+            vals.push(Value::string(op.description, head));
             cols.push("precedence".into());
-            vals.push(SpannedValue::int(op.precedence, head));
-            recs.push(SpannedValue::Record {
+            vals.push(Value::int(op.precedence, head));
+            recs.push(Value::Record {
                 cols,
                 vals,
                 span: head,

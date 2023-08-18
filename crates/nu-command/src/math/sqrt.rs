@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -55,32 +53,32 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute the square root of each number in a list",
             example: "[9 16] | math sqrt",
-            result: Some(SpannedValue::List {
-                vals: vec![SpannedValue::test_int(3), SpannedValue::test_int(4)],
+            result: Some(Value::List {
+                vals: vec![Value::test_int(3), Value::test_int(4)],
                 span: Span::test_data(),
             }),
         }]
     }
 }
 
-fn operate(value: SpannedValue, head: Span) -> SpannedValue {
+fn operate(value: Value, head: Span) -> Value {
     match value {
-        SpannedValue::Int { val, span } => {
+        Value::Int { val, span } => {
             let squared = (val as f64).sqrt();
             if squared.is_nan() {
                 return error_negative_sqrt(head, span);
             }
-            SpannedValue::Float { val: squared, span }
+            Value::Float { val: squared, span }
         }
-        SpannedValue::Float { val, span } => {
+        Value::Float { val, span } => {
             let squared = val.sqrt();
             if squared.is_nan() {
                 return error_negative_sqrt(head, span);
             }
-            SpannedValue::Float { val: squared, span }
+            Value::Float { val: squared, span }
         }
-        SpannedValue::Error { .. } => value,
-        other => SpannedValue::Error {
+        Value::Error { .. } => value,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
@@ -92,8 +90,8 @@ fn operate(value: SpannedValue, head: Span) -> SpannedValue {
     }
 }
 
-fn error_negative_sqrt(head: Span, span: Span) -> SpannedValue {
-    SpannedValue::Error {
+fn error_negative_sqrt(head: Span, span: Span) -> Value {
+    Value::Error {
         error: Box::new(ShellError::UnsupportedInput(
             String::from("Can't square root a negative number"),
             "value originates from here".into(),

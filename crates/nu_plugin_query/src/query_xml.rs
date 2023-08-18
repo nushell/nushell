@@ -1,14 +1,14 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Spanned, SpannedValue};
+use nu_protocol::{Span, Spanned, Value};
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
 
 pub fn execute_xpath_query(
     _name: &str,
     call: &EvaluatedCall,
-    input: &SpannedValue,
+    input: &Value,
     query: Option<Spanned<String>>,
-) -> Result<SpannedValue, LabeledError> {
+) -> Result<Value, LabeledError> {
     let (query_string, span) = match &query {
         Some(v) => (&v.item, v.span),
         None => {
@@ -54,41 +54,41 @@ pub fn execute_xpath_query(
     match res {
         Ok(r) => {
             let mut cols: Vec<String> = vec![];
-            let mut vals: Vec<SpannedValue> = vec![];
-            let mut records: Vec<SpannedValue> = vec![];
+            let mut vals: Vec<Value> = vec![];
+            let mut records: Vec<Value> = vec![];
 
             match r {
                 sxd_xpath::Value::Nodeset(ns) => {
                     for n in ns.into_iter() {
                         cols.push(key.to_string());
-                        vals.push(SpannedValue::string(n.string_value(), call.head));
+                        vals.push(Value::string(n.string_value(), call.head));
                     }
                 }
                 sxd_xpath::Value::Boolean(b) => {
                     cols.push(key.to_string());
-                    vals.push(SpannedValue::bool(b, call.head));
+                    vals.push(Value::bool(b, call.head));
                 }
                 sxd_xpath::Value::Number(n) => {
                     cols.push(key.to_string());
-                    vals.push(SpannedValue::float(n, call.head));
+                    vals.push(Value::float(n, call.head));
                 }
                 sxd_xpath::Value::String(s) => {
                     cols.push(key.to_string());
-                    vals.push(SpannedValue::string(s, call.head));
+                    vals.push(Value::string(s, call.head));
                 }
             };
 
             // convert the cols and vecs to a table by creating individual records
             // for each item so we can then use a list to make a table
             for (k, v) in cols.iter().zip(vals.iter()) {
-                records.push(SpannedValue::Record {
+                records.push(Value::Record {
                     cols: vec![k.to_string()],
                     vals: vec![v.clone()],
                     span: call.head,
                 })
             }
 
-            Ok(SpannedValue::List {
+            Ok(Value::List {
                 vals: records,
                 span: call.head,
             })
@@ -123,7 +123,7 @@ fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledE
 mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
-    use nu_protocol::{Span, Spanned, SpannedValue};
+    use nu_protocol::{Span, Spanned, Value};
 
     #[test]
     fn position_function_in_predicate() {
@@ -133,7 +133,7 @@ mod tests {
             named: vec![],
         };
 
-        let text = SpannedValue::string(
+        let text = Value::string(
             r#"<?xml version="1.0" encoding="UTF-8"?><a><b/><b/></a>"#,
             Span::test_data(),
         );
@@ -144,10 +144,10 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = SpannedValue::List {
-            vals: vec![SpannedValue::Record {
+        let expected = Value::List {
+            vals: vec![Value::Record {
                 cols: vec!["count(//a/*[posit...".to_string()],
-                vals: vec![SpannedValue::test_float(1.0)],
+                vals: vec![Value::test_float(1.0)],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),
@@ -164,7 +164,7 @@ mod tests {
             named: vec![],
         };
 
-        let text = SpannedValue::string(
+        let text = Value::string(
             r#"<?xml version="1.0" encoding="UTF-8"?><a>true</a>"#,
             Span::test_data(),
         );
@@ -175,10 +175,10 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = SpannedValue::List {
-            vals: vec![SpannedValue::Record {
+        let expected = Value::List {
+            vals: vec![Value::Record {
                 cols: vec!["count(//*[contain...".to_string()],
-                vals: vec![SpannedValue::test_float(1.0)],
+                vals: vec![Value::test_float(1.0)],
                 span: Span::test_data(),
             }],
             span: Span::test_data(),

@@ -5,8 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SpannedValue,
-    SyntaxShape, Type,
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -103,39 +103,39 @@ impl Command for SubCommand {
             Example {
                 description: "Returns index of string in input",
                 example: " 'my_library.rb' | str index-of '.rb'",
-                result: Some(SpannedValue::test_int(10)),
+                result: Some(Value::test_int(10)),
             },
             Example {
                 description: "Count length using grapheme clusters",
                 example: "'🇯🇵ほげ ふが ぴよ' | str index-of -g 'ふが'",
-                result: Some(SpannedValue::test_int(4)),
+                result: Some(Value::test_int(4)),
             },
             Example {
                 description: "Returns index of string in input within a`rhs open range`",
                 example: " '.rb.rb' | str index-of '.rb' -r 1..",
-                result: Some(SpannedValue::test_int(3)),
+                result: Some(Value::test_int(3)),
             },
             Example {
                 description: "Returns index of string in input within a lhs open range",
                 example: " '123456' | str index-of '6' -r ..4",
-                result: Some(SpannedValue::test_int(-1)),
+                result: Some(Value::test_int(-1)),
             },
             Example {
                 description: "Returns index of string in input within a range",
                 example: " '123456' | str index-of '3' -r 1..4",
-                result: Some(SpannedValue::test_int(2)),
+                result: Some(Value::test_int(2)),
             },
             Example {
                 description: "Returns index of string in input",
                 example: " '/this/is/some/path/file.txt' | str index-of '/' -e",
-                result: Some(SpannedValue::test_int(18)),
+                result: Some(Value::test_int(18)),
             },
         ]
     }
 }
 
 fn action(
-    input: &SpannedValue,
+    input: &Value,
     Arguments {
         ref substring,
         range,
@@ -144,9 +144,9 @@ fn action(
         ..
     }: &Arguments,
     head: Span,
-) -> SpannedValue {
+) -> Value {
     match input {
-        SpannedValue::String { val: s, .. } => {
+        Value::String { val: s, .. } => {
             let (start_index, end_index) = if let Some(range) = range {
                 match util::process_range(range) {
                     Ok(r) => {
@@ -161,7 +161,7 @@ fn action(
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find `index-of`", head);
-                        return SpannedValue::Error {
+                        return Value::Error {
                             error: Box::new(err),
                             span: head,
                         };
@@ -178,7 +178,7 @@ fn action(
                 s[start_index..end_index].find(&**substring)
             } {
                 let result = result + start_index;
-                SpannedValue::int(
+                Value::int(
                     if *graphemes {
                         // Having found the substring's byte index, convert to grapheme index.
                         // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
@@ -194,11 +194,11 @@ fn action(
                     head,
                 )
             } else {
-                SpannedValue::int(-1, head)
+                Value::int(-1, head)
             }
         }
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn returns_index_of_substring() {
-        let word = SpannedValue::test_string("Cargo.tomL");
+        let word = Value::test_string("Cargo.tomL");
 
         let options = Arguments {
             substring: String::from(".tomL"),
@@ -238,11 +238,11 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
 
-        assert_eq!(actual, SpannedValue::test_int(5));
+        assert_eq!(actual, Value::test_int(5));
     }
     #[test]
     fn index_of_does_not_exist_in_string() {
-        let word = SpannedValue::test_string("Cargo.tomL");
+        let word = Value::test_string("Cargo.tomL");
 
         let options = Arguments {
             substring: String::from("Lm"),
@@ -255,22 +255,22 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
 
-        assert_eq!(actual, SpannedValue::test_int(-1));
+        assert_eq!(actual, Value::test_int(-1));
     }
 
     #[test]
     fn returns_index_of_next_substring() {
-        let word = SpannedValue::test_string("Cargo.Cargo");
+        let word = Value::test_string("Cargo.Cargo");
         let range = Range {
-            from: SpannedValue::Int {
+            from: Value::Int {
                 val: 1,
                 span: Span::test_data(),
             },
-            incr: SpannedValue::Int {
+            incr: Value::Int {
                 val: 1,
                 span: Span::test_data(),
             },
-            to: SpannedValue::Nothing {
+            to: Value::Nothing {
                 span: Span::test_data(),
             },
             inclusion: RangeInclusion::Inclusive,
@@ -286,22 +286,22 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_int(6));
+        assert_eq!(actual, Value::test_int(6));
     }
 
     #[test]
     fn index_does_not_exist_due_to_end_index() {
-        let word = SpannedValue::test_string("Cargo.Banana");
+        let word = Value::test_string("Cargo.Banana");
         let range = Range {
-            from: SpannedValue::Nothing {
+            from: Value::Nothing {
                 span: Span::test_data(),
             },
             inclusion: RangeInclusion::Inclusive,
-            incr: SpannedValue::Int {
+            incr: Value::Int {
                 val: 1,
                 span: Span::test_data(),
             },
-            to: SpannedValue::Int {
+            to: Value::Int {
                 val: 5,
                 span: Span::test_data(),
             },
@@ -317,22 +317,22 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_int(-1));
+        assert_eq!(actual, Value::test_int(-1));
     }
 
     #[test]
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
-        let word = SpannedValue::test_string("123123123");
+        let word = Value::test_string("123123123");
         let range = Range {
-            from: SpannedValue::Int {
+            from: Value::Int {
                 val: 2,
                 span: Span::test_data(),
             },
-            incr: SpannedValue::Int {
+            incr: Value::Int {
                 val: 1,
                 span: Span::test_data(),
             },
-            to: SpannedValue::Int {
+            to: Value::Int {
                 val: 6,
                 span: Span::test_data(),
             },
@@ -349,22 +349,22 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_int(3));
+        assert_eq!(actual, Value::test_int(3));
     }
 
     #[test]
     fn index_does_not_exists_due_to_strict_bounds() {
-        let word = SpannedValue::test_string("123456");
+        let word = Value::test_string("123456");
         let range = Range {
-            from: SpannedValue::Int {
+            from: Value::Int {
                 val: 2,
                 span: Span::test_data(),
             },
-            incr: SpannedValue::Int {
+            incr: Value::Int {
                 val: 1,
                 span: Span::test_data(),
             },
-            to: SpannedValue::Int {
+            to: Value::Int {
                 val: 5,
                 span: Span::test_data(),
             },
@@ -381,12 +381,12 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_int(-1));
+        assert_eq!(actual, Value::test_int(-1));
     }
 
     #[test]
     fn use_utf8_bytes() {
-        let word = SpannedValue::String {
+        let word = Value::String {
             val: String::from("🇯🇵ほげ ふが ぴよ"),
             span: Span::test_data(),
         };
@@ -401,6 +401,6 @@ mod tests {
         };
 
         let actual = action(&word, &options, Span::test_data());
-        assert_eq!(actual, SpannedValue::test_int(15));
+        assert_eq!(actual, Value::test_int(15));
     }
 }

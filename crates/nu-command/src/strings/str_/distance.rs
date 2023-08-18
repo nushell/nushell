@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     levenshtein_distance, Category, Example, PipelineData, ShellError, Signature, Span,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -75,16 +75,16 @@ impl Command for SubCommand {
         vec![Example {
             description: "get the edit distance between two strings",
             example: "'nushell' | str distance 'nutshell'",
-            result: Some(SpannedValue::test_int(1)),
+            result: Some(Value::test_int(1)),
         },
         Example {
             description: "Compute edit distance between strings in table and another string, using cell paths",
             example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
-            result: Some(SpannedValue::List {
+            result: Some(Value::List {
                 vals: vec![
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(4)],
+                        vals: vec![Value::test_int(1), Value::test_int(4)],
                         span: Span::test_data(),
                     }
                 ],
@@ -95,9 +95,9 @@ impl Command for SubCommand {
             description: "Compute edit distance between strings in record and another string, using cell paths",
             example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
             result: Some(
-                    SpannedValue::Record {
+                    Value::Record {
                         cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![SpannedValue::test_int(1), SpannedValue::test_int(4)],
+                        vals: vec![Value::test_int(1), Value::test_int(4)],
                         span: Span::test_data(),
                     }
                 ),
@@ -105,15 +105,15 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &SpannedValue, args: &Arguments, head: Span) -> SpannedValue {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let compare_string = &args.compare_string;
     match input {
-        SpannedValue::String { val, .. } => {
+        Value::String { val, .. } => {
             let distance = levenshtein_distance(val, compare_string);
-            SpannedValue::int(distance as i64, head)
+            Value::int(distance as i64, head)
         }
-        SpannedValue::Error { .. } => input.clone(),
-        _ => SpannedValue::Error {
+        Value::Error { .. } => input.clone(),
+        _ => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),

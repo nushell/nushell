@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -58,25 +58,19 @@ impl Command for SortBy {
             Example {
                 description: "Sort a table by a column (reversed order)",
                 example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
-                result: Some(SpannedValue::List {
+                result: Some(Value::List {
                     vals: vec![
-                        SpannedValue::test_record(
+                        Value::test_record(
                             vec!["fruit", "count"],
-                            vec![SpannedValue::test_string("pear"), SpannedValue::test_int(3)],
+                            vec![Value::test_string("pear"), Value::test_int(3)],
                         ),
-                        SpannedValue::test_record(
+                        Value::test_record(
                             vec!["fruit", "count"],
-                            vec![
-                                SpannedValue::test_string("orange"),
-                                SpannedValue::test_int(7),
-                            ],
+                            vec![Value::test_string("orange"), Value::test_int(7)],
                         ),
-                        SpannedValue::test_record(
+                        Value::test_record(
                             vec!["fruit", "count"],
-                            vec![
-                                SpannedValue::test_string("apple"),
-                                SpannedValue::test_int(9),
-                            ],
+                            vec![Value::test_string("apple"), Value::test_int(9)],
                         ),
                     ],
                     span: Span::test_data(),

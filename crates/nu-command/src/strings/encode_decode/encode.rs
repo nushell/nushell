@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -53,7 +53,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             Example {
                 description: "Encode an UTF-8 string into Shift-JIS",
                 example: r#""負けると知って戦うのが、遥かに美しいのだ" | encode shift-jis"#,
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![
                         0x95, 0x89, 0x82, 0xaf, 0x82, 0xe9, 0x82, 0xc6, 0x92, 0x6d, 0x82, 0xc1,
                         0x82, 0xc4, 0x90, 0xed, 0x82, 0xa4, 0x82, 0xcc, 0x82, 0xaa, 0x81, 0x41,
@@ -66,7 +66,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             Example {
                 description: "Replace characters with HTML entities if they can't be encoded",
                 example: r#""🎈" | encode -i shift-jis"#,
-                result: Some(SpannedValue::Binary {
+                result: Some(Value::Binary {
                     val: vec![0x26, 0x23, 0x31, 0x32, 0x37, 0x38, 0x38, 0x30, 0x3b],
                     span: Span::test_data(),
                 }),
@@ -96,11 +96,11 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                     .map(|val| val.into_pipeline_data())
             }
             PipelineData::Value(v, ..) => match v {
-                SpannedValue::String { val: s, span } => {
+                Value::String { val: s, span } => {
                     super::encoding::encode(head, encoding, &s, span, ignore_errors)
                         .map(|val| val.into_pipeline_data())
                 }
-                SpannedValue::Error { error, .. } => Err(*error),
+                Value::Error { error, .. } => Err(*error),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string".into(),
                     wrong_type: v.get_type().to_string(),

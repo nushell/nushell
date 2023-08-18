@@ -11,7 +11,7 @@ use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 use ratatui::layout::Rect;
 
@@ -101,7 +101,7 @@ pub trait View {
         Vec::new()
     }
 
-    fn exit(&mut self) -> Option<SpannedValue> {
+    fn exit(&mut self) -> Option<Value> {
         None
     }
 
@@ -129,7 +129,7 @@ impl View for Box<dyn View> {
         self.as_ref().collect_data()
     }
 
-    fn exit(&mut self) -> Option<SpannedValue> {
+    fn exit(&mut self) -> Option<Value> {
         self.as_mut().exit()
     }
 

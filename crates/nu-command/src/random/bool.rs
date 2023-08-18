@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SpannedValue, SyntaxShape,
-    Type,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 
@@ -86,7 +85,7 @@ fn bool(
     let bool_result: bool = rng.gen_bool(probability);
 
     Ok(PipelineData::Value(
-        SpannedValue::Bool {
+        Value::Bool {
             val: bool_result,
             span,
         },

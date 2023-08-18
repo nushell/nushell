@@ -6,7 +6,7 @@ use nu_protocol::{
     did_you_mean,
     engine::{Command, EngineState, Stack},
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundProcess;
 use os_pipe::PipeReader;
@@ -112,12 +112,12 @@ pub fn create_external_command(
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let args: Vec<SpannedValue> = call.rest(engine_state, stack, 1)?;
+    let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
     // Translate environment variables from Values to Strings
     let env_vars_str = env_to_strings(engine_state, stack)?;
 
-    fn value_as_spanned(value: SpannedValue) -> Result<Spanned<String>, ShellError> {
+    fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
         let span = value.span();
 
         value
@@ -135,7 +135,7 @@ pub fn create_external_command(
     let mut arg_keep_raw = vec![];
     for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
         match one_arg {
-            SpannedValue::List { vals, .. } => {
+            Value::List { vals, .. } => {
                 // turn all the strings in the array into params.
                 // Example: one_arg may be something like ["ls" "-a"]
                 // convert it to "ls" "-a"
@@ -358,22 +358,21 @@ impl ExternalCommand {
                             let mut engine_state = engine_state.clone();
                             if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
                             {
-                                if let Ok(PipelineData::Value(
-                                    SpannedValue::String { val, .. },
-                                    ..,
-                                )) = eval_hook(
-                                    &mut engine_state,
-                                    stack,
-                                    None,
-                                    vec![(
-                                        "cmd_name".into(),
-                                        SpannedValue::string(
-                                            self.name.item.to_string(),
-                                            self.name.span,
-                                        ),
-                                    )],
-                                    &hook,
-                                ) {
+                                if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
+                                    eval_hook(
+                                        &mut engine_state,
+                                        stack,
+                                        None,
+                                        vec![(
+                                            "cmd_name".into(),
+                                            Value::string(
+                                                self.name.item.to_string(),
+                                                self.name.span,
+                                            ),
+                                        )],
+                                        &hook,
+                                    )
+                                {
                                     err_str = format!("{}\n{}", err_str, val);
                                 }
                             }
@@ -423,8 +422,8 @@ impl ExternalCommand {
                                 if let Ok(input) = input {
                                     for value in input.into_iter() {
                                         let buf = match value {
-                                            SpannedValue::String { val, .. } => val.into_bytes(),
-                                            SpannedValue::Binary { val, .. } => val,
+                                            Value::String { val, .. } => val.into_bytes(),
+                                            Value::Binary { val, .. } => val,
                                             _ => return Err(()),
                                         };
                                         if stdin_write.write(&buf).is_err() {
@@ -506,7 +505,7 @@ impl ExternalCommand {
                                             "{cause}: oops, process '{commandname}' core dumped"
                                         ))
                                     );
-                                    let _ = exit_code_tx.send(SpannedValue::Error {
+                                    let _ = exit_code_tx.send(Value::Error {
                                         error: Box::new(ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head }),
                                         span: head,
                                     });
@@ -514,11 +513,11 @@ impl ExternalCommand {
                                 }
                             }
                             if let Some(code) = x.code() {
-                                let _ = exit_code_tx.send(SpannedValue::int(code as i64, head));
+                                let _ = exit_code_tx.send(Value::int(code as i64, head));
                             } else if x.success() {
-                                let _ = exit_code_tx.send(SpannedValue::int(0, head));
+                                let _ = exit_code_tx.send(Value::int(0, head));
                             } else {
-                                let _ = exit_code_tx.send(SpannedValue::int(-1, head));
+                                let _ = exit_code_tx.send(Value::int(-1, head));
                             }
                             Ok(())
                         }
@@ -875,17 +874,17 @@ impl Iterator for ChannelReceiver {
 // Receiver used for the ListStream
 // It implements iterator so it can be used as a ListStream
 struct ValueReceiver {
-    rx: mpsc::Receiver<SpannedValue>,
+    rx: mpsc::Receiver<Value>,
 }
 
 impl ValueReceiver {
-    pub fn new(rx: mpsc::Receiver<SpannedValue>) -> Self {
+    pub fn new(rx: mpsc::Receiver<Value>) -> Self {
         Self { rx }
     }
 }
 
 impl Iterator for ValueReceiver {
-    type Item = SpannedValue;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.recv() {

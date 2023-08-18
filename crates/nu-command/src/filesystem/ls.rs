@@ -9,7 +9,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SpannedValue, SyntaxShape, Type,
+    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
@@ -129,7 +129,7 @@ impl Command for Ls {
                         ));
                     }
                     if is_empty_dir(&expanded) {
-                        return Ok(SpannedValue::list(vec![], call_span).into_pipeline_data());
+                        return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
                     p.push("*");
                 }
@@ -141,7 +141,7 @@ impl Command for Ls {
                 if directory {
                     (PathBuf::from("."), call_span, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
-                    return Ok(SpannedValue::list(vec![], call_span).into_pipeline_data());
+                    return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
                     (PathBuf::from("*"), call_span, false)
                 }
@@ -255,19 +255,19 @@ impl Command for Ls {
                             );
                             match entry {
                                 Ok(value) => Some(value),
-                                Err(err) => Some(SpannedValue::Error {
+                                Err(err) => Some(Value::Error {
                                     error: Box::new(err),
                                     span: call_span,
                                 }),
                             }
                         }
-                        Err(err) => Some(SpannedValue::Error {
+                        Err(err) => Some(Value::Error {
                             error: Box::new(err),
                             span: call_span,
                         }),
                     }
                 }
-                _ => Some(SpannedValue::Nothing { span: call_span }),
+                _ => Some(Value::Nothing { span: call_span }),
             })
             .into_pipeline_data_with_metadata(
                 Box::new(PipelineMetadata {
@@ -422,7 +422,7 @@ pub(crate) fn dir_entry_dict(
     du: bool,
     ctrl_c: Option<Arc<AtomicBool>>,
     use_mime_type: bool,
-) -> Result<SpannedValue, ShellError> {
+) -> Result<Value, ShellError> {
     #[cfg(windows)]
     if metadata.is_none() {
         return Ok(windows_helper::dir_entry_dict_windows_fallback(
@@ -438,7 +438,7 @@ pub(crate) fn dir_entry_dict(
     let mut file_type = "unknown".to_string();
 
     cols.push("name".into());
-    vals.push(SpannedValue::String {
+    vals.push(Value::String {
         val: display_name.to_string(),
         span,
     });
@@ -446,13 +446,13 @@ pub(crate) fn dir_entry_dict(
     if let Some(md) = metadata {
         file_type = get_file_type(md, display_name, use_mime_type);
         cols.push("type".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: file_type.clone(),
             span,
         });
     } else {
         cols.push("type".into());
-        vals.push(SpannedValue::nothing(span));
+        vals.push(Value::nothing(span));
     }
 
     if long {
@@ -460,18 +460,18 @@ pub(crate) fn dir_entry_dict(
         if let Some(md) = metadata {
             if md.file_type().is_symlink() {
                 if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(SpannedValue::String {
+                    vals.push(Value::String {
                         val: path_to_link.to_string_lossy().to_string(),
                         span,
                     });
                 } else {
-                    vals.push(SpannedValue::String {
+                    vals.push(Value::String {
                         val: "Could not obtain target file's path".to_string(),
                         span,
                     });
                 }
             } else {
-                vals.push(SpannedValue::nothing(span));
+                vals.push(Value::nothing(span));
             }
         }
     }
@@ -479,7 +479,7 @@ pub(crate) fn dir_entry_dict(
     if long {
         if let Some(md) = metadata {
             cols.push("readonly".into());
-            vals.push(SpannedValue::Bool {
+            vals.push(Value::Bool {
                 val: md.permissions().readonly(),
                 span,
             });
@@ -490,33 +490,33 @@ pub(crate) fn dir_entry_dict(
                 use std::os::unix::fs::MetadataExt;
                 let mode = md.permissions().mode();
                 cols.push("mode".into());
-                vals.push(SpannedValue::String {
+                vals.push(Value::String {
                     val: umask::Mode::from(mode).to_string(),
                     span,
                 });
 
                 let nlinks = md.nlink();
                 cols.push("num_links".into());
-                vals.push(SpannedValue::Int {
+                vals.push(Value::Int {
                     val: nlinks as i64,
                     span,
                 });
 
                 let inode = md.ino();
                 cols.push("inode".into());
-                vals.push(SpannedValue::Int {
+                vals.push(Value::Int {
                     val: inode as i64,
                     span,
                 });
 
                 cols.push("user".into());
                 if let Some(user) = users::get_user_by_uid(md.uid()) {
-                    vals.push(SpannedValue::String {
+                    vals.push(Value::String {
                         val: user.name,
                         span,
                     });
                 } else {
-                    vals.push(SpannedValue::Int {
+                    vals.push(Value::Int {
                         val: md.uid() as i64,
                         span,
                     })
@@ -524,12 +524,12 @@ pub(crate) fn dir_entry_dict(
 
                 cols.push("group".into());
                 if let Some(group) = users::get_group_by_gid(md.gid()) {
-                    vals.push(SpannedValue::String {
+                    vals.push(Value::String {
                         val: group.name,
                         span,
                     });
                 } else {
-                    vals.push(SpannedValue::Int {
+                    vals.push(Value::Int {
                         val: md.gid() as i64,
                         span,
                     })
@@ -550,52 +550,52 @@ pub(crate) fn dir_entry_dict(
                 let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
                 let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
 
-                vals.push(SpannedValue::Filesize {
+                vals.push(Value::Filesize {
                     val: dir_size as i64,
                     span,
                 });
             } else {
                 let dir_size: u64 = md.len();
 
-                vals.push(SpannedValue::Filesize {
+                vals.push(Value::Filesize {
                     val: dir_size as i64,
                     span,
                 });
             };
         } else if md.is_file() {
-            vals.push(SpannedValue::Filesize {
+            vals.push(Value::Filesize {
                 val: md.len() as i64,
                 span,
             });
         } else if md.file_type().is_symlink() {
             if let Ok(symlink_md) = filename.symlink_metadata() {
-                vals.push(SpannedValue::Filesize {
+                vals.push(Value::Filesize {
                     val: symlink_md.len() as i64,
                     span,
                 });
             } else {
-                vals.push(SpannedValue::nothing(span));
+                vals.push(Value::nothing(span));
             }
         } else {
             let value = if zero_sized {
-                SpannedValue::Filesize { val: 0, span }
+                Value::Filesize { val: 0, span }
             } else {
-                SpannedValue::nothing(span)
+                Value::nothing(span)
             };
             vals.push(value);
         }
     } else {
-        vals.push(SpannedValue::nothing(span));
+        vals.push(Value::nothing(span));
     }
 
     if let Some(md) = metadata {
         if long {
             cols.push("created".to_string());
             {
-                let mut val = SpannedValue::nothing(span);
+                let mut val = Value::nothing(span);
                 if let Ok(c) = md.created() {
                     if let Some(local) = try_convert_to_local_date_time(c) {
-                        val = SpannedValue::Date {
+                        val = Value::Date {
                             val: local.with_timezone(local.offset()),
                             span,
                         };
@@ -606,10 +606,10 @@ pub(crate) fn dir_entry_dict(
 
             cols.push("accessed".to_string());
             {
-                let mut val = SpannedValue::nothing(span);
+                let mut val = Value::nothing(span);
                 if let Ok(a) = md.accessed() {
                     if let Some(local) = try_convert_to_local_date_time(a) {
-                        val = SpannedValue::Date {
+                        val = Value::Date {
                             val: local.with_timezone(local.offset()),
                             span,
                         };
@@ -621,10 +621,10 @@ pub(crate) fn dir_entry_dict(
 
         cols.push("modified".to_string());
         {
-            let mut val = SpannedValue::nothing(span);
+            let mut val = Value::nothing(span);
             if let Ok(m) = md.modified() {
                 if let Some(local) = try_convert_to_local_date_time(m) {
-                    val = SpannedValue::Date {
+                    val = Value::Date {
                         val: local.with_timezone(local.offset()),
                         span,
                     };
@@ -635,17 +635,17 @@ pub(crate) fn dir_entry_dict(
     } else {
         if long {
             cols.push("created".to_string());
-            vals.push(SpannedValue::nothing(span));
+            vals.push(Value::nothing(span));
 
             cols.push("accessed".to_string());
-            vals.push(SpannedValue::nothing(span));
+            vals.push(Value::nothing(span));
         }
 
         cols.push("modified".to_string());
-        vals.push(SpannedValue::nothing(span));
+        vals.push(Value::nothing(span));
     }
 
-    Ok(SpannedValue::Record { cols, vals, span })
+    Ok(Value::Record { cols, vals, span })
 }
 
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
@@ -703,12 +703,12 @@ mod windows_helper {
         display_name: &str,
         span: Span,
         long: bool,
-    ) -> SpannedValue {
+    ) -> Value {
         let mut cols = vec![];
         let mut vals = vec![];
 
         cols.push("name".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: display_name.to_string(),
             span,
         });
@@ -724,12 +724,12 @@ mod windows_helper {
                     filename.to_string_lossy()
                 );
                 log::error!("{e}");
-                return SpannedValue::Record { cols, vals, span };
+                return Value::Record { cols, vals, span };
             }
         };
 
         cols.push("type".into());
-        vals.push(SpannedValue::String {
+        vals.push(Value::String {
             val: get_file_type_windows_fallback(&find_data),
             span,
         });
@@ -738,22 +738,22 @@ mod windows_helper {
             cols.push("target".into());
             if is_symlink(&find_data) {
                 if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(SpannedValue::String {
+                    vals.push(Value::String {
                         val: path_to_link.to_string_lossy().to_string(),
                         span,
                     });
                 } else {
-                    vals.push(SpannedValue::String {
+                    vals.push(Value::String {
                         val: "Could not obtain target file's path".to_string(),
                         span,
                     });
                 }
             } else {
-                vals.push(SpannedValue::nothing(span));
+                vals.push(Value::nothing(span));
             }
 
             cols.push("readonly".into());
-            vals.push(SpannedValue::Bool {
+            vals.push(Value::Bool {
                 val: (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0),
                 span,
             });
@@ -761,7 +761,7 @@ mod windows_helper {
 
         cols.push("size".to_string());
         let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
-        vals.push(SpannedValue::Filesize {
+        vals.push(Value::Filesize {
             val: file_size as i64,
             span,
         });
@@ -769,10 +769,10 @@ mod windows_helper {
         if long {
             cols.push("created".to_string());
             {
-                let mut val = SpannedValue::nothing(span);
+                let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = SpannedValue::Date {
+                    val = Value::Date {
                         val: local.with_timezone(local.offset()),
                         span,
                     };
@@ -782,10 +782,10 @@ mod windows_helper {
 
             cols.push("accessed".to_string());
             {
-                let mut val = SpannedValue::nothing(span);
+                let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = SpannedValue::Date {
+                    val = Value::Date {
                         val: local.with_timezone(local.offset()),
                         span,
                     };
@@ -796,10 +796,10 @@ mod windows_helper {
 
         cols.push("modified".to_string());
         {
-            let mut val = SpannedValue::nothing(span);
+            let mut val = Value::nothing(span);
             let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
             if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                val = SpannedValue::Date {
+                val = Value::Date {
                     val: local.with_timezone(local.offset()),
                     span,
                 };
@@ -807,7 +807,7 @@ mod windows_helper {
             vals.push(val);
         }
 
-        SpannedValue::Record { cols, vals, span }
+        Value::Record { cols, vals, span }
     }
 
     fn unix_time_from_filetime(ft: &FILETIME) -> i64 {

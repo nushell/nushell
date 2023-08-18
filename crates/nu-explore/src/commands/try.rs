@@ -2,7 +2,7 @@ use std::io::{Error, ErrorKind, Result};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    SpannedValue,
+    Value,
 };
 
 use crate::views::InteractiveView;
@@ -81,7 +81,7 @@ impl ViewCommand for TryCmd {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        value: Option<SpannedValue>,
+        value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
         let mut view = InteractiveView::new(value);

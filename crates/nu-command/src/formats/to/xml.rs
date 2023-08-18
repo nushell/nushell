@@ -5,7 +5,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SpannedValue, SyntaxShape, Type,
+    SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::io::Cursor;
@@ -47,21 +47,21 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             Example {
                 description: "Outputs an XML string representing the contents of this table",
                 example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attrs: null content : Event}]}]} | to xml"#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record",
                 example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting",
                 example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml -p 3"#,
-                result: Some(SpannedValue::test_string(
+                result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
             },
@@ -93,7 +93,7 @@ pub fn add_attributes<'a>(element: &mut BytesStart<'a>, attributes: &'a IndexMap
 }
 
 fn to_xml_entry<W: Write>(
-    entry: SpannedValue,
+    entry: Value,
     top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
@@ -104,11 +104,11 @@ fn to_xml_entry<W: Write>(
     // {tag: a content: ['qwe']}
     // instead of longer
     // {tag: a content: [{content: 'qwe'}]}
-    if let (SpannedValue::String { val, span }, false) = (&entry, top_level) {
+    if let (Value::String { val, span }, false) = (&entry, top_level) {
         return to_xml_text(val.as_str(), *span, writer);
     }
 
-    if !matches!(entry, SpannedValue::Record { .. }) {
+    if !matches!(entry, Value::Record { .. }) {
         return Err(ShellError::CantConvert {
             to_type: "XML".into(),
             from_type: entry.get_type().to_string(),
@@ -122,20 +122,16 @@ fn to_xml_entry<W: Write>(
     // of longer {tag: a attributes: {} content: [...]}
     let tag = entry
         .get_data_by_key(COLUMN_TAG_NAME)
-        .unwrap_or_else(|| SpannedValue::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::nothing(Span::unknown()));
     let attrs = entry
         .get_data_by_key(COLUMN_ATTRS_NAME)
-        .unwrap_or_else(|| SpannedValue::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::nothing(Span::unknown()));
     let content = entry
         .get_data_by_key(COLUMN_CONTENT_NAME)
-        .unwrap_or_else(|| SpannedValue::nothing(Span::unknown()));
+        .unwrap_or_else(|| Value::nothing(Span::unknown()));
 
     match (tag, attrs, content) {
-        (
-            SpannedValue::Nothing { .. },
-            SpannedValue::Nothing { .. },
-            SpannedValue::String { val, span },
-        ) => {
+        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, span }) => {
             // Strings can not appear on top level of document
             if top_level {
                 return Err(ShellError::CantConvert {
@@ -148,7 +144,7 @@ fn to_xml_entry<W: Write>(
             to_xml_text(val.as_str(), span, writer)
         }
         (
-            SpannedValue::String {
+            Value::String {
                 val: tag_name,
                 span: tag_span,
             },
@@ -166,8 +162,8 @@ fn to_tag_like<W: Write>(
     entry_span: Span,
     tag: String,
     tag_span: Span,
-    attrs: SpannedValue,
-    content: SpannedValue,
+    attrs: Value,
+    content: Value,
     top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
@@ -195,8 +191,8 @@ fn to_tag_like<W: Write>(
         }
 
         let content: String = match content {
-            SpannedValue::String { val, .. } => val,
-            SpannedValue::Nothing { .. } => "".into(),
+            Value::String { val, .. } => val,
+            Value::Nothing { .. } => "".into(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -213,8 +209,8 @@ fn to_tag_like<W: Write>(
         // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
         // content: null}, {tag: a}. See to_xml_entry for more
         let (attr_cols, attr_values) = match attrs {
-            SpannedValue::Record { cols, vals, .. } => (cols, vals),
-            SpannedValue::Nothing { .. } => (Vec::new(), Vec::new()),
+            Value::Record { cols, vals, .. } => (cols, vals),
+            Value::Nothing { .. } => (Vec::new(), Vec::new()),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -226,8 +222,8 @@ fn to_tag_like<W: Write>(
         };
 
         let content = match content {
-            SpannedValue::List { vals, .. } => vals,
-            SpannedValue::Nothing { .. } => Vec::new(),
+            Value::List { vals, .. } => vals,
+            Value::Nothing { .. } => Vec::new(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -252,12 +248,12 @@ fn to_tag_like<W: Write>(
 
 fn to_comment<W: Write>(
     entry_span: Span,
-    attrs: SpannedValue,
-    content: SpannedValue,
+    attrs: Value,
+    content: Value,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
     match (attrs, content) {
-        (SpannedValue::Nothing { .. }, SpannedValue::String { val, .. }) => {
+        (Value::Nothing { .. }, Value::String { val, .. }) => {
             let comment_content = BytesText::new(val.as_str());
             writer
                 .write_event(Event::Comment(comment_content))
@@ -280,11 +276,11 @@ fn to_comment<W: Write>(
 fn to_processing_instruction<W: Write>(
     entry_span: Span,
     tag: &str,
-    attrs: SpannedValue,
+    attrs: Value,
     content: String,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
-    if !matches!(attrs, SpannedValue::Nothing { .. }) {
+    if !matches!(attrs, Value::Nothing { .. }) {
         return Err(ShellError::CantConvert {
             to_type: "XML".into(),
             from_type: Type::Record(vec![]).to_string(),
@@ -310,8 +306,8 @@ fn to_tag<W: Write>(
     tag: String,
     tag_span: Span,
     attr_cols: Vec<String>,
-    attr_vals: Vec<SpannedValue>,
-    children: Vec<SpannedValue>,
+    attr_vals: Vec<Value>,
+    children: Vec<Value>,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
     if tag.starts_with('!') || tag.starts_with('?') {
@@ -356,11 +352,11 @@ fn to_tag<W: Write>(
 
 fn parse_attributes(
     cols: Vec<String>,
-    vals: Vec<SpannedValue>,
+    vals: Vec<Value>,
 ) -> Result<IndexMap<String, String>, ShellError> {
     let mut h = IndexMap::new();
     for (k, v) in cols.into_iter().zip(vals) {
-        if let SpannedValue::String { val, .. } = v {
+        if let Value::String { val, .. } = v {
             h.insert(k, val);
         } else {
             return Err(ShellError::CantConvert {
@@ -409,7 +405,7 @@ fn to_xml(
         } else {
             return Err(ShellError::NonUtf8(head));
         };
-        Ok(SpannedValue::string(s, head).into_pipeline_data())
+        Ok(Value::string(s, head).into_pipeline_data())
     })
 }
 

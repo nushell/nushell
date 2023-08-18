@@ -2,7 +2,7 @@ use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -53,7 +53,7 @@ impl Command for If {
 
         let result = eval_expression(engine_state, stack, cond)?;
         match &result {
-            SpannedValue::Bool { val, .. } => {
+            Value::Bool { val, .. } => {
                 if *val {
                     let block = engine_state.get_block(then_block.block_id);
                     eval_block(
@@ -116,17 +116,17 @@ impl Command for If {
             Example {
                 description: "Output a value if a condition matches, otherwise return nothing",
                 example: "if 2 < 3 { 'yes!' }",
-                result: Some(SpannedValue::test_string("yes!")),
+                result: Some(Value::test_string("yes!")),
             },
             Example {
                 description: "Output a value if a condition matches, else return another value",
                 example: "if 5 < 3 { 'yes!' } else { 'no!' }",
-                result: Some(SpannedValue::test_string("no!")),
+                result: Some(Value::test_string("no!")),
             },
             Example {
                 description: "Chain multiple if's together",
                 example: "if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }",
-                result: Some(SpannedValue::test_string("no!")),
+                result: Some(Value::test_string("no!")),
             },
         ]
     }

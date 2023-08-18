@@ -2,8 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SpannedValue, SyntaxShape,
-    Type,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 
@@ -80,7 +79,7 @@ fn dice(
 
     let iter = (0..dice).map(move |_| {
         let mut thread_rng = thread_rng();
-        SpannedValue::Int {
+        Value::Int {
             val: thread_rng.gen_range(1..sides + 1) as i64,
             span,
         }

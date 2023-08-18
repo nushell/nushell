@@ -3,7 +3,7 @@ use crate::database::values::definitions::{db_row::DbRow, db_table::DbTable};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use rusqlite::Connection;
 #[derive(Clone)]
@@ -71,35 +71,35 @@ impl Command for SchemaDb {
             let mut vals = vec![];
 
             cols.push("columns".into());
-            vals.push(SpannedValue::List {
+            vals.push(Value::List {
                 vals: column_info,
                 span,
             });
 
             cols.push("constraints".into());
-            vals.push(SpannedValue::List {
+            vals.push(Value::List {
                 vals: constraint_info,
                 span,
             });
 
             cols.push("foreign_keys".into());
-            vals.push(SpannedValue::List {
+            vals.push(Value::List {
                 vals: foreign_key_info,
                 span,
             });
 
             cols.push("indexes".into());
-            vals.push(SpannedValue::List {
+            vals.push(Value::List {
                 vals: index_info,
                 span,
             });
 
             table_names.push(table.name);
-            table_values.push(SpannedValue::Record { cols, vals, span });
+            table_values.push(Value::Record { cols, vals, span });
         }
 
         cols.push("tables".into());
-        vals.push(SpannedValue::Record {
+        vals.push(Value::Record {
             cols: table_names,
             vals: table_values,
             span,
@@ -108,7 +108,7 @@ impl Command for SchemaDb {
         // TODO: add views and triggers
 
         Ok(PipelineData::Value(
-            SpannedValue::Record { cols, vals, span },
+            Value::Record { cols, vals, span },
             None,
         ))
     }
@@ -131,7 +131,7 @@ fn get_table_columns(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<SpannedValue>, ShellError> {
+) -> Result<Vec<Value>, ShellError> {
     let columns = db.get_columns(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting database columns".into(),
@@ -151,9 +151,9 @@ fn get_table_columns(
         let columns = t.columns();
         for (k, v) in fields.iter().zip(columns.iter()) {
             col_names.push(k.clone());
-            col_values.push(SpannedValue::string(v.clone(), span));
+            col_values.push(Value::string(v.clone(), span));
         }
-        column_info.push(SpannedValue::Record {
+        column_info.push(Value::Record {
             cols: col_names.clone(),
             vals: col_values.clone(),
             span,
@@ -168,7 +168,7 @@ fn get_table_constraints(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<SpannedValue>, ShellError> {
+) -> Result<Vec<Value>, ShellError> {
     let constraints = db.get_constraints(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting DB constraints".into(),
@@ -186,9 +186,9 @@ fn get_table_constraints(
         let columns = constraint.columns();
         for (k, v) in fields.iter().zip(columns.iter()) {
             con_cols.push(k.clone());
-            con_vals.push(SpannedValue::string(v.clone(), span));
+            con_vals.push(Value::string(v.clone(), span));
         }
-        constraint_info.push(SpannedValue::Record {
+        constraint_info.push(Value::Record {
             cols: con_cols.clone(),
             vals: con_vals.clone(),
             span,
@@ -203,7 +203,7 @@ fn get_table_foreign_keys(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<SpannedValue>, ShellError> {
+) -> Result<Vec<Value>, ShellError> {
     let foreign_keys = db.get_foreign_keys(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting DB Foreign Keys".into(),
@@ -221,9 +221,9 @@ fn get_table_foreign_keys(
         let columns = fk.columns();
         for (k, v) in fields.iter().zip(columns.iter()) {
             fk_cols.push(k.clone());
-            fk_vals.push(SpannedValue::string(v.clone(), span));
+            fk_vals.push(Value::string(v.clone(), span));
         }
-        foreign_key_info.push(SpannedValue::Record {
+        foreign_key_info.push(Value::Record {
             cols: fk_cols.clone(),
             vals: fk_vals.clone(),
             span,
@@ -238,7 +238,7 @@ fn get_table_indexes(
     conn: &Connection,
     table: &DbTable,
     span: Span,
-) -> Result<Vec<SpannedValue>, ShellError> {
+) -> Result<Vec<Value>, ShellError> {
     let indexes = db.get_indexes(conn, table).map_err(|e| {
         ShellError::GenericError(
             "Error getting DB Indexes".into(),
@@ -256,9 +256,9 @@ fn get_table_indexes(
         let columns = index.columns();
         for (k, v) in fields.iter().zip(columns.iter()) {
             idx_cols.push(k.clone());
-            idx_vals.push(SpannedValue::string(v.clone(), span));
+            idx_vals.push(Value::string(v.clone(), span));
         }
-        index_info.push(SpannedValue::Record {
+        index_info.push(Value::Record {
             cols: idx_cols.clone(),
             vals: idx_vals.clone(),
             span,

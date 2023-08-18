@@ -1,8 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SpannedValue, Type,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -56,11 +54,11 @@ impl Command for SubCommand {
         vec![Example {
             description: "Compute absolute value of each number in a list of numbers",
             example: "[-50 -100.0 25] | math abs",
-            result: Some(SpannedValue::List {
+            result: Some(Value::List {
                 vals: vec![
-                    SpannedValue::test_int(50),
-                    SpannedValue::test_float(100.0),
-                    SpannedValue::test_int(25),
+                    Value::test_int(50),
+                    Value::test_float(100.0),
+                    Value::test_int(25),
                 ],
                 span: Span::test_data(),
             }),
@@ -68,19 +66,19 @@ impl Command for SubCommand {
     }
 }
 
-fn abs_helper(val: SpannedValue, head: Span) -> SpannedValue {
+fn abs_helper(val: Value, head: Span) -> Value {
     match val {
-        SpannedValue::Int { val, span } => SpannedValue::int(val.abs(), span),
-        SpannedValue::Float { val, span } => SpannedValue::Float {
+        Value::Int { val, span } => Value::int(val.abs(), span),
+        Value::Float { val, span } => Value::Float {
             val: val.abs(),
             span,
         },
-        SpannedValue::Duration { val, span } => SpannedValue::Duration {
+        Value::Duration { val, span } => Value::Duration {
             val: val.abs(),
             span,
         },
-        SpannedValue::Error { .. } => val,
-        other => SpannedValue::Error {
+        Value::Error { .. } => val,
+        other => Value::Error {
             error: Box::new(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),

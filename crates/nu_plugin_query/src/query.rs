@@ -3,7 +3,7 @@ use crate::query_web::parse_selector_params;
 use crate::query_xml::execute_xpath_query;
 use nu_engine::documentation::get_flags_section;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{PluginSignature, Spanned, SpannedValue};
+use nu_protocol::{PluginSignature, Spanned, Value};
 use std::fmt::Write;
 
 #[derive(Default)]
@@ -22,38 +22,38 @@ impl Query {
         &self,
         _name: &str,
         call: &EvaluatedCall,
-        _value: &SpannedValue,
+        _value: &Value,
         _path: Option<Spanned<String>>,
-    ) -> Result<SpannedValue, LabeledError> {
+    ) -> Result<Value, LabeledError> {
         let help = get_brief_subcommand_help(&Query.signature());
-        Ok(SpannedValue::string(help, call.head))
+        Ok(Value::string(help, call.head))
     }
 
     pub fn query_json(
         &self,
         name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
+        input: &Value,
         query: Option<Spanned<String>>,
-    ) -> Result<SpannedValue, LabeledError> {
+    ) -> Result<Value, LabeledError> {
         execute_json_query(name, call, input, query)
     }
     pub fn query_web(
         &self,
         _name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
+        input: &Value,
         _rest: Option<Spanned<String>>,
-    ) -> Result<SpannedValue, LabeledError> {
+    ) -> Result<Value, LabeledError> {
         parse_selector_params(call, input)
     }
     pub fn query_xml(
         &self,
         name: &str,
         call: &EvaluatedCall,
-        input: &SpannedValue,
+        input: &Value,
         query: Option<Spanned<String>>,
-    ) -> Result<SpannedValue, LabeledError> {
+    ) -> Result<Value, LabeledError> {
         execute_xpath_query(name, call, input, query)
     }
 }
