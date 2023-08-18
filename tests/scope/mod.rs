@@ -214,7 +214,7 @@ fn correct_scope_aliases_fields() {
 
         let inp = &[
             "use spam.nu",
-            "scope aliases | where name == 'spam xaz' | get 0.wrapped_decl_id | is-empty",
+            "scope aliases | where name == 'spam xaz' | get 0.aliased_decl_id | is-empty",
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert_eq!(actual.out, "false");

@@ -476,7 +476,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             if self.visibility.is_decl_id_visible(&decl_id) {
                 let decl = self.engine_state.get_decl(decl_id);
                 if let Some(alias) = decl.as_alias() {
-                    let wrapped_decl_id = if let Expr::Call(wrapped_call) = &alias.wrapped_call.expr
+                    let aliased_decl_id = if let Expr::Call(wrapped_call) = &alias.wrapped_call.expr
                     {
                         Value::int(wrapped_call.decl_id as i64, span)
                     } else {
@@ -489,7 +489,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                             "expansion".into(),
                             "usage".into(),
                             "decl_id".into(),
-                            "wrapped_decl_id".into(),
+                            "aliased_decl_id".into(),
                         ],
                         vals: vec![
                             Value::String {
@@ -511,7 +511,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                                 val: decl_id as i64,
                                 span,
                             },
-                            wrapped_decl_id,
+                            aliased_decl_id,
                         ],
                         span,
                     });
