@@ -40,6 +40,34 @@ fn known_external_complex_unknown_args() -> TestResult {
 }
 
 #[test]
+fn known_external_from_module() -> TestResult {
+    run_test_contains(
+        r#"module spam {
+            export extern echo []
+        }
+
+        use spam echo
+        echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        "#,
+        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+    )
+}
+
+#[test]
+fn known_external_wrapped_from_module() -> TestResult {
+    run_test_contains(
+        r#"module spam {
+            export extern-wrapped my-echo [...rest] { ^echo $rest }
+        }
+
+        use spam
+        spam my-echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        "#,
+        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+    )
+}
+
+#[test]
 fn known_external_short_flag_batch_arg_allowed() -> TestResult {
     run_test_contains("extern echo [-a, -b: int]; echo -ab 10", "-b 10")
 }

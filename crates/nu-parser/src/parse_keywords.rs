@@ -49,6 +49,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"extern",
     b"extern-wrapped",
     b"export extern",
+    b"export extern-wrapped",
     b"alias",
     b"export alias",
     b"export-env",
@@ -211,7 +212,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             }
 
             signature.name = name.clone();
-            //let decl = signature.predeclare();
+
             let decl = KnownExternal {
                 name,
                 usage: "run external command".into(),
@@ -536,19 +537,17 @@ pub fn parse_extern(
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
 
-    let (name_span, split_id) = if spans.len() > 1
-        && (working_set.get_span_contents(spans[0]) == b"export"
-            || working_set.get_span_contents(spans[0]) == b"export-wrapped")
-    {
-        (spans[1], 2)
-    } else {
-        (spans[0], 1)
-    };
+    let (name_span, split_id) =
+        if spans.len() > 1 && (working_set.get_span_contents(spans[0]) == b"export") {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
 
     let extern_call = working_set.get_span_contents(name_span).to_vec();
     if extern_call != b"extern" && extern_call != b"extern-wrapped" {
         working_set.error(ParseError::UnknownState(
-            "internal error: Wrong call name for extern function".into(),
+            "internal error: Wrong call name for extern or extern-wrapped command".into(),
             span(spans),
         ));
         return garbage_pipeline(spans);
@@ -1011,6 +1010,7 @@ pub fn parse_export_in_block(
         }
         b"export module" => parse_module(working_set, lite_command, None).0,
         b"export extern" => parse_extern(working_set, lite_command, None),
+        b"export extern-wrapped" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
                 String::from_utf8_lossy(&full_name).to_string(),
@@ -1193,13 +1193,15 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
+                let extern_name = [b"export ", kw_name].concat();
+
                 let pipeline = parse_extern(working_set, &lite_command, Some(module_name));
 
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export extern") {
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(&extern_name) {
                     id
                 } else {
                     working_set.error(ParseError::InternalError(
-                        "missing 'export extern' command".into(),
+                        "missing 'export extern' or 'export extern-wrapped' command".into(),
                         export_span,
                     ));
                     return (garbage_pipeline(spans), vec![]);
@@ -1460,7 +1462,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, def-env, alias, use, module, or extern keyword",
+                    "def, def-env, alias, use, module, const, extern or extern-wrapped keyword",
                     spans[1],
                 ));
 
@@ -1469,9 +1471,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, def-env, extern, alias, use, or module keyword".into(),
+            "def, def-env, alias, use, module, const, extern or extern-wrapped keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "def, def-env, extern, alias, use, or module keyword.".to_string(),
+            "def, def-env, alias, use, module, const, extern or extern-wrapped keyword".to_string(),
         ));
 
         vec![]
@@ -1794,7 +1796,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def, const, def-env, extern, alias, use, module, export or export-env keyword".into(),
+                                "def, const, def-env, extern, extern-wrapped, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 
