@@ -2,9 +2,10 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use crate::ast::Block;
 use crate::{
-    ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
+    Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, ParseError, Value};
 use core::panic;

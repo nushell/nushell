@@ -2291,7 +2291,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
-                module_name_var_id: None,
+                constants: vec![],
             },
             module,
             module_id,
@@ -2312,7 +2312,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
-                module_name_var_id: None,
+                constants: vec![],
             },
             module,
             module_id,
@@ -2330,9 +2330,26 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         );
     };
 
-    let (definitions, errors) =
-        module.resolve_import_pattern(working_set, module_id, &import_pattern.members, None);
+    let (definitions, errors) = module.resolve_import_pattern(
+        working_set,
+        module_id,
+        &import_pattern.members,
+        None,
+        name_span,
+    );
+
     working_set.parse_errors.extend(errors);
+
+    definitions.print("use");
+
+    let mut constants = vec![];
+
+    for (name, const_val) in definitions.constants {
+        let const_var_id =
+            working_set.add_variable(name.clone(), name_span, const_val.get_type(), false);
+        working_set.set_variable_const_val(const_var_id, const_val);
+        constants.push((name, const_var_id));
+    }
 
     let exportables = definitions
         .decls
@@ -2351,8 +2368,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 }),
         )
         .chain(
-            definitions
-                .constants
+            constants
                 .iter()
                 .map(|(name, variable_id)| Exportable::VarDecl {
                     name: name.clone(),
@@ -2361,18 +2377,13 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         )
         .collect();
 
+    import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
+
     // Extend the current scope with the module's exportables
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
-    working_set.use_variables(definitions.constants);
+    working_set.use_variables(constants);
 
-    let module_name_var_id = working_set.add_variable(
-        module.name(),
-        module.span.unwrap_or(Span::unknown()),
-        Type::Any,
-        false,
-    );
-    import_pattern.module_name_var_id = Some(module_name_var_id);
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
@@ -2782,6 +2793,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 origin_module_id,
                 &[],
                 Some(final_overlay_name.as_bytes()),
+                call.head,
             )
         } else {
             origin_module.resolve_import_pattern(
@@ -2791,11 +2803,14 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     span: overlay_name_span,
                 }],
                 Some(final_overlay_name.as_bytes()),
+                call.head,
             )
         }
     } else {
         (ResolvedImportPattern::new(vec![], vec![], vec![]), vec![])
     };
+
+    definitions.print("overlay use TODO");
 
     if errors.is_empty() {
         working_set.add_overlay(
