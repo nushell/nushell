@@ -211,7 +211,24 @@ fn correct_scope_aliases_fields() {
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert_eq!(actual.out, "false");
+
+        let inp = &[
+            "use spam.nu",
+            "scope aliases | where name == 'spam xaz' | get 0.aliased_decl_id | is-empty",
+        ];
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        assert_eq!(actual.out, "false");
     })
+}
+
+#[test]
+fn scope_alias_aliased_decl_id_external() {
+    let inp = &[
+        "alias c = cargo",
+        "scope aliases | where name == c | get 0.aliased_decl_id | is-empty",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
 }
 
 #[test]
@@ -265,4 +282,42 @@ fn scope_externs_sorted() {
 
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "abc");
+}
+
+#[test]
+fn correct_scope_variables_fields() {
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.type",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "string");
+
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.value",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "x");
+
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.is_const",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "false");
+
+    let inp = &[
+        "const x = 'x'",
+        "scope variables | where name == '$x' | get 0.is_const",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+
+    let inp = &[
+        "let x = 'x'",
+        "scope variables | where name == '$x' | get 0.var_id | is-empty",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "false");
 }
