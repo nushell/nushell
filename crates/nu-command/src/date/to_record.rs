@@ -81,6 +81,34 @@ impl Command for SubCommand {
             Some(Value::Record { cols, vals, span })
         };
 
+        let example_result_2 = || {
+            let span = Span::test_data();
+            let cols = vec![
+                "year".into(),
+                "month".into(),
+                "day".into(),
+                "hour".into(),
+                "minute".into(),
+                "second".into(),
+                "nanosecond".into(),
+                "timezone".into(),
+            ];
+            let vals = vec![
+                Value::Int { val: 2020, span },
+                Value::Int { val: 4, span },
+                Value::Int { val: 12, span },
+                Value::Int { val: 22, span },
+                Value::Int { val: 10, span },
+                Value::Int { val: 57, span },
+                Value::Int { val: 0, span },
+                Value::String {
+                    val: "+02:00".to_string(),
+                    span,
+                },
+            ];
+            Some(Value::Record { cols, vals, span })
+        };
+
         vec![
             Example {
                 description: "Convert the current date into a record.",
@@ -97,12 +125,11 @@ impl Command for SubCommand {
                 example: "'2020-04-12T22:10:57.123+02:00' | date to-record",
                 result: example_result_1(),
             },
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "Convert a date into a record.",
-            //     example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-record",
-            //     result: example_result_1(),
-            // },
+            Example {
+                description: "Convert a date into a record.",
+                example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-record",
+                result: example_result_2(),
+            },
         ]
     }
 }

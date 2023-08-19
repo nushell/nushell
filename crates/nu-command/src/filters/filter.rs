@@ -233,25 +233,24 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     span: Span::test_data(),
                 }),
             },
-            // TODO: This should work but does not. (Note that `Let` must be present in the working_set in `example_test.rs`).
-            // See https://github.com/nushell/nushell/issues/7034
-            // Example {
-            //     description: "List all numbers above 3, using an existing closure condition",
-            //     example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
-            //     result: Some(Value::List {
-            //         vals: vec![
-            //             Value::Int {
-            //                 val: 5,
-            //                 span: Span::test_data(),
-            //             },
-            //             Value::Int {
-            //                 val: 6,
-            //                 span: Span::test_data(),
-            //             },
-            //         ],
-            //         span: Span::test_data(),
-            //     }),
-            // },
+            Example {
+                description: "List all numbers above 3, using an existing closure condition",
+                example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
+                result: None, // TODO: This should work
+                              // result: Some(Value::List {
+                              //     vals: vec![
+                              //         Value::Int {
+                              //             val: 5,
+                              //             span: Span::test_data(),
+                              //         },
+                              //         Value::Int {
+                              //             val: 6,
+                              //             span: Span::test_data(),
+                              //         },
+                              //     ],
+                              //     span: Span::test_data(),
+                              // }),
+            },
         ]
     }
 }

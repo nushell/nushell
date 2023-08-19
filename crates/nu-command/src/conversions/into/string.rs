@@ -130,12 +130,11 @@ impl Command for SubCommand {
                 example: "true | into string",
                 result: Some(Value::test_string("true")),
             },
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "convert date to string",
-            //     example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
-            //     result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
-            // },
+            Example {
+                description: "convert date to string",
+                example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
+                result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
+            },
             Example {
                 description: "convert filepath to string",
                 example: "ls Cargo.toml | get name | into string",
