@@ -165,15 +165,15 @@ export def clip [
             if $charpage != null {
                 chcp $charpage
             }
-            check-clipboard clip.exe --system $"('xorg' | pretty-command) on linux"
+            check-clipboard clip.exe --system "Windows"
             $input | clip.exe
         },
         "macos" => {
-            check-clipboard pbcopy --system macOS
+            check-clipboard pbcopy --system "MacOS"
             $input | pbcopy
         },
         "android" => {
-            check-clipboard termux-clipboard-set --system Termux
+            check-clipboard termux-clipboard-set --system "Termux"
             $input | termux-clipboard-set
         },
         _ => {
