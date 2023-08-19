@@ -95,8 +95,7 @@ impl Module {
         working_set: &StateWorkingSet,
         self_id: ModuleId,
         members: &[ImportPatternMember],
-        name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the
-        // same as self.name)
+        name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the same as self.name)
         backup_span: Span,
     ) -> (ResolvedImportPattern, Vec<ParseError>) {
         let final_name = name_override.unwrap_or(&self.name).to_vec();
@@ -131,10 +130,9 @@ impl Module {
             decls.extend(self.decls_with_head(&final_name));
 
             for (name, var_id) in self.consts() {
-                if let Some(const_val) = &working_set.get_variable(var_id).const_val {
-                    const_rows.push((name, const_val.clone()));
-                } else {
-                    // should not happen
+                match working_set.get_constant(var_id) {
+                    Ok(const_val) => const_rows.push((name, const_val.clone())),
+                    Err(err) => errors.push(err),
                 }
             }
 
@@ -183,18 +181,19 @@ impl Module {
                         vec![],
                     )
                 } else if let Some(var_id) = self.constants.get(name) {
-                    if let Some(const_val) = &working_set.get_variable(*var_id).const_val {
-                        (
+                    match working_set.get_constant(*var_id) {
+                        Ok(const_val) => (
                             ResolvedImportPattern::new(
                                 vec![],
                                 vec![],
                                 vec![(name.clone(), const_val.clone())],
                             ),
                             vec![],
-                        )
-                    } else {
-                        // should not happen
-                        (ResolvedImportPattern::new(vec![], vec![], vec![]), vec![])
+                        ),
+                        Err(err) => (
+                            ResolvedImportPattern::new(vec![], vec![], vec![]),
+                            vec![err],
+                        ),
                     }
                 } else if let Some(submodule_id) = self.submodules.get(name) {
                     let submodule = working_set.get_module(*submodule_id);
@@ -235,12 +234,13 @@ impl Module {
                 }
 
                 decls.extend(self.decls());
-                constants.extend(self.constants.iter().map(|(name, var_id)| {
-                    if let Some(const_val) = &working_set.get_variable(*var_id).const_val {
-                        (name.clone(), const_val.clone())
-                    } else {
-                        // should not happen
-                        (name.clone(), Value::nothing(backup_span))
+                constants.extend(self.constants.iter().filter_map(|(name, var_id)| {
+                    match working_set.get_constant(*var_id) {
+                        Ok(const_val) => Some((name.clone(), const_val.clone())),
+                        Err(err) => {
+                            errors.push(err);
+                            None
+                        }
                     }
                 }));
                 submodules.extend(self.submodules());
@@ -266,10 +266,9 @@ impl Module {
                     } else if let Some(decl_id) = self.decls.get(name) {
                         decls.push((name.clone(), *decl_id));
                     } else if let Some(var_id) = self.constants.get(name) {
-                        if let Some(const_val) = &working_set.get_variable(*var_id).const_val {
-                            constants.push((name.clone(), const_val.clone()));
-                        } else {
-                            // should not happen
+                        match working_set.get_constant(*var_id) {
+                            Ok(const_val) => constants.push((name.clone(), const_val.clone())),
+                            Err(err) => errors.push(err),
                         }
                     } else if let Some(submodule_id) = self.submodules.get(name) {
                         submodules.push((name.clone(), *submodule_id));

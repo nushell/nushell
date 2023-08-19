@@ -1445,17 +1445,13 @@ pub fn parse_export_in_module(
                     let var_name = trim_quotes(var_name);
 
                     if let Some(var_id) = working_set.find_variable(var_name) {
-                        if working_set.get_variable(var_id).const_val.is_some() {
+                        if let Err(err) = working_set.get_constant(var_id) {
+                            working_set.error(err);
+                        } else {
                             result.push(Exportable::VarDecl {
                                 name: var_name.to_vec(),
                                 id: var_id,
                             });
-                        } else {
-                            // should not happen
-                            working_set.error(ParseError::InternalError(
-                                "exported constant is not a constant".into(),
-                                span(&spans[1..]),
-                            ));
                         }
                     } else {
                         working_set.error(ParseError::InternalError(

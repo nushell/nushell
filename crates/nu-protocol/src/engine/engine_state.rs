@@ -1675,6 +1675,19 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_constant(&self, var_id: VarId) -> Result<&Value, ParseError> {
+        let var = self.get_variable(var_id);
+
+        if let Some(const_val) = &var.const_val {
+            Ok(const_val)
+        } else {
+            Err(ParseError::InternalError(
+                "constant does not have a constant value".into(),
+                var.declaration_span,
+            ))
+        }
+    }
+
     #[allow(clippy::borrowed_box)]
     pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         let num_permanent_decls = self.permanent_state.num_decls();
