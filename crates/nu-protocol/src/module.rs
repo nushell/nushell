@@ -23,23 +23,6 @@ impl ResolvedImportPattern {
             constants,
         }
     }
-
-    #[must_use]
-    pub fn print(&self, msg: &str) {
-        println!("import pattern: {msg}");
-        println!("decls");
-        for (name, id) in &self.decls {
-            println!("  {}: {}", String::from_utf8_lossy(name), id);
-        }
-        println!("modules");
-        for (name, id) in &self.modules {
-            println!("  {}: {}", String::from_utf8_lossy(name), id);
-        }
-        println!("constants");
-        for (name, val) in &self.constants {
-            println!("  {}: {}", String::from_utf8_lossy(name), val.get_type());
-        }
-    }
 }
 
 /// Collection of definitions that can be exported from a module

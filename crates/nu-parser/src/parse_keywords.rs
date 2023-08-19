@@ -2341,8 +2341,6 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
 
     working_set.parse_errors.extend(errors);
 
-    definitions.print("use");
-
     let mut constants = vec![];
 
     for (name, const_val) in definitions.constants {
@@ -2811,8 +2809,6 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     } else {
         (ResolvedImportPattern::new(vec![], vec![], vec![]), vec![])
     };
-
-    definitions.print("overlay use TODO");
 
     let mut constants = vec![];
     let mut const_ids = vec![];
