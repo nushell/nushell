@@ -17,7 +17,8 @@ nu-utils = { path = "../nu-utils", version = "0.83.2" }
 nu-engine = { path = "../nu-engine", version = "0.83.2" }
 nu-json = { path="../nu-json", version = "0.83.2"  }
 
-serde = { version="1.0", features=["derive"] }
+# Due to https://github.com/serde-rs/serde/issues/2538
+serde = { version = "1.0, < 1.0.172", features = ["derive"] }
 
 [dev-dependencies]
 nu-test-support = { path="../nu-test-support", version = "0.83.2"  }
