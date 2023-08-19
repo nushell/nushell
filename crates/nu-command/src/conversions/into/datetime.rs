@@ -5,7 +5,6 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::report_error_new;
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
@@ -88,12 +87,12 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                "DEPRECATED option, will be removed in 0.85: see `format date`",
+                "Specify expected format of string input to parse to datetime. Use --list to see options",
                 Some('f'),
             )
             .switch(
                 "list",
-                "DEPRECATED option, will be removed in 0.85: see `format date --list`",
+                "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
             .rest(
@@ -112,17 +111,6 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag("list") {
-            report_error_new(
-                engine_state,
-                &ShellError::GenericError(
-                    "Deprecated option".into(),
-                    "`into datetime --list` is deprecated and will be removed in 0.85".into(),
-                    Some(call.head),
-                    Some("see `format datetime --list` instead".into()),
-                    vec![],
-                ),
-            );
-
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
@@ -141,19 +129,6 @@ impl Command for SubCommand {
                         span: zone.span,
                     }),
                 };
-
-            if call.has_flag("format") {
-                report_error_new(
-                    engine_state,
-                    &ShellError::GenericError(
-                        "Deprecated option".into(),
-                        "`into datetime --format` is deprecated and will be removed in 0.85".into(),
-                        Some(call.head),
-                        Some("see `format datetime` instead".into()),
-                        vec![],
-                    ),
-                );
-            }
 
             let format_options = call
                 .get_flag::<String>(engine_state, stack, "format")?
@@ -199,7 +174,7 @@ impl Command for SubCommand {
             },
             Example {
                 description:
-                    "Convert non-standard timestamp string to datetime using a custom format (DEPRECATED: will be removed in 0.85)",
+                    "Convert non-standard timestamp string to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
