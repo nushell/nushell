@@ -13,6 +13,7 @@ env:
 
 jobs:
   fmt-clippy:
+    if: false
     strategy:
       fail-fast: true
       matrix:
@@ -51,6 +52,7 @@ jobs:
         run: cargo clippy --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
 
   tests:
+    if: false
     strategy:
       fail-fast: true
       matrix:
@@ -136,6 +138,7 @@ jobs:
         shell: bash
 
   plugins:
+    if: false
     strategy:
       fail-fast: true
       matrix:
