@@ -272,17 +272,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     if dateformat.is_none() {
         if let Ok(ts) = timestamp {
-            macro_rules! match_datetime {
-                ($expr:expr) => {
-                    match $expr {
-                        dt => Value::Date {
-                            val: dt.into(),
-                            span: head,
-                        },
-                    }
-                };
-            }
-
             return match timezone {
                 // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
 
@@ -292,10 +281,28 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     span: head,
                 },
                 Some(Spanned { item, span }) => match item {
-                    Zone::Utc => match_datetime!(Utc.timestamp_nanos(ts)),
-                    Zone::Local => match_datetime!(Local.timestamp_nanos(ts)),
+                    Zone::Utc => {
+                        let dt = Utc.timestamp_nanos(ts);
+                        Value::Date {
+                            val: dt.into(),
+                            span: *span,
+                        }
+                    }
+                    Zone::Local => {
+                        let dt = Local.timestamp_nanos(ts);
+                        Value::Date {
+                            val: dt.into(),
+                            span: *span,
+                        }
+                    }
                     Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                        Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
+                        Some(eastoffset) => {
+                            let dt = eastoffset.timestamp_nanos(ts);
+                            Value::Date {
+                                val: dt,
+                                span: *span,
+                            }
+                        }
                         None => Value::Error {
                             error: Box::new(ShellError::DatetimeParseError(
                                 input.debug_value(),
@@ -304,7 +311,13 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         },
                     },
                     Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                        Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
+                        Some(westoffset) => {
+                            let dt = westoffset.timestamp_nanos(ts);
+                            Value::Date {
+                                val: dt,
+                                span: *span,
+                            }
+                        }
                         None => Value::Error {
                             error: Box::new(ShellError::DatetimeParseError(
                                 input.debug_value(),
