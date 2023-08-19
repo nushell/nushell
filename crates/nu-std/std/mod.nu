@@ -142,7 +142,7 @@ export def clip [
     --no-notify: bool  # do not throw a notification (only on linux)
     --no-strip: bool  # do not strip ANSI escape sequences from a string
     --expand (-e): bool  # auto-expand the data given as input
-    --charpage (-c): int  # the id of the charpage to use (only on Windows), see https://en.wikipedia.org/wiki/Windows_code_page, e.g. 65001 is for UTF-8
+    --codepage (-c): int  # the id of the codepage to use (only on Windows), see https://en.wikipedia.org/wiki/Windows_code_page, e.g. 65001 is for UTF-8
 ] {
     let input = (
         $in
@@ -162,8 +162,8 @@ export def clip [
             }
         },
         "windows" => {
-            if $charpage != null {
-                chcp $charpage
+            if $codepage != null {
+                chcp $codepage
             }
             check-clipboard clip.exe --system "Windows"
             $input | clip.exe
