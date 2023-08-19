@@ -24,7 +24,6 @@ let test_lines = [
     "python -c 'import sys; print(sys.executable)'"                                  # 3
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'" # 4
     "print $env.VIRTUAL_ENV_PROMPT"                                                  # 5
-    # "pydoc -w pydoc_test"
     "deactivate"
     "python -c 'import sys; print(sys.executable)'"                                  # 6
     "python -c 'import os; import sys; v = os.environ.get("VIRTUAL_ENV"); print(v)'" # 7
