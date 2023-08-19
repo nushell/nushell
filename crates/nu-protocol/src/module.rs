@@ -252,7 +252,7 @@ impl Module {
             }
             ImportPatternMember::List { names } => {
                 let mut decls = vec![];
-                let mut submodules = vec![];
+                let mut modules = vec![];
                 let mut constants = vec![];
                 let mut errors = vec![];
 
@@ -271,14 +271,26 @@ impl Module {
                             Err(err) => errors.push(err),
                         }
                     } else if let Some(submodule_id) = self.submodules.get(name) {
-                        submodules.push((name.clone(), *submodule_id));
+                        let submodule = working_set.get_module(*submodule_id);
+                        let (sub_results, sub_errors) = submodule.resolve_import_pattern(
+                            working_set,
+                            *submodule_id,
+                            rest,
+                            None,
+                            self.span.unwrap_or(backup_span),
+                        );
+
+                        decls.extend(sub_results.decls);
+                        modules.extend(sub_results.modules);
+                        constants.extend(sub_results.constants);
+                        errors.extend(sub_errors);
                     } else {
                         errors.push(ParseError::ExportNotFound(*span));
                     }
                 }
 
                 (
-                    ResolvedImportPattern::new(decls, submodules, constants),
+                    ResolvedImportPattern::new(decls, modules, constants),
                     errors,
                 )
             }

@@ -750,3 +750,20 @@ fn module_main_not_found() {
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains("export_not_found"));
 }
+
+#[test]
+fn nested_list_export_works() {
+    let module = r#"
+        module spam {
+            export module eggs {
+                export def bacon [] { 'bacon' }
+            }
+
+            export def sausage [] { 'sausage' }
+        }
+    "#;
+
+    let inp = &[module, "use spam [sausage eggs]", "eggs bacon"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "bacon");
+}
