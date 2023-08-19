@@ -356,7 +356,7 @@ fn get_converted_value(
             let block = engine_state.get_block(block_id);
 
             if let Some(var) = block.signature.get_positional(0) {
-                let mut stack = stack.gather_captures(&block.captures);
+                let mut stack = stack.gather_captures(engine_state, &block.captures);
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, orig_val.clone());
                 }

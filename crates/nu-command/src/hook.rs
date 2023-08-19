@@ -358,7 +358,7 @@ fn run_hook_block(
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 
-    let mut callee_stack = stack.gather_captures(&block.captures);
+    let mut callee_stack = stack.gather_captures(engine_state, &block.captures);
 
     for (idx, PositionalArg { var_id, .. }) in
         block.signature.required_positional.iter().enumerate()

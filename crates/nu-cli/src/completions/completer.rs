@@ -67,7 +67,7 @@ impl NuCompleter {
     ) -> Option<Vec<Suggestion>> {
         let stack = self.stack.clone();
         let block = self.engine_state.get_block(block_id);
-        let mut callee_stack = stack.gather_captures(&block.captures);
+        let mut callee_stack = stack.gather_captures(&self.engine_state, &block.captures);
 
         // Line
         if let Some(pos_arg) = block.signature.required_positional.get(0) {

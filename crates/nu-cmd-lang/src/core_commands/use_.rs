@@ -99,7 +99,7 @@ This command is a parser keyword. For details, check:
                     .as_ref()
                     .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
-                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
                 // If so, set the currently evaluated directory (file-relative PWD)
                 if let Some(parent) = maybe_parent {

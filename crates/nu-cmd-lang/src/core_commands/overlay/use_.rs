@@ -122,7 +122,7 @@ impl Command for OverlayUse {
                 )?;
 
                 let block = engine_state.get_block(block_id);
-                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
                 if let Some(path) = &maybe_path {
                     // Set the currently evaluated directory, if the argument is a valid path
