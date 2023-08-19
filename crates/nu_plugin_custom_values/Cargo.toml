@@ -12,5 +12,6 @@ bench = false
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.83.2" }
 nu-protocol = { path = "../nu-protocol", version = "0.83.2", features = ["plugin"] }
-serde = { version = "1.0", default-features = false }
+# Due to https://github.com/serde-rs/serde/issues/2538
+serde = { version = "1.0, < 1.0.172", default-features = false }
 typetag = "0.2"

@@ -16,5 +16,6 @@ nu-protocol = { path = "../nu-protocol", version = "0.83.2"  }
 
 bincode = "1.3"
 rmp-serde = "1.1"
-serde = { version = "1.0" }
+# Due to https://github.com/serde-rs/serde/issues/2538
+serde = { version = "1.0, < 1.0.172" }
 serde_json = { version = "1.0"}
