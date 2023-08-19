@@ -107,6 +107,9 @@ jobs:
       - name: Install Nushell
         run: cargo install --path . --locked --no-default-features
 
+      - name: Test default config files
+        run: nu --config-file crates/nu-utils/src/sample_config/default_config.nu --env-config crates/nu-utils/src/sample_config/default_env.nu
+
       - name: Standard library tests
         run: nu -c 'use std testing; testing run-tests --path crates/nu-std'
 
