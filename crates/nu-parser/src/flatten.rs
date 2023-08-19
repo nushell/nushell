@@ -322,7 +322,7 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::Overlay(_) => {
+        Expr::Overlay(_, _) => {
             vec![(expr.span, FlatShape::String)]
         }
         Expr::Range(from, next, to, op) => {

@@ -2624,6 +2624,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         module_id,
         vec![],
         vec![],
+        vec![],
         false,
     );
 
@@ -2813,12 +2814,24 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     definitions.print("overlay use TODO");
 
+    let mut constants = vec![];
+    let mut const_ids = vec![];
+
+    for (name, const_val) in definitions.constants {
+        let const_var_id =
+            working_set.add_variable(name.clone(), call.head, const_val.get_type(), false);
+        working_set.set_variable_const_val(const_var_id, const_val);
+        constants.push((name, const_var_id));
+        const_ids.push(const_var_id);
+    }
+
     if errors.is_empty() {
         working_set.add_overlay(
             final_overlay_name.as_bytes().to_vec(),
             origin_module_id,
             definitions.decls,
             definitions.modules,
+            constants,
             has_prefix,
         );
     } else {
@@ -2830,11 +2843,14 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     call.set_parser_info(
         "overlay_expr".to_string(),
         Expression {
-            expr: Expr::Overlay(if is_module_updated {
-                Some(origin_module_id)
-            } else {
-                None
-            }),
+            expr: Expr::Overlay(
+                if is_module_updated {
+                    Some(origin_module_id)
+                } else {
+                    None
+                },
+                const_ids,
+            ),
             span: overlay_name_span,
             ty: Type::Any,
             custom_completion: None,

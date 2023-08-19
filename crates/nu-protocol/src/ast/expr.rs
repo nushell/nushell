@@ -41,7 +41,7 @@ pub enum Expr {
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     ImportPattern(ImportPattern),
-    Overlay(Option<BlockId>), // block ID of the overlay's origin module
+    Overlay(Option<BlockId>, Vec<VarId>), // block ID of the overlay's origin module + constants
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
     MatchPattern(Box<MatchPattern>),
