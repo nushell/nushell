@@ -222,3 +222,26 @@ fn const_captures_work() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "xy");
 }
+
+#[test]
+fn complex_const_overlay_use() {
+    let inp = &[MODULE_SETUP, "overlay use spam", "$X"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "x");
+
+    let inp = &[MODULE_SETUP, "overlay use spam", "$eggs.E"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "e");
+
+    let inp = &[MODULE_SETUP, "overlay use spam", "$eggs.bacon.viking"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "eats");
+
+    let inp = &[
+        MODULE_SETUP,
+        "overlay use spam",
+        "($eggs.bacon.none | is-empty)",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+}
