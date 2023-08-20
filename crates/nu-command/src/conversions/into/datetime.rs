@@ -87,7 +87,7 @@ impl Command for SubCommand {
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of string input to parse to datetime. Use --list to see options",
+                "Specify expected format of INPUT string to parse to datetime. Use --list to see options",
                 Some('f'),
             )
             .switch(
@@ -236,6 +236,20 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timezone = &args.zone_options;
     let dateformat = &args.format_options;
 
+    // Let's try dtparse first
+    if matches!(input, Value::String { .. }) && dateformat.is_none() {
+        if let Ok(input_val) = input.as_spanned_string() {
+            match parse_date_from_string(&input_val.item, input_val.span) {
+                Ok(date) => {
+                    return Value::Date {
+                        val: date,
+                        span: input_val.span,
+                    }
+                }
+                Err(err) => err,
+            };
+        }
+    }
     const HOUR: i32 = 60 * 60;
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
@@ -256,51 +270,72 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     };
 
-    if let Ok(ts) = timestamp {
-        macro_rules! match_datetime {
-            ($expr:expr) => {
-                match $expr {
-                    dt => Value::Date {
-                        val: dt.into(),
-                        span: head,
+    if dateformat.is_none() {
+        if let Ok(ts) = timestamp {
+            return match timezone {
+                // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
+
+                // default to UTC
+                None => Value::Date {
+                    val: Utc.timestamp_nanos(ts).into(),
+                    span: head,
+                },
+                Some(Spanned { item, span }) => match item {
+                    Zone::Utc => {
+                        let dt = Utc.timestamp_nanos(ts);
+                        Value::Date {
+                            val: dt.into(),
+                            span: *span,
+                        }
+                    }
+                    Zone::Local => {
+                        let dt = Local.timestamp_nanos(ts);
+                        Value::Date {
+                            val: dt.into(),
+                            span: *span,
+                        }
+                    }
+                    Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
+                        Some(eastoffset) => {
+                            let dt = eastoffset.timestamp_nanos(ts);
+                            Value::Date {
+                                val: dt,
+                                span: *span,
+                            }
+                        }
+                        None => Value::Error {
+                            error: Box::new(ShellError::DatetimeParseError(
+                                input.debug_value(),
+                                *span,
+                            )),
+                        },
                     },
-                }
+                    Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
+                        Some(westoffset) => {
+                            let dt = westoffset.timestamp_nanos(ts);
+                            Value::Date {
+                                val: dt,
+                                span: *span,
+                            }
+                        }
+                        None => Value::Error {
+                            error: Box::new(ShellError::DatetimeParseError(
+                                input.debug_value(),
+                                *span,
+                            )),
+                        },
+                    },
+                    Zone::Error => Value::Error {
+                        // This is an argument error, not an input error
+                        error: Box::new(ShellError::TypeMismatch {
+                            err_message: "Invalid timezone or offset".to_string(),
+                            span: *span,
+                        }),
+                    },
+                },
             };
-        }
-
-        return match timezone {
-            // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
-
-            // default to UTC
-            None => Value::Date {
-                val: Utc.timestamp_nanos(ts).into(),
-                span: head,
-            },
-            Some(Spanned { item, span }) => match item {
-                Zone::Utc => match_datetime!(Utc.timestamp_nanos(ts)),
-                Zone::Local => match_datetime!(Local.timestamp_nanos(ts)),
-                Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                    Some(eastoffset) => match_datetime!(eastoffset.timestamp_nanos(ts)),
-                    None => Value::Error {
-                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
-                    },
-                },
-                Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                    Some(westoffset) => match_datetime!(westoffset.timestamp_nanos(ts)),
-                    None => Value::Error {
-                        error: Box::new(ShellError::DatetimeParseError(input.debug_value(), *span)),
-                    },
-                },
-                Zone::Error => Value::Error {
-                    // This is an argument error, not an input error
-                    error: Box::new(ShellError::TypeMismatch {
-                        err_message: "Invalid timezone or offset".to_string(),
-                        span: *span,
-                    }),
-                },
-            },
         };
-    };
+    }
 
     // If input is not a timestamp, try parsing it as a string
     match input {
@@ -314,6 +349,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                     }
                 },
+
                 // Tries to automatically parse the date
                 // (i.e. without a format string)
                 // and assumes the system's local timezone if none is specified
