@@ -57,15 +57,7 @@ pub fn eval_call(
     } else if let Some(block_id) = decl.get_block_id() {
         let block = engine_state.get_block(block_id);
 
-        let mut callee_stack = caller_stack.gather_captures(&block.captures);
-        // When the def is defined in module, relative captured variable doesn't go into stack
-        // so it can't be merged to callee_stack, but the variable is defined in `engine_state`
-        // then, to solve the issue, we also need to try to get relative const from `engine_state`
-        for cap in &block.captures {
-            if let Some(value) = engine_state.get_var(*cap).const_val.clone() {
-                callee_stack.vars.push((*cap, value))
-            }
-        }
+        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
         for (param_idx, param) in decl
             .signature()

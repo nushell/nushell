@@ -199,7 +199,7 @@ impl Stack {
         }
     }
 
-    pub fn gather_captures(&self, captures: &[VarId]) -> Stack {
+    pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
         let mut vars = vec![];
 
         let fake_span = Span::new(0, 0);
@@ -209,6 +209,8 @@ impl Stack {
             // that take in a var decl will manually set this into scope when running the blocks
             if let Ok(value) = self.get_var(*capture, fake_span) {
                 vars.push((*capture, value));
+            } else if let Some(const_val) = &engine_state.get_var(*capture).const_val {
+                vars.push((*capture, const_val.clone()));
             }
         }
 
