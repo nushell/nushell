@@ -3,6 +3,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
+use nu_utils::strip_ansi_string_likely;
 use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
@@ -363,37 +364,8 @@ where
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
 
-    let mut lines: Vec<(String, String, usize)> = Vec::new();
+    let mut lines: Vec<(String, String)> = Vec::new();
     for flag in &signature.named {
-        let no_ansi_left = if let Some(arg) = &flag.arg {
-            if let Some(short) = flag.short {
-                format!(
-                    "-{}{} <{:?}>",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!(", --{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    arg,
-                )
-            } else {
-                format!("--{} <{:?}>", flag.long, arg)
-            }
-        } else if let Some(short) = flag.short {
-            format!(
-                "-{}{}",
-                short,
-                if !flag.long.is_empty() {
-                    format!(", --{}", flag.long)
-                } else {
-                    "".into()
-                },
-            )
-        } else {
-            format!("--{}", flag.long)
-        };
-
         let left = if let Some(arg) = &flag.arg {
             if let Some(short) = flag.short {
                 format!(
@@ -436,12 +408,16 @@ where
         };
 
         let right = format!("{}{}{}", flag.desc, default_str, required);
-        lines.push((left, right, no_ansi_left.len()));
+        lines.push((left, right));
     }
 
-    let max_width = lines.iter().map(|(_, _, w)| *w).max().unwrap_or(0);
+    let max_width = lines
+        .iter()
+        .map(|(l, _)| strip_ansi_string_likely(l.to_string()).len())
+        .max()
+        .unwrap_or(0);
 
-    for (left, right, _) in lines {
+    for (left, right) in lines {
         long_desc.push_str(&format!(
             "  {:<width$} - {}\n",
             left,
