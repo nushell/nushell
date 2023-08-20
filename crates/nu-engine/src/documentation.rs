@@ -362,88 +362,93 @@ where
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
+
+    let mut lines: Vec<(String, String, usize)> = Vec::new();
     for flag in &signature.named {
+        let no_ansi_left = if let Some(arg) = &flag.arg {
+            if let Some(short) = flag.short {
+                format!(
+                    "-{}{} <{:?}>",
+                    short,
+                    if !flag.long.is_empty() {
+                        format!(", --{}", flag.long)
+                    } else {
+                        "".into()
+                    },
+                    arg,
+                )
+            } else {
+                format!("--{} <{:?}>", flag.long, arg)
+            }
+        } else if let Some(short) = flag.short {
+            format!(
+                "-{}{}",
+                short,
+                if !flag.long.is_empty() {
+                    format!(", --{}", flag.long)
+                } else {
+                    "".into()
+                },
+            )
+        } else {
+            format!("--{}", flag.long)
+        };
+
+        let left = if let Some(arg) = &flag.arg {
+            if let Some(short) = flag.short {
+                format!(
+                    "{C}-{}{}{RESET} <{BB}{:?}{RESET}>",
+                    short,
+                    if !flag.long.is_empty() {
+                        format!("{D},{RESET} {C}--{}", flag.long)
+                    } else {
+                        "".into()
+                    },
+                    arg,
+                )
+            } else {
+                format!("{C}--{}{RESET} <{BB}{:?}{RESET}>", flag.long, arg)
+            }
+        } else if let Some(short) = flag.short {
+            format!(
+                "{C}-{}{}{RESET}",
+                short,
+                if !flag.long.is_empty() {
+                    format!("{D},{RESET} {C}--{}", flag.long)
+                } else {
+                    "".into()
+                },
+            )
+        } else {
+            format!("{C}--{}{RESET}", flag.long)
+        };
+
         let default_str = if let Some(value) = &flag.default_value {
             format!(" (default: {BB}{}{RESET})", &value_formatter(value))
         } else {
             "".to_string()
         };
 
-        let msg = if let Some(arg) = &flag.arg {
-            if let Some(short) = flag.short {
-                if flag.required {
-                    format!(
-                        "  {C}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
-                        short,
-                        if !flag.long.is_empty() {
-                            format!("{D},{RESET} {C}--{}", flag.long)
-                        } else {
-                            "".into()
-                        },
-                        arg,
-                        flag.desc,
-                        default_str,
-                    )
-                } else {
-                    format!(
-                        "  {C}-{}{}{RESET} <{BB}{:?}{RESET}> - {}{}\n",
-                        short,
-                        if !flag.long.is_empty() {
-                            format!("{D},{RESET} {C}--{}", flag.long)
-                        } else {
-                            "".into()
-                        },
-                        arg,
-                        flag.desc,
-                        default_str,
-                    )
-                }
-            } else if flag.required {
-                format!(
-                    "  {C}--{}{RESET} (required parameter) <{BB}{:?}{RESET}> - {}{}\n",
-                    flag.long, arg, flag.desc, default_str,
-                )
-            } else {
-                format!(
-                    "  {C}--{}{RESET} <{BB}{:?}{RESET}> - {}{}\n",
-                    flag.long, arg, flag.desc, default_str,
-                )
-            }
-        } else if let Some(short) = flag.short {
-            if flag.required {
-                format!(
-                    "  {C}-{}{}{RESET} (required parameter) - {}{}\n",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!("{D},{RESET} {C}--{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    flag.desc,
-                    default_str,
-                )
-            } else {
-                format!(
-                    "  {C}-{}{}{RESET} - {}{}\n",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!("{D},{RESET} {C}--{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    flag.desc,
-                    default_str
-                )
-            }
-        } else if flag.required {
-            format!(
-                "  {C}--{}{RESET} (required parameter) - {}{}\n",
-                flag.long, flag.desc, default_str,
-            )
+        let required = if flag.required {
+            " (required parameter)".to_string()
         } else {
-            format!("  {C}--{}{RESET} - {}\n", flag.long, flag.desc)
+            "".to_string()
         };
-        long_desc.push_str(&msg);
+
+        let right = format!("{}{}{}", flag.desc, default_str, required);
+        lines.push((left, right, no_ansi_left.len()));
     }
+
+    let max_width = lines.iter().map(|(_, _, w)| *w).max().unwrap_or(0);
+
+    for (left, right, _) in lines {
+        long_desc.push_str(&format!(
+            "  {:<width$} - {}\n",
+            left,
+            right,
+            width = max_width
+        ));
+    }
+
     long_desc
 }
