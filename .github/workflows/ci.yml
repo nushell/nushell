@@ -9,7 +9,7 @@ name: continuous-integration
 env:
   NUSHELL_CARGO_TARGET: ci
   NU_LOG_LEVEL: DEBUG
-  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err"
+  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
 
 jobs:
   fmt-clippy:
