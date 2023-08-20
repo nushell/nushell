@@ -203,19 +203,6 @@ pub(crate) fn setup_config(
     if is_login_shell {
         read_loginshell_file(engine_state, stack);
     }
-
-    // Give a warning if we see `$config` for a few releases
-    {
-        let working_set = StateWorkingSet::new(engine_state);
-        if let Some(var) = working_set
-            .find_variable(b"$config")
-            .and_then(|id| stack.get_var(id, Span::unknown()).ok())
-        {
-            if var.as_record().is_ok() {
-                println!("warning: use `$env.config = ...` instead of `let config = ...`");
-            }
-        }
-    }
 }
 
 pub(crate) fn set_config_path(
