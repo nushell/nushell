@@ -309,7 +309,7 @@ fn find_matching_block_end_in_expr(
             Expr::String(_) => None,
             Expr::CellPath(_) => None,
             Expr::ImportPattern(_) => None,
-            Expr::Overlay(_, _) => None,
+            Expr::Overlay(_) => None,
             Expr::Signature(_) => None,
             Expr::MatchPattern(_) => None,
             Expr::MatchBlock(_) => None,

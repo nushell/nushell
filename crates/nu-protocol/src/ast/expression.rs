@@ -190,7 +190,7 @@ impl Expression {
                 false
             }
             Expr::ImportPattern(_) => false,
-            Expr::Overlay(_, _) => false,
+            Expr::Overlay(_) => false,
             Expr::Filepath(_) => false,
             Expr::Directory(_) => false,
             Expr::Float(_) => false,
@@ -392,7 +392,7 @@ impl Expression {
                     .replace_in_variable(working_set, new_var_id);
             }
             Expr::ImportPattern(_) => {}
-            Expr::Overlay(_, _) => {}
+            Expr::Overlay(_) => {}
             Expr::Garbage => {}
             Expr::Nothing => {}
             Expr::GlobPattern(_) => {}
@@ -554,7 +554,7 @@ impl Expression {
                     .replace_span(working_set, replaced, new_span);
             }
             Expr::ImportPattern(_) => {}
-            Expr::Overlay(_, _) => {}
+            Expr::Overlay(_) => {}
             Expr::Garbage => {}
             Expr::Nothing => {}
             Expr::GlobPattern(_) => {}

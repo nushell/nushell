@@ -5966,7 +5966,7 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, &cell_path.head, seen, seen_blocks, output)?;
         }
         Expr::ImportPattern(_) => {}
-        Expr::Overlay(_, _) => {}
+        Expr::Overlay(_) => {}
         Expr::Garbage => {}
         Expr::Nothing => {}
         Expr::GlobPattern(_) => {}

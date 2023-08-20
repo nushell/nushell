@@ -66,10 +66,10 @@ impl Command for OverlayUse {
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
-        let (maybe_origin_module_id, constants) =
+        let maybe_origin_module_id =
             if let Some(overlay_expr) = call.get_parser_info("overlay_expr") {
-                if let Expr::Overlay(module_id, constants) = &overlay_expr.expr {
-                    (module_id, constants)
+                if let Expr::Overlay(module_id) = &overlay_expr.expr {
+                    module_id
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
                         msg: "Not an overlay".to_string(),
@@ -106,26 +106,11 @@ impl Command for OverlayUse {
         };
 
         if let Some(module_id) = maybe_origin_module_id {
-            // Add environment variables / constants only if (determined by parser):
+            // Add environment variables only if (determined by parser):
             // a) adding a new overlay
             // b) refreshing an active overlay (the origin module changed)
 
             let module = engine_state.get_module(*module_id);
-
-            // Add constants
-            for var_id in constants {
-                let var = engine_state.get_var(*var_id);
-
-                if let Some(constval) = &var.const_val {
-                    caller_stack.add_var(*var_id, constval.clone());
-                } else {
-                    return Err(ShellError::NushellFailedSpanned {
-                        msg: "Missing Constant".to_string(),
-                        label: "constant not added by the parser".to_string(),
-                        span: var.declaration_span,
-                    });
-                }
-            }
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
