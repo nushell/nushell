@@ -257,7 +257,7 @@ For any use of `unsafe` code we need to require even higher standards and additi
 As a shell Nushell needs to interact with system APIs in several places, for which FFI code with unsafe blocks may be necessary. In some cases this can be handled by safe API wrapper crates but in some cases we may choose to directly do those calls.
 If you do so you need to document the system behavior on top of the Rust memory model guarantees that you uphold. This means documenting whether using a particular system call is safe to use in a particular context and all failure cases are properly recovered.
 ##### Implementing self-contained data structures
-Another motivation for reaching to `unsafe` code might be to try to implement a particular data structure that is not expressable on safe `std` library APIs. Doing so in the Nushell code base would have to clear a high bar for need based on profiling results. Also you should first do a survey of the [crate ecosystem](https://crates.io) that there doesn't exist a usable well vetted crate that already provides safe APIs to the desired datastructure.
+Another motivation for reaching to `unsafe` code might be to try to implement a particular data structure that is not expressible on safe `std` library APIs. Doing so in the Nushell code base would have to clear a high bar for need based on profiling results. Also you should first do a survey of the [crate ecosystem](https://crates.io) that there doesn't exist a usable well vetted crate that already provides safe APIs to the desired datastructure.
 ##### Make things go faster by removing checks
 This is probably a bad idea if you feel tempted to do so. Don't
 #### Macros
