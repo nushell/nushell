@@ -101,7 +101,7 @@ fn get_documentation(
                 // Don't display removed/deprecated commands in the Subcommands list
                 is_sub_command && !has_been_removed
             })
-            .map(|sig| sig.clone())
+            .cloned()
             .collect::<Vec<Signature>>();
 
         let max_width = signatures
