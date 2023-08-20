@@ -47,16 +47,12 @@ export def clippy [
             --
                 -D warnings
                 -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
         )} else {(
             cargo clippy
                 --features ($features | str join ",")
             --
                 -D warnings
                 -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
         )}
     } catch {
         error make --unspanned {
