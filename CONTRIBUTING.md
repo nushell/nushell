@@ -2,7 +2,17 @@
 
 Welcome to Nushell and thank you for considering contributing!
 
-## Review Process
+## Table of contents
+- [Proposing design changes](#proposing-design-changes)
+- [Developing](#developing)
+  - [Setup](#setup)
+  - [Tests](#tests)
+  - [Useful commands](#useful-commands)
+  - [Debugging tips](#debugging-tips)
+- [Git etiquette](#git-etiquette)
+- [License](#license)
+
+## Proposing design changes
 
 First of all, before diving into the code, if you want to create a new feature, change something significantly, and especially if the change is user-facing, it is a good practice to first get an approval from the core team before starting to work on it.
 This saves both your and our time if we realize the change needs to go another direction before spending time on it.
@@ -41,9 +51,12 @@ Tests can be found in different places:
 * command examples
 * crate-specific tests
 
-The most comprehensive test suite we have is the `nu-test-support` crate. For testing specific features, such as running Nushell in a REPL mode, we have so called "testbins". For simple tests, you can find `run_test()` and `fail_test()` functions.
+Most of the tests are built upon the `nu-test-support` crate. For testing specific features, such as running Nushell in a REPL mode, we have so called "testbins". For simple tests, you can find `run_test()` and `fail_test()` functions.
 
 ### Useful Commands
+
+As Nushell is build using a cargo workspace consisting of multiple crates keep in mind that you may need to pass additional flags compared to how you may be used to it from a single crate project.
+Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/reference/workspaces.html
 
 - Build and run Nushell:
 
@@ -59,7 +72,7 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
 - Run Clippy on Nushell:
 
   ```shell
-  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err
+  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used
   ```
   or via the `toolkit.nu` command:
   ```shell
@@ -221,6 +234,6 @@ You can help us to make the review process a smooth experience:
   - Feel free to notify your reviewers or affected PR authors if your change might cause larger conflicts with another change.
   - During the rollup of multiple PRs, we may choose to resolve merge conflicts and CI failures ourselves. (Allow maintainers to push to your branch to enable us to do this quickly.)
 
-### License
+## License
 
 We use the [MIT License](https://github.com/nushell/nushell/blob/main/LICENSE) in all of our Nushell projects. If you are including or referencing a crate that uses the [GPL License](https://www.gnu.org/licenses/gpl-3.0.en.html#license-text) unfortunately we will not be able to accept your PR.
