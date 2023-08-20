@@ -91,14 +91,32 @@ fn get_documentation(
 
     let mut subcommands = vec![];
     if !config.no_subcommands {
-        let signatures = engine_state.get_signatures(true);
-        for sig in signatures {
-            if sig.name.starts_with(&format!("{cmd_name} "))
+        let signatures = engine_state
+            .get_signatures(true)
+            .iter()
+            .filter(|sig| {
+                let is_sub_command = sig.name.starts_with(&format!("{cmd_name} "));
+                let has_been_removed = matches!(sig.category, Category::Removed);
+
                 // Don't display removed/deprecated commands in the Subcommands list
-                    && !matches!(sig.category, Category::Removed)
-            {
-                subcommands.push(format!("  {C}{}{RESET} - {}", sig.name, sig.usage));
-            }
+                is_sub_command && !has_been_removed
+            })
+            .map(|sig| sig.clone())
+            .collect::<Vec<Signature>>();
+
+        let max_width = signatures
+            .iter()
+            .map(|sig| sig.name.len())
+            .max()
+            .unwrap_or(0);
+
+        for sig in signatures {
+            subcommands.push(format!(
+                "  {C}{:<width$}{RESET} - {}",
+                sig.name,
+                sig.usage,
+                width = max_width
+            ));
         }
     }
 
