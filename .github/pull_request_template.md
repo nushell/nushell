@@ -24,7 +24,7 @@ Don't forget to add tests that cover your changes.
 Make sure you've run and fixed any issues with these commands:
 
 - `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
-- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect -A clippy::result_large_err` to check that you're using the standard code style
+- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used` to check that you're using the standard code style
 - `cargo test --workspace` to check that all tests pass
 - `cargo run -- -c "use std testing; testing run-tests --path crates/nu-std"` to run the tests for the standard library
 
