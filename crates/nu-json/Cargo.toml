@@ -19,8 +19,7 @@ default = ["preserve_order"]
 [dependencies]
 linked-hash-map = { version="0.5", optional=true }
 num-traits = "0.2"
-# Due to https://github.com/serde-rs/serde/issues/2538
-serde = { version = "1.0, < 1.0.172" }
+serde = "1.0"
 
 [dev-dependencies]
 # nu-path = { path="../nu-path", version = "0.83.2" }
