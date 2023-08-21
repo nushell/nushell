@@ -338,7 +338,7 @@ export def install [
     --all: bool  # install all plugins with Nushell
 ] {
     touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
-    cargo install --path . --features ($features | str join ",") --locked
+    cargo install --path . --features ($features | str join ",") --locked --force
     if not $all {
         return
     }
