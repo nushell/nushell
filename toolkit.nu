@@ -281,7 +281,7 @@ def build-nushell [features: string] {
     print $'(char nl)Building nushell'
     print '----------------------------'
 
-    cargo build --features $features
+    cargo build --features $features --locked
 }
 
 def build-plugin [] {
@@ -338,7 +338,7 @@ export def install [
     --all: bool  # install all plugins with Nushell
 ] {
     touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
-    cargo install --path . --features ($features | str join ",")
+    cargo install --path . --features ($features | str join ",") --locked
     if not $all {
         return
     }
@@ -351,6 +351,7 @@ export def install [
         nu_plugin_custom_values,
         nu_plugin_formats,
     ]
+
     for plugin in $plugins {
         $plugin | install-plugin
     }
