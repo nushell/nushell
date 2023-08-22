@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{record, ShellError, Span, Value};
 
 pub(crate) fn parse_date_from_string(
     input: &str,
@@ -31,11 +31,6 @@ pub(crate) fn parse_date_from_string(
 /// * `head` - use the call's head
 /// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `format date`
 pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
-    let column_names = vec![
-        "Specification".into(),
-        "Example".into(),
-        "Description".into(),
-    ];
     let now = Local::now();
 
     struct FormatSpecification<'a> {
@@ -258,14 +253,15 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
 
     let mut records = specifications
         .iter()
-        .map(|s| Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::string(s.spec, head),
-                Value::string(now.format(s.spec).to_string(), head),
-                Value::string(s.description, head),
-            ],
-            span: head,
+        .map(|s| {
+            Value::record(
+                record! {
+                    "Specification" => Value::string(s.spec, head),
+                    "Example" => Value::string(now.format(s.spec).to_string(), head),
+                    "Description" => Value::string(s.description, head),
+                },
+                head,
+            )
         })
         .collect::<Vec<Value>>();
 
@@ -279,21 +275,16 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             .unwrap_or("")
             .to_string();
 
-        records.push(Value::Record {
-            cols: column_names,
-            vals: vec![
-                Value::string("%#z", head),
-                Value::String {
-                    val: example,
-                    span: head,
-                },
-                Value::string(
-                    "Parsing only: Same as %z but allows minutes to be missing or present.",
-                    head,
-                ),
-            ],
-            span: head,
-        });
+        let decription = "Parsing only: Same as %z but allows minutes to be missing or present.";
+
+        records.push(Value::record(
+            record! {
+                "Specification" => Value::string("%#z", head),
+                "Example" => Value::string(example, head),
+                "Description" => Value::string(decription, head),
+            },
+            head,
+        ));
     }
 
     Value::List {

@@ -14,12 +14,8 @@ pub fn eval_env_change_hook(
 ) -> Result<(), ShellError> {
     if let Some(hook) = env_change_hook {
         match hook {
-            Value::Record {
-                cols: env_names,
-                vals: hook_values,
-                ..
-            } => {
-                for (env_name, hook_value) in env_names.iter().zip(hook_values.iter()) {
+            Value::Record { val, .. } => {
+                for (env_name, hook_value) in &val {
                     let before = engine_state
                         .previous_env_vars
                         .get(env_name)

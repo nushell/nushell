@@ -9,7 +9,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
@@ -431,219 +431,155 @@ pub(crate) fn dir_entry_dict(
         ));
     }
 
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
     let mut file_type = "unknown".to_string();
 
-    cols.push("name".into());
-    vals.push(Value::String {
-        val: display_name.to_string(),
-        span,
-    });
+    record.push("name", Value::string(display_name, span));
 
     if let Some(md) = metadata {
         file_type = get_file_type(md, display_name, use_mime_type);
-        cols.push("type".into());
-        vals.push(Value::String {
-            val: file_type.clone(),
-            span,
-        });
+        record.push("type", Value::string(file_type.clone(), span));
     } else {
-        cols.push("type".into());
-        vals.push(Value::nothing(span));
+        record.push("type", Value::nothing(span));
     }
 
     if long {
-        cols.push("target".into());
         if let Some(md) = metadata {
-            if md.file_type().is_symlink() {
-                if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(Value::String {
-                        val: path_to_link.to_string_lossy().to_string(),
-                        span,
-                    });
+            record.push(
+                "target",
+                if md.file_type().is_symlink() {
+                    if let Ok(path_to_link) = filename.read_link() {
+                        Value::string(path_to_link.to_string_lossy(), span)
+                    } else {
+                        Value::string("Could not obtain target file's path", span)
+                    }
                 } else {
-                    vals.push(Value::String {
-                        val: "Could not obtain target file's path".to_string(),
-                        span,
-                    });
-                }
-            } else {
-                vals.push(Value::nothing(span));
-            }
+                    Value::nothing(span)
+                },
+            )
         }
     }
 
     if long {
         if let Some(md) = metadata {
-            cols.push("readonly".into());
-            vals.push(Value::Bool {
-                val: md.permissions().readonly(),
-                span,
-            });
+            record.push("readonly", Value::bool(md.permissions().readonly(), span));
 
             #[cfg(unix)]
             {
                 use crate::filesystem::util::users;
                 use std::os::unix::fs::MetadataExt;
                 let mode = md.permissions().mode();
-                cols.push("mode".into());
-                vals.push(Value::String {
-                    val: umask::Mode::from(mode).to_string(),
-                    span,
-                });
+                record.push(
+                    "mode",
+                    Value::string(umask::Mode::from(mode).to_string(), span),
+                );
 
                 let nlinks = md.nlink();
-                cols.push("num_links".into());
-                vals.push(Value::Int {
-                    val: nlinks as i64,
-                    span,
-                });
+                record.push("num_links", Value::int(nlinks as i64, span));
 
                 let inode = md.ino();
-                cols.push("inode".into());
-                vals.push(Value::Int {
-                    val: inode as i64,
-                    span,
-                });
+                record.push("inode", Value::int(inode as i64, span));
 
-                cols.push("user".into());
-                if let Some(user) = users::get_user_by_uid(md.uid()) {
-                    vals.push(Value::String {
-                        val: user.name,
-                        span,
-                    });
-                } else {
-                    vals.push(Value::Int {
-                        val: md.uid() as i64,
-                        span,
-                    })
-                }
+                record.push(
+                    "user",
+                    if let Some(user) = users::get_user_by_uid(md.uid()) {
+                        Value::string(user.name, span)
+                    } else {
+                        Value::int(md.uid() as i64, span)
+                    },
+                );
 
-                cols.push("group".into());
-                if let Some(group) = users::get_group_by_gid(md.gid()) {
-                    vals.push(Value::String {
-                        val: group.name,
-                        span,
-                    });
-                } else {
-                    vals.push(Value::Int {
-                        val: md.gid() as i64,
-                        span,
-                    })
-                }
+                record.push(
+                    "group",
+                    if let Some(group) = users::get_group_by_gid(md.gid()) {
+                        Value::string(group.name, span)
+                    } else {
+                        Value::int(md.gid() as i64, span)
+                    },
+                );
             }
         }
     }
 
-    cols.push("size".to_string());
-    if let Some(md) = metadata {
-        let zero_sized = file_type == "pipe"
-            || file_type == "socket"
-            || file_type == "char device"
-            || file_type == "block device";
+    record.push(
+        "size",
+        if let Some(md) = metadata {
+            let zero_sized = file_type == "pipe"
+                || file_type == "socket"
+                || file_type == "char device"
+                || file_type == "block device";
 
-        if md.is_dir() {
-            if du {
-                let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
-                let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
+            if md.is_dir() {
+                if du {
+                    let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
+                    let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
 
-                vals.push(Value::Filesize {
-                    val: dir_size as i64,
-                    span,
-                });
-            } else {
-                let dir_size: u64 = md.len();
+                    Value::filesize(dir_size as i64, span)
+                } else {
+                    let dir_size: u64 = md.len();
 
-                vals.push(Value::Filesize {
-                    val: dir_size as i64,
-                    span,
-                });
-            };
-        } else if md.is_file() {
-            vals.push(Value::Filesize {
-                val: md.len() as i64,
-                span,
-            });
-        } else if md.file_type().is_symlink() {
-            if let Ok(symlink_md) = filename.symlink_metadata() {
-                vals.push(Value::Filesize {
-                    val: symlink_md.len() as i64,
-                    span,
-                });
-            } else {
-                vals.push(Value::nothing(span));
-            }
-        } else {
-            let value = if zero_sized {
-                Value::Filesize { val: 0, span }
+                    Value::filesize(dir_size as i64, span)
+                }
+            } else if md.is_file() {
+                Value::filesize(md.len() as i64, span)
+            } else if md.file_type().is_symlink() {
+                if let Ok(symlink_md) = filename.symlink_metadata() {
+                    Value::filesize(symlink_md.len() as i64, span)
+                } else {
+                    Value::nothing(span)
+                }
+            } else if zero_sized {
+                Value::filesize(0, span)
             } else {
                 Value::nothing(span)
-            };
-            vals.push(value);
-        }
-    } else {
-        vals.push(Value::nothing(span));
-    }
+            }
+        } else {
+            Value::nothing(span)
+        },
+    );
 
     if let Some(md) = metadata {
         if long {
-            cols.push("created".to_string());
-            {
+            record.push("created", {
                 let mut val = Value::nothing(span);
                 if let Ok(c) = md.created() {
                     if let Some(local) = try_convert_to_local_date_time(c) {
-                        val = Value::Date {
-                            val: local.with_timezone(local.offset()),
-                            span,
-                        };
+                        val = Value::date(local.with_timezone(local.offset()), span);
                     }
                 }
-                vals.push(val);
-            }
+                val
+            });
 
-            cols.push("accessed".to_string());
-            {
+            record.push("accessed", {
                 let mut val = Value::nothing(span);
                 if let Ok(a) = md.accessed() {
                     if let Some(local) = try_convert_to_local_date_time(a) {
-                        val = Value::Date {
-                            val: local.with_timezone(local.offset()),
-                            span,
-                        };
+                        val = Value::date(local.with_timezone(local.offset()), span)
                     }
                 }
-                vals.push(val);
-            }
+                val
+            });
         }
 
-        cols.push("modified".to_string());
-        {
+        record.push("modified", {
             let mut val = Value::nothing(span);
             if let Ok(m) = md.modified() {
                 if let Some(local) = try_convert_to_local_date_time(m) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
             }
-            vals.push(val);
-        }
+            val
+        })
     } else {
         if long {
-            cols.push("created".to_string());
-            vals.push(Value::nothing(span));
-
-            cols.push("accessed".to_string());
-            vals.push(Value::nothing(span));
+            record.push("created", Value::nothing(span));
+            record.push("accessed", Value::nothing(span));
         }
 
-        cols.push("modified".to_string());
-        vals.push(Value::nothing(span));
+        record.push("modified", Value::nothing(span));
     }
 
-    Ok(Value::Record { cols, vals, span })
+    Ok(Value::record(record, span))
 }
 
 // TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
@@ -702,14 +638,9 @@ mod windows_helper {
         span: Span,
         long: bool,
     ) -> Value {
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
 
-        cols.push("name".into());
-        vals.push(Value::String {
-            val: display_name.to_string(),
-            span,
-        });
+        record.push("name", Value::string(display_name, span));
 
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
@@ -722,90 +653,71 @@ mod windows_helper {
                     filename.to_string_lossy()
                 );
                 log::error!("{e}");
-                return Value::Record { cols, vals, span };
+                return Value::record(record, span);
             }
         };
 
-        cols.push("type".into());
-        vals.push(Value::String {
-            val: get_file_type_windows_fallback(&find_data),
-            span,
-        });
+        record.push(
+            "type",
+            Value::string(get_file_type_windows_fallback(&find_data), span),
+        );
 
         if long {
-            cols.push("target".into());
-            if is_symlink(&find_data) {
-                if let Ok(path_to_link) = filename.read_link() {
-                    vals.push(Value::String {
-                        val: path_to_link.to_string_lossy().to_string(),
-                        span,
-                    });
+            record.push(
+                "target",
+                if is_symlink(&find_data) {
+                    if let Ok(path_to_link) = filename.read_link() {
+                        Value::string(path_to_link.to_string_lossy(), span)
+                    } else {
+                        Value::string("Could not obtain target file's path", span)
+                    }
                 } else {
-                    vals.push(Value::String {
-                        val: "Could not obtain target file's path".to_string(),
-                        span,
-                    });
-                }
-            } else {
-                vals.push(Value::nothing(span));
-            }
+                    Value::nothing(span)
+                },
+            );
 
-            cols.push("readonly".into());
-            vals.push(Value::Bool {
-                val: (find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0),
-                span,
-            });
+            record.push(
+                "readonly",
+                Value::bool(
+                    find_data.dwFileAttributes & FILE_ATTRIBUTE_READONLY.0 != 0,
+                    span,
+                ),
+            );
         }
 
-        cols.push("size".to_string());
         let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
-        vals.push(Value::Filesize {
-            val: file_size as i64,
-            span,
-        });
+        record.push("size", Value::filesize(file_size as i64, span));
 
         if long {
-            cols.push("created".to_string());
-            {
+            record.push("created", {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftCreationTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
-                vals.push(val);
-            }
+                val
+            });
 
-            cols.push("accessed".to_string());
-            {
+            record.push("accessed", {
                 let mut val = Value::nothing(span);
                 let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastAccessTime);
                 if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                    val = Value::Date {
-                        val: local.with_timezone(local.offset()),
-                        span,
-                    };
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
-                vals.push(val);
-            }
+                val
+            });
         }
 
-        cols.push("modified".to_string());
-        {
+        record.push("modified", {
             let mut val = Value::nothing(span);
             let seconds_since_unix_epoch = unix_time_from_filetime(&find_data.ftLastWriteTime);
             if let Some(local) = unix_time_to_local_date_time(seconds_since_unix_epoch) {
-                val = Value::Date {
-                    val: local.with_timezone(local.offset()),
-                    span,
-                };
+                val = Value::date(local.with_timezone(local.offset()), span);
             }
-            vals.push(val);
-        }
+            val
+        });
 
-        Value::Record { cols, vals, span }
+        Value::record(record, span)
     }
 
     fn unix_time_from_filetime(ft: &FILETIME) -> i64 {
