@@ -1,6 +1,6 @@
 use crate::web_tables::WebTable;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Value};
+use nu_protocol::{Record, Span, Value};
 use scraper::{Html, Selector as ScraperSelector};
 
 pub struct Selector {
@@ -170,15 +170,13 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         at_least_one_row_filled = true;
         let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
 
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
         for row in &table_with_no_empties {
             for (counter, cell) in row.iter().enumerate() {
-                cols.push(format!("column{counter}"));
-                vals.push(Value::string(cell.to_string(), span))
+                record.push(format!("column{counter}"), Value::string(cell, span));
             }
         }
-        table_out.push(Value::Record { cols, vals, span })
+        table_out.push(Value::record(record, span))
     } else {
         for row in &table {
             let mut vals = vec![];
@@ -194,11 +192,13 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
                 }
                 vals.push(Value::string(val, span));
             }
-            table_out.push(Value::Record {
-                cols: record_cols.to_vec(),
-                vals,
+            table_out.push(Value::record(
+                Record {
+                    cols: record_cols.to_vec(),
+                    vals,
+                },
                 span,
-            })
+            ))
         }
     }
     if !at_least_one_row_filled {
