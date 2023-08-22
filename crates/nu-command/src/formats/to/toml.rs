@@ -54,9 +54,9 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
         Value::String { val, .. } => toml::Value::String(val.clone()),
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
-            for (k, v) in cols.iter().zip(vals.iter()) {
+            for (k, v) in val {
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
@@ -172,7 +172,6 @@ fn to_toml(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::Spanned;
 
     #[test]
     fn test_examples() {
@@ -201,10 +200,7 @@ mod tests {
         );
         let tv = value_to_toml_value(
             &engine_state,
-            &Value::from(Spanned {
-                item: m,
-                span: Span::test_data(),
-            }),
+            &Value::record(m.into_iter().collect(), Span::test_data()),
             Span::test_data(),
         )
         .expect("Expected Ok from valid TOML dictionary");

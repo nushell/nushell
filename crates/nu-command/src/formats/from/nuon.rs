@@ -1,8 +1,8 @@
 use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Range, ShellError, Signature, Span, Type,
-    Unit, Value,
+    Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError, Signature, Span,
+    Type, Unit, Value,
 };
 #[derive(Clone)]
 pub struct FromNuon;
@@ -27,16 +27,15 @@ impl Command for FromNuon {
             Example {
                 example: "'{ a:1 }' | from nuon",
                 description: "Converts nuon formatted string to table",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::test_int(1)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 example: "'{ a:1, b: [1, 2] }' | from nuon",
                 description: "Converts nuon formatted string to table",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
                         Value::test_int(1),
@@ -45,8 +44,7 @@ impl Command for FromNuon {
                             span: Span::test_data(),
                         },
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
@@ -323,8 +321,7 @@ fn convert_to_value(
             })
         }
         Expr::Record(key_vals) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
 
             for (key, val) in key_vals {
                 let key_str = match key.expr {
@@ -341,11 +338,10 @@ fn convert_to_value(
 
                 let value = convert_to_value(val, span, original_text)?;
 
-                cols.push(key_str);
-                vals.push(value);
+                record.push(key_str, value);
             }
 
-            Ok(Value::Record { cols, vals, span })
+            Ok(Value::record(record, span))
         }
         Expr::RowCondition(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
@@ -409,11 +405,13 @@ fn convert_to_value(
                     ));
                 }
 
-                output.push(Value::Record {
-                    cols: cols.clone(),
-                    vals,
+                output.push(Value::record(
+                    Record {
+                        cols: cols.clone(),
+                        vals,
+                    },
                     span,
-                });
+                ));
             }
 
             Ok(Value::List { vals: output, span })
