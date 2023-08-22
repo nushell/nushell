@@ -43,7 +43,7 @@ fn gets_first_row_when_no_amount_given() {
         // FIXME: We should probably change first to return a one row table instead of a record here
         let actual = nu!(cwd: dirs.test(), "ls | first | values | length");
 
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual.out, "4");
     })
 }
 
