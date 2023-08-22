@@ -3,7 +3,7 @@ use nu_protocol::ast::{Block, Call};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -52,7 +52,7 @@ impl Command for UpdateCells {
           }
     }"#,
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec![
                             "2021-04-16".into(),
                             "2021-06-10".into(),
@@ -71,8 +71,7 @@ impl Command for UpdateCells {
                             Value::test_string(""),
                             Value::test_string(""),
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -89,7 +88,7 @@ impl Command for UpdateCells {
             }
     }"#,
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec![
                             "2021-04-16".into(),
                             "2021-06-10".into(),
@@ -108,8 +107,7 @@ impl Command for UpdateCells {
                             Value::test_string(""),
                             Value::test_string(""),
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -194,26 +192,26 @@ impl Iterator for UpdateCellIterator {
                 }
 
                 match val {
-                    Value::Record { vals, cols, span } => Some(Value::Record {
-                        vals: cols
-                            .iter()
-                            .zip(vals)
+                    Value::Record { val, span } => Some(Value::record(
+                        val.into_iter()
                             .map(|(col, val)| match &self.columns {
-                                Some(cols) if !cols.contains(col) => val,
-                                _ => process_cell(
-                                    val,
-                                    &self.engine_state,
-                                    &mut self.stack,
-                                    &self.block,
-                                    self.redirect_stdout,
-                                    self.redirect_stderr,
-                                    span,
+                                Some(cols) if !cols.contains(&col) => (col, val),
+                                _ => (
+                                    col,
+                                    process_cell(
+                                        val,
+                                        &self.engine_state,
+                                        &mut self.stack,
+                                        &self.block,
+                                        self.redirect_stdout,
+                                        self.redirect_stderr,
+                                        span,
+                                    ),
                                 ),
                             })
                             .collect(),
-                        cols,
                         span,
-                    }),
+                    )),
                     val => Some(process_cell(
                         val,
                         &self.engine_state,
