@@ -60,6 +60,16 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         PipelineData::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
         }
+        // I added this here because input_output_type() wasn't catching a record
+        // being sent in as input from echo. e.g. "echo {a:1 b:2} | length"
+        PipelineData::Value(Value::Record { span, .. }, ..) => {
+            Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, and table".into(),
+                wrong_type: "record".into(),
+                dst_span: call.head,
+                src_span: span,
+            })
+        }
         _ => {
             let mut count: i64 = 0;
             // Check for and propagate errors
