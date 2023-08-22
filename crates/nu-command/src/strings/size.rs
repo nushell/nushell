@@ -1,7 +1,9 @@
 use fancy_regex::Regex;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+};
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
@@ -46,7 +48,7 @@ impl Command for Size {
             Example {
                 description: "Count the number of words in a string",
                 example: r#""There are seven words in this sentence" | size"#,
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
@@ -61,13 +63,12 @@ impl Command for Size {
                         Value::test_int(38),
                         Value::test_int(38),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Counts unicode characters",
                 example: r#"'今天天气真好' | size "#,
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
@@ -82,13 +83,12 @@ impl Command for Size {
                         Value::test_int(6),
                         Value::test_int(6),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Counts Unicode characters correctly in a string",
                 example: r#""Amélie Amelie" | size"#,
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
@@ -103,8 +103,7 @@ impl Command for Size {
                         Value::test_int(14),
                         Value::test_int(13),
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
@@ -145,55 +144,20 @@ fn size(
 
 fn counter(contents: &str, span: Span) -> Value {
     let counts = uwc_count(&ALL_COUNTERS[..], contents);
-    let mut cols = vec![];
-    let mut vals = vec![];
 
-    cols.push("lines".into());
-    vals.push(Value::Int {
-        val: match counts.get(&Counter::Lines) {
-            Some(c) => *c as i64,
-            None => 0,
-        },
-        span,
-    });
+    fn get_count(counts: &BTreeMap<Counter, usize>, counter: Counter, span: Span) -> Value {
+        Value::int(counts.get(&counter).copied().unwrap_or(0) as i64, span)
+    }
 
-    cols.push("words".into());
-    vals.push(Value::Int {
-        val: match counts.get(&Counter::Words) {
-            Some(c) => *c as i64,
-            None => 0,
-        },
-        span,
-    });
+    let record = record! {
+        "lines" => get_count(&counts, Counter::Lines, span),
+        "words" => get_count(&counts, Counter::Words, span),
+        "bytes" => get_count(&counts, Counter::Bytes, span),
+        "chars" => get_count(&counts, Counter::CodePoints, span),
+        "graphemes" => get_count(&counts, Counter::GraphemeClusters, span),
+    };
 
-    cols.push("bytes".into());
-    vals.push(Value::Int {
-        val: match counts.get(&Counter::Bytes) {
-            Some(c) => *c as i64,
-            None => 0,
-        },
-        span,
-    });
-
-    cols.push("chars".into());
-    vals.push(Value::Int {
-        val: match counts.get(&Counter::CodePoints) {
-            Some(c) => *c as i64,
-            None => 0,
-        },
-        span,
-    });
-
-    cols.push("graphemes".into());
-    vals.push(Value::Int {
-        val: match counts.get(&Counter::GraphemeClusters) {
-            Some(c) => *c as i64,
-            None => 0,
-        },
-        span,
-    });
-
-    Value::Record { cols, vals, span }
+    Value::record(record, span)
 }
 
 /// Take all the counts in `other_counts` and sum them into `accum`.

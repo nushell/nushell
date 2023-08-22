@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    levenshtein_distance, Category, Example, PipelineData, ShellError, Signature, Span,
+    levenshtein_distance, Category, Example, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 
@@ -82,11 +82,10 @@ impl Command for SubCommand {
             example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
             result: Some(Value::List {
                 vals: vec![
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["a".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(4)],
-                        span: Span::test_data(),
-                    }
+                    })
                 ],
                 span: Span::test_data(),
             }),
@@ -95,11 +94,10 @@ impl Command for SubCommand {
             description: "Compute edit distance between strings in record and another string, using cell paths",
             example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
             result: Some(
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["a".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(4)],
-                        span: Span::test_data(),
-                    }
+                    })
                 ),
         }]
     }
