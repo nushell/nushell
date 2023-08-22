@@ -100,8 +100,8 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
     let mut bg = None;
     let mut attr = None;
     let v = value.as_record();
-    if let Ok((cols, inner_vals)) = v {
-        for (k, v) in cols.iter().zip(inner_vals) {
+    if let Ok(record) = v {
+        for (k, v) in record {
             // Because config already type-checked the color_config records, this doesn't bother giving errors
             // if there are unrecognised keys or bad values.
             if let Ok(v) = v.as_string() {
