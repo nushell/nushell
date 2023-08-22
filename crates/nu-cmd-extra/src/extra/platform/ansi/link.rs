@@ -98,12 +98,12 @@ fn operate(
 
     if column_paths.is_empty() {
         input.map(
-            move |v| process_value(&v, &text),
+            move |v| process_value(&v, text.as_deref()),
             engine_state.ctrlc.clone(),
         )
     } else {
         input.map(
-            move |v| process_each_path(v, &column_paths, &text, command_span),
+            move |v| process_each_path(v, &column_paths, text.as_deref(), command_span),
             engine_state.ctrlc.clone(),
         )
     }
@@ -112,7 +112,7 @@ fn operate(
 fn process_each_path(
     mut value: Value,
     column_paths: &[CellPath],
-    text: &Option<String>,
+    text: Option<&str>,
     command_span: Span,
 ) -> Value {
     for path in column_paths {
@@ -124,11 +124,11 @@ fn process_each_path(
     value
 }
 
-fn process_value(value: &Value, text: &Option<String>) -> Value {
+fn process_value(value: &Value, text: Option<&str>) -> Value {
     let span = value.span();
     match value {
         Value::String { val, .. } => {
-            let text = text.as_deref().unwrap_or(val.as_str());
+            let text = text.unwrap_or(val.as_str());
             let result = add_osc_link(text, val.as_str());
             Value::string(result, span)
         }

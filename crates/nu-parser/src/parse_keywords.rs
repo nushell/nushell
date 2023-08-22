@@ -3595,13 +3595,14 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
         let signatures = signature.map_or_else(
             || {
-                let signatures = get_signature(&path, &shell, &current_envs).map_err(|err| {
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                });
+                let signatures =
+                    get_signature(&path, shell.as_deref(), &current_envs).map_err(|err| {
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    });
 
                 if signatures.is_ok() {
                     // mark plugins file as dirty only when the user is registering plugins

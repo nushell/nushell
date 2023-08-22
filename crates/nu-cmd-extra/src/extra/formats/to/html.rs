@@ -164,7 +164,7 @@ impl Command for ToHtml {
 
 fn get_theme_from_asset_file(
     is_dark: bool,
-    theme: &Option<Spanned<String>>,
+    theme: Option<&Spanned<String>>,
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
@@ -301,7 +301,7 @@ fn to_html(
             None => head,
         };
 
-        let color_hm = get_theme_from_asset_file(dark, &theme);
+        let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
