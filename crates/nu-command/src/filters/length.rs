@@ -26,6 +26,7 @@ impl Command for Length {
                 (Type::Record(vec![]), Type::Int),
             ])
             .switch("column", "Show the number of columns in a table", Some('c'))
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
