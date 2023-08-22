@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -56,11 +56,10 @@ impl Command for Rename {
                 description: "Rename a column",
                 example: "[[a, b]; [1, 2]] | rename my_column",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["my_column".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -68,11 +67,10 @@ impl Command for Rename {
                 description: "Rename many columns",
                 example: "[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["eggs".to_string(), "ham".to_string(), "bacon".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -80,31 +78,28 @@ impl Command for Rename {
                 description: "Rename a specific column",
                 example: "[[a, b, c]; [1, 2, 3]] | rename -c [a ham]",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Rename the fields of a record",
                 example: "{a: 1 b: 2} | rename x y",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["x".to_string(), "y".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Rename fields based on a given closure",
                 example: "{abc: 1, bbc: 2} | rename -b {str replace -a 'b' 'z'}",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["azc".to_string(), "zzc".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
@@ -162,14 +157,13 @@ fn rename(
         .map(
             move |item| match item {
                 Value::Record {
-                    mut cols,
-                    vals,
+                    val: mut record,
                     span,
                 } => {
                     if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
                         block_info.clone()
                     {
-                        for c in &mut cols {
+                        for c in &mut record.cols {
                             stack.with_env(&env_vars, &env_hidden);
 
                             if let Some(var) = block.signature.get_positional(0) {
@@ -197,7 +191,7 @@ fn rename(
                         match &specified_column {
                             Some(c) => {
                                 // check if the specified column to be renamed exists
-                                if !cols.contains(&c[0]) {
+                                if !record.cols.contains(&c[0]) {
                                     return Value::Error {
                                         error: Box::new(ShellError::UnsupportedInput(
                                             format!(
@@ -212,26 +206,26 @@ fn rename(
                                         )),
                                     };
                                 }
-                                for (idx, val) in cols.iter_mut().enumerate() {
+                                for (idx, val) in record.cols.iter_mut().enumerate() {
                                     if *val == c[0] {
-                                        cols[idx] = c[1].to_string();
+                                        record.cols[idx] = c[1].to_string();
                                         break;
                                     }
                                 }
                             }
                             None => {
                                 for (idx, val) in columns.iter().enumerate() {
-                                    if idx >= cols.len() {
+                                    if idx >= record.len() {
                                         // skip extra new columns names if we already reached the final column
                                         break;
                                     }
-                                    cols[idx] = val.clone();
+                                    record.cols[idx] = val.clone();
                                 }
                             }
                         }
                     }
 
-                    Value::Record { cols, vals, span }
+                    Value::record(record, span)
                 }
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { .. } => item.clone(),

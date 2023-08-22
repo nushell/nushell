@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -37,15 +37,14 @@ impl Command for Headers {
                 description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: columns.clone(),
                         vals: vec![
                             Value::test_string("1"),
                             Value::test_string("2"),
                             Value::test_string("3"),
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -54,24 +53,22 @@ impl Command for Headers {
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: columns.clone(),
                             vals: vec![
                                 Value::test_string("1"),
                                 Value::test_string("2"),
                                 Value::test_string("3"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: columns,
                             vals: vec![
                                 Value::test_string("1"),
                                 Value::test_string("2"),
                                 Value::test_string("3"),
                             ],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
                     span: Span::test_data(),
                 }),
@@ -102,20 +99,17 @@ fn replace_headers(
     new_headers: &[String],
 ) -> Result<Value, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
-            let (cols, vals) = cols
-                .into_iter()
-                .zip(vals)
+        Value::Record { val, span } => Ok(Value::record(
+            val.into_iter()
                 .filter_map(|(col, val)| {
                     old_headers
                         .iter()
                         .position(|c| c == &col)
                         .map(|i| (new_headers[i].clone(), val))
                 })
-                .unzip();
-
-            Ok(Value::Record { cols, vals, span })
-        }
+                .collect(),
+            span,
+        )),
         Value::List { vals, span } => {
             let vals = vals
                 .into_iter()
@@ -148,8 +142,8 @@ fn extract_headers(
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
     match value {
-        Value::Record { cols, vals, .. } => {
-            for v in vals {
+        Value::Record { val: record, .. } => {
+            for v in &record.vals {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
                         err_message: "needs compatible type: Null, String, Bool, Float, Int"
@@ -159,8 +153,9 @@ fn extract_headers(
                 }
             }
 
-            let old_headers = cols.to_vec();
-            let new_headers = vals
+            let old_headers = record.cols.clone();
+            let new_headers = record
+                .vals
                 .iter()
                 .enumerate()
                 .map(|(idx, value)| {
