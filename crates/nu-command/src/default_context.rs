@@ -196,11 +196,21 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FormatDuration,
             FormatFilesize,
         };
+        // UUtils Support
+        #[cfg(feature = "nuuu")]
+        bind_command! {
+            Ucp,
+        }
+
+        // FileSystem non-nuuu
+        #[cfg(not(feature = "nuuu"))]
+        bind_command! {
+            Cp,
+        };
 
         // FileSystem
         bind_command! {
             Cd,
-            Cp,
             Ls,
             Mkdir,
             Mv,

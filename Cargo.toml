@@ -135,6 +135,9 @@ dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
 # SQLite commands for nushell
 sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
 
+# Feature for uutils in nushell
+nuuu = ["nu-command/nuuu"]
+
 [profile.release]
 opt-level = "s"     # Optimize for size
 strip = "debuginfo"
