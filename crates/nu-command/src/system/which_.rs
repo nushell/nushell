@@ -1,6 +1,7 @@
 use log::trace;
 use nu_engine::env;
 use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -63,19 +64,14 @@ fn entry(
     cmd_type: impl Into<String>,
     span: Span,
 ) -> Value {
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("command".to_string());
-    vals.push(Value::string(arg.into(), span));
-
-    cols.push("path".to_string());
-    vals.push(Value::string(path.into(), span));
-
-    cols.push("type".to_string());
-    vals.push(Value::string(cmd_type.into(), span));
-
-    Value::Record { cols, vals, span }
+    Value::record(
+        record! {
+            "command" => Value::string(arg.into(), span),
+            "path" => Value::string(path.into(), span),
+            "type" => Value::string(cmd_type.into(), span),
+        },
+        span,
+    )
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
