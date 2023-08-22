@@ -3,6 +3,7 @@ mod from;
 mod from_value;
 mod lazy_record;
 mod range;
+mod record;
 mod stream;
 mod unit;
 
@@ -24,6 +25,7 @@ use nu_utils::get_system_locale;
 use nu_utils::locale::get_system_locale_string;
 use num_format::ToFormattedString;
 pub use range::*;
+pub use record::Record;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -75,8 +77,7 @@ pub enum Value {
         span: Span,
     },
     Record {
-        cols: Vec<String>,
-        vals: Vec<Value>,
+        val: Record,
         span: Span,
     },
     List {
@@ -148,9 +149,8 @@ impl Clone for Value {
                 val: val.clone(),
                 span: *span,
             },
-            Value::Record { cols, vals, span } => Value::Record {
-                cols: cols.clone(),
-                vals: vals.clone(),
+            Value::Record { val, span } => Value::Record {
+                val: val.clone(),
                 span: *span,
             },
             Value::LazyRecord { val, span } => val.clone_value(*span),
@@ -367,9 +367,9 @@ impl Value {
         }
     }
 
-    pub fn as_record(&self) -> Result<(&[String], &[Value]), ShellError> {
+    pub fn as_record(&self) -> Result<&Record, ShellError> {
         match self {
-            Value::Record { cols, vals, .. } => Ok((cols, vals)),
+            Value::Record { val, .. } => Ok(val),
             x => Err(ShellError::CantConvert {
                 to_type: "record".into(),
                 from_type: x.get_type().to_string(),
@@ -1777,18 +1777,8 @@ impl Value {
         }
     }
 
-    pub fn record(cols: Vec<String>, vals: Vec<Value>, span: Span) -> Value {
-        Value::Record { cols, vals, span }
-    }
-
-    pub fn record_from_hashmap(map: &HashMap<String, Value>, span: Span) -> Value {
-        let mut cols = vec![];
-        let mut vals = vec![];
-        for (key, val) in map.iter() {
-            cols.push(key.clone());
-            vals.push(val.clone());
-        }
-        Value::record(cols, vals, span)
+    pub fn record(val: Record, span: Span) -> Value {
+        Value::Record { val, span }
     }
 
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
@@ -1894,12 +1884,8 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
-        Value::record(
-            cols.into_iter().map(|s| s.into()).collect(),
-            vals,
-            Span::test_data(),
-        )
+    pub fn test_record(val: Record) -> Value {
+        Value::record(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
