@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_protocol::{ast::PathMember, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
+use nu_protocol::{
+    ast::PathMember, record, ListStream, PipelineData, PipelineMetadata, RawStream, Value,
+};
 
 use super::NuSpan;
 
@@ -80,14 +82,7 @@ fn collect_external_stream(
         data.push(val);
     }
     if metadata.is_some() {
-        let val = Value::Record {
-            cols: vec![String::from("data_source")],
-            vals: vec![Value::String {
-                val: String::from("ls"),
-                span,
-            }],
-            span,
-        };
+        let val = Value::record(record! { "data_source" => Value::string("ls", span) }, span);
 
         columns.push(String::from("metadata"));
         data.push(val);
@@ -98,7 +93,7 @@ fn collect_external_stream(
 /// Try to build column names and a table grid.
 pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     match value {
-        Value::Record { cols, vals, .. } => (cols, vec![vals]),
+        Value::Record { val: record, .. } => (record.cols, vec![record.vals]),
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
@@ -191,30 +186,18 @@ fn record_lookup_value(item: &Value, header: &str) -> Value {
 }
 
 pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
-    let (cols, inner_vals) = value.as_record().ok()?;
-
-    let mut hm: HashMap<String, Value> = HashMap::new();
-    for (k, v) in cols.iter().zip(inner_vals) {
-        hm.insert(k.to_string(), v.clone());
-    }
-
-    Some(hm)
+    Some(
+        value
+            .as_record()
+            .ok()?
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+    )
 }
 
 pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
-    let mut columns = Vec::with_capacity(hm.len());
-    let mut values = Vec::with_capacity(hm.len());
-
-    for (key, value) in hm {
-        columns.push(key);
-        values.push(value);
-    }
-
-    Value::Record {
-        cols: columns,
-        vals: values,
-        span: NuSpan::unknown(),
-    }
+    Value::record(hm.into_iter().collect(), NuSpan::unknown())
 }
 
 pub fn nu_str<S: AsRef<str>>(s: S) -> Value {

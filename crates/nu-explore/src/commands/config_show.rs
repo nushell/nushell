@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    record, Value,
 };
 use ratatui::layout::Rect;
 use std::collections::HashMap;
@@ -157,8 +157,8 @@ fn convert_styles_value(value: &mut Value) {
                 convert_styles_value(value);
             }
         }
-        Value::Record { vals, .. } => {
-            for value in vals {
+        Value::Record { val, .. } => {
+            for value in &mut val.vals {
                 convert_styles_value(value);
             }
         }
@@ -168,17 +168,13 @@ fn convert_styles_value(value: &mut Value) {
 
 fn convert_style_from_string(s: &str) -> Option<Value> {
     let style = nu_json::from_str::<nu_color_config::NuStyle>(s).ok()?;
-    let cols = vec![String::from("bg"), String::from("fg"), String::from("attr")];
 
-    let vals = vec![
-        Value::string(style.bg.unwrap_or_default(), NuSpan::unknown()),
-        Value::string(style.fg.unwrap_or_default(), NuSpan::unknown()),
-        Value::string(style.attr.unwrap_or_default(), NuSpan::unknown()),
-    ];
-
-    Some(Value::Record {
-        cols,
-        vals,
-        span: NuSpan::unknown(),
-    })
+    Some(Value::record(
+        record! {
+            "bg" => Value::string(style.bg.unwrap_or_default(), NuSpan::unknown()),
+            "fg" => Value::string(style.fg.unwrap_or_default(), NuSpan::unknown()),
+            "attr" => Value::string(style.attr.unwrap_or_default(), NuSpan::unknown()),
+        },
+        NuSpan::unknown(),
+    ))
 }
