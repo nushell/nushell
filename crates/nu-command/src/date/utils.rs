@@ -275,13 +275,13 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             .unwrap_or("")
             .to_string();
 
-        let decription = "Parsing only: Same as %z but allows minutes to be missing or present.";
+        let description = "Parsing only: Same as %z but allows minutes to be missing or present.";
 
         records.push(Value::record(
             record! {
                 "Specification" => Value::string("%#z", head),
                 "Example" => Value::string(example, head),
-                "Description" => Value::string(decription, head),
+                "Description" => Value::string(description, head),
             },
             head,
         ));
