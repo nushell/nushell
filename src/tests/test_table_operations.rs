@@ -264,7 +264,7 @@ fn update_will_insert() -> TestResult {
 #[test]
 fn length_for_columns() -> TestResult {
     run_test(
-        r#"[[name,age,grade]; [bill,20,a] [a b c]] | length -c"#,
+        r#"[[name,age,grade]; [bill,20,a] [a b c]] | columns | length"#,
         "3",
     )
 }
