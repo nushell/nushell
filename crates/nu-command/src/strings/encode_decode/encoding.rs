@@ -2,7 +2,11 @@ use chardetng::EncodingDetector;
 use encoding_rs::Encoding;
 use nu_protocol::{ShellError, Span, Spanned, Value};
 
-pub fn detect_encoding_name(head: Span, input: Span, bytes: &[u8]) -> Result<&'static Encoding, ShellError> {
+pub fn detect_encoding_name(
+    head: Span,
+    input: Span,
+    bytes: &[u8],
+) -> Result<&'static Encoding, ShellError> {
     let mut detector = EncodingDetector::new();
     let _non_ascii = detector.feed(bytes, false);
     //Guess(TLD=None(usually used in HTML), Allow_UTF8=True)
@@ -152,7 +156,11 @@ mod test {
            182, 217, 161, 227, 170, 233, 227, 185, 205, 167, 164, 236, 187, 195, 208, 161, 205, 186, 195, 216, 232,
             185, 224, 161, 232, 210, 227, 185, 228, 193, 226, 164, 195, 171, 205, 191, 183, 236], "TIS-620")]
     fn smoke_encoding_name(#[case] bytes: &[u8], #[case] expected: &str) {
-        let encoding_name = detect_encoding_name(Span::test_data(), Span::test_data(), bytes).unwrap();
-        assert_eq!(encoding_name, Encoding::for_label(expected.as_bytes()).unwrap());
+        let encoding_name =
+            detect_encoding_name(Span::test_data(), Span::test_data(), bytes).unwrap();
+        assert_eq!(
+            encoding_name,
+            Encoding::for_label(expected.as_bytes()).unwrap()
+        );
     }
 }
