@@ -8,8 +8,8 @@ use nu_protocol::{
 };
 
 use std::path::PathBuf;
-use uucore::mods::backup_control::BackupMode;
-use uucore::mods::update_control::UpdateMode;
+use uucore::backup_control::{self, BackupMode};
+use uucore::update_control::{self, UpdateMode};
 
 const EXIT_ERR: i32 = 1;
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
