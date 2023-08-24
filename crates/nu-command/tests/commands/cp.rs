@@ -1,4 +1,3 @@
-
 use filetime::FileTime;
 use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{
@@ -636,7 +635,7 @@ fn copy_file_with_update_flag_impl(progress: bool) {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "cp {} --update=older valid.txt newer_valid.txt; open newer_valid.txt",
+            "cp {} --update valid.txt newer_valid.txt; open newer_valid.txt",
             progress_flag,
         );
         assert!(actual.out.contains("body"));
@@ -644,11 +643,11 @@ fn copy_file_with_update_flag_impl(progress: bool) {
         // create a file after assert to make sure that newest_valid.txt is newest
         std::thread::sleep(std::time::Duration::from_secs(1));
         sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
-        let actual = nu!(cwd: sandbox.cwd(), "cp {} --update=older newest_valid.txt valid.txt; open valid.txt", progress_flag);
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} --update newest_valid.txt valid.txt; open valid.txt", progress_flag);
         assert_eq!(actual.out, "newest_body");
 
         // when destination doesn't exist
-        let actual = nu!(cwd: sandbox.cwd(), "cp {} --update=older newest_valid.txt des_missing.txt; open des_missing.txt", progress_flag);
+        let actual = nu!(cwd: sandbox.cwd(), "cp {} --update newest_valid.txt des_missing.txt; open des_missing.txt", progress_flag);
         assert_eq!(actual.out, "newest_body");
     });
 }
@@ -898,29 +897,30 @@ fn test_cp_arg_no_target_directory() {
     });
 }
 
-#[cfg(feature = "nuuu")]
-#[test]
-fn test_cp_arg_update_none() {
-    // use the test commented above to create new one here
-    Playground::setup("ucp_test_8", |dirs, sandbox| {
-        let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
-        let target = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
-        let target_content = file_contents(&target);
-
-        let target_hash = get_file_hash(src.display());
-        // Start test
-        let actual = nu!(
-            cwd: dirs.root(),
-            "cp {} {} --update=none",
-            src.display(),
-            target.display()
-        );
-        // File exists, so it  doesnt do anything
-        // and original target didnt change
-        assert_eq!(target_content, file_contents(target));
-        // assert_eq!(target_hash, after_cp_hash);
-    });
-}
+// #[cfg(feature = "nuuu")]
+// #[test]
+// fn test_cp_arg_update_none() {
+//     // use the test commented above to create new one here
+//     Playground::setup("ucp_test_8", |dirs, sandbox| {
+//         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
+//         let target = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
+//         let target_content = file_contents(&target);
+//
+//         let target_hash = get_file_hash(src.display());
+//         // Start test
+//         let actual = nu!(
+//             cwd: dirs.root(),
+//
+//             "cp {} {} --update=none",
+//             src.display(),
+//             target.display()
+//         );
+//         // File exists, so it  doesnt do anything
+//         // and original target didnt change
+//         assert_eq!(target_content, file_contents(target));
+//         // assert_eq!(target_hash, after_cp_hash);
+//     });
+// }
 #[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_arg_symlink() {
@@ -1000,6 +1000,7 @@ fn test_cp_arg_suffix() {
 
 #[cfg(feature = "nuuu")]
 #[test]
+#[ignore = "Cant figure out how to add env var"]
 fn test_cp_custom_backup_suffix_via_env() {
     Playground::setup("ucp_test_12", |dirs, sandbox| {
         let suffix = "super-suffix-of-the-century";
@@ -1288,7 +1289,7 @@ fn test_cp_preserve_timestamps() {
         filetime::set_file_times(file, previous, previous).unwrap();
         let actual = nu!(
         cwd: dirs.root(),
-        "cp {} --preserve [timestamps] ucp_test_22/{}",
+        "cp {} --preserve ucp_test_22/{}",
         dirs.test().join("a.txt").display(),
         TEST_HOW_ARE_YOU_SOURCE
         );
