@@ -3,7 +3,8 @@ use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Unit, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Unit,
+    Value,
 };
 
 const NS_PER_SEC: i64 = 1_000_000_000;
@@ -80,46 +81,41 @@ impl Command for SubCommand {
                     "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 2 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 3 * 60 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 4 * 24 * 60 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 5 * 7 * 24 * 60 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),

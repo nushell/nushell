@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -137,16 +137,14 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
 
 /// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
 fn err_to_record(error: ShellError, head: Span) -> Value {
-    let cols = vec!["msg".to_string(), "debug".to_string(), "raw".to_string()];
-    let vals = vec![
-        Value::string(error.to_string(), head),
-        Value::string(format!("{error:?}"), head),
-        Value::Error {
-            error: Box::new(error),
-            span: head,
+    Value::record(
+        record! {
+            "msg" => Value::string(error.to_string(), head),
+            "debug" => Value::string(format!("{error:?}"), head),
+            "raw" => Value::error(error, head),
         },
-    ];
-    Value::record(cols, vals, head)
+        head,
+    )
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ mod cal;
 mod cd;
 mod compact;
 mod continue_;
+mod conversions;
 mod cp;
 mod date;
 mod def;

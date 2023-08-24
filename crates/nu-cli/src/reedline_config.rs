@@ -7,7 +7,8 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, ShellError, Span, Value,
+    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, Record, ShellError, Span,
+    Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -130,8 +131,8 @@ fn add_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    if let Value::Record { cols, vals, span } = &menu.menu_type {
-        let layout = extract_value("layout", cols, vals, *span)?.into_string("", config);
+    if let Value::Record { val, span } = &menu.menu_type {
+        let layout = extract_value("layout", val, *span)?.into_string("", config);
 
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
@@ -154,8 +155,8 @@ fn add_menu(
 
 macro_rules! add_style {
     // first arm match add!(1,2), add!(2,3) etc
-    ($name:expr, $cols: expr, $vals:expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
-        $menu = match extract_value($name, $cols, $vals, *$span) {
+    ($name:expr, $record: expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
+        $menu = match extract_value($name, $record, *$span) {
             Ok(text) => {
                 let style = match text {
                     Value::String { val, .. } => lookup_ansi_color_style(&val),
@@ -180,8 +181,8 @@ pub(crate) fn add_columnar_menu(
     let name = menu.name.into_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
-    if let Value::Record { cols, vals, span } = &menu.menu_type {
-        columnar_menu = match extract_value("columns", cols, vals, *span) {
+    if let Value::Record { val, span } = &menu.menu_type {
+        columnar_menu = match extract_value("columns", val, *span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
                 columnar_menu.with_columns(columns as u16)
@@ -189,7 +190,7 @@ pub(crate) fn add_columnar_menu(
             Err(_) => columnar_menu,
         };
 
-        columnar_menu = match extract_value("col_width", cols, vals, *span) {
+        columnar_menu = match extract_value("col_width", val, *span) {
             Ok(col_width) => {
                 let col_width = col_width.as_int()?;
                 columnar_menu.with_column_width(Some(col_width as usize))
@@ -197,7 +198,7 @@ pub(crate) fn add_columnar_menu(
             Err(_) => columnar_menu.with_column_width(None),
         };
 
-        columnar_menu = match extract_value("col_padding", cols, vals, *span) {
+        columnar_menu = match extract_value("col_padding", val, *span) {
             Ok(col_padding) => {
                 let col_padding = col_padding.as_int()?;
                 columnar_menu.with_column_padding(col_padding as usize)
@@ -206,11 +207,10 @@ pub(crate) fn add_columnar_menu(
         };
     }
 
-    if let Value::Record { cols, vals, span } = &menu.style {
+    if let Value::Record { val, span } = &menu.style {
         add_style!(
             "text",
-            cols,
-            vals,
+            val,
             span,
             config,
             columnar_menu,
@@ -218,8 +218,7 @@ pub(crate) fn add_columnar_menu(
         );
         add_style!(
             "selected_text",
-            cols,
-            vals,
+            val,
             span,
             config,
             columnar_menu,
@@ -227,8 +226,7 @@ pub(crate) fn add_columnar_menu(
         );
         add_style!(
             "description_text",
-            cols,
-            vals,
+            val,
             span,
             config,
             columnar_menu,
@@ -282,8 +280,8 @@ pub(crate) fn add_list_menu(
     let name = menu.name.into_string("", config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
-    if let Value::Record { cols, vals, span } = &menu.menu_type {
-        list_menu = match extract_value("page_size", cols, vals, *span) {
+    if let Value::Record { val, span } = &menu.menu_type {
+        list_menu = match extract_value("page_size", val, *span) {
             Ok(page_size) => {
                 let page_size = page_size.as_int()?;
                 list_menu.with_page_size(page_size as usize)
@@ -292,11 +290,10 @@ pub(crate) fn add_list_menu(
         };
     }
 
-    if let Value::Record { cols, vals, span } = &menu.style {
+    if let Value::Record { val, span } = &menu.style {
         add_style!(
             "text",
-            cols,
-            vals,
+            val,
             span,
             config,
             list_menu,
@@ -304,8 +301,7 @@ pub(crate) fn add_list_menu(
         );
         add_style!(
             "selected_text",
-            cols,
-            vals,
+            val,
             span,
             config,
             list_menu,
@@ -313,8 +309,7 @@ pub(crate) fn add_list_menu(
         );
         add_style!(
             "description_text",
-            cols,
-            vals,
+            val,
             span,
             config,
             list_menu,
@@ -368,8 +363,8 @@ pub(crate) fn add_description_menu(
     let name = menu.name.into_string("", config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
-    if let Value::Record { cols, vals, span } = &menu.menu_type {
-        description_menu = match extract_value("columns", cols, vals, *span) {
+    if let Value::Record { val, span } = &menu.menu_type {
+        description_menu = match extract_value("columns", val, *span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
                 description_menu.with_columns(columns as u16)
@@ -377,7 +372,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("col_width", cols, vals, *span) {
+        description_menu = match extract_value("col_width", val, *span) {
             Ok(col_width) => {
                 let col_width = col_width.as_int()?;
                 description_menu.with_column_width(Some(col_width as usize))
@@ -385,7 +380,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu.with_column_width(None),
         };
 
-        description_menu = match extract_value("col_padding", cols, vals, *span) {
+        description_menu = match extract_value("col_padding", val, *span) {
             Ok(col_padding) => {
                 let col_padding = col_padding.as_int()?;
                 description_menu.with_column_padding(col_padding as usize)
@@ -393,7 +388,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("selection_rows", cols, vals, *span) {
+        description_menu = match extract_value("selection_rows", val, *span) {
             Ok(selection_rows) => {
                 let selection_rows = selection_rows.as_int()?;
                 description_menu.with_selection_rows(selection_rows as u16)
@@ -401,7 +396,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("description_rows", cols, vals, *span) {
+        description_menu = match extract_value("description_rows", val, *span) {
             Ok(description_rows) => {
                 let description_rows = description_rows.as_int()?;
                 description_menu.with_description_rows(description_rows as usize)
@@ -410,11 +405,10 @@ pub(crate) fn add_description_menu(
         };
     }
 
-    if let Value::Record { cols, vals, span } = &menu.style {
+    if let Value::Record { val, span } = &menu.style {
         add_style!(
             "text",
-            cols,
-            vals,
+            val,
             span,
             config,
             description_menu,
@@ -422,8 +416,7 @@ pub(crate) fn add_description_menu(
         );
         add_style!(
             "selected_text",
-            cols,
-            vals,
+            val,
             span,
             config,
             description_menu,
@@ -431,8 +424,7 @@ pub(crate) fn add_description_menu(
         );
         add_style!(
             "description_text",
-            cols,
-            vals,
+            val,
             span,
             config,
             description_menu,
@@ -722,68 +714,60 @@ enum EventType<'config> {
 }
 
 impl<'config> EventType<'config> {
-    fn try_from_columns(
-        cols: &'config [String],
-        vals: &'config [Value],
-        span: Span,
-    ) -> Result<Self, ShellError> {
-        extract_value("send", cols, vals, span)
+    fn try_from_record(record: &'config Record, span: Span) -> Result<Self, ShellError> {
+        extract_value("send", record, span)
             .map(Self::Send)
-            .or_else(|_| extract_value("edit", cols, vals, span).map(Self::Edit))
-            .or_else(|_| extract_value("until", cols, vals, span).map(Self::Until))
+            .or_else(|_| extract_value("edit", record, span).map(Self::Edit))
+            .or_else(|_| extract_value("until", record, span).map(Self::Until))
             .map_err(|_| ShellError::MissingConfigValue("send, edit or until".to_string(), span))
     }
 }
 
 fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
-            match EventType::try_from_columns(cols, vals, *span)? {
-                EventType::Send(value) => event_from_record(
+        Value::Record { val: record, span } => match EventType::try_from_record(record, *span)? {
+            EventType::Send(value) => event_from_record(
+                value.into_string("", config).to_lowercase().as_str(),
+                record,
+                config,
+                *span,
+            )
+            .map(Some),
+            EventType::Edit(value) => {
+                let edit = edit_from_record(
                     value.into_string("", config).to_lowercase().as_str(),
-                    cols,
-                    vals,
+                    record,
                     config,
                     *span,
-                )
-                .map(Some),
-                EventType::Edit(value) => {
-                    let edit = edit_from_record(
-                        value.into_string("", config).to_lowercase().as_str(),
-                        cols,
-                        vals,
-                        config,
-                        *span,
-                    )?;
-                    Ok(Some(ReedlineEvent::Edit(vec![edit])))
-                }
-                EventType::Until(value) => match value {
-                    Value::List { vals, .. } => {
-                        let events = vals
-                            .iter()
-                            .map(|value| match parse_event(value, config) {
-                                Ok(inner) => match inner {
-                                    None => Err(ShellError::UnsupportedConfigValue(
-                                        "List containing valid events".to_string(),
-                                        "Nothing value (null)".to_string(),
-                                        value.span(),
-                                    )),
-                                    Some(event) => Ok(event),
-                                },
-                                Err(e) => Err(e),
-                            })
-                            .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
-
-                        Ok(Some(ReedlineEvent::UntilFound(events)))
-                    }
-                    v => Err(ShellError::UnsupportedConfigValue(
-                        "list of events".to_string(),
-                        v.into_abbreviated_string(config),
-                        v.span(),
-                    )),
-                },
+                )?;
+                Ok(Some(ReedlineEvent::Edit(vec![edit])))
             }
-        }
+            EventType::Until(value) => match value {
+                Value::List { vals, .. } => {
+                    let events = vals
+                        .iter()
+                        .map(|value| match parse_event(value, config) {
+                            Ok(inner) => match inner {
+                                None => Err(ShellError::UnsupportedConfigValue(
+                                    "List containing valid events".to_string(),
+                                    "Nothing value (null)".to_string(),
+                                    value.span(),
+                                )),
+                                Some(event) => Ok(event),
+                            },
+                            Err(e) => Err(e),
+                        })
+                        .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
+
+                    Ok(Some(ReedlineEvent::UntilFound(events)))
+                }
+                v => Err(ShellError::UnsupportedConfigValue(
+                    "list of events".to_string(),
+                    v.into_abbreviated_string(config),
+                    v.span(),
+                )),
+            },
+        },
         Value::List { vals, .. } => {
             let events = vals
                 .iter()
@@ -813,8 +797,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
 
 fn event_from_record(
     name: &str,
-    cols: &[String],
-    vals: &[Value],
+    record: &Record,
     config: &Config,
     span: Span,
 ) -> Result<ReedlineEvent, ShellError> {
@@ -848,11 +831,11 @@ fn event_from_record(
         "menupageprevious" => ReedlineEvent::MenuPagePrevious,
         "openeditor" => ReedlineEvent::OpenEditor,
         "menu" => {
-            let menu = extract_value("name", cols, vals, span)?;
+            let menu = extract_value("name", record, span)?;
             ReedlineEvent::Menu(menu.into_string("", config))
         }
         "executehostcommand" => {
-            let cmd = extract_value("cmd", cols, vals, span)?;
+            let cmd = extract_value("cmd", record, span)?;
             ReedlineEvent::ExecuteHostCommand(cmd.into_string("", config))
         }
         v => {
@@ -869,8 +852,7 @@ fn event_from_record(
 
 fn edit_from_record(
     name: &str,
-    cols: &[String],
-    vals: &[Value],
+    record: &Record,
     config: &Config,
     span: Span,
 ) -> Result<EditCommand, ShellError> {
@@ -889,16 +871,16 @@ fn edit_from_record(
         "movewordrightstart" => EditCommand::MoveWordRightStart,
         "movebigwordrightstart" => EditCommand::MoveBigWordRightStart,
         "movetoposition" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             EditCommand::MoveToPosition(value.as_int()? as usize)
         }
         "insertchar" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::InsertChar(char)
         }
         "insertstring" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             EditCommand::InsertString(value.into_string("", config))
         }
         "insertnewline" => EditCommand::InsertNewline,
@@ -930,42 +912,42 @@ fn edit_from_record(
         "undo" => EditCommand::Undo,
         "redo" => EditCommand::Redo,
         "cutrightuntil" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::CutRightUntil(char)
         }
         "cutrightbefore" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::CutRightBefore(char)
         }
         "moverightuntil" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::MoveRightUntil(char)
         }
         "moverightbefore" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::MoveRightBefore(char)
         }
         "cutleftuntil" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::CutLeftUntil(char)
         }
         "cutleftbefore" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::CutLeftBefore(char)
         }
         "moveleftuntil" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::MoveLeftUntil(char)
         }
         "moveleftbefore" => {
-            let value = extract_value("value", cols, vals, span)?;
+            let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
             EditCommand::MoveLeftBefore(char)
         }
@@ -999,16 +981,13 @@ mod test {
     fn test_send_event() {
         let cols = vec!["send".to_string()];
         let vals = vec![Value::test_string("Enter")];
+        let event = Record { vals, cols };
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
+        let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
-        let event = Value::Record {
-            vals,
-            cols,
-            span: Span::test_data(),
-        };
+        let event = Value::test_record(event);
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1019,16 +998,13 @@ mod test {
     fn test_edit_event() {
         let cols = vec!["edit".to_string()];
         let vals = vec![Value::test_string("Clear")];
+        let event = Record { vals, cols };
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
+        let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Edit(_)));
 
-        let event = Value::Record {
-            vals,
-            cols,
-            span: Span::test_data(),
-        };
+        let event = Value::test_record(event);
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1045,16 +1021,13 @@ mod test {
             Value::test_string("Menu"),
             Value::test_string("history_menu"),
         ];
+        let event = Record { vals, cols };
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
+        let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Send(_)));
 
-        let event = Value::Record {
-            vals,
-            cols,
-            span: Span::test_data(),
-        };
+        let event = Value::test_record(event);
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1073,21 +1046,13 @@ mod test {
             Value::test_string("history_menu"),
         ];
 
-        let menu_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let menu_event = Value::test_record(Record { cols, vals });
 
         // Enter event
         let cols = vec!["send".to_string()];
         let vals = vec![Value::test_string("Enter")];
 
-        let enter_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let enter_event = Value::test_record(Record { cols, vals });
 
         // Until event
         let cols = vec!["until".to_string()];
@@ -1095,16 +1060,13 @@ mod test {
             vals: vec![menu_event, enter_event],
             span: Span::test_data(),
         }];
+        let event = Record { cols, vals };
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, span).unwrap();
+        let b = EventType::try_from_record(&event, span).unwrap();
         assert!(matches!(b, EventType::Until(_)));
 
-        let event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let event = Value::test_record(event);
         let config = Config::default();
 
         let parsed_event = parse_event(&event, &config).unwrap();
@@ -1126,21 +1088,13 @@ mod test {
             Value::test_string("history_menu"),
         ];
 
-        let menu_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let menu_event = Value::test_record(Record { cols, vals });
 
         // Enter event
         let cols = vec!["send".to_string()];
         let vals = vec![Value::test_string("Enter")];
 
-        let enter_event = Value::Record {
-            cols,
-            vals,
-            span: Span::test_data(),
-        };
+        let enter_event = Value::test_record(Record { cols, vals });
 
         // Multiple event
         let event = Value::List {
@@ -1163,9 +1117,10 @@ mod test {
     fn test_error() {
         let cols = vec!["not_exist".to_string()];
         let vals = vec![Value::test_string("Enter")];
+        let event = Record { cols, vals };
 
         let span = Span::test_data();
-        let b = EventType::try_from_columns(&cols, &vals, span);
+        let b = EventType::try_from_record(&event, span);
         assert!(matches!(b, Err(ShellError::MissingConfigValue(_, _))));
     }
 }

@@ -133,41 +133,29 @@ fn from_ods(
         sheet_names.retain(|e| sel_sheets.contains(e));
     }
 
-    for sheet_name in &sheet_names {
+    for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
-        if let Some(Ok(current_sheet)) = ods.worksheet_range(sheet_name) {
+        if let Some(Ok(current_sheet)) = ods.worksheet_range(&sheet_name) {
             for row in current_sheet.rows() {
-                let mut row_output = IndexMap::new();
-                for (i, cell) in row.iter().enumerate() {
-                    let value = match cell {
-                        DataType::Empty => Value::nothing(head),
-                        DataType::String(s) => Value::string(s, head),
-                        DataType::Float(f) => Value::float(*f, head),
-                        DataType::Int(i) => Value::int(*i, head),
-                        DataType::Bool(b) => Value::bool(*b, head),
-                        _ => Value::nothing(head),
-                    };
+                let record = row
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cell)| {
+                        let value = match cell {
+                            DataType::Empty => Value::nothing(head),
+                            DataType::String(s) => Value::string(s, head),
+                            DataType::Float(f) => Value::float(*f, head),
+                            DataType::Int(i) => Value::int(*i, head),
+                            DataType::Bool(b) => Value::bool(*b, head),
+                            _ => Value::nothing(head),
+                        };
 
-                    row_output.insert(format!("column{i}"), value);
-                }
+                        (format!("column{i}"), value)
+                    })
+                    .collect();
 
-                let (cols, vals) =
-                    row_output
-                        .into_iter()
-                        .fold((vec![], vec![]), |mut acc, (k, v)| {
-                            acc.0.push(k);
-                            acc.1.push(v);
-                            acc
-                        });
-
-                let record = Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                };
-
-                sheet_output.push(record);
+                sheet_output.push(Value::record(record, head));
             }
 
             dict.insert(
@@ -187,19 +175,10 @@ fn from_ods(
         }
     }
 
-    let (cols, vals) = dict.into_iter().fold((vec![], vec![]), |mut acc, (k, v)| {
-        acc.0.push(k.clone());
-        acc.1.push(v);
-        acc
-    });
-
-    let record = Value::Record {
-        cols,
-        vals,
-        span: head,
-    };
-
-    Ok(PipelineData::Value(record, None))
+    Ok(PipelineData::Value(
+        Value::record(dict.into_iter().collect(), head),
+        None,
+    ))
 }
 
 #[cfg(test)]

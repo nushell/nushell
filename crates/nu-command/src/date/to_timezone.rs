@@ -99,12 +99,11 @@ impl Command for SubCommand {
                 example: r#""2020-10-10 10:00:00 +02:00" | date to-timezone "+0500""#,
                 result: example_result_1(),
             },
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "Get the current date in Hawaii, from a datetime object",
-            //     example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
-            //     result: example_result_1(),
-            // },
+            Example {
+                description: "Get the current date in Hawaii, from a datetime object",
+                example: r#""2020-10-10 10:00:00 +02:00" | into datetime | date to-timezone "+0500""#,
+                result: example_result_1(),
+            },
         ]
     }
 }

@@ -1,5 +1,5 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::Value;
+use nu_protocol::{Record, Value};
 pub struct Example;
 
 impl Example {
@@ -67,11 +67,13 @@ impl Example {
                     .map(|v| Value::int(v * i, call.head))
                     .collect::<Vec<Value>>();
 
-                Value::Record {
-                    cols: cols.clone(),
-                    vals,
-                    span: call.head,
-                }
+                Value::record(
+                    Record {
+                        cols: cols.clone(),
+                        vals,
+                    },
+                    call.head,
+                )
             })
             .collect::<Vec<Value>>();
 

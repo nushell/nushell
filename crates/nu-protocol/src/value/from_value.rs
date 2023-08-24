@@ -4,8 +4,7 @@ use std::str::FromStr;
 
 use crate::ast::{CellPath, MatchPattern, PathMember};
 use crate::engine::{Block, Closure};
-use crate::ShellError;
-use crate::{Range, Spanned, Value};
+use crate::{Range, Record, ShellError, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
 
 pub trait FromValue: Sized {
@@ -490,11 +489,10 @@ impl FromValue for Vec<Value> {
     }
 }
 
-// A record
-impl FromValue for (Vec<String>, Vec<Value>) {
+impl FromValue for Record {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { cols, vals, .. } => Ok((cols.clone(), vals.clone())),
+            Value::Record { val, .. } => Ok(val.clone()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),

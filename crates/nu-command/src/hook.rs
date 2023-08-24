@@ -14,12 +14,8 @@ pub fn eval_env_change_hook(
 ) -> Result<(), ShellError> {
     if let Some(hook) = env_change_hook {
         match hook {
-            Value::Record {
-                cols: env_names,
-                vals: hook_values,
-                ..
-            } => {
-                for (env_name, hook_value) in env_names.iter().zip(hook_values.iter()) {
+            Value::Record { val, .. } => {
+                for (env_name, hook_value) in &val {
                     let before = engine_state
                         .previous_env_vars
                         .get(env_name)
@@ -358,7 +354,7 @@ fn run_hook_block(
 
     let input = optional_input.unwrap_or_else(PipelineData::empty);
 
-    let mut callee_stack = stack.gather_captures(&block.captures);
+    let mut callee_stack = stack.gather_captures(engine_state, &block.captures);
 
     for (idx, PositionalArg { var_id, .. }) in
         block.signature.required_positional.iter().enumerate()

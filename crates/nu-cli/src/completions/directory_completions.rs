@@ -63,7 +63,12 @@ impl Completer for DirectoryCompletion {
 
         match self.get_sort_by() {
             SortBy::Ascending => {
-                sorted_items.sort_by(|a, b| a.value.cmp(&b.value));
+                sorted_items.sort_by(|a, b| {
+                    // Ignore trailing slashes in folder names when sorting
+                    a.value
+                        .trim_end_matches(SEP)
+                        .cmp(b.value.trim_end_matches(SEP))
+                });
             }
             SortBy::LevenshteinDistance => {
                 sorted_items.sort_by(|a, b| {

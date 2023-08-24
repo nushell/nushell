@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
 
 use crate::{
     clean_charset,
@@ -18,8 +18,8 @@ impl JustTable {
         create_table(input, opts)
     }
 
-    pub fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        kv_table(cols, vals, opts)
+    pub fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+        kv_table(record, opts)
     }
 }
 
@@ -38,9 +38,9 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
     }
 }
 
-fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-    let mut data = vec![Vec::with_capacity(2); cols.len()];
-    for ((column, value), row) in cols.iter().zip(vals.iter()).zip(data.iter_mut()) {
+fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+    let mut data = vec![Vec::with_capacity(2); record.len()];
+    for ((column, value), row) in record.iter().zip(data.iter_mut()) {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
             return Ok(None);
         }

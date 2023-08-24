@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -48,18 +48,18 @@ repeating this process with row 1, and so on."#
                 description: "Add an 'index' column to the input table",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(
-                            vec!["name", "index"],
-                            vec![Value::test_string("a"), Value::test_int(1)],
-                        ),
-                        Value::test_record(
-                            vec!["name", "index"],
-                            vec![Value::test_string("b"), Value::test_int(2)],
-                        ),
-                        Value::test_record(
-                            vec!["name", "index"],
-                            vec![Value::test_string("c"), Value::test_int(3)],
-                        ),
+                        Value::test_record(Record {
+                            cols: vec!["name".to_string(), "index".to_string()],
+                            vals: vec![Value::test_string("a"), Value::test_int(1)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["name".to_string(), "index".to_string()],
+                            vals: vec![Value::test_string("b"), Value::test_int(2)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["name".to_string(), "index".to_string()],
+                            vals: vec![Value::test_string("c"), Value::test_int(3)],
+                        }),
                     ],
                     span: Span::test_data(),
                 }),
@@ -67,20 +67,19 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
                 description: "Merge two records",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string(), "c".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
                 description: "Merge two tables, overwriting overlapping columns",
                 result: Some(Value::List {
-                    vals: vec![Value::test_record(
-                        vec!["columnA", "columnB"],
-                        vec![Value::test_string("A0*"), Value::test_string("B0")],
-                    )],
+                    vals: vec![Value::test_record(Record {
+                        cols: vec!["columnA".to_string(), "columnB".to_string()],
+                        vals: vec![Value::test_string("A0*"), Value::test_string("B0")],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -112,25 +111,13 @@ repeating this process with row 1, and so on."#
                     input
                         .into_iter()
                         .map(move |inp| match (inp.as_record(), table_iter.next()) {
-                            (Ok((inp_cols, inp_vals)), Some(to_merge)) => {
-                                match to_merge.as_record() {
-                                    Ok((to_merge_cols, to_merge_vals)) => {
-                                        let (cols, vals) = do_merge(
-                                            (inp_cols.to_vec(), inp_vals.to_vec()),
-                                            (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
-                                        );
-                                        Value::Record {
-                                            cols,
-                                            vals,
-                                            span: call.head,
-                                        }
-                                    }
-                                    Err(error) => Value::Error {
-                                        error: Box::new(error),
-                                        span: call.head,
-                                    },
-                                }
-                            }
+                            (Ok(inp), Some(to_merge)) => match to_merge.as_record() {
+                                Ok(to_merge) => Value::record(do_merge(inp, to_merge), call.head),
+                                Err(error) => Value::Error {
+                                    error: Box::new(error),
+                                    span: call.head,
+                                },
+                            },
                             (_, None) => inp,
                             (Err(error), _) => Value::Error {
                                 error: Box::new(error),
@@ -146,31 +133,9 @@ repeating this process with row 1, and so on."#
             }
             // record
             (
-                PipelineData::Value(
-                    Value::Record {
-                        cols: inp_cols,
-                        vals: inp_vals,
-                        ..
-                    },
-                    ..,
-                ),
-                Value::Record {
-                    cols: to_merge_cols,
-                    vals: to_merge_vals,
-                    ..
-                },
-            ) => {
-                let (cols, vals) = do_merge(
-                    (inp_cols.to_vec(), inp_vals.to_vec()),
-                    (to_merge_cols.to_vec(), to_merge_vals.to_vec()),
-                );
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            }
+                PipelineData::Value(Value::Record { val: inp, .. }, ..),
+                Value::Record { val: to_merge, .. },
+            ) => Ok(Value::record(do_merge(inp, &to_merge), call.head).into_pipeline_data()),
             (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
                 // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
@@ -196,27 +161,22 @@ repeating this process with row 1, and so on."#
     }
 }
 
-fn do_merge(
-    input_record: (Vec<String>, Vec<Value>),
-    to_merge_record: (Vec<String>, Vec<Value>),
-) -> (Vec<String>, Vec<Value>) {
-    let (mut result_cols, mut result_vals) = input_record;
-    let (to_merge_cols, to_merge_vals) = to_merge_record;
+fn do_merge(input_record: &Record, to_merge_record: &Record) -> Record {
+    let mut result = input_record.clone();
 
-    for (col, val) in to_merge_cols.into_iter().zip(to_merge_vals) {
-        let pos = result_cols.iter().position(|c| c == &col);
+    for (col, val) in to_merge_record {
+        let pos = result.cols.iter().position(|c| c == col);
         // if find, replace existing data, else, push new data.
         match pos {
             Some(index) => {
-                result_vals[index] = val;
+                result.vals[index] = val.clone();
             }
             None => {
-                result_cols.push(col);
-                result_vals.push(val);
+                result.push(col, val.clone());
             }
         }
     }
-    (result_cols, result_vals)
+    result
 }
 
 #[cfg(test)]

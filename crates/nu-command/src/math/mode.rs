@@ -1,7 +1,9 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -88,7 +90,7 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the mode(s) of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
                         Value::List {
@@ -100,8 +102,7 @@ impl Command for SubCommand {
                             span: Span::test_data(),
                         },
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }

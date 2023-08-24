@@ -5,7 +5,7 @@ use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
@@ -183,12 +183,12 @@ pub fn send_request(
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
-            let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
+        Value::Record { val, .. } if body_type == BodyType::Form => {
+            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in cols.iter().zip(vals.iter()) {
+            for (col, val) in val {
                 let val_string = val.as_string()?;
-                data.push((col.clone(), val_string))
+                data.push((col, val_string))
             }
 
             let request_fn = move || {
@@ -296,8 +296,8 @@ pub fn request_add_custom_headers(
         let mut custom_headers: HashMap<String, Value> = HashMap::new();
 
         match &headers {
-            Value::Record { cols, vals, .. } => {
-                for (k, v) in cols.iter().zip(vals.iter()) {
+            Value::Record { val, .. } => {
+                for (k, v) in val {
                     custom_headers.insert(k.to_string(), v.clone());
                 }
             }
@@ -306,8 +306,8 @@ pub fn request_add_custom_headers(
                 if table.len() == 1 {
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
-                        Value::Record { cols, vals, .. } => {
-                            for (k, v) in cols.iter().zip(vals.iter()) {
+                        Value::Record { val, .. } => {
+                            for (k, v) in val {
                                 custom_headers.insert(k.to_string(), v.clone());
                             }
                         }
@@ -498,25 +498,19 @@ fn request_handle_response_content(
             Err(_) => Value::nothing(span),
         };
 
-        let headers = Value::Record {
-            cols: vec!["request".to_string(), "response".to_string()],
-            vals: vec![request_headers_value, response_headers_value],
-            span,
+        let headers = record! {
+            "request" => request_headers_value,
+            "response" => response_headers_value,
         };
 
-        let full_response = Value::Record {
-            cols: vec![
-                "headers".to_string(),
-                "body".to_string(),
-                "status".to_string(),
-            ],
-            vals: vec![
-                headers,
-                consume_response_body(resp)?.into_value(span),
-                Value::int(response_status as i64, span),
-            ],
+        let full_response = Value::record(
+            record! {
+                "headers" => Value::record(headers, span),
+                "body" => consume_response_body(resp)?.into_value(span),
+                "status" => Value::int(response_status as i64, span),
+            },
             span,
-        };
+        );
 
         Ok(full_response.into_pipeline_data())
     } else {
@@ -597,15 +591,14 @@ fn extract_response_headers(response: &Response) -> Headers {
 }
 
 fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
-    let cols = vec!["name".to_string(), "value".to_string()];
     let mut vals = Vec::with_capacity(headers.len());
 
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
-            if let Value::Record { vals, .. } = val {
+            if let Value::Record { val, .. } = val {
                 if let Some(Value::String {
                     val: header_name, ..
-                }) = vals.get(0)
+                }) = val.vals.get(0)
                 {
                     return name == header_name;
                 }
@@ -616,11 +609,11 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
             // A single header can hold multiple values
             // This interface is why we needed to check if we've already parsed this header name.
             for str_value in values {
-                let header = vec![
-                    Value::string(name, span),
-                    Value::string(str_value.to_string(), span),
-                ];
-                vals.push(Value::record(cols.clone(), header, span));
+                let record = record! {
+                    "name" => Value::string(name, span),
+                    "value" => Value::string(str_value, span),
+                };
+                vals.push(Value::record(record, span));
             }
         }
     }

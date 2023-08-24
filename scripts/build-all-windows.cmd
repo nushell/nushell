@@ -5,7 +5,7 @@ echo -------------------------------------------------------------------
 echo.
 
 echo Building nushell.exe
-cargo build --features=dataframe
+cargo build --features=dataframe,extra --locked
 echo.
 
 call :build crates\nu_plugin_example nu_plugin_example.exe

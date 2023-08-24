@@ -132,14 +132,13 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         }
         Value::String { val, .. } => val,
         Value::List { vals: val, .. } => val
-            .iter()
-            .map(|x| local_into_string(x.clone(), ", ", config))
+            .into_iter()
+            .map(|x| local_into_string(x, ", ", config))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Record { cols, vals, .. } => cols
-            .iter()
-            .zip(vals.iter())
-            .map(|(x, y)| format!("{}: {}", x, local_into_string(y.clone(), ", ", config)))
+        Value::Record { val, .. } => val
+            .into_iter()
+            .map(|(x, y)| format!("{}: {}", x, local_into_string(y, ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
         Value::LazyRecord { val, .. } => match val.collect() {

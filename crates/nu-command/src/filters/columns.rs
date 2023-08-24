@@ -131,7 +131,8 @@ fn getcol(
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata)
         }),
-        PipelineData::Value(Value::Record { cols, .. }, ..) => Ok(cols
+        PipelineData::Value(Value::Record { val, .. }, ..) => Ok(val
+            .cols
             .into_iter()
             .map(move |x| Value::String { val: x, span: head })
             .into_pipeline_data(ctrlc)

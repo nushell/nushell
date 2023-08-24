@@ -2,7 +2,7 @@ use ical::parser::ical::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
+use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
 use std::io::BufReader;
 
 pub const CMD_NAME: &str = "from ics";
@@ -51,7 +51,7 @@ pub fn examples() -> Vec<PluginExample> {
             .into(),
         description: "Converts ics formatted string to table".into(),
         result: Some(Value::List {
-            vals: vec![Value::Record {
+            vals: vec![Value::test_record(Record {
                 cols: vec![
                     "properties".to_string(),
                     "events".to_string(),
@@ -91,37 +91,25 @@ pub fn examples() -> Vec<PluginExample> {
                         span: Span::test_data(),
                     },
                 ],
-                span: Span::test_data(),
-            }],
+            })],
             span: Span::test_data(),
         }),
     }]
 }
 
 fn calendar_to_value(calendar: IcalCalendar, span: Span) -> Value {
-    let mut row = IndexMap::new();
-
-    row.insert(
-        "properties".to_string(),
-        properties_to_value(calendar.properties, span),
-    );
-    row.insert("events".to_string(), events_to_value(calendar.events, span));
-    row.insert("alarms".to_string(), alarms_to_value(calendar.alarms, span));
-    row.insert("to-Dos".to_string(), todos_to_value(calendar.todos, span));
-    row.insert(
-        "journals".to_string(),
-        journals_to_value(calendar.journals, span),
-    );
-    row.insert(
-        "free-busys".to_string(),
-        free_busys_to_value(calendar.free_busys, span),
-    );
-    row.insert(
-        "timezones".to_string(),
-        timezones_to_value(calendar.timezones, span),
-    );
-
-    Value::from(Spanned { item: row, span })
+    Value::record(
+        record! {
+            "properties" => properties_to_value(calendar.properties, span),
+            "events" => events_to_value(calendar.events, span),
+            "alarms" => alarms_to_value(calendar.alarms, span),
+            "to-Dos" => todos_to_value(calendar.todos, span),
+            "journals" => journals_to_value(calendar.journals, span),
+            "free-busys" => free_busys_to_value(calendar.free_busys, span),
+            "timezones" => timezones_to_value(calendar.timezones, span),
+        },
+        span,
+    )
 }
 
 fn events_to_value(events: Vec<IcalEvent>, span: Span) -> Value {
@@ -129,13 +117,13 @@ fn events_to_value(events: Vec<IcalEvent>, span: Span) -> Value {
         vals: events
             .into_iter()
             .map(|event| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(event.properties, span),
-                );
-                row.insert("alarms".to_string(), alarms_to_value(event.alarms, span));
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! {
+                        "properties" => properties_to_value(event.properties, span),
+                        "alarms" => alarms_to_value(event.alarms, span),
+                    },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -147,12 +135,10 @@ fn alarms_to_value(alarms: Vec<IcalAlarm>, span: Span) -> Value {
         vals: alarms
             .into_iter()
             .map(|alarm| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(alarm.properties, span),
-                );
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! { "properties" => properties_to_value(alarm.properties, span), },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -164,13 +150,13 @@ fn todos_to_value(todos: Vec<IcalTodo>, span: Span) -> Value {
         vals: todos
             .into_iter()
             .map(|todo| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(todo.properties, span),
-                );
-                row.insert("alarms".to_string(), alarms_to_value(todo.alarms, span));
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! {
+                        "properties" => properties_to_value(todo.properties, span),
+                        "alarms" => alarms_to_value(todo.alarms, span),
+                    },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -182,12 +168,10 @@ fn journals_to_value(journals: Vec<IcalJournal>, span: Span) -> Value {
         vals: journals
             .into_iter()
             .map(|journal| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(journal.properties, span),
-                );
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! { "properties" => properties_to_value(journal.properties, span), },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -199,12 +183,10 @@ fn free_busys_to_value(free_busys: Vec<IcalFreeBusy>, span: Span) -> Value {
         vals: free_busys
             .into_iter()
             .map(|free_busy| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(free_busy.properties, span),
-                );
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! { "properties" => properties_to_value(free_busy.properties, span) },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -216,16 +198,13 @@ fn timezones_to_value(timezones: Vec<IcalTimeZone>, span: Span) -> Value {
         vals: timezones
             .into_iter()
             .map(|timezone| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(timezone.properties, span),
-                );
-                row.insert(
-                    "transitions".to_string(),
-                    timezone_transitions_to_value(timezone.transitions, span),
-                );
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! {
+                        "properties" => properties_to_value(timezone.properties, span),
+                        "transitions" => timezone_transitions_to_value(timezone.transitions, span),
+                    },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -237,12 +216,10 @@ fn timezone_transitions_to_value(transitions: Vec<IcalTimeZoneTransition>, span:
         vals: transitions
             .into_iter()
             .map(|transition| {
-                let mut row = IndexMap::new();
-                row.insert(
-                    "properties".to_string(),
-                    properties_to_value(transition.properties, span),
-                );
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! { "properties" => properties_to_value(transition.properties, span) },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -254,8 +231,6 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
         vals: properties
             .into_iter()
             .map(|prop| {
-                let mut row = IndexMap::new();
-
                 let name = Value::String {
                     val: prop.name,
                     span,
@@ -269,10 +244,14 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
                     None => Value::nothing(span),
                 };
 
-                row.insert("name".to_string(), name);
-                row.insert("value".to_string(), value);
-                row.insert("params".to_string(), params);
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! {
+                        "name" => name,
+                        "value" => value,
+                        "params" => params,
+                    },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -291,5 +270,5 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
         row.insert(param_name, values);
     }
 
-    Value::from(Spanned { item: row, span })
+    Value::record(row.into_iter().collect(), span)
 }

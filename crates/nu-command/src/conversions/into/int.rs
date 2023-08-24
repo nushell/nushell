@@ -38,6 +38,7 @@ impl Command for SubCommand {
                 (Type::Date, Type::Int),
                 (Type::Duration, Type::Int),
                 (Type::Filesize, Type::Int),
+                (Type::Binary, Type::Int),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (
@@ -72,7 +73,12 @@ impl Command for SubCommand {
             ])
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
-            .switch("little-endian", "use little-endian byte decoding", None)
+            .named(
+                "endian",
+                SyntaxShape::String,
+                "byte encode endian, available options: native(default), little, big",
+                Some('e'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -113,9 +119,27 @@ impl Command for SubCommand {
             Some(_) => 10,
             None => 10,
         };
+
+        let endian = call.get_flag::<Value>(engine_state, stack, "endian")?;
+        let little_endian = match endian {
+            Some(Value::String { val, span }) => match val.as_str() {
+                "native" => cfg!(target_endian = "little"),
+                "little" => true,
+                "big" => false,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Endian must be one of native, little, big".to_string(),
+                        span,
+                    })
+                }
+            },
+            Some(_) => false,
+            None => cfg!(target_endian = "little"),
+        };
+
         let args = Arguments {
             radix,
-            little_endian: call.has_flag("little-endian"),
+            little_endian,
             cell_paths,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -254,7 +278,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Int { val: 0, span }
             }
         }
-        Value::Date { val, .. } => {
+        Value::Date {
+            val,
+            span: val_span,
+        } => {
             if val
                 < &FixedOffset::east_opt(0)
                     .expect("constant")
@@ -269,7 +296,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Error {
                     error: Box::new(ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
-                        span
+                        val_span: *val_span,
+                        call_span: span,
                     }),
                     span,
                 }

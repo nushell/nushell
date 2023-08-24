@@ -76,15 +76,14 @@ impl Command for FormatDate {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "Format a given date-time using the default format (RFC 2822).",
-            //     example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
-            //     result: Some(Value::String {
-            //         val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
-            //         span: Span::test_data(),
-            //     }),
-            // },
+            Example {
+                description: "Format a given date-time using the default format (RFC 2822).",
+                example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
+                result: Some(Value::String {
+                    val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
             Example {
                 description:
                     "Format a given date-time as a string using the default format (RFC 2822).",

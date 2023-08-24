@@ -1,6 +1,7 @@
 use nu_ansi_term::*;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -763,7 +764,7 @@ Operating system commands:
                 attr: None,
             };
             // Iterate and populate NuStyle with real values
-            for (k, v) in record.0.iter().zip(record.1) {
+            for (k, v) in record {
                 match k.as_str() {
                     "fg" => nu_style.fg = Some(v.as_string()?),
                     "bg" => nu_style.bg = Some(v.as_string()?),
@@ -799,17 +800,7 @@ fn generate_ansi_code_list(
         .iter()
         .enumerate()
         .map(move |(i, ansi_code)| {
-            let cols = if use_ansi_coloring {
-                vec![
-                    "name".into(),
-                    "preview".into(),
-                    "short name".into(),
-                    "code".into(),
-                ]
-            } else {
-                vec!["name".into(), "short name".into(), "code".into()]
-            };
-            let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
+            let name = Value::string(ansi_code.long_name, call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 102 items in the ansi array are colors
             let preview = if i < 389 {
@@ -817,18 +808,24 @@ fn generate_ansi_code_list(
             } else {
                 Value::string("\u{1b}[0m", call_span)
             };
-            let code_string = String::from(&ansi_code.code.replace('\u{1b}', "\\e"));
-            let code = Value::string(code_string, call_span);
-            let vals = if use_ansi_coloring {
-                vec![name, preview, short_name, code]
+            let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
+
+            let record = if use_ansi_coloring {
+                record! {
+                    "name" => name,
+                    "preview" => preview,
+                    "short name" => short_name,
+                    "code" => code,
+                }
             } else {
-                vec![name, short_name, code]
+                record! {
+                    "name" => name,
+                    "short name" => short_name,
+                    "code" => code,
+                }
             };
-            Value::Record {
-                cols,
-                vals,
-                span: call_span,
-            }
+
+            Value::record(record, call_span)
         })
         .into_pipeline_data(engine_state.ctrlc.clone()));
 }

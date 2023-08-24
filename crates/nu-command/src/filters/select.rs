@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
 
@@ -64,28 +64,30 @@ produce a table, a list will produce a list, and a record will produce a record.
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let mut new_columns: Vec<CellPath> = vec![];
         for col_val in columns {
+            let col_span = &col_val.span();
             match col_val {
                 Value::CellPath { val, .. } => {
                     new_columns.push(val);
                 }
                 Value::List { vals, .. } => {
-                    for val in vals {
-                        match val {
-                            Value::String { val, span } => {
+                    for value in vals {
+                        let val_span = &value.span();
+                        match value {
+                            Value::String { val, .. } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::String {
                                         val: val.clone(),
-                                        span,
+                                        span: *val_span,
                                         optional: false,
                                     }],
                                 };
                                 new_columns.push(cv.clone());
                             }
-                            Value::Int { val, span } => {
+                            Value::Int { val, .. } => {
                                 let cv = CellPath {
                                     members: vec![PathMember::Int {
                                         val: val as usize,
-                                        span,
+                                        span: *val_span,
                                         optional: false,
                                     }],
                                 };
@@ -102,11 +104,21 @@ produce a table, a list will produce a list, and a record will produce a record.
                         }
                     }
                 }
-                Value::String { val, span } => {
+                Value::String { val, .. } => {
                     let cv = CellPath {
                         members: vec![PathMember::String {
                             val: val.clone(),
-                            span,
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                Value::Int { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::Int {
+                            val: val as usize,
+                            span: *col_span,
                             optional: false,
                         }],
                     };
@@ -140,14 +152,20 @@ produce a table, a list will produce a list, and a record will produce a record.
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
                 result: Some(Value::List {
-                    vals: vec![Value::test_record(vec!["a"], vec![Value::test_string("a")])],
+                    vals: vec![Value::test_record(Record {
+                        cols: vec!["a".to_string()],
+                        vals: vec![Value::test_string("a")]
+                    })],
                     span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Select a field in a record",
                 example: "{a: a b: b} | select a",
-                result: Some(Value::test_record(vec!["a"], vec![Value::test_string("a")])),
+                result: Some(Value::test_record(Record {
+                    cols: vec!["a".to_string()],
+                    vals: vec![Value::test_string("a")]
+                })),
             },
             Example {
                 description: "Select just the `name` column",
@@ -244,14 +262,12 @@ fn select(
             let mut columns_with_value = Vec::new();
             for input_val in input_vals {
                 if !columns.is_empty() {
-                    let mut cols = vec![];
-                    let mut vals = vec![];
+                    let mut record = Record::new();
                     for path in &columns {
                         //FIXME: improve implementation to not clone
                         match input_val.clone().follow_cell_path(&path.members, false) {
                             Ok(fetcher) => {
-                                cols.push(path.into_string().replace('.', "_"));
-                                vals.push(fetcher);
+                                record.push(path.into_string().replace('.', "_"), fetcher);
                                 if !columns_with_value.contains(&path) {
                                     columns_with_value.push(path);
                                 }
@@ -262,7 +278,7 @@ fn select(
                         }
                     }
 
-                    output.push(Value::Record { cols, vals, span })
+                    output.push(Value::record(record, span))
                 } else {
                     output.push(input_val)
                 }
@@ -278,23 +294,17 @@ fn select(
 
             for x in stream {
                 if !columns.is_empty() {
-                    let mut cols = vec![];
-                    let mut vals = vec![];
+                    let mut record = Record::new();
                     for path in &columns {
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                cols.push(path.into_string().replace('.', "_"));
-                                vals.push(value);
+                                record.push(path.into_string().replace('.', "_"), value);
                             }
                             Err(e) => return Err(e),
                         }
                     }
-                    values.push(Value::Record {
-                        cols,
-                        vals,
-                        span: call_span,
-                    });
+                    values.push(Value::record(record, call_span));
                 } else {
                     values.push(x);
                 }
@@ -306,27 +316,21 @@ fn select(
         }
         PipelineData::Value(v, metadata, ..) => {
             if !columns.is_empty() {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
 
                 for cell_path in columns {
                     // FIXME: remove clone
                     match v.clone().follow_cell_path(&cell_path.members, false) {
                         Ok(result) => {
-                            cols.push(cell_path.into_string().replace('.', "_"));
-                            vals.push(result);
+                            record.push(cell_path.into_string().replace('.', "_"), result);
                         }
                         Err(e) => return Err(e),
                     }
                 }
 
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: call_span,
-                }
-                .into_pipeline_data()
-                .set_metadata(metadata))
+                Ok(Value::record(record, call_span)
+                    .into_pipeline_data()
+                    .set_metadata(metadata))
             } else {
                 Ok(v.into_pipeline_data().set_metadata(metadata))
             }
