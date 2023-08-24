@@ -4,8 +4,7 @@ use std::str::FromStr;
 
 use crate::ast::{CellPath, MatchPattern, PathMember};
 use crate::engine::{Block, Closure};
-use crate::ShellError;
-use crate::{Range, Spanned, Value};
+use crate::{Range, Record, ShellError, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
 
 pub trait FromValue: Sized {
@@ -37,7 +36,7 @@ impl FromValue for Spanned<i64> {
             v => Err(ShellError::CantConvert {
                 to_type: "integer".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -54,7 +53,7 @@ impl FromValue for i64 {
             v => Err(ShellError::CantConvert {
                 to_type: "integer".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -76,7 +75,7 @@ impl FromValue for Spanned<f64> {
             v => Err(ShellError::CantConvert {
                 to_type: "float".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -91,7 +90,7 @@ impl FromValue for f64 {
             v => Err(ShellError::CantConvert {
                 to_type: "float".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -135,7 +134,7 @@ impl FromValue for Spanned<usize> {
             v => Err(ShellError::CantConvert {
                 to_type: "non-negative integer".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -170,7 +169,7 @@ impl FromValue for usize {
             v => Err(ShellError::CantConvert {
                 to_type: "non-negative integer".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -186,7 +185,7 @@ impl FromValue for String {
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -203,12 +202,12 @@ impl FromValue for Spanned<String> {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),
                         from_type: v.get_type().to_string(),
-                        span: v.span()?,
+                        span: v.span(),
                         help: None,
                     })
                 }
             },
-            span: v.span()?,
+            span: v.span(),
         })
     }
 }
@@ -224,7 +223,7 @@ impl FromValue for Vec<String> {
                     c => Err(ShellError::CantConvert {
                         to_type: "string".into(),
                         from_type: c.get_type().to_string(),
-                        span: c.span()?,
+                        span: c.span(),
                         help: None,
                     }),
                 })
@@ -232,7 +231,7 @@ impl FromValue for Vec<String> {
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -253,7 +252,7 @@ impl FromValue for Vec<Spanned<String>> {
                     c => Err(ShellError::CantConvert {
                         to_type: "string".into(),
                         from_type: c.get_type().to_string(),
-                        span: c.span()?,
+                        span: c.span(),
                         help: None,
                     }),
                 })
@@ -261,7 +260,7 @@ impl FromValue for Vec<Spanned<String>> {
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -278,7 +277,7 @@ impl FromValue for Vec<bool> {
                     c => Err(ShellError::CantConvert {
                         to_type: "bool".into(),
                         from_type: c.get_type().to_string(),
-                        span: c.span()?,
+                        span: c.span(),
                         help: None,
                     }),
                 })
@@ -286,7 +285,7 @@ impl FromValue for Vec<bool> {
             v => Err(ShellError::CantConvert {
                 to_type: "bool".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -295,7 +294,7 @@ impl FromValue for Vec<bool> {
 
 impl FromValue for CellPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
-        let span = v.span()?;
+        let span = v.span();
         match v {
             Value::CellPath { val, .. } => Ok(val.clone()),
             Value::String { val, .. } => Ok(CellPath {
@@ -335,7 +334,7 @@ impl FromValue for bool {
             v => Err(ShellError::CantConvert {
                 to_type: "bool".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -352,7 +351,7 @@ impl FromValue for Spanned<bool> {
             v => Err(ShellError::CantConvert {
                 to_type: "bool".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -366,7 +365,7 @@ impl FromValue for DateTime<FixedOffset> {
             v => Err(ShellError::CantConvert {
                 to_type: "date".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -383,7 +382,7 @@ impl FromValue for Spanned<DateTime<FixedOffset>> {
             v => Err(ShellError::CantConvert {
                 to_type: "date".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -397,7 +396,7 @@ impl FromValue for Range {
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -414,7 +413,7 @@ impl FromValue for Spanned<Range> {
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -429,7 +428,7 @@ impl FromValue for Vec<u8> {
             v => Err(ShellError::CantConvert {
                 to_type: "binary data".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -450,7 +449,7 @@ impl FromValue for Spanned<Vec<u8>> {
             v => Err(ShellError::CantConvert {
                 to_type: "binary data".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -468,7 +467,7 @@ impl FromValue for Spanned<PathBuf> {
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -483,22 +482,21 @@ impl FromValue for Vec<Value> {
             v => Err(ShellError::CantConvert {
                 to_type: "Vector of values".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
     }
 }
 
-// A record
-impl FromValue for (Vec<String>, Vec<Value>) {
+impl FromValue for Record {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { cols, vals, .. } => Ok((cols.clone(), vals.clone())),
+            Value::Record { val, .. } => Ok(val.clone()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -519,7 +517,7 @@ impl FromValue for Closure {
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -533,7 +531,7 @@ impl FromValue for Block {
             v => Err(ShellError::CantConvert {
                 to_type: "Block".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -557,7 +555,7 @@ impl FromValue for Spanned<Closure> {
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -574,7 +572,7 @@ impl FromValue for Spanned<MatchPattern> {
             v => Err(ShellError::CantConvert {
                 to_type: "Match pattern".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }
@@ -588,7 +586,7 @@ impl FromValue for MatchPattern {
             v => Err(ShellError::CantConvert {
                 to_type: "Match pattern".into(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: None,
             }),
         }

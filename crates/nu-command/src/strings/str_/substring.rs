@@ -149,6 +149,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
                         }),
+                        span: head,
                     },
                     Ordering::Less => Value::String {
                         val: {
@@ -195,8 +196,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 format!("input type: {:?}", other.get_type()),
                 head,
                 // This line requires the Value::Error match above.
-                other.expect_span(),
+                other.span(),
             )),
+            span: head,
         },
     }
 }

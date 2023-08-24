@@ -4,8 +4,8 @@ use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    record, span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::borrow::Borrow;
 
@@ -128,9 +128,6 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
     let mut found_cmds_vec = Vec::new();
 
     for (_, decl_id) in commands {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
         let decl = engine_state.get_decl(decl_id);
         let sig = decl.signature().update_from_command(decl.borrow());
 
@@ -138,79 +135,46 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let usage = sig.usage;
         let search_terms = sig.search_terms;
 
-        cols.push("name".into());
-        vals.push(Value::String { val: key, span });
-
-        cols.push("category".into());
-        vals.push(Value::string(sig.category.to_string(), span));
-
-        cols.push("command_type".into());
-        vals.push(Value::String {
-            val: format!("{:?}", decl.command_type()).to_lowercase(),
-            span,
-        });
-
-        cols.push("usage".into());
-        vals.push(Value::String { val: usage, span });
-
-        cols.push("params".into());
+        let command_type = format!("{:?}", decl.command_type()).to_lowercase();
 
         // Build table of parameters
         let param_table = {
             let mut vals = vec![];
 
             for required_param in &sig.required_positional {
-                vals.push(Value::Record {
-                    cols: vec![
-                        "name".to_string(),
-                        "type".to_string(),
-                        "required".to_string(),
-                        "description".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(&required_param.name, span),
-                        Value::string(required_param.shape.to_string(), span),
-                        Value::bool(true, span),
-                        Value::string(&required_param.desc, span),
-                    ],
+                vals.push(Value::record(
+                    record! {
+                        "name" => Value::string(&required_param.name, span),
+                        "type" => Value::string(required_param.shape.to_string(), span),
+                        "required" => Value::bool(true, span),
+                        "description" => Value::string(&required_param.desc, span),
+                    },
                     span,
-                });
+                ));
             }
 
             for optional_param in &sig.optional_positional {
-                vals.push(Value::Record {
-                    cols: vec![
-                        "name".to_string(),
-                        "type".to_string(),
-                        "required".to_string(),
-                        "description".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(&optional_param.name, span),
-                        Value::string(optional_param.shape.to_string(), span),
-                        Value::bool(false, span),
-                        Value::string(&optional_param.desc, span),
-                    ],
+                vals.push(Value::record(
+                    record! {
+                        "name" => Value::string(&optional_param.name, span),
+                        "type" => Value::string(optional_param.shape.to_string(), span),
+                        "required" => Value::bool(false, span),
+                        "description" => Value::string(&optional_param.desc, span),
+                    },
                     span,
-                });
+                ));
             }
 
             if let Some(rest_positional) = &sig.rest_positional {
-                vals.push(Value::Record {
-                    cols: vec![
-                        "name".to_string(),
-                        "type".to_string(),
-                        "required".to_string(),
-                        "description".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(format!("...{}", rest_positional.name), span),
-                        Value::string(rest_positional.shape.to_string(), span),
-                        Value::bool(false, span),
-                        Value::string(&rest_positional.desc, span),
-                    ],
+                vals.push(Value::record(
+                    record! {
+                        "name" => Value::string(format!("...{}", rest_positional.name), span),
+                        "type" => Value::string(rest_positional.shape.to_string(), span),
+                        "required" => Value::bool(false, span),
+                        "description" => Value::string(&rest_positional.desc, span),
+                    },
                     span,
-                });
+                ));
             }
 
             for named_param in &sig.named {
@@ -224,68 +188,54 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                     format!("--{}", named_param.long)
                 };
 
-                vals.push(Value::Record {
-                    cols: vec![
-                        "name".to_string(),
-                        "type".to_string(),
-                        "required".to_string(),
-                        "description".to_string(),
-                    ],
-                    vals: vec![
-                        Value::string(name, span),
-                        Value::string(
-                            if let Some(arg) = &named_param.arg {
-                                arg.to_string()
-                            } else {
-                                "switch".to_string()
-                            },
-                            span,
-                        ),
-                        Value::bool(named_param.required, span),
-                        Value::string(&named_param.desc, span),
-                    ],
+                let typ = if let Some(arg) = &named_param.arg {
+                    arg.to_string()
+                } else {
+                    "switch".to_string()
+                };
+
+                vals.push(Value::record(
+                    record! {
+                        "name" => Value::string(name, span),
+                        "type" => Value::string(typ, span),
+                        "required" => Value::bool(named_param.required, span),
+                        "description" => Value::string(&named_param.desc, span),
+                    },
                     span,
-                });
+                ));
             }
 
             Value::List { vals, span }
         };
-        vals.push(param_table);
-
-        cols.push("input_output".into());
 
         // Build the signature input/output table
         let input_output_table = {
             let mut vals = vec![];
 
             for (input_type, output_type) in sig.input_output_types {
-                vals.push(Value::Record {
-                    cols: vec!["input".to_string(), "output".to_string()],
-                    vals: vec![
-                        Value::String {
-                            val: input_type.to_string(),
-                            span,
-                        },
-                        Value::String {
-                            val: output_type.to_string(),
-                            span,
-                        },
-                    ],
+                vals.push(Value::record(
+                    record! {
+                        "input" => Value::string(input_type.to_string(), span),
+                        "output" => Value::string(output_type.to_string(), span),
+                    },
                     span,
-                });
+                ));
             }
 
             Value::List { vals, span }
         };
-        vals.push(input_output_table);
 
-        cols.push("search_terms".into());
-        vals.push(Value::String {
-            val: search_terms.join(", "),
-            span,
-        });
+        let record = record! {
+            "name" => Value::string(key, span),
+            "category" => Value::string(sig.category.to_string(), span),
+            "command_type" => Value::string(command_type, span),
+            "usage" => Value::string(usage, span),
+            "params" => param_table,
+            "input_output" => input_output_table,
+            "search_terms" => Value::string(search_terms.join(", "), span),
+        };
 
-        found_cmds_vec.push(Value::Record { cols, vals, span });
+        found_cmds_vec.push(Value::record(record, span));
     }
 
     found_cmds_vec

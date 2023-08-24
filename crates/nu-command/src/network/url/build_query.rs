@@ -65,13 +65,9 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
     let output: Result<String, ShellError> = input
         .into_iter()
         .map(move |value| match value {
-            Value::Record {
-                ref cols,
-                ref vals,
-                span,
-            } => {
+            Value::Record { ref val, span } => {
                 let mut row_vec = vec![];
-                for (k, v) in cols.iter().zip(vals.iter()) {
+                for (k, v) in val {
                     match v.as_string() {
                         Ok(s) => {
                             row_vec.push((k.clone(), s.to_string()));
@@ -98,12 +94,12 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 }
             }
             // Propagate existing errors
-            Value::Error { error } => Err(*error),
+            Value::Error { error, .. } => Err(*error),
             other => Err(ShellError::UnsupportedInput(
                 "Expected a table from pipeline".to_string(),
                 "value originates from here".into(),
                 head,
-                other.expect_span(),
+                other.span(),
             )),
         })
         .collect();

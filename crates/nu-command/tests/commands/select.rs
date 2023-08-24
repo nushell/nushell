@@ -264,3 +264,11 @@ fn select_rows_with_variable_list() {
 
     assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [7, 8, 9]]");
 }
+
+#[test]
+fn select_single_row_with_variable() {
+    let actual = nu!("let idx = 2;[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select $idx | to nuon");
+
+    assert_eq!(actual.out, "[[a]; [3]]".to_string());
+    assert!(actual.err.is_empty());
+}

@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -63,11 +63,10 @@ impl Command for SubCommand {
                 description: "Convert string to decimal in table",
                 example: "[[num]; ['5.01']] | into decimal num",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["num".to_string()],
                         vals: vec![Value::test_float(5.01)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -108,6 +107,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                         span: *span,
                         help: None,
                     }),
+                    span: *span,
                 },
             }
         }
@@ -126,8 +126,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 exp_input_type: "string, integer or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

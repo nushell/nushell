@@ -7,9 +7,10 @@ use nu_protocol::{
 
 pub fn chain_error_with_input(
     error_source: ShellError,
-    input_span: Result<Span, ShellError>,
+    input_is_error: bool,
+    span: Span,
 ) -> ShellError {
-    if let Ok(span) = input_span {
+    if !input_is_error {
         return ShellError::EvalBlockWithInput(span, vec![error_source]);
     }
     error_source

@@ -2,9 +2,10 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use crate::ast::Block;
 use crate::{
-    ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
+    Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, ParseError, Value};
 use core::panic;
@@ -1671,6 +1672,19 @@ impl<'a> StateWorkingSet<'a> {
             Some(self.permanent_state.get_var(var_id))
         } else {
             self.delta.vars.get(var_id - num_permanent_vars)
+        }
+    }
+
+    pub fn get_constant(&self, var_id: VarId) -> Result<&Value, ParseError> {
+        let var = self.get_variable(var_id);
+
+        if let Some(const_val) = &var.const_val {
+            Ok(const_val)
+        } else {
+            Err(ParseError::InternalError(
+                "constant does not have a constant value".into(),
+                var.declaration_span,
+            ))
         }
     }
 

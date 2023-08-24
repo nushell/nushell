@@ -55,7 +55,7 @@ impl Command for Format {
             Err(e) => Err(e),
             Ok(pattern) => {
                 let string_pattern = pattern.as_string()?;
-                let string_span = pattern.span()?;
+                let string_span = pattern.span();
                 // the string span is start as `"`, we don't need the character
                 // to generate proper span for sub expression.
                 let ops = extract_formatting_operations(
@@ -233,13 +233,13 @@ fn format(
                             }
                         }
                     }
-                    Value::Error { error } => return Err(*error.clone()),
+                    Value::Error { error, .. } => return Err(*error.clone()),
                     _ => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".to_string(),
                             wrong_type: val.get_type().to_string(),
                             dst_span: head_span,
-                            src_span: val.expect_span(),
+                            src_span: val.span(),
                         })
                     }
                 }
@@ -252,12 +252,12 @@ fn format(
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.
-        Value::Error { error } => Err(*error),
+        Value::Error { error, .. } => Err(*error),
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".to_string(),
             wrong_type: data_as_value.get_type().to_string(),
             dst_span: head_span,
-            src_span: data_as_value.expect_span(),
+            src_span: data_as_value.span(),
         }),
     }
 }

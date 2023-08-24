@@ -148,7 +148,7 @@ impl Command for Glob {
         }) =
             call.get_flag(engine_state, stack, "not")?
         {
-            let p = convert_patterns(pats.as_slice(), span)?;
+            let p = convert_patterns(pats.as_slice())?;
             (p, pat_span)
         } else {
             (vec![], span)
@@ -226,14 +226,14 @@ impl Command for Glob {
     }
 }
 
-fn convert_patterns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
             Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
-                span: value.span().unwrap_or(span),
+                span: value.span(),
             }),
         })
         .collect::<Result<Vec<String>, _>>()?;

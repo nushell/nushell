@@ -142,6 +142,8 @@ impl Command for ParEach {
                             }
 
                             let val_span = x.span();
+                            let x_is_error = x.is_error();
+
                             match eval_block_with_early_return(
                                 engine_state,
                                 &mut stack,
@@ -153,7 +155,10 @@ impl Command for ParEach {
                                 Ok(v) => v.into_value(span),
 
                                 Err(error) => Value::Error {
-                                    error: Box::new(chain_error_with_input(error, val_span)),
+                                    error: Box::new(chain_error_with_input(
+                                        error, x_is_error, val_span,
+                                    )),
+                                    span: val_span,
                                 },
                             }
                         })
@@ -176,6 +181,8 @@ impl Command for ParEach {
                             }
 
                             let val_span = x.span();
+                            let x_is_error = x.is_error();
+
                             match eval_block_with_early_return(
                                 engine_state,
                                 &mut stack,
@@ -186,7 +193,10 @@ impl Command for ParEach {
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::Error {
-                                    error: Box::new(chain_error_with_input(error, val_span)),
+                                    error: Box::new(chain_error_with_input(
+                                        error, x_is_error, val_span,
+                                    )),
+                                    span: val_span,
                                 },
                             }
                         })
@@ -209,6 +219,8 @@ impl Command for ParEach {
                         }
 
                         let val_span = x.span();
+                        let x_is_error = x.is_error();
+
                         match eval_block_with_early_return(
                             engine_state,
                             &mut stack,
@@ -219,7 +231,10 @@ impl Command for ParEach {
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::Error {
-                                error: Box::new(chain_error_with_input(error, val_span)),
+                                error: Box::new(chain_error_with_input(
+                                    error, x_is_error, val_span,
+                                )),
+                                span: val_span,
                             },
                         }
                     })
@@ -240,6 +255,7 @@ impl Command for ParEach {
                             Err(err) => {
                                 return Value::Error {
                                     error: Box::new(err),
+                                    span,
                                 }
                             }
                         };
@@ -265,6 +281,7 @@ impl Command for ParEach {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::Error {
                                 error: Box::new(error),
+                                span,
                             },
                         }
                     })

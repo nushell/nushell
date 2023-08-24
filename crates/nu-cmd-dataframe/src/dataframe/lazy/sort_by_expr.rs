@@ -118,7 +118,7 @@ impl Command for LazySortBy {
                     let span = call
                         .get_flag::<Value>(engine_state, stack, "reverse")?
                         .expect("already checked and it exists")
-                        .span()?;
+                        .span();
                     return Err(ShellError::GenericError(
                         "Incorrect list size".into(),
                         "Size doesn't match expression list".into(),

@@ -73,6 +73,7 @@ impl Command for ErrorMake {
                         None,
                         Vec::new(),
                     )),
+                    span: Span::unknown(),
                 }),
             },
             Example {
@@ -93,6 +94,7 @@ impl Command for ErrorMake {
                         None,
                         Vec::new(),
                     )),
+                    span: Span::unknown(),
                 }),
             },
             Example {
@@ -126,10 +128,7 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
                 let label_end = label.get_data_by_key("end");
                 let label_text = label.get_data_by_key("text");
 
-                let label_span = match label.span() {
-                    Ok(lspan) => Some(lspan),
-                    Err(_) => None,
-                };
+                let label_span = Some(label.span());
 
                 match (label_start, label_end, label_text) {
                     (

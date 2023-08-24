@@ -92,7 +92,7 @@ fn command_eager(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let mask_value: Value = call.req(engine_state, stack, 0)?;
-    let mask_span = mask_value.span()?;
+    let mask_span = mask_value.span();
 
     if NuExpression::can_downcast(&mask_value) {
         let expression = NuExpression::try_from_value(mask_value)?;

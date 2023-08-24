@@ -185,7 +185,7 @@ pub(crate) fn print_table_or_error(
     // Change the engine_state config to use the passed in configuration
     engine_state.set_config(config);
 
-    if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &**error);
         std::process::exit(1);
@@ -232,7 +232,7 @@ pub(crate) fn print_table_or_error(
 
 fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
     for item in pipeline_data {
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &*error);

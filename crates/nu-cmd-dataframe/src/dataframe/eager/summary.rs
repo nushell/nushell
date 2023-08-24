@@ -134,16 +134,17 @@ fn command(
                         ))
                     }
                 }
-                _ => match value.span() {
-                    Ok(span) => Err(ShellError::GenericError(
+                Value::Error { error, .. } => Err(*error.clone()),
+                _ => {
+                    let span = value.span();
+                    Err(ShellError::GenericError(
                         "Incorrect value for quantile".to_string(),
                         "value should be a float".to_string(),
                         Some(span),
                         None,
                         Vec::new(),
-                    )),
-                    Err(e) => Err(e),
-                },
+                    ))
+                }
             })
             .collect::<Result<Vec<f64>, ShellError>>()
     });

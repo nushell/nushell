@@ -2,7 +2,7 @@ use std::io::Result;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    record, Value,
 };
 
 use crate::{
@@ -158,10 +158,14 @@ impl ViewCommand for ConfigCmd {
 fn create_default_value() -> Value {
     let span = NuSpan::unknown();
 
-    let record = |i: usize| Value::Record {
-        cols: vec![String::from("key"), String::from("value")],
-        vals: vec![nu_str(format!("key-{i}")), nu_str(format!("{i}"))],
-        span,
+    let record = |i: usize| {
+        Value::record(
+            record! {
+                "key" => nu_str(format!("key-{i}")),
+                "value" => nu_str(format!("{i}")),
+            },
+            span,
+        )
     };
 
     Value::List {

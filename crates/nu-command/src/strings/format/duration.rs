@@ -137,7 +137,10 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
                         }
                     }
                 }
-                Err(e) => Value::Error { error: Box::new(e) },
+                Err(e) => Value::Error {
+                    error: Box::new(e),
+                    span: *inner_span,
+                },
             }
         }
         Value::Error { .. } => val.clone(),
@@ -146,8 +149,9 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
                 exp_input_type: "filesize".into(),
                 wrong_type: val.get_type().to_string(),
                 dst_span: span,
-                src_span: val.expect_span(),
+                src_span: val.span(),
             }),
+            span,
         },
     }
 }
