@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use uucore::mods::backup_control::BackupMode;
 use uucore::mods::update_control::UpdateMode;
 
+const EXIT_ERR: i32 = 1;
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
@@ -106,7 +107,6 @@ impl Command for Ucp {
     fn signature(&self) -> Signature {
         Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-
             // .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             // .required("source", SyntaxShape::List(Box::new(SyntaxShape::Filepath)), "the place to copy from")
             // .required("destination", SyntaxShape::Filepath, "the place to copy to")
@@ -116,12 +116,6 @@ impl Command for Ucp {
                 "copy all SOURCE arguments into DIRECTORY",
                 Some('t'),
             )
-            // .named(
-            //     "backup",
-            //     SyntaxShape::String,
-            //     "make a backup of each existing destination file",
-            //     Some('b'),
-            // )
             .named(
                 "reflink",
                 SyntaxShape::String,
@@ -134,24 +128,17 @@ impl Command for Ucp {
                 "control creation of sparse files.",
                 None
             )
-            .named(
-                "update",
-                SyntaxShape::String,
-                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
-                Some('u')
-            )
+            .switch("update", "copy only when the SOURCE file is newer than the destination file or when the destination file is missing", Some('u'))
             .named(
                 "suffix",
                 SyntaxShape::String,
                 "override the usual backup suffix",
                 Some('S')
             )
-            .named(
+            .switch(
                 "preserve",
-                // SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::List(Box::new(SyntaxShape::String))]),
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "preserve the specified attributes (default: mode,ownership,timestamps), if possible additional attributes: context, links, xattr, all",
-                None
+                "preserve the default attributes (mode, owernship, timestamps)",
+                Some('p')
                 )
             .switch("backup", "make a backup of each existing destination file", Some('b'))
             .switch("recursive", "copy directories recursively", Some('r'))
@@ -172,11 +159,11 @@ impl Command for Ucp {
             .switch("dereference", "dereference all symbolic links", Some('L'))
             .switch("no-dereference", "never follow symbolic links in SOURCE", Some('P'))
             .switch("no-dereference-preserve-links", "same as --no-dereference --preserve=links", Some('d'))
-            .switch("preserve-default-attributes", "same as --preserve=mode,ownership(unix only),timestamps", Some('p'))
+            // .switch("preserve-default-attributes", "same as --preserve=mode,ownership(unix only),timestamps", Some('p'))
             .switch("link", "hard-link files instead of copying", Some('l'))
             .switch("debug", "explain how a file is copied. Implies -v", None)
             .switch("copy-contents", "copy contents of special files when recursive", None)
-            .switch("archive", "same as -dR --preserve=all", Some('a'))
+            // .switch("archive", "same as -dR --preserve=all", Some('a'))
             .switch("attributes-only", "don't copy the file data, just the attributes", None)
             .rest("paths", SyntaxShape::Filepath, "the place to copy to")
             .category(Category::FileSystem)
@@ -205,8 +192,8 @@ impl Command for Ucp {
                 result: None,
             },
             Example {
-                description: "Copy many file recursively into a new folder showing a progress bar",
-                example: "cp -r -g big_folder new_folder",
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
                 result: None,
             },
         ]
@@ -249,99 +236,34 @@ impl Command for Ucp {
         let attributes_only = call.has_flag("attributes-only");
         let link = call.has_flag("link");
         let symbolic_link = call.has_flag("symbolic-link");
-        let update = call.get_flag_expr("update");
-        let archive = call.has_flag("archive");
+        // let update = call.get_flag_expr("update");
+        let update_mode = if call.has_flag("update") {
+            UpdateMode::ReplaceIfOlder
+        } else {
+            UpdateMode::ReplaceAll
+        };
+
+        // let archive = call.has_flag("archive");
         let no_dereference_preserve_links = call.has_flag("no-dereference-preserve-links");
         let no_dereference = call.has_flag("no-dereference");
-        let preserve_default_attributes = call.has_flag("preserve-default-attributes");
+        // let preserve_default_attributes = call.has_flag("preserve-default-attributes");
         // dbg!(&update);
         let copy_mode = if link {
             uu_cp::CopyMode::Link
         } else if symbolic_link {
             uu_cp::CopyMode::SymLink
-        } else if update.is_some() {
+        } else if call.has_flag("update") {
             uu_cp::CopyMode::Update
         } else {
             uu_cp::CopyMode::Copy
         };
-        let preserve = call.get_flag_expr("preserve");
-        let attributes = if let Some(attribute_strs) = preserve {
-            match attribute_strs.expr {
-                Expr::List(expr) => {
-                    let attributes: Vec<String> =
-                        expr.iter().filter_map(|attr| attr.as_string()).collect();
-
-                    uu_cp::Attributes::parse_iter(attributes.iter()).map_err(|attr| {
-                        ShellError::GenericError(
-                            format!("Invalid attribute: {}", attr),
-                            format!("Invalid attribute: {}", attr),
-                            Some(attribute_strs.span),
-                            None,
-                            Vec::new(),
-                        )
-                    })
-                }
-                // Expr::String(attribute) => {
-                //     dbg!(&attribute);
-                // }
-                _ => Err(ShellError::GenericError(
-                    "Invalid type".into(),
-                    "Invalid type".into(),
-                    Some(attribute_strs.span),
-                    None,
-                    Vec::new(),
-                )),
-            }
-        } else if archive {
-            Ok(uu_cp::Attributes::ALL)
-        } else if no_dereference_preserve_links {
-            Ok(uu_cp::Attributes::LINKS)
-        } else if preserve_default_attributes {
-            Ok(uu_cp::Attributes::DEFAULT)
+        let attributes = if call.has_flag("preserve") {
+            // wonder if archive will be supported,
+            // for now lets assume it wont be so either default or None
+            uu_cp::Attributes::DEFAULT
         } else {
-            Ok(uu_cp::Attributes::NONE)
-        }?;
-        let update_mode = if let Some(update_mode) = update {
-            match update_mode.expr {
-                Expr::String(update) => match update.as_str() {
-                    "all" => Ok(UpdateMode::ReplaceAll),
-                    "none" => Ok(UpdateMode::ReplaceNone),
-                    "older" => Ok(UpdateMode::ReplaceIfOlder),
-                    _ => {
-                        //The above should be discussed whether we accept named argument,
-                        //without argument, meaning cp --update a b is disallowed by this code
-                        // same goes for cp -u a b is disallowed as well
-                        //but cp a b --update is disallowed by nu parser.
-
-                        //Trick: Since nu parses the `=`, if they do cp --update none a b, it
-                        //will still work since even though no named argument was given, it matches
-                        // either `all, none,older` but cp --update a b will fail.
-
-                        // There will be a problem if they have a file named `all,none,older` since
-                        // it will take it as the argument, thus need to solve as well
-                        Err(ShellError::GenericError(
-                            "Use `=` when using update flag".into(),
-                            "Use `=` when using update flag".into(),
-                            Some(update_mode.span),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
-                },
-                _ => Err(ShellError::GenericError(
-                    "Invalid type".into(),
-                    "Invalid type".into(),
-                    Some(update_mode.span),
-                    None,
-                    Vec::new(),
-                )),
-            }
-        } else {
-            // Update flag was not present at all
-            Ok(UpdateMode::ReplaceAll)
-        }?;
-        // dbg!(&update_mode);
-
+            uu_cp::Attributes::NONE
+        };
         let dereference = call.has_flag("dereference");
         let force = call.has_flag("force");
         let interactive = call.has_flag("interactive");
@@ -434,10 +356,6 @@ impl Command for Ucp {
                 Ok(uu_cp::ReflinkMode::Never)
             }
         }?;
-        // Another experiment. Lets use backup instead as  a switch, where only
-        // --backup or -b is allowed and not any of the options(none,off,numbered etc)
-        // I imagine --backup is more popular than either `--reflink` or
-        // `--sparse` or any other `named` flag we have now.
         let backup_mode = if backup {
             BackupMode::ExistingBackup
         } else {
@@ -582,7 +500,7 @@ impl Command for Ucp {
             cli_dereference,
             copy_mode,
             // dereference,
-            dereference: !(no_dereference || no_dereference_preserve_links || archive || recursive)
+            dereference: !(no_dereference || no_dereference_preserve_links || recursive)
                 || dereference,
             no_target_dir,
             one_file_system: false,
@@ -633,6 +551,8 @@ impl Command for Ucp {
         // some of their logic when it came to parsing path arguments,
         // even tho we already did some of it in the `src, target` for loop above
         // Nice to combine efforts and make it nicer.
+
+        // TODO: Fix this following the comments in draft PR by Terts
         let (sources, target) = parse_path_args(paths, &options)?;
         if let Err(error) = uu_cp::copy(&sources, &target, &options) {
             match error {
@@ -652,12 +572,8 @@ impl Command for Ucp {
                     ))
                 }
             };
+            uucore::error::set_exit_code(EXIT_ERR);
         }
-        //                 // uucore::error::set_exit_code(EXIT_ERR);
-        //             }
-        //         }
-        //     }
-        // }
         Ok(PipelineData::empty())
     }
 }
