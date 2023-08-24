@@ -7,7 +7,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use std::iter;
 use std::path::Path;
 
 #[derive(Clone)]
@@ -127,12 +126,9 @@ fn action(
                     format!(
                         "({})",
                         match list_value {
-                            Value::Record {
-                                cols: _,
-                                vals,
-                                span: _,
-                            } => {
-                                vals.iter()
+                            Value::Record { val, .. } => {
+                                val.vals
+                                    .iter()
                                     .map(|rec_val| {
                                         format!("'{}'", nu_value_to_string(rec_val.clone(), ""))
                                     })
@@ -249,14 +245,13 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
         Value::List { vals: val, .. } => val
-            .iter()
-            .map(|x| nu_value_to_string(x.clone(), ", "))
+            .into_iter()
+            .map(|x| nu_value_to_string(x, ", "))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Record { cols, vals, .. } => cols
-            .iter()
-            .zip(vals.iter())
-            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
+        Value::Record { val, .. } => val
+            .into_iter()
+            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y, ", ")))
             .collect::<Vec<_>>()
             .join(separator),
         Value::LazyRecord { val, .. } => match val.collect() {
@@ -305,8 +300,8 @@ fn get_columns_with_sqlite_types(input: &[Value]) -> Vec<(String, String)> {
         //     sqlite_type
         // );
 
-        if let Value::Record { cols, vals, .. } = item {
-            for (c, v) in iter::zip(cols, vals) {
+        if let Value::Record { val, .. } = item {
+            for (c, v) in val {
                 if !columns.iter().any(|(name, _)| name == c) {
                     columns.push((
                         c.to_string(),

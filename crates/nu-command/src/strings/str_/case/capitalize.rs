@@ -3,7 +3,9 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -67,11 +69,10 @@ impl Command for SubCommand {
                 description: "Capitalize a column in a table",
                 example: "[[lang, gems]; [nu_test, 100]] | str capitalize lang",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        span: Span::test_data(),
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![Value::test_string("Nu_test"), Value::test_int(100)],
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },

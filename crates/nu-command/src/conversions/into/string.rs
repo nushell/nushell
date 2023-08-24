@@ -257,11 +257,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             val: "".to_string(),
             span,
         },
-        Value::Record {
-            cols: _,
-            vals: _,
-            span: _,
-        } => Value::Error {
+        Value::Record { .. } => Value::Error {
             // Watch out for CantConvert's argument order
             error: Box::new(ShellError::CantConvert {
                 to_type: "string".into(),

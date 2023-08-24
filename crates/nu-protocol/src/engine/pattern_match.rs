@@ -21,12 +21,12 @@ impl Matcher for Pattern {
             Pattern::IgnoreRest => false, // `..` and `..$foo` only match in specific contexts
             Pattern::Rest(_) => false,    // so we return false here and handle them elsewhere
             Pattern::Record(field_patterns) => match value {
-                Value::Record { cols, vals, .. } => {
+                Value::Record { val, .. } => {
                     'top: for field_pattern in field_patterns {
-                        for (col_idx, col) in cols.iter().enumerate() {
+                        for (col, val) in val {
                             if col == &field_pattern.0 {
                                 // We have found the field
-                                let result = field_pattern.1.match_value(&vals[col_idx], matches);
+                                let result = field_pattern.1.match_value(val, matches);
                                 if !result {
                                     return false;
                                 } else {

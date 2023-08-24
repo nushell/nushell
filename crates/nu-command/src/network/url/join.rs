@@ -92,16 +92,11 @@ impl Command for SubCommand {
         let output: Result<String, ShellError> = input
             .into_iter()
             .map(move |value| match value {
-                Value::Record {
-                    ref cols,
-                    ref vals,
-                    span,
-                } => {
-                    let url_components = cols
-                        .iter()
-                        .zip(vals.iter())
+                Value::Record { val, span } => {
+                    let url_components = val
+                        .into_iter()
                         .try_fold(UrlComponents::new(), |url, (k, v)| {
-                            url.add_component(k.clone(), v.clone(), span)
+                            url.add_component(k, v, span)
                         });
 
                     url_components?.to_url(span)
@@ -176,14 +171,9 @@ impl UrlComponents {
 
         if key == "params" {
             return match value {
-                Value::Record {
-                    ref cols,
-                    ref vals,
-                    span,
-                } => {
-                    let mut qs = cols
+                Value::Record { ref val, span } => {
+                    let mut qs = val
                         .iter()
-                        .zip(vals.iter())
                         .map(|(k, v)| match v.as_string() {
                             Ok(val) => Ok(format!("{k}={val}")),
                             Err(err) => Err(err),

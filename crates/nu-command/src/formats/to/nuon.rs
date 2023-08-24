@@ -209,8 +209,8 @@ pub fn value_to_string(
                 for val in vals {
                     let mut row = vec![];
 
-                    if let Value::Record { vals, .. } = val {
-                        for val in vals {
+                    if let Value::Record { val, .. } = val {
+                        for val in &val.vals {
                             row.push(value_to_string_without_quotes(
                                 val,
                                 span,
@@ -259,9 +259,9 @@ pub fn value_to_string(
             },
             value_to_string(&val.to, span, depth + 1, indent)?
         )),
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut collection = vec![];
-            for (col, val) in cols.iter().zip(vals) {
+            for (col, val) in val {
                 collection.push(if needs_quotes(col) {
                     format!(
                         "{idt_po}\"{}\": {}",

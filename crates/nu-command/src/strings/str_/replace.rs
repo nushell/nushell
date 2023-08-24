@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    report_error_new, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    report_error_new, Category, Example, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -150,15 +150,14 @@ impl Command for SubCommand {
                 example:
                     "[[ColA ColB ColC]; [abc abc ads]] | str replace -ar 'b' 'z' ColA ColC",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
                             Value::test_string("azc"),
                             Value::test_string("abc"),
                             Value::test_string("ads"),
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -166,15 +165,14 @@ impl Command for SubCommand {
                 description: "Find and replace all occurrences of find string in record using regular expression",
                 example:
                     "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace -ar 'b' 'z' KeyA KeyC",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                         cols: vec!["KeyA".to_string(), "KeyB".to_string(), "KeyC".to_string()],
                         vals: vec![
                             Value::test_string("azc"),
                             Value::test_string("abc"),
                             Value::test_string("ads"),
                         ],
-                        span: Span::test_data(),
-                    }),
+                    })),
             },
             Example {
                 description: "Find and replace contents without using the replace parameter as a regular expression",

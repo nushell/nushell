@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type, Value,
+    record, Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -35,23 +36,16 @@ impl Command for HelpOperators {
         let mut recs = vec![];
 
         for op in op_info {
-            let mut cols = vec![];
-            let mut vals = vec![];
-            cols.push("type".into());
-            vals.push(Value::string(op.op_type, head));
-            cols.push("operator".into());
-            vals.push(Value::string(op.operator, head));
-            cols.push("name".into());
-            vals.push(Value::string(op.name, head));
-            cols.push("description".into());
-            vals.push(Value::string(op.description, head));
-            cols.push("precedence".into());
-            vals.push(Value::int(op.precedence, head));
-            recs.push(Value::Record {
-                cols,
-                vals,
-                span: head,
-            })
+            recs.push(Value::record(
+                record! {
+                    "type" => Value::string(op.op_type, head),
+                    "operator" => Value::string(op.operator, head),
+                    "name" => Value::string(op.name, head),
+                    "description" => Value::string(op.description, head),
+                    "precedence" => Value::int(op.precedence, head),
+                },
+                head,
+            ));
         }
 
         Ok(recs

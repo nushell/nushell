@@ -136,16 +136,14 @@ impl Module {
                 }
             }
 
-            let mut const_cols = vec![];
-            let mut const_vals = vec![];
-
-            for (name, val) in const_rows {
-                const_cols.push(String::from_utf8_lossy(&name).to_string());
-                const_vals.push(val);
-            }
-
             let span = self.span.unwrap_or(backup_span);
-            let const_record = Value::record(const_cols, const_vals, span);
+            let const_record = Value::record(
+                const_rows
+                    .into_iter()
+                    .map(|(name, val)| (String::from_utf8_lossy(&name).to_string(), val))
+                    .collect(),
+                span,
+            );
 
             return (
                 ResolvedImportPattern::new(

@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -60,18 +60,18 @@ impl Command for SortBy {
                 example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(
-                            vec!["fruit", "count"],
-                            vec![Value::test_string("pear"), Value::test_int(3)],
-                        ),
-                        Value::test_record(
-                            vec!["fruit", "count"],
-                            vec![Value::test_string("orange"), Value::test_int(7)],
-                        ),
-                        Value::test_record(
-                            vec!["fruit", "count"],
-                            vec![Value::test_string("apple"), Value::test_int(9)],
-                        ),
+                        Value::test_record(Record {
+                            cols: vec!["fruit".to_string(), "count".to_string()],
+                            vals: vec![Value::test_string("pear"), Value::test_int(3)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["fruit".to_string(), "count".to_string()],
+                            vals: vec![Value::test_string("orange"), Value::test_int(7)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["fruit".to_string(), "count".to_string()],
+                            vals: vec![Value::test_string("apple"), Value::test_int(9)],
+                        }),
                     ],
                     span: Span::test_data(),
                 }),

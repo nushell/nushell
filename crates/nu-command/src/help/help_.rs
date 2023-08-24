@@ -148,8 +148,8 @@ pub fn highlight_search_in_table(
     let mut matches = vec![];
 
     for record in table {
-        let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
-            (cols, vals, span)
+        let (mut record, record_span) = if let Value::Record { val, span } = record {
+            (val, span)
         } else {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
@@ -158,7 +158,7 @@ pub fn highlight_search_in_table(
             });
         };
 
-        let has_match = cols.iter().zip(vals.iter_mut()).try_fold(
+        let has_match = record.iter_mut().try_fold(
             false,
             |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if !searched_cols.contains(&col.as_str()) {
@@ -186,11 +186,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::Record {
-                cols,
-                vals,
-                span: record_span,
-            });
+            matches.push(Value::record(record, record_span));
         }
     }
 

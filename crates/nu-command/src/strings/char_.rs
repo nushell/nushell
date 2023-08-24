@@ -2,6 +2,7 @@ use indexmap::indexmap;
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -232,9 +233,6 @@ impl Command for Char {
             return Ok(CHAR_MAP
                 .iter()
                 .map(move |(name, s)| {
-                    let cols = vec!["name".into(), "character".into(), "unicode".into()];
-                    let name: Value = Value::string(String::from(*name), call_span);
-                    let character = Value::string(s, call_span);
                     let unicode = Value::string(
                         s.chars()
                             .map(|c| format!("{:x}", c as u32))
@@ -242,12 +240,13 @@ impl Command for Char {
                             .join(" "),
                         call_span,
                     );
-                    let vals = vec![name, character, unicode];
-                    Value::Record {
-                        cols,
-                        vals,
-                        span: call_span,
-                    }
+                    let record = record! {
+                        "name" => Value::string(*name, call_span),
+                        "character" => Value::string(s, call_span),
+                        "unicode" => unicode,
+                    };
+
+                    Value::record(record, call_span)
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone()));
         }

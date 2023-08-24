@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -125,8 +125,14 @@ impl Command for Take {
                 example: "[[editions]; [2015] [2018] [2021]] | take 2",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(vec!["editions"], vec![Value::test_int(2015)]),
-                        Value::test_record(vec!["editions"], vec![Value::test_int(2018)]),
+                        Value::test_record(Record {
+                            cols: vec!["editions".to_string()],
+                            vals: vec![Value::test_int(2015)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["editions".to_string()],
+                            vals: vec![Value::test_int(2018)],
+                        }),
                     ],
                     span: Span::test_data(),
                 }),
