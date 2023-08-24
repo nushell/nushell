@@ -169,8 +169,8 @@ impl Matcher {
                         "Error with regular expression".into(),
                         err.to_string(),
                         match lhs {
-                            Value::Error { error: _ } => None,
-                            _ => Some(lhs.expect_span()),
+                            Value::Error { .. } => None,
+                            _ => Some(lhs.span()),
                         },
                         None,
                         Vec::new(),

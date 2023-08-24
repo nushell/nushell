@@ -121,7 +121,7 @@ fn replace_headers(
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),
-            span: value.span()?,
+            span: value.span(),
         }),
     }
 }
@@ -148,7 +148,7 @@ fn extract_headers(
                     return Err(ShellError::TypeMismatch {
                         err_message: "needs compatible type: Null, String, Bool, Float, Int"
                             .to_string(),
-                        span: v.span()?,
+                        span: v.span(),
                     });
                 }
             }
@@ -185,7 +185,7 @@ fn extract_headers(
             })?,
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),
-            span: value.span()?,
+            span: value.span(),
         }),
     }
 }

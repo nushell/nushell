@@ -56,6 +56,7 @@ fn collect_external_stream(
         let value = stdout.into_string().map_or_else(
             |error| Value::Error {
                 error: Box::new(error),
+                span,
             },
             |string| Value::string(string.item, span),
         );
@@ -67,6 +68,7 @@ fn collect_external_stream(
         let value = stderr.into_string().map_or_else(
             |error| Value::Error {
                 error: Box::new(error),
+                span,
             },
             |string| Value::string(string.item, span),
         );

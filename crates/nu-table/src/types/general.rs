@@ -130,7 +130,7 @@ fn to_table_with_header(
             return Ok(None);
         }
 
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 
@@ -165,7 +165,7 @@ fn to_table_with_no_header(
             return Ok(None);
         }
 
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 

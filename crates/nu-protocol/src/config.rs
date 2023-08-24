@@ -355,14 +355,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -388,14 +388,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -421,14 +421,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -498,14 +498,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -643,7 +643,7 @@ impl Value {
                                                             cols,
                                                             vals,
                                                             index,
-                                                            value.span().ok(),
+                                                            Some(value.span()),
                                                             "$env.config.{key}.{key2}.{x} is an unknown config setting"
                                                     );
                                                     }
@@ -660,14 +660,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct record
                             vals[index] = Value::record(
                                 record! {
@@ -852,14 +852,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -1022,14 +1022,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -1068,14 +1068,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -1090,7 +1090,7 @@ impl Value {
                         if let Ok(map) = create_map(value) {
                             config.explore = map;
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 config
@@ -1107,7 +1107,7 @@ impl Value {
                         if let Ok(map) = create_map(value) {
                             config.color_config = map;
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 config
@@ -1304,14 +1304,14 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
@@ -1328,7 +1328,7 @@ impl Value {
                             cols,
                             vals,
                             index,
-                            value.span().ok(),
+                            Some(value.span()),
                             "$env.config.{x} is an unknown config setting"
                         );
                     }
@@ -1340,7 +1340,7 @@ impl Value {
                 Some(ShellError::GenericError(
                     "Error while applying config changes".into(),
                     "$env.config is not a record".into(),
-                    self.span().ok(),
+                    Some(self.span()),
                     None,
                     vec![],
                 )),
@@ -1377,7 +1377,7 @@ fn try_parse_trim_strategy(
         ShellError::GenericError(
             "Error while applying config changes".into(),
             "$env.config.table.trim is not a record".into(),
-            value.span().ok(),
+            Some(value.span()),
             Some("Please consult the documentation for configuring Nushell.".into()),
             vec![e],
         )
@@ -1392,7 +1392,7 @@ fn try_parse_trim_strategy(
             errors.push(ShellError::GenericError(
                 "Error while applying config changes".into(),
                 "$env.config.table.trim.methodology was not provided".into(),
-                value.span().ok(),
+                Some(value.span()),
                 Some("Please consult the documentation for configuring Nushell.".into()),
                 vec![],
             ));
@@ -1409,7 +1409,7 @@ fn try_parse_trim_strategy(
                     errors.push(ShellError::GenericError(
                         "Error while applying config changes".into(),
                         "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
-                        value.span().ok(),
+                        Some(value.span()),
                         Some("Please consult the documentation for configuring Nushell.".into()),
                         vec![],
                     ));
@@ -1424,7 +1424,7 @@ fn try_parse_trim_strategy(
                     errors.push(ShellError::GenericError(
                         "Error while applying config changes".into(),
                         "$env.config.table.trim.truncating_suffix is not a string".into(),
-                        value.span().ok(),
+                        Some(value.span()),
                         Some("Please consult the documentation for configuring Nushell.".into()),
                         vec![],
                     ));
@@ -1491,7 +1491,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
         v => Err(ShellError::UnsupportedConfigValue(
             "record for 'hooks' config".into(),
             "non-record value".into(),
-            v.span().unwrap_or_else(|_| Span::unknown()),
+            v.span(),
         )),
     }
 }

@@ -96,6 +96,7 @@ pub enum Value {
     },
     Error {
         error: Box<ShellError>,
+        span: Span,
     },
     Binary {
         val: Vec<u8>,
@@ -170,8 +171,9 @@ impl Clone for Value {
                 span: *span,
             },
             Value::Nothing { span } => Value::Nothing { span: *span },
-            Value::Error { error } => Value::Error {
+            Value::Error { error, span } => Value::Error {
                 error: error.clone(),
+                span: *span,
             },
             Value::Binary { val, span } => Value::Binary {
                 val: val.clone(),
@@ -197,7 +199,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "boolean".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -209,7 +211,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "integer".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -222,7 +224,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "float".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -234,7 +236,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "filesize".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -246,7 +248,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "duration".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -258,7 +260,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "date".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -270,7 +272,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -288,7 +290,7 @@ impl Value {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),
                         from_type: "binary".into(),
-                        span: self.span()?,
+                        span: self.span(),
                         help: None,
                     });
                 }
@@ -297,7 +299,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -318,7 +320,7 @@ impl Value {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),
                         from_type: "binary".into(),
-                        span: self.span()?,
+                        span: self.span(),
                         help: None,
                     })
                 }
@@ -326,7 +328,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -347,7 +349,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "char".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -359,7 +361,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "path".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -371,7 +373,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "record".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -383,7 +385,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "list".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -396,7 +398,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "block".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -408,7 +410,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "closure".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -421,7 +423,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "binary".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -433,7 +435,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "cell path".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -445,7 +447,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "custom value".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -457,7 +459,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "lazy record".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -469,14 +471,14 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "match pattern".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
     }
 
     /// Get the span for the current value
-    pub fn span(&self) -> Result<Span, ShellError> {
+    pub fn span(&self) -> Span {
         match self {
             Value::Bool { span, .. }
             | Value::Int { span, .. }
@@ -495,16 +497,9 @@ impl Value {
             | Value::CellPath { span, .. }
             | Value::CustomValue { span, .. }
             | Value::LazyRecord { span, .. }
-            | Value::MatchPattern { span, .. } => Ok(*span),
-            Value::Error { error } => Err(*error.clone()),
+            | Value::MatchPattern { span, .. }
+            | Value::Error { span, .. } => *span,
         }
-    }
-
-    /// Special variant of the above designed to be called only in
-    /// situations where the value not being a Value::Error has been guaranteed
-    /// by match arms.
-    pub fn expect_span(&self) -> Span {
-        self.span().expect("non-Error Value had no span")
     }
 
     /// Update the value with a new span
@@ -625,7 +620,7 @@ impl Value {
         separator: &str,
         config: &Config,
     ) -> Result<String, ShellError> {
-        if let Value::Error { error } = self {
+        if let Value::Error { error, .. } = self {
             Err(*error.to_owned())
         } else {
             Ok(self.into_string(separator, config))
@@ -677,11 +672,12 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::LazyRecord { val, .. } => {
+            Value::LazyRecord { val, span } => {
                 let collected = match val.collect() {
                     Ok(val) => val,
                     Err(error) => Value::Error {
                         error: Box::new(error),
+                        span: *span,
                     },
                 };
                 collected.into_string(separator, config)
@@ -689,7 +685,7 @@ impl Value {
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {val}>"),
             Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{error:?}"),
+            Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
@@ -744,7 +740,7 @@ impl Value {
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {val}>"),
             Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{error:?}"),
+            Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
@@ -844,7 +840,7 @@ impl Value {
             Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {val}>"),
             Value::Nothing { .. } => String::new(),
-            Value::Error { error } => format!("{error:?}"),
+            Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
@@ -866,6 +862,10 @@ impl Value {
 
     pub fn is_nothing(&self) -> bool {
         matches!(self, Value::Nothing { .. })
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Value::Error { .. })
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
@@ -961,7 +961,7 @@ impl Value {
                                 span: *origin_span,
                             })
                         }
-                        Value::Error { error } => return Err(*error.to_owned()),
+                        Value::Error { error, .. } => return Err(*error.to_owned()),
                         x => {
                             return Err(ShellError::IncompatiblePathAccess { type_name:format!("{}",x.get_type()), span: *origin_span })
                         }
@@ -1041,7 +1041,7 @@ impl Value {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: column_name.to_string(),
                                         span: *origin_span,
-                                        src_span: val.span().unwrap_or(*span),
+                                        src_span: val.span(),
                                     });
                                 }
                             } else if *optional && matches!(val, Value::Nothing { .. }) {
@@ -1050,7 +1050,7 @@ impl Value {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.to_string(),
                                     span: *origin_span,
-                                    src_span: val.span().unwrap_or(*span),
+                                    src_span: val.span(),
                                 });
                             }
                         }
@@ -1066,7 +1066,7 @@ impl Value {
                     Value::Nothing { .. } if *optional => {
                         return Ok(Value::nothing(*origin_span)); // short-circuit
                     }
-                    Value::Error { error } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.to_owned()),
                     x => {
                         return Err(ShellError::IncompatiblePathAccess {
                             type_name: format!("{}", x.get_type()),
@@ -1078,7 +1078,7 @@ impl Value {
         }
         // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
         // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
-        if let Value::Error { error } = current {
+        if let Value::Error { error, .. } = current {
             Err(*error)
         } else {
             Ok(current)
@@ -1096,7 +1096,7 @@ impl Value {
         let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
 
         match new_val {
-            Value::Error { error } => Err(*error),
+            Value::Error { error, .. } => Err(*error),
             new_val => self.upsert_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1133,7 +1133,7 @@ impl Value {
                                             break;
                                         } else {
                                             let mut new_col =
-                                                Value::record(Record::new(), new_val.span()?);
+                                                Value::record(Record::new(), new_val.span());
                                             new_col.upsert_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val,
@@ -1143,12 +1143,12 @@ impl Value {
                                         }
                                     }
                                 }
-                                Value::Error { error } => return Err(*error.to_owned()),
+                                Value::Error { error, .. } => return Err(*error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.to_string(),
                                         span: *span,
-                                        src_span: v.span()?,
+                                        src_span: v.span(),
                                     })
                                 }
                             }
@@ -1167,7 +1167,7 @@ impl Value {
                             let new_col = if cell_path.len() == 1 {
                                 new_val
                             } else {
-                                let mut new_col = Value::record(Record::new(), new_val.span()?);
+                                let mut new_col = Value::record(Record::new(), new_val.span());
                                 new_col.upsert_data_at_cell_path(&cell_path[1..], new_val)?;
                                 new_col
                             };
@@ -1181,12 +1181,12 @@ impl Value {
                         record.upsert_data_at_cell_path(cell_path, new_val)?;
                         *self = record
                     }
-                    Value::Error { error } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         })
                     }
                 },
@@ -1207,11 +1207,11 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         })
                     }
                 },
@@ -1234,7 +1234,7 @@ impl Value {
         let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
 
         match new_val {
-            Value::Error { error } => Err(*error),
+            Value::Error { error, .. } => Err(*error),
 
             new_val => self.update_data_at_cell_path(cell_path, new_val),
         }
@@ -1277,12 +1277,12 @@ impl Value {
                                         });
                                     }
                                 }
-                                Value::Error { error } => return Err(*error.to_owned()),
+                                Value::Error { error, .. } => return Err(*error.to_owned()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.to_string(),
                                         span: *span,
-                                        src_span: v.span()?,
+                                        src_span: v.span(),
                                     })
                                 }
                             }
@@ -1314,12 +1314,12 @@ impl Value {
                         record.update_data_at_cell_path(cell_path, new_val)?;
                         *self = record
                     }
-                    Value::Error { error } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         })
                     }
                 },
@@ -1338,11 +1338,11 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.to_owned()),
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         })
                     }
                 },
@@ -1396,7 +1396,7 @@ impl Value {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.to_string(),
                                             span: *span,
-                                            src_span: v.span()?,
+                                            src_span: v.span(),
                                         })
                                     }
                                 }
@@ -1438,7 +1438,7 @@ impl Value {
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         }),
                     },
                     PathMember::Int {
@@ -1463,7 +1463,7 @@ impl Value {
                         }
                         v => Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         }),
                     },
                 }
@@ -1502,7 +1502,7 @@ impl Value {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.to_string(),
                                             span: *span,
-                                            src_span: v.span()?,
+                                            src_span: v.span(),
                                         })
                                     }
                                 }
@@ -1540,7 +1540,7 @@ impl Value {
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.to_string(),
                             span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         }),
                     },
                     PathMember::Int {
@@ -1564,7 +1564,7 @@ impl Value {
                         }
                         v => Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         }),
                     },
                 }
@@ -1613,7 +1613,7 @@ impl Value {
                                     record.push(col_name, new_val.clone());
                                 }
                                 // SIGH...
-                                Value::Error { error } => return Err(*error.clone()),
+                                Value::Error { error, .. } => return Err(*error.clone()),
                                 _ => {
                                     return Err(ShellError::UnsupportedInput(
                                         "expected table or record".into(),
@@ -1684,7 +1684,7 @@ impl Value {
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         })
                     }
                 },
@@ -1774,9 +1774,10 @@ impl Value {
         Value::Nothing { span }
     }
 
-    pub fn error(error: ShellError) -> Value {
+    pub fn error(error: ShellError, span: Span) -> Value {
         Value::Error {
             error: Box::new(error),
+            span,
         }
     }
 
@@ -2399,9 +2400,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -2436,9 +2437,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -2517,9 +2518,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -2627,9 +2628,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -2764,9 +2765,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -2900,9 +2901,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -2923,9 +2924,9 @@ impl Value {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             });
         }
 
@@ -2938,9 +2939,9 @@ impl Value {
             Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             })
         }
     }
@@ -2966,9 +2967,9 @@ impl Value {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             });
         }
 
@@ -2980,9 +2981,9 @@ impl Value {
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             })
     }
 
@@ -3007,9 +3008,9 @@ impl Value {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             });
         }
 
@@ -3021,9 +3022,9 @@ impl Value {
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             })
     }
 
@@ -3048,9 +3049,9 @@ impl Value {
             return Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             });
         }
 
@@ -3062,9 +3063,9 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3087,9 +3088,9 @@ impl Value {
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
                     lhs_ty: self.get_type().to_string(),
-                    lhs_span: self.span()?,
+                    lhs_span: self.span(),
                     rhs_ty: rhs.get_type().to_string(),
-                    rhs_span: rhs.span()?,
+                    rhs_span: rhs.span(),
                 }),
             }
         }
@@ -3113,9 +3114,9 @@ impl Value {
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
                     lhs_ty: self.get_type().to_string(),
-                    lhs_span: self.span()?,
+                    lhs_span: self.span(),
                     rhs_ty: rhs.get_type().to_string(),
-                    rhs_span: rhs.span()?,
+                    rhs_span: rhs.span(),
                 }),
             }
         }
@@ -3171,9 +3172,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3228,9 +3229,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3304,9 +3305,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3323,9 +3324,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3342,9 +3343,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3361,9 +3362,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3380,9 +3381,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3399,9 +3400,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3418,9 +3419,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3437,9 +3438,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3493,9 +3494,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3512,9 +3513,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3531,9 +3532,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3550,9 +3551,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }
@@ -3585,9 +3586,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span()?,
+                lhs_span: self.span(),
                 rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span()?,
+                rhs_span: rhs.span(),
             }),
         }
     }

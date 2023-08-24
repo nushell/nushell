@@ -8,7 +8,7 @@ use std::io::BufReader;
 pub const CMD_NAME: &str = "from ics";
 
 pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-    let span = input.span().unwrap_or(call.head);
+    let span = input.span();
     let input_string = input.as_string()?;
     let head = call.head;
 
@@ -34,6 +34,7 @@ pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
                     head,
                     span,
                 )),
+                span,
             }),
         }
     }

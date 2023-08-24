@@ -141,14 +141,14 @@ fn add_menu(
             _ => Err(ShellError::UnsupportedConfigValue(
                 "columnar, list or description".to_string(),
                 menu.menu_type.into_abbreviated_string(config),
-                menu.menu_type.span()?,
+                menu.menu_type.span(),
             )),
         }
     } else {
         Err(ShellError::UnsupportedConfigValue(
             "only record type".to_string(),
             menu.menu_type.into_abbreviated_string(config),
-            menu.menu_type.span()?,
+            menu.menu_type.span(),
         ))
     }
 }
@@ -264,7 +264,7 @@ pub(crate) fn add_columnar_menu(
         _ => Err(ShellError::UnsupportedConfigValue(
             "block or omitted value".to_string(),
             menu.source.into_abbreviated_string(config),
-            menu.source.span()?,
+            menu.source.span(),
         )),
     }
 }
@@ -347,7 +347,7 @@ pub(crate) fn add_list_menu(
         _ => Err(ShellError::UnsupportedConfigValue(
             "block or omitted value".to_string(),
             menu.source.into_abbreviated_string(config),
-            menu.source.span()?,
+            menu.source.span(),
         )),
     }
 }
@@ -466,7 +466,7 @@ pub(crate) fn add_description_menu(
         _ => Err(ShellError::UnsupportedConfigValue(
             "closure or omitted value".to_string(),
             menu.source.into_abbreviated_string(config),
-            menu.source.span()?,
+            menu.source.span(),
         )),
     }
 }
@@ -603,7 +603,7 @@ fn add_keybinding(
         v => Err(ShellError::UnsupportedConfigValue(
             "string or list of strings".to_string(),
             v.into_abbreviated_string(config),
-            v.span()?,
+            v.span(),
         )),
     }
 }
@@ -633,7 +633,7 @@ fn add_parsed_keybinding(
             return Err(ShellError::UnsupportedConfigValue(
                 "CONTROL, SHIFT, ALT or NONE".to_string(),
                 keybinding.modifier.into_abbreviated_string(config),
-                keybinding.modifier.span()?,
+                keybinding.modifier.span(),
             ))
         }
     };
@@ -657,7 +657,7 @@ fn add_parsed_keybinding(
                 return Err(ShellError::UnsupportedConfigValue(
                     "char_<CHAR: unicode codepoint>".to_string(),
                     c.to_string(),
-                    keybinding.keycode.span()?,
+                    keybinding.keycode.span(),
                 ));
             };
 
@@ -684,7 +684,7 @@ fn add_parsed_keybinding(
                 .ok_or(ShellError::UnsupportedConfigValue(
                     "(f1|f2|...|f20)".to_string(),
                     format!("unknown function key: {c}"),
-                    keybinding.keycode.span()?,
+                    keybinding.keycode.span(),
                 ))?;
             KeyCode::F(fn_num)
         }
@@ -694,7 +694,7 @@ fn add_parsed_keybinding(
             return Err(ShellError::UnsupportedConfigValue(
                 "crossterm KeyCode".to_string(),
                 keybinding.keycode.into_abbreviated_string(config),
-                keybinding.keycode.span()?,
+                keybinding.keycode.span(),
             ))
         }
     };
@@ -751,7 +751,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                                 None => Err(ShellError::UnsupportedConfigValue(
                                     "List containing valid events".to_string(),
                                     "Nothing value (null)".to_string(),
-                                    value.span()?,
+                                    value.span(),
                                 )),
                                 Some(event) => Ok(event),
                             },
@@ -764,7 +764,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                 v => Err(ShellError::UnsupportedConfigValue(
                     "list of events".to_string(),
                     v.into_abbreviated_string(config),
-                    v.span()?,
+                    v.span(),
                 )),
             },
         },
@@ -776,7 +776,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                         None => Err(ShellError::UnsupportedConfigValue(
                             "List containing valid events".to_string(),
                             "Nothing value (null)".to_string(),
-                            value.span()?,
+                            value.span(),
                         )),
                         Some(event) => Ok(event),
                     },
@@ -790,7 +790,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
         v => Err(ShellError::UnsupportedConfigValue(
             "record or list of records, null to unbind key".to_string(),
             v.into_abbreviated_string(config),
-            v.span()?,
+            v.span(),
         )),
     }
 }
@@ -965,7 +965,7 @@ fn edit_from_record(
 }
 
 fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
-    let span = value.span()?;
+    let span = value.span();
     value
         .into_string("", config)
         .chars()

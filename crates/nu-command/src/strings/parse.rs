@@ -186,7 +186,7 @@ fn operate(
                                 }
                             };
 
-                            let v_span = v.span()?;
+                            let v_span = v.span();
                             let record = columns
                                 .iter()
                                 .zip(captures.iter().skip(1))
@@ -203,7 +203,7 @@ fn operate(
                         return Err(ShellError::PipelineMismatch {
                             exp_input_type: "string".into(),
                             dst_span: head,
-                            src_span: v.span()?,
+                            src_span: v.span(),
                         })
                     }
                 }
@@ -346,14 +346,15 @@ impl Iterator for ParseStreamer {
                     error: Box::new(ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
-                        src_span: v.span().unwrap_or(self.span),
+                        src_span: v.span(),
                     }),
+                    span: v.span(),
                 })
             };
 
             let parsed = stream_helper(
                 self.regex.clone(),
-                v.span().unwrap_or(self.span),
+                v.span(),
                 s,
                 self.columns.clone(),
                 &mut self.excess,
@@ -403,6 +404,7 @@ impl Iterator for ParseStreamerExternal {
             Some(Err(err)) => {
                 return Some(Value::Error {
                     error: Box::new(err),
+                    span: self.span,
                 })
             }
             _ => return None,
@@ -415,6 +417,7 @@ impl Iterator for ParseStreamerExternal {
                     dst_span: self.span,
                     src_span: self.span,
                 }),
+                span: self.span,
             })
         };
 
@@ -445,10 +448,11 @@ fn stream_helper(
                     error: Box::new(ShellError::GenericError(
                         "Error with regular expression captures".into(),
                         e.to_string(),
-                        None,
-                        None,
+                        Some(span),
+                        Some(e.to_string()),
                         Vec::new(),
                     )),
+                    span,
                 })
             }
         };

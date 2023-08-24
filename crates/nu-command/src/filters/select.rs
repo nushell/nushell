@@ -64,14 +64,14 @@ produce a table, a list will produce a list, and a record will produce a record.
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let mut new_columns: Vec<CellPath> = vec![];
         for col_val in columns {
-            let col_span = &col_val.span()?;
+            let col_span = &col_val.span();
             match col_val {
                 Value::CellPath { val, .. } => {
                     new_columns.push(val);
                 }
                 Value::List { vals, .. } => {
                     for value in vals {
-                        let val_span = &value.span()?;
+                        let val_span = &value.span();
                         match value {
                             Value::String { val, .. } => {
                                 let cv = CellPath {
@@ -97,7 +97,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
                                     from_type: y.get_type().to_string(),
-                                    span: y.span()?,
+                                    span: y.span(),
                                     help: None,
                                 });
                             }
@@ -128,7 +128,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                     return Err(ShellError::CantConvert {
                         to_type: "cell path".into(),
                         from_type: x.get_type().to_string(),
-                        span: x.span()?,
+                        span: x.span(),
                         help: None,
                     });
                 }

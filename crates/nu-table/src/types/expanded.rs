@@ -110,7 +110,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let Value::Error { error } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -150,7 +150,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let Value::Error { error } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -238,7 +238,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let Value::Error { error } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 

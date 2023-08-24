@@ -142,7 +142,7 @@ impl Command for Histogram {
             calc_method,
             span,
             // Note that as_list() filters out Value::Error here.
-            data_as_value.expect_span(),
+            data_as_value.span(),
         )
     }
 }
@@ -164,10 +164,10 @@ fn run_histogram(
             for v in values {
                 match v {
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     _ => {
                         let t = v.get_type();
-                        let span = v.expect_span();
+                        let span = v.span();
                         inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
                         ShellError::UnsupportedInput(
                             "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),
@@ -202,7 +202,7 @@ fn run_histogram(
                         }
                     }
                     // Propagate existing errors.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     _ => continue,
                 }
             }

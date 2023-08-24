@@ -56,7 +56,7 @@ impl Command for Try {
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
             }
-            Ok(PipelineData::Value(Value::Error { error }, ..)) => {
+            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
                 let error = intercept_block_control(*error)?;
                 let err_record = err_to_record(error, call.head);
                 handle_catch(err_record, catch_block, engine_state, stack)
@@ -141,7 +141,7 @@ fn err_to_record(error: ShellError, head: Span) -> Value {
         record! {
             "msg" => Value::string(error.to_string(), head),
             "debug" => Value::string(format!("{error:?}"), head),
-            "raw" => Value::error(error),
+            "raw" => Value::error(error, head),
         },
         head,
     )

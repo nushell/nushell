@@ -175,11 +175,8 @@ enum TableInside<'a> {
     },
 }
 
-fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) -> Vec<Value> {
-    let tag = match item.span() {
-        Ok(x) => x,
-        Err(e) => return vec![Value::Error { error: Box::new(e) }],
-    };
+fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> Vec<Value> {
+    let tag = item.span();
 
     if item.as_record().is_ok() {
         let mut out = IndexMap::<String, Value>::new();
@@ -194,17 +191,15 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                     error: Box::new(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),
-                        dst_span: _name_tag,
-                        src_span: other.expect_span(),
+                        dst_span: name_tag,
+                        src_span: other.span(),
                     }),
+                    span: name_tag,
                 }];
             }
         };
 
-        let s = match item.span() {
-            Ok(x) => x,
-            Err(e) => return vec![Value::Error { error: Box::new(e) }],
-        };
+        let s = item.span();
 
         for (column_index, (column, value)) in record.iter().enumerate() {
             let column_requested = columns.iter().find(|c| c.into_string() == *column);
@@ -233,7 +228,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                     "value originates from here".into(),
                                     s,
                                     *span
-                                ))}
+                                )), span: *span}
                             ];
                     }
                     // it's a table (a list of record, we can flatten inner record)
@@ -269,7 +264,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span, all: bool) ->
                                     "value originates from here".into(),
                                     s,
                                     *span
-                                ))}
+                                )), span: *span}
                             ];
                     }
 

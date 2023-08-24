@@ -102,7 +102,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             }
                         }
                         Err(error) => Some(Value::Error {
-                            error: Box::new(chain_error_with_input(error, x.span())),
+                            error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
+                            span: x.span(),
                         }),
                     }
                 })
@@ -122,6 +123,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         Err(err) => {
                             return Some(Value::Error {
                                 error: Box::new(err),
+                                span,
                             })
                         }
                     };
@@ -149,7 +151,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             }
                         }
                         Err(error) => Some(Value::Error {
-                            error: Box::new(chain_error_with_input(error, x.span())),
+                            error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
+                            span: x.span(),
                         }),
                     }
                 })
@@ -182,7 +185,8 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         }
                     }
                     Err(error) => Some(Value::Error {
-                        error: Box::new(chain_error_with_input(error, x.span())),
+                        error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
+                        span: x.span(),
                     }),
                 }
                 .into_pipeline_data(ctrlc))

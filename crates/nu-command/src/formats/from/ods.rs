@@ -45,7 +45,7 @@ impl Command for FromOds {
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
         {
-            convert_columns(columns.as_slice(), call.head)?
+            convert_columns(columns.as_slice())?
         } else {
             vec![]
         };
@@ -69,14 +69,14 @@ impl Command for FromOds {
     }
 }
 
-fn convert_columns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
+fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
             Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
                 msg: "Incorrect column format, Only string as column name".to_string(),
-                span: value.span().unwrap_or(span),
+                span: value.span(),
             }),
         })
         .collect::<Result<Vec<String>, _>>()?;
@@ -93,13 +93,13 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
             Some(Value::Binary { val: b, .. }) => {
                 bytes.extend_from_slice(&b);
             }
-            Some(Value::Error { error }) => return Err(*error),
+            Some(Value::Error { error, .. }) => return Err(*error),
             Some(x) => {
                 return Err(ShellError::UnsupportedInput(
                     "Expected binary from pipeline".to_string(),
                     "value originates from here".into(),
                     span,
-                    x.expect_span(),
+                    x.span(),
                 ))
             }
             None => break,

@@ -112,7 +112,13 @@ pub fn eval_constant(
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
         Expr::ValueWithUnit(expr, unit) => {
             if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
-                Ok(unit.item.to_value(val, unit.span))
+                unit.item.to_value(val, unit.span).map_err(|_| {
+                    ParseError::InvalidLiteral(
+                        "literal can not fit in unit".into(),
+                        "literal can not fit in unit".into(),
+                        unit.span,
+                    )
+                })
             } else {
                 Err(ParseError::NotAConstant(expr.span))
             }

@@ -276,6 +276,7 @@ fn action(
                             val_span: find.span,
                             call_span: head,
                         }),
+                        span: find.span,
                     },
                 }
             }
@@ -286,8 +287,9 @@ fn action(
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

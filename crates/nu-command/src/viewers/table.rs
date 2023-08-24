@@ -297,7 +297,7 @@ fn handle_table_command(
                 term_width,
             )
         }
-        PipelineData::Value(Value::Error { error }, ..) => {
+        PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)

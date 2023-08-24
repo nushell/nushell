@@ -100,6 +100,7 @@ fn operate(
                     if let Err(error) = r {
                         return Value::Error {
                             error: Box::new(error),
+                            span: head,
                         };
                     }
                 }
@@ -122,8 +123,9 @@ fn action(input: &Value, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

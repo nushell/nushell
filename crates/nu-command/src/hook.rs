@@ -44,7 +44,7 @@ pub fn eval_env_change_hook(
             x => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "record for the 'env_change' hook".to_string(),
-                    span: x.span()?,
+                    span: x.span(),
                 });
             }
         }
@@ -60,7 +60,7 @@ pub fn eval_hook(
     arguments: Vec<(String, Value)>,
     value: &Value,
 ) -> Result<PipelineData, ShellError> {
-    let value_span = value.span()?;
+    let value_span = value.span();
 
     // Hooks can optionally be a record in this form:
     // {
@@ -92,7 +92,7 @@ pub fn eval_hook(
                 for (name, val) in arguments {
                     let var_id = working_set.add_variable(
                         name.as_bytes().to_vec(),
-                        val.span()?,
+                        val.span(),
                         Type::Any,
                         false,
                     );
@@ -191,7 +191,7 @@ pub fn eval_hook(
                             return Err(ShellError::UnsupportedConfigValue(
                                 "block".to_string(),
                                 format!("{}", other.get_type()),
-                                other.span()?,
+                                other.span(),
                             ));
                         }
                     }
@@ -214,7 +214,7 @@ pub fn eval_hook(
                             for (name, val) in arguments {
                                 let var_id = working_set.add_variable(
                                     name.as_bytes().to_vec(),
-                                    val.span()?,
+                                    val.span(),
                                     Type::Any,
                                     false,
                                 );
@@ -293,7 +293,7 @@ pub fn eval_hook(
                         return Err(ShellError::UnsupportedConfigValue(
                             "block or string".to_string(),
                             format!("{}", other.get_type()),
-                            other.span()?,
+                            other.span(),
                         ));
                     }
                 }
@@ -331,7 +331,7 @@ pub fn eval_hook(
             return Err(ShellError::UnsupportedConfigValue(
                 "string, block, record, or list of commands".into(),
                 format!("{}", other.get_type()),
-                other.span()?,
+                other.span(),
             ));
         }
     }
@@ -374,7 +374,7 @@ fn run_hook_block(
     let pipeline_data =
         eval_block_with_early_return(engine_state, &mut callee_stack, block, input, false, false)?;
 
-    if let PipelineData::Value(Value::Error { error }, _) = pipeline_data {
+    if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);
     }
 

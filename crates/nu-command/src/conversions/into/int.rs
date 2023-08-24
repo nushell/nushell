@@ -250,6 +250,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                                     span,
                                     help: None,
                                 }),
+                                span,
                             }
                         }
                     }
@@ -263,6 +264,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     Ok(val) => Value::Int { val, span },
                     Err(error) => Value::Error {
                         error: Box::new(error),
+                        span,
                     },
                 }
             } else {
@@ -297,6 +299,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         val_span: *val_span,
                         call_span: span,
                     }),
+                    span,
                 }
             } else {
                 Value::Int {
@@ -335,8 +338,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }
@@ -353,7 +357,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             {
                 match int_from_string(val, head) {
                     Ok(x) => return Value::int(x, head),
-                    Err(e) => return Value::Error { error: Box::new(e) },
+                    Err(e) => {
+                        return Value::Error {
+                            error: Box::new(e),
+                            span: head,
+                        }
+                    }
                 }
             } else if val.starts_with("00") {
                 // It's a padded string
@@ -367,6 +376,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                                 span: head,
                                 help: Some(e.to_string()),
                             }),
+                            span: head,
                         }
                     }
                 }
@@ -381,8 +391,9 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span: head,
             };
         }
     };
@@ -395,6 +406,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                 span: head,
                 help: None,
             }),
+            span: head,
         },
     }
 }
@@ -583,7 +595,7 @@ mod test {
             },
             Span::test_data(),
         );
-        if let Value::Error { error } = actual {
+        if let Value::Error { error, .. } = actual {
             if let ShellError::IncorrectValue { msg: e, .. } = *error {
                 assert!(
                     e.contains(err_expected),

@@ -148,42 +148,40 @@ impl Command for SubCommand {
 }
 
 pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
-    if let Ok(value_span) = input.span() {
-        match input {
-            Value::Filesize { .. } => input.clone(),
-            Value::Int { val, .. } => Value::Filesize {
-                val: *val,
+    let value_span = input.span();
+    match input {
+        Value::Filesize { .. } => input.clone(),
+        Value::Int { val, .. } => Value::Filesize {
+            val: *val,
+            span: value_span,
+        },
+        Value::Float { val, .. } => Value::Filesize {
+            val: *val as i64,
+            span: value_span,
+        },
+        Value::String { val, .. } => match int_from_string(val, value_span) {
+            Ok(val) => Value::Filesize {
+                val,
                 span: value_span,
             },
-            Value::Float { val, .. } => Value::Filesize {
-                val: *val as i64,
+            Err(error) => Value::Error {
+                error: Box::new(error),
                 span: value_span,
             },
-            Value::String { val, .. } => match int_from_string(val, value_span) {
-                Ok(val) => Value::Filesize {
-                    val,
-                    span: value_span,
-                },
-                Err(error) => Value::Error {
-                    error: Box::new(error),
-                },
-            },
-            Value::Nothing { .. } => Value::Filesize {
-                val: 0,
-                span: value_span,
-            },
-            other => Value::Error {
-                error: Box::new(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string and integer".into(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: span,
-                    src_span: value_span,
-                }),
-            },
-        }
-    } else {
-        // Propagate existing errors
-        input.clone()
+        },
+        Value::Nothing { .. } => Value::Filesize {
+            val: 0,
+            span: value_span,
+        },
+        other => Value::Error {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string and integer".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: value_span,
+            }),
+            span,
+        },
     }
 }
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {

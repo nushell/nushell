@@ -219,6 +219,7 @@ fn detect_columns(
                         let err = processing_error("could not find range index", name_span);
                         return Value::Error {
                             error: Box::new(err),
+                            span: name_span,
                         };
                     }
                 }

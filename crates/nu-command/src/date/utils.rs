@@ -16,11 +16,13 @@ pub(crate) fn parse_date_from_string(
                 LocalResult::Ambiguous(d, _) => Ok(d),
                 LocalResult::None => Err(Value::Error {
                     error: Box::new(ShellError::DatetimeParseError(input.to_string(), span)),
+                    span,
                 }),
             }
         }
         Err(_) => Err(Value::Error {
             error: Box::new(ShellError::DatetimeParseError(input.to_string(), span)),
+            span,
         }),
     }
 }

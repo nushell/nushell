@@ -204,8 +204,9 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     };
 

@@ -135,7 +135,7 @@ impl NuLazyFrame {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
-                span: value.span()?,
+                span: value.span(),
                 help: None,
             })
         }
@@ -164,7 +164,7 @@ impl NuLazyFrame {
             x => Err(ShellError::CantConvert {
                 to_type: "lazy frame".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }

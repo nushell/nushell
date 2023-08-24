@@ -112,12 +112,12 @@ impl Command for Lines {
             PipelineData::Value(val, ..) => {
                 match val {
                     // Propagate existing errors
-                    Value::Error { error } => Err(*error),
+                    Value::Error { error, .. } => Err(*error),
                     _ => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string or raw data".into(),
                         wrong_type: val.get_type().to_string(),
                         dst_span: head,
-                        src_span: val.expect_span(),
+                        src_span: val.span(),
                     }),
                 }
             }
@@ -131,6 +131,7 @@ impl Command for Lines {
                     Ok(x) => x,
                     Err(err) => Value::Error {
                         error: Box::new(err),
+                        span: head,
                     },
                 })
                 .into_pipeline_data(ctrlc)),
@@ -234,13 +235,13 @@ impl Iterator for RawStreamLinesAdapter {
                                     self.queue.append(&mut lines);
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
-                                Value::Error { error } => return Some(Err(*error)),
+                                Value::Error { error, .. } => return Some(Err(*error)),
                                 other => {
                                     return Some(Err(ShellError::OnlySupportsThisInputType {
                                         exp_input_type: "string".into(),
                                         wrong_type: other.get_type().to_string(),
                                         dst_span: self.span,
-                                        src_span: other.expect_span(),
+                                        src_span: other.span(),
                                     }));
                                 }
                             }

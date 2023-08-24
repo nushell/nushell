@@ -113,6 +113,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
             Err(err) => {
                 return Value::Error {
                     error: Box::new(ShellError::IOErrorSpanned(err.to_string(), span)),
+                    span,
                 }
             }
         },

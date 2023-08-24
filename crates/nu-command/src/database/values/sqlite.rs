@@ -72,7 +72,7 @@ impl SQLiteDatabase {
             x => Err(ShellError::CantConvert {
                 to_type: "database".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }
@@ -459,6 +459,7 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
                 Err(_) => {
                     return Value::Error {
                         error: Box::new(ShellError::NonUtf8(span)),
+                        span,
                     }
                 }
             };

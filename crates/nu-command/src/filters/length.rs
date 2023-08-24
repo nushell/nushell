@@ -74,7 +74,7 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             let mut count: i64 = 0;
             // Check for and propagate errors
             for value in input.into_iter() {
-                if let Value::Error { error } = value {
+                if let Value::Error { error, .. } = value {
                     return Err(*error);
                 }
                 count += 1

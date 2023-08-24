@@ -90,9 +90,9 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
                 return Err(ShellError::OperatorMismatch {
                     op_span: head,
                     lhs_ty: elem[0].get_type().to_string(),
-                    lhs_span: elem[0].span()?,
+                    lhs_span: elem[0].span(),
                     rhs_ty: elem[1].get_type().to_string(),
-                    rhs_span: elem[1].span()?,
+                    rhs_span: elem[1].span(),
                 });
             }
             Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))

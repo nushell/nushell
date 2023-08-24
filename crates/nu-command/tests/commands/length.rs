@@ -18,5 +18,5 @@ fn length_columns_no_rows() {
 fn length_fails_on_echo_record() {
     let actual = nu!("echo {a:1 b:2} | length");
 
-    assert_eq!(actual.err.contains("only_supports_this_input_type"), true);
+    assert!(actual.err.contains("only_supports_this_input_type"));
 }

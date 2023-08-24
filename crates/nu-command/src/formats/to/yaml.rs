@@ -79,7 +79,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
-        Value::Error { error } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(*error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
@@ -118,6 +118,7 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
                 span: head,
                 help: None,
             }),
+            span: head,
         }
         .into_pipeline_data()),
     }

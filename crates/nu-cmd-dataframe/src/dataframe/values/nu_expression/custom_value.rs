@@ -70,17 +70,17 @@ fn compute_with_value(
 
             match rhs.as_ref() {
                 polars::prelude::Expr::Literal(..) => {
-                    with_operator(operator, left, rhs, lhs_span, right.span()?, op)
+                    with_operator(operator, left, rhs, lhs_span, right.span(), op)
                 }
                 _ => Err(ShellError::TypeMismatch {
                     err_message: "Only literal expressions or number".into(),
-                    span: right.span()?,
+                    span: right.span(),
                 }),
             }
         }
         _ => {
             let rhs = NuExpression::try_from_value(right.clone())?;
-            with_operator(operator, left, &rhs, lhs_span, right.span()?, op)
+            with_operator(operator, left, &rhs, lhs_span, right.span(), op)
         }
     }
 }

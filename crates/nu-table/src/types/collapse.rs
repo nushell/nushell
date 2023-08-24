@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, Value};
 
 use crate::UnstructuredTable;
 
@@ -61,7 +61,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             let (text, style) = nu_value_to_string_clean(value, config, style_computer);
             if let Some(color) = style.color_style {
                 let text = color.paint(text).to_string();
-                let span = value.span().unwrap_or(Span::unknown());
+                let span = value.span();
                 *value = Value::string(text, span);
             }
         }

@@ -257,11 +257,13 @@ impl Command for Ls {
                                 Ok(value) => Some(value),
                                 Err(err) => Some(Value::Error {
                                     error: Box::new(err),
+                                    span: call_span,
                                 }),
                             }
                         }
                         Err(err) => Some(Value::Error {
                             error: Box::new(err),
+                            span: call_span,
                         }),
                     }
                 }

@@ -64,7 +64,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
-            span: Some(input.span()?),
+            span: Some(input.span()),
         }),
     }
 }

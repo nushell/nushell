@@ -93,7 +93,7 @@ pub fn eval_call(
             }
 
             let span = if let Some(rest_item) = rest_items.first() {
-                rest_item.span()?
+                rest_item.span()
             } else {
                 call.head
             };
@@ -284,7 +284,7 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
-            Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
+            Value::Int { val, .. } => compute(val, unit.item, unit.span),
             x => Err(ShellError::CantConvert {
                 to_type: "unit value".into(),
                 from_type: x.get_type().to_string(),
@@ -1155,6 +1155,7 @@ pub fn eval_block(
                     input = PipelineData::Value(
                         Value::Error {
                             error: Box::new(error),
+                            span: Span::unknown(), // FIXME: where does this span come from?
                         },
                         None,
                     )
@@ -1247,7 +1248,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
             path.push("nushell");
             Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError("Could not get config directory".into()))
+            Value::error(
+                ShellError::IOError("Could not get config directory".into()),
+                span,
+            )
         },
     );
 
@@ -1261,7 +1265,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
             path.push("config.nu");
             Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError("Could not get config directory".into()))
+            Value::error(
+                ShellError::IOError("Could not get config directory".into()),
+                span,
+            )
         },
     );
 
@@ -1275,9 +1282,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
             path.push("env.nu");
             Value::string(path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError(
-                "Could not find environment path".into(),
-            ))
+            Value::error(
+                ShellError::IOError("Could not find environment path".into()),
+                span,
+            )
         },
     );
 
@@ -1296,7 +1304,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
             let canon_hist_path = canonicalize_path(engine_state, &path);
             Value::string(canon_hist_path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError("Could not find history path".into()))
+            Value::error(
+                ShellError::IOError("Could not find history path".into()),
+                span,
+            )
         },
     );
 
@@ -1308,9 +1319,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
             let canon_login_path = canonicalize_path(engine_state, &path);
             Value::string(canon_login_path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError(
-                "Could not find login shell path".into(),
-            ))
+            Value::error(
+                ShellError::IOError("Could not find login shell path".into()),
+                span,
+            )
         },
     );
 
@@ -1322,9 +1334,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
                 let canon_plugin_path = canonicalize_path(engine_state, path);
                 Value::string(canon_plugin_path.to_string_lossy(), span)
             } else {
-                Value::error(ShellError::IOError(
-                    "Could not get plugin signature location".into(),
-                ))
+                Value::error(
+                    ShellError::IOError("Could not get plugin signature location".into()),
+                    span,
+                )
             },
         );
     }
@@ -1335,7 +1348,7 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
             let canon_home_path = canonicalize_path(engine_state, &path);
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError("Could not get home path".into()))
+            Value::error(ShellError::IOError("Could not get home path".into()), span)
         },
     );
 
@@ -1380,9 +1393,10 @@ pub fn eval_nu_variable(engine_state: &EngineState, span: Span) -> Result<Value,
         if let Ok(current_exe) = std::env::current_exe() {
             Value::string(current_exe.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError(
-                "Could not get current executable path".to_string(),
-            ))
+            Value::error(
+                ShellError::IOError("Could not get current executable path".to_string()),
+                span,
+            )
         },
     );
 
@@ -1416,7 +1430,7 @@ pub fn eval_variable(
     }
 }
 
-fn compute(size: i64, unit: Unit, span: Span) -> Value {
+fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
 }
 
@@ -1461,6 +1475,7 @@ fn collect_profiling_metadata(
             Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
             Err(err) => Value::Error {
                 error: Box::new(err.clone()),
+                span: element_span,
             },
         };
 

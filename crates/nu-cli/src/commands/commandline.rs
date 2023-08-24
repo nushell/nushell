@@ -84,7 +84,7 @@ impl Command for Commandline {
                         return Err(ShellError::CantConvert {
                             to_type: "int".to_string(),
                             from_type: "string".to_string(),
-                            span: cmd.span()?,
+                            span: cmd.span(),
                             help: Some(format!(
                                 r#"string "{cmd_str}" does not represent a valid integer"#
                             )),

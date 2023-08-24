@@ -264,8 +264,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span: head,
             };
         }
     };
@@ -308,6 +309,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 input.debug_value(),
                                 *span,
                             )),
+                            span: *span,
                         },
                     },
                     Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
@@ -323,6 +325,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 input.debug_value(),
                                 *span,
                             )),
+                            span: *span,
                         },
                     },
                     Zone::Error => Value::Error {
@@ -331,6 +334,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             err_message: "Invalid timezone or offset".to_string(),
                             span: *span,
                         }),
+                        span: *span,
                     },
                 },
             };
@@ -346,6 +350,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Err(reason) => {
                         Value::Error {
                             error: Box::new(ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) }),
+                            span: head,
                         }
                     }
                 },
@@ -369,8 +374,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

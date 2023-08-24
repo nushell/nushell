@@ -161,6 +161,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             Ok(val) => Value::Bool { val, span },
             Err(error) => Value::Error {
                 error: Box::new(error),
+                span,
             },
         },
         // Propagate errors by explicitly matching them before the final case.
@@ -170,8 +171,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                 exp_input_type: "bool, integer, float or string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

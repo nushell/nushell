@@ -122,7 +122,7 @@ fn rename(
             return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
                         .to_string(), span: column_span });
         } else {
-            (Some(columns[0].span()?), column_span)
+            (Some(columns[0].span()), column_span)
         }
     } else {
         (None, call.head)
@@ -180,9 +180,19 @@ fn rename(
                                 redirect_stderr,
                             );
                             match eval_result {
-                                Err(e) => return Value::Error { error: Box::new(e) },
+                                Err(e) => {
+                                    return Value::Error {
+                                        error: Box::new(e),
+                                        span,
+                                    }
+                                }
                                 Ok(res) => match res.collect_string_strict(span) {
-                                    Err(e) => return Value::Error { error: Box::new(e) },
+                                    Err(e) => {
+                                        return Value::Error {
+                                            error: Box::new(e),
+                                            span,
+                                        }
+                                    }
                                     Ok(new_c) => *c = new_c.0,
                                 },
                             }
@@ -204,6 +214,7 @@ fn rename(
                                             // Arrow 2 points at the input value.
                                             span,
                                         )),
+                                        span,
                                     };
                                 }
                                 for (idx, val) in record.cols.iter_mut().enumerate() {
@@ -234,8 +245,9 @@ fn rename(
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: head_span,
-                        src_span: other.expect_span(),
+                        src_span: other.span(),
                     }),
+                    span: head_span,
                 },
             },
             engine_state.ctrlc.clone(),

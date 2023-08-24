@@ -154,7 +154,7 @@ pub fn highlight_search_in_table(
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
                 label: format!("got {}", record.get_type()),
-                span: record.span()?,
+                span: record.span(),
             });
         };
 

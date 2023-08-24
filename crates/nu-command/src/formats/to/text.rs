@@ -148,7 +148,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {val}>"),
         Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{error:?}"),
+        Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),

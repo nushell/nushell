@@ -101,12 +101,12 @@ impl Command for SubCommand {
 
                     url_components?.to_url(span)
                 }
-                Value::Error { error } => Err(*error),
+                Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::UnsupportedInput(
                     "Expected a record from pipeline".to_string(),
                     "value originates from here".into(),
                     head,
-                    other.expect_span(),
+                    other.span(),
                 )),
             })
             .collect();
@@ -159,12 +159,12 @@ impl UrlComponents {
                     port: Some(val),
                     ..self
                 }),
-                Value::Error { error } => Err(*error),
+                Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from(
                         "Port parameter should be an unsigned integer or a string representing it",
                     ),
-                    span: other.expect_span(),
+                    span: other.span(),
                 }),
             };
         }
@@ -192,7 +192,7 @@ impl UrlComponents {
                             // if query is present it means that also query_span is set.
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("Mismatch, qs from params is: {qs}"),
-                                left_span: value.expect_span(),
+                                left_span: value.span(),
                                 right_message: format!("instead query is: {q}"),
                                 right_span: self.query_span.unwrap_or(Span::unknown()),
                             });
@@ -205,10 +205,10 @@ impl UrlComponents {
                         ..self
                     })
                 }
-                Value::Error { error } => Err(*error),
+                Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from("Key params has to be a record"),
-                    span: other.expect_span(),
+                    span: other.span(),
                 }),
             };
         }
@@ -250,7 +250,7 @@ impl UrlComponents {
                                     // if query is present it means that also params_span is set.
                                     return Err(ShellError::IncompatibleParameters {
                                         left_message: format!("Mismatch, query param is: {s}"),
-                                        left_span: value.expect_span(),
+                                        left_span: value.span(),
                                         right_message: format!("instead qs from params is: {q}"),
                                         right_span: self.params_span.unwrap_or(Span::unknown()),
                                     });
@@ -259,7 +259,7 @@ impl UrlComponents {
 
                             Ok(Self {
                                 query: Some(format!("?{s}")),
-                                query_span: Some(value.expect_span()),
+                                query_span: Some(value.span()),
                                 ..self
                             })
                         }

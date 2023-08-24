@@ -251,7 +251,10 @@ fn process_cell(
         redirect_stderr,
     ) {
         Ok(pd) => pd.into_value(span),
-        Err(e) => Value::Error { error: Box::new(e) },
+        Err(e) => Value::Error {
+            error: Box::new(e),
+            span,
+        },
     }
 }
 

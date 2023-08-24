@@ -140,7 +140,12 @@ fn update(
 
                 let input_at_path = match input.clone().follow_cell_path(&cell_path.members, false)
                 {
-                    Err(e) => return Value::Error { error: Box::new(e) },
+                    Err(e) => {
+                        return Value::Error {
+                            error: Box::new(e),
+                            span,
+                        }
+                    }
                     Ok(v) => v,
                 };
                 let output = eval_block(
@@ -157,12 +162,18 @@ fn update(
                         if let Err(e) =
                             input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error { error: Box::new(e) };
+                            return Value::Error {
+                                error: Box::new(e),
+                                span,
+                            };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: Box::new(e) },
+                    Err(e) => Value::Error {
+                        error: Box::new(e),
+                        span,
+                    },
                 }
             },
             ctrlc,
@@ -199,7 +210,10 @@ fn update(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error { error: Box::new(e) };
+                    return Value::Error {
+                        error: Box::new(e),
+                        span,
+                    };
                 }
 
                 input

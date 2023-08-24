@@ -163,7 +163,7 @@ pub fn split(
                         None => Err(ShellError::CantFindColumn {
                             col_name: column_name.item.to_string(),
                             span: column_name.span,
-                            src_span: row.span().unwrap_or(column_name.span),
+                            src_span: row.span(),
                         }),
                     },
                 );

@@ -263,7 +263,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
             Ok(val.into_bytes())
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(*error),
+        Value::Error { error, .. } => Err(*error),
         other => Ok(other.as_string()?.into_bytes()),
     }
 }
@@ -385,13 +385,13 @@ fn stream_to_file(
                     Value::String { val, .. } => val.into_bytes(),
                     Value::Binary { val, .. } => val,
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "string or binary".into(),
                             wrong_type: other.get_type().to_string(),
                             dst_span: span,
-                            src_span: other.expect_span(),
+                            src_span: other.span(),
                         });
                     }
                 },

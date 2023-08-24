@@ -116,18 +116,17 @@ fn build_metadata_record(
 ) -> Value {
     let mut record = Record::new();
 
-    if let Ok(span) = arg.span() {
-        record.push(
-            "span",
-            Value::record(
-                record! {
-                    "start" => Value::int(span.start as i64,span),
-                    "end" => Value::int(span.end as i64, span),
-                },
-                head,
-            ),
-        );
-    }
+    let span = arg.span();
+    record.push(
+        "span",
+        Value::record(
+            record! {
+                "start" => Value::int(span.start as i64,span),
+                "end" => Value::int(span.end as i64, span),
+            },
+            head,
+        ),
+    );
 
     if let Some(x) = metadata.as_deref() {
         match x {

@@ -235,7 +235,7 @@ impl NuDataFrame {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)
         } else if NuLazyFrame::can_downcast(&value) {
-            let span = value.span()?;
+            let span = value.span();
             let lazy = NuLazyFrame::try_from_value(value)?;
             let df = lazy.collect(span)?;
             Ok(df)
@@ -243,7 +243,7 @@ impl NuDataFrame {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
-                span: value.span()?,
+                span: value.span(),
                 help: None,
             })
         }
@@ -266,7 +266,7 @@ impl NuDataFrame {
             x => Err(ShellError::CantConvert {
                 to_type: "dataframe".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }

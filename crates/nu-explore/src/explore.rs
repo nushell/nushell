@@ -100,6 +100,7 @@ impl Command for Explore {
             Err(err) => Ok(PipelineData::Value(
                 Value::Error {
                     error: Box::new(err.into()),
+                    span: call.head,
                 },
                 None,
             )),

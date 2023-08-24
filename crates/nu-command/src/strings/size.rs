@@ -122,9 +122,14 @@ fn size(
     input.map(
         move |v| {
             // First, obtain the span. If this fails, propagate the error that results.
-            let value_span = match v.span() {
-                Err(v) => return Value::Error { error: Box::new(v) },
-                Ok(v) => v,
+            let value_span = match &v {
+                Value::Error { error, span } => {
+                    return Value::Error {
+                        error: error.clone(),
+                        span: *span,
+                    }
+                }
+                v => v.span(),
             };
             // Now, check if it's a string.
             match v.as_string() {
@@ -135,6 +140,7 @@ fn size(
                         dst_span: span,
                         src_span: value_span,
                     }),
+                    span,
                 },
             }
         },
