@@ -137,7 +137,7 @@ impl Command for Ucp {
             )
             .switch(
                 "preserve",
-                "preserve the default attributes (mode, owernship, timestamps)",
+                "preserve the default attributes (mode, ownership, timestamps)",
                 Some('p')
                 )
             .switch("backup", "make a backup of each existing destination file", Some('b'))
