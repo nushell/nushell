@@ -73,26 +73,24 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                 ..
             } => {
                 let bytes: Vec<u8> = stream.into_bytes()?.item;
-                super::encoding::decode(
-                    head,
-                    encoding.unwrap_or(super::encoding::detect_encoding_name(
-                        head, input_span, &bytes,
-                    )?),
-                    &bytes,
-                )
+                match encoding {
+                    Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
+                    None => super::encoding::detect_encoding_name(head, input_span, &bytes)
+                        .map(|encoding| encoding.decode(&bytes).0.into_owned())
+                        .map(|s| Value::String { val: s, span: head }),
+                }
                 .map(|val| val.into_pipeline_data())
             }
             PipelineData::Value(v, ..) => match v {
                 Value::Binary {
                     val: bytes,
                     span: input_span,
-                } => super::encoding::decode(
-                    head,
-                    encoding.unwrap_or(super::encoding::detect_encoding_name(
-                        head, input_span, &bytes,
-                    )?),
-                    &bytes,
-                )
+                } => match encoding {
+                    Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
+                    None => super::encoding::detect_encoding_name(head, input_span, &bytes)
+                        .map(|encoding| encoding.decode(&bytes).0.into_owned())
+                        .map(|s| Value::String { val: s, span: head }),
+                }
                 .map(|val| val.into_pipeline_data()),
                 Value::Error { error } => Err(*error),
                 _ => Err(ShellError::OnlySupportsThisInputType {
