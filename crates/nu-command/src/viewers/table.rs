@@ -129,10 +129,7 @@ impl Command for Table {
 
         // if list argument is present we just need to return a list of supported table themes
         if list {
-            let val = Value::List {
-                vals: supported_table_modes(),
-                span: Span::test_data(),
-            };
+            let val = Value::list(supported_table_modes(), Span::test_data());
 
             return Ok(val.into_pipeline_data());
         }
@@ -165,8 +162,8 @@ impl Command for Table {
             Example {
                 description: "Render data in table view",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
@@ -177,13 +174,13 @@ impl Command for Table {
                         }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Render data in table view (expanded)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
@@ -194,13 +191,13 @@ impl Command for Table {
                         }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Render data in table view (collapsed)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
@@ -211,7 +208,7 @@ impl Command for Table {
                         }),
                     ],
                     span,
-                }),
+                )),
             },
         ]
     }
