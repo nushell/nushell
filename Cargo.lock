@@ -2564,7 +2564,6 @@ dependencies = [
  "criterion",
  "crossterm",
  "ctrlc",
- "is-terminal",
  "log",
  "miette",
  "mimalloc",
@@ -2621,7 +2620,6 @@ dependencies = [
  "crossterm",
  "fancy-regex",
  "fuzzy-matcher",
- "is-terminal",
  "is_executable",
  "log",
  "miette",
@@ -2753,7 +2751,6 @@ dependencies = [
  "htmlescape",
  "indexmap 2.0.0",
  "indicatif",
- "is-terminal",
  "itertools",
  "libc",
  "log",
@@ -2956,7 +2953,6 @@ name = "nu-system"
 version = "0.84.1"
 dependencies = [
  "chrono",
- "is-terminal",
  "libc",
  "libproc",
  "log",
