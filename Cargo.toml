@@ -69,7 +69,9 @@ nu-utils = { path = "./crates/nu-utils", version = "0.84.1" }
 nu-ansi-term = "0.49.0"
 reedline = { version = "0.23.0", features = ["bashisms", "sqlite"] }
 
+# swap these lines to try linting wildcard dependencies
 crossterm = "0.26"
+#crossterm = "*"
 ctrlc = "3.4"
 log = "0.4"
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }

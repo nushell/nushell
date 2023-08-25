@@ -29,7 +29,9 @@ reedline = { version = "0.23.0", features = ["bashisms", "sqlite"] }
 
 chrono = { default-features = false, features = ["std"], version = "0.4" }
 crossterm = "0.26"
+# swap these 2 lines to test linting wildcard dependencies
 fancy-regex = "0.11"
+#fancy-regex = "*"
 fuzzy-matcher = "0.3"
 is_executable = "1.0"
 is-terminal = "0.4.8"
