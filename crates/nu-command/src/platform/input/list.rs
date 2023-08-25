@@ -44,7 +44,7 @@ impl Command for InputList {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::List(Box::new(Type::String)), Type::String),
+                (Type::List(Box::new(Type::Any)), Type::Any),
             ])
             .optional("prompt", SyntaxShape::String, "the prompt to display")
             .switch(
@@ -88,8 +88,8 @@ impl Command for InputList {
                 let rows = input.into_iter().collect::<Vec<_>>();
                 rows.iter().for_each(|row| {
                     if let Ok(record) = row.as_record() {
-                        let columns = record.1.len();
-                        for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate() {
+                        let columns = record.len();
+                        for (i, (col, val)) in record.iter().enumerate() {
                             if i == columns - 1 {
                                 break;
                             }
@@ -116,9 +116,8 @@ impl Command for InputList {
                             })
                         } else if let Ok(record) = x.as_record() {
                             let mut options = Vec::new();
-                            let columns = record.1.len();
-                            for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate()
-                            {
+                            let columns = record.len();
+                            for (i, (col, val)) in record.iter().enumerate() {
                                 if let Ok(val) = val.as_string() {
                                     let len = nu_utils::strip_ansi_likely(&val).len()
                                         + nu_utils::strip_ansi_likely(col).len();

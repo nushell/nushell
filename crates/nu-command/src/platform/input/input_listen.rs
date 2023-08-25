@@ -7,7 +7,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use num_traits::AsPrimitive;
 use std::io::stdout;
@@ -54,13 +55,15 @@ impl Command for InputListen {
     fn extra_usage(&self) -> &str {
         r#"There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by type field:
+```
     { type: focus event: (gained|lost) }
     { type: key key_type: <key_type> code: <string> modifiers: [ <modifier> ... ] }
     { type: mouse col: <int> row: <int> kind: <string> modifiers: [ <modifier> ... ] }
     { type: paste content: <string> }
     { type: resize col: <int> row: <int> }
-There are 6 <modifier> variants: shift, control, alt, super, hyper, meta.
-There are 4 <key_type> variants:
+```
+There are 6 `modifier` variants: shift, control, alt, super, hyper, meta.
+There are 4 `key_type` variants:
     f - f1, f2, f3 ... keys
     char - alphanumeric and special symbols (a, A, 1, $ ...)
     media - dedicated media keys (play, pause, tracknext ...)
@@ -181,7 +184,7 @@ impl EventTypeFilter {
             "--types expects a list of strings".to_string(),
             "value originates from here".into(),
             head,
-            value.span().unwrap_or(head),
+            value.span(),
         )
     }
 
@@ -271,13 +274,13 @@ fn create_focus_event(
     event_type: FocusEventType,
 ) -> Option<Value> {
     if filter.listen_focus {
-        let cols = vec!["type".to_string(), "event".to_string()];
-        let vals = vec![
-            Value::string("focus", head),
-            Value::string(event_type.string(), head),
-        ];
-
-        Some(Value::record(cols, vals, head))
+        Some(Value::record(
+            record! {
+                "type" => Value::string("focus", head),
+                "event" => Value::string(event_type.string(), head)
+            },
+            head,
+        ))
     } else {
         None
     }
@@ -306,28 +309,26 @@ fn create_key_event(
             return None;
         }
 
-        let mut cols = vec![
-            "type".to_string(),
-            "key_type".to_string(),
-            "code".to_string(),
-            "modifiers".to_string(),
-        ];
-
-        let typ = Value::string("key".to_string(), head);
         let (key, code) = get_keycode_name(head, raw_code);
-        let modifiers = parse_modifiers(head, raw_modifiers);
-        let mut vals = vec![typ, key, code, modifiers];
+
+        let mut record = record! {
+            "type" => Value::string("key", head),
+            "key_type" => key,
+            "code" => code,
+            "modifiers" => parse_modifiers(head, raw_modifiers),
+        };
 
         if add_raw {
             if let KeyCode::Char(c) = raw_code {
-                cols.push("raw_code".to_string());
-                vals.push(Value::int(c.as_(), head));
+                record.push("raw_code", Value::int(c.as_(), head));
             }
-            cols.push("raw_modifiers".to_string());
-            vals.push(Value::int(raw_modifiers.bits() as i64, head));
+            record.push(
+                "raw_modifiers",
+                Value::int(raw_modifiers.bits() as i64, head),
+            );
         }
 
-        Some(Value::record(cols, vals, head))
+        Some(Value::record(record, head))
     } else {
         None
     }
@@ -371,18 +372,6 @@ fn create_mouse_event(
     add_raw: bool,
 ) -> Option<Value> {
     if filter.listen_mouse {
-        let mut cols = vec![
-            "type".to_string(),
-            "col".to_string(),
-            "row".to_string(),
-            "kind".to_string(),
-            "modifiers".to_string(),
-        ];
-
-        let typ = Value::string("mouse".to_string(), head);
-        let col = Value::int(event.column as i64, head);
-        let row = Value::int(event.row as i64, head);
-
         let kind = match event.kind {
             MouseEventKind::Down(btn) => format!("{btn:?}_down"),
             MouseEventKind::Up(btn) => format!("{btn:?}_up"),
@@ -391,17 +380,23 @@ fn create_mouse_event(
             MouseEventKind::ScrollDown => "scroll_down".to_string(),
             MouseEventKind::ScrollUp => "scroll_up".to_string(),
         };
-        let kind = Value::string(kind, head);
-        let modifiers = parse_modifiers(head, &event.modifiers);
 
-        let mut vals = vec![typ, col, row, kind, modifiers];
+        let mut record = record! {
+            "type" => Value::string("mouse", head),
+            "col" => Value::int(event.column as i64, head),
+            "row" => Value::int(event.row as i64, head),
+            "kind" => Value::string(kind, head),
+            "modifiers" => parse_modifiers(head, &event.modifiers),
+        };
 
         if add_raw {
-            cols.push("raw_modifiers".to_string());
-            vals.push(Value::int(event.modifiers.bits() as i64, head));
+            record.push(
+                "raw_modifiers",
+                Value::int(event.modifiers.bits() as i64, head),
+            );
         }
 
-        Some(Value::record(cols, vals, head))
+        Some(Value::record(record, head))
     } else {
         None
     }
@@ -409,10 +404,12 @@ fn create_mouse_event(
 
 fn create_paste_event(head: Span, filter: &EventTypeFilter, content: &str) -> Option<Value> {
     if filter.listen_paste {
-        let cols = vec!["type".to_string(), "content".to_string()];
-        let vals = vec![Value::string("paste", head), Value::string(content, head)];
+        let record = record! {
+            "type" => Value::string("paste", head),
+            "content" => Value::string(content, head),
+        };
 
-        Some(Value::record(cols, vals, head))
+        Some(Value::record(record, head))
     } else {
         None
     }
@@ -425,14 +422,13 @@ fn create_resize_event(
     rows: u16,
 ) -> Option<Value> {
     if filter.listen_resize {
-        let cols = vec!["type".to_string(), "col".to_string(), "row".to_string()];
-        let vals = vec![
-            Value::string("resize", head),
-            Value::int(columns as i64, head),
-            Value::int(rows as i64, head),
-        ];
+        let record = record! {
+            "type" => Value::string("resize", head),
+            "col" => Value::int(columns as i64, head),
+            "row" => Value::int(rows as i64, head),
+        };
 
-        Some(Value::record(cols, vals, head))
+        Some(Value::record(record, head))
     } else {
         None
     }

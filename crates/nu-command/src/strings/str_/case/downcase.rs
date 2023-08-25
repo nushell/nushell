@@ -3,7 +3,9 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -22,8 +24,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .rest(
                 "rest",
@@ -67,11 +69,10 @@ impl Command for SubCommand {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_string("test"), Value::test_string("ABC")],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -79,11 +80,10 @@ impl Command for SubCommand {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_string("test"), Value::test_string("abc")],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -111,6 +111,7 @@ fn operate(
                     if let Err(error) = r {
                         return Value::Error {
                             error: Box::new(error),
+                            span: head,
                         };
                     }
                 }
@@ -133,8 +134,9 @@ fn action(input: &Value, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

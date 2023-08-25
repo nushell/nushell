@@ -199,7 +199,7 @@ impl Command for LazyJoin {
             let right_on: Value = call.req(engine_state, stack, 2)?;
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "The right column list has a different size to the left column list".into(),
-                span: right_on.span()?,
+                span: right_on.span(),
             });
         }
 
@@ -209,7 +209,7 @@ impl Command for LazyJoin {
                 let value: Value = call.req(engine_state, stack, *index)?;
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "Expected only a string, col expressions or list of strings".into(),
-                    span: value.span()?,
+                    span: value.span(),
                 });
             }
         }

@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 
@@ -683,10 +683,14 @@ fn build_table_as_list(v: &RecordView) -> Value {
         .records
         .iter()
         .cloned()
-        .map(|vals| Value::Record {
-            cols: headers.clone(),
-            vals,
-            span: NuSpan::unknown(),
+        .map(|vals| {
+            Value::record(
+                Record {
+                    cols: headers.clone(),
+                    vals,
+                },
+                NuSpan::unknown(),
+            )
         })
         .collect();
 
@@ -702,11 +706,7 @@ fn build_table_as_record(v: &RecordView) -> Value {
     let cols = layer.columns.to_vec();
     let vals = layer.records.get(0).map_or(Vec::new(), |row| row.clone());
 
-    Value::Record {
-        cols,
-        vals,
-        span: NuSpan::unknown(),
-    }
+    Value::record(Record { cols, vals }, NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {

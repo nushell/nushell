@@ -1,5 +1,6 @@
 use crate::{
     ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
+    Value, VarId,
 };
 
 use indexmap::IndexMap;
@@ -7,11 +8,20 @@ use indexmap::IndexMap;
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
     pub modules: Vec<(Vec<u8>, ModuleId)>,
+    pub constants: Vec<(Vec<u8>, Value)>,
 }
 
 impl ResolvedImportPattern {
-    pub fn new(decls: Vec<(Vec<u8>, DeclId)>, modules: Vec<(Vec<u8>, ModuleId)>) -> Self {
-        ResolvedImportPattern { decls, modules }
+    pub fn new(
+        decls: Vec<(Vec<u8>, DeclId)>,
+        modules: Vec<(Vec<u8>, ModuleId)>,
+        constants: Vec<(Vec<u8>, Value)>,
+    ) -> Self {
+        ResolvedImportPattern {
+            decls,
+            modules,
+            constants,
+        }
     }
 }
 
@@ -21,6 +31,7 @@ pub struct Module {
     pub name: Vec<u8>,
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub submodules: IndexMap<Vec<u8>, ModuleId>,
+    pub constants: IndexMap<Vec<u8>, VarId>,
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
@@ -32,6 +43,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
+            constants: IndexMap::new(),
             env_block: None,
             main: None,
             span: None,
@@ -43,6 +55,7 @@ impl Module {
             name,
             decls: IndexMap::new(),
             submodules: IndexMap::new(),
+            constants: IndexMap::new(),
             env_block: None,
             main: None,
             span: Some(span),
@@ -59,6 +72,10 @@ impl Module {
 
     pub fn add_submodule(&mut self, name: Vec<u8>, module_id: ModuleId) -> Option<ModuleId> {
         self.submodules.insert(name, module_id)
+    }
+
+    pub fn add_variable(&mut self, name: Vec<u8>, var_id: VarId) -> Option<VarId> {
+        self.constants.insert(name, var_id)
     }
 
     pub fn add_env_block(&mut self, block_id: BlockId) {
@@ -78,8 +95,8 @@ impl Module {
         working_set: &StateWorkingSet,
         self_id: ModuleId,
         members: &[ImportPatternMember],
-        name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the
-                                      // same as self.name)
+        name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the same as self.name)
+        backup_span: Span,
     ) -> (ResolvedImportPattern, Vec<ParseError>) {
         let final_name = name_override.unwrap_or(&self.name).to_vec();
 
@@ -87,13 +104,16 @@ impl Module {
             (head, rest)
         } else {
             // Import pattern was just name without any members
-            let mut results = vec![];
+            let mut decls = vec![];
+            let mut const_rows = vec![];
             let mut errors = vec![];
 
             for (_, id) in &self.submodules {
                 let submodule = working_set.get_module(*id);
+                let span = submodule.span.or(self.span).unwrap_or(backup_span);
+
                 let (sub_results, sub_errors) =
-                    submodule.resolve_import_pattern(working_set, *id, &[], None);
+                    submodule.resolve_import_pattern(working_set, *id, &[], None, span);
                 errors.extend(sub_errors);
 
                 for (sub_name, sub_decl_id) in sub_results.decls {
@@ -101,14 +121,36 @@ impl Module {
                     new_name.push(b' ');
                     new_name.extend(sub_name);
 
-                    results.push((new_name, sub_decl_id));
+                    decls.push((new_name, sub_decl_id));
+                }
+
+                const_rows.extend(sub_results.constants);
+            }
+
+            decls.extend(self.decls_with_head(&final_name));
+
+            for (name, var_id) in self.consts() {
+                match working_set.get_constant(var_id) {
+                    Ok(const_val) => const_rows.push((name, const_val.clone())),
+                    Err(err) => errors.push(err),
                 }
             }
 
-            results.extend(self.decls_with_head(&final_name));
+            let span = self.span.unwrap_or(backup_span);
+            let const_record = Value::record(
+                const_rows
+                    .into_iter()
+                    .map(|(name, val)| (String::from_utf8_lossy(&name).to_string(), val))
+                    .collect(),
+                span,
+            );
 
             return (
-                ResolvedImportPattern::new(results, vec![(final_name, self_id)]),
+                ResolvedImportPattern::new(
+                    decls,
+                    vec![(final_name.clone(), self_id)],
+                    vec![(final_name, const_record)],
+                ),
                 errors,
             );
         };
@@ -118,26 +160,51 @@ impl Module {
                 if name == b"main" {
                     if let Some(main_decl_id) = self.main {
                         (
-                            ResolvedImportPattern::new(vec![(final_name, main_decl_id)], vec![]),
+                            ResolvedImportPattern::new(
+                                vec![(final_name, main_decl_id)],
+                                vec![],
+                                vec![],
+                            ),
                             vec![],
                         )
                     } else {
                         (
-                            ResolvedImportPattern::new(vec![], vec![]),
+                            ResolvedImportPattern::new(vec![], vec![], vec![]),
                             vec![ParseError::ExportNotFound(*span)],
                         )
                     }
                 } else if let Some(decl_id) = self.decls.get(name) {
                     (
-                        ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![]),
+                        ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![], vec![]),
                         vec![],
                     )
+                } else if let Some(var_id) = self.constants.get(name) {
+                    match working_set.get_constant(*var_id) {
+                        Ok(const_val) => (
+                            ResolvedImportPattern::new(
+                                vec![],
+                                vec![],
+                                vec![(name.clone(), const_val.clone())],
+                            ),
+                            vec![],
+                        ),
+                        Err(err) => (
+                            ResolvedImportPattern::new(vec![], vec![], vec![]),
+                            vec![err],
+                        ),
+                    }
                 } else if let Some(submodule_id) = self.submodules.get(name) {
                     let submodule = working_set.get_module(*submodule_id);
-                    submodule.resolve_import_pattern(working_set, *submodule_id, rest, None)
+                    submodule.resolve_import_pattern(
+                        working_set,
+                        *submodule_id,
+                        rest,
+                        None,
+                        self.span.unwrap_or(backup_span),
+                    )
                 } else {
                     (
-                        ResolvedImportPattern::new(vec![], vec![]),
+                        ResolvedImportPattern::new(vec![], vec![], vec![]),
                         vec![ParseError::ExportNotFound(*span)],
                     )
                 }
@@ -145,25 +212,46 @@ impl Module {
             ImportPatternMember::Glob { .. } => {
                 let mut decls = vec![];
                 let mut submodules = vec![];
+                let mut constants = vec![];
                 let mut errors = vec![];
 
                 for (_, id) in &self.submodules {
                     let submodule = working_set.get_module(*id);
-                    let (sub_results, sub_errors) =
-                        submodule.resolve_import_pattern(working_set, *id, &[], None);
+                    let (sub_results, sub_errors) = submodule.resolve_import_pattern(
+                        working_set,
+                        *id,
+                        &[],
+                        None,
+                        self.span.unwrap_or(backup_span),
+                    );
                     decls.extend(sub_results.decls);
+
                     submodules.extend(sub_results.modules);
+                    constants.extend(sub_results.constants);
                     errors.extend(sub_errors);
                 }
 
                 decls.extend(self.decls());
+                constants.extend(self.constants.iter().filter_map(|(name, var_id)| {
+                    match working_set.get_constant(*var_id) {
+                        Ok(const_val) => Some((name.clone(), const_val.clone())),
+                        Err(err) => {
+                            errors.push(err);
+                            None
+                        }
+                    }
+                }));
                 submodules.extend(self.submodules());
 
-                (ResolvedImportPattern::new(decls, submodules), errors)
+                (
+                    ResolvedImportPattern::new(decls, submodules, constants),
+                    errors,
+                )
             }
             ImportPatternMember::List { names } => {
                 let mut decls = vec![];
-                let mut submodules = vec![];
+                let mut modules = vec![];
+                let mut constants = vec![];
                 let mut errors = vec![];
 
                 for (name, span) in names {
@@ -175,14 +263,34 @@ impl Module {
                         }
                     } else if let Some(decl_id) = self.decls.get(name) {
                         decls.push((name.clone(), *decl_id));
+                    } else if let Some(var_id) = self.constants.get(name) {
+                        match working_set.get_constant(*var_id) {
+                            Ok(const_val) => constants.push((name.clone(), const_val.clone())),
+                            Err(err) => errors.push(err),
+                        }
                     } else if let Some(submodule_id) = self.submodules.get(name) {
-                        submodules.push((name.clone(), *submodule_id));
+                        let submodule = working_set.get_module(*submodule_id);
+                        let (sub_results, sub_errors) = submodule.resolve_import_pattern(
+                            working_set,
+                            *submodule_id,
+                            rest,
+                            None,
+                            self.span.unwrap_or(backup_span),
+                        );
+
+                        decls.extend(sub_results.decls);
+                        modules.extend(sub_results.modules);
+                        constants.extend(sub_results.constants);
+                        errors.extend(sub_errors);
                     } else {
                         errors.push(ParseError::ExportNotFound(*span));
                     }
                 }
 
-                (ResolvedImportPattern::new(decls, submodules), errors)
+                (
+                    ResolvedImportPattern::new(decls, modules, constants),
+                    errors,
+                )
             }
         }
     }
@@ -215,6 +323,13 @@ impl Module {
         }
 
         result
+    }
+
+    pub fn consts(&self) -> Vec<(Vec<u8>, VarId)> {
+        self.constants
+            .iter()
+            .map(|(name, id)| (name.to_vec(), *id))
+            .collect()
     }
 
     pub fn decl_names_with_head(&self, head: &[u8]) -> Vec<Vec<u8>> {

@@ -128,9 +128,9 @@ impl Command for ExprWhen {
 #[cfg(test)]
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
-    use crate::dataframe::eager::WithColumn;
+    use crate::dataframe::eager::{ToNu, WithColumn};
     use crate::dataframe::expressions::otherwise::ExprOtherwise;
-    use crate::dataframe::expressions::{ExprAlias, ExprAsNu, ExprCol};
+    use crate::dataframe::expressions::{ExprAlias, ExprCol};
 
     use super::*;
 
@@ -142,7 +142,7 @@ mod test {
             Box::new(ExprAlias {}),
             Box::new(ExprWhen {}),
             Box::new(ExprOtherwise {}),
-            Box::new(ExprAsNu {}),
+            Box::new(ToNu {}),
         ])
     }
 }

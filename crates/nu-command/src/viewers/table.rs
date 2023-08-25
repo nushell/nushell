@@ -6,12 +6,13 @@ use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, DataSource, Example, FooterMode, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
+    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_table::common::create_nu_table_config;
 use nu_table::{
-    BuildConfig, Cell, CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult,
-    TableConfig, TableOutput, TableTheme,
+    CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
+    TableOutput,
 };
 use nu_utils::get_ls_colors;
 use std::sync::Arc;
@@ -166,16 +167,14 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -185,16 +184,14 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -204,16 +201,14 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -275,12 +270,11 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+        PipelineData::Value(Value::Record { val, span }, ..) => {
             let term_width = get_width_param(term_width);
 
             handle_record(
-                cols,
-                vals,
+                val,
                 span,
                 engine_state,
                 stack,
@@ -303,7 +297,7 @@ fn handle_table_command(
                 term_width,
             )
         }
-        PipelineData::Value(Value::Error { error }, ..) => {
+        PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)
@@ -343,8 +337,7 @@ fn supported_table_modes() -> Vec<Value> {
 
 #[allow(clippy::too_many_arguments)]
 fn handle_record(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -358,11 +351,12 @@ fn handle_record(
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     let ctrlc1 = ctrlc.clone();
 
-    let result = if cols.is_empty() {
+    let result = if record.is_empty() {
         create_empty_placeholder("record", term_width, engine_state, stack)
     } else {
-        let opts = BuildConfig::new(ctrlc, config, style_computer, span, term_width);
-        let result = build_table_kv(cols, vals, table_view, opts)?;
+        let indent = (config.table_indent.left, config.table_indent.right);
+        let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width, indent);
+        let result = build_table_kv(record, table_view, opts, span)?;
         match result {
             Some(output) => maybe_strip_color(output, config),
             None => report_unsuccessful_output(ctrlc1, term_width),
@@ -388,24 +382,23 @@ fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize
 }
 
 fn build_table_kv(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     table_view: TableView,
-    opts: BuildConfig<'_>,
+    opts: TableOpts<'_>,
+    span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(&cols, &vals, opts),
+        TableView::General => JustTable::kv_table(&record, opts),
         TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
+            ExpandedTable::new(limit, flatten, sep).build_map(&record, opts)
         }
         TableView::Collapsed => {
-            let span = opts.span();
-            let value = Value::Record { cols, vals, span };
+            let value = Value::record(record, span);
             CollapsedTable::build(value, opts)
         }
     }
@@ -414,21 +407,20 @@ fn build_table_kv(
 fn build_table_batch(
     vals: Vec<Value>,
     table_view: TableView,
-    row_offset: usize,
-    opts: BuildConfig<'_>,
+    opts: TableOpts<'_>,
+    span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::table(&vals, row_offset, opts),
+        TableView::General => JustTable::table(&vals, opts),
         TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts, row_offset)
+            ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
         }
         TableView::Collapsed => {
-            let span = opts.span();
             let value = Value::List { vals, span };
             CollapsedTable::build(value, opts)
         }
@@ -459,16 +451,16 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
+                    Value::Record { val: record, .. } => {
                         let mut idx = 0;
 
-                        while idx < cols.len() {
+                        while idx < record.len() {
                             // Only the name column gets special colors, for now
-                            if cols[idx] == "name" {
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
+                            if record.cols[idx] == "name" {
+                                if let Some(Value::String { val, span }) = record.vals.get(idx) {
                                     let val = render_path_name(val, &config, &ls_colors, *span);
                                     if let Some(val) = val {
-                                        vals[idx] = val;
+                                        record.vals[idx] = val;
                                     }
                                 }
                             }
@@ -491,14 +483,14 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
+                    Value::Record { val: record, .. } => {
                         let mut idx = 0;
                         // Every column in the HTML theme table except 'name' is colored
-                        while idx < cols.len() {
-                            if cols[idx] != "name" {
+                        while idx < record.len() {
+                            if record.cols[idx] != "name" {
                                 // Simple routine to grab the hex code, convert to a style,
                                 // then place it in a new Value::String.
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
+                                if let Some(Value::String { val, span }) = record.vals.get(idx) {
                                     let s = match color_from_hex(val) {
                                         Ok(c) => match c {
                                             // .normal() just sets the text foreground color.
@@ -507,7 +499,7 @@ fn handle_row_stream(
                                         },
                                         Err(_) => nu_ansi_term::Style::default(),
                                     };
-                                    vals[idx] = Value::String {
+                                    record.vals[idx] = Value::String {
                                         // Apply the style (ANSI codes) to the string
                                         val: s.paint(val).to_string(),
                                         span: *span,
@@ -647,20 +639,16 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let config = get_config(&self.engine_state, &self.stack);
-        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let term_width = get_width_param(self.width_param);
-
-        let ctrlc = self.ctrlc.clone();
-        let span = self.head;
-        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
+        let cfg = get_config(&self.engine_state, &self.stack);
+        let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let opts = self.create_table_opts(&cfg, &style_comp);
         let view = TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         };
 
-        build_table_batch(batch, view, self.row_offset, opts)
+        build_table_batch(batch, view, opts, self.head)
     }
 
     fn build_collapsed(&mut self, batch: Vec<Value>) -> StringResult {
@@ -668,26 +656,35 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let config = get_config(&self.engine_state, &self.stack);
-        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let term_width = get_width_param(self.width_param);
-        let ctrlc = self.ctrlc.clone();
-        let span = self.head;
-        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
+        let cfg = get_config(&self.engine_state, &self.stack);
+        let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let opts = self.create_table_opts(&cfg, &style_comp);
 
-        build_table_batch(batch, TableView::Collapsed, self.row_offset, opts)
+        build_table_batch(batch, TableView::Collapsed, opts, self.head)
     }
 
     fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
-        let term_width = get_width_param(self.width_param);
-        let config = get_config(&self.engine_state, &self.stack);
-        let style_computer = StyleComputer::from_config(&self.engine_state, &self.stack);
-        let ctrlc = self.ctrlc.clone();
-        let span = self.head;
-        let row_offset = self.row_offset;
-        let opts = BuildConfig::new(ctrlc, &config, &style_computer, span, term_width);
+        let cfg = get_config(&self.engine_state, &self.stack);
+        let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
+        let opts = self.create_table_opts(&cfg, &style_comp);
 
-        build_table_batch(batch, TableView::General, row_offset, opts)
+        build_table_batch(batch, TableView::General, opts, self.head)
+    }
+
+    fn create_table_opts<'a>(
+        &self,
+        cfg: &'a Config,
+        style_comp: &'a StyleComputer<'a>,
+    ) -> TableOpts<'a> {
+        TableOpts::new(
+            cfg,
+            style_comp,
+            self.ctrlc.clone(),
+            self.head,
+            self.row_offset,
+            get_width_param(self.width_param),
+            (cfg.table_indent.left, cfg.table_indent.right),
+        )
     }
 }
 
@@ -780,22 +777,6 @@ impl Iterator for PagingTableCreator {
     }
 }
 
-fn load_theme_from_config(config: &Config) -> TableTheme {
-    match config.table_mode.as_str() {
-        "basic" => TableTheme::basic(),
-        "thin" => TableTheme::thin(),
-        "light" => TableTheme::light(),
-        "compact" => TableTheme::compact(),
-        "with_love" => TableTheme::with_love(),
-        "compact_double" => TableTheme::compact_double(),
-        "rounded" => TableTheme::rounded(),
-        "reinforced" => TableTheme::reinforced(),
-        "heavy" => TableTheme::heavy(),
-        "none" => TableTheme::none(),
-        _ => TableTheme::rounded(),
-    }
-}
-
 fn render_path_name(
     path: &str,
     config: &Config,
@@ -859,34 +840,6 @@ fn maybe_strip_color(output: String, config: &Config) -> String {
     }
 }
 
-fn create_table_config(config: &Config, comp: &StyleComputer, out: &TableOutput) -> TableConfig {
-    let theme = load_theme_from_config(config);
-    let footer = with_footer(config, out.with_header, out.table.count_rows());
-    let line_style = lookup_separator_color(comp);
-    let trim = config.trim_strategy.clone();
-
-    TableConfig::new()
-        .theme(theme)
-        .with_footer(footer)
-        .with_header(out.with_header)
-        .with_index(out.with_index)
-        .line_style(line_style)
-        .trim(trim)
-}
-
-fn lookup_separator_color(style_computer: &StyleComputer) -> nu_ansi_term::Style {
-    style_computer.compute("separator", &Value::nothing(Span::unknown()))
-}
-
-fn with_footer(config: &Config, with_header: bool, count_records: usize) -> bool {
-    with_header && need_footer(config, count_records as u64)
-}
-
-fn need_footer(config: &Config, count_records: u64) -> bool {
-    matches!(config.footer_mode, FooterMode::RowCount(limit) if count_records > limit)
-        || matches!(config.footer_mode, FooterMode::Always)
-}
-
 fn create_empty_placeholder(
     value_type_name: &str,
     termwidth: usize,
@@ -898,14 +851,14 @@ fn create_empty_placeholder(
         return String::new();
     }
 
-    let cell = Cell::new(format!("empty {}", value_type_name));
+    let cell = NuTableCell::new(format!("empty {}", value_type_name));
     let data = vec![vec![cell]];
     let mut table = NuTable::from(data);
-    table.set_cell_style((0, 0), TextStyle::default().dimmed());
+    table.set_data_style(TextStyle::default().dimmed());
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_table_config(&config, style_computer, &out);
+    let config = create_nu_table_config(&config, style_computer, &out, false);
 
     out.table
         .draw(config, termwidth)

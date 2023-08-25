@@ -105,7 +105,7 @@ fn gather_env_vars(
             span: full_span,
         } = token
         {
-            let contents = engine_state.get_span_contents(&full_span);
+            let contents = engine_state.get_span_contents(full_span);
             let (parts, _) = lex(contents, full_span.start, &[], &[b'='], true);
 
             let name = if let Some(Token {

@@ -1,7 +1,9 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -43,6 +45,14 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
                 ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
@@ -80,7 +90,7 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the mode(s) of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
                         Value::List {
@@ -92,24 +102,23 @@ impl Command for SubCommand {
                             span: Span::test_data(),
                         },
                     ],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
 }
 
-pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellError> {
+pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
     if let Some(Err(values)) = values
         .windows(2)
         .map(|elem| {
             if elem[0].partial_cmp(&elem[1]).is_none() {
                 return Err(ShellError::OperatorMismatch {
-                    op_span: *head,
+                    op_span: head,
                     lhs_ty: elem[0].get_type().to_string(),
-                    lhs_span: elem[0].span()?,
+                    lhs_span: elem[0].span(),
                     rhs_ty: elem[1].get_type().to_string(),
-                    rhs_span: elem[1].span()?,
+                    rhs_span: elem[1].span(),
                 });
             }
             Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))
@@ -134,12 +143,12 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
             Value::Filesize { val, .. } => {
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
-            Value::Error { error } => Err(*error.clone()),
+            Value::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
                 "value originates from here".into(),
-                *head,
-                other.expect_span(),
+                head,
+                other.span(),
             )),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
@@ -157,10 +166,10 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
             Ordering::Less => {
                 max_freq = *frequency;
                 modes.clear();
-                modes.push(recreate_value(value, *head));
+                modes.push(recreate_value(value, head));
             }
             Ordering::Equal => {
-                modes.push(recreate_value(value, *head));
+                modes.push(recreate_value(value, head));
             }
             Ordering::Greater => (),
         }
@@ -169,7 +178,7 @@ pub fn mode(values: &[Value], _span: Span, head: &Span) -> Result<Value, ShellEr
     modes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     Ok(Value::List {
         vals: modes,
-        span: *head,
+        span: head,
     })
 }
 

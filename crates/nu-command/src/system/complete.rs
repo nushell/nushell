@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
 };
 
 use std::thread;
@@ -42,8 +42,7 @@ impl Command for Complete {
                 exit_code,
                 ..
             } => {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
 
                 // use a thread to receive stderr message.
                 // Or we may get a deadlock if child process sends out too much bytes to stdout.
@@ -78,46 +77,35 @@ impl Command for Complete {
                 });
 
                 if let Some(stdout) = stdout {
-                    cols.push("stdout".to_string());
                     let stdout = stdout.into_bytes()?;
-                    if let Ok(st) = String::from_utf8(stdout.item.clone()) {
-                        vals.push(Value::String {
-                            val: st,
-                            span: stdout.span,
-                        })
-                    } else {
-                        vals.push(Value::Binary {
-                            val: stdout.item,
-                            span: stdout.span,
-                        })
-                    }
+                    record.push(
+                        "stdout",
+                        if let Ok(st) = String::from_utf8(stdout.item.clone()) {
+                            Value::string(st, stdout.span)
+                        } else {
+                            Value::binary(stdout.item, stdout.span)
+                        },
+                    )
                 }
 
                 if let Some((handler, stderr_span)) = stderr_handler {
-                    cols.push("stderr".to_string());
                     let res = handler.join().map_err(|err| ShellError::ExternalCommand {
                         label: "Fail to receive external commands stderr message".to_string(),
                         help: format!("{err:?}"),
                         span: stderr_span,
                     })??;
-                    vals.push(res)
+                    record.push("stderr", res)
                 };
 
                 if let Some(exit_code) = exit_code {
                     let mut v: Vec<_> = exit_code.collect();
 
                     if let Some(v) = v.pop() {
-                        cols.push("exit_code".to_string());
-                        vals.push(v);
+                        record.push("exit_code", v);
                     }
                 }
 
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::record(record, call.head).into_pipeline_data())
             }
             _ => Err(ShellError::GenericError(
                 "Complete only works with external streams".to_string(),

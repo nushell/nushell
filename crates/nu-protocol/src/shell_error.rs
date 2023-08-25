@@ -114,7 +114,9 @@ pub enum ShellError {
     IncorrectValue {
         msg: String,
         #[label = "{msg}"]
-        span: Span,
+        val_span: Span,
+        #[label = "encountered here"]
+        call_span: Span,
     },
 
     /// This value cannot be used with this operator.
@@ -269,7 +271,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(
         code(nu::shell::nushell_failed),
@@ -283,7 +285,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(
         code(nu::shell::nushell_failed_spanned),
@@ -302,7 +304,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// It is very likely that this is a bug. Please file an issue at https://github.com/nushell/nushell/issues with relevant information.
+    /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(code(nu::shell::nushell_failed_help))]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
@@ -431,7 +433,7 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot not be set manually."#
+            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
         )
     )]
     AutomaticEnvVarSetManually {
@@ -982,30 +984,17 @@ pub enum ShellError {
     #[diagnostic()]
     OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
 
-    /// Attempted to use a deprecated command.
+    /// Attempted to use a command that has been removed from Nushell.
     ///
     /// ## Resolution
     ///
     /// Check the help for the new suggested command and update your script accordingly.
-    #[error("Deprecated command {0}")]
-    #[diagnostic(code(nu::shell::deprecated_command))]
-    DeprecatedCommand(
+    #[error("Removed command: {0}")]
+    #[diagnostic(code(nu::shell::removed_command))]
+    RemovedCommand(
         String,
         String,
-        #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
-    ),
-
-    /// Attempted to use a deprecated parameter.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the help for the command and update your script accordingly.
-    #[error("Deprecated parameter {0}")]
-    #[diagnostic(code(nu::shell::deprecated_command))]
-    DeprecatedParameter(
-        String,
-        String,
-        #[label = "Parameter '{0}' is deprecated. Please use '{1}' instead."] Span,
+        #[label = "'{0}' has been removed from Nushell. Please use '{1}' instead."] Span,
     ),
 
     /// Non-Unicode input received.

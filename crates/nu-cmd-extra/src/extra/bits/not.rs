@@ -23,7 +23,6 @@ impl Command for BitsNot {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .switch(
                 "signed",
@@ -161,8 +160,9 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                     exp_input_type: "integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span: head,
             },
         },
     }

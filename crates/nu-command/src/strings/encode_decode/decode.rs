@@ -25,7 +25,7 @@ impl Command for Decode {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("decode")
             .input_output_types(vec![(Type::Binary, Type::String)])
-            .required("encoding", SyntaxShape::String, "the text encoding to use")
+            .optional("encoding", SyntaxShape::String, "the text encoding to use")
             .category(Category::Strings)
     }
 
@@ -63,26 +63,41 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let encoding: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let encoding: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
         match input {
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
+                span: input_span,
                 ..
             } => {
                 let bytes: Vec<u8> = stream.into_bytes()?.item;
-                super::encoding::decode(head, encoding, &bytes).map(|val| val.into_pipeline_data())
+                match encoding {
+                    Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
+                    None => super::encoding::detect_encoding_name(head, input_span, &bytes)
+                        .map(|encoding| encoding.decode(&bytes).0.into_owned())
+                        .map(|s| Value::String { val: s, span: head }),
+                }
+                .map(|val| val.into_pipeline_data())
             }
             PipelineData::Value(v, ..) => match v {
-                Value::Binary { val: bytes, .. } => super::encoding::decode(head, encoding, &bytes)
-                    .map(|val| val.into_pipeline_data()),
-                Value::Error { error } => Err(*error),
+                Value::Binary {
+                    val: bytes,
+                    span: input_span,
+                } => match encoding {
+                    Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
+                    None => super::encoding::detect_encoding_name(head, input_span, &bytes)
+                        .map(|encoding| encoding.decode(&bytes).0.into_owned())
+                        .map(|s| Value::String { val: s, span: head }),
+                }
+                .map(|val| val.into_pipeline_data()),
+                Value::Error { error, .. } => Err(*error),
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "binary".into(),
                     wrong_type: v.get_type().to_string(),
                     dst_span: head,
-                    src_span: v.expect_span(),
+                    src_span: v.span(),
                 }),
             },
             // This should be more precise, but due to difficulties in getting spans

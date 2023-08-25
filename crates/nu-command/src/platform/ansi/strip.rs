@@ -15,7 +15,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi strip")
-            .input_output_types(vec![(Type::String, Type::String), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .rest(
                 "cell path",
                 SyntaxShape::CellPath,
@@ -50,7 +55,7 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, _span: Span) -> Value {
     match input {
         Value::String { val, span } => {
             Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
@@ -61,8 +66,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value 
             Value::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(command_span),
+                    span: other.span(),
                 }),
+                span: other.span(),
             }
         }
     }

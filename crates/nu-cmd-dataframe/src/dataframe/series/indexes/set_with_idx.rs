@@ -82,7 +82,7 @@ fn command(
     let indices_value: Value = call
         .get_flag(engine_state, stack, "indices")?
         .expect("required named value");
-    let indices_span = indices_value.span()?;
+    let indices_span = indices_value.span();
     let indices = NuDataFrame::try_from_value(indices_value)?.as_series(indices_span)?;
 
     let casted = match indices.dtype() {
@@ -204,7 +204,7 @@ fn command(
                 "this value cannot be set in a series of type '{}'",
                 series.dtype()
             ),
-            Some(value.span()?),
+            Some(value.span()),
             None,
             Vec::new(),
         )),

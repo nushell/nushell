@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 use reedline::{
     get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
@@ -62,11 +63,11 @@ impl Command for KeybindingsList {
             let all_options = ["modifiers", "keycodes", "edits", "modes", "events"];
             all_options
                 .iter()
-                .flat_map(|argument| get_records(argument, &call.head))
+                .flat_map(|argument| get_records(argument, call.head))
                 .collect()
         } else {
             call.named_iter()
-                .flat_map(|(argument, _, _)| get_records(argument.item.as_str(), &call.head))
+                .flat_map(|(argument, _, _)| get_records(argument.item.as_str(), call.head))
                 .collect()
         };
 
@@ -78,7 +79,7 @@ impl Command for KeybindingsList {
     }
 }
 
-fn get_records(entry_type: &str, span: &Span) -> Vec<Value> {
+fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
     let values = match entry_type {
         "modifiers" => get_reedline_keybinding_modifiers().sorted(),
         "keycodes" => get_reedline_keycodes().sorted(),
@@ -95,16 +96,14 @@ fn get_records(entry_type: &str, span: &Span) -> Vec<Value> {
         .collect()
 }
 
-fn convert_to_record(edit: &str, entry_type: &str, span: &Span) -> Value {
-    let entry_type = Value::string(entry_type, *span);
-
-    let name = Value::string(edit, *span);
-
-    Value::Record {
-        cols: vec!["type".to_string(), "name".to_string()],
-        vals: vec![entry_type, name],
-        span: *span,
-    }
+fn convert_to_record(edit: &str, entry_type: &str, span: Span) -> Value {
+    Value::record(
+        record! {
+            "type" => Value::string(entry_type, span),
+            "name" => Value::string(edit, span),
+        },
+        span,
+    )
 }
 
 // Helper to sort a vec and return a vec

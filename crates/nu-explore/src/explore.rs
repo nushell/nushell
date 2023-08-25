@@ -100,6 +100,7 @@ impl Command for Explore {
             Err(err) => Ok(PipelineData::Value(
                 Value::Error {
                     error: Box::new(err.into()),
+                    span: call.head,
                 },
                 None,
             )),
@@ -296,10 +297,8 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 }
 
 fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
-    value.as_record().ok().map(|(cols, vals)| {
-        cols.iter()
-            .take(vals.len())
-            .zip(vals)
+    value.as_record().ok().map(|val| {
+        val.iter()
             .map(|(col, val)| (col.clone(), val.clone()))
             .collect::<HashMap<_, _>>()
     })
@@ -317,6 +316,7 @@ const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
         is_reverse: false,
         is_strikethrough: false,
         is_underline: false,
+        prefix_with_reset: false,
     }
 }
 

@@ -71,7 +71,7 @@ impl NuWhen {
             x => Err(ShellError::CantConvert {
                 to_type: "when expression".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }

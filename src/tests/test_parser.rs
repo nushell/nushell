@@ -146,6 +146,25 @@ fn bad_var_name2() -> TestResult {
 }
 
 #[test]
+fn assignment_with_no_var() -> TestResult {
+    let cases = [
+        "let = if $",
+        "mut = if $",
+        "const = if $",
+        "let = 'foo' | $in; $x | describe",
+        "mut = 'foo' | $in; $x | describe",
+    ];
+
+    let expected = "valid variable";
+
+    for case in cases {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
 fn long_flag() -> TestResult {
     run_test(
         r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
@@ -664,4 +683,17 @@ fn properly_nest_captures() -> TestResult {
 #[test]
 fn properly_nest_captures_call_first() -> TestResult {
     run_test(r#"do { let b = 3; c; def c [] { $b }; c }"#, "3")
+}
+
+#[test]
+fn properly_typecheck_rest_param() -> TestResult {
+    run_test(
+        r#"def foo [...rest: string] { $rest | length }; foo "a" "b" "c""#,
+        "3",
+    )
+}
+
+#[test]
+fn implied_collect_has_compatible_type() -> TestResult {
+    run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
 }

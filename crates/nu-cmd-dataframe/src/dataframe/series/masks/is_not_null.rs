@@ -1,4 +1,4 @@
-use super::super::super::values::{Column, NuDataFrame};
+use super::super::super::values::{Column, NuDataFrame, NuExpression};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -20,33 +20,46 @@ impl Command for IsNotNull {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Create mask where values are not null",
-            example: r#"let s = ([5 6 0 8] | dfr into-df);
+        vec![
+            Example {
+                description: "Create mask where values are not null",
+                example: r#"let s = ([5 6 0 8] | dfr into-df);
     let res = ($s / $s);
     $res | dfr is-not-null"#,
-            result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "is_not_null".to_string(),
-                    vec![
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                        Value::test_bool(true),
-                    ],
-                )])
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+                result: Some(
+                    NuDataFrame::try_from_columns(vec![Column::new(
+                        "is_not_null".to_string(),
+                        vec![
+                            Value::test_bool(true),
+                            Value::test_bool(true),
+                            Value::test_bool(false),
+                            Value::test_bool(true),
+                        ],
+                    )])
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Creates a is not null expression from a column",
+                example: "dfr col a | dfr is-not-null",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -56,8 +69,19 @@ impl Command for IsNotNull {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-        command(engine_state, stack, call, df)
+        let value = input.into_value(call.head);
+        if NuDataFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value(value)?;
+            command(engine_state, stack, call, df)
+        } else {
+            let expr = NuExpression::try_from_value(value)?;
+            let expr: NuExpression = expr.into_polars().is_not_null().into();
+
+            Ok(PipelineData::Value(
+                NuExpression::into_value(expr, call.head),
+                None,
+            ))
+        }
     }
 }
 
@@ -76,11 +100,24 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::super::test_dataframe::test_dataframe;
     use super::*;
+    use crate::dataframe::lazy::aggregate::LazyAggregate;
+    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+    use crate::dataframe::test_dataframe::{build_test_engine_state, test_dataframe_example};
 
     #[test]
-    fn test_examples() {
-        test_dataframe(vec![Box::new(IsNotNull {})])
+    fn test_examples_dataframe() {
+        let mut engine_state = build_test_engine_state(vec![Box::new(IsNotNull {})]);
+        test_dataframe_example(&mut engine_state, &IsNotNull.examples()[0]);
+    }
+
+    #[test]
+    fn test_examples_expression() {
+        let mut engine_state = build_test_engine_state(vec![
+            Box::new(IsNotNull {}),
+            Box::new(LazyAggregate {}),
+            Box::new(ToLazyGroupBy {}),
+        ]);
+        test_dataframe_example(&mut engine_state, &IsNotNull.examples()[1]);
     }
 }

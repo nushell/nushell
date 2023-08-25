@@ -196,7 +196,7 @@ fn extract_int_or_range(
         .or(range_opt)
         .ok_or_else(|| ShellError::TypeMismatch {
             err_message: "int or range".into(),
-            span: value.span().unwrap_or_else(|_| Span::new(0, 0)),
+            span: value.span(),
         })
 }
 

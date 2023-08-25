@@ -21,7 +21,7 @@ pub(crate) fn convert_columns(
                 Vec::new(),
             )
         })
-        .and_then(|v| v.span())?;
+        .map(|v| v.span())?;
 
     let res = columns
         .into_iter()
@@ -61,7 +61,7 @@ pub(crate) fn convert_columns_string(
                 Vec::new(),
             )
         })
-        .and_then(|v| v.span())?;
+        .map(|v| v.span())?;
 
     let res = columns
         .into_iter()

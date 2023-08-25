@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -22,7 +22,10 @@ impl Command for SubCommand {
                 (Type::String, Type::Bool),
                 (Type::Bool, Type::Bool),
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -57,31 +60,26 @@ impl Command for SubCommand {
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -163,6 +161,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
             Ok(val) => Value::Bool { val, span },
             Err(error) => Value::Error {
                 error: Box::new(error),
+                span,
             },
         },
         // Propagate errors by explicitly matching them before the final case.
@@ -172,8 +171,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
                 exp_input_type: "bool, integer, float or string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

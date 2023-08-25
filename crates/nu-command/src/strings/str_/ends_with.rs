@@ -31,8 +31,10 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Bool),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
@@ -108,8 +110,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

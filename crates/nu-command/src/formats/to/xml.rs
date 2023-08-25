@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::io::Cursor;
@@ -97,7 +97,7 @@ fn to_xml_entry<W: Write>(
     top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
-    let entry_span = entry.span()?;
+    let entry_span = entry.span();
 
     // Allow using strings directly as content.
     // So user can write
@@ -197,7 +197,7 @@ fn to_tag_like<W: Write>(
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
                     from_type: Type::Record(vec![]).to_string(),
-                    span: content.span()?,
+                    span: content.span(),
                     help: Some("PI content expected to be a string".into()),
                 });
             }
@@ -208,14 +208,14 @@ fn to_tag_like<W: Write>(
         // Allow tag to have no attributes or content for short hand input
         // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
         // content: null}, {tag: a}. See to_xml_entry for more
-        let (attr_cols, attr_values) = match attrs {
-            Value::Record { cols, vals, .. } => (cols, vals),
-            Value::Nothing { .. } => (Vec::new(), Vec::new()),
+        let attrs = match attrs {
+            Value::Record { val, .. } => val,
+            Value::Nothing { .. } => Record::new(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
                     from_type: attrs.get_type().to_string(),
-                    span: attrs.span()?,
+                    span: attrs.span(),
                     help: Some("Tag attributes expected to be a record".into()),
                 });
             }
@@ -228,21 +228,13 @@ fn to_tag_like<W: Write>(
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
                     from_type: content.get_type().to_string(),
-                    span: content.span()?,
+                    span: content.span(),
                     help: Some("Tag content expected to be a list".into()),
                 });
             }
         };
 
-        to_tag(
-            entry_span,
-            tag,
-            tag_span,
-            attr_cols,
-            attr_values,
-            content,
-            writer,
-        )
+        to_tag(entry_span, tag, tag_span, attrs, content, writer)
     }
 }
 
@@ -305,8 +297,7 @@ fn to_tag<W: Write>(
     entry_span: Span,
     tag: String,
     tag_span: Span,
-    attr_cols: Vec<String>,
-    attr_vals: Vec<Value>,
+    attrs: Record,
     children: Vec<Value>,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
@@ -322,7 +313,7 @@ fn to_tag<W: Write>(
         });
     }
 
-    let attributes = parse_attributes(attr_cols, attr_vals)?;
+    let attributes = parse_attributes(attrs)?;
     let mut open_tag_event = BytesStart::new(tag.clone());
     add_attributes(&mut open_tag_event, &attributes);
 
@@ -350,19 +341,16 @@ fn to_tag<W: Write>(
         })
 }
 
-fn parse_attributes(
-    cols: Vec<String>,
-    vals: Vec<Value>,
-) -> Result<IndexMap<String, String>, ShellError> {
+fn parse_attributes(attrs: Record) -> Result<IndexMap<String, String>, ShellError> {
     let mut h = IndexMap::new();
-    for (k, v) in cols.into_iter().zip(vals) {
+    for (k, v) in attrs {
         if let Value::String { val, .. } = v {
             h.insert(k, val);
         } else {
             return Err(ShellError::CantConvert {
                 to_type: "XML".to_string(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: Some("Attribute value expected to be a string".into()),
             });
         }

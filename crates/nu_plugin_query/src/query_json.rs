@@ -1,6 +1,6 @@
 use gjson::Value as gjValue;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Spanned, Value};
+use nu_protocol::{Record, Span, Spanned, Value};
 
 pub fn execute_json_query(
     _name: &str,
@@ -47,7 +47,7 @@ pub fn execute_json_query(
         let json_str = val.json();
         Ok(Value::string(json_str, call.head))
     } else {
-        Ok(convert_gjson_value_to_nu_value(&val, &call.head))
+        Ok(convert_gjson_value_to_nu_value(&val, call.head))
     }
 }
 
@@ -70,7 +70,7 @@ fn query_contains_modifiers(query: &str) -> bool {
     // @join: Joins multiple objects into a single object.
 }
 
-fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
+fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
     match v.kind() {
         gjson::Kind::Array => {
             let mut vals = vec![];
@@ -79,33 +79,27 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: &Span) -> Value {
                 true
             });
 
-            Value::List { vals, span: *span }
+            Value::List { vals, span }
         }
-        gjson::Kind::Null => Value::nothing(*span),
-        gjson::Kind::False => Value::bool(false, *span),
+        gjson::Kind::Null => Value::nothing(span),
+        gjson::Kind::False => Value::bool(false, span),
         gjson::Kind::Number => {
             let str_value = v.str();
             if str_value.contains('.') {
-                Value::float(v.f64(), *span)
+                Value::float(v.f64(), span)
             } else {
-                Value::int(v.i64(), *span)
+                Value::int(v.i64(), span)
             }
         }
-        gjson::Kind::String => Value::string(v.str(), *span),
-        gjson::Kind::True => Value::bool(true, *span),
+        gjson::Kind::String => Value::string(v.str(), span),
+        gjson::Kind::True => Value::bool(true, span),
         gjson::Kind::Object => {
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
             v.each(|k, v| {
-                cols.push(k.to_string());
-                vals.push(convert_gjson_value_to_nu_value(&v, span));
+                record.push(k.to_string(), convert_gjson_value_to_nu_value(&v, span));
                 true
             });
-            Value::Record {
-                cols,
-                vals,
-                span: *span,
-            }
+            Value::record(record, span)
         }
     }
 }

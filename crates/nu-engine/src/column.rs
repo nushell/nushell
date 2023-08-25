@@ -4,11 +4,11 @@ use std::collections::HashSet;
 pub fn get_columns(input: &[Value]) -> Vec<String> {
     let mut columns = vec![];
     for item in input {
-        let Value::Record { cols, .. } = item else {
+        let Value::Record { val, .. } = item else {
             return vec![];
         };
 
-        for col in cols {
+        for col in &val.cols {
             if !columns.contains(col) {
                 columns.push(col.to_string());
             }

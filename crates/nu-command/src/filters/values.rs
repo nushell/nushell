@@ -110,8 +110,8 @@ pub fn get_values<'a>(
 
     for item in input {
         match item {
-            Value::Record { cols, vals, .. } => {
-                for (k, v) in cols.iter().zip(vals.iter()) {
+            Value::Record { val, .. } => {
+                for (k, v) in val {
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
@@ -119,7 +119,7 @@ pub fn get_values<'a>(
                     }
                 }
             }
-            Value::Error { error } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(*error.clone()),
             _ => {
                 return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record or table".into(),
@@ -172,16 +172,16 @@ fn values(
                 Err(err) => Err(err),
             }
         }
-        PipelineData::Value(Value::Record { vals, .. }, ..) => {
-            Ok(vals.into_pipeline_data(ctrlc).set_metadata(metadata))
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
+            Ok(val.vals.into_pipeline_data(ctrlc).set_metadata(metadata))
         }
         // Propagate errors
-        PipelineData::Value(Value::Error { error }, ..) => Err(*error),
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
             wrong_type: other.get_type().to_string(),
             dst_span: head,
-            src_span: other.expect_span(),
+            src_span: other.span(),
         }),
         PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),

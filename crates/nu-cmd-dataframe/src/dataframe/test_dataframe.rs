@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span,
+    Example, PipelineData, Span,
 };
 
 use super::eager::ToDataFrame;
@@ -17,6 +17,14 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
 
     // The first element in the cmds vector must be the one tested
     let examples = cmds[0].examples();
+    let mut engine_state = build_test_engine_state(cmds.clone());
+
+    for example in examples {
+        test_dataframe_example(&mut engine_state, &example);
+    }
+}
+
+pub fn build_test_engine_state(cmds: Vec<Box<dyn Command + 'static>>) -> Box<EngineState> {
     let mut engine_state = Box::new(EngineState::new());
 
     let delta = {
@@ -41,54 +49,55 @@ pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
         .merge_delta(delta)
         .expect("Error merging delta");
 
-    for example in examples {
-        // Skip tests that don't have results to compare to
-        if example.result.is_none() {
-            continue;
+    engine_state
+}
+
+pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Example) {
+    // Skip tests that don't have results to compare to
+    if example.result.is_none() {
+        return;
+    }
+
+    let start = std::time::Instant::now();
+
+    let (block, delta) = {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let output = parse(&mut working_set, None, example.example.as_bytes(), false);
+
+        if let Some(err) = working_set.parse_errors.first() {
+            panic!("test parse error in `{}`: {:?}", example.example, err)
         }
-        let start = std::time::Instant::now();
 
-        let (block, delta) = {
-            let mut working_set = StateWorkingSet::new(&engine_state);
-            let output = parse(&mut working_set, None, example.example.as_bytes(), false);
+        (output, working_set.render())
+    };
 
-            if let Some(err) = working_set.parse_errors.first() {
-                panic!("test parse error in `{}`: {:?}", example.example, err)
-            }
+    engine_state
+        .merge_delta(delta)
+        .expect("Error merging delta");
 
-            (output, working_set.render())
-        };
+    let mut stack = Stack::new();
 
-        engine_state
-            .merge_delta(delta)
-            .expect("Error merging delta");
+    let result = eval_block(
+        engine_state,
+        &mut stack,
+        &block,
+        PipelineData::empty(),
+        true,
+        true,
+    )
+    .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))
+    .into_value(Span::test_data());
 
-        let mut stack = Stack::new();
+    println!("input: {}", example.example);
+    println!("result: {result:?}");
+    println!("done: {:?}", start.elapsed());
 
-        let result = eval_block(
-            &engine_state,
-            &mut stack,
-            &block,
-            PipelineData::empty(),
-            true,
-            true,
-        )
-        .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))
-        .into_value(Span::test_data());
-
-        println!("input: {}", example.example);
-        println!("result: {result:?}");
-        println!("done: {:?}", start.elapsed());
-
-        // Note. Value implements PartialEq for Bool, Int, Float, String and Block
-        // If the command you are testing requires to compare another case, then
-        // you need to define its equality in the Value struct
-        if let Some(expected) = example.result {
-            if result != expected {
-                panic!(
-                    "the example result is different to expected value: {result:?} != {expected:?}"
-                )
-            }
+    // Note. Value implements PartialEq for Bool, Int, Float, String and Block
+    // If the command you are testing requires to compare another case, then
+    // you need to define its equality in the Value struct
+    if let Some(expected) = example.result.clone() {
+        if result != expected {
+            panic!("the example result is different to expected value: {result:?} != {expected:?}")
         }
     }
 }

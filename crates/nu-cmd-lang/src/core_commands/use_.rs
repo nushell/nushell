@@ -63,15 +63,30 @@ This command is a parser keyword. For details, check:
         };
 
         if let Some(module_id) = import_pattern.head.id {
-            let module = engine_state.get_module(module_id);
+            // Add constants
+            for var_id in &import_pattern.constants {
+                let var = engine_state.get_var(*var_id);
+
+                if let Some(constval) = &var.const_val {
+                    caller_stack.add_var(*var_id, constval.clone());
+                } else {
+                    return Err(ShellError::NushellFailedSpanned {
+                        msg: "Missing Constant".to_string(),
+                        label: "constant not added by the parser".to_string(),
+                        span: var.declaration_span,
+                    });
+                }
+            }
 
             // Evaluate the export-env block if there is one
+            let module = engine_state.get_module(module_id);
+
             if let Some(block_id) = module.env_block {
                 let block = engine_state.get_block(block_id);
 
                 // See if the module is a file
                 let module_arg_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(&import_pattern.head.span),
+                    engine_state.get_span_contents(import_pattern.head.span),
                 );
 
                 let maybe_file_path = find_in_dirs_env(
@@ -84,7 +99,7 @@ This command is a parser keyword. For details, check:
                     .as_ref()
                     .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
-                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
                 // If so, set the currently evaluated directory (file-relative PWD)
                 if let Some(parent) = maybe_parent {

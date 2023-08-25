@@ -34,14 +34,14 @@ impl Command for ViewSource {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let arg: Value = call.req(engine_state, stack, 0)?;
-        let arg_span = arg.span()?;
+        let arg_span = arg.span();
 
         match arg {
             Value::Block { val: block_id, .. } | Value::Closure { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
 
                 if let Some(span) = block.span {
-                    let contents = engine_state.get_span_contents(&span);
+                    let contents = engine_state.get_span_contents(span);
                     Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                         .into_pipeline_data())
                 } else {
@@ -61,7 +61,7 @@ impl Command for ViewSource {
                     if let Some(block_id) = decl.get_block_id() {
                         let block = engine_state.get_block(block_id);
                         if let Some(block_span) = block.span {
-                            let contents = engine_state.get_span_contents(&block_span);
+                            let contents = engine_state.get_span_contents(block_span);
                             // name of function
                             let mut final_contents = format!("def {val} [ ");
                             for n in vec_of_required {
@@ -117,7 +117,7 @@ impl Command for ViewSource {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
-                        let contents = engine_state.get_span_contents(&module_span);
+                        let contents = engine_state.get_span_contents(module_span);
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {

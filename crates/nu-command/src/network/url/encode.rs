@@ -17,8 +17,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("url encode")
-            .input_output_types(vec![(Type::String, Type::String), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String)))])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .switch(
             "all",
             "encode all non-alphanumeric chars including `/`, `.`, `:`",
@@ -104,8 +109,9 @@ fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }
@@ -125,8 +131,9 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

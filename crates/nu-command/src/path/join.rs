@@ -5,8 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -34,6 +34,7 @@ impl Command for SubCommand {
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
             .rest("append", SyntaxShape::String, "Path to append to the input")
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {
@@ -72,9 +73,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 "Input value cannot be joined".to_string(),
                 "value originates from here".into(),
                 head,
-                input
-                    .span()
-                    .expect("non-Empty non-ListStream PipelineData had no span"),
+                input.span().unwrap_or(call.head),
             )),
         }
     }
@@ -151,7 +150,7 @@ the output of 'path parse' and 'path split' subcommands."#
 fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
     match v {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
-        Value::Record { cols, vals, span } => join_record(&cols, &vals, head, span, args),
+        Value::Record { val, span } => join_record(&val, head, span, args),
         Value::List { vals, span } => join_list(&vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
@@ -178,7 +177,7 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                 Ok(vals) => {
                     let vals = vals
                         .iter()
-                        .map(|(k, v)| join_record(k, v, head, span, args))
+                        .map(|r| join_record(r, head, span, args))
                         .collect();
 
                     Value::List { vals, span }
@@ -189,28 +188,25 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                         dst_span: head,
                         src_span: span,
                     }),
+                    span,
                 },
             }
         }
     }
 }
 
-fn join_record(cols: &[String], vals: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
-    match merge_record(cols, vals, head, span) {
+fn join_record(record: &Record, head: Span, span: Span, args: &Arguments) -> Value {
+    match merge_record(record, head, span) {
         Ok(p) => join_single(p.as_path(), head, args),
         Err(error) => Value::Error {
             error: Box::new(error),
+            span,
         },
     }
 }
 
-fn merge_record(
-    cols: &[String],
-    vals: &[Value],
-    head: Span,
-    span: Span,
-) -> Result<PathBuf, ShellError> {
-    for key in cols {
+fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, ShellError> {
+    for key in &record.cols {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
             return Err(ShellError::UnsupportedInput(
@@ -224,7 +220,13 @@ fn merge_record(
         }
     }
 
-    let entries: HashMap<&str, &Value> = cols.iter().map(String::as_str).zip(vals).collect();
+    let entries: HashMap<&str, &Value> = record
+        .cols
+        .iter()
+        .map(String::as_str)
+        .zip(&record.vals)
+        .collect();
+
     let mut result = PathBuf::new();
 
     #[cfg(windows)]

@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    levenshtein_distance, Category, Example, PipelineData, ShellError, Signature, Span,
+    levenshtein_distance, Category, Example, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 
@@ -31,6 +31,7 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Int),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .required(
                 "compare-string",
@@ -77,18 +78,27 @@ impl Command for SubCommand {
             result: Some(Value::test_int(1)),
         },
         Example {
-            description: "Compute edit distance between strings in record and another string, using cell paths",
+            description: "Compute edit distance between strings in table and another string, using cell paths",
             example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
             result: Some(Value::List {
                 vals: vec![
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["a".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(4)],
-                        span: Span::test_data(),
-                    }
+                    })
                 ],
                 span: Span::test_data(),
             }),
+        },
+        Example {
+            description: "Compute edit distance between strings in record and another string, using cell paths",
+            example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
+            result: Some(
+                    Value::test_record(Record {
+                        cols: vec!["a".to_string(), "b".to_string()],
+                        vals: vec![Value::test_int(1), Value::test_int(4)],
+                    })
+                ),
         }]
     }
 }
@@ -106,8 +116,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

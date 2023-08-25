@@ -22,7 +22,6 @@ impl Command for BitsXor {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .required(
                 "target",
                 SyntaxShape::Int,
@@ -90,8 +89,9 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

@@ -32,14 +32,14 @@ fn number_float() -> TestResult {
 
 #[test]
 fn date_minus_duration() -> TestResult {
-    let input = "2023-04-22 - 2day | date format %Y-%m-%d";
+    let input = "2023-04-22 - 2day | format date %Y-%m-%d";
     let expected = "2023-04-20";
     run_test(input, expected)
 }
 
 #[test]
 fn date_plus_duration() -> TestResult {
-    let input = "2023-04-18 + 2day | date format %Y-%m-%d";
+    let input = "2023-04-18 + 2day | format date %Y-%m-%d";
     let expected = "2023-04-20";
     run_test(input, expected)
 }
@@ -84,5 +84,13 @@ fn record_subtyping_3() -> TestResult {
         "def test [rec: record<name: string, age: int>] { $rec | describe };
         test { name: 'Nu' }",
         "expected",
+    )
+}
+
+#[test]
+fn transpose_into_load_env() -> TestResult {
+    run_test(
+        "[[col1, col2]; [a, 10], [b, 20]] | transpose -i -r -d | load-env; $env.a",
+        "10",
     )
 }

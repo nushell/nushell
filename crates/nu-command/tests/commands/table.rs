@@ -2384,3 +2384,283 @@ fn table_index_offset() {
     let expected_suffix = actual.out.strip_suffix(suffix);
     assert!(expected_suffix.is_some(), "{:?}", actual.out);
 }
+
+#[test]
+fn table_theme_on_border_light() {
+    assert_eq!(
+        create_theme_output("light"),
+        [
+            "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items] ",
+            "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items] ─#───a───b─────────c────────",
+            "─#───a───b───c─ 0   1   2   3 ─#───a───b───c─",
+            "─#───a_looooooong_name───b───c─ 0                   1   2   3 ─#───a_looooooong_name───b───c─",
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_basic() {
+    assert_eq!(
+        create_theme_output("basic"),
+        [
+            "+-#-+-a-+-b-+-------c--------+| 0 | 1 | 2 |              3 |+---+---+---+----------------+| 1 | 4 | 5 | [list 3 items] |+---+---+---+----------------+",
+            "+-#-+-a-+-b-+-------c--------+| 0 | 1 | 2 |              3 |+---+---+---+----------------+| 1 | 4 | 5 | [list 3 items] |+-#-+-a-+-b-+-------c--------+",
+            "+-#-+-a-+-b-+-c-+| 0 | 1 | 2 | 3 |+-#-+-a-+-b-+-c-+",
+            "+-#-+-a_looooooong_name-+-b-+-c-+| 0 |                 1 | 2 | 3 |+-#-+-a_looooooong_name-+-b-+-c-+"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_compact() {
+    assert_eq!(
+        create_theme_output("compact"),
+        [
+            "─#─┬─a─┬─b─┬───────c──────── 0 │ 1 │ 2 │              3  1 │ 4 │ 5 │ [list 3 items] ───┴───┴───┴────────────────",
+            "─#─┬─a─┬─b─┬───────c──────── 0 │ 1 │ 2 │              3  1 │ 4 │ 5 │ [list 3 items] ─#─┴─a─┴─b─┴───────c────────",
+            "─#─┬─a─┬─b─┬─c─ 0 │ 1 │ 2 │ 3 ─#─┴─a─┴─b─┴─c─",
+            "─#─┬─a_looooooong_name─┬─b─┬─c─ 0 │                 1 │ 2 │ 3 ─#─┴─a_looooooong_name─┴─b─┴─c─"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_compact_double() {
+    assert_eq!(
+        create_theme_output("compact_double"),
+        [
+            "═#═╦═a═╦═b═╦═══════c════════ 0 ║ 1 ║ 2 ║              3  1 ║ 4 ║ 5 ║ [list 3 items] ═══╩═══╩═══╩════════════════",
+            "═#═╦═a═╦═b═╦═══════c════════ 0 ║ 1 ║ 2 ║              3  1 ║ 4 ║ 5 ║ [list 3 items] ═#═╩═a═╩═b═╩═══════c════════", 
+            "═#═╦═a═╦═b═╦═c═ 0 ║ 1 ║ 2 ║ 3 ═#═╩═a═╩═b═╩═c═", 
+            "═#═╦═a_looooooong_name═╦═b═╦═c═ 0 ║                 1 ║ 2 ║ 3 ═#═╩═a_looooooong_name═╩═b═╩═c═"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_default() {
+    assert_eq!(
+        create_theme_output("default"),
+        [
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰───┴───┴───┴────────────────╯",
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰─#─┴─a─┴─b─┴───────c────────╯",
+            "╭─#─┬─a─┬─b─┬─c─╮│ 0 │ 1 │ 2 │ 3 │╰─#─┴─a─┴─b─┴─c─╯",
+            "╭─#─┬─a_looooooong_name─┬─b─┬─c─╮│ 0 │                 1 │ 2 │ 3 │╰─#─┴─a_looooooong_name─┴─b─┴─c─╯"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_heavy() {
+    assert_eq!(
+        create_theme_output("heavy"),
+        [
+            "┏━#━┳━a━┳━b━┳━━━━━━━c━━━━━━━━┓┃ 0 ┃ 1 ┃ 2 ┃              3 ┃┃ 1 ┃ 4 ┃ 5 ┃ [list 3 items] ┃┗━━━┻━━━┻━━━┻━━━━━━━━━━━━━━━━┛",
+            "┏━#━┳━a━┳━b━┳━━━━━━━c━━━━━━━━┓┃ 0 ┃ 1 ┃ 2 ┃              3 ┃┃ 1 ┃ 4 ┃ 5 ┃ [list 3 items] ┃┗━#━┻━a━┻━b━┻━━━━━━━c━━━━━━━━┛",
+            "┏━#━┳━a━┳━b━┳━c━┓┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃┗━#━┻━a━┻━b━┻━c━┛",
+            "┏━#━┳━a_looooooong_name━┳━b━┳━c━┓┃ 0 ┃                 1 ┃ 2 ┃ 3 ┃┗━#━┻━a_looooooong_name━┻━b━┻━c━┛"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_reinforced() {
+    assert_eq!(
+        create_theme_output("reinforced"),
+        [
+            "┏─#─┬─a─┬─b─┬───────c────────┓│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │┗───┴───┴───┴────────────────┛",
+            "┏─#─┬─a─┬─b─┬───────c────────┓│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │┗─#─┴─a─┴─b─┴───────c────────┛",
+            "┏─#─┬─a─┬─b─┬─c─┓│ 0 │ 1 │ 2 │ 3 │┗─#─┴─a─┴─b─┴─c─┛",
+            "┏─#─┬─a_looooooong_name─┬─b─┬─c─┓│ 0 │                 1 │ 2 │ 3 │┗─#─┴─a_looooooong_name─┴─b─┴─c─┛"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_none() {
+    assert_eq!(
+        create_theme_output("none"),
+        [
+            " #   a   b         c         0   1   2                3  1   4   5   [list 3 items] ",
+            " #   a   b         c         0   1   2                3  1   4   5   [list 3 items]  #   a   b         c        ",
+            " #   a   b   c  0   1   2   3  #   a   b   c ",
+            " #   a_looooooong_name   b   c  0                   1   2   3  #   a_looooooong_name   b   c "
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_rounded() {
+    assert_eq!(
+        create_theme_output("rounded"),
+        [
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰───┴───┴───┴────────────────╯",
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰─#─┴─a─┴─b─┴───────c────────╯",
+            "╭─#─┬─a─┬─b─┬─c─╮│ 0 │ 1 │ 2 │ 3 │╰─#─┴─a─┴─b─┴─c─╯",
+            "╭─#─┬─a_looooooong_name─┬─b─┬─c─╮│ 0 │                 1 │ 2 │ 3 │╰─#─┴─a_looooooong_name─┴─b─┴─c─╯"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_with_love() {
+    assert_eq!(
+        create_theme_output("with_love"),
+        [
+            "❤#❤❤❤a❤❤❤b❤❤❤❤❤❤❤❤❤c❤❤❤❤❤❤❤❤ 0 ❤ 1 ❤ 2 ❤              3  1 ❤ 4 ❤ 5 ❤ [list 3 items] ❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤#❤❤❤a❤❤❤b❤❤❤❤❤❤❤❤❤c❤❤❤❤❤❤❤❤ 0 ❤ 1 ❤ 2 ❤              3  1 ❤ 4 ❤ 5 ❤ [list 3 items] ❤#❤❤❤a❤❤❤b❤❤❤❤❤❤❤❤❤c❤❤❤❤❤❤❤❤",
+            "❤#❤❤❤a❤❤❤b❤❤❤c❤ 0 ❤ 1 ❤ 2 ❤ 3 ❤#❤❤❤a❤❤❤b❤❤❤c❤",
+            "❤#❤❤❤a_looooooong_name❤❤❤b❤❤❤c❤ 0 ❤                 1 ❤ 2 ❤ 3 ❤#❤❤❤a_looooooong_name❤❤❤b❤❤❤c❤"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_thin() {
+    assert_eq!(
+        create_theme_output("thin"),
+        [
+            "┌─#─┬─a─┬─b─┬───────c────────┐│ 0 │ 1 │ 2 │              3 │├───┼───┼───┼────────────────┤│ 1 │ 4 │ 5 │ [list 3 items] │└───┴───┴───┴────────────────┘",
+            "┌─#─┬─a─┬─b─┬───────c────────┐│ 0 │ 1 │ 2 │              3 │├───┼───┼───┼────────────────┤│ 1 │ 4 │ 5 │ [list 3 items] │└─#─┴─a─┴─b─┴───────c────────┘",
+            "┌─#─┬─a─┬─b─┬─c─┐│ 0 │ 1 │ 2 │ 3 │└─#─┴─a─┴─b─┴─c─┘",
+            "┌─#─┬─a_looooooong_name─┬─b─┬─c─┐│ 0 │                 1 │ 2 │ 3 │└─#─┴─a_looooooong_name─┴─b─┴─c─┘",
+        ]
+    );
+}
+
+fn create_theme_output(theme: &str) -> Vec<String> {
+    vec![
+        nu!(theme_cmd(
+            theme,
+            false,
+            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+        ))
+        .out,
+        nu!(theme_cmd(
+            theme,
+            true,
+            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+        ))
+        .out,
+        nu!(theme_cmd(theme, true, "[[a b, c]; [1 2 3]] | table")).out,
+        nu!(theme_cmd(
+            theme,
+            true,
+            "[[a_looooooong_name b, c]; [1 2 3]] | table"
+        ))
+        .out,
+    ]
+}
+
+fn theme_cmd(theme: &str, footer: bool, then: &str) -> String {
+    let mut with_foorter = String::new();
+    if footer {
+        with_foorter = "$env.config.footer_mode = \"always\"".to_string();
+    }
+
+    format!("$env.config.table.mode = {theme}; $env.config.table.header_on_separator = true; {with_foorter}; {then}")
+}
+
+#[test]
+fn table_padding_not_default() {
+    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table");
+    assert_eq!(
+        actual.out,
+        "╭───────────┬───────────┬───────────┬────────────────────────╮\
+         │     #     │     a     │     b     │           c            │\
+         ├───────────┼───────────┼───────────┼────────────────────────┤\
+         │     0     │     1     │     2     │                  3     │\
+         │     1     │     4     │     5     │     [list 3 items]     │\
+         ╰───────────┴───────────┴───────────┴────────────────────────╯"
+    );
+}
+
+#[test]
+fn table_padding_zero() {
+    let actual = nu!(
+        "$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+    );
+    assert_eq!(
+        actual.out,
+        "╭─┬─┬─┬──────────────╮\
+         │#│a│b│      c       │\
+         ├─┼─┼─┼──────────────┤\
+         │0│1│2│             3│\
+         │1│4│5│[list 3 items]│\
+         ╰─┴─┴─┴──────────────╯"
+    );
+}
+
+#[test]
+fn table_expand_padding_not_default() {
+    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
+    assert_eq!(
+        actual.out,
+        "╭─────────────┬─────────────┬─────────────┬────────────────────────────────────╮\
+         │       #     │      a      │      b      │                 c                  │\
+         ├─────────────┼─────────────┼─────────────┼────────────────────────────────────┤\
+         │       0     │       1     │       2     │                              3     │\
+         │       1     │       4     │       5     │     ╭───────────┬───────────╮      │\
+         │             │             │             │     │     0     │     1     │      │\
+         │             │             │             │     │     1     │     2     │      │\
+         │             │             │             │     │     2     │     3     │      │\
+         │             │             │             │     ╰───────────┴───────────╯      │\
+         ╰─────────────┴─────────────┴─────────────┴────────────────────────────────────╯"
+    );
+}
+
+#[test]
+fn table_expand_padding_zero() {
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
+    assert_eq!(
+        actual.out,
+        "╭─┬─┬─┬─────╮\
+         │#│a│b│  c  │\
+         ├─┼─┼─┼─────┤\
+         │0│1│2│    3│\
+         │1│4│5│╭─┬─╮│\
+         │ │ │ ││0│1││\
+         │ │ │ ││1│2││\
+         │ │ │ ││2│3││\
+         │ │ │ │╰─┴─╯│\
+         ╰─┴─┴─┴─────╯"
+    );
+}
+
+#[test]
+fn table_collapse_padding_not_default() {
+    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
+    assert_eq!(
+        actual.out,
+        "╭───────────┬───────────┬───────────╮\
+         │     a     │     b     │     c     │\
+         ├───────────┼───────────┼───────────┤\
+         │     1     │     2     │     3     │\
+         ├───────────┼───────────┼───────────┤\
+         │     4     │     5     │     1     │\
+         │           │           ├───────────┤\
+         │           │           │     2     │\
+         │           │           ├───────────┤\
+         │           │           │     3     │\
+         ╰───────────┴───────────┴───────────╯"
+    );
+}
+
+#[test]
+fn table_collapse_padding_zero() {
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
+    assert_eq!(
+        actual.out,
+        "╭─┬─┬─╮\
+         │a│b│c│\
+         ├─┼─┼─┤\
+         │1│2│3│\
+         ├─┼─┼─┤\
+         │4│5│1│\
+         │ │ ├─┤\
+         │ │ │2│\
+         │ │ ├─┤\
+         │ │ │3│\
+         ╰─┴─┴─╯"
+    );
+}

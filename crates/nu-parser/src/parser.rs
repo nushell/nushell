@@ -2318,6 +2318,7 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
 
 pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Nanosecond, "ns", None),
+    // todo start adding aliases for duration units here
     (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
     (
         // µ Micro Sign
@@ -2976,6 +2977,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         },
         members: vec![],
         hidden: HashSet::new(),
+        constants: vec![],
     };
 
     if spans.len() > 1 {
@@ -3695,7 +3697,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     Arg::RestPositional(PositionalArg {
                                         shape, var_id, ..
                                     }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
@@ -6176,7 +6178,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 parser_info: HashMap::new(),
             })),
             span,
-            ty: Type::String,
+            ty: Type::Any,
             custom_completion: None,
         }
     } else {
