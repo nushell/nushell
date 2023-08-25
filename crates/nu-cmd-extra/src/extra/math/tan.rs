@@ -60,14 +60,14 @@ impl Command for SubCommand {
             Example {
                 description: "Apply the tangent to a list of angles in degrees",
                 example: "[-45 0 45] | math tan -d",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_float(-1f64),
                         Value::test_float(0f64),
                         Value::test_float(1f64),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -76,29 +76,27 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+            let span = numeric.span();
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                Value::Int { val, .. } => (val as f64, span),
+                Value::Float { val, .. } => (val, span),
                 _ => unreachable!(),
             };
 
             let val = if use_degrees { val.to_radians() } else { val };
 
-            Value::Float {
-                val: val.tan(),
-                span,
-            }
+            Value::float(val.tan(), span)
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
-            }),
-            span: head,
-        },
+            },
+            head,
+        ),
     }
 }
 

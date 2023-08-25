@@ -68,13 +68,13 @@ impl Command for SubCommand {
             Example {
                 description: "convert a column from a table to Title Case",
                 example: r#"[[title, count]; ['nu test', 100]] | str title-case title"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["title".to_string(), "count".to_string()],
                         vals: vec![Value::test_string("Nu Test"), Value::test_int(100)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

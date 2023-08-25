@@ -73,13 +73,13 @@ impl Command for SubCommand {
             Example {
                 description: "convert a column from a table to SCREAMING_SNAKE_CASE",
                 example: r#"[[lang, gems]; [nu_test, 100]] | str screaming-snake-case lang"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![Value::test_string("NU_TEST"), Value::test_int(100)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
