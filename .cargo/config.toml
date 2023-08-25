@@ -1,3 +1,7 @@
+[build]
+# Don't allow locally; can't publish to crates.io 
+rustflags = ["-Dclippy::wildcard_dependencies"]
+
 [target.x86_64-pc-windows-msvc]
 # increase the default windows stack size
 # statically link the CRT so users don't have to install it
