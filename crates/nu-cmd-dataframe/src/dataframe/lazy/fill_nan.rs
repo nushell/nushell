@@ -102,18 +102,21 @@ impl Command for LazyFillNA {
                     let column_name = column.name().to_string();
                     let values = column
                         .into_iter()
-                        .map(|value| match value {
-                            Value::Float { val, .. } => {
-                                if val.is_nan() {
-                                    fill.clone()
-                                } else {
-                                    value
+                        .map(|value| {
+                            let span = value.span();
+                            match value {
+                                Value::Float { val, .. } => {
+                                    if val.is_nan() {
+                                        fill.clone()
+                                    } else {
+                                        value
+                                    }
                                 }
+                                Value::List { vals, .. } => {
+                                    NuDataFrame::fill_list_nan(vals, span, fill.clone())
+                                }
+                                _ => value,
                             }
-                            Value::List { vals, span } => {
-                                NuDataFrame::fill_list_nan(vals, span, fill.clone())
-                            }
-                            _ => value,
                         })
                         .collect::<Vec<Value>>();
                     Column::new(column_name, values)

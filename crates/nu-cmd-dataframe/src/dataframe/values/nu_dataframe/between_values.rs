@@ -267,29 +267,37 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span(),
             }),
         },
-        Operator::Math(Math::Divide) => match &right {
-            Value::Int { val, span } => {
-                if *val == 0 {
-                    Err(ShellError::DivisionByZero { span: *span })
-                } else {
-                    compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
+        Operator::Math(Math::Divide) => {
+            let span = right.span();
+            match &right {
+                Value::Int { val, .. } => {
+                    if *val == 0 {
+                        Err(ShellError::DivisionByZero { span })
+                    } else {
+                        compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
+                    }
                 }
-            }
-            Value::Float { val, span } => {
-                if val.is_zero() {
-                    Err(ShellError::DivisionByZero { span: *span })
-                } else {
-                    compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
+                Value::Float { val, .. } => {
+                    if val.is_zero() {
+                        Err(ShellError::DivisionByZero { span })
+                    } else {
+                        compute_series_decimal(
+                            &lhs,
+                            *val,
+                            <ChunkedArray<Float64Type>>::div,
+                            lhs_span,
+                        )
+                    }
                 }
+                _ => Err(ShellError::OperatorMismatch {
+                    op_span: operator.span,
+                    lhs_ty: left.get_type().to_string(),
+                    lhs_span: left.span(),
+                    rhs_ty: right.get_type().to_string(),
+                    rhs_span: right.span(),
+                }),
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
-            }),
-        },
+        }
         Operator::Comparison(Comparison::Equal) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
             Value::Float { val, .. } => {
