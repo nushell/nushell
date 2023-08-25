@@ -17,19 +17,20 @@ pub fn sort_value(
     insensitive: bool,
     natural: bool,
 ) -> Result<Value, ShellError> {
+    let span = val.span();
     match val {
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             let mut vals = vals.clone();
-            sort(&mut vals, sort_columns, *span, insensitive, natural)?;
+            sort(&mut vals, sort_columns, span, insensitive, natural)?;
 
             if !ascending {
                 vals.reverse();
             }
 
-            Ok(Value::List { vals, span: *span })
+            Ok(Value::list(vals, span))
         }
-        Value::CustomValue { val, span } => {
-            let base_val = val.to_base_value(*span)?;
+        Value::CustomValue { val, .. } => {
+            let base_val = val.to_base_value(span)?;
             sort_value(&base_val, sort_columns, ascending, insensitive, natural)
         }
         _ => Ok(val.to_owned()),
@@ -45,8 +46,9 @@ pub fn sort_value_in_place(
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
-    if let Value::List { vals, span } = val {
-        sort(vals, sort_columns, *span, insensitive, natural)?;
+    let span = val.span();
+    if let Value::List { vals, .. } = val {
+        sort(vals, sort_columns, span, insensitive, natural)?;
         if !ascending {
             vals.reverse();
         }

@@ -68,28 +68,16 @@ impl Command for BytesCollect {
         }
 
         match separator {
-            None => Ok(Value::Binary {
-                val: output_binary,
-                span: call.head,
-            }
-            .into_pipeline_data()),
+            None => Ok(Value::binary(output_binary, call.head).into_pipeline_data()),
             Some(sep) => {
                 if output_binary.is_empty() {
-                    Ok(Value::Binary {
-                        val: output_binary,
-                        span: call.head,
-                    }
-                    .into_pipeline_data())
+                    Ok(Value::binary(output_binary, call.head).into_pipeline_data())
                 } else {
                     // have push one extra separator in previous step, pop them out.
                     for _ in sep {
                         let _ = output_binary.pop();
                     }
-                    Ok(Value::Binary {
-                        val: output_binary,
-                        span: call.head,
-                    }
-                    .into_pipeline_data())
+                    Ok(Value::binary(output_binary, call.head).into_pipeline_data())
                 }
             }
         }
@@ -100,18 +88,15 @@ impl Command for BytesCollect {
             Example {
                 description: "Create a byte array from input",
                 example: "[0x[11] 0x[13 15]] | bytes collect",
-                result: Some(Value::Binary {
-                    val: vec![0x11, 0x13, 0x15],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary(vec![0x11, 0x13, 0x15], Span::test_data())),
             },
             Example {
                 description: "Create a byte array from input with a separator",
                 example: "[0x[11] 0x[33] 0x[44]] | bytes collect 0x[01]",
-                result: Some(Value::Binary {
-                    val: vec![0x11, 0x01, 0x33, 0x01, 0x44],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary(
+                    vec![0x11, 0x01, 0x33, 0x01, 0x44],
+                    Span::test_data(),
+                )),
             },
         ]
     }
