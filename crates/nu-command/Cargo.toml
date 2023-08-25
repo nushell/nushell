@@ -34,13 +34,13 @@ byteorder = "1.4"
 bytesize = "1.2"
 calamine = "0.21"
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
-chrono-humanize = "0.2"
+chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
 crossterm = "0.26"
 csv = "1.2"
 dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10" }
 digest = { default-features = false, version = "0.10" }
-dtparse = "1.5"
+dtparse = "2.0"
 encoding_rs = "0.8"
 fancy-regex = "0.11"
 filesize = "0.2"
