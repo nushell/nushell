@@ -324,7 +324,6 @@ impl Value {
         // the current use_ls_colors config setting is converted to a Value::Boolean and inserted in the
         // record in place of the 2.
 
-        let span = self.span();
         if let Value::Record { val, .. } = self {
             let Record { cols, vals } = val;
             // Because this whole algorithm removes while iterating, this must iterate in reverse.
@@ -1479,7 +1478,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 
             Ok(hooks)
         }
-        v => Err(ShellError::UnsupportedConfigValue(
+        _ => Err(ShellError::UnsupportedConfigValue(
             "record for 'hooks' config".into(),
             "non-record value".into(),
             span,

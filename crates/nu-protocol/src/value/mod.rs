@@ -354,11 +354,11 @@ impl Value {
     pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
         let span = self.span();
         match self {
-            Value::String { val, internal_span } => Ok(Spanned {
+            Value::String { val, .. } => Ok(Spanned {
                 item: val.to_string(),
                 span,
             }),
-            Value::Binary { val, internal_span } => Ok(match std::str::from_utf8(val) {
+            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => Spanned {
                     item: s.to_string(),
                     span,
@@ -385,7 +385,7 @@ impl Value {
         let span = self.span();
 
         match self {
-            Value::String { val, internal_span } => {
+            Value::String { val, .. } => {
                 let mut chars = val.chars();
                 match (chars.next(), chars.next()) {
                     (Some(c), None) => Ok(c),
@@ -1299,6 +1299,8 @@ impl Value {
         cell_path: &[PathMember],
         new_val: Value,
     ) -> Result<(), ShellError> {
+        let v_span = self.span();
+
         match cell_path.first() {
             Some(path_member) => match path_member {
                 PathMember::String {
@@ -1342,7 +1344,6 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let mut found = false;
-                        let v_span = self.span();
 
                         for (col, val) in record.iter_mut() {
                             if col == col_name {
@@ -2707,10 +2708,7 @@ impl Value {
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: lhs / rhs,
-                        span,
-                    })
+                    Ok(Value::float(lhs / rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2718,15 +2716,9 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
-                            val: lhs / rhs,
-                            span,
-                        })
+                        Ok(Value::int(lhs / rhs, span))
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
-                            span,
-                        })
+                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
                     }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
@@ -2734,20 +2726,17 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Filesize {
-                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                    Ok(Value::filesize(
+                        ((*lhs as f64) / (*rhs as f64)) as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Filesize {
-                        val: (*lhs as f64 / rhs) as i64,
-                        span,
-                    })
+                    Ok(Value::filesize((*lhs as f64 / rhs) as i64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2755,15 +2744,9 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
-                            val: lhs / rhs,
-                            span,
-                        })
+                        Ok(Value::int(lhs / rhs, span))
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
-                            span,
-                        })
+                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
                     }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
@@ -2771,26 +2754,23 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Duration {
-                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                    Ok(Value::duration(
+                        ((*lhs as f64) / (*rhs as f64)) as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Duration {
-                        val: ((*lhs as f64) / rhs) as i64,
-                        span,
-                    })
+                    Ok(Value::duration(((*lhs as f64) / rhs) as i64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2807,126 +2787,126 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Int {
-                        val: (lhs / rhs)
+                    Ok(Value::int(
+                        (lhs / rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Filesize {
-                        val: ((*lhs as f64) / (*rhs as f64))
+                    Ok(Value::filesize(
+                        ((*lhs as f64) / (*rhs as f64))
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Filesize {
-                        val: (*lhs as f64 / *rhs)
+                    Ok(Value::filesize(
+                        (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Duration {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::duration(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Duration {
-                        val: (*lhs as f64 / *rhs)
+                    Ok(Value::duration(
+                        (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2940,8 +2920,13 @@ impl Value {
     }
 
     pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Comparison(Comparison::LessThan), op, rhs);
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+            return lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::LessThan),
+                op,
+                rhs,
+            );
         }
 
         if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
@@ -2962,10 +2947,7 @@ impl Value {
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::Bool {
-                val: matches!(ordering, Ordering::Less),
-                span,
-            })
+            Ok(Value::bool(matches!(ordering, Ordering::Less), span))
         } else {
             Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2978,9 +2960,9 @@ impl Value {
     }
 
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
-                *span,
+                self.span(),
                 Operator::Comparison(Comparison::LessThanOrEqual),
                 op,
                 rhs,
@@ -3005,10 +2987,7 @@ impl Value {
         }
 
         self.partial_cmp(rhs)
-            .map(|ordering| Value::Bool {
-                val: matches!(ordering, Ordering::Less | Ordering::Equal),
-                span,
-            })
+            .map(|ordering| Value::bool(matches!(ordering, Ordering::Less | Ordering::Equal), span))
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3019,9 +2998,9 @@ impl Value {
     }
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
-                *span,
+                self.span(),
                 Operator::Comparison(Comparison::GreaterThan),
                 op,
                 rhs,
@@ -3046,10 +3025,7 @@ impl Value {
         }
 
         self.partial_cmp(rhs)
-            .map(|ordering| Value::Bool {
-                val: matches!(ordering, Ordering::Greater),
-                span,
-            })
+            .map(|ordering| Value::bool(matches!(ordering, Ordering::Greater), span))
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3060,9 +3036,9 @@ impl Value {
     }
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
-                *span,
+                self.span(),
                 Operator::Comparison(Comparison::GreaterThanOrEqual),
                 op,
                 rhs,
@@ -3087,10 +3063,10 @@ impl Value {
         }
 
         match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
-                val: matches!(ordering, Ordering::Greater | Ordering::Equal),
+            Some(ordering) => Ok(Value::bool(
+                matches!(ordering, Ordering::Greater | Ordering::Equal),
                 span,
-            }),
+            )),
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3102,19 +3078,21 @@ impl Value {
     }
 
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Comparison(Comparison::Equal), op, rhs);
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+            return lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::Equal),
+                op,
+                rhs,
+            );
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::Bool {
-                val: matches!(ordering, Ordering::Equal),
-                span,
-            })
+            Ok(Value::bool(matches!(ordering, Ordering::Equal), span))
         } else {
             match (self, rhs) {
                 (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::Bool { val: false, span })
+                    Ok(Value::bool(false, span))
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
@@ -3128,19 +3106,21 @@ impl Value {
     }
 
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Comparison(Comparison::NotEqual), op, rhs);
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+            return lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotEqual),
+                op,
+                rhs,
+            );
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::Bool {
-                val: !matches!(ordering, Ordering::Equal),
-                span,
-            })
+            Ok(Value::bool(!matches!(ordering, Ordering::Equal), span))
         } else {
             match (self, rhs) {
                 (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::Bool { val: true, span })
+                    Ok(Value::bool(true, span))
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
@@ -3155,22 +3135,14 @@ impl Value {
 
     pub fn r#in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
-            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.cols.contains(lhs),
-                span,
-            }),
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(rhs.contains(lhs), span))
+            }
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
+                Ok(Value::bool(rhs.cols.contains(lhs), span))
+            }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
                     (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
@@ -3186,19 +3158,18 @@ impl Value {
                     ),
                 });
 
-                Ok(Value::Bool { val, span })
+                Ok(Value::bool(val, span))
             }
             (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: rhs
-                        .members
+                Ok(Value::bool(
+                    rhs.members
                         .windows(lhs.members.len())
                         .any(|member_window| member_window == rhs.members),
                     span,
-                })
+                ))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::In), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3212,22 +3183,14 @@ impl Value {
 
     pub fn not_in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
-            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.cols.contains(lhs),
-                span,
-            }),
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(!rhs.contains(lhs), span))
+            }
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
+                Ok(Value::bool(!rhs.cols.contains(lhs), span))
+            }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
                     (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
@@ -3243,20 +3206,22 @@ impl Value {
                     ),
                 });
 
-                Ok(Value::Bool { val, span })
+                Ok(Value::bool(val, span))
             }
             (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: rhs
-                        .members
+                Ok(Value::bool(
+                    rhs.members
                         .windows(lhs.members.len())
                         .all(|member_window| member_window != rhs.members),
                     span,
-                })
+                ))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::NotIn), op, rhs)
-            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotIn),
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3275,14 +3240,9 @@ impl Value {
         invert: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
+        let rhs_span = rhs.span();
         match (self, rhs) {
-            (
-                Value::String { val: lhs, .. },
-                Value::String {
-                    val: rhs,
-                    span: rhs_span,
-                },
-            ) => {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 let is_match = match engine_state.regex_cache.try_lock() {
                     Ok(mut cache) => {
                         if let Some(regex) = cache.get(rhs) {
@@ -3293,7 +3253,7 @@ impl Value {
                                     format!("{e}"),
                                     "value originated from here".into(),
                                     span,
-                                    *rhs_span,
+                                    rhs_span,
                                 )
                             })?;
                             let ret = regex.is_match(lhs);
@@ -3307,24 +3267,24 @@ impl Value {
                                 format!("{e}"),
                                 "value originated from here".into(),
                                 span,
-                                *rhs_span,
+                                rhs_span,
                             )
                         })?;
                         regex.is_match(lhs)
                     }
                 };
 
-                Ok(Value::Bool {
-                    val: if invert {
+                Ok(Value::bool(
+                    if invert {
                         !is_match.unwrap_or(false)
                     } else {
                         is_match.unwrap_or(true)
                     },
                     span,
-                })
+                ))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => lhs.operation(
-                *span,
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                span,
                 if invert {
                     Operator::Comparison(Comparison::NotRegexMatch)
                 } else {
@@ -3345,13 +3305,15 @@ impl Value {
 
     pub fn starts_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs.starts_with(rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::StartsWith), op, rhs)
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(lhs.starts_with(rhs), span))
             }
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::StartsWith),
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3364,13 +3326,15 @@ impl Value {
 
     pub fn ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs.ends_with(rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::EndsWith), op, rhs)
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(lhs.ends_with(rhs), span))
             }
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::EndsWith),
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3383,12 +3347,11 @@ impl Value {
 
     pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs << rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::ShiftLeft), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs << rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3402,12 +3365,11 @@ impl Value {
 
     pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs >> rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::ShiftRight), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs >> rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3421,12 +3383,11 @@ impl Value {
 
     pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs | rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::BitOr), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs | rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3440,12 +3401,11 @@ impl Value {
 
     pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs ^ rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::BitXor), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs ^ rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3459,12 +3419,11 @@ impl Value {
 
     pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs & rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::BitAnd), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs & rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3480,46 +3439,34 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: lhs % rhs,
-                        span,
-                    })
+                    Ok(Value::int(lhs % rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: *lhs as f64 % *rhs,
-                        span,
-                    })
+                    Ok(Value::float(*lhs as f64 % *rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Float {
-                        val: *lhs % *rhs as f64,
-                        span,
-                    })
+                    Ok(Value::float(*lhs % *rhs as f64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: lhs % rhs,
-                        span,
-                    })
+                    Ok(Value::float(lhs % rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Modulo), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -3534,12 +3481,11 @@ impl Value {
 
     pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs && *rhs,
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Boolean(Boolean::And), op, rhs)
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool(*lhs && *rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3553,12 +3499,11 @@ impl Value {
 
     pub fn or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs || *rhs,
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Boolean(Boolean::Or), op, rhs)
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool(*lhs || *rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::Or), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3572,12 +3517,11 @@ impl Value {
 
     pub fn xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs && !*rhs) || (!*lhs && *rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Boolean(Boolean::Xor), op, rhs)
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool((*lhs && !*rhs) || (!*lhs && *rhs), span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::Xor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3593,25 +3537,22 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
-                    Ok(Value::Int { val, span })
+                    Ok(Value::int(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
                 }
             }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: (*lhs as f64).powf(*rhs),
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs.powf(*rhs as f64),
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs.powf(*rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Pow), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float((*lhs as f64).powf(*rhs), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs as f64), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs), span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -3932,14 +3873,9 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_with_no_values = Value::List {
-                vals: vec![],
-                span: Span::unknown(),
-            };
-            let list_with_one_empty_string = Value::List {
-                vals: vec![Value::string("", Span::unknown())],
-                span: Span::unknown(),
-            };
+            let list_with_no_values = Value::list(vec![], Span::unknown());
+            let list_with_one_empty_string =
+                Value::list(vec![Value::string("", Span::unknown())], Span::unknown());
 
             assert!(list_with_no_values.is_empty());
             assert!(!list_with_one_empty_string.is_empty());
@@ -3980,29 +3916,24 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_of_ints = Value::List {
-                vals: vec![Value::int(0, Span::unknown())],
-                span: Span::unknown(),
-            };
-            let list_of_floats = Value::List {
-                vals: vec![Value::float(0.0, Span::unknown())],
-                span: Span::unknown(),
-            };
-            let list_of_ints_and_floats = Value::List {
-                vals: vec![
+            let list_of_ints = Value::list(vec![Value::int(0, Span::unknown())], Span::unknown());
+            let list_of_floats =
+                Value::list(vec![Value::float(0.0, Span::unknown())], Span::unknown());
+            let list_of_ints_and_floats = Value::list(
+                vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
                 ],
-                span: Span::unknown(),
-            };
-            let list_of_ints_and_floats_and_bools = Value::List {
-                vals: vec![
+                Span::unknown(),
+            );
+            let list_of_ints_and_floats_and_bools = Value::list(
+                vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
                     Value::bool(false, Span::unknown()),
                 ],
-                span: Span::unknown(),
-            };
+                Span::unknown(),
+            );
             assert_eq!(list_of_ints.get_type(), Type::List(Box::new(Type::Int)));
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
@@ -4023,13 +3954,13 @@ mod tests {
 
         #[test]
         fn test_datetime() {
-            let string = Value::Date {
-                val: DateTime::from_utc(
+            let string = Value::date(
+                DateTime::from_utc(
                     NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
                     FixedOffset::east_opt(0).unwrap(),
                 ),
-                span: Span::unknown(),
-            }
+                Span::unknown(),
+            )
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
@@ -4040,13 +3971,13 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let string = Value::Date {
-                val: DateTime::from_utc(
+            let string = Value::date(
+                DateTime::from_utc(
                     NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
                     FixedOffset::east_opt(0).unwrap(),
                 ),
-                span: Span::unknown(),
-            }
+                Span::unknown(),
+            )
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because

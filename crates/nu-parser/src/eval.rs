@@ -15,22 +15,13 @@ pub fn eval_constant(
         Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::Binary {
-            val: b.clone(),
-            span: expr.span,
-        }),
-        Expr::Filepath(path) => Ok(Value::String {
-            val: path.clone(),
-            span: expr.span,
-        }),
+        Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
+        Expr::Filepath(path) => Ok(Value::string(path, expr.span)),
         Expr::Var(var_id) => match working_set.get_variable(*var_id).const_val.as_ref() {
             Some(val) => Ok(val.clone()),
             None => Err(ParseError::NotAConstant(expr.span)),
         },
-        Expr::CellPath(cell_path) => Ok(Value::CellPath {
-            val: cell_path.clone(),
-            span: expr.span,
-        }),
+        Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
         Expr::FullCellPath(cell_path) => {
             let value = eval_constant(working_set, &cell_path.head)?;
 
@@ -44,19 +35,13 @@ pub fn eval_constant(
                 )),
             }
         }
-        Expr::DateTime(dt) => Ok(Value::Date {
-            val: *dt,
-            span: expr.span,
-        }),
+        Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
                 output.push(eval_constant(working_set, expr)?);
             }
-            Ok(Value::List {
-                vals: output,
-                span: expr.span,
-            })
+            Ok(Value::list(output, expr.span))
         }
         Expr::Record(fields) => {
             let mut record = Record::new();
@@ -99,17 +84,11 @@ pub fn eval_constant(
                     expr.span,
                 ));
             }
-            Ok(Value::List {
-                vals: output_rows,
-                span: expr.span,
-            })
+            Ok(Value::list(output_rows, expr.span))
         }
         Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
-        Expr::String(s) => Ok(Value::String {
-            val: s.clone(),
-            span: expr.span,
-        }),
-        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::String(s) => Ok(Value::string(s, expr.span)),
+        Expr::Nothing => Ok(Value::nothing(expr.span)),
         Expr::ValueWithUnit(expr, unit) => {
             if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
                 unit.item.to_value(val, unit.span).map_err(|_| {

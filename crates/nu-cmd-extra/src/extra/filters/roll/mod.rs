@@ -21,8 +21,9 @@ fn vertical_rotate_value(
     by: Option<usize>,
     direction: VerticalDirection,
 ) -> Result<Value, ShellError> {
+    let span = value.span();
     match value {
-        Value::List { mut vals, span } => {
+        Value::List { mut vals, .. } => {
             let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
             let values = vals.as_mut_slice();
 
@@ -31,10 +32,7 @@ fn vertical_rotate_value(
                 VerticalDirection::Down => values.rotate_right(rotations),
             }
 
-            Ok(Value::List {
-                vals: values.to_owned(),
-                span,
-            })
+            Ok(Value::list(values.to_owned(), span))
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "list".to_string(),
@@ -54,10 +52,10 @@ fn horizontal_rotate_value(
     cells_only: bool,
     direction: &HorizontalDirection,
 ) -> Result<Value, ShellError> {
+    let span = value.span();
     match value {
         Value::Record {
-            val: mut record,
-            span,
+            val: mut record, ..
         } => {
             let rotations = by.map(|n| n % record.len()).unwrap_or(1);
 
@@ -75,13 +73,13 @@ fn horizontal_rotate_value(
 
             Ok(Value::record(record, span))
         }
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             let values = vals
                 .into_iter()
                 .map(|value| horizontal_rotate_value(value, by, cells_only, direction))
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
-            Ok(Value::List { vals: values, span })
+            Ok(Value::list(values, span))
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),

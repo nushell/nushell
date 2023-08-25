@@ -318,14 +318,8 @@ mod test {
         let call = EvaluatedCall {
             head: Span::new(0, 10),
             positional: vec![
-                Value::Float {
-                    val: 1.0,
-                    span: Span::new(0, 10),
-                },
-                Value::String {
-                    val: "something".into(),
-                    span: Span::new(0, 10),
-                },
+                Value::float(1.0, Span::new(0, 10)),
+                Value::string("something", Span::new(0, 10)),
             ],
             named: vec![
                 (
@@ -333,10 +327,7 @@ mod test {
                         item: "name".to_string(),
                         span: Span::new(0, 10),
                     },
-                    Some(Value::Float {
-                        val: 1.0,
-                        span: Span::new(0, 10),
-                    }),
+                    Some(Value::float(1.0, Span::new(0, 10))),
                 ),
                 (
                     Spanned {

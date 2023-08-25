@@ -656,7 +656,7 @@ impl PipelineData {
     /// `1..3 | to XX -> [1,2,3]`
     pub fn try_expand_range(self) -> Result<PipelineData, ShellError> {
         let input = match self {
-            PipelineData::Value(v, ..) => match v {
+            PipelineData::Value(v, metadata) => match v {
                 Value::Range { val, .. } => {
                     let span = val.to.span();
                     match (&val.to, &val.from) {
@@ -691,7 +691,7 @@ impl PipelineData {
                     let range_values: Vec<Value> = val.into_range_iter(None)?.collect();
                     PipelineData::Value(Value::list(range_values, span), None)
                 }
-                _ => self,
+                x => PipelineData::Value(x, metadata),
             },
             _ => self,
         };
