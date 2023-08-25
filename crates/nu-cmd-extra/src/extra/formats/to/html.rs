@@ -288,13 +288,13 @@ fn to_html(
                 )
             })
             .collect();
-        return Ok(Value::List {
-            vals: result,
-            span: head,
-        }
-        .into_pipeline_data_with_metadata(Box::new(PipelineMetadata {
-            data_source: DataSource::HtmlThemes,
-        })));
+        return Ok(
+            Value::list(result, head).into_pipeline_data_with_metadata(Box::new(
+                PipelineMetadata {
+                    data_source: DataSource::HtmlThemes,
+                },
+            )),
+        );
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,
@@ -403,7 +403,8 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("</tr></thead><tbody>");
 
     for row in table {
-        if let Value::Record { span, .. } = row {
+        let span = row.span();
+        if let Value::Record { .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
                 let data = row.get_data_by_key(header);

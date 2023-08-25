@@ -37,8 +37,8 @@ impl Command for RollUp {
         vec![Example {
             description: "Rolls rows up",
             example: "[[a b]; [1 2] [3 4] [5 6]] | roll up",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_record(Record {
                         cols: columns.clone(),
                         vals: vec![Value::test_int(3), Value::test_int(4)],
@@ -52,8 +52,8 @@ impl Command for RollUp {
                         vals: vec![Value::test_int(1), Value::test_int(2)],
                     }),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 

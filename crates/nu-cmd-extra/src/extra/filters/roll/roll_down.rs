@@ -37,8 +37,8 @@ impl Command for RollDown {
         vec![Example {
             description: "Rolls rows down of a table",
             example: "[[a b]; [1 2] [3 4] [5 6]] | roll down",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_record(Record {
                         cols: columns.clone(),
                         vals: vec![Value::test_int(5), Value::test_int(6)],
@@ -52,8 +52,8 @@ impl Command for RollDown {
                         vals: vec![Value::test_int(3), Value::test_int(4)],
                     }),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 

@@ -66,10 +66,7 @@ impl Command for ListDF {
             })
             .collect::<Vec<Value>>();
 
-        let list = Value::List {
-            vals,
-            span: call.head,
-        };
+        let list = Value::list(vals, call.head);
 
         Ok(list.into_pipeline_data())
     }
