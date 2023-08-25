@@ -5476,20 +5476,28 @@ pub fn parse_pipeline(
                                         {
                                             let block = working_set.get_block(*block_id);
 
-                                            let element = block.pipelines[0].elements[0].clone();
-
-                                            if let PipelineElement::Expression(prepend, expr) =
-                                                element
+                                            if let Some(element) = block
+                                                .pipelines
+                                                .first()
+                                                .and_then(|p| p.elements.first())
+                                                .cloned()
                                             {
-                                                if expr.has_in_variable(working_set) {
-                                                    let new_expr = PipelineElement::Expression(
-                                                        prepend,
-                                                        wrap_expr_with_collect(working_set, &expr),
-                                                    );
+                                                if let PipelineElement::Expression(prepend, expr) =
+                                                    element
+                                                {
+                                                    if expr.has_in_variable(working_set) {
+                                                        let new_expr = PipelineElement::Expression(
+                                                            prepend,
+                                                            wrap_expr_with_collect(
+                                                                working_set,
+                                                                &expr,
+                                                            ),
+                                                        );
 
-                                                    let block =
-                                                        working_set.get_block_mut(*block_id);
-                                                    block.pipelines[0].elements[0] = new_expr;
+                                                        let block =
+                                                            working_set.get_block_mut(*block_id);
+                                                        block.pipelines[0].elements[0] = new_expr;
+                                                    }
                                                 }
                                             }
                                         }
@@ -5608,17 +5616,23 @@ pub fn parse_pipeline(
                                 {
                                     let block = working_set.get_block(*block_id);
 
-                                    let element = block.pipelines[0].elements[0].clone();
+                                    if let Some(element) = block
+                                        .pipelines
+                                        .first()
+                                        .and_then(|p| p.elements.first())
+                                        .cloned()
+                                    {
+                                        if let PipelineElement::Expression(prepend, expr) = element
+                                        {
+                                            if expr.has_in_variable(working_set) {
+                                                let new_expr = PipelineElement::Expression(
+                                                    prepend,
+                                                    wrap_expr_with_collect(working_set, &expr),
+                                                );
 
-                                    if let PipelineElement::Expression(prepend, expr) = element {
-                                        if expr.has_in_variable(working_set) {
-                                            let new_expr = PipelineElement::Expression(
-                                                prepend,
-                                                wrap_expr_with_collect(working_set, &expr),
-                                            );
-
-                                            let block = working_set.get_block_mut(*block_id);
-                                            block.pipelines[0].elements[0] = new_expr;
+                                                let block = working_set.get_block_mut(*block_id);
+                                                block.pipelines[0].elements[0] = new_expr;
+                                            }
                                         }
                                     }
                                 }
