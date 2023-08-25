@@ -5476,10 +5476,14 @@ pub fn parse_pipeline(
                                         {
                                             let block = working_set.get_block(*block_id);
 
-                                            let element = block.pipelines[0].elements[0].clone();
-
-                                            if let PipelineElement::Expression(prepend, expr) =
-                                                element
+                                            if let Some(PipelineElement::Expression(
+                                                prepend,
+                                                expr,
+                                            )) = block
+                                                .pipelines
+                                                .first()
+                                                .and_then(|p| p.elements.first())
+                                                .cloned()
                                             {
                                                 if expr.has_in_variable(working_set) {
                                                     let new_expr = PipelineElement::Expression(
@@ -5608,9 +5612,12 @@ pub fn parse_pipeline(
                                 {
                                     let block = working_set.get_block(*block_id);
 
-                                    let element = block.pipelines[0].elements[0].clone();
-
-                                    if let PipelineElement::Expression(prepend, expr) = element {
+                                    if let Some(PipelineElement::Expression(prepend, expr)) = block
+                                        .pipelines
+                                        .first()
+                                        .and_then(|p| p.elements.first())
+                                        .cloned()
+                                    {
                                         if expr.has_in_variable(working_set) {
                                             let new_expr = PipelineElement::Expression(
                                                 prepend,
