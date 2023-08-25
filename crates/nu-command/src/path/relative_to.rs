@@ -5,8 +5,8 @@ use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -39,6 +39,7 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "Parent shared with the input path",
             )
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {
@@ -134,6 +135,7 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
                 span,
                 help: None,
             }),
+            span,
         },
     }
 }

@@ -2,7 +2,8 @@ use super::url;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 use url::Url;
@@ -17,7 +18,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("url parse")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![
+                (Type::String, Type::Record(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -50,7 +56,7 @@ impl Command for SubCommand {
         vec![Example {
             description: "Parses a url",
             example: "'http://user123:pass567@www.example.com:8081/foo/bar?param1=section&p2=&f[name]=vldc#hello' | url parse",
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec![
                     "scheme".to_string(),
                     "username".to_string(),
@@ -71,18 +77,16 @@ impl Command for SubCommand {
                     Value::test_string("/foo/bar"),
                     Value::test_string("param1=section&p2=&f[name]=vldc"),
                     Value::test_string("hello"),
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["param1".to_string(), "p2".to_string(), "f[name]".to_string()],
                         vals: vec![
                             Value::test_string("section"),
                             Value::test_string(""),
                             Value::test_string("vldc"),
                         ],
-                        span: Span::test_data(),
-                    },
+                    }),
                 ],
-                span: Span::test_data(),
-            }),
+            })),
         }]
     }
 }
@@ -97,84 +101,35 @@ fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<Pipelin
     let result_url = Url::parse(url_string.as_str());
 
     // This is the span of the original string, not the call head.
-    let span = value.span()?;
+    let span = value.span();
 
     match result_url {
         Ok(url) => {
-            let cols = vec![
-                String::from("scheme"),
-                String::from("username"),
-                String::from("password"),
-                String::from("host"),
-                String::from("port"),
-                String::from("path"),
-                String::from("query"),
-                String::from("fragment"),
-                String::from("params"),
-            ];
-            let mut vals: Vec<Value> = vec![
-                Value::String {
-                    val: String::from(url.scheme()),
-                    span: head,
-                },
-                Value::String {
-                    val: String::from(url.username()),
-                    span: head,
-                },
-                Value::String {
-                    val: String::from(url.password().unwrap_or("")),
-                    span: head,
-                },
-                Value::String {
-                    val: String::from(url.host_str().unwrap_or("")),
-                    span: head,
-                },
-                Value::String {
-                    val: url
-                        .port()
-                        .map(|p| p.to_string())
-                        .unwrap_or_else(|| "".into()),
-                    span: head,
-                },
-                Value::String {
-                    val: String::from(url.path()),
-                    span: head,
-                },
-                Value::String {
-                    val: String::from(url.query().unwrap_or("")),
-                    span: head,
-                },
-                Value::String {
-                    val: String::from(url.fragment().unwrap_or("")),
-                    span: head,
-                },
-            ];
-
             let params =
                 serde_urlencoded::from_str::<Vec<(String, String)>>(url.query().unwrap_or(""));
             match params {
                 Ok(result) => {
-                    let (param_cols, param_vals) = result
+                    let params = result
                         .into_iter()
-                        .map(|(k, v)| (k, Value::String { val: v, span: head }))
-                        .unzip();
+                        .map(|(k, v)| (k, Value::string(v, head)))
+                        .collect();
 
-                    vals.push(Value::Record {
-                        cols: param_cols,
-                        vals: param_vals,
-                        span: head,
-                    });
+                    let port = url.port().map(|p| p.to_string()).unwrap_or_default();
 
-                    Ok(PipelineData::Value(
-                        Value::Record {
-                            cols,
-                            vals,
-                            span: head,
-                        },
-                        None,
-                    ))
+                    let record = record! {
+                        "scheme" => Value::string(url.scheme(), head),
+                        "username" => Value::string(url.username(), head),
+                        "password" => Value::string(url.password().unwrap_or(""), head),
+                        "host" => Value::string(url.host_str().unwrap_or(""), head),
+                        "port" => Value::string(port, head),
+                        "path" => Value::string(url.path(), head),
+                        "query" => Value::string(url.query().unwrap_or(""), head),
+                        "fragment" => Value::string(url.fragment().unwrap_or(""), head),
+                        "params" => Value::record(params, head),
+                    };
+
+                    Ok(PipelineData::Value(Value::record(record, head), None))
                 }
-
                 _ => Err(ShellError::UnsupportedInput(
                     "String not compatible with url-encoding".to_string(),
                     "value originates from here".into(),

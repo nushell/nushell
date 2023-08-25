@@ -251,7 +251,9 @@ impl Command for Watch {
                                 .pop()
                                 .map(|path| event_handler("Remove", path, None))
                                 .unwrap_or(Ok(())),
-                            EventKind::Modify(ModifyKind::Data(DataChange::Content)) => one_event
+                            EventKind::Modify(ModifyKind::Data(DataChange::Content))
+                            | EventKind::Modify(ModifyKind::Data(DataChange::Any))
+                            | EventKind::Modify(ModifyKind::Any) => one_event
                                 .paths
                                 .pop()
                                 .map(|path| event_handler("Write", path, None))

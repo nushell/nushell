@@ -177,7 +177,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SplitRow,
             SplitWords,
             Str,
-            StrCamelCase,
             StrCapitalize,
             StrContains,
             StrDistance,
@@ -187,17 +186,15 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrJoin,
             StrReplace,
             StrIndexOf,
-            StrKebabCase,
             StrLength,
-            StrPascalCase,
             StrReverse,
-            StrScreamingSnakeCase,
-            StrSnakeCase,
             StrStartsWith,
             StrSubstring,
             StrTrim,
-            StrTitleCase,
-            StrUpcase
+            StrUpcase,
+            FormatDate,
+            FormatDuration,
+            FormatFilesize,
         };
 
         // FileSystem
@@ -233,7 +230,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Date
         bind_command! {
             Date,
-            DateFormat,
             DateHumanize,
             DateListTimezones,
             DateNow,
@@ -299,7 +295,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Env
         bind_command! {
-            LetEnvDeprecated,
             ExportEnv,
             LoadEnv,
             SourceEnv,
@@ -329,6 +324,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MathVariance,
             MathLog,
         };
+
+        // Bytes
+        bind_command! {
+            Bytes,
+            BytesLen,
+            BytesStartsWith,
+            BytesEndsWith,
+            BytesReverse,
+            BytesReplace,
+            BytesAdd,
+            BytesAt,
+            BytesIndexOf,
+            BytesCollect,
+            BytesRemove,
+            BytesBuild
+        }
 
         // Network
         bind_command! {
@@ -379,17 +390,10 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IsAdmin,
         };
 
-        // Deprecated
+        // Removed
         bind_command! {
-            HashBase64,
-            LPadDeprecated,
-            MathEvalDeprecated,
-            RPadDeprecated,
-            StrCollectDeprecated,
-            StrDatetimeDeprecated,
-            StrDecimalDeprecated,
-            StrFindReplaceDeprecated,
-            StrIntDeprecated,
+            LetEnv,
+            DateFormat,
         };
 
         working_set.render()

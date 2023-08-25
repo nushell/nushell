@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    ParseError, Span, Value,
+    ParseError, Record, Span, Value,
 };
 
 /// Evaluate a constant value at parse time
@@ -12,7 +12,7 @@ pub fn eval_constant(
     expr: &Expression,
 ) -> Result<Value, ParseError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::boolean(*b, expr.span)),
+        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
         Expr::Binary(b) => Ok(Value::Binary {
@@ -59,28 +59,22 @@ pub fn eval_constant(
             })
         }
         Expr::Record(fields) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
             for (col, val) in fields {
                 // avoid duplicate cols.
                 let col_name = value_as_string(eval_constant(working_set, col)?, expr.span)?;
-                let pos = cols.iter().position(|c| c == &col_name);
+                let pos = record.cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
-                        vals[index] = eval_constant(working_set, val)?;
+                        record.vals[index] = eval_constant(working_set, val)?;
                     }
                     None => {
-                        cols.push(col_name);
-                        vals.push(eval_constant(working_set, val)?);
+                        record.push(col_name, eval_constant(working_set, val)?);
                     }
                 }
             }
 
-            Ok(Value::Record {
-                cols,
-                vals,
-                span: expr.span,
-            })
+            Ok(Value::record(record, expr.span))
         }
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
@@ -97,11 +91,13 @@ pub fn eval_constant(
                 for expr in val {
                     row.push(eval_constant(working_set, expr)?);
                 }
-                output_rows.push(Value::Record {
-                    cols: output_headers.clone(),
-                    vals: row,
-                    span: expr.span,
-                });
+                output_rows.push(Value::record(
+                    Record {
+                        cols: output_headers.clone(),
+                        vals: row,
+                    },
+                    expr.span,
+                ));
             }
             Ok(Value::List {
                 vals: output_rows,
@@ -116,7 +112,13 @@ pub fn eval_constant(
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
         Expr::ValueWithUnit(expr, unit) => {
             if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
-                Ok(unit.item.to_value(val, unit.span))
+                unit.item.to_value(val, unit.span).map_err(|_| {
+                    ParseError::InvalidLiteral(
+                        "literal can not fit in unit".into(),
+                        "literal can not fit in unit".into(),
+                        unit.span,
+                    )
+                })
             } else {
                 Err(ParseError::NotAConstant(expr.span))
             }

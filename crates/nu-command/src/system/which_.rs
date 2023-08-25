@@ -1,6 +1,7 @@
 use log::trace;
 use nu_engine::env;
 use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -57,35 +58,35 @@ impl Command for Which {
 }
 
 // Shortcut for creating an entry to the output table
-fn entry(arg: impl Into<String>, path: impl Into<String>, builtin: bool, span: Span) -> Value {
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    cols.push("arg".to_string());
-    vals.push(Value::string(arg.into(), span));
-
-    cols.push("path".to_string());
-    vals.push(Value::string(path.into(), span));
-
-    cols.push("built-in".to_string());
-    vals.push(Value::Bool { val: builtin, span });
-
-    Value::Record { cols, vals, span }
+fn entry(
+    arg: impl Into<String>,
+    path: impl Into<String>,
+    cmd_type: impl Into<String>,
+    span: Span,
+) -> Value {
+    Value::record(
+        record! {
+            "command" => Value::string(arg.into(), span),
+            "path" => Value::string(path.into(), span),
+            "type" => Value::string(cmd_type.into(), span),
+        },
+        span,
+    )
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
-        let (msg, is_builtin) = if engine_state.get_decl(decl_id).is_custom_command() {
-            ("Nushell custom command", false)
+        let cmd_type = if engine_state.get_decl(decl_id).is_custom_command() {
+            "custom"
         } else if engine_state.get_decl(decl_id).is_alias() {
-            ("Nushell alias", false)
+            "alias"
         } else {
-            ("Nushell built-in command", true)
+            "built-in"
         };
 
         trace!("Found command: {}", name);
 
-        Some(entry(name, msg, is_builtin, span))
+        Some(entry(name, "", cmd_type, span))
     } else {
         None
     }
@@ -118,7 +119,7 @@ fn get_first_entry_in_path(
     paths: impl AsRef<OsStr>,
 ) -> Option<Value> {
     which::which_in(item, Some(paths), cwd)
-        .map(|path| entry(item, path.to_string_lossy().to_string(), false, span))
+        .map(|path| entry(item, path.to_string_lossy().to_string(), "external", span))
         .ok()
 }
 
@@ -141,7 +142,7 @@ fn get_all_entries_in_path(
 ) -> Vec<Value> {
     which::which_in_all(&item, Some(paths), cwd)
         .map(|iter| {
-            iter.map(|path| entry(item, path.to_string_lossy().to_string(), false, span))
+            iter.map(|path| entry(item, path.to_string_lossy().to_string(), "external", span))
                 .collect()
         })
         .unwrap_or_default()

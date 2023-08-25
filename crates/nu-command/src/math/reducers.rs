@@ -42,9 +42,9 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             return Err(ShellError::OperatorMismatch {
                 op_span: head,
                 lhs_ty: biggest.get_type().to_string(),
-                lhs_span: biggest.span()?,
+                lhs_span: biggest.span(),
                 rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span()?,
+                rhs_span: value.span(),
             });
         }
     }
@@ -73,9 +73,9 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             return Err(ShellError::OperatorMismatch {
                 op_span: head,
                 lhs_ty: smallest.get_type().to_string(),
-                lhs_span: smallest.span()?,
+                lhs_span: smallest.span(),
                 rhs_ty: value.get_type().to_string(),
-                rhs_span: value.span()?,
+                rhs_span: value.span(),
             });
         }
     }
@@ -112,13 +112,13 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             | Value::Duration { .. } => {
                 acc = acc.add(head, value, head)?;
             }
-            Value::Error { error } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
                     "value originates from here".into(),
                     head,
-                    other.expect_span(),
+                    other.span(),
                 ));
             }
         }
@@ -145,14 +145,14 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             Value::Int { .. } | Value::Float { .. } => {
                 acc = acc.mul(head, value, head)?;
             }
-            Value::Error { error } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(*error.clone()),
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the product of a value that cannot be multiplied"
                         .to_string(),
                     "value originates from here".into(),
                     head,
-                    other.expect_span(),
+                    other.span(),
                 ));
             }
         }

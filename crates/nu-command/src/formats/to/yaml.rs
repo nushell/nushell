@@ -53,9 +53,9 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Range { .. } => serde_yaml::Value::Null,
         Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
         Value::String { val, .. } => serde_yaml::Value::String(val.clone()),
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in cols.iter().zip(vals.iter()) {
+            for (k, v) in val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(v)?,
@@ -79,7 +79,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
-        Value::Error { error } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(*error.clone()),
         Value::Binary { val, .. } => serde_yaml::Value::Sequence(
             val.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
@@ -118,6 +118,7 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
                 span: head,
                 help: None,
             }),
+            span: head,
         }
         .into_pipeline_data()),
     }

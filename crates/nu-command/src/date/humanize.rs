@@ -91,6 +91,7 @@ fn helper(value: Value, head: Span) -> Value {
         },
         _ => Value::Error {
             error: Box::new(ShellError::DatetimeParseError(value.debug_value(), head)),
+            span: head,
         },
     }
 }

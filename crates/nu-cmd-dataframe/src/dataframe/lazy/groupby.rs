@@ -126,7 +126,7 @@ impl Command for ToLazyGroupBy {
             let value: Value = call.req(engine_state, stack, 0)?;
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Expected only Col expressions".into(),
-                span: value.span()?,
+                span: value.span(),
             });
         }
 

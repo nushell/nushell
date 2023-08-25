@@ -129,12 +129,12 @@ fn selects_a_row() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | sort-by name
                 | select 0
                 | get name.0
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "arepas.txt");
@@ -148,12 +148,12 @@ fn selects_many_rows() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls
                 | get name
                 | select 1 0
                 | length
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "2");
@@ -243,4 +243,32 @@ fn select_on_empty_list_returns_empty_list() {
     // and again with a ListStream
     let actual = nu!("[] | each {|i| $i} | select foo | to nuon");
     assert_eq!(actual.out, "[]");
+}
+
+#[test]
+fn select_columns_with_variable_list() {
+    let actual = nu!(r#"
+        let columns = [a c];
+        echo [[a b c]; [1 2 3]] | select $columns | to nuon
+        "#);
+
+    assert_eq!(actual.out, "[[a, c]; [1, 3]]");
+}
+
+#[test]
+fn select_rows_with_variable_list() {
+    let actual = nu!(r#"
+        let rows = [0 2];
+        echo [[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select $rows | to nuon
+        "#);
+
+    assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [7, 8, 9]]");
+}
+
+#[test]
+fn select_single_row_with_variable() {
+    let actual = nu!("let idx = 2;[{a: 1, b: 2} {a: 3, b: 5} {a: 3}] | select $idx | to nuon");
+
+    assert_eq!(actual.out, "[[a]; [3]]".to_string());
+    assert!(actual.err.is_empty());
 }

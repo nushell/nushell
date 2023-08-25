@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,11 +33,10 @@ impl Command for ExprLit {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
             example: "dfr lit 2 | dfr into-nu",
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec!["expr".into(), "value".into()],
                 vals: vec![Value::test_string("literal"), Value::test_string("2")],
-                span: Span::test_data(),
-            }),
+            })),
         }]
     }
 
@@ -66,10 +65,10 @@ impl Command for ExprLit {
 mod test {
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
-    use crate::dataframe::expressions::as_nu::ExprAsNu;
+    use crate::dataframe::eager::ToNu;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ExprAsNu {})])
+        test_dataframe(vec![Box::new(ExprLit {}), Box::new(ToNu {})])
     }
 }

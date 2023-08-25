@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -60,26 +60,45 @@ impl Command for Upsert {
         vec![Example {
             description: "Update a record's value",
             example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
+            result: Some(Value::test_record(Record {
+                cols: vec!["name".into(), "stars".into()],
+                vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
+            })),
         },
         Example {
             description: "Update each row of a table",
             example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
-            result: Some(Value::List { vals: vec![
-                Value::Record { cols: vec!["name".into(), "lang".into()], vals: vec![Value::test_string("Nushell"), Value::test_string("Rust")], span: Span::test_data()},
-                Value::Record { cols: vec!["name".into(), "lang".into()], vals: vec![Value::test_string("Reedline"), Value::test_string("Rust")], span: Span::test_data()}
-                ], span: Span::test_data()}),
+            result: Some(Value::List {
+                vals: vec![
+                    Value::test_record(Record {
+                        cols: vec!["name".into(), "lang".into()],
+                        vals: vec![Value::test_string("Nushell"), Value::test_string("Rust")],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["name".into(), "lang".into()],
+                        vals: vec![Value::test_string("Reedline"), Value::test_string("Rust")],
+                    }),
+                ],
+                span: Span::test_data(),
+            }),
         },
         Example {
             description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into(), "language".into()], vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")], span: Span::test_data()}),
+            result: Some(Value::test_record(Record {
+                cols: vec!["name".into(), "stars".into(), "language".into()],
+                vals: vec![Value::test_string("nu"), Value::test_int(5), Value::test_string("Rust")],
+            })),
         }, Example {
             description: "Use in closure form for more involved updating logic",
             example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-            result: Some(Value::List { vals: vec![
-                Value::Record { cols: vec!["count".into(), "fruit".into()], vals: vec![Value::test_int(5), Value::test_string("apple")], span: Span::test_data()}],
-                span: Span::test_data()}),
+            result: Some(Value::List {
+                vals: vec![Value::test_record(Record {
+                    cols: vec!["count".into(), "fruit".into()],
+                    vals: vec![Value::test_int(5), Value::test_string("apple")],
+                })],
+                span: Span::test_data(),
+            }),
         },
         Example {
             description: "Upsert an int into a list, updating an existing value based on the index",
@@ -159,12 +178,18 @@ fn upsert(
                         if let Err(e) =
                             input.upsert_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error { error: Box::new(e) };
+                            return Value::Error {
+                                error: Box::new(e),
+                                span,
+                            };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: Box::new(e) },
+                    Err(e) => Value::Error {
+                        error: Box::new(e),
+                        span,
+                    },
                 }
             },
             ctrlc,
@@ -200,7 +225,10 @@ fn upsert(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.upsert_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error { error: Box::new(e) };
+                    return Value::Error {
+                        error: Box::new(e),
+                        span,
+                    };
                 }
 
                 input

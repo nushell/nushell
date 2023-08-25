@@ -109,7 +109,7 @@ fn def_fails_with_invalid_name() {
     let actual = nu!(r#"def 5gib = echo "test""#);
     assert!(actual.err.contains(err_msg));
 
-    let actual = nu!(r#"def ^foo [] {}"#);
+    let actual = nu!("def ^foo [] {}");
     assert!(actual.err.contains(err_msg));
 }
 

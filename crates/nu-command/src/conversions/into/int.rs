@@ -37,18 +37,48 @@ impl Command for SubCommand {
                 // Unix timestamp in nanoseconds
                 (Type::Date, Type::Int),
                 (Type::Duration, Type::Int),
-                // TODO: Users should do this by dividing a Filesize by a Filesize explicitly
                 (Type::Filesize, Type::Int),
+                (Type::Binary, Type::Int),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Bool)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Date)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                // Relaxed case to support heterogeneous lists
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
-            .switch("little-endian", "use little-endian byte decoding", None)
+            .named(
+                "endian",
+                SyntaxShape::String,
+                "byte encode endian, available options: native(default), little, big",
+                Some('e'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -89,9 +119,27 @@ impl Command for SubCommand {
             Some(_) => 10,
             None => 10,
         };
+
+        let endian = call.get_flag::<Value>(engine_state, stack, "endian")?;
+        let little_endian = match endian {
+            Some(Value::String { val, span }) => match val.as_str() {
+                "native" => cfg!(target_endian = "little"),
+                "little" => true,
+                "big" => false,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Endian must be one of native, little, big".to_string(),
+                        span,
+                    })
+                }
+            },
+            Some(_) => false,
+            None => cfg!(target_endian = "little"),
+        };
+
         let args = Arguments {
             radix,
-            little_endian: call.has_flag("little-endian"),
+            little_endian,
             cell_paths,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -202,6 +250,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                                     span,
                                     help: None,
                                 }),
+                                span,
                             }
                         }
                     }
@@ -215,6 +264,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     Ok(val) => Value::Int { val, span },
                     Err(error) => Value::Error {
                         error: Box::new(error),
+                        span,
                     },
                 }
             } else {
@@ -228,7 +278,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Int { val: 0, span }
             }
         }
-        Value::Date { val, .. } => {
+        Value::Date {
+            val,
+            span: val_span,
+        } => {
             if val
                 < &FixedOffset::east_opt(0)
                     .expect("constant")
@@ -243,8 +296,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Value::Error {
                     error: Box::new(ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
-                        span
+                        val_span: *val_span,
+                        call_span: span,
                     }),
+                    span,
                 }
             } else {
                 Value::Int {
@@ -283,8 +338,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }
@@ -301,7 +357,12 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
             {
                 match int_from_string(val, head) {
                     Ok(x) => return Value::int(x, head),
-                    Err(e) => return Value::Error { error: Box::new(e) },
+                    Err(e) => {
+                        return Value::Error {
+                            error: Box::new(e),
+                            span: head,
+                        }
+                    }
                 }
             } else if val.starts_with("00") {
                 // It's a padded string
@@ -315,6 +376,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                                 span: head,
                                 help: Some(e.to_string()),
                             }),
+                            span: head,
                         }
                     }
                 }
@@ -329,8 +391,9 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                     exp_input_type: "string and integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span: head,
             };
         }
     };
@@ -343,6 +406,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                 span: head,
                 help: None,
             }),
+            span: head,
         },
     }
 }
@@ -531,7 +595,7 @@ mod test {
             },
             Span::test_data(),
         );
-        if let Value::Error { error } = actual {
+        if let Value::Error { error, .. } = actual {
             if let ShellError::IncorrectValue { msg: e, .. } = *error {
                 assert!(
                     e.contains(err_expected),

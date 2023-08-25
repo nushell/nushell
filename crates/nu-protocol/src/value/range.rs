@@ -105,11 +105,11 @@ impl Range {
     }
 
     pub fn from(&self) -> Result<i64, ShellError> {
-        self.from.as_integer()
+        self.from.as_int()
     }
 
     pub fn to(&self) -> Result<i64, ShellError> {
-        let to = self.to.as_integer()?;
+        let to = self.to.as_int()?;
         if self.is_end_inclusive() {
             Ok(to)
         } else {
@@ -130,7 +130,7 @@ impl Range {
         self,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<RangeIterator, ShellError> {
-        let span = self.from.span()?;
+        let span = self.from.span();
 
         Ok(RangeIterator::new(self, ctrlc, span))
     }
@@ -217,6 +217,7 @@ impl Iterator for RangeIterator {
             self.done = true;
             return Some(Value::Error {
                 error: Box::new(ShellError::CannotCreateRange { span: self.span }),
+                span: self.span,
             });
         };
 
@@ -237,6 +238,7 @@ impl Iterator for RangeIterator {
                     self.done = true;
                     return Some(Value::Error {
                         error: Box::new(error),
+                        span: self.span,
                     });
                 }
             };

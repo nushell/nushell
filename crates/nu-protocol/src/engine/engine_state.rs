@@ -2,9 +2,10 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use crate::ast::Block;
 use crate::{
-    ast::Block, BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError,
-    Signature, Span, Type, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
+    Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, ParseError, Value};
 use core::panic;
@@ -713,7 +714,7 @@ impl EngineState {
             for decl in &overlay_frame.decls {
                 if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
                     let command = self.get_decl(*decl.1);
-                    if ignore_deprecated && command.signature().category == Category::Deprecated {
+                    if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
                     output.push((decl.0.clone(), Some(command.usage().to_string())));
@@ -724,7 +725,7 @@ impl EngineState {
         output
     }
 
-    pub fn get_span_contents(&self, span: &Span) -> &[u8] {
+    pub fn get_span_contents(&self, span: Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
             if span.start >= *start && span.end <= *finish {
                 return &contents[(span.start - start)..(span.end - start)];
@@ -783,16 +784,22 @@ impl EngineState {
         decls.into_iter()
     }
 
+    #[allow(clippy::borrowed_box)]
+    pub fn get_signature(&self, decl: &Box<dyn Command>) -> Signature {
+        if let Some(block_id) = decl.get_block_id() {
+            *self.blocks[block_id].signature.clone()
+        } else {
+            decl.signature()
+        }
+    }
+
     /// Get signatures of all commands within scope.
     pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
         self.get_decls_sorted(include_hidden)
-            .map(|(name_bytes, id)| {
+            .map(|(_, id)| {
                 let decl = self.get_decl(id);
-                // the reason to create the name this way is because the command could be renamed
-                // during module imports but the signature still contains the old name
-                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                (*decl).signature().update_from_command(name, decl.borrow())
+                self.get_signature(decl).update_from_command(decl.borrow())
             })
             .collect()
     }
@@ -807,13 +814,10 @@ impl EngineState {
         include_hidden: bool,
     ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
         self.get_decls_sorted(include_hidden)
-            .map(|(name_bytes, id)| {
+            .map(|(_, id)| {
                 let decl = self.get_decl(id);
-                // the reason to create the name this way is because the command could be renamed
-                // during module imports but the signature still contains the old name
-                let name = String::from_utf8_lossy(&name_bytes).to_string();
 
-                let signature = (*decl).signature().update_from_command(name, decl.borrow());
+                let signature = self.get_signature(decl).update_from_command(decl.borrow());
 
                 (
                     signature,
@@ -902,7 +906,7 @@ impl EngineState {
     pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
-            .map(|span| self.get_span_contents(span))
+            .map(|span| self.get_span_contents(*span))
             .collect();
         build_usage(&comment_lines)
     }
@@ -1161,6 +1165,17 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn use_variables(&mut self, variables: Vec<(Vec<u8>, VarId)>) {
+        let overlay_frame = self.last_overlay_mut();
+
+        for (mut name, var_id) in variables {
+            if !name.starts_with(b"$") {
+                name.insert(0, b'$');
+            }
+            overlay_frame.insert_variable(name, var_id);
+        }
+    }
+
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
@@ -1370,7 +1385,7 @@ impl<'a> StateWorkingSet<'a> {
                 }
             }
         } else {
-            return self.permanent_state.get_span_contents(&span);
+            return self.permanent_state.get_span_contents(span);
         }
 
         panic!("internal error: missing span contents in file cache")
@@ -1530,11 +1545,15 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
+        let mut name = name.to_vec();
+        if !name.starts_with(b"$") {
+            name.insert(0, b'$');
+        }
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                if let Some(var_id) = overlay_frame.vars.get(name) {
+                if let Some(var_id) = overlay_frame.vars.get(&name) {
                     return Some(*var_id);
                 }
             }
@@ -1545,7 +1564,7 @@ impl<'a> StateWorkingSet<'a> {
             .active_overlays(&removed_overlays)
             .rev()
         {
-            if let Some(var_id) = overlay_frame.vars.get(name) {
+            if let Some(var_id) = overlay_frame.vars.get(&name) {
                 return Some(*var_id);
             }
         }
@@ -1656,6 +1675,19 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_constant(&self, var_id: VarId) -> Result<&Value, ParseError> {
+        let var = self.get_variable(var_id);
+
+        if let Some(const_val) = &var.const_val {
+            Ok(const_val)
+        } else {
+            Err(ParseError::InternalError(
+                "constant does not have a constant value".into(),
+                var.declaration_span,
+            ))
+        }
+    }
+
     #[allow(clippy::borrowed_box)]
     pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         let num_permanent_decls = self.permanent_state.num_decls();
@@ -1695,8 +1727,7 @@ impl<'a> StateWorkingSet<'a> {
                 for decl in &overlay_frame.decls {
                     if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
                         let command = self.get_decl(*decl.1);
-                        if ignore_deprecated && command.signature().category == Category::Deprecated
-                        {
+                        if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;
                         }
                         output.push((decl.0.clone(), Some(command.usage().to_string())));

@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
@@ -16,15 +17,20 @@ impl Command for SubCommand {
         Signature::build("str upcase")
             .input_output_types(vec![
                 (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert strings at the given cell paths",
             )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
@@ -74,6 +80,7 @@ fn operate(
                     if let Err(error) = r {
                         return Value::Error {
                             error: Box::new(error),
+                            span: head,
                         };
                     }
                 }
@@ -96,8 +103,9 @@ fn action(input: &Value, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

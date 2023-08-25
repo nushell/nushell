@@ -402,6 +402,7 @@ fn interactive_copy(
                 None,
                 Vec::new(),
             )),
+            span,
         }
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
@@ -541,6 +542,7 @@ fn copy_symlink(
                     None,
                     vec![],
                 )),
+                span,
             }
         }
     };
@@ -574,6 +576,7 @@ fn copy_symlink(
                 None,
                 vec![],
             )),
+            span,
         },
     }
 }
@@ -617,5 +620,6 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
 
     Value::Error {
         error: Box::new(shell_error),
+        span,
     }
 }

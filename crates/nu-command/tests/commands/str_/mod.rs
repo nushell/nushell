@@ -97,6 +97,7 @@ fn upcases() {
 }
 
 #[test]
+#[ignore = "Playgrounds are not supported in nu-cmd-extra"]
 fn camelcases() {
     Playground::setup("str_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -202,7 +203,7 @@ fn regex_error_in_pattern() {
             cwd: dirs.test(), pipeline(
             r#"
                  'source string'
-                 | str replace 'source \Ufoo' "destination"
+                 | str replace -r 'source \Ufoo' "destination"
              "#
         ));
 

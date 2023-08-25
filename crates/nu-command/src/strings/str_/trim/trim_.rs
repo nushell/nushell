@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -42,8 +43,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .rest(
                 "rest",
@@ -66,6 +67,7 @@ impl Command for SubCommand {
                 "trims characters only from the end of the string",
                 Some('r'),
             )
+            .category(Category::Strings)
     }
     fn usage(&self) -> &str {
         "Trim whitespace or specific character."
@@ -178,14 +180,16 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => match mode {
             ActionMode::Global => match other {
-                Value::Record { cols, vals, span } => {
-                    let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
+                Value::Record { val: record, span } => {
+                    let new_vals = record.vals.iter().map(|v| action(v, arg, head)).collect();
 
-                    Value::Record {
-                        cols: cols.to_vec(),
-                        vals: new_vals,
-                        span: *span,
-                    }
+                    Value::record(
+                        Record {
+                            cols: record.cols.to_vec(),
+                            vals: new_vals,
+                        },
+                        *span,
+                    )
                 }
                 Value::List { vals, span } => {
                     let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
@@ -204,8 +208,9 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                         format!("input type: {:?}", other.get_type()),
                         head,
                         // This line requires the Value::Error match above.
-                        other.expect_span(),
+                        other.span(),
                     )),
+                    span: head,
                 }
             }
         },
@@ -247,14 +252,12 @@ mod tests {
     }
 
     fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> Value {
-        Value::Record {
-            cols: cols.iter().map(|x| x.to_string()).collect(),
-            vals: vals
-                .iter()
-                .map(|x| Value::test_string(x.to_string()))
+        Value::test_record(
+            cols.into_iter()
+                .zip(vals)
+                .map(|(col, val)| (col.to_owned(), Value::test_string(val)))
                 .collect(),
-            span: Span::test_data(),
-        }
+        )
     }
 
     fn make_list(vals: Vec<&str>) -> Value {

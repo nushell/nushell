@@ -131,18 +131,19 @@ fn getcol(
                 .into_pipeline_data(ctrlc)
                 .set_metadata(metadata)
         }),
-        PipelineData::Value(Value::Record { cols, .. }, ..) => Ok(cols
+        PipelineData::Value(Value::Record { val, .. }, ..) => Ok(val
+            .cols
             .into_iter()
             .map(move |x| Value::String { val: x, span: head })
             .into_pipeline_data(ctrlc)
             .set_metadata(metadata)),
         // Propagate errors
-        PipelineData::Value(Value::Error { error }, ..) => Err(*error),
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
             wrong_type: other.get_type().to_string(),
             dst_span: head,
-            src_span: other.expect_span(),
+            src_span: other.span(),
         }),
         PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),

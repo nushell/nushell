@@ -19,7 +19,6 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                 ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .category(Category::Math)
     }
@@ -84,8 +83,9 @@ fn operate(value: Value, head: Span) -> Value {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }
@@ -98,6 +98,7 @@ fn error_negative_sqrt(head: Span, span: Span) -> Value {
             head,
             span,
         )),
+        span,
     }
 }
 

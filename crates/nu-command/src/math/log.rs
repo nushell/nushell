@@ -22,14 +22,12 @@ impl Command for SubCommand {
             )
             .input_output_types(vec![
                 (Type::Number, Type::Float),
-                (Type::Number, Type::Int),
                 (
                     Type::List(Box::new(Type::Number)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
                 ),
             ])
             .allow_variants_without_examples(true)
-            .vectorizes_over_list(true)
             .category(Category::Math)
     }
 
@@ -111,6 +109,7 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                         head,
                         span,
                     )),
+                    span,
                 };
             }
             // Specialize for better precision/performance
@@ -130,8 +129,9 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

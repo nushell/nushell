@@ -160,7 +160,7 @@ fn command_lazy(
         let value: Value = call.req(engine_state, stack, 1)?;
         return Err(ShellError::IncompatibleParametersSingle {
             msg: "New name list has different size to column list".into(),
-            span: value.span()?,
+            span: value.span(),
         });
     }
 

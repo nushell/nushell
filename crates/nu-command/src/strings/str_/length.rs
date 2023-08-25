@@ -29,8 +29,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str length")
-            .input_output_types(vec![(Type::String, Type::Int), (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int)))])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::Int),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
                 "count length using grapheme clusters (all visible chars have length 1)",
@@ -112,8 +117,9 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

@@ -76,6 +76,7 @@ impl Command for ToJson {
                     span,
                     help: None,
                 }),
+                span,
             }
             .into_pipeline_data()),
         }
@@ -126,7 +127,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         ),
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
-        Value::Error { error } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { .. }
         | Value::Block { .. }
         | Value::Range { .. }
@@ -134,9 +135,9 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in cols.iter().zip(vals) {
+            for (k, v) in val {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)

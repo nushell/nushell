@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -22,8 +22,30 @@ impl Command for SubCommand {
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                (
+                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
+                // Catch all for heterogeneous lists.
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::Filesize)),
+                ),
             ])
-            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -59,7 +81,7 @@ impl Command for SubCommand {
                 example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
                                 Value::String {
@@ -71,9 +93,8 @@ impl Command for SubCommand {
                                     span: Span::test_data(),
                                 },
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
                                 Value::String {
@@ -85,8 +106,7 @@ impl Command for SubCommand {
                                     span: Span::test_data(),
                                 },
                             ],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
                     span: Span::test_data(),
                 }),
@@ -128,42 +148,40 @@ impl Command for SubCommand {
 }
 
 pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
-    if let Ok(value_span) = input.span() {
-        match input {
-            Value::Filesize { .. } => input.clone(),
-            Value::Int { val, .. } => Value::Filesize {
-                val: *val,
+    let value_span = input.span();
+    match input {
+        Value::Filesize { .. } => input.clone(),
+        Value::Int { val, .. } => Value::Filesize {
+            val: *val,
+            span: value_span,
+        },
+        Value::Float { val, .. } => Value::Filesize {
+            val: *val as i64,
+            span: value_span,
+        },
+        Value::String { val, .. } => match int_from_string(val, value_span) {
+            Ok(val) => Value::Filesize {
+                val,
                 span: value_span,
             },
-            Value::Float { val, .. } => Value::Filesize {
-                val: *val as i64,
+            Err(error) => Value::Error {
+                error: Box::new(error),
                 span: value_span,
             },
-            Value::String { val, .. } => match int_from_string(val, value_span) {
-                Ok(val) => Value::Filesize {
-                    val,
-                    span: value_span,
-                },
-                Err(error) => Value::Error {
-                    error: Box::new(error),
-                },
-            },
-            Value::Nothing { .. } => Value::Filesize {
-                val: 0,
-                span: value_span,
-            },
-            other => Value::Error {
-                error: Box::new(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string and integer".into(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: span,
-                    src_span: value_span,
-                }),
-            },
-        }
-    } else {
-        // Propagate existing errors
-        input.clone()
+        },
+        Value::Nothing { .. } => Value::Filesize {
+            val: 0,
+            span: value_span,
+        },
+        other => Value::Error {
+            error: Box::new(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string and integer".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: span,
+                src_span: value_span,
+            }),
+            span,
+        },
     }
 }
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {

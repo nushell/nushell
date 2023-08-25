@@ -47,8 +47,14 @@ impl Command for Fill {
                 (Type::Float, Type::String),
                 (Type::String, Type::String),
                 (Type::Filesize, Type::String),
+                (Type::List(Box::new(Type::Int)), Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::Float)), Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::List(Box::new(Type::Filesize)), Type::List(Box::new(Type::String))),
+                // General case for heterogeneous lists
+                (Type::List(Box::new(Type::Any)), Type::List(Box::new(Type::String))),
                 ])
-            .vectorizes_over_list(true)
+            .allow_variants_without_examples(true)
             .named(
                 "width",
                 SyntaxShape::Int,
@@ -197,8 +203,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 exp_input_type: "int, filesize, float, string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

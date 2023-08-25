@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
 use pretty_assertions::assert_eq;
@@ -286,4 +286,46 @@ fn run_in_noninteractive_mode() {
         .expect("false");
 
     assert!(child_output.stderr.is_empty());
+}
+
+#[test]
+fn main_script_can_have_subcommands1() {
+    Playground::setup("main_subcommands", |dirs, sandbox| {
+        sandbox.mkdir("main_subcommands");
+        sandbox.with_files(vec![FileWithContent(
+            "script.nu",
+            r#"def "main foo" [x: int] {
+                    print ($x + 100)
+                  }
+                  
+                  def "main" [] {
+                    print "usage: script.nu <command name>"
+                  }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo 123"));
+
+        assert_eq!(actual.out, "223");
+    })
+}
+
+#[test]
+fn main_script_can_have_subcommands2() {
+    Playground::setup("main_subcommands", |dirs, sandbox| {
+        sandbox.mkdir("main_subcommands");
+        sandbox.with_files(vec![FileWithContent(
+            "script.nu",
+            r#"def "main foo" [x: int] {
+                    print ($x + 100)
+                  }
+                  
+                  def "main" [] {
+                    print "usage: script.nu <command name>"
+                  }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
+
+        assert!(actual.out.contains("usage: script.nu"));
+    })
 }

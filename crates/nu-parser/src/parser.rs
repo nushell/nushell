@@ -2318,6 +2318,7 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
 
 pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Nanosecond, "ns", None),
+    // todo start adding aliases for duration units here
     (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
     (
         // µ Micro Sign
@@ -2976,6 +2977,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         },
         members: vec![],
         hidden: HashSet::new(),
+        constants: vec![],
     };
 
     if spans.len() > 1 {
@@ -3695,7 +3697,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     Arg::RestPositional(PositionalArg {
                                         shape, var_id, ..
                                     }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
@@ -5522,8 +5524,7 @@ pub fn parse_pipeline(
                     PipelineElement::Expression(*span, expr)
                 }
                 LiteElement::Redirection(span, redirection, command) => {
-                    trace!("parsing: pipeline element: redirection");
-                    let expr = parse_string(working_set, command.parts[0]);
+                    let expr = parse_value(working_set, command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::Redirection(*span, redirection.clone(), expr)
                 }
@@ -5532,9 +5533,11 @@ pub fn parse_pipeline(
                     err: (err_span, err_command),
                 } => {
                     trace!("parsing: pipeline element: separate redirection");
-                    let out_expr = parse_string(working_set, out_command.parts[0]);
+                    let out_expr =
+                        parse_value(working_set, out_command.parts[0], &SyntaxShape::Any);
 
-                    let err_expr = parse_string(working_set, err_command.parts[0]);
+                    let err_expr =
+                        parse_value(working_set, err_command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::SeparateRedirection {
                         out: (*out_span, out_expr),
@@ -5547,7 +5550,8 @@ pub fn parse_pipeline(
                 } => {
                     trace!("parsing: pipeline element: same target redirection");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
-                    let redirect_expr = parse_string(working_set, redirect_command.parts[0]);
+                    let redirect_expr =
+                        parse_value(working_set, redirect_command.parts[0], &SyntaxShape::Any);
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
                         redirection: (*redirect_span, redirect_expr),
@@ -5636,7 +5640,8 @@ pub fn parse_pipeline(
                 trace!("parsing: pipeline element: same target redirection");
                 let expr = parse_expression(working_set, &command.parts, is_subexpression);
 
-                let redirect_expr = parse_string(working_set, redirect_cmd.parts[0]);
+                let redirect_expr =
+                    parse_value(working_set, redirect_cmd.parts[0], &SyntaxShape::Any);
 
                 Pipeline {
                     elements: vec![PipelineElement::SameTargetRedirection {
@@ -5891,25 +5896,44 @@ pub fn discover_captures_in_expr(
             if let Some(block_id) = decl.get_block_id() {
                 match seen_blocks.get(&block_id) {
                     Some(capture_list) => {
-                        output.extend(capture_list);
+                        // Push captures onto the outer closure that aren't created by that outer closure
+                        for capture in capture_list {
+                            if !seen.contains(&capture.0) {
+                                output.push(*capture);
+                            }
+                        }
                     }
                     None => {
                         let block = working_set.get_block(block_id);
                         if !block.captures.is_empty() {
-                            output.extend(block.captures.iter().map(|var_id| (*var_id, call.head)));
+                            for capture in &block.captures {
+                                if !seen.contains(capture) {
+                                    output.push((*capture, call.head));
+                                }
+                            }
                         } else {
-                            let mut seen = vec![];
-                            seen_blocks.insert(block_id, output.clone());
+                            let result = {
+                                let mut seen = vec![];
+                                seen_blocks.insert(block_id, output.clone());
 
-                            let mut result = vec![];
-                            discover_captures_in_closure(
-                                working_set,
-                                block,
-                                &mut seen,
-                                seen_blocks,
-                                &mut result,
-                            )?;
-                            output.extend(&result);
+                                let mut result = vec![];
+                                discover_captures_in_closure(
+                                    working_set,
+                                    block,
+                                    &mut seen,
+                                    seen_blocks,
+                                    &mut result,
+                                )?;
+
+                                result
+                            };
+                            // Push captures onto the outer closure that aren't created by that outer closure
+                            for capture in &result {
+                                if !seen.contains(&capture.0) {
+                                    output.push(*capture);
+                                }
+                            }
+
                             seen_blocks.insert(block_id, result);
                         }
                     }
@@ -6154,7 +6178,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
                 parser_info: HashMap::new(),
             })),
             span,
-            ty: Type::String,
+            ty: Type::Any,
             custom_completion: None,
         }
     } else {

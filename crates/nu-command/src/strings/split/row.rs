@@ -18,9 +18,11 @@ impl Command for SubCommand {
         Signature::build("split row")
             .input_output_types(vec![
                 (Type::String, Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::String)), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    (Type::List(Box::new(Type::String))),
+                ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .required(
                 "separator",
@@ -144,8 +146,16 @@ fn split_row(
 }
 
 fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
-    match v.span() {
-        Ok(v_span) => {
+    match v {
+        Value::Error { error, span } => {
+            vec![Value::Error {
+                error: Box::new(*error.clone()),
+                span: *span,
+            }]
+        }
+        v => {
+            let v_span = v.span();
+
             if let Ok(s) = v.as_string() {
                 match max_split {
                     Some(max_split) => regex
@@ -164,12 +174,10 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                         dst_span: name,
                         src_span: v_span,
                     }),
+                    span: name,
                 }]
             }
         }
-        Err(error) => vec![Value::Error {
-            error: Box::new(error),
-        }],
     }
 }
 

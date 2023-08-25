@@ -36,6 +36,8 @@ impl Command for BitsInto {
                 (Type::String, Type::String),
                 (Type::Bool, Type::String),
                 (Type::Date, Type::String),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
@@ -254,8 +256,9 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
                 exp_input_type: "integer, filesize, string, date, duration, binary or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

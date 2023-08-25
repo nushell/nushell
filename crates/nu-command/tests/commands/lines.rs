@@ -23,12 +23,12 @@ fn lines() {
 fn lines_proper_buffering() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open lines_test.txt -r
             | lines
             | str length
             | to json -r
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "[8193,3]");
@@ -38,12 +38,12 @@ fn lines_proper_buffering() {
 fn lines_multi_value_split() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample-simple.json
             | get first second
             | lines
             | length
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "6");
@@ -60,4 +60,12 @@ fn lines_mixed_line_endings() {
     ));
 
     assert_eq!(actual.out, "3");
+}
+
+#[cfg(not(windows))]
+#[test]
+fn lines_on_error() {
+    let actual = nu!("open . | lines");
+
+    assert!(actual.err.contains("Is a directory"));
 }

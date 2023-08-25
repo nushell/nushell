@@ -19,7 +19,7 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
         }
 
-        // Put ourselves in our own process group and take control of terminal, if not already
+        // Put ourselves in our own process group, if not already
         let shell_pgid = unistd::getpid();
         match unistd::setpgid(shell_pgid, shell_pgid) {
             // setpgid returns EPERM if we are the session leader (e.g., as a login shell).
@@ -32,6 +32,7 @@ pub(crate) fn acquire_terminal(interactive: bool) {
                 std::process::exit(1);
             }
         }
+        // Set our possibly new pgid to be in control of terminal
         let _ = unistd::tcsetpgrp(nix::libc::STDIN_FILENO, shell_pgid);
     }
 }

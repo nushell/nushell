@@ -551,13 +551,3 @@ fn err_hook_parse_error() {
     assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
-
-#[test]
-fn err_hook_dont_allow_string() {
-    let inp = &[&pre_prompt_hook(r#"'def foo [] { "got foo!" }'"#), "foo"];
-
-    let actual_repl = nu!(nu_repl_code(inp));
-
-    assert!(actual_repl.out.is_empty());
-    assert!(actual_repl.err.contains("unsupported_config_value"));
-}

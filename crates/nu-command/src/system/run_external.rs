@@ -118,7 +118,7 @@ pub fn create_external_command(
     let env_vars_str = env_to_strings(engine_state, stack)?;
 
     fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
-        let span = value.span()?;
+        let span = value.span();
 
         value
             .as_string()
@@ -295,15 +295,15 @@ impl ExternalCommand {
                 match err.kind() {
                     // If file not found, try suggesting alternative commands to the user
                     std::io::ErrorKind::NotFound => {
-                        // recommend a replacement if the user tried a deprecated command
+                        // recommend a replacement if the user tried a removed command
                         let command_name_lower = self.name.item.to_lowercase();
-                        let deprecated = crate::deprecated_commands();
-                        if deprecated.contains_key(&command_name_lower) {
-                            let replacement = match deprecated.get(&command_name_lower) {
+                        let removed_from_nu = crate::removed_commands();
+                        if removed_from_nu.contains_key(&command_name_lower) {
+                            let replacement = match removed_from_nu.get(&command_name_lower) {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::DeprecatedCommand(
+                            return Err(ShellError::RemovedCommand(
                                 command_name_lower,
                                 replacement,
                                 self.name.span,
@@ -507,6 +507,7 @@ impl ExternalCommand {
                                     );
                                     let _ = exit_code_tx.send(Value::Error {
                                         error: Box::new(ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head }),
+                                        span: head,
                                     });
                                     return Ok(());
                                 }

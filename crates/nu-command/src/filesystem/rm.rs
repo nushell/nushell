@@ -393,7 +393,11 @@ fn rm(
                             trash::delete(&f).map_err(|e: trash::Error| {
                                 Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
                             })
-                        } else if metadata.is_file() || is_socket || is_fifo {
+                        } else if metadata.is_file()
+                            || is_socket
+                            || is_fifo
+                            || metadata.file_type().is_symlink()
+                        {
                             std::fs::remove_file(&f)
                         } else {
                             std::fs::remove_dir_all(&f)
@@ -411,7 +415,11 @@ fn rm(
                             Err(e)
                         } else if interactive && !confirmed {
                             Ok(())
-                        } else if metadata.is_file() || is_socket || is_fifo {
+                        } else if metadata.is_file()
+                            || is_socket
+                            || is_fifo
+                            || metadata.file_type().is_symlink()
+                        {
                             std::fs::remove_file(&f)
                         } else {
                             std::fs::remove_dir_all(&f)
@@ -422,6 +430,7 @@ fn rm(
                         let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
                         Value::Error {
                             error: Box::new(ShellError::RemoveNotPossible(msg, span)),
+                            span,
                         }
                     } else if verbose {
                         let msg = if interactive && !confirmed {
@@ -444,6 +453,7 @@ fn rm(
                             None,
                             Vec::new(),
                         )),
+                        span,
                     }
                 }
             } else {
@@ -456,6 +466,7 @@ fn rm(
                         None,
                         Vec::new(),
                     )),
+                    span,
                 }
             }
         })

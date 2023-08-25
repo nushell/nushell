@@ -14,12 +14,16 @@ impl Command for SubCommand {
         Signature::build("math abs")
             .input_output_types(vec![
                 (Type::Number, Type::Number),
+                (Type::Duration, Type::Duration),
                 (
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Number)),
                 ),
+                (
+                    Type::List(Box::new(Type::Duration)),
+                    Type::List(Box::new(Type::Duration)),
+                ),
             ])
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .category(Category::Math)
     }
@@ -79,8 +83,9 @@ fn abs_helper(val: Value, head: Span) -> Value {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

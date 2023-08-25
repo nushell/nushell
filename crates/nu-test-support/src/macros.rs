@@ -158,13 +158,14 @@ macro_rules! nu {
 
         let target_cwd = $opts.cwd.unwrap_or(".".to_string());
         let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
+        let executable_path = $crate::fs::executable_path();
 
-        let mut command = Command::new($crate::fs::executable_path());
+        let mut command = $crate::macros::run_command(&executable_path, &target_cwd);
         command
-            .env("PWD", &target_cwd)
             .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
-            .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
+            // TODO: consider adding custom plugin path for tests to
+            // not interfere with user local environment
             // .arg("--skip-plugins")
             // .arg("--no-history")
             // .arg("--config-file")
@@ -278,7 +279,7 @@ macro_rules! nu_with_std {
     (@main $opts:expr, $path:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
-        pub use std::process::{Command, Stdio};
+        pub use std::process::Stdio;
         pub use $crate::NATIVE_PATH_ENV_VAR;
 
         pub fn escape_quote_string(input: String) -> String {
@@ -319,12 +320,11 @@ macro_rules! nu_with_std {
 
         let target_cwd = $opts.cwd.unwrap_or(".".to_string());
         let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
+        let executable_path = $crate::fs::executable_path();
 
-        let mut command = Command::new($crate::fs::executable_path());
+        let mut command = $crate::macros::run_command(&executable_path, &target_cwd);
         command
-            .env("PWD", &target_cwd)
             .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
-            .current_dir(target_cwd)
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
             // .arg("--skip-plugins")
             // .arg("--no-history")
@@ -396,7 +396,7 @@ macro_rules! nu_with_plugins {
     ($cwd:expr, [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
-        pub use std::process::{Command, Stdio};
+        pub use std::process::Stdio;
         pub use tempfile::tempdir;
         pub use $crate::{NATIVE_PATH_ENV_VAR, with_exe};
 
@@ -436,9 +436,7 @@ macro_rules! nu_with_plugins {
         if !executable_path.exists() {
             executable_path = $crate::fs::installed_nu_path();
         }
-        let mut process = match Command::new(executable_path)
-            .current_dir(&target_cwd)
-            .env("PWD", &target_cwd) // setting PWD is enough to set cwd
+        let mut process = match $crate::macros::run_command(&executable_path, &target_cwd)
             .arg("--commands")
             .arg(commands)
             .arg("--plugin-config")
@@ -469,4 +467,17 @@ pub fn read_std(std: &[u8]) -> String {
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace('\n', "")
+}
+
+use std::{path::PathBuf, process::Command};
+
+pub fn run_command(executable_path: &PathBuf, target_cwd: &str) -> Command {
+    let mut command = Command::new(executable_path);
+
+    command
+        .current_dir(target_cwd)
+        .env_remove("FILE_PWD")
+        .env("PWD", target_cwd); // setting PWD is enough to set cwd;
+
+    command
 }

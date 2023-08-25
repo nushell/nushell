@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -64,7 +64,7 @@ impl Command for DetectColumns {
                 description: "Splits string across multiple columns",
                 example: "'a b c' | detect columns -n",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec![
                             "column0".to_string(),
                             "column1".to_string(),
@@ -75,14 +75,23 @@ impl Command for DetectColumns {
                             Value::test_string("b"),
                             Value::test_string("c"),
                         ],
-                        span,
-                    }],
+                    })],
                     span,
                 }),
             },
             Example {
+                description: "",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 0..1",
+                result: None,
+            },
+            Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3(char nl)a b c' | detect columns",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c -2..-1",
+                result: None,
+            },
+            Example {
+                description: "Splits a multi-line string into columns with headers detected",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 2..",
                 result: None,
             },
             Example {
@@ -185,71 +194,59 @@ fn detect_columns(
                 }
             }
 
-            if range.is_some() {
-                // Destructure the range parameter
-                let (start_index, end_index) = if let Some(range) = &range {
-                    match nu_cmd_base::util::process_range(range) {
-                        Ok(r) => {
-                            // `process_range()` returns `isize::MAX` if the range is open-ended,
-                            // which is not ideal for us
-                            let end = if r.1 as usize > cols.len() {
-                                cols.len()
-                            } else {
-                                r.1 as usize
-                            };
-                            (r.0 as usize, end)
+            let (start_index, end_index) = if let Some(range) = &range {
+                match nu_cmd_base::util::process_range(range) {
+                    Ok((l_idx, r_idx)) => {
+                        let l_idx = if l_idx < 0 {
+                            cols.len() as isize + l_idx
+                        } else {
+                            l_idx
+                        };
+
+                        let r_idx = if r_idx < 0 {
+                            cols.len() as isize + r_idx
+                        } else {
+                            r_idx
+                        };
+
+                        if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
+                            return Value::record(Record { cols, vals }, name_span);
                         }
-                        Err(processing_error) => {
-                            let err = processing_error("could not find range index", name_span);
-                            return Value::Error {
-                                error: Box::new(err),
-                            };
-                        }
+
+                        (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
                     }
-                } else {
-                    (0usize, cols.len())
-                };
-
-                // Merge Columns
-                let part1 = &cols.clone()[0..start_index];
-                let combined = &cols.clone()[start_index..=end_index];
-                let binding = combined.join("");
-                let part3 = &cols.clone()[end_index + 1..];
-                let new_cols = [part1, &[binding], part3].concat();
-                // Now renumber columns since we merged some
-                let mut renum_cols = vec![];
-                for (idx, _acol) in new_cols.iter().enumerate() {
-                    renum_cols.push(format!("column{idx}"));
-                }
-
-                // Merge Values
-                let part1 = &vals.clone()[0..start_index];
-                let combined = &vals.clone()[start_index..=end_index];
-                let binding = Value::string(
-                    combined
-                        .iter()
-                        .map(|f| match f.as_string() {
-                            Ok(s) => s,
-                            _ => "".to_string(),
-                        })
-                        .join(" "), // add a space between items
-                    Span::unknown(),
-                );
-                let part3 = &vals.clone()[end_index + 1..];
-                let new_vals = [part1, &[binding], part3].concat();
-
-                Value::Record {
-                    cols: renum_cols,
-                    vals: new_vals,
-                    span: name_span,
+                    Err(processing_error) => {
+                        let err = processing_error("could not find range index", name_span);
+                        return Value::Error {
+                            error: Box::new(err),
+                            span: name_span,
+                        };
+                    }
                 }
             } else {
-                Value::Record {
-                    cols,
-                    vals,
-                    span: name_span,
-                }
-            }
+                return Value::record(Record { cols, vals }, name_span);
+            };
+
+            // Merge Columns
+            ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
+                cols.swap(idx, end_index - start_index - 1 + idx);
+            });
+            cols.truncate(cols.len() - end_index + start_index + 1);
+
+            // Merge Values
+            let combined = vals
+                .iter()
+                .take(end_index)
+                .skip(start_index)
+                .map(|v| v.as_string().unwrap_or(String::default()))
+                .join(" ");
+            let binding = Value::string(combined, Span::unknown());
+            let last_seg = vals.split_off(end_index);
+            vals.truncate(start_index);
+            vals.push(binding);
+            last_seg.into_iter().for_each(|v| vals.push(v));
+
+            Value::record(Record { cols, vals }, name_span)
         })
         .into_pipeline_data(ctrlc))
     } else {

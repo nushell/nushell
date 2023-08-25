@@ -30,7 +30,7 @@ fn writes_out_list() {
 
         nu!(
             cwd: dirs.root(),
-            r#"[a b c d] | save save_test_3/list_sample.txt"#,
+            "[a b c d] | save save_test_3/list_sample.txt",
         );
 
         let actual = file_contents(expected_file);
@@ -185,7 +185,7 @@ fn save_failure_not_overrides() {
         nu!(
             cwd: dirs.root(),
             // Writing number to file as toml fails
-            r#"3 | save save_test_10/result.toml -f"#
+            "3 | save save_test_10/result.toml -f"
         );
         let actual = file_contents(expected_file);
         assert_eq!(actual, "Old content");
@@ -272,7 +272,7 @@ fn save_list_stream() {
 
         nu!(
             cwd: dirs.root(),
-            r#"[a b c d] | each {|i| $i} | save -r save_test_13/list_sample.txt"#,
+            "[a b c d] | each {|i| $i} | save -r save_test_13/list_sample.txt",
         );
 
         let actual = file_contents(expected_file);
@@ -289,11 +289,39 @@ fn writes_out_range() {
 
         nu!(
             cwd: dirs.root(),
-            r#"1..3 | save save_test_14/list_sample.json"#,
+            "1..3 | save save_test_14/list_sample.json",
         );
 
         let actual = file_contents(expected_file);
         println!("{actual}");
         assert_eq!(actual, "[\n  1,\n  2,\n  3\n]")
+    })
+}
+
+// https://github.com/nushell/nushell/issues/10044
+#[test]
+fn save_file_correct_relative_path() {
+    Playground::setup("save_test_15", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::FileWithContent(
+            "test.nu",
+            r#"
+                export def main [] {
+                    let foo = "foo"
+                    mkdir bar
+                    cd bar
+                    'foo!' | save $foo
+                }
+            "#,
+        )]);
+
+        let expected_file = dirs.test().join("bar/foo");
+
+        nu!(
+            cwd: dirs.test(),
+            r#"use test.nu; test"#
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "foo!");
     })
 }
