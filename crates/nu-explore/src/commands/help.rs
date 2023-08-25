@@ -172,10 +172,7 @@ fn help_frame_data(
             Value::record(Record { cols, vals }, NuSpan::unknown())
         })
         .collect();
-    let commands = Value::List {
-        vals: commands,
-        span: NuSpan::unknown(),
-    };
+    let commands = Value::list(commands, NuSpan::unknown());
 
     collect_input(commands)
 }
@@ -199,10 +196,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
         })
         .collect();
 
-    let arguments = Value::List {
-        vals: arguments,
-        span: NuSpan::unknown(),
-    };
+    let arguments = Value::list(arguments, NuSpan::unknown());
 
     let examples = manual
         .examples
@@ -217,10 +211,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
             )
         })
         .collect();
-    let examples = Value::List {
-        vals: examples,
-        span: NuSpan::unknown(),
-    };
+    let examples = Value::list(examples, NuSpan::unknown());
 
     let inputs = manual
         .input
@@ -236,10 +227,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
             )
         })
         .collect();
-    let inputs = Value::List {
-        vals: inputs,
-        span: NuSpan::unknown(),
-    };
+    let inputs = Value::list(inputs, NuSpan::unknown());
 
     let configuration = manual
         .config_options
@@ -258,10 +246,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
                     )
                 })
                 .collect();
-            let values = Value::List {
-                vals: values,
-                span: NuSpan::unknown(),
-            };
+            let values = Value::list(values, NuSpan::unknown());
 
             Value::record(
                 record! {
@@ -274,10 +259,7 @@ fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Ve
             )
         })
         .collect();
-    let configuration = Value::List {
-        vals: configuration,
-        span: NuSpan::unknown(),
-    };
+    let configuration = Value::list(configuration, NuSpan::unknown());
 
     let name = nu_str(&manual.name);
     let aliases = nu_str(&aliases.join(", "));

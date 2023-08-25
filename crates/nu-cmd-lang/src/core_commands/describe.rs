@@ -62,11 +62,7 @@ impl Command for Describe {
             }
         };
 
-        Ok(Value::String {
-            val: description,
-            span: head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(description, head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
