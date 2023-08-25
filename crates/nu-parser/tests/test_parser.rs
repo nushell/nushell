@@ -1012,15 +1012,12 @@ mod string {
 #[case(b"mut a = }")]
 #[case(b"let a = | }")]
 #[case(b"mut a = | }")]
-fn test_semi_open_brace(
-        #[case] phrase: &[u8],
-    ) {
+fn test_semi_open_brace(#[case] phrase: &[u8]) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
     // this should not panic
     let _block = parse(&mut working_set, None, phrase, true);
 }
-
 
 mod range {
     use super::*;
