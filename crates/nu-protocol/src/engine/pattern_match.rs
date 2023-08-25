@@ -75,13 +75,7 @@ impl Matcher for Pattern {
                                 }
                                 Pattern::Rest(var_id) => {
                                     let rest_vals = vals[val_idx..].to_vec();
-                                    matches.push((
-                                        *var_id,
-                                        Value::List {
-                                            vals: rest_vals,
-                                            span: pattern.span,
-                                        },
-                                    ));
+                                    matches.push((*var_id, Value::list(rest_vals, pattern.span)));
                                     break;
                                 }
                                 _ => {

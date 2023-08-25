@@ -19,19 +19,11 @@ impl FromValue for Value {
 
 impl FromValue for Spanned<i64> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Int { val, span } => Ok(Spanned {
-                item: *val,
-                span: *span,
-            }),
-            Value::Filesize { val, span } => Ok(Spanned {
-                item: *val,
-                span: *span,
-            }),
-            Value::Duration { val, span } => Ok(Spanned {
-                item: *val,
-                span: *span,
-            }),
+            Value::Int { val, .. } => Ok(Spanned { item: *val, span }),
+            Value::Filesize { val, .. } => Ok(Spanned { item: *val, span }),
+            Value::Duration { val, .. } => Ok(Spanned { item: *val, span }),
 
             v => Err(ShellError::CantConvert {
                 to_type: "integer".into(),
@@ -62,15 +54,13 @@ impl FromValue for i64 {
 
 impl FromValue for Spanned<f64> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Int { val, span } => Ok(Spanned {
+            Value::Int { val, .. } => Ok(Spanned {
                 item: *val as f64,
-                span: *span,
+                span,
             }),
-            Value::Float { val, span } => Ok(Spanned {
-                item: *val,
-                span: *span,
-            }),
+            Value::Float { val, .. } => Ok(Spanned { item: *val, span }),
 
             v => Err(ShellError::CantConvert {
                 to_type: "float".into(),
@@ -99,34 +89,35 @@ impl FromValue for f64 {
 
 impl FromValue for Spanned<usize> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Int { val, span } => {
+            Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(Spanned {
                         item: *val as usize,
-                        span: *span,
+                        span,
                     })
                 }
             }
-            Value::Filesize { val, span } => {
+            Value::Filesize { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(Spanned {
                         item: *val as usize,
-                        span: *span,
+                        span,
                     })
                 }
             }
-            Value::Duration { val, span } => {
+            Value::Duration { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(Spanned {
                         item: *val as usize,
-                        span: *span,
+                        span,
                     })
                 }
             }
@@ -143,24 +134,25 @@ impl FromValue for Spanned<usize> {
 
 impl FromValue for usize {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Int { val, span } => {
+            Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(*val as usize)
                 }
             }
-            Value::Filesize { val, span } => {
+            Value::Filesize { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(*val as usize)
                 }
             }
-            Value::Duration { val, span } => {
+            Value::Duration { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(*val as usize)
                 }
@@ -244,17 +236,20 @@ impl FromValue for Vec<Spanned<String>> {
         match v {
             Value::List { vals, .. } => vals
                 .iter()
-                .map(|val| match val {
-                    Value::String { val, span } => Ok(Spanned {
-                        item: val.clone(),
-                        span: *span,
-                    }),
-                    c => Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: c.get_type().to_string(),
-                        span: c.span(),
-                        help: None,
-                    }),
+                .map(|val| {
+                    let val_span = val.span();
+                    match val {
+                        Value::String { val, .. } => Ok(Spanned {
+                            item: val.clone(),
+                            span: val_span,
+                        }),
+                        c => Err(ShellError::CantConvert {
+                            to_type: "string".into(),
+                            from_type: c.get_type().to_string(),
+                            span: c.span(),
+                            help: None,
+                        }),
+                    }
                 })
                 .collect::<Result<Vec<Spanned<String>>, ShellError>>(),
             v => Err(ShellError::CantConvert {
@@ -304,14 +299,14 @@ impl FromValue for CellPath {
                     optional: false,
                 }],
             }),
-            Value::Int { val, span } => {
+            Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(*span))
+                    Err(ShellError::NeedsPositiveValue(span))
                 } else {
                     Ok(CellPath {
                         members: vec![PathMember::Int {
                             val: *val as usize,
-                            span: *span,
+                            span,
                             optional: false,
                         }],
                     })
@@ -343,11 +338,9 @@ impl FromValue for bool {
 
 impl FromValue for Spanned<bool> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Bool { val, span } => Ok(Spanned {
-                item: *val,
-                span: *span,
-            }),
+            Value::Bool { val, .. } => Ok(Spanned { item: *val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "bool".into(),
                 from_type: v.get_type().to_string(),
@@ -374,11 +367,9 @@ impl FromValue for DateTime<FixedOffset> {
 
 impl FromValue for Spanned<DateTime<FixedOffset>> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Date { val, span } => Ok(Spanned {
-                item: *val,
-                span: *span,
-            }),
+            Value::Date { val, .. } => Ok(Spanned { item: *val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "date".into(),
                 from_type: v.get_type().to_string(),
@@ -405,10 +396,11 @@ impl FromValue for Range {
 
 impl FromValue for Spanned<Range> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Range { val, span } => Ok(Spanned {
+            Value::Range { val, .. } => Ok(Spanned {
                 item: (**val).clone(),
-                span: *span,
+                span,
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
@@ -437,14 +429,15 @@ impl FromValue for Vec<u8> {
 
 impl FromValue for Spanned<Vec<u8>> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Binary { val, span } => Ok(Spanned {
+            Value::Binary { val, .. } => Ok(Spanned {
                 item: val.clone(),
-                span: *span,
+                span,
             }),
-            Value::String { val, span } => Ok(Spanned {
+            Value::String { val, .. } => Ok(Spanned {
                 item: val.bytes().collect(),
-                span: *span,
+                span,
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "binary data".into(),
@@ -458,11 +451,12 @@ impl FromValue for Spanned<Vec<u8>> {
 
 impl FromValue for Spanned<PathBuf> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::String { val, span } => Ok(Spanned {
+            Value::String { val, .. } => Ok(Spanned {
                 item: PathBuf::from_str(val)
-                    .map_err(|err| ShellError::FileNotFoundCustom(err.to_string(), *span))?,
-                span: *span,
+                    .map_err(|err| ShellError::FileNotFoundCustom(err.to_string(), span))?,
+                span,
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
@@ -540,17 +534,14 @@ impl FromValue for Block {
 
 impl FromValue for Spanned<Closure> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::Closure {
-                val,
-                captures,
-                span,
-            } => Ok(Spanned {
+            Value::Closure { val, captures, .. } => Ok(Spanned {
                 item: Closure {
                     block_id: *val,
                     captures: captures.clone(),
                 },
-                span: *span,
+                span,
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
@@ -564,10 +555,11 @@ impl FromValue for Spanned<Closure> {
 
 impl FromValue for Spanned<MatchPattern> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value::MatchPattern { val, span } => Ok(Spanned {
+            Value::MatchPattern { val, .. } => Ok(Spanned {
                 item: *val.clone(),
-                span: *span,
+                span,
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "Match pattern".into(),

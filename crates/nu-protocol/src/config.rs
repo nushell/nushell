@@ -323,19 +323,20 @@ impl Value {
         // $env.config.ls.use_ls_colors = 2 results in an error, so
         // the current use_ls_colors config setting is converted to a Value::Boolean and inserted in the
         // record in place of the 2.
-        if let Value::Record { val, span } = self {
+
+        let span = self.span();
+        if let Value::Record { val, .. } = self {
             let Record { cols, vals } = val;
-            let span = *span;
             // Because this whole algorithm removes while iterating, this must iterate in reverse.
             for index in (0..cols.len()).rev() {
                 let value = &vals[index];
                 let key = cols[index].as_str();
+                let span = vals[index].span();
                 match key {
                     // Grouped options
                     "ls" => {
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -374,14 +375,14 @@ impl Value {
                         }
                     }
                     "cd" => {
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "abbreviations" => {
-                                        try_bool!(cols, vals, index, *span, cd_with_abbreviations)
+                                        try_bool!(cols, vals, index, span, cd_with_abbreviations)
                                     }
                                     x => {
                                         invalid_key!(
@@ -407,14 +408,14 @@ impl Value {
                         }
                     }
                     "rm" => {
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "always_trash" => {
-                                        try_bool!(cols, vals, index, *span, rm_always_trash)
+                                        try_bool!(cols, vals, index, span, rm_always_trash)
                                     }
                                     x => {
                                         invalid_key!(
@@ -450,9 +451,8 @@ impl Value {
                                 )
                             };
                         }
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -522,12 +522,9 @@ impl Value {
                         macro_rules! reconstruct_external_completer {
                             ($span: expr) => {
                                 if let Some(block) = config.external_completer {
-                                    Value::Block {
-                                        val: block,
-                                        span: $span,
-                                    }
+                                    Value::block(block, $span)
                                 } else {
-                                    Value::Nothing { span: $span }
+                                    Value::nothing($span)
                                 }
                             };
                         }
@@ -543,9 +540,8 @@ impl Value {
                                 )
                             };
                         }
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -594,9 +590,8 @@ impl Value {
                                         )
                                     }
                                     "external" => {
-                                        if let Value::Record { val, span } = &mut vals[index] {
+                                        if let Value::Record { val, .. } = &mut vals[index] {
                                             let Record { cols, vals } = val;
-                                            let span = *span;
                                             for index in (0..cols.len()).rev() {
                                                 let value = &vals[index];
                                                 let key3 = cols[index].as_str();
@@ -697,9 +692,8 @@ impl Value {
                                 )
                             };
                         }
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -902,7 +896,7 @@ impl Value {
                                             },
                                             None => record! {
                                                 "methodology" => Value::string("truncating", $span),
-                                                "truncating_suffix" => Value::Nothing { span: $span },
+                                                "truncating_suffix" => Value::nothing($span),
                                             },
                                         },
                                         $span,
@@ -910,9 +904,8 @@ impl Value {
                                 }
                             };
                         }
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -1043,9 +1036,8 @@ impl Value {
                         }
                     }
                     "filesize" => {
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -1137,15 +1129,15 @@ impl Value {
                         } else {
                             invalid!(Some(span), "should be a string");
                             // Reconstruct
-                            vals[index] = Value::String {
-                                val: match config.footer_mode {
+                            vals[index] = Value::string(
+                                match config.footer_mode {
                                     FooterMode::Auto => "auto".into(),
                                     FooterMode::Never => "never".into(),
                                     FooterMode::Always => "always".into(),
                                     FooterMode::RowCount(number) => number.to_string(),
                                 },
                                 span,
-                            };
+                            );
                         }
                     }
                     "float_precision" => {
@@ -1189,8 +1181,7 @@ impl Value {
                             invalid!(Some(span), "should be a valid list of menus");
                             errors.push(e);
                             // Reconstruct
-                            vals[index] = Value::List {
-                                vals: config
+                            vals[index] = Value::list(config
                                     .menus
                                     .iter()
                                     .map(
@@ -1217,7 +1208,7 @@ impl Value {
                                     )
                                     .collect(),
                                 span,
-                            }
+                            )
                         }
                     },
                     // Keybindings
@@ -1227,8 +1218,8 @@ impl Value {
                             invalid!(Some(span), "should be a valid keybindings list");
                             errors.push(e);
                             // Reconstruct
-                            vals[index] = Value::List {
-                                vals: config
+                            vals[index] = Value::list(
+                                config
                                     .keybindings
                                     .iter()
                                     .map(
@@ -1251,7 +1242,7 @@ impl Value {
                                     )
                                     .collect(),
                                 span,
-                            }
+                            )
                         }
                     },
                     // Hooks
@@ -1278,9 +1269,8 @@ impl Value {
                         }
                     },
                     "datetime_format" => {
-                        if let Value::Record { val, span } = &mut vals[index] {
+                        if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
-                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -1464,8 +1454,9 @@ fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
 
 // Parse the hooks to find the blocks to run when the hooks fire
 fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { val, span } => {
+        Value::Record { val, .. } => {
             let mut hooks = Hooks::new();
 
             for (col, val) in val {
@@ -1480,7 +1471,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                             "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
                                 .to_string(),
                             x.to_string(),
-                            *span,
+                            span,
                         ));
                     }
                 }
@@ -1491,16 +1482,16 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
         v => Err(ShellError::UnsupportedConfigValue(
             "record for 'hooks' config".into(),
             "non-record value".into(),
-            v.span(),
+            span,
         )),
     }
 }
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
 fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { val, span } => {
-            let span = *span;
+        Value::Record { val, .. } => {
             // Finding the modifier value in the record
             let modifier = extract_value("modifier", val, span)?.clone();
             let keycode = extract_value("keycode", val, span)?.clone();
@@ -1536,9 +1527,9 @@ fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError
 
 // Parses the config object to extract the strings that will compose a keybinding for reedline
 pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { val, span } => {
-            let span = *span;
+        Value::Record { val, .. } => {
             // Finding the modifier value in the record
             let name = extract_value("name", val, span)?.clone();
             let marker = extract_value("marker", val, span)?.clone();
@@ -1550,7 +1541,7 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
             // Source is an optional value
             let source = match extract_value("source", val, span) {
                 Ok(source) => source.clone(),
-                Err(_) => Value::Nothing { span },
+                Err(_) => Value::nothing(span),
             };
 
             let menu = ParsedMenu {
