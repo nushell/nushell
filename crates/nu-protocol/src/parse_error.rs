@@ -449,18 +449,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file))]
     ReadingFile(String, #[label("{0}")] Span),
 
-    /// Tried assigning non-constant value to a constant
-    ///
-    /// ## Resolution
-    ///
-    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
-    #[error("Not a constant.")]
-    #[diagnostic(
-        code(nu::parser::not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
-    )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
-
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -561,7 +549,6 @@ impl ParseError {
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
-            ParseError::NotAConstant(s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
         }
     }

@@ -108,12 +108,30 @@ fn const_nothing() {
 }
 
 #[test]
-fn const_unsupported() {
-    let inp = &["const x = ('abc' | str length)"];
+fn const_subexpression_supported() {
+    let inp = &["const x = ('spam')", "$x"];
 
     let actual = nu!(&inp.join("; "));
 
-    assert!(actual.err.contains("not_a_constant"));
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn const_command_supported() {
+    let inp = &["const x = ('spam' | str length)", "$x"];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn const_command_unsupported() {
+    let inp = &["const x = (loop { break })"];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert!(actual.err.contains("not_a_const_command"));
 }
 
 #[test]
@@ -123,6 +141,12 @@ fn const_in_scope() {
     let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "x");
+}
+
+#[test]
+fn not_a_const_help() {
+    let actual = nu!("const x = ('abc' | str length -h)");
+    assert!(actual.err.contains("not_a_const_help"));
 }
 
 #[test]
@@ -249,4 +273,23 @@ fn complex_const_overlay_use_hide() {
     let inp = &[MODULE_SETUP, "overlay use spam", "overlay hide", "$eggs"];
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains("nu::parser::variable_not_found"));
+}
+
+// const implementations of commands without dedicated tests
+#[test]
+fn describe_const() {
+    let actual = nu!("const x = ('abc' | describe); $x");
+    assert_eq!(actual.out, "string");
+}
+
+#[test]
+fn ignore_const() {
+    let actual = nu!("const x = (echo spam | ignore); $x == null");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn version_const() {
+    let actual = nu!("const x = (version); $x");
+    assert!(actual.err.is_empty());
 }

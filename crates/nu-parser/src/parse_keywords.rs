@@ -12,6 +12,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
+    eval_const::{eval_constant, value_as_string},
     span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
@@ -24,7 +25,6 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    eval::{eval_constant, value_as_string},
     is_math_expression_like,
     known_external::KnownExternal,
     lex,
@@ -2585,12 +2585,12 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2634,12 +2634,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2660,12 +2660,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                         span: new_name_expression.span,
                     }),
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, call_span));
                         return garbage_pipeline(&[call_span]);
                     }
                 },
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             }
@@ -2851,12 +2851,12 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -3107,7 +3107,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                                 // Assign the constant value to the variable
                                 working_set.set_variable_const_val(var_id, val);
                             }
-                            Err(err) => working_set.error(err),
+                            Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
                         }
                     }
 
@@ -3300,7 +3300,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 let val = match eval_constant(working_set, &expr) {
                     Ok(val) => val,
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, span(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&spans[1..]),
@@ -3313,7 +3313,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 let filename = match value_as_string(val, spans[1]) {
                     Ok(s) => s,
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, span(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&spans[1..]),
@@ -3504,8 +3504,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let val = eval_constant(working_set, expr)?;
-            let filename = value_as_string(val, expr.span)?;
+            let val =
+                eval_constant(working_set, expr).map_err(|err| err.wrap(working_set, call.head))?;
+            let filename =
+                value_as_string(val, expr.span).map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
                 return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
