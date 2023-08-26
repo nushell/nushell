@@ -3576,20 +3576,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
 
-    let error = arguments.and_then(|(path, path_span)| {
+    let error = arguments.and_then(|(path, _)| {
         let path = path.path_buf();
-        // restrict plugin file name starts with `nu_plugin_`
-        let valid_plugin_name = path
-            .file_name()
-            .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
-
-        let Some(true) = valid_plugin_name else {
-            return Err(ParseError::LabeledError(
-                "Register plugin failed".into(),
-                "plugin name must start with nu_plugin_".into(),
-                path_span,
-            ));
-        };
 
         let signatures = signature.map_or_else(
             || {
