@@ -53,7 +53,7 @@ impl std::fmt::Debug for CliError<'_> {
         let errors_style = *error_style;
 
         let miette_handler: Box<dyn ReportHandler> = match errors_style {
-            "narratable" => Box::new(NarratableReportHandler::new()),
+            "simple" => Box::new(NarratableReportHandler::new()),
             _ => Box::new(
                 MietteHandlerOpts::new()
                     // For better support of terminal themes use the ANSI coloring
