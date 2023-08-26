@@ -26,7 +26,7 @@ pub struct ParsedMenu {
     pub source: Value,
 }
 
-/// Definition of a parsed menu from the config object
+/// Definition of a parsed hook from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Hooks {
     pub pre_prompt: Option<Value>,
