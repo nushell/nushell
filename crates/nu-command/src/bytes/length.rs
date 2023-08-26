@@ -64,10 +64,10 @@ impl Command for BytesLen {
             Example {
                 description: "Return the lengths of multiple binaries",
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(4), Value::test_int(1)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -77,19 +77,19 @@ fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match val {
         Value::Binary {
             val,
-            span: val_span,
+            internal_span: val_span,
         } => Value::int(val.len() as i64, *val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),
-            }),
+            },
             span,
-        },
+        ),
     }
 }
 

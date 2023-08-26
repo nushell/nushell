@@ -84,15 +84,15 @@ impl Command for BytesStartsWith {
                         Ok(v @ Value::Error { .. }) => return Ok(v.clone().into_pipeline_data()),
                         // Unsupported data
                         Ok(other) => {
-                            return Ok(Value::Error {
-                                error: Box::new(ShellError::OnlySupportsThisInputType {
+                            return Ok(Value::error(
+                                ShellError::OnlySupportsThisInputType {
                                     exp_input_type: "string and binary".into(),
                                     wrong_type: other.get_type().to_string(),
                                     dst_span: span,
                                     src_span: other.span(),
-                                }),
+                                },
                                 span,
-                            }
+                            )
                             .into_pipeline_data());
                         }
                         Err(err) => return Err(err.to_owned()),
@@ -150,19 +150,19 @@ fn starts_with(val: &Value, args: &Arguments, span: Span) -> Value {
     match val {
         Value::Binary {
             val,
-            span: val_span,
+            internal_span: val_span,
         } => Value::bool(val.starts_with(&args.pattern), *val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),
-            }),
+            },
             span,
-        },
+        ),
     }
 }
 
