@@ -83,11 +83,11 @@ impl Drop for ForegroundChild {
 // It's a simpler version of fish shell's external process handling.
 #[cfg(unix)]
 mod fg_process_setup {
-    use is_terminal::IsTerminal;
     use nix::{
         sys::signal,
         unistd::{self, Pid},
     };
+    use std::io::IsTerminal;
     use std::os::unix::prelude::{CommandExt, RawFd};
 
     // TODO: when raising MSRV past 1.63.0, switch to OwnedFd

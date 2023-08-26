@@ -3,9 +3,11 @@ use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Unit, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Unit,
+    Value,
 };
 
+const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -20,9 +22,10 @@ impl Command for SubCommand {
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                //todo: record<hour,minute,sign> | into duration -> Duration
+                //(Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .allow_variants_without_examples(true)
+            //.allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -36,7 +39,7 @@ impl Command for SubCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        "This command does not take leap years into account, and every month is assumed to have 30 days."
+        "Max duration value is i64::MAX nanoseconds; max duration time unit is wk (weeks)."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -57,60 +60,63 @@ impl Command for SubCommand {
         let span = Span::test_data();
         vec![
             Example {
-                description: "Convert string to duration in table",
-                example:
-                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 2 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 3 * 60 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 4 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 5 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-                                span,
-                            }],
-                            span,
-                        },
-                    ],
+                description: "Convert duration string to duration value",
+                example: "'7min' | into duration",
+                result: Some(Value::Duration {
+                    val: 7 * 60 * NS_PER_SEC,
                     span,
                 }),
             },
             Example {
-                description: "Convert string to duration",
-                example: "'7min' | into duration",
+                description: "Convert compound duration string to duration value",
+                example: "'1day 2hr 3min 4sec' | into duration",
                 result: Some(Value::Duration {
-                    val: 7 * 60 * 1000 * 1000 * 1000,
+                    val: (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4) * NS_PER_SEC,
+                    span,
+                }),
+            },
+            Example {
+                description: "Convert table of duration strings to table of duration values",
+                example:
+                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_record(Record {
+                            cols: vec!["value".to_string()],
+                            vals: vec![Value::Duration {
+                                val: NS_PER_SEC,
+                                span,
+                            }],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["value".to_string()],
+                            vals: vec![Value::Duration {
+                                val: 2 * 60 * NS_PER_SEC,
+                                span,
+                            }],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["value".to_string()],
+                            vals: vec![Value::Duration {
+                                val: 3 * 60 * 60 * NS_PER_SEC,
+                                span,
+                            }],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["value".to_string()],
+                            vals: vec![Value::Duration {
+                                val: 4 * 24 * 60 * 60 * NS_PER_SEC,
+                                span,
+                            }],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["value".to_string()],
+                            vals: vec![Value::Duration {
+                                val: 5 * 7 * 24 * 60 * 60 * NS_PER_SEC,
+                                span,
+                            }],
+                        }),
+                    ],
                     span,
                 }),
             },
@@ -118,7 +124,7 @@ impl Command for SubCommand {
                 description: "Convert duration to duration",
                 example: "420sec | into duration",
                 result: Some(Value::Duration {
-                    val: 7 * 60 * 1000 * 1000 * 1000,
+                    val: 7 * 60 * NS_PER_SEC,
                     span,
                 }),
             },
@@ -150,6 +156,7 @@ fn into_duration(
                     if let Err(error) = r {
                         return Value::Error {
                             error: Box::new(error),
+                            span,
                         };
                     }
                 }
@@ -161,7 +168,32 @@ fn into_duration(
     )
 }
 
-fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, ShellError> {
+// convert string list of duration values to duration NS.
+// technique for getting substrings and span based on: https://stackoverflow.com/a/67098851/2036651
+#[inline]
+fn addr_of(s: &str) -> usize {
+    s.as_ptr() as usize
+}
+
+fn split_whitespace_indices(s: &str, span: Span) -> impl Iterator<Item = (&str, Span)> {
+    s.split_whitespace().map(move |sub| {
+        let start_offset = span.start + addr_of(sub) - addr_of(s);
+        (sub, Span::new(start_offset, start_offset + sub.len()))
+    })
+}
+
+fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+    let mut duration_ns: i64 = 0;
+
+    for (substring, substring_span) in split_whitespace_indices(s, span) {
+        let sub_ns = string_to_duration(substring, substring_span)?;
+        duration_ns += sub_ns;
+    }
+
+    Ok(duration_ns)
+}
+
+fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -175,11 +207,11 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
                     Unit::Nanosecond => return Ok(x),
                     Unit::Microsecond => return Ok(x * 1000),
                     Unit::Millisecond => return Ok(x * 1000 * 1000),
-                    Unit::Second => return Ok(x * 1000 * 1000 * 1000),
-                    Unit::Minute => return Ok(x * 60 * 1000 * 1000 * 1000),
-                    Unit::Hour => return Ok(x * 60 * 60 * 1000 * 1000 * 1000),
-                    Unit::Day => return Ok(x * 24 * 60 * 60 * 1000 * 1000 * 1000),
-                    Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
+                    Unit::Second => return Ok(x * NS_PER_SEC),
+                    Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
+                    Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
+                    Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
+                    Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
                     _ => {}
                 }
             }
@@ -189,11 +221,8 @@ fn string_to_duration(s: &str, span: Span, value_span: Span) -> Result<i64, Shel
     Err(ShellError::CantConvertToDuration {
         details: s.to_string(),
         dst_span: span,
-        src_span: value_span,
-        help: Some(
-            "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                .to_string(),
-        ),
+        src_span: span,
+        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
     })
 }
 
@@ -203,10 +232,11 @@ fn action(input: &Value, span: Span) -> Value {
         Value::String {
             val,
             span: value_span,
-        } => match string_to_duration(val, span, *value_span) {
+        } => match compound_to_duration(val, *value_span) {
             Ok(val) => Value::Duration { val, span },
             Err(error) => Value::Error {
                 error: Box::new(error),
+                span,
             },
         },
         // Propagate errors by explicitly matching them before the final case.
@@ -216,8 +246,9 @@ fn action(input: &Value, span: Span) -> Value {
                 exp_input_type: "string or duration".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }
@@ -225,6 +256,7 @@ fn action(input: &Value, span: Span) -> Value {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn test_examples() {
@@ -233,130 +265,33 @@ mod test {
         test_examples(SubCommand {})
     }
 
-    #[test]
-    fn turns_ns_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("3ns");
-        let expected = Value::Duration { val: 3, span };
+    const NS_PER_SEC: i64 = 1_000_000_000;
 
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
+    #[rstest]
+    #[case("3ns", 3)]
+    #[case("4us", 4*1000)]
+    #[case("4\u{00B5}s", 4*1000)] // micro sign
+    #[case("4\u{03BC}s", 4*1000)] // mu symbol
+    #[case("5ms", 5 * 1000 * 1000)]
+    #[case("1sec", NS_PER_SEC)]
+    #[case("7min", 7 * 60 * NS_PER_SEC)]
+    #[case("42hr", 42 * 60 * 60 * NS_PER_SEC)]
+    #[case("123day", 123 * 24 * 60 * 60 * NS_PER_SEC)]
+    #[case("3wk", 3 * 7 * 24 * 60 * 60 * NS_PER_SEC)]
+    #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
+    #[case("14ns 3hr 17sec", 14 + 3 * 3600 * NS_PER_SEC + 17 * NS_PER_SEC)] // compound string with units in random order
 
-    #[test]
-    fn turns_us_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("4us");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_micro_sign_s_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("4\u{00B5}s");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_mu_s_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("4\u{03BC}s");
-        let expected = Value::Duration {
-            val: 4 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_ms_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("5ms");
-        let expected = Value::Duration {
-            val: 5 * 1000 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_sec_to_duration() {
-        let span = Span::new(0, 3);
-        let word = Value::test_string("1sec");
-        let expected = Value::Duration {
-            val: 1000 * 1000 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_min_to_duration() {
-        let span = Span::new(0, 3);
-        let word = Value::test_string("7min");
-        let expected = Value::Duration {
-            val: 7 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_hr_to_duration() {
-        let span = Span::new(0, 3);
-        let word = Value::test_string("42hr");
-        let expected = Value::Duration {
-            val: 42 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_day_to_duration() {
-        let span = Span::new(0, 5);
-        let word = Value::test_string("123day");
-        let expected = Value::Duration {
-            val: 123 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn turns_wk_to_duration() {
-        let span = Span::new(0, 2);
-        let word = Value::test_string("3wk");
-        let expected = Value::Duration {
-            val: 3 * 7 * 24 * 60 * 60 * 1000 * 1000 * 1000,
-            span,
-        };
-
-        let actual = action(&word, span);
-        assert_eq!(actual, expected);
+    fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
+        let actual = action(&Value::test_string(phrase), Span::new(0, phrase.len()));
+        match actual {
+            Value::Duration {
+                val: observed_val, ..
+            } => {
+                assert_eq!(expected_duration_val, observed_val, "expected != observed")
+            }
+            other => {
+                panic!("Expected Value::Duration, observed {other:?}");
+            }
+        }
     }
 }

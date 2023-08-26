@@ -47,16 +47,12 @@ export def clippy [
             --
                 -D warnings
                 -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
         )} else {(
             cargo clippy
                 --features ($features | str join ",")
             --
                 -D warnings
                 -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
         )}
     } catch {
         error make --unspanned {
@@ -285,7 +281,7 @@ def build-nushell [features: string] {
     print $'(char nl)Building nushell'
     print '----------------------------'
 
-    cargo build --features $features
+    cargo build --features $features --locked
 }
 
 def build-plugin [] {
@@ -341,7 +337,8 @@ export def install [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
     --all: bool  # install all plugins with Nushell
 ] {
-    cargo install --path . --features ($features | str join ",")
+    touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
+    cargo install --path . --features ($features | str join ",") --locked --force
     if not $all {
         return
     }
@@ -354,6 +351,7 @@ export def install [
         nu_plugin_custom_values,
         nu_plugin_formats,
     ]
+
     for plugin in $plugins {
         $plugin | install-plugin
     }

@@ -81,7 +81,7 @@ fn command(
     let mask_value: Value = call
         .get_flag(engine_state, stack, "mask")?
         .expect("required named value");
-    let mask_span = mask_value.span()?;
+    let mask_span = mask_value.span();
     let mask = NuDataFrame::try_from_value(mask_value)?.as_series(mask_span)?;
 
     let bool_mask = match mask.dtype() {
@@ -185,7 +185,7 @@ fn command(
                 "this value cannot be set in a series of type '{}'",
                 series.dtype()
             ),
-            Some(value.span()?),
+            Some(value.span()),
             None,
             Vec::new(),
         )),

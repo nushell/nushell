@@ -2318,6 +2318,7 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
 
 pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Nanosecond, "ns", None),
+    // todo start adding aliases for duration units here
     (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
     (
         // µ Micro Sign
@@ -2976,7 +2977,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         },
         members: vec![],
         hidden: HashSet::new(),
-        module_name_var_id: None,
+        constants: vec![],
     };
 
     if spans.len() > 1 {

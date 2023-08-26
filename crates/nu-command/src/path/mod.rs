@@ -45,27 +45,28 @@ where
 fn handle_invalid_values(rest: Value, name: Span) -> Value {
     Value::Error {
         error: Box::new(err_from_value(&rest, name)),
+        span: name,
     }
 }
 
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
-    match rest.span() {
-        Ok(span) => {
+    match rest {
+        Value::Error { error, .. } => *error.clone(),
+        _ => {
             if rest.is_nothing() {
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string, record or list".into(),
                     wrong_type: "nothing".into(),
                     dst_span: name,
-                    src_span: span,
+                    src_span: rest.span(),
                 }
             } else {
                 ShellError::PipelineMismatch {
                     exp_input_type: "string, row or list".into(),
                     dst_span: name,
-                    src_span: span,
+                    src_span: rest.span(),
                 }
             }
         }
-        Err(error) => error,
     }
 }

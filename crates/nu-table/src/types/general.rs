@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
 
 use crate::{
     clean_charset,
@@ -18,14 +18,18 @@ impl JustTable {
         create_table(input, opts)
     }
 
-    pub fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        kv_table(cols, vals, opts)
+    pub fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+        kv_table(record, opts)
     }
 }
 
 fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
     match table(input, opts.row_offset, opts.clone())? {
-        Some(out) => {
+        Some(mut out) => {
+            let left = opts.config.table_indent.left;
+            let right = opts.config.table_indent.right;
+            out.table.set_indent(left, right);
+
             let table_config =
                 create_nu_table_config(opts.config, opts.style_computer, &out, false);
             Ok(out.table.draw(table_config, opts.width))
@@ -34,9 +38,9 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
     }
 }
 
-fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-    let mut data = vec![Vec::with_capacity(2); cols.len()];
-    for ((column, value), row) in cols.iter().zip(vals.iter()).zip(data.iter_mut()) {
+fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+    let mut data = vec![Vec::with_capacity(2); record.len()];
+    for ((column, value), row) in record.iter().zip(data.iter_mut()) {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
             return Ok(None);
         }
@@ -56,7 +60,12 @@ fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResul
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
 
-    let out = TableOutput::new(table, false, true);
+    let mut out = TableOutput::new(table, false, true);
+
+    let left = opts.config.table_indent.left;
+    let right = opts.config.table_indent.right;
+    out.table.set_indent(left, right);
+
     let table_config = create_nu_table_config(opts.config, opts.style_computer, &out, false);
     let table = out.table.draw(table_config, opts.width);
 
@@ -121,7 +130,7 @@ fn to_table_with_header(
             return Ok(None);
         }
 
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 
@@ -156,7 +165,7 @@ fn to_table_with_no_header(
             return Ok(None);
         }
 
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 

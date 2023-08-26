@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -60,51 +60,56 @@ impl Command for Insert {
         vec![Example {
             description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec!["name".into(), "stars".into(), "alias".into()],
                 vals: vec![
                     Value::test_string("nu"),
                     Value::test_int(5),
                     Value::test_string("Nushell"),
                 ],
-                span: Span::test_data(),
-            }),
+            })),
         },
         Example {
             description: "Insert a new column into a table, populating all rows",
             example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "lang".into(), "type".into()],
-            vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")], span: Span::test_data()}], span: Span::test_data()}),
+            result: Some(Value::List {
+                vals: vec![Value::test_record(Record {
+                    cols: vec!["project".into(), "lang".into(), "type".into()],
+                    vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")],
+                })],
+                span: Span::test_data(),
+            }),
         },
         Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
             example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
             result: Some(Value::List {
-                vals: vec![Value::Record {
-                    cols: vec!["index".into(), "foo".into(), "bar".into()],
-                    vals: vec![
-                        Value::test_int(0),
-                        Value::test_int(7),
-                        Value::test_int(7),
-                    ],
-                    span: Span::test_data(),
-                }, Value::Record {
-                    cols: vec!["index".into(),"foo".into(), "bar".into()],
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(8),
-                        Value::test_int(9),
-                    ],
-                    span: Span::test_data(),
-                }, Value::Record {
-                    cols: vec!["index".into(), "foo".into(), "bar".into()],
-                    vals: vec![
-                        Value::test_int(2),
-                        Value::test_int(9),
-                        Value::test_int(11),
-                    ],
-                    span: Span::test_data(),
-                }],
+                vals: vec![
+                    Value::test_record(Record {
+                        cols: vec!["index".into(), "foo".into(), "bar".into()],
+                        vals: vec![
+                            Value::test_int(0),
+                            Value::test_int(7),
+                            Value::test_int(7),
+                        ],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["index".into(),"foo".into(), "bar".into()],
+                        vals: vec![
+                            Value::test_int(1),
+                            Value::test_int(8),
+                            Value::test_int(9),
+                        ],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["index".into(), "foo".into(), "bar".into()],
+                        vals: vec![
+                            Value::test_int(2),
+                            Value::test_int(9),
+                            Value::test_int(11),
+                        ],
+                    }),
+                ],
                 span: Span::test_data(),
             }),
         }]
@@ -168,12 +173,18 @@ fn insert(
                             pd.into_value(span),
                             span,
                         ) {
-                            return Value::Error { error: Box::new(e) };
+                            return Value::Error {
+                                error: Box::new(e),
+                                span,
+                            };
                         }
 
                         input
                     }
-                    Err(e) => Value::Error { error: Box::new(e) },
+                    Err(e) => Value::Error {
+                        error: Box::new(e),
+                        span,
+                    },
                 }
             },
             ctrlc,
@@ -204,7 +215,10 @@ fn insert(
                 if let Err(e) =
                     input.insert_data_at_cell_path(&cell_path.members, replacement, span)
                 {
-                    return Value::Error { error: Box::new(e) };
+                    return Value::Error {
+                        error: Box::new(e),
+                        span,
+                    };
                 }
 
                 input

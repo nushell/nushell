@@ -140,6 +140,7 @@ fn operate(
                     if let Err(error) = r {
                         return Value::Error {
                             error: Box::new(error),
+                            span: head,
                         };
                     }
                 }
@@ -170,6 +171,7 @@ fn action(
                                 "please supply foreground and/or background color parameters".into(),
                             span: command_span,
                         }),
+                        span: command_span,
                     }
                 }
                 (None, None, None, Some(bg_end)) => {
@@ -295,8 +297,9 @@ fn action(
             Value::Error {
                 error: Box::new(ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(command_span),
+                    span: other.span(),
                 }),
+                span: other.span(),
             }
         }
     }

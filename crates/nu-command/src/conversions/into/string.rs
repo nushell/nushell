@@ -40,6 +40,7 @@ impl Command for SubCommand {
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
+                (Type::Duration, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
@@ -129,12 +130,11 @@ impl Command for SubCommand {
                 example: "true | into string",
                 result: Some(Value::test_string("true")),
             },
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "convert date to string",
-            //     example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
-            //     result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
-            // },
+            Example {
+                description: "convert date to string",
+                example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
+                result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
+            },
             Example {
                 description: "convert filepath to string",
                 example: "ls Cargo.toml | get name | into string",
@@ -144,6 +144,11 @@ impl Command for SubCommand {
                 description: "convert filesize to string",
                 example: "1KiB | into string",
                 result: Some(Value::test_string("1,024 B")),
+            },
+            Example {
+                description: "convert duration to string",
+                example: "9day | into string",
+                result: Some(Value::test_string("1wk 2day")),
             },
         ]
     }
@@ -239,7 +244,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             val: input.into_string(", ", config),
             span,
         },
-        Value::Error { error } => Value::String {
+        Value::Duration { val: _, .. } => Value::String {
+            val: input.into_string("", config),
+            span,
+        },
+
+        Value::Error { error, .. } => Value::String {
             val: into_code(error).unwrap_or_default(),
             span,
         },
@@ -247,11 +257,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             val: "".to_string(),
             span,
         },
-        Value::Record {
-            cols: _,
-            vals: _,
-            span: _,
-        } => Value::Error {
+        Value::Record { .. } => Value::Error {
             // Watch out for CantConvert's argument order
             error: Box::new(ShellError::CantConvert {
                 to_type: "string".into(),
@@ -259,6 +265,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 span,
                 help: Some("try using the `to nuon` command".into()),
             }),
+            span,
         },
         Value::Binary { .. } => Value::Error {
             error: Box::new(ShellError::CantConvert {
@@ -267,6 +274,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 span,
                 help: Some("try using the `decode` command".into()),
             }),
+            span,
         },
         x => Value::Error {
             error: Box::new(ShellError::CantConvert {
@@ -275,6 +283,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 span,
                 help: None,
             }),
+            span,
         },
     }
 }

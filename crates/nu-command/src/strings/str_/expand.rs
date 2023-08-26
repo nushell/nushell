@@ -66,6 +66,18 @@ impl Command for SubCommand {
             },
 
             Example {
+                description: "Commas that are not inside any braces need to be skipped.",
+                example: "'Welcome\\, {home,mon ami}!' | str expand",
+                result: Some(Value::List{
+                    vals: vec![
+                        Value::test_string("Welcome, home!"),
+                        Value::test_string("Welcome, mon ami!"),
+                    ],
+                    span: Span::test_data()
+                },)
+            },
+
+            Example {
                 description: "Use double backslashes to add a backslash.",
                 example: "'A{B\\\\,C}' | str expand",
                 result: Some(Value::List{
@@ -185,14 +197,11 @@ impl Command for SubCommand {
         let is_path = call.has_flag("path");
         input.map(
             move |v| {
-                let value_span = match v.span() {
-                    Err(v) => return Value::Error { error: Box::new(v) },
-                    Ok(v) => v,
-                };
+                let value_span = v.span();
                 match v.as_string() {
                     Ok(s) => {
                         let contents = if is_path { s.replace('\\', "\\\\") } else { s };
-                        str_expand(&contents, span, v.expect_span())
+                        str_expand(&contents, span, v.span())
                     }
                     Err(_) => Value::Error {
                         error: Box::new(ShellError::PipelineMismatch {
@@ -200,6 +209,7 @@ impl Command for SubCommand {
                             dst_span: span,
                             src_span: value_span,
                         }),
+                        span,
                     },
                 }
             },
@@ -224,7 +234,9 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                         },
                         Err(e) => match e {
                             bracoxide::ExpansionError::NumConversionFailed(s) => Value::Error { error:
-                                Box::new(ShellError::GenericError("Number Conversion Failed".to_owned(), format!("Number conversion failed at {s}."), Some(value_span), Some("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits.".to_owned()), vec![])) },
+                                Box::new(ShellError::GenericError("Number Conversion Failed".to_owned(), format!("Number conversion failed at {s}."), Some(value_span), Some("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits.".to_owned()), vec![])),
+                            span,
+                        },
                         },
                     }
                 },
@@ -243,12 +255,15 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                         ParsingError::ExtraOBra(s) => ShellError::GenericError("Extra Opening Brace".to_owned(), format!("Used extra opening brace at {s}."), Some(value_span), Some("To escape opening brace use backslash, e.g. `\\{`".to_owned()), vec![]),
                         ParsingError::NothingInBraces(s) => ShellError::GenericError("Nothing In Braces".to_owned(), format!("Nothing found inside braces at {s}."), Some(value_span), Some("Please provide valid content within the braces. Additionally, you can safely remove it, not needed.".to_owned()), vec![]),
                     }
-                ) }
+                ),
+                span,
+                }
             }
         },
         Err(e) => match e {
             TokenizationError::EmptyContent => Value::Error {
                 error: Box::new(ShellError::PipelineEmpty { dst_span: value_span }),
+                span: value_span,
             },
             TokenizationError::FormatNotSupported => Value::Error {
                 error: Box::new(
@@ -258,10 +273,12 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                         Some(value_span),
                         Some("In brace expansion syntax, it is important to have an equal number of opening (`{`) and closing (`}`) braces. Please ensure that you provide a balanced pair of braces in your brace expansion pattern.".to_owned()),
                         vec![]
-                ))
+                )),
+                span: value_span,
             },
             TokenizationError::NoBraces => Value::Error {
-                error: Box::new(ShellError::GenericError("No Braces".to_owned(), "At least one `{}` brace expansion expected.".to_owned(), Some(value_span), Some("Please, examine the examples.".to_owned()), vec![]))
+                error: Box::new(ShellError::GenericError("No Braces".to_owned(), "At least one `{}` brace expansion expected.".to_owned(), Some(value_span), Some("Please, examine the examples.".to_owned()), vec![])),
+                span: value_span,
             }
         },
     }
@@ -270,6 +287,59 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dots() {
+        assert_eq!(
+            str_expand("{a.b.c,d}", Span::test_data(), Span::test_data()),
+            Value::List {
+                vals: vec![
+                    Value::String {
+                        val: String::from("a.b.c"),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: String::from("d"),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }
+        );
+        assert_eq!(
+            str_expand("{1.2.3,a}", Span::test_data(), Span::test_data()),
+            Value::List {
+                vals: vec![
+                    Value::String {
+                        val: String::from("1.2.3"),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: String::from("a"),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }
+        );
+        assert_eq!(
+            str_expand("{a-1.2,b}", Span::test_data(), Span::test_data()),
+            Value::List {
+                vals: vec![
+                    Value::String {
+                        val: String::from("a-1.2"),
+                        span: Span::test_data(),
+                    },
+                    Value::String {
+                        val: String::from("b"),
+                        span: Span::test_data(),
+                    },
+                ],
+                span: Span::test_data(),
+            }
+        );
+    }
+
     #[test]
     fn test_examples() {
         use crate::test_examples;

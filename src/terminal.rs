@@ -1,11 +1,11 @@
 #[cfg(unix)]
 pub(crate) fn acquire_terminal(interactive: bool) {
-    use is_terminal::IsTerminal;
     use nix::{
         errno::Errno,
         sys::signal::{signal, SigHandler, Signal},
         unistd,
     };
+    use std::io::IsTerminal;
 
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html

@@ -93,7 +93,7 @@ impl Command for LazyFillNA {
                 None,
             ))
         } else {
-            let val_span = value.span()?;
+            let val_span = value.span();
             let frame = NuDataFrame::try_from_value(value)?;
             let columns = frame.columns(val_span)?;
             let dataframe = columns

@@ -20,7 +20,10 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::String),
+                (Type::Nothing, Type::Table(vec![])),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::String,
@@ -145,17 +148,17 @@ pub fn highlight_search_in_table(
     let mut matches = vec![];
 
     for record in table {
-        let (cols, mut vals, record_span) = if let Value::Record { cols, vals, span } = record {
-            (cols, vals, span)
+        let (mut record, record_span) = if let Value::Record { val, span } = record {
+            (val, span)
         } else {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
                 label: format!("got {}", record.get_type()),
-                span: record.span()?,
+                span: record.span(),
             });
         };
 
-        let has_match = cols.iter().zip(vals.iter_mut()).try_fold(
+        let has_match = record.iter_mut().try_fold(
             false,
             |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if !searched_cols.contains(&col.as_str()) {
@@ -183,11 +186,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::Record {
-                cols,
-                vals,
-                span: record_span,
-            });
+            matches.push(Value::record(record, record_span));
         }
     }
 

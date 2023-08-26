@@ -138,12 +138,12 @@ fn help_not_present_in_extern() -> TestResult {
 
 #[test]
 fn override_table() -> TestResult {
-    run_test(r#"def table [] { "hi" }; table"#, "hi")
+    run_test(r#"def table [-e] { "hi" }; table"#, "hi")
 }
 
 #[test]
 fn override_table_eval_file() {
-    let actual = nu!(r#"def table [] { "hi" }; table"#);
+    let actual = nu!(r#"def table [-e] { "hi" }; table"#);
     assert_eq!(actual.out, "hi");
 }
 

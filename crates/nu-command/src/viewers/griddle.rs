@@ -110,11 +110,11 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 
-                for (i, (c, v)) in cols.into_iter().zip(vals).enumerate() {
+                for (i, (c, v)) in val.into_iter().enumerate() {
                     items.push((i, c, v.into_string(", ", config)))
                 }
 
@@ -261,7 +261,7 @@ fn convert_to_list(
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
-        let mut headers = first.columns();
+        let mut headers = first.columns().to_vec();
 
         if !headers.is_empty() {
             headers.insert(0, "#".into());

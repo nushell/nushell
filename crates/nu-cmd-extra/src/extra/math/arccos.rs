@@ -89,6 +89,7 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                         head,
                         span,
                     )),
+                    span,
                 }
             }
         }
@@ -98,8 +99,9 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

@@ -130,7 +130,7 @@ impl Range {
         self,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<RangeIterator, ShellError> {
-        let span = self.from.span()?;
+        let span = self.from.span();
 
         Ok(RangeIterator::new(self, ctrlc, span))
     }
@@ -217,6 +217,7 @@ impl Iterator for RangeIterator {
             self.done = true;
             return Some(Value::Error {
                 error: Box::new(ShellError::CannotCreateRange { span: self.span }),
+                span: self.span,
             });
         };
 
@@ -237,6 +238,7 @@ impl Iterator for RangeIterator {
                     self.done = true;
                     return Some(Value::Error {
                         error: Box::new(error),
+                        span: self.span,
                     });
                 }
             };

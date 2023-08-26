@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Config, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
@@ -21,8 +22,6 @@ enum IncludeInner {
     No,
     Yes,
 }
-
-type RowEntries<'a> = Vec<(&'a Vec<String>, &'a Vec<Value>)>;
 
 const EMPTY_COL_NAMES: &Vec<String> = &vec![];
 
@@ -53,6 +52,7 @@ impl Command for Join {
             .switch("right", "Right-outer join", Some('r'))
             .switch("outer", "Outer join", Some('o'))
             .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
@@ -111,7 +111,7 @@ impl Command for Join {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
             result: Some(Value::List {
-                vals: vec![Value::Record {
+                vals: vec![Value::test_record(Record {
                     cols: vec!["a".into(), "b".into(), "c".into()],
                     vals: vec![
                         Value::Int {
@@ -127,8 +127,7 @@ impl Command for Join {
                             span: Span::test_data(),
                         },
                     ],
-                    span: Span::test_data(),
-                }],
+                })],
                 span: Span::test_data(),
             }),
         }]
@@ -264,8 +263,8 @@ fn join_rows(
     result: &mut Vec<Value>,
     this: &Vec<Value>,
     this_join_key: &str,
-    other: HashMap<String, RowEntries>,
-    other_keys: &Vec<String>,
+    other: HashMap<String, Vec<&Record>>,
+    other_keys: &[String],
     shared_join_key: Option<&str>,
     join_type: &JoinType,
     include_inner: IncludeInner,
@@ -275,71 +274,60 @@ fn join_rows(
 ) {
     for this_row in this {
         if let Value::Record {
-            cols: this_cols,
-            vals: this_vals,
-            ..
+            val: this_record, ..
         } = this_row
         {
             if let Some(this_valkey) = this_row.get_data_by_key(this_join_key) {
                 if let Some(other_rows) = other.get(&this_valkey.into_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
-                        for (other_cols, other_vals) in other_rows {
+                        for other_record in other_rows {
                             // `other` table contains rows matching `this` row on the join column
-                            let (res_cols, res_vals) = match join_type {
+                            let record = match join_type {
                                 JoinType::Inner | JoinType::Right => merge_records(
-                                    (other_cols, other_vals), // `other` (lookup) is the left input table
-                                    (this_cols, this_vals),
+                                    other_record, // `other` (lookup) is the left input table
+                                    this_record,
                                     shared_join_key,
                                 ),
                                 JoinType::Left => merge_records(
-                                    (this_cols, this_vals), // `this` is the left input table
-                                    (other_cols, other_vals),
+                                    this_record, // `this` is the left input table
+                                    other_record,
                                     shared_join_key,
                                 ),
                                 _ => panic!("not implemented"),
                             };
-                            result.push(Value::Record {
-                                cols: res_cols,
-                                vals: res_vals,
-                                span,
-                            })
+                            result.push(Value::record(record, span))
                         }
                     }
                 } else if !matches!(join_type, JoinType::Inner) {
                     // `other` table did not contain any rows matching
                     // `this` row on the join column; emit a single joined
                     // row with null values for columns not present,
-                    let other_vals = other_keys
+                    let other_record = other_keys
                         .iter()
                         .map(|key| {
-                            if Some(key.as_ref()) == shared_join_key {
+                            let val = if Some(key.as_ref()) == shared_join_key {
                                 this_row
                                     .get_data_by_key(key)
                                     .unwrap_or_else(|| Value::nothing(span))
                             } else {
                                 Value::nothing(span)
-                            }
+                            };
+
+                            (key.clone(), val)
                         })
                         .collect();
-                    let (res_cols, res_vals) = match join_type {
-                        JoinType::Inner | JoinType::Right => merge_records(
-                            (other_keys, &other_vals),
-                            (this_cols, this_vals),
-                            shared_join_key,
-                        ),
-                        JoinType::Left => merge_records(
-                            (this_cols, this_vals),
-                            (other_keys, &other_vals),
-                            shared_join_key,
-                        ),
+
+                    let record = match join_type {
+                        JoinType::Inner | JoinType::Right => {
+                            merge_records(&other_record, this_record, shared_join_key)
+                        }
+                        JoinType::Left => {
+                            merge_records(this_record, &other_record, shared_join_key)
+                        }
                         _ => panic!("not implemented"),
                     };
 
-                    result.push(Value::Record {
-                        cols: res_cols,
-                        vals: res_vals,
-                        span,
-                    })
+                    result.push(Value::record(record, span))
                 }
             } // else { a row is missing a value for the join column }
         };
@@ -352,7 +340,7 @@ fn column_names(table: &[Value]) -> &Vec<String> {
     table
         .iter()
         .find_map(|val| match val {
-            Value::Record { cols, .. } => Some(cols),
+            Value::Record { val, .. } => Some(&val.cols),
             _ => None,
         })
         .unwrap_or(EMPTY_COL_NAMES)
@@ -366,13 +354,13 @@ fn lookup_table<'a>(
     sep: &str,
     cap: usize,
     config: &Config,
-) -> HashMap<String, RowEntries<'a>> {
-    let mut map = HashMap::<String, RowEntries>::with_capacity(cap);
+) -> HashMap<String, Vec<&'a Record>> {
+    let mut map = HashMap::<String, Vec<&'a Record>>::with_capacity(cap);
     for row in rows {
-        if let Value::Record { cols, vals, .. } = row {
+        if let Value::Record { val: record, .. } = row {
             if let Some(val) = &row.get_data_by_key(on) {
                 let valkey = val.into_string(sep, config);
-                map.entry(valkey).or_default().push((cols, vals));
+                map.entry(valkey).or_default().push(record);
             }
         };
     }
@@ -382,31 +370,27 @@ fn lookup_table<'a>(
 // Merge `left` and `right` records, renaming keys in `right` where they clash
 // with keys in `left`. If `shared_key` is supplied then it is the name of a key
 // that should not be renamed (its values are guaranteed to be equal).
-fn merge_records(
-    left: (&Vec<String>, &Vec<Value>),
-    right: (&Vec<String>, &Vec<Value>),
-    shared_key: Option<&str>,
-) -> (Vec<String>, Vec<Value>) {
-    let ((l_keys, l_vals), (r_keys, r_vals)) = (left, right);
-    let cap = max(l_keys.len(), r_keys.len());
+fn merge_records(left: &Record, right: &Record, shared_key: Option<&str>) -> Record {
+    let cap = max(left.len(), right.len());
     let mut seen = HashSet::with_capacity(cap);
-    let (mut res_keys, mut res_vals) = (Vec::with_capacity(cap), Vec::with_capacity(cap));
-    for (k, v) in l_keys.iter().zip(l_vals) {
-        res_keys.push(k.clone());
-        res_vals.push(v.clone());
+    let mut record = Record::with_capacity(cap);
+    for (k, v) in left {
+        record.push(k.clone(), v.clone());
         seen.insert(k);
     }
 
-    for (k, v) in r_keys.iter().zip(r_vals) {
+    for (k, v) in right {
         let k_seen = seen.contains(k);
         let k_shared = shared_key == Some(k);
         // Do not output shared join key twice
         if !(k_seen && k_shared) {
-            res_keys.push(if k_seen { format!("{}_", k) } else { k.clone() });
-            res_vals.push(v.clone());
+            record.push(
+                if k_seen { format!("{}_", k) } else { k.clone() },
+                v.clone(),
+            );
         }
     }
-    (res_keys, res_vals)
+    record
 }
 
 #[cfg(test)]

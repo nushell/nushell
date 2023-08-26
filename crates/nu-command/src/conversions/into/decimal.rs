@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,14 +17,15 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into decimal")
             .input_output_types(vec![
-                (Type::Int, Type::Number),
-                (Type::String, Type::Number),
-                (Type::Bool, Type::Number),
+                (Type::Int, Type::Float),
+                (Type::String, Type::Float),
+                (Type::Bool, Type::Float),
+                (Type::Float, Type::Float),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (
                     Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Number)),
+                    Type::List(Box::new(Type::Float)),
                 ),
             ])
             .rest(
@@ -62,11 +63,10 @@ impl Command for SubCommand {
                 description: "Convert string to decimal in table",
                 example: "[[num]; ['5.01']] | into decimal num",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["num".to_string()],
                         vals: vec![Value::test_float(5.01)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -76,9 +76,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_float(1.345)),
             },
             Example {
-                description: "Convert decimal to decimal",
-                example: "'-5.9' | into decimal",
-                result: Some(Value::test_float(-5.9)),
+                description: "Coerce list of ints and floats to float",
+                example: "[4 -5.9] | into decimal",
+                result: Some(Value::test_list(vec![
+                    Value::test_float(4.0),
+                    Value::test_float(-5.9),
+                ])),
             },
             Example {
                 description: "Convert boolean to decimal",
@@ -91,6 +94,7 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
+        Value::Float { .. } => input.clone(),
         Value::String { val: s, span } => {
             let other = s.trim();
 
@@ -103,6 +107,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                         span: *span,
                         help: None,
                     }),
+                    span: *span,
                 },
             }
         }
@@ -121,8 +126,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
                 exp_input_type: "string, integer or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

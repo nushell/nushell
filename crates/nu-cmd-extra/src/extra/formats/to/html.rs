@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
-    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
+    PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -258,62 +258,34 @@ fn to_html(
         // If asset doesn't work, make sure to return the default theme
         let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
 
-        let cols = vec![
-            "name".into(),
-            "black".into(),
-            "red".into(),
-            "green".into(),
-            "yellow".into(),
-            "blue".into(),
-            "purple".into(),
-            "cyan".into(),
-            "white".into(),
-            "brightBlack".into(),
-            "brightRed".into(),
-            "brightGreen".into(),
-            "brightYellow".into(),
-            "brightBlue".into(),
-            "brightPurple".into(),
-            "brightCyan".into(),
-            "brightWhite".into(),
-            "background".into(),
-            "foreground".into(),
-        ];
-
         let result: Vec<Value> = html_themes
             .themes
             .into_iter()
             .map(|n| {
-                let vals = vec![
-                    n.name,
-                    n.black,
-                    n.red,
-                    n.green,
-                    n.yellow,
-                    n.blue,
-                    n.purple,
-                    n.cyan,
-                    n.white,
-                    n.brightBlack,
-                    n.brightRed,
-                    n.brightGreen,
-                    n.brightYellow,
-                    n.brightBlue,
-                    n.brightPurple,
-                    n.brightCyan,
-                    n.brightWhite,
-                    n.background,
-                    n.foreground,
-                ]
-                .into_iter()
-                .map(|val| Value::String { val, span: head })
-                .collect();
-
-                Value::Record {
-                    cols: cols.clone(),
-                    vals,
-                    span: head,
-                }
+                Value::record(
+                    record! {
+                        "name" => Value::string(n.name, head),
+                        "black" => Value::string(n.black, head),
+                        "red" => Value::string(n.red, head),
+                        "green" => Value::string(n.green, head),
+                        "yellow" => Value::string(n.yellow, head),
+                        "blue" => Value::string(n.blue, head),
+                        "purple" => Value::string(n.purple, head),
+                        "cyan" => Value::string(n.cyan, head),
+                        "white" => Value::string(n.white, head),
+                        "brightBlack" => Value::string(n.brightBlack, head),
+                        "brightRed" => Value::string(n.brightRed, head),
+                        "brightGreen" => Value::string(n.brightGreen, head),
+                        "brightYellow" => Value::string(n.brightYellow, head),
+                        "brightBlue" => Value::string(n.brightBlue, head),
+                        "brightPurple" => Value::string(n.brightPurple, head),
+                        "brightCyan" => Value::string(n.brightCyan, head),
+                        "brightWhite" => Value::string(n.brightWhite, head),
+                        "background" => Value::string(n.background, head),
+                        "foreground" => Value::string(n.foreground, head),
+                    },
+                    head,
+                )
             })
             .collect();
         return Ok(Value::List {

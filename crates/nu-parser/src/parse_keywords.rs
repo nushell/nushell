@@ -49,6 +49,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"extern",
     b"extern-wrapped",
     b"export extern",
+    b"export extern-wrapped",
     b"alias",
     b"export alias",
     b"export-env",
@@ -211,10 +212,11 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             }
 
             signature.name = name.clone();
-            //let decl = signature.predeclare();
+
             let decl = KnownExternal {
                 name,
                 usage: "run external command".into(),
+                extra_usage: "".into(),
                 signature,
             };
 
@@ -535,19 +537,17 @@ pub fn parse_extern(
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
 
-    let (name_span, split_id) = if spans.len() > 1
-        && (working_set.get_span_contents(spans[0]) == b"export"
-            || working_set.get_span_contents(spans[0]) == b"export-wrapped")
-    {
-        (spans[1], 2)
-    } else {
-        (spans[0], 1)
-    };
+    let (name_span, split_id) =
+        if spans.len() > 1 && (working_set.get_span_contents(spans[0]) == b"export") {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
 
     let extern_call = working_set.get_span_contents(name_span).to_vec();
     if extern_call != b"extern" && extern_call != b"extern-wrapped" {
         working_set.error(ParseError::UnknownState(
-            "internal error: Wrong call name for extern function".into(),
+            "internal error: Wrong call name for extern or extern-wrapped command".into(),
             span(spans),
         ));
         return garbage_pipeline(spans);
@@ -650,7 +650,8 @@ pub fn parse_extern(
                 } else {
                     let decl = KnownExternal {
                         name: external_name,
-                        usage: [usage, extra_usage].join("\n"),
+                        usage,
+                        extra_usage,
                         signature,
                     };
 
@@ -749,6 +750,7 @@ pub fn parse_alias(
 
     if let Some(decl_id) = working_set.find_decl(b"alias") {
         let (command_spans, rest_spans) = spans.split_at(split_id);
+        let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
         let original_starting_error_count = working_set.parse_errors.len();
 
@@ -906,6 +908,8 @@ pub fn parse_alias(
                 name: alias_name,
                 command,
                 wrapped_call,
+                usage,
+                extra_usage,
             };
 
             working_set.add_decl(Box::new(decl));
@@ -1006,6 +1010,7 @@ pub fn parse_export_in_block(
         }
         b"export module" => parse_module(working_set, lite_command, None).0,
         b"export extern" => parse_extern(working_set, lite_command, None),
+        b"export extern-wrapped" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
                 String::from_utf8_lossy(&full_name).to_string(),
@@ -1188,13 +1193,15 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
+                let extern_name = [b"export ", kw_name].concat();
+
                 let pipeline = parse_extern(working_set, &lite_command, Some(module_name));
 
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export extern") {
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(&extern_name) {
                     id
                 } else {
                     working_set.error(ParseError::InternalError(
-                        "missing 'export extern' command".into(),
+                        "missing 'export extern' or 'export extern-wrapped' command".into(),
                         export_span,
                     ));
                     return (garbage_pipeline(spans), vec![]);
@@ -1402,7 +1409,8 @@ pub fn parse_export_in_module(
             }
             b"const" => {
                 let pipeline = parse_const(working_set, &spans[1..]);
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export const") {
+                let export_const_decl_id = if let Some(id) = working_set.find_decl(b"export const")
+                {
                     id
                 } else {
                     working_set.error(ParseError::InternalError(
@@ -1424,7 +1432,7 @@ pub fn parse_export_in_module(
                     call = def_call.clone();
 
                     call.head = span(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
+                    call.decl_id = export_const_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
@@ -1434,15 +1442,19 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                if let Some(decl_name_span) = spans.get(2) {
-                    let decl_name = working_set.get_span_contents(*decl_name_span);
-                    let decl_name = trim_quotes(decl_name);
+                if let Some(var_name_span) = spans.get(2) {
+                    let var_name = working_set.get_span_contents(*var_name_span);
+                    let var_name = trim_quotes(var_name);
 
-                    if let Some(decl_id) = working_set.find_variable(decl_name) {
-                        result.push(Exportable::VarDecl {
-                            name: decl_name.to_vec(),
-                            id: decl_id,
-                        });
+                    if let Some(var_id) = working_set.find_variable(var_name) {
+                        if let Err(err) = working_set.get_constant(var_id) {
+                            working_set.error(err);
+                        } else {
+                            result.push(Exportable::VarDecl {
+                                name: var_name.to_vec(),
+                                id: var_id,
+                            });
+                        }
                     } else {
                         working_set.error(ParseError::InternalError(
                             "failed to find added variable".into(),
@@ -1455,7 +1467,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, def-env, alias, use, module, or extern keyword",
+                    "def, def-env, alias, use, module, const, extern or extern-wrapped keyword",
                     spans[1],
                 ));
 
@@ -1464,9 +1476,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, def-env, extern, alias, use, or module keyword".into(),
+            "def, def-env, alias, use, module, const, extern or extern-wrapped keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "def, def-env, extern, alias, use, or module keyword.".to_string(),
+            "def, def-env, alias, use, module, const, extern or extern-wrapped keyword".to_string(),
         ));
 
         vec![]
@@ -1789,7 +1801,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def, const, def-env, extern, alias, use, module, export or export-env keyword".into(),
+                                "def, const, def-env, extern, extern-wrapped, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 
@@ -2278,7 +2290,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
-                module_name_var_id: None,
+                constants: vec![],
             },
             module,
             module_id,
@@ -2299,7 +2311,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
-                module_name_var_id: None,
+                constants: vec![],
             },
             module,
             module_id,
@@ -2317,9 +2329,24 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         );
     };
 
-    let (definitions, errors) =
-        module.resolve_import_pattern(working_set, module_id, &import_pattern.members, None);
+    let (definitions, errors) = module.resolve_import_pattern(
+        working_set,
+        module_id,
+        &import_pattern.members,
+        None,
+        name_span,
+    );
+
     working_set.parse_errors.extend(errors);
+
+    let mut constants = vec![];
+
+    for (name, const_val) in definitions.constants {
+        let const_var_id =
+            working_set.add_variable(name.clone(), name_span, const_val.get_type(), false);
+        working_set.set_variable_const_val(const_var_id, const_val);
+        constants.push((name, const_var_id));
+    }
 
     let exportables = definitions
         .decls
@@ -2338,8 +2365,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 }),
         )
         .chain(
-            definitions
-                .variables
+            constants
                 .iter()
                 .map(|(name, variable_id)| Exportable::VarDecl {
                     name: name.clone(),
@@ -2348,18 +2374,13 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         )
         .collect();
 
+    import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
+
     // Extend the current scope with the module's exportables
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
-    working_set.use_variables(definitions.variables);
+    working_set.use_variables(constants);
 
-    let module_name_var_id = working_set.add_variable(
-        module.name(),
-        module.span.unwrap_or(Span::unknown()),
-        Type::Any,
-        false,
-    );
-    import_pattern.module_name_var_id = Some(module_name_var_id);
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
@@ -2769,6 +2790,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 origin_module_id,
                 &[],
                 Some(final_overlay_name.as_bytes()),
+                call.head,
             )
         } else {
             origin_module.resolve_import_pattern(
@@ -2778,6 +2800,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     span: overlay_name_span,
                 }],
                 Some(final_overlay_name.as_bytes()),
+                call.head,
             )
         }
     } else {
@@ -3018,15 +3041,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                 // const x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let mut idx = span.0;
-                    // let rvalue = parse_multispan_value(
-                    //     working_set,
-                    //     spans,
-                    //     &mut idx,
-                    //     &SyntaxShape::Keyword(
-                    //         b"=".to_vec(),
-                    //         Box::new(SyntaxShape::MathExpression),
-                    //     ),
-                    // );
 
                     let rvalue = parse_multispan_value(
                         working_set,
@@ -3092,7 +3106,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                                 // Assign the constant value to the variable
                                 working_set.set_variable_const_val(var_id, val);
-                                // working_set.add_constant(var_id, val);
                             }
                             Err(err) => working_set.error(err),
                         }
@@ -3562,68 +3575,55 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let stack = Stack::new();
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
-    let error = match signature {
-        Some(signature) => arguments.and_then(|(path, path_span)| {
-            let path = path.path_buf();
-            // restrict plugin file name starts with `nu_plugin_`
-            let valid_plugin_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = valid_plugin_name {
-                signature.map(|signature| {
-                    let plugin_decl = PluginDeclaration::new(path, signature, shell);
-                    working_set.add_decl(Box::new(plugin_decl));
+    let error = arguments.and_then(|(path, path_span)| {
+        let path = path.path_buf();
+        // restrict plugin file name starts with `nu_plugin_`
+        let valid_plugin_name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+
+        let Some(true) = valid_plugin_name else {
+            return Err(ParseError::LabeledError(
+                "Register plugin failed".into(),
+                "plugin name must start with nu_plugin_".into(),
+                path_span,
+            ));
+        };
+
+        let signatures = signature.map_or_else(
+            || {
+                let signatures = get_signature(&path, &shell, &current_envs).map_err(|err| {
+                    ParseError::LabeledError(
+                        "Error getting signatures".into(),
+                        err.to_string(),
+                        spans[0],
+                    )
+                });
+
+                if signatures.is_ok() {
+                    // mark plugins file as dirty only when the user is registering plugins
+                    // and not when we evaluate plugin.nu on shell startup
                     working_set.mark_plugins_file_dirty();
-                })
-            } else {
-                Err(ParseError::LabeledError(
-                    "Register plugin failed".into(),
-                    "plugin name must start with nu_plugin_".into(),
-                    path_span,
-                ))
-            }
-        }),
-        None => arguments.and_then(|(path, path_span)| {
-            let path = path.path_buf();
-            // restrict plugin file name starts with `nu_plugin_`
-            let valid_plugin_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+                }
 
-            if let Some(true) = valid_plugin_name {
-                get_signature(&path, &shell, &current_envs)
-                    .map_err(|err| {
-                        ParseError::LabeledError(
-                            "Error getting signatures".into(),
-                            err.to_string(),
-                            spans[0],
-                        )
-                    })
-                    .map(|signatures| {
-                        for signature in signatures {
-                            // create plugin command declaration (need struct impl Command)
-                            // store declaration in working set
-                            let plugin_decl =
-                                PluginDeclaration::new(path.clone(), signature, shell.clone());
+                signatures
+            },
+            |sig| sig.map(|sig| vec![sig]),
+        )?;
 
-                            working_set.add_decl(Box::new(plugin_decl));
-                        }
+        for signature in signatures {
+            // create plugin command declaration (need struct impl Command)
+            // store declaration in working set
+            let plugin_decl = PluginDeclaration::new(path.clone(), signature, shell.clone());
 
-                        working_set.mark_plugins_file_dirty();
-                    })
-            } else {
-                Err(ParseError::LabeledError(
-                    "Register plugin failed".into(),
-                    "plugin name must start with nu_plugin_".into(),
-                    path_span,
-                ))
-            }
-        }),
-    }
-    .err();
+            working_set.add_decl(Box::new(plugin_decl));
+        }
 
-    if let Some(err) = error {
+        Ok(())
+    });
+
+    if let Err(err) = error {
         working_set.error(err);
     }
 

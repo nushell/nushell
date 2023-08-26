@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
+    Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -53,8 +53,14 @@ impl Command for Reverse {
                 description: "Reverse a table",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(2)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(1)]),
+                        Value::test_record(Record {
+                            cols: vec!["a".to_string()],
+                            vals: vec![Value::test_int(2)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["a".to_string()],
+                            vals: vec![Value::test_int(1)],
+                        }),
                     ],
                     span: Span::test_data(),
                 }),

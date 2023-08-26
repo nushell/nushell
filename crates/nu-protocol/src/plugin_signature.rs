@@ -12,12 +12,6 @@ pub struct PluginSignature {
     pub examples: Vec<PluginExample>,
 }
 
-impl std::fmt::Display for PluginSignature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.sig)
-    }
-}
-
 impl PluginSignature {
     pub fn new(sig: Signature, examples: Vec<PluginExample>) -> Self {
         Self { sig, examples }
@@ -54,8 +48,8 @@ impl PluginSignature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> PluginSignature {
-        self.sig = self.sig.update_from_command(name, command);
+    pub fn update_from_command(mut self, command: &dyn Command) -> PluginSignature {
+        self.sig = self.sig.update_from_command(command);
         self
     }
 

@@ -2,7 +2,9 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -50,11 +52,10 @@ impl Command for SubCommand {
             Example {
                 description: "Find the maxima of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1}] | math max",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![Value::test_int(2), Value::test_int(3)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }

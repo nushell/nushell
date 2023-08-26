@@ -23,7 +23,7 @@ use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Value,
+    Record, Value,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
@@ -990,11 +990,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     if !hm.contains_key(key) {
         hm.insert(
             key.to_string(),
-            Value::Record {
-                cols: vec![],
-                vals: vec![],
-                span: NuSpan::unknown(),
-            },
+            Value::record(Record::new(), NuSpan::unknown()),
         );
     }
 
@@ -1006,27 +1002,26 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     }
 
     match val {
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val: record, .. } => {
             if path.len() == 2 {
-                if cols.len() != vals.len() {
+                if record.cols.len() != record.vals.len() {
                     return false;
                 }
 
                 let key = &path[1];
 
-                let pos = cols.iter().position(|v| v == key);
+                let pos = record.cols.iter().position(|v| v == key);
                 match pos {
                     Some(i) => {
-                        vals[i] = value;
+                        record.vals[i] = value;
                     }
                     None => {
-                        cols.push(key.to_string());
-                        vals.push(value);
+                        record.push(*key, value);
                     }
                 }
             } else {
                 let mut hm2: HashMap<String, Value> = HashMap::new();
-                for (k, v) in cols.iter().zip(vals) {
+                for (k, v) in record.iter() {
                     hm2.insert(k.to_string(), v.clone());
                 }
 

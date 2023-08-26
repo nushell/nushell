@@ -121,12 +121,11 @@ impl Command for Match {
             },
             Example {
                 description: "Match with a guard",
-                example: "
-                    match [1 2 3] {
-                        [$x, ..$y] if $x == 1 => { 'good list' },
-                        _ => { 'not a very good list' }
-                    }
-                    ",
+                example: "match [1 2 3] {
+        [$x, ..$y] if $x == 1 => { 'good list' },
+        _ => { 'not a very good list' }
+    }
+    ",
                 result: Some(Value::test_string("good list")),
             },
         ]

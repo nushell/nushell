@@ -112,8 +112,9 @@ where
                                     exp_input_type: "string and binary".into(),
                                     wrong_type: other.get_type().to_string(),
                                     dst_span: span,
-                                    src_span: other.expect_span(),
+                                    src_span: other.span(),
                                 }),
+                                span,
                             }
                             .into_pipeline_data());
                         }
@@ -157,22 +158,16 @@ where
         // Propagate existing errors
         Value::Error { .. } => return input.clone(),
         other => {
-            let span = match input.span() {
-                Ok(span) => span,
-                Err(error) => {
-                    return Value::Error {
-                        error: Box::new(error),
-                    }
-                }
-            };
+            let span = input.span();
 
             return Value::Error {
                 error: Box::new(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string or binary".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: span,
-                    src_span: other.expect_span(),
+                    src_span: other.span(),
                 }),
+                span,
             };
         }
     };

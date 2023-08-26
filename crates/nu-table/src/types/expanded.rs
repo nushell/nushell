@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
 use tabled::grid::config::Position;
 
 use crate::{
@@ -35,8 +35,8 @@ impl ExpandedTable {
         expanded_table_entry2(item, Cfg { opts, format: self })
     }
 
-    pub fn build_map(self, cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        expanded_table_kv(cols, vals, Cfg { opts, format: self })
+    pub fn build_map(self, record: &Record, opts: TableOpts<'_>) -> StringResult {
+        expanded_table_kv(record, Cfg { opts, format: self })
     }
 
     pub fn build_list(self, vals: &[Value], opts: TableOpts<'_>) -> StringResult {
@@ -110,7 +110,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let Value::Error { error } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -150,7 +150,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let Value::Error { error } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -174,6 +174,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         let mut table = NuTable::from(data);
+        table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
         table.set_index_style(get_index_style(cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
@@ -237,7 +238,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            if let Value::Error { error } = item {
+            if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
             }
 
@@ -333,14 +334,20 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut table = NuTable::from(data);
     table.set_index_style(get_index_style(cfg.opts.style_computer));
     table.set_header_style(get_header_style(cfg.opts.style_computer));
+    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
     set_data_styles(&mut table, data_styles);
 
     Ok(Some(TableOutput::new(table, true, with_index)))
 }
 
-fn expanded_table_kv(cols: &[String], vals: &[Value], cfg: Cfg<'_>) -> StringResult {
+fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> StringResult {
     let theme = load_theme_from_config(cfg.opts.config);
-    let key_width = cols.iter().map(|col| string_width(col)).max().unwrap_or(0);
+    let key_width = record
+        .cols
+        .iter()
+        .map(|col| string_width(col))
+        .max()
+        .unwrap_or(0);
     let count_borders =
         theme.has_inner() as usize + theme.has_right() as usize + theme.has_left() as usize;
     let padding = 2;
@@ -350,8 +357,8 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], cfg: Cfg<'_>) -> StringRes
 
     let value_width = cfg.opts.width - key_width - count_borders - padding - padding;
 
-    let mut data = Vec::with_capacity(cols.len());
-    for (key, value) in cols.iter().zip(vals) {
+    let mut data = Vec::with_capacity(record.len());
+    for (key, value) in record {
         if nu_utils::ctrl_c::was_pressed(&cfg.opts.ctrlc) {
             return Ok(None);
         }
@@ -378,6 +385,7 @@ fn expanded_table_kv(cols: &[String], vals: &[Value], cfg: Cfg<'_>) -> StringRes
 
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
+    table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
 
     let out = TableOutput::new(table, false, true);
 
@@ -419,8 +427,8 @@ fn expand_table_value(
                 }
             }
         }
-        Value::Record { cols, vals, span } => {
-            if cols.is_empty() {
+        Value::Record { val: record, span } => {
+            if record.is_empty() {
                 // Like list case return styled string instead of empty value
                 return Ok(Some((
                     value_to_wrapped_string(value, cfg, value_width),
@@ -430,7 +438,7 @@ fn expand_table_value(
 
             let mut inner_cfg = dive_options(cfg, *span);
             inner_cfg.opts.width = value_width;
-            let result = expanded_table_kv(cols, vals, inner_cfg)?;
+            let result = expanded_table_kv(record, inner_cfg)?;
             match result {
                 Some(result) => Ok(Some((result, true))),
                 None => Ok(Some((
@@ -477,14 +485,14 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> NuText {
     }
 
     match &item {
-        Value::Record { cols, vals, span } => {
-            if cols.is_empty() && vals.is_empty() {
+        Value::Record { val: record, span } => {
+            if record.is_empty() {
                 return nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
             }
 
             // we verify what is the structure of a Record cause it might represent
             let inner_cfg = dive_options(&cfg, *span);
-            let table = expanded_table_kv(cols, vals, inner_cfg);
+            let table = expanded_table_kv(record, inner_cfg);
 
             match table {
                 Ok(Some(table)) => (table, TextStyle::default()),
