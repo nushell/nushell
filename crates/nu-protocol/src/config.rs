@@ -113,6 +113,7 @@ pub struct Config {
     pub cursor_shape_emacs: NuCursorShape,
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
+    pub errors_style: String,
 }
 
 impl Default for Config {
@@ -175,6 +176,8 @@ impl Default for Config {
             menus: Vec::new(),
 
             keybindings: Vec::new(),
+
+            errors_style: "fancy".into(),
         }
     }
 }
@@ -1317,6 +1320,50 @@ impl Value {
                                 record! {
                                     "metric" => Value::bool(config.filesize_metric, span),
                                     "format" => Value::string(config.filesize_format.clone(), span),
+                                },
+                                span,
+                            );
+                        }
+                    }
+                    "errors" => {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
+                            let span = *span;
+                            for index in (0..cols.len()).rev() {
+                                let value = &vals[index];
+                                let key2 = cols[index].as_str();
+                                match key2 {
+                                    "style" => match value.as_string() {
+                                        Ok(style) => {
+                                            config.errors_style = style;
+                                        }
+                                        _ => {
+                                            invalid!(Some(span), "Should be a string");
+                                            vals[index] = Value::record(
+                                                record! {
+                                                    "style" => Value::string(config.errors_style.clone(), span),
+                                                },
+                                                span,
+                                            );
+                                        }
+                                    },
+                                    x => {
+                                        invalid_key!(
+                                            cols,
+                                            vals,
+                                            index,
+                                            Some(value.span()),
+                                            "$env.config.{key}.{x} is an unknown config setting"
+                                        );
+                                    }
+                                }
+                            }
+                        } else {
+                            invalid!(Some(vals[index].span()), "should be a record");
+                            // Reconstruct
+                            vals[index] = Value::record(
+                                record! {
+                                    "style" => Value::string(config.errors_style.clone(), span),
                                 },
                                 span,
                             );
