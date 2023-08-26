@@ -742,10 +742,6 @@ fn handle_exit_key_event(key: &KeyEvent) -> bool {
     matches!(
         key,
         KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        } | KeyEvent {
             code: KeyCode::Char('z'),
             modifiers: KeyModifiers::CONTROL,
             ..
