@@ -400,13 +400,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             )
         }
-        Expr::Cache { input, id } => Value::record(
-            record! {
-                "input" => expr_to_value(input.as_ref(), span),
-                "id" => Value::string(format!("{id:?}"), span),
-            },
-            span,
-        ),
         Expr::Window {
             function,
             partition_by,
@@ -433,5 +426,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             )
         }
+        // Selector is part of the polars_plan package. It is currently marked as nightly.
+        // Wasn't sure what the best approach to take here would be.
+        Expr::Selector(_) => todo!("Add selector support"),
     }
 }

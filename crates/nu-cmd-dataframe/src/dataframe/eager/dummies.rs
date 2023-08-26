@@ -20,11 +20,7 @@ impl Command for Dummies {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch(
-                "drop-first",
-                "Drop first row",
-                Some('d'),
-            )
+            .switch("drop-first", "Drop first row", Some('d'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -116,7 +112,7 @@ impl Command for Dummies {
 
 fn command(
     _engine_state: &EngineState,
-    stack: &mut Stack,
+    _stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
