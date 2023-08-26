@@ -156,7 +156,7 @@ fn helper(
     call: &Call,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
-    let span = args.url.span()?;
+    let span = args.url.span();
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
@@ -167,7 +167,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, None, None, ctrl_c);
+    let response = send_request(request.clone(), None, None, ctrl_c);
 
     // http options' response always showed in header, so we set full to true.
     // And `raw` is useless too because options method doesn't return body, here we set to true
@@ -185,6 +185,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
+        request,
     )
 }
 

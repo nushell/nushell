@@ -2,7 +2,7 @@ use inflector::cases::titlecase::to_title_case;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use super::operate;
@@ -69,11 +69,10 @@ impl Command for SubCommand {
                 description: "convert a column from a table to Title Case",
                 example: r#"[[title, count]; ['nu test', 100]] | str title-case title"#,
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        span: Span::test_data(),
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["title".to_string(), "count".to_string()],
                         vals: vec![Value::test_string("Nu Test"), Value::test_int(100)],
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },

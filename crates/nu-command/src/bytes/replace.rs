@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 struct Arguments {
@@ -104,7 +104,7 @@ impl Command for BytesReplace {
                 description: "Find and replace all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace -a 0x[11] 0x[13] ColA ColC",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
                             Value::Binary {
@@ -120,8 +120,7 @@ impl Command for BytesReplace {
                                 span: Span::test_data(),
                             },
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -142,8 +141,9 @@ fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }

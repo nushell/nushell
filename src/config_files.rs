@@ -4,7 +4,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{report_error, Span};
+use nu_protocol::report_error;
 use nu_protocol::{ParseError, PipelineData, Spanned};
 use nu_utils::{get_default_config, get_default_env};
 use std::fs::File;
@@ -202,19 +202,6 @@ pub(crate) fn setup_config(
 
     if is_login_shell {
         read_loginshell_file(engine_state, stack);
-    }
-
-    // Give a warning if we see `$config` for a few releases
-    {
-        let working_set = StateWorkingSet::new(engine_state);
-        if let Some(var) = working_set
-            .find_variable(b"$config")
-            .and_then(|id| stack.get_var(id, Span::unknown()).ok())
-        {
-            if var.as_record().is_ok() {
-                println!("warning: use `$env.config = ...` instead of `let config = ...`");
-            }
-        }
     }
 }
 

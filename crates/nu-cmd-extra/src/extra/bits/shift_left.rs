@@ -129,6 +129,7 @@ where
                         None,
                         Vec::new(),
                     )),
+                    span,
                 },
             }
         }
@@ -140,6 +141,7 @@ where
                 None,
                 Vec::new(),
             )),
+            span,
         },
     }
 }
@@ -169,8 +171,9 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span: head,
         },
     }
 }

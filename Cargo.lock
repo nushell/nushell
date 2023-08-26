@@ -550,6 +550,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chardetng"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14b8f0b65b7b08ae3c8187e8d77174de20cb6777864c6b832d8ad365999cf1ea"
+dependencies = [
+ "cfg-if",
+ "encoding_rs",
+ "memchr",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -557,20 +568,17 @@ checksum = "ec837a71355b28f6556dbd569b37b3f363091c0bd4b2e735674521b4c5fd9bc5"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "pure-rust-locales",
  "serde",
- "time 0.1.45",
- "wasm-bindgen",
  "winapi",
 ]
 
 [[package]]
 name = "chrono-humanize"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32dce1ea1988dbdf9f9815ff11425828523bd2a134ec0805d2ac8af26ee6096e"
+checksum = "799627e6b4d27827a814e837b9d8a504832086081806d45b1afa34dc982b023b"
 dependencies = [
  "chrono",
 ]
@@ -1076,9 +1084,9 @@ dependencies = [
 
 [[package]]
 name = "dtparse"
-version = "1.5.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68235de3c014ade82e550337b2c88a2a884361793ed3be2d74ee703bd810e401"
+checksum = "458c7cfe1c34b1ef7c2c435076064711050aedabae9952a261687c500f80e839"
 dependencies = [
  "chrono",
  "lazy_static",
@@ -1479,7 +1487,7 @@ dependencies = [
  "cfg-if",
  "js-sys",
  "libc",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "wasm-bindgen",
 ]
 
@@ -2396,7 +2404,7 @@ checksum = "927a765cd3fc26206e66b296465fa9d3e5ab003e651c1b3c060e7956d96b19d2"
 dependencies = [
  "libc",
  "log",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "windows-sys 0.48.0",
 ]
 
@@ -2550,13 +2558,12 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "assert_cmd",
  "criterion",
  "crossterm",
  "ctrlc",
- "is-terminal",
  "log",
  "miette",
  "mimalloc",
@@ -2592,7 +2599,7 @@ dependencies = [
  "signal-hook",
  "simplelog",
  "tempfile",
- "time 0.3.22",
+ "time",
  "winresource",
 ]
 
@@ -2607,13 +2614,12 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "chrono",
  "crossterm",
  "fancy-regex",
  "fuzzy-matcher",
- "is-terminal",
  "is_executable",
  "log",
  "miette",
@@ -2638,7 +2644,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "indexmap 2.0.0",
  "nu-engine",
@@ -2648,7 +2654,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-dataframe"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "chrono",
  "fancy-regex",
@@ -2667,7 +2673,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "Inflector",
  "ahash",
@@ -2692,7 +2698,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "fancy-regex",
  "itertools",
@@ -2706,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -2719,7 +2725,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "alphanumeric-sort",
  "base64",
@@ -2727,6 +2733,7 @@ dependencies = [
  "byteorder",
  "bytesize",
  "calamine",
+ "chardetng",
  "chrono",
  "chrono-humanize",
  "chrono-tz",
@@ -2744,7 +2751,6 @@ dependencies = [
  "htmlescape",
  "indexmap 2.0.0",
  "indicatif",
- "is-terminal",
  "itertools",
  "libc",
  "log",
@@ -2818,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -2829,7 +2835,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "ansi-str",
  "crossterm",
@@ -2849,14 +2855,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "linked-hash-map",
  "num-traits",
@@ -2865,7 +2871,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -2881,7 +2887,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "dirs-next",
  "omnipath",
@@ -2890,7 +2896,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "bincode",
  "nu-engine",
@@ -2902,7 +2908,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -2911,7 +2917,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "byte-unit",
  "chrono",
@@ -2934,7 +2940,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "miette",
  "nu-engine",
@@ -2944,10 +2950,9 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "chrono",
- "is-terminal",
  "libc",
  "libproc",
  "log",
@@ -2961,7 +2966,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "nu-ansi-term",
  "nu-color-config",
@@ -2973,7 +2978,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "nu-utils",
  "unicode-width",
@@ -2981,7 +2986,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "hamcrest2",
  "nu-glob",
@@ -2994,7 +2999,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "crossterm_winapi",
  "log",
@@ -3016,7 +3021,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3024,7 +3029,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "eml-parser",
  "ical",
@@ -3036,7 +3041,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -3045,7 +3050,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -3054,7 +3059,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.83.2"
+version = "0.84.1"
 dependencies = [
  "gjson",
  "nu-engine",
@@ -4180,8 +4185,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.22.0"
-source = "git+https://github.com/nushell/reedline.git?branch=main#e7ee24a2b01d041feefb5eb58ba2377a20412f94"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3defc4467a8909614bcb02cb304a3e8472c31f7a44e6c6c287eb9575b212bc4d"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4666,7 +4672,7 @@ checksum = "970538704756fd0bb4ec8cb89f80674afb661e7c0fe716f9ba5be57717742300"
 dependencies = [
  "const_format",
  "is_debug",
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]
@@ -4747,7 +4753,7 @@ checksum = "acee08041c5de3d5048c8b3f6f13fafb3026b24ba43c6a695a0c76179b844369"
 dependencies = [
  "log",
  "termcolor",
- "time 0.3.22",
+ "time",
 ]
 
 [[package]]
@@ -5142,17 +5148,6 @@ checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "time"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi",
 ]
 
 [[package]]
@@ -5598,12 +5593,6 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
-
-[[package]]
-name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasi"

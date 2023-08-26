@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -94,18 +94,18 @@ impl Command for UniqBy {
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
             result: Some(Value::List {
                 vals: vec![
-                    Value::test_record(
-                        vec!["fruit", "count"],
-                        vec![Value::test_string("apple"), Value::test_int(9)],
-                    ),
-                    Value::test_record(
-                        vec!["fruit", "count"],
-                        vec![Value::test_string("pear"), Value::test_int(3)],
-                    ),
-                    Value::test_record(
-                        vec!["fruit", "count"],
-                        vec![Value::test_string("orange"), Value::test_int(7)],
-                    ),
+                    Value::test_record(Record {
+                        cols: vec!["fruit".to_string(), "count".to_string()],
+                        vals: vec![Value::test_string("apple"), Value::test_int(9)],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["fruit".to_string(), "count".to_string()],
+                        vals: vec![Value::test_string("pear"), Value::test_int(3)],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["fruit".to_string(), "count".to_string()],
+                        vals: vec![Value::test_string("orange"), Value::test_int(7)],
+                    }),
                 ],
                 span: Span::test_data(),
             }),
@@ -115,8 +115,7 @@ impl Command for UniqBy {
 
 fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
     if let Some(Value::Record {
-        cols,
-        vals: _input_vals,
+        val: record,
         span: val_span,
     }) = vec.first()
     {
@@ -131,7 +130,7 @@ fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), Sh
             ));
         }
 
-        if let Some(nonexistent) = nonexistent_column(columns.clone(), cols.to_vec()) {
+        if let Some(nonexistent) = nonexistent_column(columns.clone(), record.cols.clone()) {
             return Err(ShellError::CantFindColumn {
                 col_name: nonexistent,
                 span,

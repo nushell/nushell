@@ -17,7 +17,7 @@ pub(super) fn between_dataframes(
     right: &Value,
     rhs: &NuDataFrame,
 ) -> Result<Value, ShellError> {
-    let operation_span = span(&[left.span()?, right.span()?]);
+    let operation_span = span(&[left.span(), right.span()]);
     match operator.item {
         Operator::Math(Math::Plus) => match lhs.append_df(rhs, Axis::Row, operation_span) {
             Ok(df) => Ok(df.into_value(operation_span)),
@@ -26,9 +26,9 @@ pub(super) fn between_dataframes(
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span()?,
+            lhs_span: left.span(),
             rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span()?,
+            rhs_span: right.span(),
         }),
     }
 }
@@ -40,7 +40,7 @@ pub(super) fn compute_between_series(
     right: &Value,
     rhs: &Series,
 ) -> Result<Value, ShellError> {
-    let operation_span = span(&[left.span()?, right.span()?]);
+    let operation_span = span(&[left.span(), right.span()]);
     match operator.item {
         Operator::Math(Math::Plus) => {
             let mut res = lhs + rhs;
@@ -71,7 +71,7 @@ pub(super) fn compute_between_series(
                 Err(e) => Err(ShellError::GenericError(
                     "Division error".into(),
                     e.to_string(),
-                    Some(right.span()?),
+                    Some(right.span()),
                     None,
                     Vec::new(),
                 )),
@@ -79,32 +79,32 @@ pub(super) fn compute_between_series(
         }
         Operator::Comparison(Comparison::Equal) => {
             let name = format!("eq_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
+            let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Comparison(Comparison::NotEqual) => {
             let name = format!("neq_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
+            let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Comparison(Comparison::LessThan) => {
             let name = format!("lt_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
+            let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Comparison(Comparison::LessThanOrEqual) => {
             let name = format!("lte_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
+            let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Comparison(Comparison::GreaterThan) => {
             let name = format!("gt_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
+            let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Comparison(Comparison::GreaterThanOrEqual) => {
             let name = format!("gte_{}_{}", lhs.name(), rhs.name());
-            let res = compare_series(lhs, rhs, name.as_str(), right.span().ok(), Series::equal)?;
+            let res = compare_series(lhs, rhs, name.as_str(), right.span(), Series::equal)?;
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Boolean(Boolean::And) => match lhs.dtype() {
@@ -122,7 +122,7 @@ pub(super) fn compute_between_series(
                     _ => Err(ShellError::GenericError(
                         "Incompatible types".into(),
                         "unable to cast to boolean".into(),
-                        Some(right.span()?),
+                        Some(right.span()),
                         None,
                         Vec::new(),
                     )),
@@ -151,7 +151,7 @@ pub(super) fn compute_between_series(
                     _ => Err(ShellError::GenericError(
                         "Incompatible types".into(),
                         "unable to cast to boolean".into(),
-                        Some(right.span()?),
+                        Some(right.span()),
                         None,
                         Vec::new(),
                     )),
@@ -168,9 +168,9 @@ pub(super) fn compute_between_series(
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span()?,
+            lhs_span: left.span(),
             rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span()?,
+            rhs_span: right.span(),
         }),
     }
 }
@@ -179,7 +179,7 @@ fn compare_series<'s, F>(
     lhs: &'s Series,
     rhs: &'s Series,
     name: &'s str,
-    span: Option<Span>,
+    span: Span,
     f: F,
 ) -> Result<Series, ShellError>
 where
@@ -190,7 +190,7 @@ where
             ShellError::GenericError(
                 "Equality error".into(),
                 e.to_string(),
-                span,
+                Some(span),
                 None,
                 Vec::new(),
             )
@@ -211,13 +211,13 @@ pub(super) fn compute_series_single_value(
         return Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span()?,
+            lhs_span: left.span(),
             rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span()?,
+            rhs_span: right.span(),
         });
     }
 
-    let lhs_span = left.span()?;
+    let lhs_span = left.span();
     let lhs = lhs.as_series(lhs_span)?;
 
     match operator.item {
@@ -232,9 +232,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Math(Math::Minus) => match &right {
@@ -247,9 +247,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Math(Math::Multiply) => match &right {
@@ -262,9 +262,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Math(Math::Divide) => match &right {
@@ -285,9 +285,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::Equal) => match &right {
@@ -305,9 +305,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::NotEqual) => match &right {
@@ -326,9 +326,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::LessThan) => match &right {
@@ -342,9 +342,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::LessThanOrEqual) => match &right {
@@ -358,9 +358,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::GreaterThan) => match &right {
@@ -374,9 +374,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::GreaterThanOrEqual) => match &right {
@@ -390,9 +390,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         // TODO: update this to do a regex match instead of a simple contains?
@@ -401,9 +401,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::StartsWith) => match &right {
@@ -414,9 +414,9 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         Operator::Comparison(Comparison::EndsWith) => match &right {
@@ -427,17 +427,17 @@ pub(super) fn compute_series_single_value(
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
                 lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span()?,
+                lhs_span: left.span(),
                 rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span()?,
+                rhs_span: right.span(),
             }),
         },
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type().to_string(),
-            lhs_span: left.span()?,
+            lhs_span: left.span(),
             rhs_ty: right.get_type().to_string(),
-            rhs_span: right.span()?,
+            rhs_span: right.span(),
         }),
     }
 }

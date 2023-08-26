@@ -153,8 +153,13 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
     // Let's go with the unicode one in hopes that it works on more than just ascii characters
     let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
 
-    match v.span() {
-        Ok(v_span) => {
+    match v {
+        Value::Error { error, span } => Value::Error {
+            error: Box::new(*error.clone()),
+            span: *span,
+        },
+        v => {
+            let v_span = v.span();
             if let Ok(s) = v.as_string() {
                 // let splits = s.unicode_words();
                 // let words = trim_to_words(s);
@@ -195,12 +200,10 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
                         dst_span: span,
                         src_span: v_span,
                     }),
+                    span,
                 }
             }
         }
-        Err(error) => Value::Error {
-            error: Box::new(error),
-        },
     }
 }
 

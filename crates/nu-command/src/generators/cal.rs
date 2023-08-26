@@ -359,18 +359,7 @@ fn add_month_to_table(
             day_number += 1;
         }
 
-        let cols: Vec<String> = indexmap.keys().map(|f| f.to_string()).collect();
-        let mut vals: Vec<Value> = Vec::new();
-        for c in &cols {
-            if let Some(x) = indexmap.get(c) {
-                vals.push(x.to_owned())
-            }
-        }
-        calendar_vec_deque.push_back(Value::Record {
-            cols,
-            vals,
-            span: tag,
-        })
+        calendar_vec_deque.push_back(Value::record(indexmap.into_iter().collect(), tag))
     }
 
     Ok(())

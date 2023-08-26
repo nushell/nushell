@@ -110,11 +110,11 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 
-                for (i, (c, v)) in cols.into_iter().zip(vals).enumerate() {
+                for (i, (c, v)) in val.into_iter().enumerate() {
                     items.push((i, c, v.into_string(", ", config)))
                 }
 

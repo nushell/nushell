@@ -169,7 +169,7 @@ pub fn help_aliases(
 
 fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope_data = ScopeData::new(engine_state, stack);
-    scope_data.populate_all();
+    scope_data.populate_decls();
 
     scope_data.collect_aliases(span)
 }

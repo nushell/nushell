@@ -3,7 +3,8 @@ use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Unit, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Unit,
+    Value,
 };
 
 const NS_PER_SEC: i64 = 1_000_000_000;
@@ -80,46 +81,41 @@ impl Command for SubCommand {
                     "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 2 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 3 * 60 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 4 * 24 * 60 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::Duration {
                                 val: 5 * 7 * 24 * 60 * 60 * NS_PER_SEC,
                                 span,
                             }],
-                            span,
-                        },
+                        }),
                     ],
                     span,
                 }),
@@ -160,6 +156,7 @@ fn into_duration(
                     if let Err(error) = r {
                         return Value::Error {
                             error: Box::new(error),
+                            span,
                         };
                     }
                 }
@@ -239,6 +236,7 @@ fn action(input: &Value, span: Span) -> Value {
             Ok(val) => Value::Duration { val, span },
             Err(error) => Value::Error {
                 error: Box::new(error),
+                span,
             },
         },
         // Propagate errors by explicitly matching them before the final case.
@@ -248,8 +246,9 @@ fn action(input: &Value, span: Span) -> Value {
                 exp_input_type: "string or duration".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
+                src_span: other.span(),
             }),
+            span,
         },
     }
 }
@@ -274,7 +273,7 @@ mod test {
     #[case("4\u{00B5}s", 4*1000)] // micro sign
     #[case("4\u{03BC}s", 4*1000)] // mu symbol
     #[case("5ms", 5 * 1000 * 1000)]
-    #[case("1sec", 1 * NS_PER_SEC)]
+    #[case("1sec", NS_PER_SEC)]
     #[case("7min", 7 * 60 * NS_PER_SEC)]
     #[case("42hr", 42 * 60 * 60 * NS_PER_SEC)]
     #[case("123day", 123 * 24 * 60 * 60 * NS_PER_SEC)]

@@ -4,7 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Range, Record, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -109,10 +110,10 @@ impl Command for BytesAt {
             Example {
                 description: "Get the remaining characters from a starting index",
                 example: " { data: 0x[33 44 55 10 01 13] } | bytes at 3.. data",
-                result: Some(Value::test_record(
-                    vec!["data"],
-                    vec![Value::test_binary(vec![0x10, 0x01, 0x13])],
-                )),
+                result: Some(Value::test_record(Record {
+                    cols: vec!["data".to_string()],
+                    vals: vec![Value::test_binary(vec![0x10, 0x01, 0x13])],
+                })),
             },
             Example {
                 description: "Get the characters from the beginning until ending index",
@@ -127,7 +128,7 @@ impl Command for BytesAt {
                     "Or the characters from the beginning until ending index inside a table",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
                             Value::Binary {
@@ -143,8 +144,7 @@ impl Command for BytesAt {
                                 span: Span::test_data(),
                             },
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -178,6 +178,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
                         }),
+                        span: head,
                     },
                     Ordering::Less => Value::Binary {
                         val: {
@@ -210,8 +211,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 format!("input type: {:?}", other.get_type()),
                 head,
                 // This line requires the Value::Error match above.
-                other.expect_span(),
+                other.span(),
             )),
+            span: head,
         },
     }
 }

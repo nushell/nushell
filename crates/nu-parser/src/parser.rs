@@ -2977,7 +2977,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         },
         members: vec![],
         hidden: HashSet::new(),
-        module_name_var_id: None,
+        constants: vec![],
     };
 
     if spans.len() > 1 {

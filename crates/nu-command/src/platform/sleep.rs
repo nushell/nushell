@@ -78,16 +78,16 @@ impl Command for Sleep {
                     span: Span::test_data(),
                 }),
             },
-            // Example {
-            //     description: "Sleep for 3sec",
-            //     example: "sleep 1sec 1sec 1sec",
-            //     result: None,
-            // },
-            // Example {
-            //     description: "Send output after 1sec",
-            //     example: "sleep 1sec; echo done",
-            //     result: None,
-            // },
+            Example {
+                description: "Sleep for 3sec",
+                example: "sleep 1sec 1sec 1sec",
+                result: None,
+            },
+            Example {
+                description: "Send output after 1sec",
+                example: "sleep 1sec; echo done",
+                result: None,
+            },
         ]
     }
 }

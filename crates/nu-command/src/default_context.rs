@@ -325,6 +325,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MathLog,
         };
 
+        // Bytes
+        bind_command! {
+            Bytes,
+            BytesLen,
+            BytesStartsWith,
+            BytesEndsWith,
+            BytesReverse,
+            BytesReplace,
+            BytesAdd,
+            BytesAt,
+            BytesIndexOf,
+            BytesCollect,
+            BytesRemove,
+            BytesBuild
+        }
+
         // Network
         bind_command! {
             Http,

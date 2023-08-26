@@ -198,9 +198,10 @@ mod util {
     /// Try to build column names and a table grid.
     pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
         match value {
-            Value::Record { cols, vals, .. } => (
-                cols,
-                vec![vals
+            Value::Record { val: record, .. } => (
+                record.cols,
+                vec![record
+                    .vals
                     .into_iter()
                     .map(|s| debug_string_without_formatting(&s))
                     .collect()],
