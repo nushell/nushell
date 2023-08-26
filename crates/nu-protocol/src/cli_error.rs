@@ -1,5 +1,8 @@
 use crate::engine::{EngineState, StateWorkingSet};
-use miette::{LabeledSpan, MietteHandlerOpts, ReportHandler, RgbColors, Severity, SourceCode};
+use miette::{
+    LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
+    SourceCode,
+};
 use thiserror::Error;
 
 /// This error exists so that we can defer SourceCode handling. It simply
@@ -41,16 +44,27 @@ pub fn report_error_new(
 
 impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ansi_support = self.1.get_config().use_ansi_coloring;
+        let config = self.1.get_config();
 
-        let miette_handler = MietteHandlerOpts::new()
-            // For better support of terminal themes use the ANSI coloring
-            .rgb_colors(RgbColors::Never)
-            // If ansi support is disabled in the config disable the eye-candy
-            .color(ansi_support)
-            .unicode(ansi_support)
-            .terminal_links(ansi_support)
-            .build();
+        let ansi_support = &config.use_ansi_coloring;
+        let ansi_support = *ansi_support;
+
+        let errors_style = &config.errors_style.as_str();
+        let errors_style = *errors_style;
+
+        let miette_handler: Box<dyn ReportHandler> = match errors_style {
+            "narratable" => Box::new(NarratableReportHandler::new()),
+            _ => Box::new(
+                MietteHandlerOpts::new()
+                    // For better support of terminal themes use the ANSI coloring
+                    .rgb_colors(RgbColors::Never)
+                    // If ansi support is disabled in the config disable the eye-candy
+                    .color(ansi_support)
+                    .unicode(ansi_support)
+                    .terminal_links(ansi_support)
+                    .build(),
+            ),
+        };
 
         // Ignore error to prevent format! panics. This can happen if span points at some
         // inaccessible location, for example by calling `report_error()` with wrong working set.
