@@ -167,7 +167,7 @@ $env.config = {
         header_on_separator: false # show header text on separator/border line
     }
 
-    error_style: "fancy"
+    error_style: "fancy" # "fancy" or "narratable" for screen reader-friendly error messages
 
     # datetime_format determines what a datetime rendered in the shell would look like.
     # Behavior without this configuration point will be to "humanize" the datetime display,
