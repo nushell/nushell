@@ -257,7 +257,14 @@ pub fn eval_source(
             {
                 result = print_if_stream(stream, stderr_stream, false, exit_code);
             } else if let Some(hook) = config.hooks.display_output.clone() {
-                match eval_hook(engine_state, stack, Some(pipeline_data), vec![], &hook) {
+                match eval_hook(
+                    engine_state,
+                    stack,
+                    Some(pipeline_data),
+                    vec![],
+                    &hook,
+                    "display_output",
+                ) {
                     Err(err) => {
                         result = Err(err);
                     }

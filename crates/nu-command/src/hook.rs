@@ -33,6 +33,7 @@ pub fn eval_env_change_hook(
                             None,
                             vec![("$before".into(), before), ("$after".into(), after.clone())],
                             hook_value,
+                            "env_change",
                         )?;
 
                         engine_state
@@ -59,6 +60,7 @@ pub fn eval_hook(
     input: Option<PipelineData>,
     arguments: Vec<(String, Value)>,
     value: &Value,
+    hook_name: &str,
 ) -> Result<PipelineData, ShellError> {
     let value_span = value.span();
 
@@ -96,11 +98,15 @@ pub fn eval_hook(
                         Type::Any,
                         false,
                     );
-
                     vars.push((var_id, val));
                 }
 
-                let output = parse(&mut working_set, Some("hook"), val.as_bytes(), false);
+                let output = parse(
+                    &mut working_set,
+                    Some(&format!("{hook_name} hook")),
+                    val.as_bytes(),
+                    false,
+                );
                 if let Some(err) = working_set.parse_errors.first() {
                     report_error(&working_set, err);
 
@@ -144,7 +150,14 @@ pub fn eval_hook(
         }
         Value::List { vals, .. } => {
             for val in vals {
-                eval_hook(engine_state, stack, None, arguments.clone(), val)?;
+                eval_hook(
+                    engine_state,
+                    stack,
+                    None,
+                    arguments.clone(),
+                    val,
+                    &format!("{hook_name} list, recursive"),
+                )?;
             }
         }
         Value::Record { .. } => {
@@ -218,12 +231,15 @@ pub fn eval_hook(
                                     Type::Any,
                                     false,
                                 );
-
                                 vars.push((var_id, val));
                             }
 
-                            let output =
-                                parse(&mut working_set, Some("hook"), val.as_bytes(), false);
+                            let output = parse(
+                                &mut working_set,
+                                Some(&format!("{hook_name} hook")),
+                                val.as_bytes(),
+                                false,
+                            );
                             if let Some(err) = working_set.parse_errors.first() {
                                 report_error(&working_set, err);
 
