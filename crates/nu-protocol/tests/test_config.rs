@@ -76,7 +76,7 @@ fn fancy_default_errors() {
 #[test]
 fn narratable_errors() {
     let actual = nu!(nu_repl_code(&[
-        r#"$env.config = { error_style: "simple" }"#,
+        r#"$env.config = { error_style: "plain" }"#,
         r#"def force_error [x] {
         let span = (metadata $x).span;
         error make {
