@@ -49,8 +49,8 @@ impl std::fmt::Debug for CliError<'_> {
         let ansi_support = &config.use_ansi_coloring;
         let ansi_support = *ansi_support;
 
-        let errors_style = &config.errors_style.as_str();
-        let errors_style = *errors_style;
+        let error_style = &config.error_style.as_str();
+        let errors_style = *error_style;
 
         let miette_handler: Box<dyn ReportHandler> = match errors_style {
             "narratable" => Box::new(NarratableReportHandler::new()),
