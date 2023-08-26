@@ -255,19 +255,13 @@ impl Command for Ls {
                             );
                             match entry {
                                 Ok(value) => Some(value),
-                                Err(err) => Some(Value::Error {
-                                    error: Box::new(err),
-                                    span: call_span,
-                                }),
+                                Err(err) => Some(Value::error(err, call_span)),
                             }
                         }
-                        Err(err) => Some(Value::Error {
-                            error: Box::new(err),
-                            span: call_span,
-                        }),
+                        Err(err) => Some(Value::error(err, call_span)),
                     }
                 }
-                _ => Some(Value::Nothing { span: call_span }),
+                _ => Some(Value::nothing(call_span)),
             })
             .into_pipeline_data_with_metadata(
                 Box::new(PipelineMetadata {

@@ -62,13 +62,30 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         }
         // I added this here because input_output_type() wasn't catching a record
         // being sent in as input from echo. e.g. "echo {a:1 b:2} | length"
-        PipelineData::Value(Value::Record { span, .. }, ..) => {
-            Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, and table".into(),
-                wrong_type: "record".into(),
-                dst_span: call.head,
-                src_span: span,
-            })
+        PipelineData::Value(val, ..) => {
+            // I had to match on value here instead of PipelineData::Value(Value::Record)
+            // in order to be able to get a span for the error message below.
+            // TODO: Validate this after all the spans are fixed.
+            let val_span = val.span();
+            match val {
+                Value::Record { .. } => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, and table".into(),
+                    wrong_type: "record".into(),
+                    dst_span: call.head,
+                    src_span: val_span,
+                }),
+                _ => {
+                    let mut count: i64 = 0;
+                    // Check for and propagate errors
+                    for value in input.into_iter() {
+                        if let Value::Error { error, .. } = value {
+                            return Err(*error);
+                        }
+                        count += 1
+                    }
+                    Ok(Value::int(count, call.head).into_pipeline_data())
+                }
+            }
         }
         _ => {
             let mut count: i64 = 0;
