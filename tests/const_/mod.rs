@@ -1,6 +1,19 @@
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
 
+const MODULE_SETUP: &str = r#"
+    module spam {
+        export const X = 'x'
+        export module eggs {
+            export const E = 'e'
+            export module bacon {
+                export const viking = 'eats'
+                export module none {}
+            }
+        }
+    }
+"#;
+
 #[test]
 fn const_bool() {
     let inp = &["const x = false", "$x"];
@@ -134,6 +147,132 @@ fn const_in_scope() {
 fn not_a_const_help() {
     let actual = nu!("const x = ('abc' | str length -h)");
     assert!(actual.err.contains("not_a_const_help"));
+}
+
+#[test]
+fn complex_const_export() {
+    let inp = &[MODULE_SETUP, "use spam", "$spam.X"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "x");
+
+    let inp = &[MODULE_SETUP, "use spam", "$spam.eggs.E"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "e");
+
+    let inp = &[MODULE_SETUP, "use spam", "$spam.eggs.bacon.viking"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "eats");
+
+    let inp = &[
+        MODULE_SETUP,
+        "use spam",
+        "($spam.eggs.bacon.none | is-empty)",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn complex_const_glob_export() {
+    let inp = &[MODULE_SETUP, "use spam *", "$X"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "x");
+
+    let inp = &[MODULE_SETUP, "use spam *", "$eggs.E"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "e");
+
+    let inp = &[MODULE_SETUP, "use spam *", "$eggs.bacon.viking"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "eats");
+
+    let inp = &[MODULE_SETUP, "use spam *", "($eggs.bacon.none | is-empty)"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn complex_const_drill_export() {
+    let inp = &[
+        MODULE_SETUP,
+        "use spam eggs bacon none",
+        "($none | is-empty)",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn complex_const_list_export() {
+    let inp = &[
+        MODULE_SETUP,
+        "use spam [X eggs]",
+        "[$X $eggs.E] | str join ''",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "xe");
+}
+
+#[test]
+fn exported_const_is_const() {
+    let module1 = "module foo {
+        export def main [] { 'foo' }
+    }";
+
+    let module2 = "module spam {
+        export const MOD_NAME = 'foo'
+    }";
+
+    let inp = &[module1, module2, "use spam", "use $spam.MOD_NAME", "foo"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn const_captures_work() {
+    let module = "module spam {
+        export const X = 'x'
+        const Y = 'y'
+
+        export-env { $env.SPAM = $X + $Y }
+        export def main [] { $X + $Y }
+    }";
+
+    let inp = &[module, "use spam", "$env.SPAM"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "xy");
+
+    let inp = &[module, "use spam", "spam"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "xy");
+}
+
+#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brough by `overlay use`"]
+#[test]
+fn complex_const_overlay_use_hide() {
+    let inp = &[MODULE_SETUP, "overlay use spam", "$X"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "x");
+
+    let inp = &[MODULE_SETUP, "overlay use spam", "$eggs.E"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "e");
+
+    let inp = &[MODULE_SETUP, "overlay use spam", "$eggs.bacon.viking"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "eats");
+
+    let inp = &[
+        MODULE_SETUP,
+        "overlay use spam",
+        "($eggs.bacon.none | is-empty)",
+    ];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "true");
+
+    let inp = &[MODULE_SETUP, "overlay use spam", "overlay hide", "$eggs"];
+    let actual = nu!(&inp.join("; "));
+    assert!(actual.err.contains("nu::parser::variable_not_found"));
 }
 
 // const implementations of commands without dedicated tests
