@@ -96,6 +96,8 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(progress: 
     })
 }
 
+// error msg changes on coreutils
+#[cfg(feature = "nuuu")]
 #[test]
 fn error_if_attempting_to_copy_a_directory_to_another_directory() {
     error_if_attempting_to_copy_a_directory_to_another_directory_impl(false);
@@ -407,6 +409,8 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
     })
 }
 
+// error msg changes on coreutils
+#[cfg(feature = "nuuu")]
 #[test]
 fn copy_to_non_existing_dir() {
     copy_to_non_existing_dir_impl(false);
@@ -524,6 +528,8 @@ fn copy_dir_symlink_file_body_not_changed_impl(progress: bool) {
     });
 }
 
+// error msg changes on coreutils
+#[cfg(feature = "nuuu")]
 #[test]
 fn copy_identical_file() {
     copy_identical_file_impl(false);
@@ -1422,6 +1428,7 @@ fn test_cp_dir_preserve_permissions() {
     });
 }
 
+#[cfg(feature = "nuuu")]
 #[cfg(not(windows))]
 #[test]
 fn test_cp_same_file_force() {
