@@ -47,7 +47,7 @@ impl Command for Lines {
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
-            PipelineData::Value(Value::String { val, span }, ..) => {
+            PipelineData::Value(Value::String { val, .. }, ..) => {
                 let mut lines = LINE_BREAK_REGEX
                     .split(&val)
                     .map(|s| s.to_string())
@@ -65,7 +65,7 @@ impl Command for Lines {
                     if skip_empty && s.trim().is_empty() {
                         None
                     } else {
-                        Some(Value::string(s, span))
+                        Some(Value::string(s, call.head))
                     }
                 });
 
@@ -76,7 +76,8 @@ impl Command for Lines {
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
-                        if let Value::String { val, span } = value {
+                        if let Value::String { val, .. } = value {
+                            let val_span = value.span();
                             let mut lines = LINE_BREAK_REGEX
                                 .split(&val)
                                 .filter_map(|s| {
@@ -96,11 +97,7 @@ impl Command for Lines {
                                 }
                             }
 
-                            Some(
-                                lines
-                                    .into_iter()
-                                    .map(move |x| Value::String { val: x, span }),
-                            )
+                            Some(lines.into_iter().map(move |x| Value::string(x, val_span)))
                         } else {
                             None
                         }
@@ -129,10 +126,7 @@ impl Command for Lines {
                 .enumerate()
                 .map(move |(_idx, x)| match x {
                     Ok(x) => x,
-                    Err(err) => Value::Error {
-                        error: Box::new(err),
-                        span: head,
-                    },
+                    Err(err) => Value::error(err, head),
                 })
                 .into_pipeline_data(ctrlc)),
         }
@@ -142,10 +136,10 @@ impl Command for Lines {
         vec![Example {
             description: "Split multi-line string into lines",
             example: r#"$"two\nlines" | lines"#,
-            result: Some(Value::List {
-                vals: vec![Value::test_string("two"), Value::test_string("lines")],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::list(
+                vec![Value::test_string("two"), Value::test_string("lines")],
+                Span::test_data(),
+            )),
         }]
     }
 }
@@ -175,10 +169,7 @@ impl Iterator for RawStreamLinesAdapter {
                     continue;
                 }
 
-                return Some(Ok(Value::String {
-                    val: s,
-                    span: self.span,
-                }));
+                return Some(Ok(Value::string(s, self.span)));
             } else {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
@@ -200,8 +191,8 @@ impl Iterator for RawStreamLinesAdapter {
                         Ok(v) => {
                             match v {
                                 // TODO: Value::Binary support required?
-                                Value::String { val, span } => {
-                                    self.span = span;
+                                Value::String { val, .. } => {
+                                    self.span = v.span();
 
                                     let mut lines = LINE_BREAK_REGEX
                                         .split(&val)
