@@ -41,20 +41,23 @@ def banner [] {
 
 #[test]
 def tee [] {
+    let dq = char "double_quote"
+    let nl = char "newline"
+
     "first line" | std tee foo
-    std assert equal (open foo | lines) ["first line"]
+    std assert equal (open foo) $'($dq)first line($dq)($nl)'
 
     std assert error { "second line" | std tee foo }
 
     "second line" | std tee --append foo
-    std assert equal (open foo | lines) ["first line", "second line"]
+    std assert equal (open foo) $'($dq)first line($dq)($nl)($dq)second line($dq)($nl)'
 
     [1 2 3] | std tee --append foo
-    std assert equal (open foo | lines) ["first line", "second line", "[1, 2, 3]"]
+    std assert equal (open foo) $'($dq)first line($dq)($nl)($dq)second line($dq)($nl)[1, 2, 3]($nl)'
 
     {a: "x", b: "y"} | std tee --append foo
-    std assert equal (open foo | lines) ["first line", "second line", "[1, 2, 3]", "{a: x, b: y}"]
+    std assert equal (open foo) $'($dq)first line($dq)($nl)($dq)second line($dq)($nl)[1, 2, 3]($nl){a: x, b: y}($nl)'
 
     "overwrite" | std tee --force foo
-    std assert equal (open foo | lines) ["overwrite"]
+    std assert equal (open foo) $'($dq)overwrite($dq)($nl)'
 }
