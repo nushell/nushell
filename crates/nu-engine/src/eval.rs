@@ -152,6 +152,9 @@ pub fn eval_call(
             }
         }
 
+        eprintln!("++ {}", String::from_utf8_lossy(engine_state.get_span_contents(
+            call.span())));
+ 
         let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
@@ -170,6 +173,9 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
+        eprintln!(">> {}", String::from_utf8_lossy(engine_state.get_span_contents(
+                call.span()
+        )));
         decl.run(engine_state, caller_stack, call, input)
     }
 }
@@ -1098,22 +1104,30 @@ pub fn eval_block(
             };
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
-            let eval_result = eval_element_with_input(
-                engine_state,
-                stack,
-                &pipeline.elements[i],
-                input,
-                redirect_stdout
-                    || (i != pipeline.elements.len() - 1)
-                        && (matches!(
-                            pipeline.elements[i + 1],
-                            PipelineElement::Redirection(_, Redirection::Stdout, _)
-                                | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
-                                | PipelineElement::Expression(..)
-                                | PipelineElement::SeparateRedirection { .. }
-                        )),
-                redirect_stderr,
-            );
+            let eval_result = {
+                let r = eval_element_with_input(
+                    engine_state,
+                    stack,
+                    &pipeline.elements[i],
+                    input,
+                    redirect_stdout
+                        || (i != pipeline.elements.len() - 1)
+                            && (matches!(
+                                pipeline.elements[i + 1],
+                                PipelineElement::Redirection(_, Redirection::Stdout, _)
+                                    | PipelineElement::Redirection(
+                                        _,
+                                        Redirection::StdoutAndStderr,
+                                        _
+                                    )
+                                    | PipelineElement::Expression(..)
+                                    | PipelineElement::SeparateRedirection { .. }
+                            )),
+                    redirect_stderr,
+                );
+
+                r
+            };
 
             let end_time = if stack.profiling_config.should_debug() {
                 Some(Instant::now())
