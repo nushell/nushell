@@ -129,11 +129,9 @@ impl Command for BytesReplace {
 }
 
 fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            internal_span: val_span,
-        } => replace_impl(val, args, *val_span),
+        Value::Binary { val, .. } => replace_impl(val, args, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::error(

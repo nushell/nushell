@@ -137,11 +137,9 @@ impl Command for BytesRemove {
 }
 
 fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            internal_span: val_span,
-        } => remove_impl(val, args, *val_span),
+        Value::Binary { val, .. } => remove_impl(val, args, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::error(

@@ -74,11 +74,9 @@ impl Command for BytesLen {
 }
 
 fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            internal_span: val_span,
-        } => Value::int(val.len() as i64, *val_span),
+        Value::Binary { val, .. } => Value::int(val.len() as i64, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::error(

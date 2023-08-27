@@ -65,38 +65,39 @@ impl HashableValue {
     ///
     /// If the given value is not hashable(mainly because of it is structured data), an error will returned.
     pub fn from_value(value: Value, span: Span) -> Result<Self, ShellError> {
+        let val_span = value.span();
         match value {
-            Value::Bool { val, internal_span } => Ok(HashableValue::Bool {
+            Value::Bool { val, .. } => Ok(HashableValue::Bool {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
-            Value::Int { val, internal_span } => Ok(HashableValue::Int {
+            Value::Int { val, .. } => Ok(HashableValue::Int {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
-            Value::Filesize { val, internal_span } => Ok(HashableValue::Filesize {
+            Value::Filesize { val, .. } => Ok(HashableValue::Filesize {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
-            Value::Duration { val, internal_span } => Ok(HashableValue::Duration {
+            Value::Duration { val, .. } => Ok(HashableValue::Duration {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
-            Value::Date { val, internal_span } => Ok(HashableValue::Date {
+            Value::Date { val, .. } => Ok(HashableValue::Date {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
-            Value::Float { val, internal_span } => Ok(HashableValue::Float {
+            Value::Float { val, .. } => Ok(HashableValue::Float {
                 val: val.to_ne_bytes(),
-                span: internal_span,
+                span: val_span,
             }),
-            Value::String { val, internal_span } => Ok(HashableValue::String {
+            Value::String { val, .. } => Ok(HashableValue::String {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
-            Value::Binary { val, internal_span } => Ok(HashableValue::Binary {
+            Value::Binary { val, .. } => Ok(HashableValue::Binary {
                 val,
-                span: internal_span,
+                span: val_span,
             }),
 
             // Explicitly propagate errors instead of dropping them.

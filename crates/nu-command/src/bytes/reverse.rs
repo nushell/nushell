@@ -71,14 +71,12 @@ impl Command for BytesReverse {
 }
 
 fn reverse(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            internal_span: val_span,
-        } => {
+        Value::Binary { val, .. } => {
             let mut reversed_input = val.to_vec();
             reversed_input.reverse();
-            Value::binary(reversed_input, *val_span)
+            Value::binary(reversed_input, val_span)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),

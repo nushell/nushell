@@ -147,11 +147,9 @@ impl Command for BytesStartsWith {
 }
 
 fn starts_with(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            internal_span: val_span,
-        } => Value::bool(val.starts_with(&args.pattern), *val_span),
+        Value::Binary { val, .. } => Value::bool(val.starts_with(&args.pattern), val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
         other => Value::error(
