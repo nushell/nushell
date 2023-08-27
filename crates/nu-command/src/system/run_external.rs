@@ -371,6 +371,7 @@ impl ExternalCommand {
                                             ),
                                         )],
                                         &hook,
+                                        "command_not_found",
                                     )
                                 {
                                     err_str = format!("{}\n{}", err_str, val);
