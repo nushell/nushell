@@ -7,7 +7,7 @@ on:
 name: continuous-integration
 
 env:
-  NUSHELL_CARGO_TARGET: ci
+  NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
   CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
 
