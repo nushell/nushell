@@ -80,31 +80,19 @@ impl Command for SubCommand {
                 description: "Convert string to filesize in table",
                 example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
                 result: Some(Value::list(
-                    vals: vec![
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
-                                Value::String {
-                                    val: "/dev/sda1".to_string(),
-                                    span: Span::test_data(),
-                                },
-                                Value::Filesize {
-                                    val: 200,
-                                    span: Span::test_data(),
-                                },
+                                Value::string("/dev/sda1".to_string(), Span::test_data()),
+                                Value::filesize(200, Span::test_data()),
                             ],
                         }),
                         Value::test_record(Record {
                             cols: vec!["device".to_string(), "size".to_string()],
                             vals: vec![
-                                Value::String {
-                                    val: "/dev/loop0".to_string(),
-                                    span: Span::test_data(),
-                                },
-                                Value::Filesize {
-                                    val: 50,
-                                    span: Span::test_data(),
-                                },
+                                Value::string("/dev/loop0".to_string(), Span::test_data()),
+                                Value::filesize(50, Span::test_data()),
                             ],
                         }),
                     ],
