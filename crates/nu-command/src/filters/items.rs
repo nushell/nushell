@@ -87,10 +87,7 @@ impl Command for Items {
                 Err(ShellError::Break(_)) => None,
                 Err(error) => {
                     let error = chain_error_with_input(error, false, input_span);
-                    Some(Value::Error {
-                        error: Box::new(error),
-                        span,
-                    })
+                    Some(Value::error(error, span))
                 }
             }
         };
@@ -129,13 +126,13 @@ impl Command for Items {
             example:
                 "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
             description: "Iterate over each key-value pair of a record",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_string("new york"),
                     Value::test_string("san francisco"),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 }

@@ -151,7 +151,8 @@ impl EventTypeFilter {
         if let Value::List { vals, .. } = value {
             let mut filter = Self::none();
             for event_type in vals {
-                if let Value::String { val, span } = event_type {
+                let span = event_type.span();
+                if let Value::String { val, .. } = event_type {
                     match val.as_str() {
                         "focus" => filter.listen_focus = true,
                         "key" => filter.listen_key = true,
