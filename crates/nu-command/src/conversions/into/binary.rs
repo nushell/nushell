@@ -197,7 +197,7 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
                 }
             };
 
-            Value::binary(val.to_vec(), span)
+            Value::binary(val.to_vec(), val_span)
         } else {
             value
         }
