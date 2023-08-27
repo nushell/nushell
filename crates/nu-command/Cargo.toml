@@ -88,8 +88,10 @@ toml = "0.7"
 unicode-segmentation = "1.10"
 ureq = { version = "2.7", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
-uu_cp = { path = "../../../coreutils/src/uu/cp"}
-uucore = { path = "../../../coreutils/src/uucore"}
+# uu_cp = { path = "../../../coreutils/src/uu/cp"}
+uu_cp = { git = "https://github.com/uutils/coreutils.git", rev = "1f081f3"}
+uucore = { git = "https://github.com/uutils/coreutils.git", rev = "1f081f3"}
+# uucore = { path = "../../../coreutils/src/uucore"}
 uuid = { version = "1.3", features = ["v4"] }
 wax = { version = "0.5" }
 which = { version = "4.4", optional = true }
