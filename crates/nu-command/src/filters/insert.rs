@@ -72,19 +72,19 @@ impl Command for Insert {
         Example {
             description: "Insert a new column into a table, populating all rows",
             example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-            result: Some(Value::List {
-                vals: vec![Value::test_record(Record {
+            result: Some(Value::list (
+                vec![Value::test_record(Record {
                     cols: vec!["project".into(), "lang".into(), "type".into()],
                     vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")],
                 })],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         },
         Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
             example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list (
+                vec![
                     Value::test_record(Record {
                         cols: vec!["index".into(), "foo".into(), "bar".into()],
                         vals: vec![
@@ -110,8 +110,8 @@ impl Command for Insert {
                         ],
                     }),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 }
@@ -173,18 +173,12 @@ fn insert(
                             pd.into_value(span),
                             span,
                         ) {
-                            return Value::Error {
-                                error: Box::new(e),
-                                span,
-                            };
+                            return Value::error(e, span);
                         }
 
                         input
                     }
-                    Err(e) => Value::Error {
-                        error: Box::new(e),
-                        span,
-                    },
+                    Err(e) => Value::error(e, span),
                 }
             },
             ctrlc,
@@ -198,7 +192,7 @@ fn insert(
                 if let Some(v) = input.next() {
                     pre_elems.push(v);
                 } else {
-                    pre_elems.push(Value::Nothing { span })
+                    pre_elems.push(Value::nothing(span))
                 }
             }
 
@@ -215,10 +209,7 @@ fn insert(
                 if let Err(e) =
                     input.insert_data_at_cell_path(&cell_path.members, replacement, span)
                 {
-                    return Value::Error {
-                        error: Box::new(e),
-                        span,
-                    };
+                    return Value::error(e, span);
                 }
 
                 input

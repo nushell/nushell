@@ -112,11 +112,7 @@ impl Command for Input {
                     }
                 }
 
-                Ok(Value::Binary {
-                    val: buffer,
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::binary(buffer, call.head).into_pipeline_data())
             } else {
                 let _ = crossterm::terminal::disable_raw_mode();
                 Err(ShellError::IOError(
@@ -183,11 +179,7 @@ impl Command for Input {
                     }
                 }
                 crossterm::terminal::disable_raw_mode()?;
-                return Ok(Value::String {
-                    val: buf,
-                    span: call.head,
-                }
-                .into_pipeline_data());
+                return Ok(Value::string(buf, call.head).into_pipeline_data());
             }
 
             // Just read a normal line of text, and trim the newline at the end
@@ -200,11 +192,7 @@ impl Command for Input {
             }
 
             match input {
-                Ok(_) => Ok(Value::String {
-                    val: buf,
-                    span: call.head,
-                }
-                .into_pipeline_data()),
+                Ok(_) => Ok(Value::string(buf, call.head).into_pipeline_data()),
                 Err(err) => Err(ShellError::IOError(err.to_string())),
             }
         }
