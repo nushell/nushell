@@ -26,7 +26,7 @@ pub struct ParsedMenu {
     pub source: Value,
 }
 
-/// Definition of a parsed menu from the config object
+/// Definition of a parsed hook from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Hooks {
     pub pre_prompt: Option<Value>,
@@ -113,6 +113,7 @@ pub struct Config {
     pub cursor_shape_emacs: NuCursorShape,
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
+    pub error_style: String,
 }
 
 impl Default for Config {
@@ -175,6 +176,8 @@ impl Default for Config {
             menus: Vec::new(),
 
             keybindings: Vec::new(),
+
+            error_style: "fancy".into(),
         }
     }
 }
@@ -1320,6 +1323,14 @@ impl Value {
                                 },
                                 span,
                             );
+                        }
+                    }
+                    "error_style" => {
+                        if let Ok(style) = value.as_string() {
+                            config.error_style = style;
+                        } else {
+                            invalid!(Some(span), "should be a string");
+                            vals[index] = Value::string(config.error_style.clone(), span);
                         }
                     }
                     // Catch all
