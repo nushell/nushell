@@ -294,3 +294,35 @@ Startup Time: ($nu.startup-time)
 export def pwd [] {
     $env.PWD
 }
+
+# read from standard input and write to standard output and files
+export def tee [
+    filename: path  # the file to write the input to
+    --append (-a): bool  # append to the file instead of overwriting
+    --force (-f): bool  # force the overwriting of the file's content
+]: any -> any {
+    let data = $in
+    let raw_data = ($data | to nuon) ++ "\n"
+
+    if $append {
+        $raw_data | save --append $filename
+    } else if $force {
+        $raw_data | save --force $filename
+    } else {
+        if ($filename | path exists) {
+            let span = metadata $filename | get span
+            error make {
+                msg: $"(ansi red_bold)std::tee::can_not_dump_to_file(ansi reset)"
+                label: {
+                    text: "file already exists, use `tee --force` to overwrite or `tee --append`"
+                    start: $span.start
+                    end: $span.end
+                }
+            }
+        }
+
+        $raw_data | save $filename
+    }
+
+    $data
+}

@@ -38,3 +38,23 @@ def path_add [] {
 def banner [] {
     std assert ((std banner | lines | length) == 15)
 }
+
+#[test]
+def tee [] {
+    "first line" | std tee foo
+    std assert equal (open foo | lines) ["first line"]
+
+    std assert error { "second line" | std tee foo }
+
+    "second line" | std tee --append foo
+    std assert equal (open foo | lines) ["first line", "second line"]
+
+    [1 2 3] | std tee --append foo
+    std assert equal (open foo | lines) ["first line", "second line", "[1, 2, 3]"]
+
+    {a: "x", b: "y"} | std tee --append foo
+    std assert equal (open foo | lines) ["first line", "second line", "[1, 2, 3]", "{a: x, b: y}"]
+
+    "overwrite" | std tee --force foo
+    std assert equal (open foo | lines) ["overwrite"]
+}
