@@ -426,7 +426,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             )
         }
-        // the parameter polars_plan::dsl::selector::Selector is not publically exposed. 
+        // the parameter polars_plan::dsl::selector::Selector is not publically exposed.
         // I am not sure what we can meaningfully do with this at this time.
         Expr::Selector(_) => todo!("Add selector support"),
     }
