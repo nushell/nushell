@@ -60,6 +60,7 @@ impl Command for FromCsv {
                 Some('t'),
             )
             .category(Category::Formats)
+            .switch("ascii", "use ascii delimiter \\x1f", Some('a'))
     }
 
     fn usage(&self) -> &str {
@@ -122,6 +123,11 @@ impl Command for FromCsv {
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },
+            Example {
+                description: "Convert comma-separated data to a table using the ascii delimiter \\x1f",
+                example: "open data.txt | from csv --ascii",
+                result: None,
+            },
         ]
     }
 }
@@ -139,6 +145,7 @@ fn from_csv(
         .map(|v: Value| v.as_char())
         .transpose()?
         .unwrap_or(',');
+    let ascii_separator = call.has_flag("ascii");
     let comment = call
         .get_flag(engine_state, stack, "comment")?
         .map(|v: Value| v.as_char())
@@ -166,6 +173,7 @@ fn from_csv(
         flexible,
         no_infer,
         trim,
+        ascii_separator,
     };
 
     from_delimited_data(config, input, name)

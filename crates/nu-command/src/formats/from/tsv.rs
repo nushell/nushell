@@ -150,6 +150,7 @@ fn from_tsv(
         flexible,
         no_infer,
         trim,
+        ascii_separator: false,
     };
 
     from_delimited_data(config, input, name)

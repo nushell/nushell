@@ -11,14 +11,21 @@ fn from_delimited_string_to_value(
         flexible,
         no_infer,
         trim,
+        ascii_separator,
     }: DelimitedReaderConfig,
     s: String,
     span: Span,
 ) -> Result<Value, csv::Error> {
+    let separator = if ascii_separator {
+        b'\x1f'
+    } else {
+        separator as u8
+    };
+
     let mut reader = ReaderBuilder::new()
         .has_headers(!noheaders)
         .flexible(flexible)
-        .delimiter(separator as u8)
+        .delimiter(separator)
         .comment(comment.map(|c| c as u8))
         .quote(quote as u8)
         .escape(escape.map(|c| c as u8))
@@ -77,6 +84,7 @@ pub(super) struct DelimitedReaderConfig {
     pub flexible: bool,
     pub no_infer: bool,
     pub trim: Trim,
+    pub ascii_separator: bool,
 }
 
 pub(super) fn from_delimited_data(
