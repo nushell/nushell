@@ -2965,7 +2965,6 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
- "uucore",
  "uuid",
  "wax",
  "which",
@@ -5705,7 +5704,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "uu_cp"
 version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=1f081f3#1f081f3716b181cafbd0be9e2ef8d42a3c554330"
+source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
 dependencies = [
  "clap",
  "filetime",
@@ -5720,7 +5719,7 @@ dependencies = [
 [[package]]
 name = "uucore"
 version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=1f081f3#1f081f3716b181cafbd0be9e2ef8d42a3c554330"
+source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
 dependencies = [
  "blake2b_simd",
  "blake3",
@@ -5749,7 +5748,7 @@ dependencies = [
 [[package]]
 name = "uucore_procs"
 version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=1f081f3#1f081f3716b181cafbd0be9e2ef8d42a3c554330"
+source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5759,7 +5758,7 @@ dependencies = [
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=1f081f3#1f081f3716b181cafbd0be9e2ef8d42a3c554330"
+source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
 
 [[package]]
 name = "uuid"
