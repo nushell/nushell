@@ -101,7 +101,7 @@ winreg = "0.50"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-nix = { version = "0.26", default-features = false, features = ["user"] }
+nix = { version = "0.27", default-features = false, features = ["user"] }
 
 [target.'cfg(trash)'.dependencies.trash]
 optional = true
