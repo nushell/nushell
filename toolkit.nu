@@ -12,7 +12,7 @@ export def fmt [
     --verbose: bool # print extra information about the command's progress
 ] {
     if $verbose {
-        print $"running ('toolkit fmt' | pretty-print-command)"
+        print $"running ('toolkit fmt' | pretty-format-command)"
     }
 
     if $check {
@@ -20,7 +20,7 @@ export def fmt [
             cargo fmt --all -- --check
         } catch {
             error make --unspanned {
-                msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!"
+                msg: $"\nplease run ('toolkit fmt' | pretty-format-command) to fix formatting!"
             }
         }
     } else {
@@ -37,7 +37,7 @@ export def clippy [
     --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
-        print $"running ('toolkit clippy' | pretty-print-command)"
+        print $"running ('toolkit clippy' | pretty-format-command)"
     }
 
     try {
@@ -56,7 +56,7 @@ export def clippy [
         )}
     } catch {
         error make --unspanned {
-            msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!"
+            msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
         }
     }
 }
@@ -89,8 +89,8 @@ export def "test stdlib" [
     cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
 }
 
-# print the pipe input inside backticks, dimmed and italic, as a pretty command
-def pretty-print-command [] {
+# formats the pipe input inside backticks, dimmed and italic, as a pretty command
+def pretty-format-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
@@ -243,7 +243,7 @@ export def "check pr" [
         return (report --fail-clippy)
     }
 
-    print $"running ('toolkit test' | pretty-print-command)"
+    print $"running ('toolkit test' | pretty-format-command)"
     try {
         if $fast {
             test --features $features --fast
@@ -254,7 +254,7 @@ export def "check pr" [
         return (report --fail-test)
     }
 
-    print $"running ('toolkit test stdlib' | pretty-print-command)"
+    print $"running ('toolkit test stdlib' | pretty-format-command)"
     try {
         test stdlib
     } catch {
@@ -270,10 +270,10 @@ export def "check pr" [
 export def setup-git-hooks [] {
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
     if (input) == "y" {
-        print $"running ('toolkit setup-git-hooks' | pretty-print-command)"
+        print $"running ('toolkit setup-git-hooks' | pretty-format-command)"
         git config --local core.hooksPath .githooks
     } else {
-        print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
+        print $"aborting ('toolkit setup-git-hooks' | pretty-format-command)"
     }
 }
 

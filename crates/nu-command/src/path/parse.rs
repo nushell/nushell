@@ -2,7 +2,7 @@ use std::path::Path;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
@@ -48,6 +48,10 @@ impl Command for SubCommand {
 On Windows, an extra 'prefix' column is added."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -67,6 +71,27 @@ On Windows, an extra 'prefix' column is added."#
         input.map(
             move |value| super::operate(&parse, &args, value, head),
             engine_state.ctrlc.clone(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments {
+            extension: call.get_flag_const(working_set, "extension")?,
+        };
+
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&parse, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
         )
     }
 

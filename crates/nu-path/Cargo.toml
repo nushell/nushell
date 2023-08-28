@@ -16,5 +16,5 @@ dirs-next = "2.0"
 [target.'cfg(windows)'.dependencies]
 omnipath = "0.1"
 
-[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+[target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
 pwd = "1.3"

@@ -390,7 +390,7 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
                 report_error_new(engine_state, &err);
             }
         }
@@ -465,7 +465,9 @@ pub fn evaluate_repl(
                     repl.buffer = s.to_string();
                     drop(repl);
 
-                    if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+                    if let Err(err) =
+                        eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
+                    {
                         report_error_new(engine_state, &err);
                     }
                 }

@@ -1,8 +1,62 @@
-use nu_protocol::{
-    ast::{Expr, Expression},
+use crate::{
+    ast::{Block, Call, Expr, Expression, PipelineElement},
     engine::StateWorkingSet,
-    ParseError, Record, Span, Value,
+    PipelineData, Record, ShellError, Span, Value,
 };
+
+fn eval_const_call(
+    working_set: &StateWorkingSet,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let decl = working_set.get_decl(call.decl_id);
+
+    if !decl.is_const() {
+        return Err(ShellError::NotAConstCommand(call.head));
+    }
+
+    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+        // It would require re-implementing get_full_help() for const evaluation. Assuming that
+        // getting help messages at parse-time is rare enough, we can simply disallow it.
+        return Err(ShellError::NotAConstHelp(call.head));
+    }
+
+    decl.run_const(working_set, call, input)
+}
+
+fn eval_const_subexpression(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    block: &Block,
+    mut input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    for pipeline in block.pipelines.iter() {
+        for element in pipeline.elements.iter() {
+            let PipelineElement::Expression(_, expr) = element else {
+                return Err(ShellError::NotAConstant(expr.span));
+            };
+
+            input = eval_constant_with_input(working_set, expr, input)?
+        }
+    }
+
+    Ok(input)
+}
+
+fn eval_constant_with_input(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    match &expr.expr {
+        Expr::Call(call) => eval_const_call(working_set, call, input),
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            eval_const_subexpression(working_set, expr, block, input)
+        }
+        _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
+    }
+}
 
 /// Evaluate a constant value at parse time
 ///
@@ -10,7 +64,7 @@ use nu_protocol::{
 pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
-) -> Result<Value, ParseError> {
+) -> Result<Value, ShellError> {
     match &expr.expr {
         Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
@@ -25,7 +79,7 @@ pub fn eval_constant(
         }),
         Expr::Var(var_id) => match working_set.get_variable(*var_id).const_val.as_ref() {
             Some(val) => Ok(val.clone()),
-            None => Err(ParseError::NotAConstant(expr.span)),
+            None => Err(ShellError::NotAConstant(expr.span)),
         },
         Expr::CellPath(cell_path) => Ok(Value::CellPath {
             val: cell_path.clone(),
@@ -37,10 +91,12 @@ pub fn eval_constant(
             match value.follow_cell_path(&cell_path.tail, false) {
                 Ok(val) => Ok(val),
                 // TODO: Better error conversion
-                Err(shell_error) => Err(ParseError::LabeledError(
+                Err(shell_error) => Err(ShellError::GenericError(
                     "Error when following cell path".to_string(),
                     format!("{shell_error:?}"),
-                    expr.span,
+                    Some(expr.span),
+                    None,
+                    vec![],
                 )),
             }
         }
@@ -112,25 +168,29 @@ pub fn eval_constant(
         Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
         Expr::ValueWithUnit(expr, unit) => {
             if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
-                unit.item.to_value(val, unit.span).map_err(|_| {
-                    ParseError::InvalidLiteral(
-                        "literal can not fit in unit".into(),
-                        "literal can not fit in unit".into(),
-                        unit.span,
-                    )
-                })
+                unit.item.to_value(val, unit.span)
             } else {
-                Err(ParseError::NotAConstant(expr.span))
+                Err(ShellError::NotAConstant(expr.span))
             }
         }
-        _ => Err(ParseError::NotAConstant(expr.span)),
+        Expr::Call(call) => {
+            Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(expr.span))
+        }
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            Ok(
+                eval_const_subexpression(working_set, expr, block, PipelineData::empty())?
+                    .into_value(expr.span),
+            )
+        }
+        _ => Err(ShellError::NotAConstant(expr.span)),
     }
 }
 
 /// Get the value as a string
-pub fn value_as_string(value: Value, span: Span) -> Result<String, ParseError> {
+pub fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
     match value {
         Value::String { val, .. } => Ok(val),
-        _ => Err(ParseError::NotAConstant(span)),
+        _ => Err(ShellError::NotAConstant(span)),
     }
 }

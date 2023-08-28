@@ -19,7 +19,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-static PWD_ENV: &str = "PWD";
+pub static PWD_ENV: &str = "PWD";
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
@@ -1088,6 +1088,10 @@ impl<'a> StateWorkingSet<'a> {
             search_predecls: true,
             parse_errors: vec![],
         }
+    }
+
+    pub fn permanent(&self) -> &EngineState {
+        self.permanent_state
     }
 
     pub fn error(&mut self, parse_error: ParseError) {
