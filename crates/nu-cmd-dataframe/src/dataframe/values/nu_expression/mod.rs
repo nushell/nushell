@@ -426,8 +426,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                 span,
             )
         }
-        // Selector is part of the polars_plan package. It is currently marked as nightly.
-        // Wasn't sure what the best approach to take here would be.
+        // the parameter polars_plan::dsl::selector::Selector is not publically exposed. 
+        // I am not sure what we can meaningfully do with this at this time.
         Expr::Selector(_) => todo!("Add selector support"),
     }
 }
