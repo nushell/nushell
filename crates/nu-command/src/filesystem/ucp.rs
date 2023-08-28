@@ -1,17 +1,14 @@
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::{Argument, Expr};
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::{env::current_dir, CallExt};
 use nu_protocol::{
+    ast::{Argument, Call, Expr},
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
-
 use std::path::PathBuf;
-use uucore::backup_control::{self, BackupMode};
-use uucore::update_control::{self, UpdateMode};
+use uu_cp::{BackupMode, UpdateMode};
 
-const EXIT_ERR: i32 = 1;
+// TODO: related to uucore::error::set_exit_code(EXIT_ERR)
+// const EXIT_ERR: i32 = 1;
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
@@ -360,7 +357,7 @@ impl Command for Ucp {
             BackupMode::ExistingBackup
         } else {
             if let Some(backup) = stack.get_env_var(engine_state, "VERSION_CONTROL") {
-                determine_backup_mode(backup.as_string()?, backup.span()?)?;
+                determine_backup_mode(backup.as_string()?, backup.span())?;
             }
             BackupMode::NoBackup
         };
@@ -572,7 +569,8 @@ impl Command for Ucp {
                     ))
                 }
             };
-            uucore::error::set_exit_code(EXIT_ERR);
+            // TODO: What should we do in place of set_exit_code?
+            // uucore::error::set_exit_code(EXIT_ERR);
         }
         Ok(PipelineData::empty())
     }
