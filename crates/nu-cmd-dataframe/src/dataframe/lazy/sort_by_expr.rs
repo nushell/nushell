@@ -37,6 +37,7 @@ impl Command for LazySortBy {
                 "nulls are shown last in the dataframe",
                 Some('n'),
             )
+            .switch("maintain-order", "Maintains order during sort", Some('m'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -110,6 +111,7 @@ impl Command for LazySortBy {
         };
         let expressions = NuExpression::extract_exprs(value)?;
         let nulls_last = call.has_flag("nulls-last");
+        let maintain_order = call.has_flag("maintain-order");
 
         let reverse: Option<Vec<bool>> = call.get_flag(engine_state, stack, "reverse")?;
         let reverse = match reverse {
@@ -137,7 +139,7 @@ impl Command for LazySortBy {
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
             lazy.into_polars()
-                .sort_by_exprs(&expressions, reverse, nulls_last),
+                .sort_by_exprs(&expressions, reverse, nulls_last, maintain_order),
         );
 
         Ok(PipelineData::Value(

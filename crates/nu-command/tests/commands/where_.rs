@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+#[allow(unused_imports)]
 use nu_test_support::pipeline;
 
 #[test]

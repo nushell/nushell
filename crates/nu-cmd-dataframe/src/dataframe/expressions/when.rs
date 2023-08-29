@@ -110,11 +110,11 @@ impl Command for ExprWhen {
                 .then(then_predicate.into_polars())
                 .into(),
             v => match NuWhen::try_from_value(v)? {
-                NuWhen::WhenThen(when_then) => when_then
+                NuWhen::Then(when_then) => when_then
                     .when(when_predicate.into_polars())
                     .then(then_predicate.into_polars())
                     .into(),
-                NuWhen::WhenThenThen(when_then_then) => when_then_then
+                NuWhen::ChainedThen(when_then_then) => when_then_then
                     .when(when_predicate.into_polars())
                     .then(then_predicate.into_polars())
                     .into(),

@@ -8,9 +8,9 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
+use nu_cmd_base::hook::eval_hook;
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_color_config::StyleComputer;
-use nu_command::hook::eval_hook;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
@@ -50,7 +50,7 @@ pub fn evaluate_repl(
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
-    use nu_command::hook;
+    use nu_cmd_base::hook;
     use reedline::Signal;
     let use_color = engine_state.get_config().use_ansi_coloring;
 
