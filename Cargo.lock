@@ -2627,7 +2627,6 @@ dependencies = [
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
- "nu-command",
  "nu-engine",
  "nu-parser",
  "nu-path",
