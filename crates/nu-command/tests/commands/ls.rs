@@ -45,6 +45,43 @@ fn lists_regular_files_using_asterisk_wildcard() {
     })
 }
 
+#[rstest::rstest]
+#[case("j?.??.txt", 1)]
+#[case("j????.txt", 2)]
+#[case("?????.txt", 3)]
+#[case("????c.txt", 1)]
+#[case("ye??da.10.txt", 1)]
+#[case("yehuda.?0.txt", 1)]
+#[case("??????.10.txt", 2)]
+fn lists_regular_files_using_question_mark(
+    #[case] command: &str,
+    #[case] expected: usize,
+    ) {
+    Playground::setup("ls_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.10.txt"),
+            EmptyFile("jt.10.txt"),
+            EmptyFile("jtabc.txt"),
+            EmptyFile("abcde.txt"),
+            EmptyFile("andres.10.txt"),
+            EmptyFile("chicken_not_to_be_picked_up.100.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+                &format!(
+            "
+                ls {}
+                | length
+            ", command
+            )
+        ));
+
+        assert_eq!(actual.out, expected.to_string());
+    })
+}
+
+
 #[test]
 fn lists_regular_files_using_question_mark_wildcard() {
     Playground::setup("ls_test_3", |dirs, sandbox| {
