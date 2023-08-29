@@ -267,28 +267,24 @@ pub fn check_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> O
 fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
-        parse_dollar_expr(working_set, span)
-    } else if contents.starts_with(b"[") {
+    if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
-    } else {
+    } else if contents.starts_with(b"$") {
+        parse_value(working_set, span, &SyntaxShape::Any)
+    } else if contents.starts_with(b"\"") || contents.starts_with(b"'") {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
-        let contents = if contents.starts_with(b"\"") {
-            let (contents, err) = unescape_string(contents, span);
-            if let Some(err) = err {
-                working_set.error(err)
-            }
-            String::from_utf8_lossy(&contents).to_string()
-        } else {
-            String::from_utf8_lossy(contents).to_string()
-        };
-
+        let (contents, err) = unescape_string(contents, span);
+        if let Some(err) = err {
+            working_set.error(err)
+        }
         Expression {
-            expr: Expr::String(contents),
+            expr: Expr::String(String::from_utf8_lossy(&contents).to_string()),
             span,
             ty: Type::String,
             custom_completion: None,
         }
+    } else {
+        parse_string_interpolation(working_set, span)
     }
 }
 
@@ -1633,22 +1629,52 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
     let contents = working_set.get_span_contents(span);
 
     let mut double_quote = false;
+    let mut explicit_string_interpolation = false;
 
     let (start, end) = if contents.starts_with(b"$\"") {
         double_quote = true;
+        explicit_string_interpolation = true;
         let end = if contents.ends_with(b"\"") && contents.len() > 2 {
             span.end - 1
         } else {
             span.end
         };
         (span.start + 2, end)
+    } else if contents.starts_with(b"\"") {
+        // Also the handle the case of implied interpolation
+        double_quote = true;
+        let end = if contents.ends_with(b"\"") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        (span.start + 1, end)
+    } else if contents.starts_with(b"`") {
+        // Also the handle the case of implied interpolation
+        double_quote = true;
+        let end = if contents.ends_with(b"`") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        (span.start + 1, end)
     } else if contents.starts_with(b"$'") {
+        explicit_string_interpolation = true;
+
         let end = if contents.ends_with(b"'") && contents.len() > 2 {
             span.end - 1
         } else {
             span.end
         };
         (span.start + 2, end)
+    } else if contents.starts_with(b"'") {
+        // Also the handle the case of implied interpolation
+        let end = if contents.ends_with(b"'") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        (span.start + 1, end)
     } else {
         (span.start, span.end)
     };
@@ -1780,6 +1806,13 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
                 output.push(expr);
             }
         }
+    }
+
+    if output.len() == 1 && !explicit_string_interpolation {
+        // If we only have one element, it's not really an interpolation
+        // So, just return the element by itself
+        let output = output.remove(0);
+        return output;
     }
 
     Expression {
@@ -2088,15 +2121,14 @@ pub fn parse_full_cell_path(
 }
 
 pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: directory");
 
-    if err.is_none() {
-        trace!("-- found {}", token);
+    let error_count = working_set.parse_errors.len();
+    let inner_expr = parse_string_interpolation(working_set, span);
 
+    if error_count == working_set.parse_errors.len() {
         Expression {
-            expr: Expr::Directory(token),
+            expr: Expr::Directory(Box::new(inner_expr)),
             span,
             ty: Type::String,
             custom_completion: None,
@@ -2109,15 +2141,14 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
 }
 
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: filepath");
 
-    if err.is_none() {
-        trace!("-- found {}", token);
+    let error_count = working_set.parse_errors.len();
+    let inner_expr = parse_string_interpolation(working_set, span);
 
+    if error_count == working_set.parse_errors.len() {
         Expression {
-            expr: Expr::Filepath(token),
+            expr: Expr::Filepath(Box::new(inner_expr)),
             span,
             ty: Type::String,
             custom_completion: None,
@@ -2376,15 +2407,14 @@ fn modf(x: f64) -> (f64, f64) {
 }
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
 
-    if err.is_none() {
-        trace!("-- found {}", token);
+    let error_count = working_set.parse_errors.len();
+    let inner_expr = parse_string_interpolation(working_set, span);
 
+    if error_count == working_set.parse_errors.len() {
         Expression {
-            expr: Expr::GlobPattern(token),
+            expr: Expr::GlobPattern(Box::new(inner_expr)),
             span,
             ty: Type::String,
             custom_completion: None,
@@ -2602,7 +2632,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 
     // Check for bare word interpolation
-    if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
+    if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' {
         return parse_string_interpolation(working_set, span);
     }
 
@@ -4623,7 +4653,15 @@ pub fn parse_value(
 
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
-        b'(' => return parse_paren_expr(working_set, span, shape),
+        b'(' if ![
+            SyntaxShape::Directory,
+            SyntaxShape::GlobPattern,
+            SyntaxShape::Filepath,
+        ]
+        .contains(shape) =>
+        {
+            return parse_paren_expr(working_set, span, shape)
+        }
         b'{' => return parse_brace_expr(working_set, span, shape),
         b'[' => match shape {
             SyntaxShape::Any

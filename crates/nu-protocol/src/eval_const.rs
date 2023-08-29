@@ -73,10 +73,7 @@ pub fn eval_constant(
             val: b.clone(),
             span: expr.span,
         }),
-        Expr::Filepath(path) => Ok(Value::String {
-            val: path.clone(),
-            span: expr.span,
-        }),
+        Expr::Filepath(path) => eval_constant(working_set, path),
         Expr::Var(var_id) => match working_set.get_variable(*var_id).const_val.as_ref() {
             Some(val) => Ok(val.clone()),
             None => Err(ShellError::NotAConstant(expr.span)),

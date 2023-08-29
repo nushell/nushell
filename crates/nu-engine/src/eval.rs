@@ -658,12 +658,17 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::Filepath(s) => {
+            let contents = eval_expression(engine_state, stack, s)?;
+            let s = contents.as_string()?;
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
             Ok(Value::string(path.to_string_lossy(), expr.span))
         }
         Expr::Directory(s) => {
+            let contents = eval_expression(engine_state, stack, s)?;
+            let s = contents.as_string()?;
+
             if s == "-" {
                 Ok(Value::string("-", expr.span))
             } else {
@@ -674,6 +679,9 @@ pub fn eval_expression(
             }
         }
         Expr::GlobPattern(s) => {
+            let contents = eval_expression(engine_state, stack, s)?;
+            let s = contents.as_string()?;
+
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
