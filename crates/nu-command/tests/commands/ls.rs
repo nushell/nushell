@@ -53,10 +53,7 @@ fn lists_regular_files_using_asterisk_wildcard() {
 #[case("ye??da.10.txt", 1)]
 #[case("yehuda.?0.txt", 1)]
 #[case("??????.10.txt", 2)]
-fn lists_regular_files_using_question_mark(
-    #[case] command: &str,
-    #[case] expected: usize,
-    ) {
+fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("yehuda.10.txt"),
@@ -80,7 +77,6 @@ fn lists_regular_files_using_question_mark(
         assert_eq!(actual.out, expected.to_string());
     })
 }
-
 
 #[test]
 fn lists_regular_files_using_question_mark_wildcard() {

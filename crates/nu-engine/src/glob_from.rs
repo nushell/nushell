@@ -62,17 +62,13 @@ pub fn glob_from(
         }
 
         (Some(p), just_pattern)
-    } else if path.to_string_lossy().contains('*') ||
-                    path.to_string_lossy().contains('?')
-    {
+    } else if path.to_string_lossy().contains('*') || path.to_string_lossy().contains('?') {
         // Path is a glob pattern => do not check for existence
         // Select the longest prefix until the first '*'
         let mut p = PathBuf::new();
         for c in path.components() {
             if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains('*') ||
-                    os.to_string_lossy().contains('?')
-                {
+                if os.to_string_lossy().contains('*') || os.to_string_lossy().contains('?') {
                     break;
                 }
             }
