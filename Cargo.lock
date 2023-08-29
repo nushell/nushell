@@ -2813,7 +2813,6 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
- "sqlparser",
  "sysinfo",
  "tabled",
  "terminal_size 0.2.6",
@@ -4822,7 +4821,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eaa1e88e78d2c2460d78b7dc3f0c08dbb606ab4222f9aff36f420d36e307d87"
 dependencies = [
  "log",
- "serde",
 ]
 
 [[package]]
