@@ -31,7 +31,7 @@ impl CustomValue for NuExpression {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        Ok(self.to_value(span))
+        self.to_value(span)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

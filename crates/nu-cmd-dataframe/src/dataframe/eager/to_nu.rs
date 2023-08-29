@@ -128,7 +128,7 @@ fn dataframe_command(
 }
 fn expression_command(call: &Call, input: Value) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(input)?;
-    let value = expr.to_value(call.head);
+    let value = expr.to_value(call.head)?;
 
     Ok(PipelineData::Value(value, None))
 }

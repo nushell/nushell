@@ -27,6 +27,11 @@ impl Command for ArgSort {
         Signature::build(self.name())
             .switch("reverse", "reverse order", Some('r'))
             .switch("nulls-last", "nulls ordered last", Some('n'))
+            .switch(
+                "maintain-order",
+                "maintain order on sorted items",
+                Some('m'),
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -98,6 +103,7 @@ fn command(
         descending: call.has_flag("reverse"),
         nulls_last: call.has_flag("nulls-last"),
         multithreaded: true,
+        maintain_order: call.has_flag("maintain-order"),
     };
 
     let mut res = df

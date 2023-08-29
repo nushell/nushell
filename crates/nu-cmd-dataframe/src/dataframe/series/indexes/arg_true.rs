@@ -98,7 +98,12 @@ fn command(
             let value = NuDataFrame::dataframe_into_value(res, call.head);
             Ok(PipelineData::Value(value, None))
         }
-        _ => todo!(),
+        _ => Err(ShellError::UnsupportedInput(
+            "Expected the dataframe to have a column".to_string(),
+            "".to_string(),
+            call.head,
+            call.head,
+        )),
     }
 }
 
