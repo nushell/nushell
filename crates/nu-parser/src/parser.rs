@@ -271,7 +271,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else if contents.starts_with(b"$") {
         parse_value(working_set, span, &SyntaxShape::Any)
-    } else if contents.starts_with(b"\"") || contents.starts_with(b"'") {
+    } else if contents.starts_with(b"\"") {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
         let (contents, err) = unescape_string(contents, span);
         if let Some(err) = err {
@@ -279,6 +279,22 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         }
         Expression {
             expr: Expr::String(String::from_utf8_lossy(&contents).to_string()),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        }
+    } else if contents.starts_with(b"'") {
+        Expression {
+            expr: Expr::String(String::from_utf8_lossy(contents).to_string()),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        }
+    } else if contents.starts_with(b"`") {
+        // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
+        let contents = trim_quotes(contents);
+        Expression {
+            expr: Expr::String(String::from_utf8_lossy(contents).to_string()),
             span,
             ty: Type::String,
             custom_completion: None,
