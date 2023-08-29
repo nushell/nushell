@@ -185,6 +185,16 @@ impl LiteBlock {
     }
 }
 
+fn last_non_empty_token(tokens: &[Token], cur_idx: usize) -> Option<TokenContents> {
+    for token in tokens.iter().take(cur_idx).rev() {
+        match token.contents {
+            TokenContents::Comment | TokenContents::Eol => {}
+            token => return Some(token),
+        }
+    }
+    None
+}
+
 pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     let mut block = LiteBlock::new();
     let mut curr_pipeline = LitePipeline::new();
@@ -203,7 +213,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     let mut error = None;
 
-    for token in tokens.iter() {
+    for (idx, token) in tokens.iter().enumerate() {
         match &token.contents {
             TokenContents::PipePipe => {
                 error = error.or(Some(ParseError::ShellOrOr(token.span)));
@@ -294,7 +304,13 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 last_connector_span = Some(token.span);
             }
             TokenContents::Eol => {
-                if last_token != TokenContents::Pipe && last_token != TokenContents::OutGreaterThan
+                // Handle `[Command] [Pipe] ([Comment] | [Eol])+ [Command]`
+                //
+                // `[Eol]` branch checks if previous token is `[Pipe]` to construct pipeline
+                // and so `[Comment] | [Eol]` should be ignore to make it work
+                let actual_token = last_non_empty_token(tokens, idx);
+                if actual_token != Some(TokenContents::Pipe)
+                    && actual_token != Some(TokenContents::OutGreaterThan)
                 {
                     if !curr_command.is_empty() {
                         match last_connector {
