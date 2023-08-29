@@ -66,14 +66,7 @@ fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expect
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-                &format!(
-            "
-                ls {}
-                | length
-            ", command
-            )
-        ));
-
+                &format!("ls {command} | length")));
         assert_eq!(actual.out, expected.to_string());
     })
 }
