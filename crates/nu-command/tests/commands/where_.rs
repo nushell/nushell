@@ -1,4 +1,6 @@
 use nu_test_support::nu;
+#[allow(unused_imports)]
+use nu_test_support::pipeline;
 
 #[test]
 fn filters_by_unit_size_comparison() {
