@@ -57,31 +57,31 @@ impl Command for ParEach {
             Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
                 description: "Output can still be sorted afterward",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("bar!"),
                         Value::test_string("baz!"),
                         Value::test_string("foo!"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
                 description: "Enumerate and sort-by can be used to reconstruct the original order",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("found 2 at 1!")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("found 2 at 1!")],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -154,12 +154,10 @@ impl Command for ParEach {
                             ) {
                                 Ok(v) => v.into_value(span),
 
-                                Err(error) => Value::Error {
-                                    error: Box::new(chain_error_with_input(
-                                        error, x_is_error, val_span,
-                                    )),
-                                    span: val_span,
-                                },
+                                Err(error) => Value::error(
+                                    chain_error_with_input(error, x_is_error, val_span),
+                                    val_span,
+                                ),
                             }
                         })
                         .collect::<Vec<_>>()
@@ -192,12 +190,10 @@ impl Command for ParEach {
                                 redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
-                                Err(error) => Value::Error {
-                                    error: Box::new(chain_error_with_input(
-                                        error, x_is_error, val_span,
-                                    )),
-                                    span: val_span,
-                                },
+                                Err(error) => Value::error(
+                                    chain_error_with_input(error, x_is_error, val_span),
+                                    val_span,
+                                ),
                             }
                         })
                         .collect::<Vec<_>>()
@@ -230,12 +226,10 @@ impl Command for ParEach {
                             redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
-                            Err(error) => Value::Error {
-                                error: Box::new(chain_error_with_input(
-                                    error, x_is_error, val_span,
-                                )),
-                                span: val_span,
-                            },
+                            Err(error) => Value::error(
+                                chain_error_with_input(error, x_is_error, val_span),
+                                val_span,
+                            ),
                         }
                     })
                     .collect::<Vec<_>>()
@@ -252,12 +246,7 @@ impl Command for ParEach {
                     .map(move |x| {
                         let x = match x {
                             Ok(x) => x,
-                            Err(err) => {
-                                return Value::Error {
-                                    error: Box::new(err),
-                                    span,
-                                }
-                            }
+                            Err(err) => return Value::error(err, span),
                         };
 
                         let block = engine_state.get_block(block_id);
@@ -279,10 +268,7 @@ impl Command for ParEach {
                             redirect_stderr,
                         ) {
                             Ok(v) => v.into_value(span),
-                            Err(error) => Value::Error {
-                                error: Box::new(error),
-                                span,
-                            },
+                            Err(error) => Value::error(error, span),
                         }
                     })
                     .collect::<Vec<_>>()

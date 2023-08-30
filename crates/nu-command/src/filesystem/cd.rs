@@ -159,10 +159,7 @@ impl Command for Cd {
             }
         };
 
-        let path_value = Value::String {
-            val: path.clone(),
-            span,
-        };
+        let path_value = Value::string(path.clone(), span);
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
             stack.add_env_var("OLDPWD".into(), oldpwd)

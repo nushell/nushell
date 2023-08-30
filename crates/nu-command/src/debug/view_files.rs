@@ -47,11 +47,7 @@ impl Command for ViewFiles {
             ));
         }
 
-        Ok(Value::List {
-            vals: records,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::list(records, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

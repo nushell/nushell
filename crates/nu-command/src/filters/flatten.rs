@@ -52,8 +52,8 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("N"),
                         Value::test_string("u"),
                         Value::test_string("s"),
@@ -61,8 +61,8 @@ impl Command for Flatten {
                         Value::test_string("e"),
                         Value::test_string("l"),
                         Value::test_string("l")],
-                    span: Span::test_data()
-                })
+                    Span::test_data()
+                ))
             },
             Example {
                 description: "flatten a table, get the first item",
@@ -82,17 +82,17 @@ impl Command for Flatten {
             Example {
                 description: "Flatten inner table",
                 example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten d --all",
-                result: Some(Value::List{
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
                             vals: vec![
                                 Value::test_string("b"),
                                 Value::test_int(1),
-                                Value::List {
-                                    vals: vec![Value::test_int(4), Value::test_int(3)],
-                                    span: Span::test_data(),
-                                },
+                                Value::list(
+                                    vec![Value::test_int(4), Value::test_int(3)],
+                                    Span::test_data(),
+                                ),
                             ],
                         }),
                         Value::test_record(Record {
@@ -100,10 +100,10 @@ impl Command for Flatten {
                             vals: vec![
                                 Value::test_string("b"),
                                 Value::test_int(2),
-                                Value::List {
-                                    vals: vec![Value::test_int(4), Value::test_int(3)],
-                                    span: Span::test_data(),
-                                },
+                                Value::list(
+                                    vec![Value::test_int(4), Value::test_int(3)],
+                                    Span::test_data(),
+                                ),
                             ],
                         }),
                         Value::test_record(Record {
@@ -111,10 +111,10 @@ impl Command for Flatten {
                             vals: vec![
                                 Value::test_string("b"),
                                 Value::test_int(3),
-                                Value::List {
-                                    vals: vec![Value::test_int(4), Value::test_int(3)],
-                                    span: Span::test_data(),
-                                },
+                                Value::list(
+                                    vec![Value::test_int(4), Value::test_int(3)],
+                                    Span::test_data(),
+                                ),
                             ],
                         }),
                         Value::test_record(Record {
@@ -122,15 +122,15 @@ impl Command for Flatten {
                             vals: vec![
                                 Value::test_string("b"),
                                 Value::test_int(4),
-                                Value::List {
-                                    vals: vec![Value::test_int(4), Value::test_int(3)],
-                                    span: Span::test_data()
-                                }
+                                Value::list(
+                                    vec![Value::test_int(4), Value::test_int(3)],
+                                    Span::test_data()
+                                )
                             ],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             }
         ]
     }
@@ -187,15 +187,15 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
             // Propagate errors by explicitly matching them before the final case.
             Value::Error { .. } => return vec![item.clone()],
             other => {
-                return vec![Value::Error {
-                    error: Box::new(ShellError::OnlySupportsThisInputType {
+                return vec![Value::error(
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "record".into(),
                         wrong_type: other.get_type().to_string(),
                         dst_span: name_tag,
                         src_span: other.span(),
-                    }),
-                    span: name_tag,
-                }];
+                    },
+                    name_tag,
+                )];
             }
         };
 
@@ -204,6 +204,7 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
         for (column_index, (column, value)) in record.iter().enumerate() {
             let column_requested = columns.iter().find(|c| c.into_string() == *column);
             let need_flatten = { columns.is_empty() || column_requested.is_some() };
+            let span = value.span();
 
             match value {
                 Value::Record { val, .. } => {
@@ -221,14 +222,14 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
                         out.insert(column.to_string(), value.clone());
                     }
                 }
-                Value::List { vals, span } if all && vals.iter().all(|f| f.as_record().is_ok()) => {
+                Value::List { vals, .. } if all && vals.iter().all(|f| f.as_record().is_ok()) => {
                     if need_flatten && inner_table.is_some() {
-                        return vec![Value::Error{ error: Box::new(ShellError::UnsupportedInput(
+                        return vec![Value::error( ShellError::UnsupportedInput(
                                     "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
                                     "value originates from here".into(),
                                     s,
-                                    *span
-                                )), span: *span}
+                                    span
+                                ), span)
                             ];
                     }
                     // it's a table (a list of record, we can flatten inner record)
@@ -257,15 +258,15 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
                         out.insert(column.to_string(), value.clone());
                     }
                 }
-                Value::List { vals: values, span } => {
+                Value::List { vals: values, .. } => {
                     if need_flatten && inner_table.is_some() {
-                        return vec![Value::Error{ error: Box::new(ShellError::UnsupportedInput(
-                                    "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                    "value originates from here".into(),
-                                    s,
-                                    *span
-                                )), span: *span}
-                            ];
+                        return vec![Value::error( ShellError::UnsupportedInput(
+                                "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
+                                "value originates from here".into(),
+                                s,
+                                span
+                            ), span)
+                        ];
                     }
 
                     if !columns.is_empty() {
@@ -370,7 +371,7 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
         }
         expanded
     } else if item.as_list().is_ok() {
-        if let Value::List { vals, span: _ } = item {
+        if let Value::List { vals, .. } = item {
             vals.to_vec()
         } else {
             vec![]

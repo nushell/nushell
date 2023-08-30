@@ -38,21 +38,21 @@ impl Command for Reverse {
             Example {
                 example: "[0,1,2,3] | reverse",
                 description: "Reverse a list",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(3),
                         Value::test_int(2),
                         Value::test_int(1),
                         Value::test_int(0),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[{a: 1} {a: 2}] | reverse",
                 description: "Reverse a table",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string()],
                             vals: vec![Value::test_int(2)],
@@ -62,8 +62,8 @@ impl Command for Reverse {
                             vals: vec![Value::test_int(1)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
