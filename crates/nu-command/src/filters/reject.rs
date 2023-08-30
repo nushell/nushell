@@ -1,5 +1,5 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
@@ -50,9 +50,81 @@ impl Command for Reject {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let mut new_columns: Vec<CellPath> = vec![];
+        for col_val in columns {
+            let col_span = &col_val.span();
+            match col_val {
+                Value::CellPath { val, .. } => {
+                    new_columns.push(val);
+                }
+                Value::List { vals, .. } => {
+                    for value in vals {
+                        let val_span = &value.span();
+                        match value {
+                            Value::String { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::String {
+                                        val: val.clone(),
+                                        span: *val_span,
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            Value::Int { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::Int {
+                                        val: val as usize,
+                                        span: *val_span,
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            y => {
+                                return Err(ShellError::CantConvert {
+                                    to_type: "cell path".into(),
+                                    from_type: y.get_type().to_string(),
+                                    span: y.span(),
+                                    help: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                Value::String { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::String {
+                            val: val.clone(),
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                Value::Int { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::Int {
+                            val: val as usize,
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                x => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: x.get_type().to_string(),
+                        span: x.span(),
+                        help: None,
+                    });
+                }
+            }
+        }
         let span = call.head;
-        reject(engine_state, span, input, columns)
+        reject(engine_state, span, input, new_columns)
     }
 
     fn examples(&self) -> Vec<Example> {
