@@ -129,7 +129,7 @@ fn reject(
                         Vec::new(),
                     ));
                 }
-                if unique_rows.contains_key(&val) {
+                if unique_rows.contains_key(val) {
                     return Err(ShellError::GenericError(
                         "Reject can't get the same row twice".into(),
                         "duplicated row index".into(),
