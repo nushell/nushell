@@ -1667,7 +1667,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         (span.start + 1, end)
     } else if contents.starts_with(b"`") {
         // Also the handle the case of implied interpolation
-        double_quote = true;
+        double_quote = false;
         let end = if contents.ends_with(b"`") && contents.len() > 2 {
             span.end - 1
         } else {
