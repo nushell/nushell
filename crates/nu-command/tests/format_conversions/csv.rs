@@ -341,7 +341,9 @@ fn from_csv_text_with_multiple_char_separator() {
             "#
         ));
 
-        assert!(actual.err.contains("single character separator"));
+        assert!(actual
+            .err
+            .contains("separator should be a single char or a 4-byte unicode"));
     })
 }
 
@@ -366,7 +368,7 @@ fn from_csv_text_with_wrong_type_separator() {
             "#
         ));
 
-        assert!(actual.err.contains("can't convert int to char"));
+        assert!(actual.err.contains("can't convert int to string"));
     })
 }
 
