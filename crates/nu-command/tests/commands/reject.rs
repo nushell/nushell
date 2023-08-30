@@ -143,3 +143,23 @@ fn reject_optional_row() {
     let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
     assert_eq!(actual.out, "[[foo]; [bar]]");
 }
+
+#[test]
+fn reject_multiple_rows_ascending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2");
+
+    assert!(actual.out.contains("a"));
+    assert!(actual.out.contains("b"));
+    assert!(actual.out.contains("1"));
+    assert!(actual.out.contains("2"));
+}
+
+#[test]
+fn reject_multiple_rows_descending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1");
+
+    assert!(actual.out.contains("a"));
+    assert!(actual.out.contains("b"));
+    assert!(actual.out.contains("1"));
+    assert!(actual.out.contains("2"));
+}
