@@ -136,6 +136,41 @@ fn comment_skipping_2() -> TestResult {
 }
 
 #[test]
+fn comment_skipping_in_pipeline_1() -> TestResult {
+    run_test(
+        r#"[1,2,3] | #comment
+        each { |$it| $it + 2 } | # foo
+        math sum #bar"#,
+        "12",
+    )
+}
+
+#[test]
+fn comment_skipping_in_pipeline_2() -> TestResult {
+    run_test(
+        r#"[1,2,3] #comment
+        | #comment2
+        each { |$it| $it + 2 } #foo
+        | # bar
+        math sum #baz"#,
+        "12",
+    )
+}
+
+#[test]
+fn comment_skipping_in_pipeline_3() -> TestResult {
+    run_test(
+        r#"[1,2,3] | #comment
+        #comment2
+        each { |$it| $it + 2 } #foo
+        | # bar
+        #baz
+        math sum #foobar"#,
+        "12",
+    )
+}
+
+#[test]
 fn bad_var_name() -> TestResult {
     fail_test(r#"let $"foo bar" = 4"#, "can't contain")
 }
