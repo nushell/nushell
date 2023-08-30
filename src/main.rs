@@ -24,8 +24,10 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
+use nu_engine::eval_nu_variable;
 use nu_protocol::{engine::EngineState, report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_protocol::{Span, NU_VARIABLE_ID};
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
@@ -273,6 +275,10 @@ fn main() -> Result<()> {
         column!(),
         use_color,
     );
+
+    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
+    let nu_const = eval_nu_variable(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

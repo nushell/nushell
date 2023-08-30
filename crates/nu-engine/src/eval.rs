@@ -1411,7 +1411,14 @@ pub fn eval_variable(
 ) -> Result<Value, ShellError> {
     match var_id {
         // $nu
-        nu_protocol::NU_VARIABLE_ID => eval_nu_variable(engine_state, span),
+        nu_protocol::NU_VARIABLE_ID => {
+            if let Some(val) = engine_state.get_constant(var_id) {
+                Ok(val.clone())
+            } else {
+                Err(ShellError::VariableNotFoundAtRuntime { span })
+            }
+        }
+        // $env
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();

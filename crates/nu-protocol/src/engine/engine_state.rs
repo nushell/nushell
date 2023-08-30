@@ -748,6 +748,15 @@ impl EngineState {
             .expect("internal error: missing variable")
     }
 
+    pub fn get_constant(&self, var_id: VarId) -> Option<&Value> {
+        let var = self.get_var(var_id);
+        var.const_val.as_ref()
+    }
+
+    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
+        self.vars[var_id].const_val = Some(val);
+    }
+
     #[allow(clippy::borrowed_box)]
     pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         self.decls

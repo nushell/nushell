@@ -12,6 +12,7 @@ pub use documentation::get_full_help;
 pub use env::*;
 pub use eval::{
     eval_block, eval_block_with_early_return, eval_call, eval_expression,
-    eval_expression_with_input, eval_operator, eval_subexpression, eval_variable, redirect_env,
+    eval_expression_with_input, eval_nu_variable, eval_operator, eval_subexpression, eval_variable,
+    redirect_env,
 };
 pub use glob_from::glob_from;
