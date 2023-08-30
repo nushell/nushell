@@ -12,12 +12,12 @@ bench = false
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.84.1" }
+nu-command = { path = "../nu-command", version = "0.84.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.84.1" }
 rstest = { version = "0.18.1", default-features = false }
 
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.84.1" }
-nu-command = { path = "../nu-command", version = "0.84.1" }
 nu-engine = { path = "../nu-engine", version = "0.84.1" }
 nu-path = { path = "../nu-path", version = "0.84.1" }
 nu-parser = { path = "../nu-parser", version = "0.84.1" }

@@ -20,6 +20,7 @@ impl Command for Dummies {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .switch("drop-first", "Drop first row", Some('d'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -115,10 +116,11 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let drop_first: bool = call.has_flag("drop-first");
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     df.as_ref()
-        .to_dummies(None)
+        .to_dummies(None, drop_first)
         .map_err(|e| {
             ShellError::GenericError(
                 "Error calculating dummies".into(),

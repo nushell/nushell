@@ -1,5 +1,5 @@
+use crate::util::get_guaranteed_cwd;
 use miette::Result;
-use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::ast::PathMember;

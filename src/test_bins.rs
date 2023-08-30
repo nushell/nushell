@@ -1,4 +1,4 @@
-use nu_command::hook::{eval_env_change_hook, eval_hook};
+use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};

@@ -1,4 +1,4 @@
-use crate::hook::eval_hook;
+use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
