@@ -73,6 +73,17 @@ impl Command for Reject {
                 }),
             },
             Example {
+                description: "Reject a row in a table",
+                example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
+                result: Some(Value::List {
+                    vals: vec![Value::test_record(Record {
+                        cols: vec!["a".to_string(), "b".to_string()],
+                        vals: vec![Value::test_int(1), Value::test_int(2)],
+                    })],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
                 description: "Reject the specified field in a record",
                 example: "{a: 1, b: 2} | reject a",
                 result: Some(Value::test_record(Record {
