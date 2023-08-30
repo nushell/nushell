@@ -1,10 +1,12 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
+use std::cmp::Reverse;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Reject;
@@ -99,15 +101,53 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
+    let mut unique_rows: HashMap<usize, Span> = HashMap::new();
     let val = input.into_value(span);
     let mut val = val;
-    let mut columns = vec![];
-    for c in cell_paths {
-        if !columns.contains(&c) {
-            columns.push(c);
-        }
+    let mut new_columns = vec![];
+    for column in cell_paths {
+        let CellPath { ref members } = column;
+        match members.get(0) {
+            Some(PathMember::Int { val, span, .. }) => {
+                if members.len() > 1 {
+                    return Err(ShellError::GenericError(
+                        "Reject only allows row numbers for rows".into(),
+                        "extra after row number".into(),
+                        Some(*span),
+                        None,
+                        Vec::new(),
+                    ));
+                }
+                if unique_rows.contains_key(&val) {
+                    return Err(ShellError::GenericError(
+                        "Reject can't get the same row twice".into(),
+                        "duplicated row index".into(),
+                        Some(*span),
+                        None,
+                        Vec::new(),
+                    ));
+                }
+                unique_rows.insert(*val, *span);
+            }
+            _ => new_columns.push(column),
+        };
     }
-    for cell_path in columns {
+    let mut unique_rows: Vec<(usize, Span)> = unique_rows.into_iter().collect();
+
+    unique_rows.sort_unstable_by_key(|(val, _span)| Reverse(*val));
+
+    let mut unique_rows: Vec<CellPath> = unique_rows
+        .into_iter()
+        .map(|(val, span)| CellPath {
+            members: vec![PathMember::Int {
+                val,
+                span,
+                optional: false,
+            }],
+        })
+        .collect();
+    new_columns.append(&mut unique_rows);
+    for cell_path in new_columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }
     Ok(val.into_pipeline_data())
