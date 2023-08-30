@@ -1,5 +1,6 @@
 mod call_ext;
 pub mod column;
+pub mod debug_util;
 pub mod documentation;
 pub mod env;
 mod eval;

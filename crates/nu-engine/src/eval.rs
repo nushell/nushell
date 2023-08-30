@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help};
+use crate::{current_dir_str, debug_util::*, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -152,9 +152,6 @@ pub fn eval_call(
             }
         }
 
-        eprintln!("++ {}", String::from_utf8_lossy(engine_state.get_span_contents(
-            call.span())));
- 
         let result = eval_block_with_early_return(
             engine_state,
             &mut callee_stack,
@@ -173,9 +170,7 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        eprintln!(">> {}", String::from_utf8_lossy(engine_state.get_span_contents(
-                call.span()
-        )));
+
         decl.run(engine_state, caller_stack, call, input)
     }
 }
@@ -1134,6 +1129,11 @@ pub fn eval_block(
             } else {
                 None
             };
+
+            eprintln!(
+                "{}",
+                dbg_trace_pipeline_element(engine_state, stack, &pipeline.elements[i])?
+            );
 
             if let (Some(start_time), Some(end_time), Some(input_metadata)) =
                 (start_time, end_time, input_metadata.as_deref_mut())

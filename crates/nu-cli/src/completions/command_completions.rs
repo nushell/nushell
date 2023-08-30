@@ -226,7 +226,9 @@ pub fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
     }
 }
 
-pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usize, Vec<usize>)]) -> bool {
+pub fn is_passthrough_command(
+    working_set_file_contents: &[(Vec<u8>, usize, usize, Vec<usize>)],
+) -> bool {
     for (contents, _, _, _) in working_set_file_contents {
         let last_pipe_pos_rev = contents.iter().rev().position(|x| x == &b'|');
         let last_pipe_pos = last_pipe_pos_rev.map(|x| contents.len() - x).unwrap_or(0);
