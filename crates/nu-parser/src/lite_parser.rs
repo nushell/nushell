@@ -471,7 +471,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         block.push(curr_pipeline);
     }
 
-    if last_non_comment_token(&tokens, tokens.len()) == Some(TokenContents::Pipe) {
+    if last_non_comment_token(tokens, tokens.len()) == Some(TokenContents::Pipe) {
         (
             block,
             Some(ParseError::UnexpectedEof(
