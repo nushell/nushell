@@ -164,6 +164,16 @@ impl Command for Reject {
                     })],
                 })),
             },
+            Example {
+                description: "Reject columns by a provided list of columns",
+                example: "let cols = [size type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject $cols",
+                result: None
+            },
+            Example {
+                description: "Reject rows by a provided list of rows",
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject $rows",
+                result: None
+            },
         ]
     }
 }
