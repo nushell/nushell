@@ -22,7 +22,10 @@ impl Command for Reject {
             ])
             .rest(
                 "rest",
-                SyntaxShape::CellPath,
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
+                ])
                 "the names of columns to remove from the table",
             )
             .category(Category::Filters)
