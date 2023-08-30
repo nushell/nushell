@@ -112,7 +112,7 @@ pub struct ReplState {
 #[derive(Clone)]
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
-    file_contents: Vec<(Vec<u8>, usize, usize)>,
+    file_contents: Vec<(Vec<u8>, usize, usize, Vec<usize>)>, // content, start span, end span, Vec(end-span-of-line)
     virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     decls: Vec<Box<dyn Command + 'static>>,
@@ -607,7 +607,7 @@ impl EngineState {
     }
 
     pub fn print_contents(&self) {
-        for (contents, _, _) in self.file_contents.iter() {
+        for (contents, _, _, _) in self.file_contents.iter() {
             let string = String::from_utf8_lossy(contents);
             println!("{string}");
         }
@@ -726,12 +726,40 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        for (contents, start, finish) in &self.file_contents {
+        for (contents, start, finish, _) in &self.file_contents {
             if span.start >= *start && span.end <= *finish {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
         &[0u8; 0]
+    }
+
+    // get source line number containing span
+    pub fn get_line_number(&self, span: Span) -> usize {
+        for (_, start, finish, line_ends) in &self.file_contents {
+            if span.start >= *start && span.end <= *finish {
+                let mut line_number = 1;
+                for end_span in line_ends {
+                    if span.start < *end_span {
+                        return line_number;
+                    };
+                    line_number += 1;
+                }
+            }
+        }
+
+        0
+    }
+
+    // name of file containing span
+    pub fn get_file_for_span<'a>(&'a self, span: Span) -> Option<&'a str> {
+        for (filename, start, end) in self.files() {
+            if span.start >= *start && span.end <= *end {
+                return Some(&filename);
+            }
+        }
+
+        None
     }
 
     pub fn get_config(&self) -> &Config {
@@ -849,7 +877,7 @@ impl EngineState {
     }
 
     pub fn next_span_start(&self) -> usize {
-        if let Some((_, _, last)) = self.file_contents.last() {
+        if let Some((_, _, last, _)) = self.file_contents.last() {
             *last
         } else {
             0
@@ -863,9 +891,18 @@ impl EngineState {
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
+        let mut line_ends: Vec<usize> = Vec::new();
+
+        let mut cur_offset = next_span_start;
+        for c in &contents {
+            if *c == b'\n' {
+                line_ends.push(cur_offset);
+            }
+            cur_offset += 1;
+        }
 
         self.file_contents
-            .push((contents, next_span_start, next_span_end));
+            .push((contents, next_span_start, next_span_end, line_ends));
 
         self.files.push((filename, next_span_start, next_span_end));
 
@@ -922,7 +959,7 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize, Vec<usize>)> {
         &self.file_contents
     }
 
@@ -958,7 +995,7 @@ pub struct StateWorkingSet<'a> {
 /// within the delta.
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
-    pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
+    pub(crate) file_contents: Vec<(Vec<u8>, usize, usize, Vec<usize>)>,
     virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,          // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
@@ -1072,7 +1109,7 @@ impl StateDelta {
         self.scope.pop();
     }
 
-    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize, Vec<usize>)> {
         &self.file_contents
     }
 }
@@ -1301,7 +1338,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn next_span_start(&self) -> usize {
         let permanent_span_start = self.permanent_state.next_span_start();
 
-        if let Some((_, _, last)) = self.delta.file_contents.last() {
+        if let Some((_, _, last, _)) = self.delta.file_contents.last() {
             *last
         } else {
             permanent_span_start
@@ -1317,13 +1354,13 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn get_contents_of_file(&self, file_id: usize) -> Option<&[u8]> {
-        for (id, (contents, _, _)) in self.delta.file_contents.iter().enumerate() {
+        for (id, (contents, _, _, _)) in self.delta.file_contents.iter().enumerate() {
             if self.permanent_state.num_files() + id == file_id {
                 return Some(contents);
             }
         }
 
-        for (id, (contents, _, _)) in self.permanent_state.file_contents.iter().enumerate() {
+        for (id, (contents, _, _, _)) in self.permanent_state.file_contents.iter().enumerate() {
             if id == file_id {
                 return Some(contents);
             }
@@ -1347,9 +1384,22 @@ impl<'a> StateWorkingSet<'a> {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
 
-        self.delta
-            .file_contents
-            .push((contents.to_vec(), next_span_start, next_span_end));
+        let mut line_ends: Vec<usize> = Vec::new();
+
+        let mut cur_offset = next_span_start;
+        for c in contents {
+            if *c == b'\n' {
+                line_ends.push(cur_offset);
+            }
+            cur_offset += 1;
+        }
+
+        self.delta.file_contents.push((
+            contents.to_vec(),
+            next_span_start,
+            next_span_end,
+            line_ends,
+        ));
 
         self.delta
             .files
@@ -1377,7 +1427,7 @@ impl<'a> StateWorkingSet<'a> {
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
-            for (contents, start, finish) in &self.delta.file_contents {
+            for (contents, start, finish, _) in &self.delta.file_contents {
                 if (span.start >= *start) && (span.end <= *finish) {
                     let begin = span.start - start;
                     let mut end = span.end - start;
