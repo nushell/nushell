@@ -54,29 +54,26 @@ impl Command for Compact {
             Example {
                 description: "Filter out all records where 'Hello' is null (returns nothing)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact Hello"#,
-                result: Some(Value::List {
-                    vals: vec![],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(vec![], Span::test_data())),
             },
             Example {
                 description: "Filter out all records where 'World' is null (Returns the table)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["Hello".into(), "World".into()],
                         vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Filter out all instances of nothing from a list (Returns [1,2])",
                 example: r#"[1, null, 2] | compact"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(1), Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
         ]
     }

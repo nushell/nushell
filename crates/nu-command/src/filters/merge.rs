@@ -46,8 +46,8 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "[a b c] | wrap name | merge ( [1 2 3] | wrap index )",
                 description: "Add an 'index' column to the input table",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["name".to_string(), "index".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_int(1)],
@@ -61,8 +61,8 @@ repeating this process with row 1, and so on."#
                             vals: vec![Value::test_string("c"), Value::test_int(3)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
@@ -75,13 +75,13 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
                 description: "Merge two tables, overwriting overlapping columns",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["columnA".to_string(), "columnB".to_string()],
                         vals: vec![Value::test_string("A0*"), Value::test_string("B0")],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -113,16 +113,10 @@ repeating this process with row 1, and so on."#
                         .map(move |inp| match (inp.as_record(), table_iter.next()) {
                             (Ok(inp), Some(to_merge)) => match to_merge.as_record() {
                                 Ok(to_merge) => Value::record(do_merge(inp, to_merge), call.head),
-                                Err(error) => Value::Error {
-                                    error: Box::new(error),
-                                    span: call.head,
-                                },
+                                Err(error) => Value::error(error, call.head),
                             },
                             (_, None) => inp,
-                            (Err(error), _) => Value::Error {
-                                error: Box::new(error),
-                                span: call.head,
-                            },
+                            (Err(error), _) => Value::error(error, call.head),
                         });
 
                 if let Some(md) = metadata {
