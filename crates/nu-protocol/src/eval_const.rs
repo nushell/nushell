@@ -3,8 +3,8 @@ use crate::{
     engine::{EngineState, StateWorkingSet},
     record, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
 };
+use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::path::PathBuf;
-use sysinfo::SystemExt;
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
@@ -140,16 +140,12 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
     record.push("pid", Value::int(std::process::id().into(), span));
 
     record.push("os-info", {
-        let sys = sysinfo::System::new();
-        let ver = match sys.kernel_version() {
-            Some(v) => v,
-            None => "unknown".into(),
-        };
+        let ver = get_kernel_version();
         Value::record(
             record! {
-                "name" => Value::string(std::env::consts::OS, span),
-                "arch" => Value::string(std::env::consts::ARCH, span),
-                "family" => Value::string(std::env::consts::FAMILY, span),
+                "name" => Value::string(get_os_name(), span),
+                "arch" => Value::string(get_os_arch(), span),
+                "family" => Value::string(get_os_family(), span),
                 "kernel_version" => Value::string(ver, span),
             },
             span,
