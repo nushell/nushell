@@ -7,6 +7,8 @@ use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{ShellError, Span, Spanned};
 
+const GLOB_CHARS: &[char] = &['*', '?'];
+
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
 /// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
@@ -62,13 +64,13 @@ pub fn glob_from(
         }
 
         (Some(p), just_pattern)
-    } else if path.to_string_lossy().contains('*') || path.to_string_lossy().contains('?') {
+    } else if path.to_string_lossy().contains(GLOB_CHARS) {
         // Path is a glob pattern => do not check for existence
         // Select the longest prefix until the first '*'
         let mut p = PathBuf::new();
         for c in path.components() {
             if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains('*') || os.to_string_lossy().contains('?') {
+                if os.to_string_lossy().contains(GLOB_CHARS) {
                     break;
                 }
             }
