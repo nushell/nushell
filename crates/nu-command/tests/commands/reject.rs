@@ -154,10 +154,8 @@ fn reject_multiple_rows_ascending() {
 
 #[test]
 fn reject_multiple_rows_descending() {
-    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1");
-
-    assert!(actual.out.contains("a"));
-    assert!(actual.out.contains("b"));
-    assert!(actual.out.contains("1"));
-    assert!(actual.out.contains("2"));
+    assert_eq!(
+        nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon"),
+        "[[a, b]; [1, 2]]"
+    )
 }
