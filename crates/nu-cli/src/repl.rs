@@ -11,9 +11,10 @@ use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::hook::eval_hook;
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_color_config::StyleComputer;
-use nu_engine::{convert_env_values, eval_nu_variable};
+use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
+    eval_const::create_nu_constant,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
@@ -165,7 +166,7 @@ pub fn evaluate_repl(
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = eval_nu_variable(engine_state, Span::unknown())?;
+    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {

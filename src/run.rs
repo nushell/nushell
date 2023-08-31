@@ -7,8 +7,8 @@ use crate::{
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
-use nu_engine::eval_nu_variable;
 use nu_protocol::{PipelineData, Span, NU_VARIABLE_ID};
+use nu_protocol::eval_const::create_nu_constant;
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
@@ -88,7 +88,7 @@ pub(crate) fn run_commands(
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = eval_nu_variable(engine_state, commands.span)?;
+    let nu_const = create_nu_constant(engine_state, commands.span)?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     let start_time = std::time::Instant::now();
@@ -177,7 +177,7 @@ pub(crate) fn run_file(
     );
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = eval_nu_variable(engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    let nu_const = create_nu_constant(engine_state, input.span().unwrap_or_else(Span::unknown))?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     let start_time = std::time::Instant::now();

@@ -16,7 +16,5 @@ nu-path = { path = "../nu-path", version = "0.84.1" }
 nu-glob = { path = "../nu-glob", version = "0.84.1" }
 nu-utils = { path = "../nu-utils", version = "0.84.1" }
 
-sysinfo = "0.29"
-
 [features]
 plugin = []

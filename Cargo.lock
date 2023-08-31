@@ -2834,7 +2834,6 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "sysinfo",
 ]
 
 [[package]]
@@ -2930,6 +2929,7 @@ dependencies = [
  "indexmap 2.0.0",
  "lru",
  "miette",
+ "nu-path",
  "nu-test-support",
  "nu-utils",
  "num-format",
@@ -2938,6 +2938,7 @@ dependencies = [
  "serde_json",
  "strum 0.25.0",
  "strum_macros 0.25.1",
+ "sysinfo",
  "thiserror",
  "typetag",
 ]
