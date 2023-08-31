@@ -24,6 +24,7 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
+use nu_protocol::Span;
 use nu_protocol::{engine::EngineState, report_error_new, Value};
 use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
 use nu_std::load_standard_library;
@@ -181,6 +182,11 @@ fn main() -> Result<()> {
         line!(),
         column!(),
         use_color,
+    );
+
+    engine_state.add_env_var(
+        "NU_VERSION".to_string(),
+        Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
