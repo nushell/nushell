@@ -65,35 +65,35 @@ impl Command for Update {
             Example {
                 description: "Use in closure form for more involved updating logic",
                 example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["count".into(), "fruit".into()],
                         vals: vec![Value::test_int(5), Value::test_string("apple")],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Alter each value in the 'authors' column to use a single string instead of a list",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["project".into(), "authors".into()],
                         vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "You can also use a simple command to update 'authors' to a single string",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["project".into(), "authors".into()],
                         vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             }
         ]
     }
@@ -140,12 +140,7 @@ fn update(
 
                 let input_at_path = match input.clone().follow_cell_path(&cell_path.members, false)
                 {
-                    Err(e) => {
-                        return Value::Error {
-                            error: Box::new(e),
-                            span,
-                        }
-                    }
+                    Err(e) => return Value::error(e, span),
                     Ok(v) => v,
                 };
                 let output = eval_block(
@@ -162,18 +157,12 @@ fn update(
                         if let Err(e) =
                             input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error {
-                                error: Box::new(e),
-                                span,
-                            };
+                            return Value::error(e, span);
                         }
 
                         input
                     }
-                    Err(e) => Value::Error {
-                        error: Box::new(e),
-                        span,
-                    },
+                    Err(e) => Value::error(e, span),
                 }
             },
             ctrlc,
@@ -210,10 +199,7 @@ fn update(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error {
-                        error: Box::new(e),
-                        span,
-                    };
+                    return Value::error(e, span);
                 }
 
                 input

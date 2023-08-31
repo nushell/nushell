@@ -41,10 +41,10 @@ b = [1, 2]' | from toml",
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
                         Value::test_int(1),
-                        Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span: Span::test_data(),
-                        },
+                        Value::list(
+                            vec![Value::test_int(1), Value::test_int(2)],
+                            Span::test_data(),
+                        ),
                     ],
                 })),
             },
@@ -73,25 +73,19 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
                 .map(|x| convert_toml_to_value(x, span))
                 .collect();
 
-            Value::List { vals: v, span }
+            Value::list(v, span)
         }
-        toml::Value::Boolean(b) => Value::Bool { val: *b, span },
-        toml::Value::Float(f) => Value::Float { val: *f, span },
-        toml::Value::Integer(i) => Value::Int { val: *i, span },
+        toml::Value::Boolean(b) => Value::bool(*b, span),
+        toml::Value::Float(f) => Value::float(*f, span),
+        toml::Value::Integer(i) => Value::int(*i, span),
         toml::Value::Table(k) => Value::record(
             k.iter()
                 .map(|(k, v)| (k.clone(), convert_toml_to_value(v, span)))
                 .collect(),
             span,
         ),
-        toml::Value::String(s) => Value::String {
-            val: s.clone(),
-            span,
-        },
-        toml::Value::Datetime(d) => Value::String {
-            val: d.to_string(),
-            span,
-        },
+        toml::Value::String(s) => Value::string(s.clone(), span),
+        toml::Value::Datetime(d) => Value::string(d.to_string(), span),
     }
 }
 

@@ -88,8 +88,8 @@ impl Command for Transpose {
             Example {
                 description: "Transposes the table contents with default column names",
                 example: "[[c1 c2]; [1 2]] | transpose",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["column0".to_string(), "column1".to_string()],
                             vals: vec![Value::test_string("c1"), Value::test_int(1)],
@@ -100,13 +100,13 @@ impl Command for Transpose {
                         }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Transposes the table contents with specified column names",
                 example: "[[c1 c2]; [1 2]] | transpose key val",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["key".to_string(), "val".to_string()],
                             vals: vec![Value::test_string("c1"), Value::test_int(1)],
@@ -117,14 +117,14 @@ impl Command for Transpose {
                         }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description:
                     "Transposes the table without column names and specify a new column name",
                 example: "[[c1 c2]; [1 2]] | transpose -i val",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["val".to_string()],
                             vals: vec![Value::test_int(1)],
@@ -135,7 +135,7 @@ impl Command for Transpose {
                         }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Transfer back to record with -d flag",
@@ -260,19 +260,14 @@ pub fn transpose(
                                 .iter()
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
+                            let current_span = record.vals[index].span();
                             let new_val = match &record.vals[index] {
-                                Value::List { vals, span } => {
+                                Value::List { vals, .. } => {
                                     let mut vals = vals.clone();
                                     vals.push(x.clone());
-                                    Value::List {
-                                        vals: vals.to_vec(),
-                                        span: *span,
-                                    }
+                                    Value::list(vals.to_vec(), current_span)
                                 }
-                                v => Value::List {
-                                    vals: vec![v.clone(), x.clone()],
-                                    span: v.span(),
-                                },
+                                v => Value::list(vec![v.clone(), x.clone()], v.span()),
                             };
                             record.cols.remove(index);
                             record.vals.remove(index);
@@ -298,19 +293,14 @@ pub fn transpose(
                                 .iter()
                                 .position(|y| y == &headers[column_num])
                                 .expect("value is contained.");
+                            let current_span = record.vals[index].span();
                             let new_val = match &record.vals[index] {
-                                Value::List { vals, span } => {
+                                Value::List { vals, .. } => {
                                     let mut vals = vals.clone();
                                     vals.push(Value::nothing(name));
-                                    Value::List {
-                                        vals: vals.to_vec(),
-                                        span: *span,
-                                    }
+                                    Value::list(vals.to_vec(), current_span)
                                 }
-                                v => Value::List {
-                                    vals: vec![v.clone(), Value::nothing(name)],
-                                    span: v.span(),
-                                },
+                                v => Value::list(vec![v.clone(), Value::nothing(name)], v.span()),
                             };
                             record.cols.remove(index);
                             record.vals.remove(index);
