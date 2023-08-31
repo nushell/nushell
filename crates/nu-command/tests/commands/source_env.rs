@@ -1,7 +1,7 @@
 use nu_test_support::fs::AbsolutePath;
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::nu;
-use nu_test_support::;
+use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
 
 #[should_panic]
