@@ -109,7 +109,7 @@ fn glob_ignore_files() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            ("glob '*' -F | length",
+            "glob '*' -F | length",
         );
 
         assert_eq!(
