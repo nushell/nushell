@@ -700,6 +700,10 @@ pub fn eval_expression_with_input(
     redirect_stdout: bool,
     redirect_stderr: bool,
 ) -> Result<(PipelineData, bool), ShellError> {
+    if stack.trace_block {
+        eprintln!("{}", dbg_span_string(engine_state, &expr.span));
+    }
+
     match expr {
         Expression {
             expr: Expr::Call(call),
@@ -1129,11 +1133,6 @@ pub fn eval_block(
             } else {
                 None
             };
-
-            eprintln!(
-                "{}",
-                dbg_trace_pipeline_element(engine_state, stack, &pipeline.elements[i])?
-            );
 
             if let (Some(start_time), Some(end_time), Some(input_metadata)) =
                 (start_time, end_time, input_metadata.as_deref_mut())
