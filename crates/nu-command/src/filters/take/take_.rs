@@ -137,7 +137,7 @@ impl Command for Take {
             Example {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | take 2",
-                result: Some(Value::binary(val: vec![0x01, 0x23], Span::test_data())),
+                result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
             },
             Example {
                 description: "Return the first 3 elements of a range",

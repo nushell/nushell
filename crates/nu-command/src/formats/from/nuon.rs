@@ -220,7 +220,7 @@ fn convert_to_value(
             "subexpressions and cellpaths not supported in nuon".into(),
             expr.span,
         )),
-        Expr::DateTime(dt) => Ok(Value::date { val: dt, span }),
+        Expr::DateTime(dt) => Ok(Value::date(dt, span)),
         Expr::ExternalCall(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -255,7 +255,7 @@ fn convert_to_value(
             "extra tokens in input file".into(),
             expr.span,
         )),
-        Expr::GlobPattern(val) => Ok(Value::String(val, span)),
+        Expr::GlobPattern(val) => Ok(Value::string(val, span)),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),
@@ -268,7 +268,7 @@ fn convert_to_value(
             "overlays not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Int(val) => Ok(Value::Int(val, span)),
+        Expr::Int(val) => Ok(Value::int(val, span)),
         Expr::Keyword(kw, ..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
             "Error when loading".into(),

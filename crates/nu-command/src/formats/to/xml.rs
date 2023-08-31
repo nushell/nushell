@@ -98,13 +98,14 @@ fn to_xml_entry<W: Write>(
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
     let entry_span = entry.span();
+    let span = entry.span();
 
     // Allow using strings directly as content.
     // So user can write
     // {tag: a content: ['qwe']}
     // instead of longer
     // {tag: a content: [{content: 'qwe'}]}
-    if let (Value::String { val, span }, false) = (&entry, top_level) {
+    if let (Value::String { val, .. }, false) = (&entry, top_level) {
         return to_xml_text(val.as_str(), *span, writer);
     }
 
@@ -130,8 +131,10 @@ fn to_xml_entry<W: Write>(
         .get_data_by_key(COLUMN_CONTENT_NAME)
         .unwrap_or_else(|| Value::nothing(Span::unknown()));
 
+    let content_span = content.span();
+    let tag_span = tag.span();
     match (tag, attrs, content) {
-        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, span }) => {
+        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
             // Strings can not appear on top level of document
             if top_level {
                 return Err(ShellError::CantConvert {
@@ -141,16 +144,9 @@ fn to_xml_entry<W: Write>(
                     help: Some("Strings can not be a root element of document".into()),
                 });
             }
-            to_xml_text(val.as_str(), span, writer)
+            to_xml_text(val.as_str(), content_span, writer)
         }
-        (
-            Value::String {
-                val: tag_name,
-                span: tag_span,
-            },
-            attrs,
-            children,
-        ) => to_tag_like(
+        (Value::string { val: tag_name, .. }, attrs, children) => to_tag_like(
             entry_span, tag_name, tag_span, attrs, children, top_level, writer,
         ),
         _ => Ok(()),
