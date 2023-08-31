@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu};
 
 #[test]
 fn empty_glob_pattern_triggers_error() {
@@ -31,7 +31,7 @@ fn nonempty_glob_lists_matching_paths() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            pipeline("glob '*' | length"),
+            "glob '*' | length",
         );
 
         assert_eq!(actual.out, "3");
@@ -55,7 +55,7 @@ fn glob_subdirs() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            pipeline("glob '**/*' | length"),
+            "glob '**/*' | length",
         );
 
         assert_eq!(
@@ -82,7 +82,7 @@ fn glob_subdirs_ignore_dirs() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            pipeline("glob '**/*' -D | length"),
+            "glob '**/*' -D | length",
         );
 
         assert_eq!(
@@ -109,7 +109,7 @@ fn glob_ignore_files() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            pipeline("glob '*' -F | length"),
+            ("glob '*' -F | length",
         );
 
         assert_eq!(
