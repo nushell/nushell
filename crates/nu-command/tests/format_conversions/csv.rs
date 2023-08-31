@@ -254,12 +254,12 @@ fn from_csv_text_with_custom_escapes_to_table() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            r"
                 open los_tres_caballeros.txt
                 | from csv --escape '\'
                 | first
                 | get first_name
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "And\"rés");
