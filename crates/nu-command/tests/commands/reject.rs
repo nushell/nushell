@@ -146,16 +146,12 @@ fn reject_optional_row() {
 
 #[test]
 fn reject_multiple_rows_ascending() {
-    assert_eq!(
-        nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon"),
-        "[[a, b]; [1, 2]]"
-    )
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
 }
 
 #[test]
 fn reject_multiple_rows_descending() {
-    assert_eq!(
-        nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon"),
-        "[[a, b]; [1, 2]]"
-    )
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
 }
