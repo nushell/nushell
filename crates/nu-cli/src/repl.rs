@@ -14,9 +14,9 @@ use nu_color_config::StyleComputer;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
-    eval_const::create_nu_constant,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::create_nu_constant,
     report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value, NU_VARIABLE_ID,
 };
