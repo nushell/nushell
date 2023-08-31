@@ -130,19 +130,16 @@ fn reject(
                         Vec::new(),
                     ));
                 }
-                if unique_rows.contains(val) {
-                    return Err(ShellError::GenericError(
-                        "Reject can't get the same row twice".into(),
-                        "duplicated row index".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
+                if !unique_rows.contains(val) {
+                    unique_rows.insert(*val);
+                    new_rows.push(column);
                 }
-                unique_rows.insert(*val);
-                new_rows.push(column);
             }
-            _ => new_columns.push(column),
+            _ => {
+                if !new_columns.contains(&column) {
+                    new_columns.push(column)
+                }
+            }
         };
     }
     new_rows.sort_unstable_by_key(|k| {
