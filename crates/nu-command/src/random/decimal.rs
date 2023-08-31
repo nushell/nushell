@@ -94,10 +94,7 @@ fn decimal(
             span,
         }),
         Some(Ordering::Equal) => Ok(PipelineData::Value(
-            Value::Float {
-                val: min,
-                span: Span::new(64, 64),
-            },
+            Value::float(min, Span::new(64, 64)),
             None,
         )),
         _ => {
@@ -105,10 +102,7 @@ fn decimal(
             let result: f64 = thread_rng.gen_range(min..max);
 
             Ok(PipelineData::Value(
-                Value::Float {
-                    val: result,
-                    span: Span::new(64, 64),
-                },
+                Value::float(result, Span::new(64, 64)),
                 None,
             ))
         }

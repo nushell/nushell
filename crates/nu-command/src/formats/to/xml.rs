@@ -106,7 +106,7 @@ fn to_xml_entry<W: Write>(
     // instead of longer
     // {tag: a content: [{content: 'qwe'}]}
     if let (Value::String { val, .. }, false) = (&entry, top_level) {
-        return to_xml_text(val.as_str(), *span, writer);
+        return to_xml_text(val.as_str(), span, writer);
     }
 
     if !matches!(entry, Value::Record { .. }) {
@@ -146,7 +146,7 @@ fn to_xml_entry<W: Write>(
             }
             to_xml_text(val.as_str(), content_span, writer)
         }
-        (Value::string { val: tag_name, .. }, attrs, children) => to_tag_like(
+        (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
             entry_span, tag_name, tag_span, attrs, children, top_level, writer,
         ),
         _ => Ok(()),
