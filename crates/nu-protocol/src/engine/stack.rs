@@ -74,6 +74,8 @@ pub struct Stack {
     pub active_overlays: Vec<String>,
     pub recursion_count: Box<u64>,
     pub profiling_config: ProfilingConfig,
+    // Enable to trace commands in the current block (only)
+    pub trace_block: bool,
 }
 
 impl Stack {
@@ -85,6 +87,7 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: Box::new(0),
             profiling_config: ProfilingConfig::new(0, false, false),
+            trace_block: false,
         }
     }
 
@@ -196,6 +199,7 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
             profiling_config: self.profiling_config.clone(),
+            trace_block: false,
         }
     }
 
@@ -224,6 +228,7 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
             profiling_config: self.profiling_config.clone(),
+            trace_block: false,
         }
     }
 
