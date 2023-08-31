@@ -1,7 +1,4 @@
-use nu_protocol::{
-    engine::EngineState,
-    Span,
-};
+use nu_protocol::{engine::EngineState, Span};
 
 // Format string with source file: line_number content_of_span.
 // If span contains newlines, then print sourcefile on line by itself,

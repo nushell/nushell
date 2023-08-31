@@ -752,10 +752,10 @@ impl EngineState {
     }
 
     // name of file containing span
-    pub fn get_file_for_span<'a>(&'a self, span: Span) -> Option<&'a str> {
+    pub fn get_file_for_span(&self, span: Span) -> Option<&str> {
         for (filename, start, end) in self.files() {
             if span.start >= *start && span.end <= *end {
-                return Some(&filename);
+                return Some(filename);
             }
         }
 

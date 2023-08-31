@@ -1104,7 +1104,7 @@ pub fn eval_block(
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = {
-                let r = eval_element_with_input(
+                eval_element_with_input(
                     engine_state,
                     stack,
                     &pipeline.elements[i],
@@ -1123,9 +1123,7 @@ pub fn eval_block(
                                     | PipelineElement::SeparateRedirection { .. }
                             )),
                     redirect_stderr,
-                );
-
-                r
+                )
             };
 
             let end_time = if stack.profiling_config.should_debug() {
