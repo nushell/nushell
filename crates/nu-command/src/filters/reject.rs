@@ -6,7 +6,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Reject;
@@ -112,10 +112,11 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
-    let mut unique_rows: HashMap<usize, Span> = HashMap::new();
+    let mut unique_rows: HashSet<usize> = HashSet::new();
     let val = input.into_value(span);
     let mut val = val;
     let mut new_columns = vec![];
+    let mut new_rows = vec![];
     for column in cell_paths {
         let CellPath { ref members } = column;
         match members.get(0) {
@@ -129,7 +130,7 @@ fn reject(
                         Vec::new(),
                     ));
                 }
-                if unique_rows.contains_key(val) {
+                if unique_rows.contains(val) {
                     return Err(ShellError::GenericError(
                         "Reject can't get the same row twice".into(),
                         "duplicated row index".into(),
@@ -138,26 +139,22 @@ fn reject(
                         Vec::new(),
                     ));
                 }
-                unique_rows.insert(*val, *span);
+                unique_rows.insert(*val);
+                new_rows.push(column);
             }
             _ => new_columns.push(column),
         };
     }
-    let mut unique_rows: Vec<(usize, Span)> = unique_rows.into_iter().collect();
-
-    unique_rows.sort_unstable_by_key(|(val, _span)| Reverse(*val));
-
-    let mut unique_rows: Vec<CellPath> = unique_rows
-        .into_iter()
-        .map(|(val, span)| CellPath {
-            members: vec![PathMember::Int {
-                val,
-                span,
-                optional: false,
-            }],
+    new_rows.sort_unstable_by_key(|k| {
+        Reverse({
+            match k.members[0] {
+                PathMember::Int { val, .. } => val,
+                PathMember::String { .. } => usize::MIN,
+            }
         })
-        .collect();
-    new_columns.append(&mut unique_rows);
+    });
+
+    new_columns.append(&mut new_rows);
     for cell_path in new_columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }
