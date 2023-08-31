@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu};
 
 #[test]
 fn empty_glob_pattern_triggers_error() {
