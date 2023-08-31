@@ -341,7 +341,9 @@ fn from_csv_text_with_multiple_char_separator() {
             "#
         ));
 
-        assert!(actual.err.contains("single character separator"));
+        assert!(actual
+            .err
+            .contains("separator should be a single char or a 4-byte unicode"));
     })
 }
 
@@ -366,7 +368,7 @@ fn from_csv_text_with_wrong_type_separator() {
             "#
         ));
 
-        assert!(actual.err.contains("can't convert int to char"));
+        assert!(actual.err.contains("can't convert int to string"));
     })
 }
 
@@ -403,4 +405,58 @@ fn string_to_csv_error() {
     ));
 
     assert!(actual.err.contains("command doesn't support"))
+}
+
+#[test]
+fn parses_csv_with_unicode_sep() {
+    Playground::setup("filter_from_csv_unicode_sep_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name;last_name;rusty_luck
+                Andrés;Robalino;1
+                JT;Turner;1
+                Yehuda;Katz;1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --separator "003B"
+                | get rusty_luck
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
+}
+
+#[test]
+fn parses_csv_with_unicode_x1f_sep() {
+    Playground::setup("filter_from_csv_unicode_sep_x1f_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_namelast_namerusty_luck
+                AndrésRobalino1
+                JTTurner1
+                YehudaKatz1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from csv --separator "001F"
+                | get rusty_luck
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "3");
+    })
 }
