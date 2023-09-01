@@ -64,7 +64,6 @@ impl Command for Skip {
             },
         ]
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -99,7 +98,7 @@ impl Command for Skip {
         };
 
         let ctrlc = engine_state.ctrlc.clone();
-
+        let input_span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -140,22 +139,12 @@ impl Command for Skip {
                     .into_pipeline_data()
                     .set_metadata(metadata))
             }
-            PipelineData::Value(v, metadata) => {
-                let span = v.span();
-                match v {
-                    Value::Binary { val, .. } => {
-                        let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
+            PipelineData::Value(Value::Binary { val, .. }, metadata) => {
+                let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
 
-                        Ok(Value::binary(bytes, span)
-                            .into_pipeline_data()
-                            .set_metadata(metadata))
-                    }
-                    _ => Ok(input
-                        .into_iter_strict(call.head)?
-                        .skip(n)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata)),
-                }
+                Ok(Value::binary(bytes, input_span)
+                    .into_pipeline_data()
+                    .set_metadata(metadata))
             }
             _ => Ok(input
                 .into_iter_strict(call.head)?

@@ -224,7 +224,7 @@ impl Command for Find {
         if let Some(regex) = regex {
             find_with_regex(regex, engine_state, stack, call, input)
         } else {
-            let input = split_string_if_multiline(input);
+            let input = split_string_if_multiline(input, call.head);
             find_with_rest_and_highlight(engine_state, stack, call, input)
         }
     }
@@ -599,28 +599,21 @@ mod tests {
     }
 }
 
-fn split_string_if_multiline(input: PipelineData) -> PipelineData {
+fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
+    let span = input.span().unwrap_or(head_span);
     match input {
-        PipelineData::Value(v, ..) => {
-            let span = v.span();
-            match v {
-                Value::String { ref val, .. } => {
-                    if val.contains('\n') {
-                        Value::list(
-                            {
-                                val.lines()
-                                    .map(|s| Value::string(s.to_string(), span))
-                                    .collect()
-                            },
-                            span,
-                        )
-                        .into_pipeline_data()
-                        .set_metadata(input.metadata())
-                    } else {
-                        input
-                    }
-                }
-                _ => input,
+        PipelineData::Value(Value::String { ref val, .. }, _) => {
+            if val.contains('\n') {
+                Value::list(
+                    val.lines()
+                        .map(|s| Value::string(s.to_string(), span))
+                        .collect(),
+                    span,
+                )
+                .into_pipeline_data()
+                .set_metadata(input.metadata())
+            } else {
+                input
             }
         }
         _ => input,
