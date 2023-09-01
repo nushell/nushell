@@ -34,17 +34,14 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::String {
-            val: dir_str.clone(),
-            span: nu_protocol::Span::new(0, dir_str.len()),
-        },
+        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::String {
-            val: "NUSHELL".to_string(),
-            span: nu_protocol::Span::new(0, dir_str.len()),
-        },
+        Value::string(
+            "NUSHELL".to_string(),
+            nu_protocol::Span::new(0, dir_str.len()),
+        ),
     );
     #[cfg(windows)]
     stack.add_env_var(
@@ -57,10 +54,10 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     #[cfg(not(windows))]
     stack.add_env_var(
         "PATH".to_string(),
-        Value::String {
-            val: "/some/path:/some/other/path".to_string(),
-            span: nu_protocol::Span::new(0, dir_str.len()),
-        },
+        Value::string(
+            "/some/path:/some/other/path".to_string(),
+            nu_protocol::Span::new(0, dir_str.len()),
+        ),
     );
 
     // Merge environment into the permanent state
@@ -89,17 +86,14 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::String {
-            val: dir_str.clone(),
-            span: nu_protocol::Span::new(0, dir_str.len()),
-        },
+        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
     );
     stack.add_env_var(
         "TEST".to_string(),
-        Value::String {
-            val: "NUSHELL".to_string(),
-            span: nu_protocol::Span::new(0, dir_str.len()),
-        },
+        Value::string(
+            "NUSHELL".to_string(),
+            nu_protocol::Span::new(0, dir_str.len()),
+        ),
     );
 
     // Merge environment into the permanent state
@@ -162,12 +156,7 @@ pub fn merge_input(
         engine_state,
         stack,
         &block,
-        PipelineData::Value(
-            Value::Nothing {
-                span: Span::unknown(),
-            },
-            None
-        ),
+        PipelineData::Value(Value::nothing(Span::unknown(),), None),
         false,
         false
     )
