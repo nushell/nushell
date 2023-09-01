@@ -185,6 +185,11 @@ fn main() -> Result<()> {
         use_color,
     );
 
+    engine_state.add_env_var(
+        "NU_VERSION".to_string(),
+        Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
+    );
+
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
     }
