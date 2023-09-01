@@ -2,7 +2,7 @@ use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
+use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 pub const CMD_NAME: &str = "from eml";
@@ -24,7 +24,7 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml"
                 .into(),
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec![
                     "Subject".to_string(),
                     "From".to_string(),
@@ -33,26 +33,23 @@ Test' | from eml"
                 ],
                 vals: vec![
                     Value::test_string("Welcome"),
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
                             Value::nothing(Span::test_data()),
                             Value::test_string("test@email.com"),
                         ],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
+                    }),
+                    Value::test_record(Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
                             Value::nothing(Span::test_data()),
                             Value::test_string("someone@somewhere.com"),
                         ],
-                        span: Span::test_data(),
-                    },
+                    }),
                     Value::test_string("Test"),
                 ],
-                span: Span::test_data(),
-            }),
+            })),
         },
         PluginExample {
             description: "Convert eml structured data into record".into(),
@@ -61,7 +58,7 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml -b 1"
                 .into(),
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec![
                     "Subject".to_string(),
                     "From".to_string(),
@@ -70,26 +67,23 @@ Test' | from eml -b 1"
                 ],
                 vals: vec![
                     Value::test_string("Welcome"),
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
                             Value::nothing(Span::test_data()),
                             Value::test_string("test@email.com"),
                         ],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
+                    }),
+                    Value::test_record(Record {
                         cols: vec!["Name".to_string(), "Address".to_string()],
                         vals: vec![
                             Value::nothing(Span::test_data()),
                             Value::test_string("someone@somewhere.com"),
                         ],
-                        span: Span::test_data(),
-                    },
+                    }),
                     Value::test_string("T"),
                 ],
-                span: Span::test_data(),
-            }),
+            })),
         },
     ]
 }
@@ -115,11 +109,13 @@ fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
         ),
     };
 
-    Value::Record {
-        cols: vec!["Name".to_string(), "Address".to_string()],
-        vals: vec![n, a],
+    Value::record(
+        record! {
+            "Name" => n,
+            "Address" => a,
+        },
         span,
-    }
+    )
 }
 
 fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
@@ -186,8 +182,5 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
         );
     }
 
-    Ok(Value::from(Spanned {
-        item: collected,
-        span: head,
-    }))
+    Ok(Value::record(collected.into_iter().collect(), head))
 }

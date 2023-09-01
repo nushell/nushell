@@ -2,12 +2,12 @@ use ical::parser::vcard::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
+use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
 
 pub const CMD_NAME: &str = "from vcf";
 
 pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-    let span = input.span().unwrap_or(call.head);
+    let span = input.span();
     let input_string = input.as_string()?;
     let head = call.head;
 
@@ -30,6 +30,7 @@ pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
                 head,
                 span,
             )),
+            span,
         },
     });
 
@@ -50,11 +51,11 @@ END:VCARD' | from vcf"
             .into(),
         description: "Converts ics formatted string to table".into(),
         result: Some(Value::List {
-            vals: vec![Value::Record {
+            vals: vec![Value::test_record(Record {
                 cols: vec!["properties".to_string()],
                 vals: vec![Value::List {
                     vals: vec![
-                        Value::Record {
+                        Value::test_record(Record {
                             cols: vec![
                                 "name".to_string(),
                                 "value".to_string(),
@@ -67,9 +68,8 @@ END:VCARD' | from vcf"
                                     span: Span::test_data(),
                                 },
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec![
                                 "name".to_string(),
                                 "value".to_string(),
@@ -82,9 +82,8 @@ END:VCARD' | from vcf"
                                     span: Span::test_data(),
                                 },
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec![
                                 "name".to_string(),
                                 "value".to_string(),
@@ -97,25 +96,21 @@ END:VCARD' | from vcf"
                                     span: Span::test_data(),
                                 },
                             ],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
                     span: Span::test_data(),
                 }],
-                span: Span::test_data(),
-            }],
+            })],
             span: Span::test_data(),
         }),
     }]
 }
 
 fn contact_to_value(contact: VcardContact, span: Span) -> Value {
-    let mut row = IndexMap::new();
-    row.insert(
-        "properties".to_string(),
-        properties_to_value(contact.properties, span),
-    );
-    Value::from(Spanned { item: row, span })
+    Value::record(
+        record! { "properties" => properties_to_value(contact.properties, span) },
+        span,
+    )
 }
 
 fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
@@ -123,8 +118,6 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
         vals: properties
             .into_iter()
             .map(|prop| {
-                let mut row = IndexMap::new();
-
                 let name = Value::String {
                     val: prop.name,
                     span,
@@ -138,10 +131,14 @@ fn properties_to_value(properties: Vec<Property>, span: Span) -> Value {
                     None => Value::Nothing { span },
                 };
 
-                row.insert("name".to_string(), name);
-                row.insert("value".to_string(), value);
-                row.insert("params".to_string(), params);
-                Value::from(Spanned { item: row, span })
+                Value::record(
+                    record! {
+                        "name" => name,
+                        "value" => value,
+                        "params" => params,
+                    },
+                    span,
+                )
             })
             .collect::<Vec<Value>>(),
         span,
@@ -160,5 +157,5 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
         row.insert(param_name, values);
     }
 
-    Value::from(Spanned { item: row, span })
+    Value::record(row.into_iter().collect(), span)
 }

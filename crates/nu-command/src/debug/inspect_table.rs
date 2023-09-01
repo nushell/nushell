@@ -30,7 +30,8 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     }
 
     if val_table_width > desc_table_width {
-        increase_string_width(&mut desc, val_table_width);
+        desc_width += val_table_width - desc_table_width;
+        increase_string_width(&mut desc, desc_width);
     }
 
     if desc_table_width > termsize {
@@ -198,9 +199,10 @@ mod util {
     /// Try to build column names and a table grid.
     pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
         match value {
-            Value::Record { cols, vals, .. } => (
-                cols,
-                vec![vals
+            Value::Record { val: record, .. } => (
+                record.cols,
+                vec![record
+                    .vals
                     .into_iter()
                     .map(|s| debug_string_without_formatting(&s))
                     .collect()],

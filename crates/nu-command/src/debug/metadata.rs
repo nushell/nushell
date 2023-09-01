@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    record, Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
+    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -73,37 +73,22 @@ impl Command for Metadata {
                 Ok(build_metadata_record(&val, &input.metadata(), head).into_pipeline_data())
             }
             None => {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
                 if let Some(x) = input.metadata().as_deref() {
                     match x {
                         PipelineMetadata {
                             data_source: DataSource::Ls,
-                        } => {
-                            cols.push("source".into());
-                            vals.push(Value::string("ls", head))
-                        }
+                        } => record.push("source", Value::string("ls", head)),
                         PipelineMetadata {
                             data_source: DataSource::HtmlThemes,
-                        } => {
-                            cols.push("source".into());
-                            vals.push(Value::string("into html --list", head))
-                        }
+                        } => record.push("source", Value::string("into html --list", head)),
                         PipelineMetadata {
                             data_source: DataSource::Profiling(values),
-                        } => {
-                            cols.push("profiling".into());
-                            vals.push(Value::list(values.clone(), head))
-                        }
+                        } => record.push("profiling", Value::list(values.clone(), head)),
                     }
                 }
 
-                Ok(Value::Record {
-                    cols,
-                    vals,
-                    span: head,
-                }
-                .into_pipeline_data())
+                Ok(Value::record(record, head).into_pipeline_data())
             }
         }
     }
@@ -129,55 +114,35 @@ fn build_metadata_record(
     metadata: &Option<Box<PipelineMetadata>>,
     head: Span,
 ) -> Value {
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
 
-    if let Ok(span) = arg.span() {
-        cols.push("span".into());
-        vals.push(Value::Record {
-            cols: vec!["start".into(), "end".into()],
-            vals: vec![
-                Value::Int {
-                    val: span.start as i64,
-                    span,
-                },
-                Value::Int {
-                    val: span.end as i64,
-                    span,
-                },
-            ],
-            span: head,
-        });
-    }
+    let span = arg.span();
+    record.push(
+        "span",
+        Value::record(
+            record! {
+                "start" => Value::int(span.start as i64,span),
+                "end" => Value::int(span.end as i64, span),
+            },
+            head,
+        ),
+    );
 
     if let Some(x) = metadata.as_deref() {
         match x {
             PipelineMetadata {
                 data_source: DataSource::Ls,
-            } => {
-                cols.push("source".into());
-                vals.push(Value::string("ls", head))
-            }
+            } => record.push("source", Value::string("ls", head)),
             PipelineMetadata {
                 data_source: DataSource::HtmlThemes,
-            } => {
-                cols.push("source".into());
-                vals.push(Value::string("into html --list", head))
-            }
+            } => record.push("source", Value::string("into html --list", head)),
             PipelineMetadata {
                 data_source: DataSource::Profiling(values),
-            } => {
-                cols.push("profiling".into());
-                vals.push(Value::list(values.clone(), head))
-            }
+            } => record.push("profiling", Value::list(values.clone(), head)),
         }
     }
 
-    Value::Record {
-        cols,
-        vals,
-        span: head,
-    }
+    Value::record(record, head)
 }
 
 #[cfg(test)]

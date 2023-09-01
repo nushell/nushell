@@ -1,4 +1,4 @@
-use crate::{ShellError, Span, Value};
+use crate::{record, Record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -26,7 +26,7 @@ pub struct ParsedMenu {
     pub source: Value,
 }
 
-/// Definition of a parsed menu from the config object
+/// Definition of a parsed hook from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Hooks {
     pub pre_prompt: Option<Value>,
@@ -113,6 +113,7 @@ pub struct Config {
     pub cursor_shape_emacs: NuCursorShape,
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
+    pub error_style: String,
 }
 
 impl Default for Config {
@@ -175,6 +176,8 @@ impl Default for Config {
             menus: Vec::new(),
 
             keybindings: Vec::new(),
+
+            error_style: "fancy".into(),
         }
     }
 }
@@ -323,7 +326,8 @@ impl Value {
         // $env.config.ls.use_ls_colors = 2 results in an error, so
         // the current use_ls_colors config setting is converted to a Value::Boolean and inserted in the
         // record in place of the 2.
-        if let Value::Record { cols, vals, span } = self {
+        if let Value::Record { val, span } = self {
+            let Record { cols, vals } = val;
             let span = *span;
             // Because this whole algorithm removes while iterating, this must iterate in reverse.
             for index in (0..cols.len()).rev() {
@@ -332,7 +336,8 @@ impl Value {
                 match key {
                     // Grouped options
                     "ls" => {
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -353,27 +358,27 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["use_ls_colors".into(), "clickable_links".into()],
-                                vec![
-                                    Value::bool(config.use_ls_colors, span),
-                                    Value::bool(config.show_clickable_links_in_ls, span),
-                                ],
+                                record! {
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors, span),
+                                    "clickable_links" => Value::bool(config.show_clickable_links_in_ls, span),
+                                },
                                 span,
                             );
                         }
                     }
                     "cd" => {
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -386,27 +391,27 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["use_ls_colors".into(), "clickable_links".into()],
-                                vec![
-                                    Value::bool(config.use_ls_colors, span),
-                                    Value::bool(config.show_clickable_links_in_ls, span),
-                                ],
+                                record! {
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors, span),
+                                    "clickable_links" => Value::bool(config.show_clickable_links_in_ls, span),
+                                },
                                 span,
                             );
                         }
                     }
                     "rm" => {
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -419,18 +424,19 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["always_trash".into()],
-                                vec![Value::bool(config.rm_always_trash, span)],
+                                record! {
+                                    "always_trash" => Value::bool(config.rm_always_trash, span),
+                                },
                                 span,
                             );
                         }
@@ -447,7 +453,8 @@ impl Value {
                                 )
                             };
                         }
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -494,28 +501,22 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec![
-                                    "sync_on_enter".into(),
-                                    "max_size".into(),
-                                    "file_format".into(),
-                                    "isolation".into(),
-                                ],
-                                vec![
-                                    Value::bool(config.sync_history_on_enter, span),
-                                    Value::int(config.max_history_size, span),
-                                    reconstruct_history_file_format!(span),
-                                    Value::bool(config.history_isolation, span),
-                                ],
+                                record! {
+                                    "sync_on_enter" => Value::bool(config.sync_history_on_enter, span),
+                                    "max_size" => Value::int(config.max_history_size, span),
+                                    "file_format" => reconstruct_history_file_format!(span),
+                                    "isolation" => Value::bool(config.history_isolation, span),
+                                },
                                 span,
                             );
                         }
@@ -536,17 +537,17 @@ impl Value {
                         macro_rules! reconstruct_external {
                             ($span: expr) => {
                                 Value::record(
-                                    vec!["max_results".into(), "completer".into(), "enable".into()],
-                                    vec![
-                                        Value::int(config.max_external_completion_results, $span),
-                                        reconstruct_external_completer!($span),
-                                        Value::bool(config.enable_external_completion, $span),
-                                    ],
+                                    record! {
+                                        "max_results" => Value::int(config.max_external_completion_results, $span),
+                                        "completer" => reconstruct_external_completer!($span),
+                                        "enable" => Value::bool(config.enable_external_completion, $span),
+                                    },
                                     $span,
                                 )
                             };
                         }
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -596,8 +597,8 @@ impl Value {
                                         )
                                     }
                                     "external" => {
-                                        if let Value::Record { cols, vals, span } = &mut vals[index]
-                                        {
+                                        if let Value::Record { val, span } = &mut vals[index] {
+                                            let Record { cols, vals } = val;
                                             let span = *span;
                                             for index in (0..cols.len()).rev() {
                                                 let value = &vals[index];
@@ -645,7 +646,7 @@ impl Value {
                                                             cols,
                                                             vals,
                                                             index,
-                                                            value.span().ok(),
+                                                            Some(value.span()),
                                                             "$env.config.{key}.{key2}.{x} is an unknown config setting"
                                                     );
                                                     }
@@ -662,30 +663,23 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct record
                             vals[index] = Value::record(
-                                vec![
-                                    "quick".into(),
-                                    "partial".into(),
-                                    "algorithm".into(),
-                                    "case_sensitive".into(),
-                                    "external".into(),
-                                ],
-                                vec![
-                                    Value::bool(config.quick_completions, span),
-                                    Value::bool(config.partial_completions, span),
-                                    Value::string(config.completion_algorithm.clone(), span),
-                                    Value::bool(config.case_sensitive_completions, span),
-                                    reconstruct_external!(span),
-                                ],
+                                record! {
+                                    "quick" => Value::bool(config.quick_completions, span),
+                                    "partial" => Value::bool(config.partial_completions, span),
+                                    "algorithm" => Value::string(config.completion_algorithm.clone(), span),
+                                    "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
+                                    "external" => reconstruct_external!(span),
+                                },
                                 span,
                             );
                         }
@@ -706,7 +700,8 @@ impl Value {
                                 )
                             };
                         }
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -860,22 +855,21 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["vi_insert".into(), "vi_normal".into(), "emacs".into()],
-                                vec![
-                                    reconstruct_cursor_shape!(config.cursor_shape_vi_insert, span),
-                                    reconstruct_cursor_shape!(config.cursor_shape_vi_normal, span),
-                                    reconstruct_cursor_shape!(config.cursor_shape_emacs, span),
-                                ],
+                                record! {
+                                    "vi_insert" => reconstruct_cursor_shape!(config.cursor_shape_vi_insert, span),
+                                    "vi_normal" => reconstruct_cursor_shape!(config.cursor_shape_vi_normal, span),
+                                    "emacs" => reconstruct_cursor_shape!(config.cursor_shape_emacs, span),
+                                },
                                 span,
                             );
                         }
@@ -897,34 +891,30 @@ impl Value {
                             ($span:expr) => {
                                 match &config.trim_strategy {
                                     TrimStrategy::Wrap { try_to_keep_words } => Value::record(
-                                        vec![
-                                            "methodology".into(),
-                                            "wrapping_try_keep_words".into(),
-                                        ],
-                                        vec![
-                                            Value::string("wrapping", $span),
-                                            Value::bool(*try_to_keep_words, $span),
-                                        ],
+                                        record! {
+                                            "methodology" => Value::string("wrapping", $span),
+                                            "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, $span),
+                                        },
                                         $span,
                                     ),
                                     TrimStrategy::Truncate { suffix } => Value::record(
-                                        vec!["methodology".into(), "truncating_suffix".into()],
                                         match suffix {
-                                            Some(s) => vec![
-                                                Value::string("truncating", $span),
-                                                Value::string(s.clone(), $span),
-                                            ],
-                                            None => vec![
-                                                Value::string("truncating", $span),
-                                                Value::Nothing { span: $span },
-                                            ],
+                                            Some(s) => record! {
+                                                "methodology" => Value::string("truncating", $span),
+                                                "truncating_suffix" => Value::string(s.clone(), $span),
+                                            },
+                                            None => record! {
+                                                "methodology" => Value::string("truncating", $span),
+                                                "truncating_suffix" => Value::Nothing { span: $span },
+                                            },
                                         },
                                         $span,
                                     ),
                                 }
                             };
                         }
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -951,7 +941,8 @@ impl Value {
                                             config.table_indent.left = *val as usize;
                                             config.table_indent.right = *val as usize;
                                         }
-                                        Value::Record { vals, cols, .. } => {
+                                        Value::Record { val, .. } => {
+                                            let Record { cols, vals } = val;
                                             let left = cols.iter().position(|e| e == "left");
                                             let right = cols.iter().position(|e| e == "right");
 
@@ -1034,34 +1025,29 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec![
-                                    "mode".into(),
-                                    "index_mode".into(),
-                                    "trim".into(),
-                                    "show_empty".into(),
-                                ],
-                                vec![
-                                    Value::string(config.table_mode.clone(), span),
-                                    reconstruct_index_mode!(span),
-                                    reconstruct_trim_strategy!(span),
-                                    Value::bool(config.table_show_empty, span),
-                                ],
+                                record! {
+                                    "mode" => Value::string(config.table_mode.clone(), span),
+                                    "index_mode" => reconstruct_index_mode!(span),
+                                    "trim" => reconstruct_trim_strategy!(span),
+                                    "show_empty" => Value::bool(config.table_show_empty, span),
+                                },
                                 span,
                             )
                         }
                     }
                     "filesize" => {
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
                             let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
@@ -1085,21 +1071,20 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["metric".into(), "format".into()],
-                                vec![
-                                    Value::bool(config.filesize_metric, span),
-                                    Value::string(config.filesize_format.clone(), span),
-                                ],
+                                record! {
+                                    "metric" => Value::bool(config.filesize_metric, span),
+                                    "format" => Value::string(config.filesize_format.clone(), span),
+                                },
                                 span,
                             );
                         }
@@ -1108,9 +1093,16 @@ impl Value {
                         if let Ok(map) = create_map(value) {
                             config.explore = map;
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
-                            vals[index] = Value::record_from_hashmap(&config.explore, span);
+                            vals[index] = Value::record(
+                                config
+                                    .explore
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                    .collect(),
+                                span,
+                            );
                         }
                     }
                     // Misc. options
@@ -1118,9 +1110,16 @@ impl Value {
                         if let Ok(map) = create_map(value) {
                             config.color_config = map;
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
-                            vals[index] = Value::record_from_hashmap(&config.color_config, span);
+                            vals[index] = Value::record(
+                                config
+                                    .color_config
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                    .collect(),
+                                span,
+                            );
                         }
                     }
                     "use_grid_icons" => {
@@ -1206,25 +1205,17 @@ impl Value {
                                              menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
                                              source,
                                          }| {
-                                            Value::Record {
-                                                cols: vec![
-                                                    "name".into(),
-                                                    "only_buffer_difference".into(),
-                                                    "marker".into(),
-                                                    "style".into(),
-                                                    "type".into(),
-                                                    "source".into(),
-                                                ],
-                                                vals: vec![
-                                                    name.clone(),
-                                                    only_buffer_difference.clone(),
-                                                    marker.clone(),
-                                                    style.clone(),
-                                                    menu_type.clone(),
-                                                    source.clone(),
-                                                ],
+                                            Value::record(
+                                                record! {
+                                                    "name" => name.clone(),
+                                                    "only_buffer_difference" => only_buffer_difference.clone(),
+                                                    "marker" => marker.clone(),
+                                                    "style" => style.clone(),
+                                                    "type" => menu_type.clone(),
+                                                    "source" => source.clone(),
+                                                },
                                                 span,
-                                            }
+                                            )
                                         },
                                     )
                                     .collect(),
@@ -1250,21 +1241,15 @@ impl Value {
                                              mode,
                                              event,
                                          }| {
-                                            Value::Record {
-                                                cols: vec![
-                                                    "modifier".into(),
-                                                    "keycode".into(),
-                                                    "mode".into(),
-                                                    "event".into(),
-                                                ],
-                                                vals: vec![
-                                                    modifier.clone(),
-                                                    keycode.clone(),
-                                                    mode.clone(),
-                                                    event.clone(),
-                                                ],
+                                            Value::record(
+                                                record! {
+                                                    "modifier" => modifier.clone(),
+                                                    "keycode" => keycode.clone(),
+                                                    "mode" => mode.clone(),
+                                                    "event" => event.clone(),
+                                                },
                                                 span,
-                                            }
+                                            )
                                         },
                                     )
                                     .collect(),
@@ -1279,33 +1264,26 @@ impl Value {
                             invalid!(Some(span), "should be a valid hooks list");
                             errors.push(e);
                             // Reconstruct
-                            let mut hook_cols = vec![];
-                            let mut hook_vals = vec![];
+                            let mut hook = Record::new();
                             if let Some(ref value) = config.hooks.pre_prompt {
-                                hook_cols.push("pre_prompt".into());
-                                hook_vals.push(value.clone());
+                                hook.push("pre_prompt", value.clone());
                             }
                             if let Some(ref value) = config.hooks.pre_execution {
-                                hook_cols.push("pre_execution".into());
-                                hook_vals.push(value.clone());
+                                hook.push("pre_execution", value.clone());
                             }
                             if let Some(ref value) = config.hooks.env_change {
-                                hook_cols.push("env_change".into());
-                                hook_vals.push(value.clone());
+                                hook.push("env_change", value.clone());
                             }
                             if let Some(ref value) = config.hooks.display_output {
-                                hook_cols.push("display_output".into());
-                                hook_vals.push(value.clone());
+                                hook.push("display_output", value.clone());
                             }
-                            vals.push(Value::Record {
-                                cols: hook_cols,
-                                vals: hook_vals,
-                                span,
-                            });
+                            vals.push(Value::record(hook, span));
                         }
                     },
                     "datetime_format" => {
-                        if let Value::Record { cols, vals, span } = &mut vals[index] {
+                        if let Value::Record { val, span } = &mut vals[index] {
+                            let Record { cols, vals } = val;
+                            let span = *span;
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
@@ -1314,14 +1292,14 @@ impl Value {
                                         if let Ok(v) = value.as_string() {
                                             config.datetime_normal_format = Some(v);
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                         }
                                     }
                                     "table" => {
                                         if let Ok(v) = value.as_string() {
                                             config.datetime_table_format = Some(v);
                                         } else {
-                                            invalid!(Some(*span), "should be a string");
+                                            invalid!(Some(span), "should be a string");
                                         }
                                     }
                                     x => {
@@ -1329,23 +1307,30 @@ impl Value {
                                             cols,
                                             vals,
                                             index,
-                                            value.span().ok(),
+                                            Some(value.span()),
                                             "$env.config.{key}.{x} is an unknown config setting"
                                         );
                                     }
                                 }
                             }
                         } else {
-                            invalid!(vals[index].span().ok(), "should be a record");
+                            invalid!(Some(vals[index].span()), "should be a record");
                             // Reconstruct
                             vals[index] = Value::record(
-                                vec!["metric".into(), "format".into()],
-                                vec![
-                                    Value::bool(config.filesize_metric, span),
-                                    Value::string(config.filesize_format.clone(), span),
-                                ],
+                                record! {
+                                    "metric" => Value::bool(config.filesize_metric, span),
+                                    "format" => Value::string(config.filesize_format.clone(), span),
+                                },
                                 span,
                             );
+                        }
+                    }
+                    "error_style" => {
+                        if let Ok(style) = value.as_string() {
+                            config.error_style = style;
+                        } else {
+                            invalid!(Some(span), "should be a string");
+                            vals[index] = Value::string(config.error_style.clone(), span);
                         }
                     }
                     // Catch all
@@ -1354,7 +1339,7 @@ impl Value {
                             cols,
                             vals,
                             index,
-                            value.span().ok(),
+                            Some(value.span()),
                             "$env.config.{x} is an unknown config setting"
                         );
                     }
@@ -1366,7 +1351,7 @@ impl Value {
                 Some(ShellError::GenericError(
                     "Error while applying config changes".into(),
                     "$env.config is not a record".into(),
-                    self.span().ok(),
+                    Some(self.span()),
                     None,
                     vec![],
                 )),
@@ -1403,7 +1388,7 @@ fn try_parse_trim_strategy(
         ShellError::GenericError(
             "Error while applying config changes".into(),
             "$env.config.table.trim is not a record".into(),
-            value.span().ok(),
+            Some(value.span()),
             Some("Please consult the documentation for configuring Nushell.".into()),
             vec![e],
         )
@@ -1418,7 +1403,7 @@ fn try_parse_trim_strategy(
             errors.push(ShellError::GenericError(
                 "Error while applying config changes".into(),
                 "$env.config.table.trim.methodology was not provided".into(),
-                value.span().ok(),
+                Some(value.span()),
                 Some("Please consult the documentation for configuring Nushell.".into()),
                 vec![],
             ));
@@ -1435,7 +1420,7 @@ fn try_parse_trim_strategy(
                     errors.push(ShellError::GenericError(
                         "Error while applying config changes".into(),
                         "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
-                        value.span().ok(),
+                        Some(value.span()),
                         Some("Please consult the documentation for configuring Nushell.".into()),
                         vec![],
                     ));
@@ -1450,7 +1435,7 @@ fn try_parse_trim_strategy(
                     errors.push(ShellError::GenericError(
                         "Error while applying config changes".into(),
                         "$env.config.table.trim.truncating_suffix is not a string".into(),
-                        value.span().ok(),
+                        Some(value.span()),
                         Some("Please consult the documentation for configuring Nushell.".into()),
                         vec![],
                     ));
@@ -1481,29 +1466,26 @@ fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
 }
 
 fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
-    let (cols, inner_vals) = value.as_record()?;
-    let mut hm: HashMap<String, Value> = HashMap::new();
-
-    for (k, v) in cols.iter().zip(inner_vals) {
-        hm.insert(k.to_string(), v.clone());
-    }
-
-    Ok(hm)
+    Ok(value
+        .as_record()?
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect())
 }
 
 // Parse the hooks to find the blocks to run when the hooks fire
 fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
+        Value::Record { val, span } => {
             let mut hooks = Hooks::new();
 
-            for idx in 0..cols.len() {
-                match cols[idx].as_str() {
-                    "pre_prompt" => hooks.pre_prompt = Some(vals[idx].clone()),
-                    "pre_execution" => hooks.pre_execution = Some(vals[idx].clone()),
-                    "env_change" => hooks.env_change = Some(vals[idx].clone()),
-                    "display_output" => hooks.display_output = Some(vals[idx].clone()),
-                    "command_not_found" => hooks.command_not_found = Some(vals[idx].clone()),
+            for (col, val) in val {
+                match col.as_str() {
+                    "pre_prompt" => hooks.pre_prompt = Some(val.clone()),
+                    "pre_execution" => hooks.pre_execution = Some(val.clone()),
+                    "env_change" => hooks.env_change = Some(val.clone()),
+                    "display_output" => hooks.display_output = Some(val.clone()),
+                    "command_not_found" => hooks.command_not_found = Some(val.clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
@@ -1520,7 +1502,7 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
         v => Err(ShellError::UnsupportedConfigValue(
             "record for 'hooks' config".into(),
             "non-record value".into(),
-            v.span().unwrap_or_else(|_| Span::unknown()),
+            v.span(),
         )),
     }
 }
@@ -1528,13 +1510,13 @@ fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
 // Parses the config object to extract the strings that will compose a keybinding for reedline
 fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
+        Value::Record { val, span } => {
             let span = *span;
             // Finding the modifier value in the record
-            let modifier = extract_value("modifier", cols, vals, span)?.clone();
-            let keycode = extract_value("keycode", cols, vals, span)?.clone();
-            let mode = extract_value("mode", cols, vals, span)?.clone();
-            let event = extract_value("event", cols, vals, span)?.clone();
+            let modifier = extract_value("modifier", val, span)?.clone();
+            let keycode = extract_value("keycode", val, span)?.clone();
+            let mode = extract_value("mode", val, span)?.clone();
+            let event = extract_value("event", val, span)?.clone();
 
             let keybinding = ParsedKeybinding {
                 modifier,
@@ -1566,18 +1548,18 @@ fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError
 // Parses the config object to extract the strings that will compose a keybinding for reedline
 pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
     match value {
-        Value::Record { cols, vals, span } => {
+        Value::Record { val, span } => {
             let span = *span;
             // Finding the modifier value in the record
-            let name = extract_value("name", cols, vals, span)?.clone();
-            let marker = extract_value("marker", cols, vals, span)?.clone();
+            let name = extract_value("name", val, span)?.clone();
+            let marker = extract_value("marker", val, span)?.clone();
             let only_buffer_difference =
-                extract_value("only_buffer_difference", cols, vals, span)?.clone();
-            let style = extract_value("style", cols, vals, span)?.clone();
-            let menu_type = extract_value("type", cols, vals, span)?.clone();
+                extract_value("only_buffer_difference", val, span)?.clone();
+            let style = extract_value("style", val, span)?.clone();
+            let menu_type = extract_value("type", val, span)?.clone();
 
             // Source is an optional value
-            let source = match extract_value("source", cols, vals, span) {
+            let source = match extract_value("source", val, span) {
                 Ok(source) => source.clone(),
                 Err(_) => Value::Nothing { span },
             };
@@ -1609,12 +1591,11 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
 
 pub fn extract_value<'record>(
     name: &str,
-    cols: &'record [String],
-    vals: &'record [Value],
+    record: &'record Record,
     span: Span,
 ) -> Result<&'record Value, ShellError> {
-    cols.iter()
-        .position(|col| col.as_str() == name)
-        .and_then(|index| vals.get(index))
+    record
+        .iter()
+        .find_map(|(col, val)| if col == name { Some(val) } else { None })
         .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
 }

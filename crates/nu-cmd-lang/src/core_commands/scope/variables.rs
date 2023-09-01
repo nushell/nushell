@@ -35,7 +35,7 @@ impl Command for ScopeVariables {
         let ctrlc = engine_state.ctrlc.clone();
 
         let mut scope_data = ScopeData::new(engine_state, stack);
-        scope_data.populate_all();
+        scope_data.populate_vars();
 
         Ok(scope_data.collect_vars(span).into_pipeline_data(ctrlc))
     }

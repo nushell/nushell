@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = 0.83.2
+# version = "0.84.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -31,7 +31,7 @@ let dark_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: {bg: red fg: white}    
+    search_result: {bg: red fg: white}
     shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
@@ -94,7 +94,7 @@ let light_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: {fg: white bg: red}    
+    search_result: {fg: white bg: red}
     shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
@@ -166,6 +166,8 @@ $env.config = {
         }
         header_on_separator: false # show header text on separator/border line
     }
+
+    error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages
 
     # datetime_format determines what a datetime rendered in the shell would look like.
     # Behavior without this configuration point will be to "humanize" the datetime display,

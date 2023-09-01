@@ -1,5 +1,5 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
@@ -24,10 +24,24 @@ impl Command for Ignore {
         vec!["silent", "quiet", "out-null"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        input.into_value(call.head);
+        Ok(PipelineData::empty())
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

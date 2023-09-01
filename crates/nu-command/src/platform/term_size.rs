@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 use terminal_size::{terminal_size, Height, Width};
 
@@ -63,14 +63,13 @@ impl Command for TermSize {
             None => (Width(0), Height(0)),
         };
 
-        Ok(Value::Record {
-            cols: vec!["columns".into(), "rows".into()],
-            vals: vec![
-                Value::int(cols.0 as i64, head),
-                Value::int(rows.0 as i64, head),
-            ],
-            span: head,
-        }
+        Ok(Value::record(
+            record! {
+                "columns" => Value::int(cols.0 as i64, head),
+                "rows" => Value::int(rows.0 as i64, head),
+            },
+            head,
+        )
         .into_pipeline_data())
     }
 }

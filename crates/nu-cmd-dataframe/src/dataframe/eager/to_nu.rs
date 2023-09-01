@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use crate::dataframe::values::NuExpression;
@@ -40,21 +40,18 @@ impl Command for ToNu {
 
     fn examples(&self) -> Vec<Example> {
         let cols = vec!["index".into(), "a".into(), "b".into()];
-        let rec_1 = Value::Record {
+        let rec_1 = Value::test_record(Record {
             cols: cols.clone(),
             vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-            span: Span::test_data(),
-        };
-        let rec_2 = Value::Record {
+        });
+        let rec_2 = Value::test_record(Record {
             cols: cols.clone(),
             vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
-            span: Span::test_data(),
-        };
-        let rec_3 = Value::Record {
+        });
+        let rec_3 = Value::test_record(Record {
             cols,
             vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
-            span: Span::test_data(),
-        };
+        });
 
         vec![
             Example {
@@ -76,11 +73,10 @@ impl Command for ToNu {
             Example {
                 description: "Convert a col expression into a nushell value",
                 example: "dfr col a | dfr into-nu",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["expr".into(), "value".into()],
                     vals: vec![Value::test_string("column"), Value::test_string("a")],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
@@ -132,7 +128,7 @@ fn dataframe_command(
 }
 fn expression_command(call: &Call, input: Value) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(input)?;
-    let value = expr.to_value(call.head);
+    let value = expr.to_value(call.head)?;
 
     Ok(PipelineData::Value(value, None))
 }

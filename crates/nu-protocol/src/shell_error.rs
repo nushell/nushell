@@ -2,7 +2,7 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ast::Operator, Span, Value};
+use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -114,7 +114,9 @@ pub enum ShellError {
     IncorrectValue {
         msg: String,
         #[label = "{msg}"]
-        span: Span,
+        val_span: Span,
+        #[label = "encountered here"]
+        call_span: Span,
     },
 
     /// This value cannot be used with this operator.
@@ -1072,6 +1074,72 @@ pub enum ShellError {
         #[label("not a boolean expression")]
         span: Span,
     },
+
+    /// An attempt to run a command marked for constant evaluation lacking the const. eval.
+    /// implementation.
+    ///
+    /// This is an internal Nushell error, please file an issue.
+    #[error("Missing const eval implementation")]
+    #[diagnostic(
+        code(nu::shell::missing_const_eval_implementation),
+        help(
+            "The command lacks an implementation for constant evaluation. \
+This is an internal Nushell error, please file an issue https://github.com/nushell/nushell/issues."
+        )
+    )]
+    MissingConstEvalImpl {
+        #[label("command lacks constant implementation")]
+        span: Span,
+    },
+
+    /// Tried assigning non-constant value to a constant
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
+    #[error("Not a constant.")]
+    #[diagnostic(
+        code(nu::shell::not_a_constant),
+        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
+    )]
+    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+
+    /// Tried running a command that is not const-compatible
+    ///
+    /// ## Resolution
+    ///
+    /// Only a subset of builtin commands, and custom commands built only from those commands, can
+    /// run at parse time.
+    #[error("Not a const command.")]
+    #[diagnostic(
+        code(nu::shell::not_a_const_command),
+        help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
+    )]
+    NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
+
+    /// Tried getting a help message at parse time.
+    ///
+    /// ## Resolution
+    ///
+    /// Help messages are not supported at parse time.
+    #[error("Help message not a constant.")]
+    #[diagnostic(
+        code(nu::shell::not_a_const_help),
+        help("Help messages are currently not supported to be constants.")
+    )]
+    NotAConstHelp(#[label = "Cannot get help message at parse time."] Span),
+}
+
+// TODO: Implement as From trait
+impl ShellError {
+    pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
+        let msg = format_error(working_set, &self);
+        ParseError::LabeledError(
+            msg,
+            "Encountered error during parse-time evaluation".into(),
+            span,
+        )
+    }
 }
 
 impl From<std::io::Error> for ShellError {

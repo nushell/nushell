@@ -119,3 +119,15 @@ fn parses_into_correct_number_of_columns() {
 
     assert_eq!(actual.out, expected);
 }
+
+#[test]
+fn const_path_parse() {
+    let actual = nu!("const name = ('spam/eggs.txt' | path parse); $name.parent");
+    assert_eq!(actual.out, "spam");
+
+    let actual = nu!("const name = ('spam/eggs.txt' | path parse); $name.stem");
+    assert_eq!(actual.out, "eggs");
+
+    let actual = nu!("const name = ('spam/eggs.txt' | path parse); $name.extension");
+    assert_eq!(actual.out, "txt");
+}

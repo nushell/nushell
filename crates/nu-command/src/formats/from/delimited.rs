@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
 
 fn from_delimited_string_to_value(
     DelimitedReaderConfig {
@@ -56,11 +56,13 @@ fn from_delimited_string_to_value(
                 });
             }
         }
-        rows.push(Value::Record {
-            cols: headers.clone(),
-            vals: output_row,
+        rows.push(Value::record(
+            Record {
+                cols: headers.clone(),
+                vals: output_row,
+            },
             span,
-        });
+        ));
     }
 
     Ok(Value::List { vals: rows, span })

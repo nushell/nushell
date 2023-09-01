@@ -1,6 +1,21 @@
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 use pwd::Passwd;
 use std::path::{Path, PathBuf};
+
+#[cfg(target_os = "macos")]
+const FALLBACK_USER_HOME_BASE_DIR: &str = "/Users";
+
+#[cfg(target_os = "windows")]
+const FALLBACK_USER_HOME_BASE_DIR: &str = "C:\\Users\\";
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+const FALLBACK_USER_HOME_BASE_DIR: &str = "/home";
+
+#[cfg(all(unix, target_os = "android"))]
+const FALLBACK_USER_HOME_BASE_DIR: &str = "/data";
+
+#[cfg(target_os = "android")]
+const TERMUX_HOME: &str = "/data/data/com.termux/files/home";
 
 fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
@@ -45,77 +60,61 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
     }
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+fn fallback_home_dir(username: &str) -> PathBuf {
+    PathBuf::from_iter([FALLBACK_USER_HOME_BASE_DIR, username])
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 fn user_home_dir(username: &str) -> PathBuf {
     let passwd = Passwd::from_name(username);
     match &passwd.ok() {
         Some(Some(dir)) => PathBuf::from(&dir.dir),
-        _ => {
-            let mut file = String::from("/home/");
-            file.push_str(username);
-            PathBuf::from(file)
-        }
+        _ => fallback_home_dir(username),
     }
-    // PathBuf::from(concat!("/home/", username)),
-    // Returns home dir of user.
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "android", target_os = "windows", target_os = "macos"))]
 fn user_home_dir(username: &str) -> PathBuf {
+    use std::path::Component;
+
     match dirs_next::home_dir() {
         None => {
-            let mut expected_path = String::from("/Users/");
-            expected_path.push_str(username);
-            let path = Path::new(&expected_path);
-            let mut home = PathBuf::new();
-            home.push(path);
-            home
+            // Termux always has the same home directory
+            #[cfg(target_os = "android")]
+            if is_termux() {
+                return PathBuf::from(TERMUX_HOME);
+            }
+
+            fallback_home_dir(username)
         }
         Some(user) => {
             let mut expected_path = user;
-            expected_path.pop();
-            expected_path.push(Path::new(username));
+
+            if !cfg!(target_os = "android")
+                && expected_path
+                    .components()
+                    .last()
+                    .map(|last| last != Component::Normal(username.as_ref()))
+                    .unwrap_or(false)
+            {
+                expected_path.pop();
+                expected_path.push(Path::new(username));
+            }
+
             if expected_path.is_dir() {
                 expected_path
             } else {
-                let mut expected_path_as_string = String::from("/Users/");
-                expected_path_as_string.push_str(username);
-                let path = Path::new(&expected_path_as_string);
-                let mut home = PathBuf::new();
-                home.push(path);
-                home
+                fallback_home_dir(username)
             }
         }
     }
 }
 
-#[cfg(target_os = "windows")]
-fn user_home_dir(username: &str) -> PathBuf {
-    match dirs_next::home_dir() {
-        None => {
-            let mut expected_path = String::from("C:\\Users\\");
-            expected_path.push_str(username);
-            let path = Path::new(&expected_path);
-            let mut home = PathBuf::new();
-            home.push(path);
-            home
-        }
-        Some(user) => {
-            let mut expected_path = user;
-            expected_path.pop();
-            expected_path.push(Path::new(username));
-            if expected_path.is_dir() {
-                expected_path
-            } else {
-                let mut expected_path_as_string = String::from("C:\\Users\\");
-                expected_path_as_string.push_str(username);
-                let path = Path::new(&expected_path_as_string);
-                let mut home = PathBuf::new();
-                home.push(path);
-                home
-            }
-        }
-    }
+/// Returns true if the shell is running inside the Termux terminal emulator
+/// app.
+#[cfg(target_os = "android")]
+fn is_termux() -> bool {
+    std::env::var("TERMUX_VERSION").is_ok()
 }
 
 fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
@@ -210,5 +209,23 @@ mod tests {
     #[test]
     fn string_with_double_tilde_backslash() {
         check_expanded("~\\\\test\\test2/test3");
+    }
+
+    // [TODO] Figure out how to reliably test with real users.
+    #[test]
+    fn user_home_dir_fallback() {
+        let user = "nonexistent";
+        let expected_home = PathBuf::from_iter([FALLBACK_USER_HOME_BASE_DIR, user]);
+
+        #[cfg(target_os = "android")]
+        let expected_home = if is_termux() {
+            PathBuf::from(TERMUX_HOME)
+        } else {
+            expected_home
+        };
+
+        let actual_home = super::user_home_dir(user);
+
+        assert_eq!(expected_home, actual_home, "wrong home");
     }
 }

@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Span, Value};
+use nu_protocol::{Record, Span, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
@@ -17,9 +17,7 @@ pub fn try_build_table(
 ) -> String {
     match value {
         Value::List { vals, span } => try_build_list(vals, ctrlc, config, span, style_computer),
-        Value::Record { cols, vals, span } => {
-            try_build_map(cols, vals, span, style_computer, ctrlc, config)
-        }
+        Value::Record { val, span } => try_build_map(val, span, style_computer, ctrlc, config),
         val if matches!(val, Value::String { .. }) => {
             nu_value_to_string_clean(&val, config, style_computer).0
         }
@@ -28,8 +26,7 @@ pub fn try_build_table(
 }
 
 fn try_build_map(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     span: Span,
     style_computer: &StyleComputer,
     ctrlc: Option<Arc<AtomicBool>>,
@@ -44,11 +41,11 @@ fn try_build_map(
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
     );
-    let result = ExpandedTable::new(None, false, String::new()).build_map(&cols, &vals, opts);
+    let result = ExpandedTable::new(None, false, String::new()).build_map(&record, opts);
     match result {
         Ok(Some(result)) => result,
         Ok(None) | Err(_) => {
-            nu_value_to_string(&Value::Record { cols, vals, span }, config, style_computer).0
+            nu_value_to_string(&Value::record(record, span), config, style_computer).0
         }
     }
 }

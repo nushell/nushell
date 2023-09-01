@@ -1,4 +1,4 @@
-use crate::hook::eval_hook;
+use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -118,7 +118,7 @@ pub fn create_external_command(
     let env_vars_str = env_to_strings(engine_state, stack)?;
 
     fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
-        let span = value.span()?;
+        let span = value.span();
 
         value
             .as_string()
@@ -371,6 +371,7 @@ impl ExternalCommand {
                                             ),
                                         )],
                                         &hook,
+                                        "command_not_found",
                                     )
                                 {
                                     err_str = format!("{}\n{}", err_str, val);
@@ -507,6 +508,7 @@ impl ExternalCommand {
                                     );
                                     let _ = exit_code_tx.send(Value::Error {
                                         error: Box::new(ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head }),
+                                        span: head,
                                     });
                                     return Ok(());
                                 }

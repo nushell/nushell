@@ -3,8 +3,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -88,21 +89,19 @@ impl Command for SubCommand {
             Example {
                 description: "Check if input contains string in a record",
                 example: "{ ColA: test, ColB: 100 } | str contains 'e' ColA",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["ColA".to_string(), "ColB".to_string()],
                     vals: vec![Value::test_bool(true), Value::test_int(100)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -110,11 +109,10 @@ impl Command for SubCommand {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_bool(true), Value::test_bool(true)],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 }),
             },
@@ -189,8 +187,9 @@ fn action(
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
+                src_span: input.span(),
             }),
+            span: head,
         },
     }
 }

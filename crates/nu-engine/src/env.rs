@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::{Call, Expr, PathMember};
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
 use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
@@ -18,6 +18,7 @@ const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
+#[allow(dead_code)]
 enum ConversionResult {
     Ok(Value),
     ConversionError(ShellError), // Failure during the conversion itself
@@ -116,19 +117,19 @@ pub fn env_to_string(
                                 Ok(p) => Ok(p.to_string_lossy().to_string()),
                                 Err(_) => Err(ShellError::EnvVarNotAString {
                                     envvar_name: env_name.to_string(),
-                                    span: value.span()?,
+                                    span: value.span(),
                                 }),
                             }
                         }
                         _ => Err(ShellError::EnvVarNotAString {
                             envvar_name: env_name.to_string(),
-                            span: value.span()?,
+                            span: value.span(),
                         }),
                     }
                 } else {
                     Err(ShellError::EnvVarNotAString {
                         envvar_name: env_name.to_string(),
-                        span: value.span()?,
+                        span: value.span(),
                     })
                 }
             }
@@ -158,8 +159,9 @@ pub fn env_to_strings(
 
 /// Shorthand for env_to_string() for PWD with custom error
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
-    if let Some(pwd) = stack.get_env_var(engine_state, "PWD") {
-        match env_to_string("PWD", &pwd, engine_state, stack) {
+    if let Some(pwd) = stack.get_env_var(engine_state, PWD_ENV) {
+        // TODO: PWD should be string by default, we don't need to run ENV_CONVERSIONS on it
+        match env_to_string(PWD_ENV, &pwd, engine_state, stack) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
@@ -167,7 +169,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                     Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            Some(pwd.span()?),
+                            Some(pwd.span()),
                             None,
                             Vec::new()
                     ))
@@ -186,9 +188,53 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
     }
 }
 
+/// Simplified version of current_dir_str() for constant evaluation
+pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, ShellError> {
+    if let Some(pwd) = working_set.get_env_var(PWD_ENV) {
+        match pwd {
+            Value::String { val, span } => {
+                if Path::new(val).is_absolute() {
+                    Ok(val.clone())
+                } else {
+                    Err(ShellError::GenericError(
+                            "Invalid current directory".to_string(),
+                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{val}'"),
+                            Some(*span),
+                            None,
+                            Vec::new()
+                    ))
+                }
+            }
+            _ => Err(ShellError::GenericError(
+                "PWD is not a string".to_string(),
+                "".to_string(),
+                None,
+                Some(
+                    "Cusrrent working directory environment variable 'PWD' must be a string."
+                        .to_string(),
+                ),
+                Vec::new(),
+            )),
+        }
+    } else {
+        Err(ShellError::GenericError(
+                "Current directory not found".to_string(),
+                "".to_string(),
+                None,
+                Some("The environment variable 'PWD' was not found. It is required to define the current directory.".to_string()),
+                Vec::new(),
+        ))
+    }
+}
+
 /// Calls current_dir_str() and returns the current directory as a PathBuf
 pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf, ShellError> {
     current_dir_str(engine_state, stack).map(PathBuf::from)
+}
+
+/// Version of current_dir() for constant evaluation
+pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, ShellError> {
+    current_dir_str_const(working_set).map(PathBuf::from)
 }
 
 /// Get the contents of path environment variable as a list of strings
@@ -260,7 +306,7 @@ pub fn find_in_dirs_env(
                     return Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            Some(pwd.span()?),
+                            Some(pwd.span()),
                             None,
                             Vec::new()
                     ));
@@ -321,18 +367,8 @@ fn get_converted_value(
     direction: &str,
 ) -> ConversionResult {
     if let Some(env_conversions) = stack.get_env_var(engine_state, ENV_CONVERSIONS) {
-        let env_span = match env_conversions.span() {
-            Ok(span) => span,
-            Err(e) => {
-                return ConversionResult::GeneralError(e);
-            }
-        };
-        let val_span = match orig_val.span() {
-            Ok(span) => span,
-            Err(e) => {
-                return ConversionResult::GeneralError(e);
-            }
-        };
+        let env_span = env_conversions.span();
+        let val_span = orig_val.span();
 
         let path_members = &[
             PathMember::String {
@@ -356,7 +392,7 @@ fn get_converted_value(
             let block = engine_state.get_block(block_id);
 
             if let Some(var) = block.signature.get_positional(0) {
-                let mut stack = stack.gather_captures(&block.captures);
+                let mut stack = stack.gather_captures(engine_state, &block.captures);
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, orig_val.clone());
                 }
@@ -421,13 +457,7 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
         }
         Some(val) => {
             // All other values are errors
-            let span = match val.span() {
-                Ok(sp) => sp,
-                Err(e) => {
-                    error = error.or(Some(e));
-                    Span::unknown() // FIXME: any better span to use here?
-                }
-            };
+            let span = val.span();
 
             error = error.or_else(|| {
                 Some(ShellError::GenericError(

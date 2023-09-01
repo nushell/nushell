@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
+    Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -62,8 +62,14 @@ impl Command for SkipUntil {
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip until {|x| $x.a > 0 }",
                 result: Some(Value::List {
                     vals: vec![
-                        Value::test_record(vec!["a"], vec![Value::test_int(2)]),
-                        Value::test_record(vec!["a"], vec![Value::test_int(-1)]),
+                        Value::test_record(Record {
+                            cols: vec!["a".to_string()],
+                            vals: vec![Value::test_int(2)],
+                        }),
+                        Value::test_record(Record {
+                            cols: vec!["a".to_string()],
+                            vals: vec![Value::test_int(-1)],
+                        }),
                     ],
                     span: Span::test_data(),
                 }),

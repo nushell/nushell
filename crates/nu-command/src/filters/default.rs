@@ -86,29 +86,27 @@ fn default(
         input.map(
             move |item| match item {
                 Value::Record {
-                    mut cols,
-                    mut vals,
+                    val: mut record,
                     span,
                 } => {
                     let mut idx = 0;
                     let mut found = false;
 
-                    while idx < cols.len() {
-                        if cols[idx] == column.item {
+                    while idx < record.len() {
+                        if record.cols[idx] == column.item {
                             found = true;
-                            if matches!(vals[idx], Value::Nothing { .. }) {
-                                vals[idx] = value.clone();
+                            if matches!(record.vals[idx], Value::Nothing { .. }) {
+                                record.vals[idx] = value.clone();
                             }
                         }
                         idx += 1;
                     }
 
                     if !found {
-                        cols.push(column.item.clone());
-                        vals.push(value.clone());
+                        record.push(column.item.clone(), value.clone());
                     }
 
-                    Value::Record { cols, vals, span }
+                    Value::record(record, span)
                 }
                 _ => item,
             },

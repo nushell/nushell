@@ -22,6 +22,7 @@ mod sql_expr;
 mod summary;
 mod take;
 mod to_arrow;
+mod to_avro;
 mod to_csv;
 mod to_df;
 mod to_json_lines;
@@ -55,6 +56,7 @@ pub use sql_expr::parse_sql_expr;
 pub use summary::Summary;
 pub use take::TakeDF;
 pub use to_arrow::ToArrow;
+pub use to_avro::ToAvro;
 pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
 pub use to_json_lines::ToJsonLines;
@@ -96,6 +98,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         SliceDF,
         TakeDF,
         ToArrow,
+        ToAvro,
         ToCSV,
         ToDataFrame,
         ToNu,

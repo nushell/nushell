@@ -7,7 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
@@ -162,10 +162,10 @@ impl NuDataFrame {
                         .map(|i| format!("{i}"))
                         .collect::<Vec<String>>();
 
-                    conversion::insert_record(&mut column_values, &cols, &vals)?
+                    conversion::insert_record(&mut column_values, Record { cols, vals })?
                 }
-                Value::Record { cols, vals, .. } => {
-                    conversion::insert_record(&mut column_values, &cols, &vals)?
+                Value::Record { val: record, .. } => {
+                    conversion::insert_record(&mut column_values, record)?
                 }
                 _ => {
                     let key = "0".to_string();
@@ -235,7 +235,7 @@ impl NuDataFrame {
         if Self::can_downcast(&value) {
             Ok(Self::get_df(value)?)
         } else if NuLazyFrame::can_downcast(&value) {
-            let span = value.span()?;
+            let span = value.span();
             let lazy = NuLazyFrame::try_from_value(value)?;
             let df = lazy.collect(span)?;
             Ok(df)
@@ -243,7 +243,7 @@ impl NuDataFrame {
             Err(ShellError::CantConvert {
                 to_type: "lazy or eager dataframe".into(),
                 from_type: value.get_type().to_string(),
-                span: value.span()?,
+                span: value.span(),
                 help: None,
             })
         }
@@ -266,7 +266,7 @@ impl NuDataFrame {
             x => Err(ShellError::CantConvert {
                 to_type: "dataframe".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }
@@ -427,25 +427,15 @@ impl NuDataFrame {
 
         let values = (0..size)
             .map(|i| {
-                let mut cols = vec![];
-                let mut vals = vec![];
+                let mut record = Record::new();
 
-                cols.push("index".into());
-                vals.push(Value::Int {
-                    val: (i + from_row) as i64,
-                    span,
-                });
+                record.push("index", Value::int((i + from_row) as i64, span));
 
                 for (name, col) in &mut iterators {
-                    cols.push(name.clone());
-
-                    match col.next() {
-                        Some(v) => vals.push(v),
-                        None => vals.push(Value::Nothing { span }),
-                    };
+                    record.push(name.clone(), col.next().unwrap_or(Value::nothing(span)));
                 }
 
-                Value::Record { cols, vals, span }
+                Value::record(record, span)
             })
             .collect::<Vec<Value>>();
 
@@ -476,12 +466,12 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false) {
+        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false) {
+        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };

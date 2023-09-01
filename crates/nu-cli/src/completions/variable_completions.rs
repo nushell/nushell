@@ -235,13 +235,9 @@ fn nested_suggestions(
     let value = recursive_value(val, sublevels);
 
     match value {
-        Value::Record {
-            cols,
-            vals: _,
-            span: _,
-        } => {
+        Value::Record { val, .. } => {
             // Add all the columns as completion
-            for item in cols {
+            for item in val.cols {
                 output.push(Suggestion {
                     value: item,
                     description: None,
@@ -289,12 +285,8 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
     // Go to next sublevel
     if let Some(next_sublevel) = sublevels.clone().into_iter().next() {
         match val {
-            Value::Record {
-                cols,
-                vals,
-                span: _,
-            } => {
-                for item in cols.into_iter().zip(vals) {
+            Value::Record { val, .. } => {
+                for item in val {
                     // Check if index matches with sublevel
                     if item.0.as_bytes().to_vec() == next_sublevel {
                         // If matches try to fetch recursively the next

@@ -202,6 +202,7 @@ impl Command for Mv {
                 if let Err(error) = result {
                     Some(Value::Error {
                         error: Box::new(error),
+                        span: spanned_source.span,
                     })
                 } else if verbose {
                     let val = match result {

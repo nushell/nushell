@@ -1,5 +1,8 @@
 #[cfg(unix)]
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::{
+    io::IsTerminal,
+    sync::atomic::{AtomicI32, Ordering},
+};
 
 #[cfg(unix)]
 use nix::{
@@ -8,9 +11,6 @@ use nix::{
     sys::signal::{self, signal, SaFlags, SigAction, SigHandler, SigSet, Signal},
     unistd::{self, Pid},
 };
-
-#[cfg(unix)]
-use is_terminal::IsTerminal;
 
 #[cfg(unix)]
 static INITIAL_PGID: AtomicI32 = AtomicI32::new(-1);

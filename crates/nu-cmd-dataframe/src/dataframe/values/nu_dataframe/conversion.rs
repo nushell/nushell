@@ -2,7 +2,7 @@ use super::{DataFrameValue, NuDataFrame};
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use indexmap::map::{Entry, IndexMap};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{Record, ShellError, Span, Value};
 use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
@@ -128,36 +128,21 @@ pub fn create_column(
 // Adds a separator to the vector of values using the column names from the
 // dataframe to create the Values Row
 pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
 
-    cols.push("index".to_string());
-    vals.push(Value::String {
-        val: "...".into(),
-        span,
-    });
+    record.push("index", Value::string("...", span));
 
     for name in df.get_column_names() {
-        cols.push(name.to_string());
-        vals.push(Value::String {
-            val: "...".into(),
-            span,
-        })
+        record.push(name, Value::string("...", span))
     }
 
-    let extra_record = Value::Record { cols, vals, span };
-
-    values.push(extra_record);
+    values.push(Value::record(record, span));
 }
 
-// Inserting the values found in a Value::List
-pub fn insert_record(
-    column_values: &mut ColumnMap,
-    cols: &[String],
-    values: &[Value],
-) -> Result<(), ShellError> {
-    for (col, value) in cols.iter().zip(values.iter()) {
-        insert_value(value.clone(), col.clone(), column_values)?;
+// Inserting the values found in a Value::List or Value::Record
+pub fn insert_record(column_values: &mut ColumnMap, record: Record) -> Result<(), ShellError> {
+    for (col, value) in record {
+        insert_value(value, col, column_values)?;
     }
 
     Ok(())
@@ -436,7 +421,17 @@ fn input_type_list_to_series(
                 let dt_chunked = ChunkedArray::<Int64Type>::from_iter_options(&list_name, it)
                     .into_datetime(TimeUnit::Nanoseconds, None);
 
-                builder.append_series(&dt_chunked.into_series());
+                builder
+                    .append_series(&dt_chunked.into_series())
+                    .map_err(|e| {
+                        ShellError::GenericError(
+                            "Error appending to series".into(),
+                            "".to_string(),
+                            None,
+                            Some(e.to_string()),
+                            Vec::new(),
+                        )
+                    })?
             }
             let res = builder.finish();
             Ok(res.into_series())
@@ -897,6 +892,7 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
@@ -912,10 +908,12 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
                     Value::Date {
                         val: datetime,
@@ -965,6 +963,7 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
@@ -980,10 +979,12 @@ fn series_to_values(
                                     span,
                                     Span::unknown(),
                                 )),
+                                span,
                             }
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
                     Value::Date {
                         val: datetime,

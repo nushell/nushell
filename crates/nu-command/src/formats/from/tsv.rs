@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -76,14 +76,13 @@ impl Command for FromTsv {
                 description: "Convert tab-separated data to a table",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
                 result: Some(Value::List {
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
                             Value::test_int(1),
                             Value::test_int(2),
                         ],
-                        span: Span::test_data(),
-                    }],
+                    })],
                     span: Span::test_data(),
                 })
             },
