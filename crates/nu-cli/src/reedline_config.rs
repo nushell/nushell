@@ -131,8 +131,9 @@ fn add_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    if let Value::Record { val, span } = &menu.menu_type {
-        let layout = extract_value("layout", val, *span)?.into_string("", config);
+    let span = menu.menu_type.span();
+    if let Value::Record { val, .. } = &menu.menu_type {
+        let layout = extract_value("layout", val, span)?.into_string("", config);
 
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
@@ -156,7 +157,7 @@ fn add_menu(
 macro_rules! add_style {
     // first arm match add!(1,2), add!(2,3) etc
     ($name:expr, $record: expr, $span:expr, $config: expr, $menu:expr, $f:expr) => {
-        $menu = match extract_value($name, $record, *$span) {
+        $menu = match extract_value($name, $record, $span) {
             Ok(text) => {
                 let style = match text {
                     Value::String { val, .. } => lookup_ansi_color_style(&val),
@@ -178,11 +179,12 @@ pub(crate) fn add_columnar_menu(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
+    let span = menu.menu_type.span();
     let name = menu.name.into_string("", config);
     let mut columnar_menu = ColumnarMenu::default().with_name(&name);
 
-    if let Value::Record { val, span } = &menu.menu_type {
-        columnar_menu = match extract_value("columns", val, *span) {
+    if let Value::Record { val, .. } = &menu.menu_type {
+        columnar_menu = match extract_value("columns", val, span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
                 columnar_menu.with_columns(columns as u16)
@@ -190,7 +192,7 @@ pub(crate) fn add_columnar_menu(
             Err(_) => columnar_menu,
         };
 
-        columnar_menu = match extract_value("col_width", val, *span) {
+        columnar_menu = match extract_value("col_width", val, span) {
             Ok(col_width) => {
                 let col_width = col_width.as_int()?;
                 columnar_menu.with_column_width(Some(col_width as usize))
@@ -198,7 +200,7 @@ pub(crate) fn add_columnar_menu(
             Err(_) => columnar_menu.with_column_width(None),
         };
 
-        columnar_menu = match extract_value("col_padding", val, *span) {
+        columnar_menu = match extract_value("col_padding", val, span) {
             Ok(col_padding) => {
                 let col_padding = col_padding.as_int()?;
                 columnar_menu.with_column_padding(col_padding as usize)
@@ -207,7 +209,8 @@ pub(crate) fn add_columnar_menu(
         };
     }
 
-    if let Value::Record { val, span } = &menu.style {
+    let span = menu.style.span();
+    if let Value::Record { val, .. } = &menu.style {
         add_style!(
             "text",
             val,
@@ -240,18 +243,15 @@ pub(crate) fn add_columnar_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
 
+    let span = menu.source.span();
     match &menu.source {
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        Value::Closure {
-            val,
-            captures,
-            span,
-        } => {
+        Value::Closure { val, captures, .. } => {
             let menu_completer = NuMenuCompleter::new(
                 *val,
-                *span,
+                span,
                 stack.captures_to_stack(captures),
                 engine_state,
                 only_buffer_difference,
@@ -264,7 +264,7 @@ pub(crate) fn add_columnar_menu(
         _ => Err(ShellError::UnsupportedConfigValue(
             "block or omitted value".to_string(),
             menu.source.into_abbreviated_string(config),
-            menu.source.span(),
+            span,
         )),
     }
 }
@@ -280,8 +280,9 @@ pub(crate) fn add_list_menu(
     let name = menu.name.into_string("", config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
-    if let Value::Record { val, span } = &menu.menu_type {
-        list_menu = match extract_value("page_size", val, *span) {
+    let span = menu.menu_type.span();
+    if let Value::Record { val, .. } = &menu.menu_type {
+        list_menu = match extract_value("page_size", val, span) {
             Ok(page_size) => {
                 let page_size = page_size.as_int()?;
                 list_menu.with_page_size(page_size as usize)
@@ -290,7 +291,8 @@ pub(crate) fn add_list_menu(
         };
     }
 
-    if let Value::Record { val, span } = &menu.style {
+    let span = menu.style.span();
+    if let Value::Record { val, .. } = &menu.style {
         add_style!(
             "text",
             val,
@@ -323,18 +325,15 @@ pub(crate) fn add_list_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
 
+    let span = menu.source.span();
     match &menu.source {
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        Value::Closure {
-            val,
-            captures,
-            span,
-        } => {
+        Value::Closure { val, captures, .. } => {
             let menu_completer = NuMenuCompleter::new(
                 *val,
-                *span,
+                span,
                 stack.captures_to_stack(captures),
                 engine_state,
                 only_buffer_difference,
@@ -363,8 +362,9 @@ pub(crate) fn add_description_menu(
     let name = menu.name.into_string("", config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
-    if let Value::Record { val, span } = &menu.menu_type {
-        description_menu = match extract_value("columns", val, *span) {
+    let span = menu.menu_type.span();
+    if let Value::Record { val, .. } = &menu.menu_type {
+        description_menu = match extract_value("columns", val, span) {
             Ok(columns) => {
                 let columns = columns.as_int()?;
                 description_menu.with_columns(columns as u16)
@@ -372,7 +372,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("col_width", val, *span) {
+        description_menu = match extract_value("col_width", val, span) {
             Ok(col_width) => {
                 let col_width = col_width.as_int()?;
                 description_menu.with_column_width(Some(col_width as usize))
@@ -380,7 +380,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu.with_column_width(None),
         };
 
-        description_menu = match extract_value("col_padding", val, *span) {
+        description_menu = match extract_value("col_padding", val, span) {
             Ok(col_padding) => {
                 let col_padding = col_padding.as_int()?;
                 description_menu.with_column_padding(col_padding as usize)
@@ -388,7 +388,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("selection_rows", val, *span) {
+        description_menu = match extract_value("selection_rows", val, span) {
             Ok(selection_rows) => {
                 let selection_rows = selection_rows.as_int()?;
                 description_menu.with_selection_rows(selection_rows as u16)
@@ -396,7 +396,7 @@ pub(crate) fn add_description_menu(
             Err(_) => description_menu,
         };
 
-        description_menu = match extract_value("description_rows", val, *span) {
+        description_menu = match extract_value("description_rows", val, span) {
             Ok(description_rows) => {
                 let description_rows = description_rows.as_int()?;
                 description_menu.with_description_rows(description_rows as usize)
@@ -405,7 +405,8 @@ pub(crate) fn add_description_menu(
         };
     }
 
-    if let Value::Record { val, span } = &menu.style {
+    let span = menu.style.span();
+    if let Value::Record { val, .. } = &menu.style {
         add_style!(
             "text",
             val,
@@ -438,6 +439,7 @@ pub(crate) fn add_description_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
 
+    let span = menu.source.span();
     match &menu.source {
         Value::Nothing { .. } => {
             let completer = Box::new(NuHelpCompleter::new(engine_state));
@@ -446,14 +448,10 @@ pub(crate) fn add_description_menu(
                 completer,
             }))
         }
-        Value::Closure {
-            val,
-            captures,
-            span,
-        } => {
+        Value::Closure { val, captures, .. } => {
             let menu_completer = NuMenuCompleter::new(
                 *val,
-                *span,
+                span,
                 stack.captures_to_stack(captures),
                 engine_state,
                 only_buffer_difference,
@@ -575,15 +573,16 @@ fn add_keybinding(
     insert_keybindings: &mut Keybindings,
     normal_keybindings: &mut Keybindings,
 ) -> Result<(), ShellError> {
+    let span = mode.span();
     match &mode {
-        Value::String { val, span } => match val.as_str() {
+        Value::String { val, .. } => match val.as_str() {
             "emacs" => add_parsed_keybinding(emacs_keybindings, keybinding, config),
             "vi_insert" => add_parsed_keybinding(insert_keybindings, keybinding, config),
             "vi_normal" => add_parsed_keybinding(normal_keybindings, keybinding, config),
             m => Err(ShellError::UnsupportedConfigValue(
                 "emacs, vi_insert or vi_normal".to_string(),
                 m.to_string(),
-                *span,
+                span,
             )),
         },
         Value::List { vals, .. } => {
@@ -724,13 +723,14 @@ impl<'config> EventType<'config> {
 }
 
 fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { val: record, span } => match EventType::try_from_record(record, *span)? {
+        Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
             EventType::Send(value) => event_from_record(
                 value.into_string("", config).to_lowercase().as_str(),
                 record,
                 config,
-                *span,
+                span,
             )
             .map(Some),
             EventType::Edit(value) => {
@@ -738,7 +738,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
                     value.into_string("", config).to_lowercase().as_str(),
                     record,
                     config,
-                    *span,
+                    span,
                 )?;
                 Ok(Some(ReedlineEvent::Edit(vec![edit])))
             }
@@ -1056,10 +1056,10 @@ mod test {
 
         // Until event
         let cols = vec!["until".to_string()];
-        let vals = vec![Value::List {
-            vals: vec![menu_event, enter_event],
-            span: Span::test_data(),
-        }];
+        let vals = vec![Value::list(
+            vec![menu_event, enter_event],
+            Span::test_data(),
+        )];
         let event = Record { cols, vals };
 
         let span = Span::test_data();
@@ -1097,10 +1097,7 @@ mod test {
         let enter_event = Value::test_record(Record { cols, vals });
 
         // Multiple event
-        let event = Value::List {
-            vals: vec![menu_event, enter_event],
-            span: Span::test_data(),
-        };
+        let event = Value::list(vec![menu_event, enter_event], Span::test_data());
 
         let config = Config::default();
         let parsed_event = parse_event(&event, &config).unwrap();

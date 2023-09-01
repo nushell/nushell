@@ -62,19 +62,11 @@ pub fn boolean_fold(
             }
             Ok(pipeline_data) => {
                 if pipeline_data.into_value(span).is_true() == accumulator {
-                    return Ok(Value::Bool {
-                        val: accumulator,
-                        span,
-                    }
-                    .into_pipeline_data());
+                    return Ok(Value::bool(accumulator, span).into_pipeline_data());
                 }
             }
         }
     }
 
-    Ok(Value::Bool {
-        val: !accumulator,
-        span,
-    }
-    .into_pipeline_data())
+    Ok(Value::bool(!accumulator, span).into_pipeline_data())
 }

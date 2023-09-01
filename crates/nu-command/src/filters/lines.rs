@@ -27,7 +27,6 @@ impl Command for Lines {
             .switch("skip-empty", "skip empty lines", Some('s'))
             .category(Category::Filters)
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -42,6 +41,7 @@ impl Command for Lines {
         // match \r\n or \n
         static LINE_BREAK_REGEX: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
+        let span = input.span().unwrap_or(call.head);
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
@@ -65,7 +65,7 @@ impl Command for Lines {
                     if skip_empty && s.trim().is_empty() {
                         None
                     } else {
-                        Some(Value::string(s, call.head))
+                        Some(Value::string(s, span))
                     }
                 });
 
@@ -76,8 +76,8 @@ impl Command for Lines {
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
+                        let span = value.span();
                         if let Value::String { val, .. } = value {
-                            let val_span = value.span();
                             let mut lines = LINE_BREAK_REGEX
                                 .split(&val)
                                 .filter_map(|s| {
@@ -97,7 +97,7 @@ impl Command for Lines {
                                 }
                             }
 
-                            Some(lines.into_iter().map(move |x| Value::string(x, val_span)))
+                            Some(lines.into_iter().map(move |x| Value::string(x, span)))
                         } else {
                             None
                         }
@@ -189,10 +189,11 @@ impl Iterator for RawStreamLinesAdapter {
                 if let Some(result) = self.inner.next() {
                     match result {
                         Ok(v) => {
+                            let span = v.span();
                             match v {
                                 // TODO: Value::Binary support required?
                                 Value::String { val, .. } => {
-                                    self.span = v.span();
+                                    self.span = span;
 
                                     let mut lines = LINE_BREAK_REGEX
                                         .split(&val)

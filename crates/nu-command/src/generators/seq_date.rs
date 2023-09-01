@@ -78,8 +78,8 @@ impl Command for SeqDate {
             Example {
                 description: "print the first 10 days in January, 2020",
                 example: "seq date -b '2020-01-01' -e '2020-01-10'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                     vec![
                         Value::test_string("2020-01-01"),
                         Value::test_string("2020-01-02"),
                         Value::test_string("2020-01-03"),
@@ -91,14 +91,14 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-09"),
                         Value::test_string("2020-01-10"),
                     ],
-                    span: Span::test_data(),
-                }),
+                     Span::test_data(),
+                )),
             },
             Example {
                 description: "print every fifth day between January 1st 2020 and January 31st 2020",
                 example: "seq date -b '2020-01-01' -e '2020-01-31' -n 5",
-                result: Some(Value::List {
-                   vals: vec![
+                result: Some(Value::list(
+                    vec![
                     Value::test_string("2020-01-01"),
                     Value::test_string("2020-01-06"),
                     Value::test_string("2020-01-11"),
@@ -107,8 +107,8 @@ impl Command for SeqDate {
                     Value::test_string("2020-01-26"),
                     Value::test_string("2020-01-31"),
                     ],
-                    span: Span::test_data(),
-                }),
+                     Span::test_data(),
+                )),
             },
         ]
     }
@@ -324,10 +324,7 @@ pub fn run_seq_dates(
         }
     }
 
-    Ok(Value::List {
-        vals: ret,
-        span: call_span,
-    })
+    Ok(Value::list(ret, call_span))
 }
 
 #[cfg(test)]

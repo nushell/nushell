@@ -109,11 +109,10 @@ pub fn help_commands(
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
-            Ok(Value::String {
-                val: output.join("======================\n\n"),
-                span: call.head,
-            }
-            .into_pipeline_data())
+            Ok(
+                Value::string(output.join("======================\n\n"), call.head)
+                    .into_pipeline_data(),
+            )
         } else {
             Err(ShellError::CommandNotFound(span(&[
                 rest[0].span,
@@ -205,7 +204,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                 ));
             }
 
-            Value::List { vals, span }
+            Value::list(vals, span)
         };
 
         // Build the signature input/output table
@@ -222,7 +221,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                 ));
             }
 
-            Value::List { vals, span }
+            Value::list(vals, span)
         };
 
         let record = record! {

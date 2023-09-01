@@ -138,20 +138,21 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Join a table of structured paths into a list of paths",
                 example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string(r"/home/viking/spam.txt")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string(r"/home/viking/spam.txt")],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn handle_value(v: Value, args: &Arguments, head: Span) -> Value {
+    let span = v.span();
     match v {
         Value::String { ref val, .. } => join_single(Path::new(val), head, args),
-        Value::Record { val, span } => join_record(&val, head, span, args),
-        Value::List { vals, span } => join_list(&vals, head, span, args),
+        Value::Record { val, .. } => join_record(&val, head, span, args),
+        Value::List { vals, .. } => join_list(&vals, head, span, args),
 
         _ => super::handle_invalid_values(v, head),
     }
@@ -180,16 +181,16 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
                         .map(|r| join_record(r, head, span, args))
                         .collect();
 
-                    Value::List { vals, span }
+                    Value::list(vals, span)
                 }
-                Err(_) => Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                Err(_) => Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string or record".into(),
                         dst_span: head,
                         src_span: span,
-                    }),
+                    },
                     span,
-                },
+                ),
             }
         }
     }
@@ -198,10 +199,7 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
 fn join_record(record: &Record, head: Span, span: Span, args: &Arguments) -> Value {
     match merge_record(record, head, span) {
         Ok(p) => join_single(p.as_path(), head, args),
-        Err(error) => Value::Error {
-            error: Box::new(error),
-            span,
-        },
+        Err(error) => Value::error(error, span),
     }
 }
 

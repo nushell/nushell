@@ -71,7 +71,7 @@ pub fn calculate(
         PipelineData::ListStream(s, ..) => {
             helper_for_tables(&s.collect::<Vec<Value>>(), span, name, mf)
         }
-        PipelineData::Value(Value::List { ref vals, span }, ..) => match &vals[..] {
+        PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(
                 vals,
                 values.span().expect("PipelineData::Value had no span"),
@@ -80,7 +80,7 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { val: record, span }, ..) => {
+        PipelineData::Value(Value::Record { val: record, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = record
                 .vals
                 .into_iter()
@@ -97,7 +97,7 @@ pub fn calculate(
                 Err(err) => Err(err),
             }
         }
-        PipelineData::Value(Value::Range { val, span, .. }, ..) => {
+        PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
                 .into_range_iter(None)?
                 .map(|val| mf(&[val], span, name))

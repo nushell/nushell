@@ -44,20 +44,20 @@ impl Command for FromSsv {
             example: r#"'FOO   BAR
 1   2' | from ssv"#,
             description: "Converts ssv formatted string to table",
-            result: Some(Value::List {
-                vals: vec![Value::test_record(Record {
+            result: Some(Value::list(
+                vec![Value::test_record(Record {
                     cols: vec!["FOO".to_string(), "BAR".to_string()],
                     vals: vec![Value::test_string("1"), Value::test_string("2")],
                 })],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }, Example {
             example: r#"'FOO   BAR
 1   2' | from ssv -n"#,
             description: "Converts ssv formatted string to table but not treating the first row as column names",
             result: Some(
-                Value::List {
-                    vals: vec![
+                Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("FOO"), Value::test_string("BAR")],
@@ -67,8 +67,8 @@ impl Command for FromSsv {
                             vals: vec![Value::test_string("1"), Value::test_string("2")],
                         }),
                     ],
-                    span: Span::test_data(),
-                }
+                    Span::test_data(),
+                )
             ),
         }]
     }
@@ -280,7 +280,7 @@ fn from_ssv_string_to_value(
         })
         .collect();
 
-    Value::List { vals: rows, span }
+    Value::list(rows, span)
 }
 
 fn from_ssv(

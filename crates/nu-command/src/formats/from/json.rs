@@ -41,10 +41,10 @@ impl Command for FromJson {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
                         Value::test_int(1),
-                        Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span: Span::test_data(),
-                        },
+                        Value::list(
+                            vec![Value::test_int(1), Value::test_int(2)],
+                            Span::test_data(),
+                        ),
                     ],
                 })),
             },
@@ -75,10 +75,7 @@ impl Command for FromJson {
                     } else {
                         match convert_string_to_value(x.to_string(), span) {
                             Ok(v) => Some(v),
-                            Err(error) => Some(Value::Error {
-                                error: Box::new(error),
-                                span,
-                            }),
+                            Err(error) => Some(Value::error(error, span)),
                         }
                     }
                 })
@@ -100,12 +97,12 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
                 .map(|x| convert_nujson_to_value(x, span))
                 .collect();
 
-            Value::List { vals: v, span }
+            Value::list(v, span)
         }
-        nu_json::Value::Bool(b) => Value::Bool { val: *b, span },
-        nu_json::Value::F64(f) => Value::Float { val: *f, span },
-        nu_json::Value::I64(i) => Value::Int { val: *i, span },
-        nu_json::Value::Null => Value::Nothing { span },
+        nu_json::Value::Bool(b) => Value::bool(*b, span),
+        nu_json::Value::F64(f) => Value::float(*f, span),
+        nu_json::Value::I64(i) => Value::int(*i, span),
+        nu_json::Value::Null => Value::nothing(span),
         nu_json::Value::Object(k) => Value::record(
             k.iter()
                 .map(|(k, v)| (k.clone(), convert_nujson_to_value(v, span)))
@@ -114,26 +111,20 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
         ),
         nu_json::Value::U64(u) => {
             if *u > i64::MAX as u64 {
-                Value::Error {
-                    error: Box::new(ShellError::CantConvert {
+                Value::error(
+                    ShellError::CantConvert {
                         to_type: "i64 sized integer".into(),
                         from_type: "value larger than i64".into(),
                         span,
                         help: None,
-                    }),
+                    },
                     span,
-                }
+                )
             } else {
-                Value::Int {
-                    val: *u as i64,
-                    span,
-                }
+                Value::int(*u as i64, span)
             }
         }
-        nu_json::Value::String(s) => Value::String {
-            val: s.clone(),
-            span,
-        },
+        nu_json::Value::String(s) => Value::string(s.clone(), span),
     }
 }
 

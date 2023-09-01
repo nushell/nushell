@@ -10,9 +10,10 @@ fn from_value_to_delimited_string(
     config: &Config,
     head: Span,
 ) -> Result<String, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { val, span } => record_to_delimited(val, *span, separator, config, head),
-        Value::List { vals, span } => table_to_delimited(vals, *span, separator, config, head),
+        Value::Record { val, .. } => record_to_delimited(val, span, separator, config, head),
+        Value::List { vals, .. } => table_to_delimited(vals, span, separator, config, head),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error.clone()),
         v => Err(make_unsupported_input_error(v, head, v.span())),

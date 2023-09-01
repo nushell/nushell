@@ -138,7 +138,7 @@ fn action(
                 command_span,
             ),
         },
-        Value::string { val, .. } => {
+        Value::String { val, .. } => {
             match base64_config.action_type {
                 ActionType::Encode => {
                     let mut enc_str = String::new();
@@ -163,7 +163,7 @@ fn action(
                                             "base64 payload isn't a valid utf-8 sequence"
                                                 .to_owned(),
                                             e.to_string(),
-                                            Some(*value_span),
+                                            Some(value_span),
                                             Some("consider using the `--binary` flag".to_owned()),
                                             Vec::new(),
                                         ),

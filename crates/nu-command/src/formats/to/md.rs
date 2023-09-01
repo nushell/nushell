@@ -161,9 +161,10 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
 
     for row in vec_of_values {
         let mut escaped_row: Vec<String> = Vec::new();
+        let span = row.span();
 
         match row.to_owned() {
-            Value::Record { span, .. } => {
+            Value::Record { .. } => {
                 for i in 0..headers.len() {
                     let data = row.get_data_by_key(&headers[i]);
                     let value_string = data
@@ -224,23 +225,13 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
         if value.len() == 1 {
             output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
         } else {
-            output.push(Value::List {
-                vals: value.to_vec(),
-                span: head,
-            })
+            output.push(Value::list(value.to_vec(), head))
         }
     }
     if output.len() == 1 {
         single_list = true;
     }
-    (
-        Value::List {
-            vals: output,
-            span: head,
-        }
-        .into_pipeline_data(),
-        single_list,
-    )
+    (Value::list(output, head).into_pipeline_data(), single_list)
 }
 
 fn get_output_string(
@@ -391,8 +382,8 @@ mod tests {
 
     #[test]
     fn render_table() {
-        let value = Value::List {
-            vals: vec![
+        let value = Value::list(
+            vec![
                 Value::test_record(Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("Ecuador")],
@@ -406,8 +397,8 @@ mod tests {
                     vals: vec![Value::test_string("USA")],
                 }),
             ],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
 
         assert_eq!(
             table(

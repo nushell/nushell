@@ -86,22 +86,22 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     let initial_value = data.get(0);
 
     let mut acc = match initial_value {
-        Some(Value::Filesize { span, .. }) => Ok(Value::Filesize {
-            val: 0,
-            span: *span,
-        }),
-        Some(Value::Duration { span, .. }) => Ok(Value::Duration {
-            val: 0,
-            span: *span,
-        }),
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(0, *span)),
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::Filesize { .. } => Ok(Value::filesize(0, span)),
+                Value::Duration { .. } => Ok(Value::duration(0, span)),
+                Value::Int { .. } | Value::Float { .. } => Ok(Value::int(0, span)),
+                _ => Ok(Value::nothing(head)),
+            }
+        }
+
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
             "value originates from here".into(),
             head,
             span,
         )),
-        _ => Ok(Value::nothing(head)),
     }?;
 
     for value in &data {
@@ -130,14 +130,19 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
     let initial_value = data.get(0);
 
     let mut acc = match initial_value {
-        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::int(1, *span)),
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::Int { .. } | Value::Float { .. } => Ok(Value::int(1, span)),
+                _ => Ok(Value::nothing(head)),
+            }
+        }
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
             "value originates from here".into(),
             head,
             span,
         )),
-        _ => Ok(Value::nothing(head)),
     }?;
 
     for value in &data {
