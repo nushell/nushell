@@ -2836,7 +2836,6 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
- "sysinfo",
 ]
 
 [[package]]
@@ -2932,6 +2931,8 @@ dependencies = [
  "indexmap 2.0.0",
  "lru",
  "miette",
+ "nu-path",
+ "nu-system",
  "nu-test-support",
  "nu-utils",
  "num-format",
@@ -2967,6 +2968,7 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
+ "sysinfo",
  "winapi",
 ]
 

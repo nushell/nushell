@@ -1,8 +1,183 @@
 use crate::{
     ast::{Block, Call, Expr, Expression, PipelineElement},
-    engine::StateWorkingSet,
-    PipelineData, Record, ShellError, Span, Value,
+    engine::{EngineState, StateWorkingSet},
+    record, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
 };
+use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
+use std::path::PathBuf;
+
+pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+    fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
+        let cwd = engine_state.current_work_dir();
+
+        if path.exists() {
+            match nu_path::canonicalize_with(path, cwd) {
+                Ok(canon_path) => canon_path,
+                Err(_) => path.clone(),
+            }
+        } else {
+            path.clone()
+        }
+    }
+
+    let mut record = Record::new();
+
+    record.push(
+        "default-config-dir",
+        if let Some(mut path) = nu_path::config_dir() {
+            path.push("nushell");
+            Value::string(path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError("Could not get config directory".into()),
+                span,
+            )
+        },
+    );
+
+    record.push(
+        "config-path",
+        if let Some(path) = engine_state.get_config_path("config-path") {
+            let canon_config_path = canonicalize_path(engine_state, path);
+            Value::string(canon_config_path.to_string_lossy(), span)
+        } else if let Some(mut path) = nu_path::config_dir() {
+            path.push("nushell");
+            path.push("config.nu");
+            Value::string(path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError("Could not get config directory".into()),
+                span,
+            )
+        },
+    );
+
+    record.push(
+        "env-path",
+        if let Some(path) = engine_state.get_config_path("env-path") {
+            let canon_env_path = canonicalize_path(engine_state, path);
+            Value::string(canon_env_path.to_string_lossy(), span)
+        } else if let Some(mut path) = nu_path::config_dir() {
+            path.push("nushell");
+            path.push("env.nu");
+            Value::string(path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError("Could not find environment path".into()),
+                span,
+            )
+        },
+    );
+
+    record.push(
+        "history-path",
+        if let Some(mut path) = nu_path::config_dir() {
+            path.push("nushell");
+            match engine_state.config.history_file_format {
+                HistoryFileFormat::Sqlite => {
+                    path.push("history.sqlite3");
+                }
+                HistoryFileFormat::PlainText => {
+                    path.push("history.txt");
+                }
+            }
+            let canon_hist_path = canonicalize_path(engine_state, &path);
+            Value::string(canon_hist_path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError("Could not find history path".into()),
+                span,
+            )
+        },
+    );
+
+    record.push(
+        "loginshell-path",
+        if let Some(mut path) = nu_path::config_dir() {
+            path.push("nushell");
+            path.push("login.nu");
+            let canon_login_path = canonicalize_path(engine_state, &path);
+            Value::string(canon_login_path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError("Could not find login shell path".into()),
+                span,
+            )
+        },
+    );
+
+    #[cfg(feature = "plugin")]
+    {
+        record.push(
+            "plugin-path",
+            if let Some(path) = &engine_state.plugin_signatures {
+                let canon_plugin_path = canonicalize_path(engine_state, path);
+                Value::string(canon_plugin_path.to_string_lossy(), span)
+            } else {
+                Value::error(
+                    ShellError::IOError("Could not get plugin signature location".into()),
+                    span,
+                )
+            },
+        );
+    }
+
+    record.push(
+        "home-path",
+        if let Some(path) = nu_path::home_dir() {
+            let canon_home_path = canonicalize_path(engine_state, &path);
+            Value::string(canon_home_path.to_string_lossy(), span)
+        } else {
+            Value::error(ShellError::IOError("Could not get home path".into()), span)
+        },
+    );
+
+    record.push("temp-path", {
+        let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
+        Value::string(canon_temp_path.to_string_lossy(), span)
+    });
+
+    record.push("pid", Value::int(std::process::id().into(), span));
+
+    record.push("os-info", {
+        let ver = get_kernel_version();
+        Value::record(
+            record! {
+                "name" => Value::string(get_os_name(), span),
+                "arch" => Value::string(get_os_arch(), span),
+                "family" => Value::string(get_os_family(), span),
+                "kernel_version" => Value::string(ver, span),
+            },
+            span,
+        )
+    });
+
+    record.push(
+        "startup-time",
+        Value::duration(engine_state.get_startup_time(), span),
+    );
+
+    record.push(
+        "is-interactive",
+        Value::bool(engine_state.is_interactive, span),
+    );
+
+    record.push("is-login", Value::bool(engine_state.is_login, span));
+
+    record.push(
+        "current-exe",
+        if let Ok(current_exe) = std::env::current_exe() {
+            Value::string(current_exe.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError("Could not get current executable path".to_string()),
+                span,
+            )
+        },
+    );
+
+    Ok(Value::record(record, span))
+}
 
 fn eval_const_call(
     working_set: &StateWorkingSet,
