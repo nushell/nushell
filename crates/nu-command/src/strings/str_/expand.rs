@@ -230,17 +230,17 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                 Ok(node) => {
                     match expand(&node) {
                         Ok(possibilities) => {
-                            Value::list (  possibilities.iter().map(|e| Value::string(e,span)).collect::<Vec<Value>>(), span )
+                            Value::list(possibilities.iter().map(|e| Value::string(e,span)).collect::<Vec<Value>>(), span)
                         },
                         Err(e) => match e {
-                            bracoxide::ExpansionError::NumConversionFailed(s) => Value::error ( 
+                            bracoxide::ExpansionError::NumConversionFailed(s) => Value::error(
                                 ShellError::GenericError("Number Conversion Failed".to_owned(), format!("Number conversion failed at {s}."), Some(value_span), Some("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits.".to_owned()), vec![]),
                             span,
                         ),
                         },
                     }
                 },
-                Err(e) => Value::error ( 
+                Err(e) => Value::error(
                     match e {
                         ParsingError::NoTokens => ShellError::PipelineEmpty { dst_span: value_span },
                         ParsingError::OBraExpected(s) => ShellError::GenericError("Opening Brace Expected".to_owned(), format!("Opening brace is expected at {s}."), Some(value_span), Some("In brace syntax, we use equal amount of opening (`{`) and closing (`}`). Please, take a look at the examples.".to_owned()), vec![]),
@@ -261,12 +261,12 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
             }
         },
         Err(e) => match e {
-            TokenizationError::EmptyContent => Value::error (
+            TokenizationError::EmptyContent => Value::error(
                 ShellError::PipelineEmpty { dst_span: value_span },
                 value_span,
             ),
-            TokenizationError::FormatNotSupported => Value::error (
-                
+            TokenizationError::FormatNotSupported => Value::error(
+
                     ShellError::GenericError(
                         "Format Not Supported".to_owned(),
                         "Usage of only `{` or `}`. Brace Expansion syntax, needs to have equal amount of opening (`{`) and closing (`}`)".to_owned(),
@@ -276,7 +276,7 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                 ),
                  value_span,
             ),
-            TokenizationError::NoBraces => Value::error (
+            TokenizationError::NoBraces => Value::error(
                 ShellError::GenericError("No Braces".to_owned(), "At least one `{}` brace expansion expected.".to_owned(), Some(value_span), Some("Please, examine the examples.".to_owned()), vec![]),
                 value_span,
             )
@@ -294,14 +294,8 @@ mod tests {
             str_expand("{a.b.c,d}", Span::test_data(), Span::test_data()),
             Value::list(
                 vec![
-                    Value::string(
-                        String::from("a.b.c"),
-                        Span::test_data(),
-                    ),
-                    Value::string(
-                        String::from("d"),
-                        Span::test_data(),
-                    )
+                    Value::string(String::from("a.b.c"), Span::test_data(),),
+                    Value::string(String::from("d"), Span::test_data(),)
                 ],
                 Span::test_data(),
             )
@@ -310,14 +304,8 @@ mod tests {
             str_expand("{1.2.3,a}", Span::test_data(), Span::test_data()),
             Value::list(
                 vec![
-                    Value::string(
-                        String::from("1.2.3"),
-                        Span::test_data(),
-                    ),
-                    Value::string(
-                        String::from("a"),
-                        Span::test_data(),
-                    )
+                    Value::string(String::from("1.2.3"), Span::test_data(),),
+                    Value::string(String::from("a"), Span::test_data(),)
                 ],
                 Span::test_data(),
             )
@@ -326,14 +314,8 @@ mod tests {
             str_expand("{a-1.2,b}", Span::test_data(), Span::test_data()),
             Value::list(
                 vec![
-                    Value::string(
-                        String::from("a-1.2"),
-                        Span::test_data(),
-                    ),
-                    Value::string(
-                        String::from("b"),
-                        Span::test_data(),
-                    )
+                    Value::string(String::from("a-1.2"), Span::test_data(),),
+                    Value::string(String::from("b"), Span::test_data(),)
                 ],
                 Span::test_data(),
             )
