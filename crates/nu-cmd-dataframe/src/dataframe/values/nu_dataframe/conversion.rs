@@ -912,7 +912,8 @@ fn series_to_values(
                             }
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
                     Value::Date {
                         val: datetime,
@@ -982,7 +983,8 @@ fn series_to_values(
                             }
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
                     Value::Date {
                         val: datetime,

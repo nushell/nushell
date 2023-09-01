@@ -185,6 +185,20 @@ impl LiteBlock {
     }
 }
 
+fn last_non_comment_token(tokens: &[Token], cur_idx: usize) -> Option<TokenContents> {
+    let mut expect = TokenContents::Comment;
+    for token in tokens.iter().take(cur_idx).rev() {
+        // skip ([Comment]+ [Eol]) pair
+        match (token.contents, expect) {
+            (TokenContents::Comment, TokenContents::Comment)
+            | (TokenContents::Comment, TokenContents::Eol) => expect = TokenContents::Eol,
+            (TokenContents::Eol, TokenContents::Eol) => expect = TokenContents::Comment,
+            (token, _) => return Some(token),
+        }
+    }
+    None
+}
+
 pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     let mut block = LiteBlock::new();
     let mut curr_pipeline = LitePipeline::new();
@@ -203,7 +217,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     let mut error = None;
 
-    for token in tokens.iter() {
+    for (idx, token) in tokens.iter().enumerate() {
         match &token.contents {
             TokenContents::PipePipe => {
                 error = error.or(Some(ParseError::ShellOrOr(token.span)));
@@ -294,7 +308,13 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 last_connector_span = Some(token.span);
             }
             TokenContents::Eol => {
-                if last_token != TokenContents::Pipe && last_token != TokenContents::OutGreaterThan
+                // Handle `[Command] [Pipe] ([Comment] | [Eol])+ [Command]`
+                //
+                // `[Eol]` branch checks if previous token is `[Pipe]` to construct pipeline
+                // and so `[Comment] | [Eol]` should be ignore to make it work
+                let actual_token = last_non_comment_token(tokens, idx);
+                if actual_token != Some(TokenContents::Pipe)
+                    && actual_token != Some(TokenContents::OutGreaterThan)
                 {
                     if !curr_command.is_empty() {
                         match last_connector {
@@ -451,7 +471,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         block.push(curr_pipeline);
     }
 
-    if last_token == TokenContents::Pipe {
+    if last_non_comment_token(tokens, tokens.len()) == Some(TokenContents::Pipe) {
         (
             block,
             Some(ParseError::UnexpectedEof(

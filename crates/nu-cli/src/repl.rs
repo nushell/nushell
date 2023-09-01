@@ -16,8 +16,9 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::create_nu_constant,
     report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    Value, NU_VARIABLE_ID,
 };
 use nu_utils::utils::perf;
 use reedline::{
@@ -163,6 +164,10 @@ pub fn evaluate_repl(
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
