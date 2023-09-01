@@ -73,7 +73,6 @@ impl Command for Skip {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let span = call.head;
         let metadata = input.metadata();
 
         let n: usize = match n {

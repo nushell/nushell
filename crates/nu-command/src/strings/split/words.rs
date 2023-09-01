@@ -152,10 +152,10 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
     // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
     // Let's go with the unicode one in hopes that it works on more than just ascii characters
     let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
-    let span = v.span();
+    let v_span = v.span();
 
     match v {
-        Value::Error { error, .. } => Value::error(*error.clone(), span),
+        Value::Error { error, .. } => Value::error(*error.clone(), v_span),
         v => {
             let v_span = v.span();
             if let Ok(s) = v.as_string() {

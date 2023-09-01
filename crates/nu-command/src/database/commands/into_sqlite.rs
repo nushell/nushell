@@ -109,8 +109,9 @@ fn action(
         "main".to_string()
     };
 
+    let val_span = input.span();
     match input {
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             // find the column names, and sqlite data types
             let columns = get_columns_with_sqlite_types(vals);
 
@@ -135,11 +136,10 @@ fn action(
                                     .join(",")
                             }
                             // Number formats so keep them without quotes
-                            Value::Int { val: _, span: _ }
-                            | Value::Float { val: _, span: _ }
-                            | Value::Filesize { val: _, span: _ }
-                            | Value::Duration { val: _, span: _ } =>
-                                nu_value_to_string(list_value.clone(), ""),
+                            Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. } => nu_value_to_string(list_value.clone(), ""),
                             _ =>
                             // String formats so add quotes around them
                                 format!("'{}'", nu_value_to_string(list_value.clone(), "")),
@@ -210,7 +210,7 @@ fn action(
             })?;
 
             // and we're done
-            Ok(Value::Nothing { span: *span })
+            Ok(Value::nothing(val_span))
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error.clone()),
