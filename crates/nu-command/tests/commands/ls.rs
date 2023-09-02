@@ -52,13 +52,22 @@ fn lists_regular_files_in_special_folder() {
         sandbox
             .mkdir("[abcd]")
             .mkdir("[bbcd]")
+            .mkdir("abcd]")
             .mkdir("abcd")
             .mkdir("abcd/*")
             .mkdir("abcd/?")
             .with_files(vec![EmptyFile("[abcd]/test.txt")])
+            .with_files(vec![EmptyFile("abcd]/test.txt")])
             .with_files(vec![EmptyFile("abcd/*/test.txt")])
-            .with_files(vec![EmptyFile("abcd/?/test.txt")]);
+            .with_files(vec![EmptyFile("abcd/?/test.txt")])
+            .with_files(vec![EmptyFile("abcd/?/test2.txt")]);
 
+        let actual = nu!(
+            cwd: dirs.test().join("abcd]"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test(), format!(r#"ls abcd] | length"#));
+        assert_eq!(actual.out, "1");
         let actual = nu!(
             cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
         assert_eq!(actual.out, "1");
@@ -70,7 +79,19 @@ fn lists_regular_files_in_special_folder() {
         assert_eq!(actual.out, "1");
         let actual = nu!(
             cwd: dirs.test().join("abcd/?"), format!(r#"ls | length"#));
-        assert_eq!(actual.out, "1");
+        assert_eq!(actual.out, "2");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/*"), format!(r#"ls -D ../* | length"#));
+        assert_eq!(actual.out, "2");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/*"), format!(r#"ls ../* | length"#));
+        assert_eq!(actual.out, "3");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/?"), format!(r#"ls -D ../* | length"#));
+        assert_eq!(actual.out, "2");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
+        assert_eq!(actual.out, "3");
     })
 }
 
@@ -89,6 +110,10 @@ fn lists_regular_files_in_special_folder() {
 #[case("?bcd/[xy]y.t?t", 2)]
 #[case("[[]abcd[]].txt", 1)]
 #[case("[[]?bcd[]].txt", 2)]
+#[case("??bcd[]].txt", 2)]
+#[case("??bcd].txt", 2)]
+#[case("[[]?bcd].txt", 2)]
+#[case("[[]abcd].txt", 2)]
 #[case("[[][abcd]bcd[]].txt", 2)]
 fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
     Playground::setup("ls_test_3", |dirs, sandbox| {

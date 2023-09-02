@@ -29,38 +29,16 @@ pub fn glob_from(
     ),
     ShellError,
 > {
-    let path = PathBuf::from(&pattern.item);
-    let path = expand_path_with(path, cwd);
-    let is_symlink = match fs::symlink_metadata(&path) {
-        Ok(attr) => attr.file_type().is_symlink(),
-        Err(_) => false,
-    };
-
-    let expanded_cwd = expand_path_with(".", cwd);
-
-    let (prefix, pattern) = if path.to_string_lossy().contains(GLOB_CHARS) {
-        // Path is a glob pattern => do not check for existence
-        // Select the longest prefix until the first glob
+    let (prefix, pattern) = if pattern.item.contains(GLOB_CHARS) {
+        // Pattern contains glob, split it
         let mut p = PathBuf::new();
+        let path = PathBuf::from(&pattern.item);
         let components = path.components();
         let mut counter = 0;
 
-        let mut cwd_components = expanded_cwd.components();
-        let mut part_of_cwd = true;
-
-        // Get the path up to the pattern which we'll call the prefix
         for c in components {
-            let cwd = cwd_components.next();
             if let Component::Normal(os) = c {
-                // Only the following pattern is glob pattern:
-                // (1) Not a part of expanded_cwd, e.g. ls under `/[test]/`
-                // (2) Contain glob_chars
-                part_of_cwd = part_of_cwd
-                    && match cwd {
-                        Some(Component::Normal(cwd)) => os == cwd,
-                        _ => false,
-                    };
-                if !part_of_cwd && os.to_string_lossy().contains(GLOB_CHARS) {
+                if os.to_string_lossy().contains(GLOB_CHARS) {
                     break;
                 }
             }
@@ -68,24 +46,36 @@ pub fn glob_from(
             counter += 1;
         }
 
-        // Let's separate the pattern from the path and we'll call this the pattern
-        let mut just_pattern = PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()));
+        let mut just_pattern = PathBuf::new();
         for c in counter..path.components().count() {
             if let Some(comp) = path.components().nth(c) {
                 just_pattern.push(comp);
             }
         }
 
-        (Some(p), just_pattern)
-    } else if is_symlink {
-        (path.parent().map(|parent| parent.to_path_buf()), path)
+        // Now expand `p` to get full prefix
+        let path = expand_path_with(p, cwd);
+        let escaped_prefix = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
+
+        (Some(path), escaped_prefix.join(just_pattern))
     } else {
-        let path = if let Ok(p) = canonicalize_with(path, cwd) {
-            p
-        } else {
-            return Err(ShellError::DirectoryNotFound(pattern.span, None));
+        let path = PathBuf::from(&pattern.item);
+        let path = expand_path_with(path, cwd);
+        let is_symlink = match fs::symlink_metadata(&path) {
+            Ok(attr) => attr.file_type().is_symlink(),
+            Err(_) => false,
         };
-        (path.parent().map(|parent| parent.to_path_buf()), path)
+
+        if is_symlink {
+            (path.parent().map(|parent| parent.to_path_buf()), path)
+        } else {
+            let path = if let Ok(p) = canonicalize_with(path, cwd) {
+                p
+            } else {
+                return Err(ShellError::DirectoryNotFound(pattern.span, None));
+            };
+            (path.parent().map(|parent| parent.to_path_buf()), path)
+        }
     };
 
     let pattern = pattern.to_string_lossy().to_string();
