@@ -45,6 +45,7 @@ fn lists_regular_files_using_asterisk_wildcard() {
     })
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn lists_regular_files_in_special_folder() {
     Playground::setup("ls_test_3", |dirs, sandbox| {
