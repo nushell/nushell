@@ -55,10 +55,11 @@ pub fn glob_from(
                 // Only the following pattern is glob pattern:
                 // (1) Not a part of expanded_cwd, e.g. ls under `/[test]/`
                 // (2) Contain glob_chars
-                part_of_cwd = part_of_cwd && match cwd {
-                    Some(Component::Normal(cwd)) => os == cwd,
-                    _ => false,
-                };
+                part_of_cwd = part_of_cwd
+                    && match cwd {
+                        Some(Component::Normal(cwd)) => os == cwd,
+                        _ => false,
+                    };
                 if !part_of_cwd && os.to_string_lossy().contains(GLOB_CHARS) {
                     break;
                 }
@@ -113,11 +114,4 @@ pub fn glob_from(
             )),
         })),
     ))
-}
-
-#[test]
-fn glob() {
-    let (prefix, glob) = glob_from(&Spanned { item: ".../*".to_owned(), span: Span::test_data() }, &PathBuf::from("~/nushell_fork/"), Span::test_data(), None).unwrap();
-    println!("{:?}", prefix);
-    println!("{:?}", glob.collect::<Vec<_>>());
 }

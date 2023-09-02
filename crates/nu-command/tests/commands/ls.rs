@@ -51,7 +51,12 @@ fn lists_regular_files_in_special_folder() {
         sandbox
             .mkdir("[abcd]")
             .mkdir("[bbcd]")
-            .with_files(vec![EmptyFile("[abcd]/test.txt")]);
+            .mkdir("abcd")
+            .mkdir("abcd/*")
+            .mkdir("abcd/?")
+            .with_files(vec![EmptyFile("[abcd]/test.txt")])
+            .with_files(vec![EmptyFile("abcd/*/test.txt")])
+            .with_files(vec![EmptyFile("abcd/?/test.txt")]);
 
         let actual = nu!(
             cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
@@ -59,6 +64,12 @@ fn lists_regular_files_in_special_folder() {
         let actual = nu!(
             cwd: dirs.test().join("[bbcd]"), format!(r#"ls | length"#));
         assert_eq!(actual.out, "0");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/*"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test().join("abcd/?"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "1");
     })
 }
 
