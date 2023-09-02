@@ -36,6 +36,9 @@ pub fn glob_from(
         Err(_) => false,
     };
 
+    let path = PathBuf::from(&pattern.item);
+    let path = expand_path_with(path, nu_glob::Pattern::escape(&cwd.to_string_lossy()));
+
     // Check for brackets first
     let (prefix, pattern) = if path.to_string_lossy().contains('[') {
         // Path is a glob pattern => do not check for existence
@@ -115,4 +118,14 @@ pub fn glob_from(
             )),
         })),
     ))
+}
+
+#[test]
+fn test_glob_from() {
+    let (prefix, glob) = glob_from(&Spanned { item: "*".to_owned(), span: Span::test_data() }, 
+        &PathBuf::from("~/nushell_fork/[test]"), 
+        Span::test_data(), 
+        None,).unwrap();
+    let globs = glob.collect::<Vec<_>>();
+    println!("{:?}", globs);
 }
