@@ -80,6 +80,12 @@ fn ignores_duplicate_columns_rejected() {
 }
 
 #[test]
+fn ignores_duplicate_rows_rejected() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
 fn reject_record_from_raw_eval() {
     let actual = nu!(r#"{"a": 3} | reject a | describe"#);
 
