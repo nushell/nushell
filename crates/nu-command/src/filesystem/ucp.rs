@@ -1,6 +1,6 @@
-use nu_engine::{env::current_dir, CallExt};
+use nu_path::expand_to_real_path;
 use nu_protocol::{
-    ast::{Argument, Call},
+    ast::{Argument, Call, Expr},
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
@@ -16,59 +16,26 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     recursive_match_hidden_dir: true,
 };
 
-/// Returns tuple of (Source paths, Target)
-pub fn parse_path_args(
-    mut paths: Vec<PathBuf>,
-    options: &uu_cp::Options,
-) -> Result<(Vec<PathBuf>, PathBuf), ShellError> {
-    if paths.is_empty() {
-        // No files specified
-        return Err(ShellError::GenericError(
-            "Missing file operand".into(),
-            "".into(),
-            None,
-            None,
-            Vec::new(),
-        ));
-        // return Err("missing file operand".into());
-    }
-
-    // Return an error if the user requested to copy more than one
-    // file source to a file target
-    if options.no_target_dir && options.target_dir.is_none() && paths.len() > 2 {
-        // FIX THIS ERROR PROPERLY
-        return Err(ShellError::GenericError(
-            "extra operand".into(),
-            "".into(),
-            None,
-            None,
-            Vec::new(),
-        ));
-        // return Err(format!("extra operand {:?}", paths[2]).into());
-    }
-
-    let target = match options.target_dir {
-        Some(ref target) => {
-            // All path args are sources, and the target dir was
-            // specified separately
-            target.clone()
-        }
-        None => {
-            // If there was no explicit target-dir, then use the last
-            // path_arg
-            paths.pop().unwrap()
-        }
-    };
-
-    // See comments on strip_trailing_slashes
-    // if options.strip_trailing_slashes {
-    //     for source in &mut paths {
-    //         *source = source.components().as_path().to_owned();
-    //     }
-    // }
-
-    Ok((paths, target))
+pub fn collect_filepath_arguments(call: &Call) -> Vec<Spanned<String>> {
+    call.arguments
+        .iter()
+        .filter_map(|arg| match arg {
+            Argument::Positional(expression) => {
+                if let Expr::Filepath(p) = &expression.expr {
+                    let pth = Spanned {
+                        item: nu_utils::strip_ansi_string_unlikely(p.clone()),
+                        span: expression.span,
+                    };
+                    Some(pth)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .collect::<Vec<Spanned<String>>>()
 }
+
 #[derive(Clone)]
 pub struct Ucp;
 
@@ -132,8 +99,8 @@ impl Command for Ucp {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -146,7 +113,7 @@ impl Command for Ucp {
         //                     (this option is ignored when the -n option is also used). Currently not
         //                     implemented for Windows.
         // -i, --interactive   ask before overwriting files
-        // -g, --progress      Display a progress bar.
+        // -p, --progress      Display a progress bar.
         // -n, --no-clobber    do not overwrite an existing file (overrides a previous -i option)
         // None, --debug       explain how a file is copied. Implies -v.
         let interactive = call.has_flag("interactive");
@@ -174,68 +141,54 @@ impl Command for Ucp {
         let reflink_mode = uu_cp::ReflinkMode::Auto;
         #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-
-        //Conflicting flags need to be handled. For now lets handle the ones that I can see
-        //for now with uutils tests.
-        let current_dir_path = current_dir(engine_state, stack)?;
-        let num_files = call
-            .arguments
+        let mut paths = collect_filepath_arguments(call);
+        if paths.is_empty() {
+            return Err(ShellError::GenericError(
+                "Missing file operand".into(),
+                "".into(),
+                None,
+                None,
+                Vec::new(),
+            ));
+        }
+        // Shouldnt not be reached as already checked if its not empty?
+        let target = paths.pop().expect("Should not be reached?");
+        let target_path = PathBuf::from(&target.item);
+        if target.item.ends_with('/') && !target_path.is_dir() {
+            return Err(ShellError::GenericError(
+                "is not a directory".into(),
+                "is not a directory".into(),
+                Some(target.span),
+                None,
+                Vec::new(),
+            ));
+        };
+        // paths now contains the sources
+        let sources: Vec<Vec<PathBuf>> = paths
             .iter()
-            .filter_map(|arg| match arg {
-                Argument::Positional(expr) => Some(expr),
-                _ => None,
-            })
-            .count();
-
-        let mut paths: Vec<PathBuf> = vec![];
-        for file_nr in 0..num_files {
-            let path = call.req::<Spanned<String>>(engine_state, stack, file_nr)?;
-            let mut path = {
-                Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
-                    span: path.span,
-                }
-            };
-            // this is the target
-            if file_nr == num_files - 1 {
-                // IF only one source and one target, and if target is a directory
-                let target = PathBuf::from(&path.item);
-                if path.item.ends_with('/')
-                    && !target.is_dir()
-                    && !call.has_flag("target-directory")
-                {
-                    return Err(ShellError::GenericError(
-                        "is not a directory".into(),
-                        "is not a directory".into(),
-                        Some(path.span),
+            .map(|p| {
+                // Need to expand too make it work with globbing
+                let expanded_src = expand_to_real_path(&p.item);
+                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
+                    Ok(files) => {
+                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
+                        if f.is_empty() {
+                            return Err(ShellError::FileNotFound(p.span));
+                        }
+                        Ok(f)
+                    }
+                    Err(e) => Err(ShellError::GenericError(
+                        e.to_string(),
+                        "invalid pattern".to_string(),
+                        Some(p.span),
                         None,
                         Vec::new(),
-                    ));
-                };
-                paths.push(target);
-            } else {
-                // these are the sources
-                let src = &mut path.item;
-                match nu_glob::glob_with(src, GLOB_PARAMS) {
-                    Ok(files) => {
-                        let mut f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
-                        if f.is_empty() {
-                            return Err(ShellError::FileNotFound(path.span));
-                        }
-                        paths.append(&mut f);
-                    }
-                    Err(e) => {
-                        return Err(ShellError::GenericError(
-                            e.to_string(),
-                            "invalid pattern".to_string(),
-                            Some(path.span),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
+                    )),
                 }
-            }
-        }
+            })
+            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
+
+        let sources = sources.into_iter().flatten().collect::<Vec<PathBuf>>();
         let options = uu_cp::Options {
             attributes_only: false,
             backup: BackupMode::NoBackup,
@@ -261,40 +214,7 @@ impl Command for Ucp {
             progress_bar: progress,
         };
 
-        // For enabling easy `crawl` of cp command, we need to strip current directory
-        // as it looks like uu_cp takes relative directory for sources & target,
-        // but nushell always resolves to the $CWD
-        // again, kind of a hack
-        let paths = paths
-            .iter()
-            .map(|path| match path.strip_prefix(&current_dir_path) {
-                Ok(p) => {
-                    if p.to_str()?.is_empty() {
-                        Some(PathBuf::from("."))
-                    } else {
-                        Some(p.to_path_buf())
-                    }
-                }
-                Err(_) => Some(path.to_path_buf()),
-            })
-            // I guess this is caught by nu, if not
-            // we handle it here.
-            .collect::<Option<Vec<PathBuf>>>()
-            .ok_or(ShellError::GenericError(
-                "Not valid UTF-8".to_string(),
-                "Not valid UTF-8".to_string(),
-                None,
-                None,
-                vec![],
-            ))?;
-        // This function below was taken directly from `uu_cp` to reuse
-        // some of their logic when it came to parsing path arguments,
-        // even tho we already did some of it in the `src, target` for loop above
-        // Nice to combine efforts and make it nicer.
-
-        // TODO: Fix this following the comments in draft PR by Terts
-        let (sources, target) = parse_path_args(paths, &options)?;
-        if let Err(error) = uu_cp::copy(&sources, &target, &options) {
+        if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
             match error {
                 // Error::NotAllFilesCopied is non-fatal, but the error
                 // code should still be EXIT_ERR as does GNU cp
