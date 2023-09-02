@@ -24,7 +24,10 @@ impl Command for Keybindings {
     }
 
     fn extra_usage(&self) -> &str {
-        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
+        r#"You must use one of the following subcommands. Using this command as-is will only produce this help message.
+
+For more information on input and keybindings, check:
+  https://www.nushell.sh/book/line_editor.html"#
     }
 
     fn search_terms(&self) -> Vec<&str> {
