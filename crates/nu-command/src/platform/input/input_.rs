@@ -109,7 +109,6 @@ impl Command for Input {
 
         loop {
             if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
-                let _ = crossterm::terminal::disable_raw_mode();
                 break;
             }
             match crossterm::event::read() {
