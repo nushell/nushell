@@ -3,8 +3,8 @@ use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Type, Value,
 };
 use std::io::{stdout, Write};
 
@@ -76,17 +76,13 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         // stdout.queue(crossterm::style::Print("\r\n"))?;
 
         // Get a record
-        let v = print_events_helper(event)?;
+        let val = print_events_helper(event)?;
         // Print out the record
-        let o = match v {
-            Value::Record { val, .. } => val
-                .iter()
-                .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
-                .collect::<Vec<String>>()
-                .join(", "),
-
-            _ => "".to_string(),
-        };
+        let o = val
+            .iter()
+            .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
+            .collect::<Vec<String>>()
+            .join(" ");
         stdout.queue(crossterm::style::Print(o))?;
         stdout.queue(crossterm::style::Print("\r\n"))?;
         stdout.flush()?;
@@ -101,7 +97,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 // even seeing the events. if you press a key and no events
 // are printed, it's a good chance your terminal is eating
 // those events.
-fn print_events_helper(event: Event) -> Result<Value, ShellError> {
+fn print_events_helper(event: Event) -> Result<Record, ShellError> {
     if let Event::Key(KeyEvent {
         code,
         modifiers,
@@ -119,7 +115,7 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                     "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
                     "state" => Value::string(format!("{state:?}"), Span::unknown()),
                 };
-                Ok(Value::record(record, Span::unknown()))
+                Ok(record)
             }
             _ => {
                 let record = record! {
@@ -129,11 +125,11 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
                     "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
                     "state" => Value::string(format!("{state:?}"), Span::unknown()),
                 };
-                Ok(Value::record(record, Span::unknown()))
+                Ok(record)
             }
         }
     } else {
         let record = record! { "event" => Value::string(format!("{event:?}"), Span::unknown()) };
-        Ok(Value::record(record, Span::unknown()))
+        Ok(record)
     }
 }
