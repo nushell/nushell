@@ -613,6 +613,22 @@ fn add_parsed_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
+    let (modifier, keycode) = parsed_keybinding_to_key_combination(keybinding, config)?;
+
+    if let Some(event) = parse_event(&keybinding.event, config)? {
+        keybindings.add_binding(modifier, keycode, event);
+    } else {
+        keybindings.remove_binding(modifier, keycode);
+    }
+
+    Ok(())
+}
+
+// FIXME: return type should be reedline::edit_mode::keybindings::KeyCombination, but it doesn't seem to be exported.
+fn parsed_keybinding_to_key_combination(
+    keybinding: &ParsedKeybinding,
+    config: &Config,
+) -> Result<(KeyModifiers, KeyCode), ShellError> {
     let modifier = match keybinding
         .modifier
         .into_string("", config)
@@ -698,13 +714,7 @@ fn add_parsed_keybinding(
             ))
         }
     };
-    if let Some(event) = parse_event(&keybinding.event, config)? {
-        keybindings.add_binding(modifier, keycode, event);
-    } else {
-        keybindings.remove_binding(modifier, keycode);
-    }
-
-    Ok(())
+    Ok((modifier, keycode))
 }
 
 enum EventType<'config> {
