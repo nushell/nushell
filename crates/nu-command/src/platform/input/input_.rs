@@ -93,7 +93,7 @@ impl Command for Input {
             None
         };
 
-        if let Some(prompt) = prompt {
+        if let Some(prompt) = &prompt {
             print!("{prompt}");
             let _ = std::io::stdout().flush();
         }
@@ -158,8 +158,11 @@ impl Command for Input {
                     std::io::stdout(),
                     terminal::Clear(ClearType::CurrentLine),
                     cursor::MoveToColumn(0),
-                    Print(buf.to_string()),
                 )?;
+                if let Some(prompt) = &prompt {
+                    execute!(std::io::stdout(), Print(prompt.to_string()))?;
+                }
+                execute!(std::io::stdout(), Print(buf.to_string()))?;
             }
         }
         crossterm::terminal::disable_raw_mode()?;
