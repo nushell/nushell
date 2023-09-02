@@ -56,6 +56,9 @@ fn lists_regular_files_in_special_folder() {
         let actual = nu!(
             cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
         assert_eq!(actual.out, "1");
+        let actual = nu!(
+            cwd: dirs.test().join("[bbcd]"), format!(r#"ls | length"#));
+        assert_eq!(actual.out, "0");
     })
 }
 

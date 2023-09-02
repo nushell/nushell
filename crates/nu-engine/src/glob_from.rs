@@ -38,15 +38,15 @@ pub fn glob_from(
 
     let expanded_cwd = expand_path_with(".", cwd);
 
-    // Check for brackets first
     let (prefix, pattern) = if path.to_string_lossy().contains(GLOB_CHARS) {
         // Path is a glob pattern => do not check for existence
-        // Select the longest prefix until the first '*'
+        // Select the longest prefix until the first glob
         let mut p = PathBuf::new();
         let components = path.components();
         let mut counter = 0;
 
         let mut cwd_components = expanded_cwd.components();
+        let mut part_of_cwd = true;
 
         // Get the path up to the pattern which we'll call the prefix
         for c in components {
@@ -55,7 +55,7 @@ pub fn glob_from(
                 // Only the following pattern is glob pattern:
                 // (1) Not a part of expanded_cwd, e.g. ls under `/[test]/`
                 // (2) Contain glob_chars
-                let part_of_cwd = match cwd {
+                part_of_cwd = part_of_cwd && match cwd {
                     Some(Component::Normal(cwd)) => os == cwd,
                     _ => false,
                 };
@@ -68,7 +68,7 @@ pub fn glob_from(
         }
 
         // Let's separate the pattern from the path and we'll call this the pattern
-        let mut just_pattern = PathBuf::new();
+        let mut just_pattern = PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()));
         for c in counter..path.components().count() {
             if let Some(comp) = path.components().nth(c) {
                 just_pattern.push(comp);
@@ -113,4 +113,11 @@ pub fn glob_from(
             )),
         })),
     ))
+}
+
+#[test]
+fn glob() {
+    let (prefix, glob) = glob_from(&Spanned { item: ".../*".to_owned(), span: Span::test_data() }, &PathBuf::from("~/nushell_fork/"), Span::test_data(), None).unwrap();
+    println!("{:?}", prefix);
+    println!("{:?}", glob.collect::<Vec<_>>());
 }
