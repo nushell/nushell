@@ -36,21 +36,30 @@ pub fn glob_from(
         Err(_) => false,
     };
 
-    let path = PathBuf::from(&pattern.item);
-    let path = expand_path_with(path, nu_glob::Pattern::escape(&cwd.to_string_lossy()));
+    let expanded_cwd = expand_path_with(".", cwd);
 
     // Check for brackets first
-    let (prefix, pattern) = if path.to_string_lossy().contains('[') {
+    let (prefix, pattern) = if path.to_string_lossy().contains(GLOB_CHARS) {
         // Path is a glob pattern => do not check for existence
         // Select the longest prefix until the first '*'
         let mut p = PathBuf::new();
         let components = path.components();
         let mut counter = 0;
 
+        let mut cwd_components = expanded_cwd.components();
+
         // Get the path up to the pattern which we'll call the prefix
         for c in components {
+            let cwd = cwd_components.next();
             if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains(GLOB_CHARS) {
+                // Only the following pattern is glob pattern:
+                // (1) Not a part of expanded_cwd, e.g. ls under `/[test]/`
+                // (2) Contain glob_chars
+                let part_of_cwd = match cwd {
+                    Some(Component::Normal(cwd)) => os == cwd,
+                    _ => false,
+                };
+                if !part_of_cwd && os.to_string_lossy().contains(GLOB_CHARS) {
                     break;
                 }
             }
@@ -67,20 +76,6 @@ pub fn glob_from(
         }
 
         (Some(p), just_pattern)
-    } else if path.to_string_lossy().contains(GLOB_CHARS) {
-        // Path is a glob pattern => do not check for existence
-        // Select the longest prefix until the first '*'
-        let mut p = PathBuf::new();
-        for c in path.components() {
-            if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains(GLOB_CHARS) {
-                    break;
-                }
-            }
-            p.push(c);
-        }
-
-        (Some(p), path)
     } else if is_symlink {
         (path.parent().map(|parent| parent.to_path_buf()), path)
     } else {
@@ -118,14 +113,4 @@ pub fn glob_from(
             )),
         })),
     ))
-}
-
-#[test]
-fn test_glob_from() {
-    let (prefix, glob) = glob_from(&Spanned { item: "*".to_owned(), span: Span::test_data() }, 
-        &PathBuf::from("~/nushell_fork/[test]"), 
-        Span::test_data(), 
-        None,).unwrap();
-    let globs = glob.collect::<Vec<_>>();
-    println!("{:?}", globs);
 }

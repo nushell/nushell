@@ -48,9 +48,10 @@ fn lists_regular_files_using_asterisk_wildcard() {
 #[test]
 fn lists_regular_files_in_special_folder() {
     Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox.mkdir("[abcd]").mkdir("[bbcd]").with_files(vec![
-            EmptyFile("[abcd]/test.txt"),
-        ]);
+        sandbox
+            .mkdir("[abcd]")
+            .mkdir("[bbcd]")
+            .with_files(vec![EmptyFile("[abcd]/test.txt")]);
 
         let actual = nu!(
             cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
