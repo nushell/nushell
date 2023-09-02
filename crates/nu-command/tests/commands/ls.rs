@@ -53,9 +53,21 @@ fn lists_regular_files_using_asterisk_wildcard() {
 #[case("ye??da.10.txt", 1)]
 #[case("yehuda.?0.txt", 1)]
 #[case("??????.10.txt", 2)]
+#[case("[abcd]????.txt", 1)]
+#[case("??[ac.]??.txt", 3)]
+#[case("[ab]bcd/??.txt", 2)]
+#[case("?bcd/[xy]y.txt", 2)]
+#[case("?bcd/[xy]y.t?t", 2)]
+#[case("[[]abcd[]].txt", 1)]
+#[case("[[]?bcd[]].txt", 2)]
+#[case("[[][abcd]bcd[]].txt", 2)]
 fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
     Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.mkdir("abcd").mkdir("bbcd").with_files(vec![
+            EmptyFile("abcd/xy.txt"),
+            EmptyFile("bbcd/yy.txt"),
+            EmptyFile("[abcd].txt"),
+            EmptyFile("[bbcd].txt"),
             EmptyFile("yehuda.10.txt"),
             EmptyFile("jt.10.txt"),
             EmptyFile("jtabc.txt"),
@@ -65,7 +77,7 @@ fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expect
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), format!("ls {command} | length"));
+            cwd: dirs.test(), format!(r#"ls {command} | length"#));
         assert_eq!(actual.out, expected.to_string());
     })
 }

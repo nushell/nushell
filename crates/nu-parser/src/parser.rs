@@ -4629,7 +4629,8 @@ pub fn parse_value(
             SyntaxShape::Any
             | SyntaxShape::List(_)
             | SyntaxShape::Table(_)
-            | SyntaxShape::Signature => {}
+            | SyntaxShape::Signature
+            | SyntaxShape::String => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);
