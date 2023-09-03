@@ -296,6 +296,7 @@ const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
                 \.(?:\d{1,9})  # subsecond
             )?
         )?
+        \s?                    # optional space
         (?:
             # offset (e.g. +01:00)
             [+-](?:\d{2})
