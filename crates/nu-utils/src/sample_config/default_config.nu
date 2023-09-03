@@ -320,6 +320,7 @@ $env.config = {
                 until: [
                     { send: menu name: completion_menu }
                     { send: menunext }
+                    { edit: complete }
                 ]
             }
         }
