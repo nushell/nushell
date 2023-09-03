@@ -5,7 +5,8 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
-use super::utils::{gen_command, get_editor};
+use super::utils::gen_command;
+use nu_cmd_base::util::get_editor;
 
 #[derive(Clone)]
 pub struct ConfigEnv;
