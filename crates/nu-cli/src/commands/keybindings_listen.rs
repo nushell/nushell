@@ -130,7 +130,7 @@ fn print_events(engine_state: &EngineState, style: OutputStyle) -> Result<Value,
                         // FIXME: this outputs a string like:
                         // {modifier: 'control' keycode: 'char_a' mode: 'emacs' event: {edit: 'InsertString', value: 'Add your action here'}}
                         // This works, but is a bit ugly. Is there a nushell autoformatter that we can pipe this through to remove the quotes etc?
-                        .into_string_parsable(" ", &config)
+                        .into_string_parsable(" ", config)
                     },
                 )
                 .unwrap_or_default()
