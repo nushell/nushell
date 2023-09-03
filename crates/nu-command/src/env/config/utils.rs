@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    ShellError, Span, Spanned,
+    ShellError, Span, Spanned, Value,
 };
 
 use crate::ExternalCommand;
@@ -15,12 +15,39 @@ pub(crate) fn get_editor(
 ) -> Result<(String, Vec<String>), ShellError> {
     let config = engine_state.get_config();
     let env_vars = stack.get_env_vars(engine_state);
-    let editor = if !config.buffer_editor.is_empty() {
-        Ok(config.buffer_editor.clone())
-    } else if let Some(value) = env_vars.get("EDITOR") {
-        value.as_string()
-    } else if let Some(value) = env_vars.get("VISUAL") {
-        value.as_string()
+    if !config.buffer_editor.is_empty() {
+        Ok((config.buffer_editor.clone(), Vec::new()))
+    } else if let Some(value) = env_vars.get("EDITOR").or_else(|| env_vars.get("VISUAL")) {
+        match value {
+            Value::String { val, .. } if !val.is_empty() => Ok((val.to_string(), Vec::new())),
+            Value::List { vals, .. } if !vals.is_empty() => {
+                let mut editor_cmd = vals.iter().map(|l| l.as_string());
+                match editor_cmd.next().transpose()? {
+                    Some(editor) if !editor.is_empty() => {
+                        let params = editor_cmd.collect::<Result<_, ShellError>>()?;
+                        Ok((editor, params))
+                    },
+                    _ => {
+                        Err(ShellError::GenericError(
+                                    "Empty editor configured".into(),
+                                    "$EDITOR or $VISUAL should be an non-empty String or List<String>".into(),
+                                    Some(span),
+                                    Some(
+                                        "Nushell's config file can be found with the command: $nu.config-path. For more help: (https://nushell.sh/book/configuration.html#configurations-with-built-in-commands)"
+                                            .into(),
+                                    ),
+                                    vec![],
+                                ))
+                    }
+                }
+            }
+            x => Err(ShellError::CantConvert {
+                to_type: "string or list<string>".into(),
+                from_type: x.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            }),
+        }
     } else {
         Err(ShellError::GenericError(
             "No editor configured".into(),
@@ -32,14 +59,6 @@ pub(crate) fn get_editor(
             ),
             vec![],
         ))
-    }?;
-    if let Some((a, b)) = editor.split_once(' ') {
-        Ok((
-            a.to_string(),
-            b.split(' ').map(|s| s.to_string()).collect::<Vec<String>>(),
-        ))
-    } else {
-        Ok((editor, Vec::new()))
     }
 }
 
