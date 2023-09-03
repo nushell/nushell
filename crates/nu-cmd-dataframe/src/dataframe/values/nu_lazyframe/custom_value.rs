@@ -18,10 +18,7 @@ impl CustomValue for NuLazyFrame {
             schema: self.schema.clone(),
         };
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::custom_value(Box::new(cloned), span)
     }
 
     fn value_string(&self) -> String {

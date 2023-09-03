@@ -20,15 +20,13 @@ impl NuDataFrame {
         op_span: Span,
         right: &Value,
     ) -> Result<Value, ShellError> {
+        let rhs_span = right.span();
         match right {
-            Value::CustomValue {
-                val: rhs,
-                span: rhs_span,
-            } => {
+            Value::CustomValue { val: rhs, .. } => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
                     ShellError::DowncastNotPossible(
                         "Unable to create dataframe".to_string(),
-                        *rhs_span,
+                        rhs_span,
                     )
                 })?;
 
@@ -38,7 +36,7 @@ impl NuDataFrame {
                             .as_series(lhs_span)
                             .expect("Already checked that is a series");
                         let rhs = &rhs
-                            .as_series(*rhs_span)
+                            .as_series(rhs_span)
                             .expect("Already checked that is a series");
 
                         if lhs.dtype() != rhs.dtype() {
@@ -46,7 +44,7 @@ impl NuDataFrame {
                                 left_message: format!("datatype {}", lhs.dtype()),
                                 left_span: lhs_span,
                                 right_message: format!("datatype {}", lhs.dtype()),
-                                right_span: *rhs_span,
+                                right_span: rhs_span,
                             });
                         }
 
@@ -55,7 +53,7 @@ impl NuDataFrame {
                                 left_message: format!("len {}", lhs.len()),
                                 left_span: lhs_span,
                                 right_message: format!("len {}", rhs.len()),
-                                right_span: *rhs_span,
+                                right_span: rhs_span,
                             });
                         }
 
@@ -78,7 +76,7 @@ impl NuDataFrame {
                                 left_message: format!("rows {}", self.df.height()),
                                 left_span: lhs_span,
                                 right_message: format!("rows {}", rhs.df.height()),
-                                right_span: *rhs_span,
+                                right_span: rhs_span,
                             });
                         }
 
