@@ -34,10 +34,7 @@ pub fn decode(
         parse_encoding(encoding_name.span, &encoding_name.item)
     }?;
     let (result, ..) = encoding.decode(bytes);
-    Ok(Value::String {
-        val: result.into_owned(),
-        span: head,
-    })
+    Ok(Value::string(result.into_owned(), head))
 }
 
 pub fn encode(
@@ -66,10 +63,7 @@ pub fn encode(
             vec![],
         ))
     } else {
-        Ok(Value::Binary {
-            val: result.into_owned(),
-            span: head,
-        })
+        Ok(Value::binary(result.into_owned(), head))
     }
 }
 

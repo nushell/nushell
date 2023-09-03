@@ -128,11 +128,10 @@ pub fn help_externs(
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
-            Ok(Value::String {
-                val: output.join("======================\n\n"),
-                span: call.head,
-            }
-            .into_pipeline_data())
+            Ok(
+                Value::string(output.join("======================\n\n"), call.head)
+                    .into_pipeline_data(),
+            )
         } else {
             Err(ShellError::CommandNotFound(span(&[
                 rest[0].span,

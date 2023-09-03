@@ -85,21 +85,21 @@ impl Command for SubCommand {
             Example {
                 description: "Split a path into parts",
                 example: r"'C:\Users\viking\spam.txt' | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string(r"C:\"),
                         Value::test_string("Users"),
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_list(vec![
                             Value::test_string(r"C:\"),
                             Value::test_string("Users"),
@@ -113,8 +113,8 @@ impl Command for SubCommand {
                             Value::test_string("eggs.txt"),
                         ]),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -125,21 +125,21 @@ impl Command for SubCommand {
             Example {
                 description: "Split a path into parts",
                 example: r"'/home/viking/spam.txt' | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("/"),
                         Value::test_string("home"),
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_list(vec![
                             Value::test_string("/"),
                             Value::test_string("home"),
@@ -153,24 +153,23 @@ impl Command for SubCommand {
                             Value::test_string("eggs.txt"),
                         ]),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn split(path: &Path, span: Span, _: &Arguments) -> Value {
-    Value::List {
-        vals: path
-            .components()
+    Value::list(
+        path.components()
             .filter_map(|comp| {
                 let comp = process_component(comp);
                 comp.map(|s| Value::string(s, span))
             })
             .collect(),
         span,
-    }
+    )
 }
 
 #[cfg(windows)]

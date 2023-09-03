@@ -168,8 +168,5 @@ fn create_default_value() -> Value {
         )
     };
 
-    Value::List {
-        vals: vec![record(0), record(1), record(2)],
-        span,
-    }
+    Value::list(vec![record(0), record(1), record(2)], span)
 }

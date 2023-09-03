@@ -231,21 +231,15 @@ impl Command for InputList {
 
         Ok(match ans {
             InteractMode::Multi(res) => match res {
-                Some(opts) => Value::List {
-                    vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
-                    span: head,
-                },
-                None => Value::List {
-                    vals: vec![],
-                    span: head,
-                },
+                Some(opts) => Value::list(
+                    opts.iter().map(|s| options[*s].value.clone()).collect(),
+                    head,
+                ),
+                None => Value::list(vec![], head),
             },
             InteractMode::Single(res) => match res {
                 Some(opt) => options[opt].value.clone(),
-                None => Value::String {
-                    val: "".to_string(),
-                    span: head,
-                },
+                None => Value::string("".to_string(), head),
             },
         }
         .into_pipeline_data())

@@ -120,30 +120,30 @@ fn command(
     let quantiles = quantiles.map(|values| {
         values
             .iter()
-            .map(|value| match value {
-                Value::Float { val, span } => {
-                    if (&0.0..=&1.0).contains(&val) {
-                        Ok(*val)
-                    } else {
-                        Err(ShellError::GenericError(
-                            "Incorrect value for quantile".to_string(),
-                            "value should be between 0 and 1".to_string(),
-                            Some(*span),
-                            None,
-                            Vec::new(),
-                        ))
+            .map(|value| {
+                let span = value.span();
+                match value {
+                    Value::Float { val, .. } => {
+                        if (&0.0..=&1.0).contains(&val) {
+                            Ok(*val)
+                        } else {
+                            Err(ShellError::GenericError(
+                                "Incorrect value for quantile".to_string(),
+                                "value should be between 0 and 1".to_string(),
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            ))
+                        }
                     }
-                }
-                Value::Error { error, .. } => Err(*error.clone()),
-                _ => {
-                    let span = value.span();
-                    Err(ShellError::GenericError(
+                    Value::Error { error, .. } => Err(*error.clone()),
+                    _ => Err(ShellError::GenericError(
                         "Incorrect value for quantile".to_string(),
                         "value should be a float".to_string(),
                         Some(span),
                         None,
                         Vec::new(),
-                    ))
+                    )),
                 }
             })
             .collect::<Result<Vec<f64>, ShellError>>()

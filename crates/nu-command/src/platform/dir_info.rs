@@ -238,9 +238,6 @@ where
         Value::nothing(tag)
     } else {
         let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
-        Value::List {
-            vals: values,
-            span: tag,
-        }
+        Value::list(values, tag)
     }
 }

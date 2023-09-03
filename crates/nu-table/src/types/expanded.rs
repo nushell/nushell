@@ -403,9 +403,10 @@ fn expand_table_value(
         return Ok(Some((value_to_string_clean(value, cfg), false)));
     }
 
+    let span = value.span();
     match value {
-        Value::List { vals, span } => {
-            let mut inner_cfg = dive_options(cfg, *span);
+        Value::List { vals, .. } => {
+            let mut inner_cfg = dive_options(cfg, span);
             inner_cfg.opts.width = value_width;
             let table = expanded_table_list(vals, inner_cfg)?;
 
@@ -427,7 +428,7 @@ fn expand_table_value(
                 }
             }
         }
-        Value::Record { val: record, span } => {
+        Value::Record { val: record, .. } => {
             if record.is_empty() {
                 // Like list case return styled string instead of empty value
                 return Ok(Some((
@@ -436,7 +437,7 @@ fn expand_table_value(
                 )));
             }
 
-            let mut inner_cfg = dive_options(cfg, *span);
+            let mut inner_cfg = dive_options(cfg, span);
             inner_cfg.opts.width = value_width;
             let result = expanded_table_kv(record, inner_cfg)?;
             match result {
@@ -484,14 +485,15 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> NuText {
         return nu_value_to_string_clean(item, cfg.opts.config, cfg.opts.style_computer);
     }
 
+    let span = item.span();
     match &item {
-        Value::Record { val: record, span } => {
+        Value::Record { val: record, .. } => {
             if record.is_empty() {
                 return nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer);
             }
 
             // we verify what is the structure of a Record cause it might represent
-            let inner_cfg = dive_options(&cfg, *span);
+            let inner_cfg = dive_options(&cfg, span);
             let table = expanded_table_kv(record, inner_cfg);
 
             match table {
@@ -499,7 +501,7 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> NuText {
                 _ => nu_value_to_string(item, cfg.opts.config, cfg.opts.style_computer),
             }
         }
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             if cfg.format.flatten && is_simple_list(vals) {
                 return value_list_to_string(
                     vals,
@@ -509,7 +511,7 @@ fn expanded_table_entry2(item: &Value, cfg: Cfg<'_>) -> NuText {
                 );
             }
 
-            let inner_cfg = dive_options(&cfg, *span);
+            let inner_cfg = dive_options(&cfg, span);
             let table = expanded_table_list(vals, inner_cfg);
 
             let out = match table {

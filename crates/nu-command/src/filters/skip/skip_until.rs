@@ -44,24 +44,24 @@ impl Command for SkipUntil {
             Example {
                 description: "Skip until the element is positive",
                 example: "[-2 0 2 -1] | skip until {|x| $x > 0 }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(-1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(-1)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Skip until the element is positive using stored condition",
                 example: "let cond = {|x| $x > 0 }; [-2 0 2 -1] | skip until $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(-1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(-1)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Skip until the field value is positive",
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip until {|x| $x.a > 0 }",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string()],
                             vals: vec![Value::test_int(2)],
@@ -71,8 +71,8 @@ impl Command for SkipUntil {
                             vals: vec![Value::test_int(-1)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

@@ -79,7 +79,7 @@ impl Command for Mkdir {
 
             if is_verbose {
                 let val = format!("{:}", dir.to_string_lossy());
-                stream.push_back(Value::String { val, span });
+                stream.push_back(Value::string(val, span));
             }
         }
 

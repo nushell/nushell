@@ -142,16 +142,19 @@ impl Command for Glob {
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
 
-        let (not_patterns, not_pattern_span): (Vec<String>, Span) = if let Some(Value::List {
-            vals: pats,
-            span: pat_span,
-        }) =
-            call.get_flag(engine_state, stack, "not")?
-        {
-            let p = convert_patterns(pats.as_slice())?;
-            (p, pat_span)
-        } else {
-            (vec![], span)
+        let not_flag: Option<Value> = call.get_flag(engine_state, stack, "not")?;
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match not_flag {
+            None => (vec![], span),
+            Some(f) => {
+                let pat_span = f.span();
+                match f {
+                    Value::List { vals: pats, .. } => {
+                        let p = convert_patterns(pats.as_slice())?;
+                        (p, pat_span)
+                    }
+                    _ => (vec![], span),
+                }
+            }
         };
 
         if glob_pattern.item.is_empty() {
@@ -261,10 +264,10 @@ fn glob_to_value<'a>(
             || no_files && file_type.is_file()
             || no_symlinks && file_type.is_symlink())
         {
-            result.push(Value::String {
-                val: entry.into_path().to_string_lossy().to_string(),
+            result.push(Value::string(
+                entry.into_path().to_string_lossy().to_string(),
                 span,
-            });
+            ));
         }
     }
 

@@ -67,8 +67,8 @@ impl Command for Wrap {
             Example {
                 description: "Wrap a list into a table with a given column name",
                 example: "[1 2 3] | wrap num",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["num".into()],
                             vals: vec![Value::test_int(1)],
@@ -82,14 +82,14 @@ impl Command for Wrap {
                             vals: vec![Value::test_int(3)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Wrap a range into a table with a given column name",
                 example: "1..3 | wrap num",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["num".into()],
                             vals: vec![Value::test_int(1)],
@@ -103,8 +103,8 @@ impl Command for Wrap {
                             vals: vec![Value::test_int(3)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

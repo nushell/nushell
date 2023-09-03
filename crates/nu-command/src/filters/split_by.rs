@@ -53,8 +53,8 @@ impl Command for SplitBy {
                 vals: vec![
                     Value::test_record(Record {
                         cols: vec!["2019".to_string()],
-                        vals: vec![Value::List {
-                            vals: vec![Value::test_record(Record {
+                        vals: vec![Value::list(
+                            vec![Value::test_record(Record {
                                 cols: vec![
                                     "name".to_string(),
                                     "lang".to_string(),
@@ -66,14 +66,14 @@ impl Command for SplitBy {
                                     Value::test_string("2019"),
                                 ],
                             })],
-                            span: Span::test_data(),
-                        }],
+                            Span::test_data(),
+                        )],
                     }),
                     Value::test_record(Record {
                         cols: vec!["2019".to_string(), "2021".to_string()],
                         vals: vec![
-                            Value::List {
-                                vals: vec![Value::test_record(Record {
+                            Value::list(
+                                vec![Value::test_record(Record {
                                     cols: vec![
                                         "name".to_string(),
                                         "lang".to_string(),
@@ -85,10 +85,10 @@ impl Command for SplitBy {
                                         Value::test_string("2019"),
                                     ],
                                 })],
-                                span: Span::test_data(),
-                            },
-                            Value::List {
-                                vals: vec![Value::test_record(Record {
+                                Span::test_data(),
+                            ),
+                            Value::list(
+                                vec![Value::test_record(Record {
                                     cols: vec![
                                         "name".to_string(),
                                         "lang".to_string(),
@@ -100,8 +100,8 @@ impl Command for SplitBy {
                                         Value::test_string("2021"),
                                     ],
                                 })],
-                                span: Span::test_data(),
-                            },
+                                Span::test_data(),
+                            ),
                         ],
                     }),
                 ],
@@ -215,20 +215,34 @@ pub fn data_split(
     let mut splits = indexmap::IndexMap::new();
 
     match value {
-        PipelineData::Value(Value::Record { val: grouped, span }, _) => {
-            for (idx, list) in grouped.vals.iter().enumerate() {
-                match data_group(list, splitter, span) {
-                    Ok(grouped_vals) => {
-                        if let Value::Record { val: sub, .. } = grouped_vals {
-                            for (inner_idx, subset) in sub.vals.iter().enumerate() {
-                                let s: &mut IndexMap<String, Value> =
-                                    splits.entry(sub.cols[inner_idx].clone()).or_default();
+        PipelineData::Value(v, _) => {
+            let span = v.span();
+            match v {
+                Value::Record { val: grouped, .. } => {
+                    for (idx, list) in grouped.vals.iter().enumerate() {
+                        match data_group(list, splitter, span) {
+                            Ok(grouped_vals) => {
+                                if let Value::Record { val: sub, .. } = grouped_vals {
+                                    for (inner_idx, subset) in sub.vals.iter().enumerate() {
+                                        let s: &mut IndexMap<String, Value> =
+                                            splits.entry(sub.cols[inner_idx].clone()).or_default();
 
-                                s.insert(grouped.cols[idx].clone(), subset.clone());
+                                        s.insert(grouped.cols[idx].clone(), subset.clone());
+                                    }
+                                }
                             }
+                            Err(reason) => return Err(reason),
                         }
                     }
-                    Err(reason) => return Err(reason),
+                }
+                _ => {
+                    return Err(ShellError::GenericError(
+                        "unsupported input".into(),
+                        "requires a table with one row for splitting".into(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ))
                 }
             }
         }

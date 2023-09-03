@@ -74,13 +74,13 @@ impl NuCompleter {
             if let Some(var_id) = pos_arg.var_id {
                 callee_stack.add_var(
                     var_id,
-                    Value::List {
-                        vals: spans
+                    Value::list(
+                        spans
                             .iter()
                             .map(|it| Value::string(it, Span::unknown()))
                             .collect(),
-                        span: Span::unknown(),
-                    },
+                        Span::unknown(),
+                    ),
                 );
             }
         }
@@ -97,7 +97,7 @@ impl NuCompleter {
         match result {
             Ok(pd) => {
                 let value = pd.into_value(span);
-                if let Value::List { vals, span: _ } = value {
+                if let Value::List { vals, .. } = value {
                     let result =
                         map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
 

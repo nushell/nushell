@@ -47,10 +47,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             Example {
                 description: "Decode an UTF-16 string into nushell UTF-8 string",
                 example: r#"0x[00 53 00 6F 00 6D 00 65 00 20 00 44 00 61 00 74 00 61] | decode utf-16be"#,
-                result: Some(Value::String {
-                    val: "Some Data".to_owned(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string("Some Data".to_owned(), Span::test_data())),
             },
         ]
     }
@@ -77,29 +74,29 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
                     Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
                     None => super::encoding::detect_encoding_name(head, input_span, &bytes)
                         .map(|encoding| encoding.decode(&bytes).0.into_owned())
-                        .map(|s| Value::String { val: s, span: head }),
+                        .map(|s| Value::string(s, head)),
                 }
                 .map(|val| val.into_pipeline_data())
             }
-            PipelineData::Value(v, ..) => match v {
-                Value::Binary {
-                    val: bytes,
-                    span: input_span,
-                } => match encoding {
-                    Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
-                    None => super::encoding::detect_encoding_name(head, input_span, &bytes)
-                        .map(|encoding| encoding.decode(&bytes).0.into_owned())
-                        .map(|s| Value::String { val: s, span: head }),
+            PipelineData::Value(v, ..) => {
+                let input_span = v.span();
+                match v {
+                    Value::Binary { val: bytes, .. } => match encoding {
+                        Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
+                        None => super::encoding::detect_encoding_name(head, input_span, &bytes)
+                            .map(|encoding| encoding.decode(&bytes).0.into_owned())
+                            .map(|s| Value::string(s, head)),
+                    }
+                    .map(|val| val.into_pipeline_data()),
+                    Value::Error { error, .. } => Err(*error),
+                    _ => Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "binary".into(),
+                        wrong_type: v.get_type().to_string(),
+                        dst_span: head,
+                        src_span: v.span(),
+                    }),
                 }
-                .map(|val| val.into_pipeline_data()),
-                Value::Error { error, .. } => Err(*error),
-                _ => Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "binary".into(),
-                    wrong_type: v.get_type().to_string(),
-                    dst_span: head,
-                    src_span: v.span(),
-                }),
-            },
+            }
             // This should be more precise, but due to difficulties in getting spans
             // from PipelineData::ListData, this is as it is.
             _ => Err(ShellError::UnsupportedInput(

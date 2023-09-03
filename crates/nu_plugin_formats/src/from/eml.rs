@@ -90,23 +90,12 @@ Test' | from eml -b 1"
 
 fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
     let (n, a) = match email_address {
-        EmailAddress::AddressOnly { address } => (
-            Value::nothing(span),
-            Value::String {
-                val: address.to_string(),
-                span,
-            },
-        ),
-        EmailAddress::NameAndEmailAddress { name, address } => (
-            Value::String {
-                val: name.to_string(),
-                span,
-            },
-            Value::String {
-                val: address.to_string(),
-                span,
-            },
-        ),
+        EmailAddress::AddressOnly { address } => {
+            (Value::nothing(span), Value::string(address, span))
+        }
+        EmailAddress::NameAndEmailAddress { name, address } => {
+            (Value::string(name, span), Value::string(address, span))
+        }
     };
 
     Value::record(
@@ -123,13 +112,13 @@ fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
 
     match value {
         SingleEmailAddress(address) => emailaddress_to_value(head, address),
-        MultipleEmailAddresses(addresses) => Value::List {
-            vals: addresses
+        MultipleEmailAddresses(addresses) => Value::list(
+            addresses
                 .iter()
                 .map(|a| emailaddress_to_value(head, a))
                 .collect(),
-            span: head,
-        },
+            head,
+        ),
         Unstructured(s) => Value::string(s, head),
         Empty => Value::nothing(head),
     }
@@ -151,13 +140,7 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     let mut collected = IndexMap::new();
 
     if let Some(subj) = eml.subject {
-        collected.insert(
-            "Subject".to_string(),
-            Value::String {
-                val: subj,
-                span: head,
-            },
-        );
+        collected.insert("Subject".to_string(), Value::string(subj, head));
     }
 
     if let Some(from) = eml.from {
@@ -173,13 +156,7 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     }
 
     if let Some(body) = eml.body {
-        collected.insert(
-            "Body".to_string(),
-            Value::String {
-                val: body,
-                span: head,
-            },
-        );
+        collected.insert("Body".to_string(), Value::string(body, head));
     }
 
     Ok(Value::record(collected.into_iter().collect(), head))

@@ -62,20 +62,14 @@ impl Command for SubCommand {
                 "timezone".into(),
             ];
             let vals = vec![
-                Value::Int { val: 2020, span },
-                Value::Int { val: 4, span },
-                Value::Int { val: 12, span },
-                Value::Int { val: 22, span },
-                Value::Int { val: 10, span },
-                Value::Int { val: 57, span },
-                Value::Int {
-                    val: 123_000_000,
-                    span,
-                },
-                Value::String {
-                    val: "+02:00".to_string(),
-                    span,
-                },
+                Value::int(2020, span),
+                Value::int(4, span),
+                Value::int(12, span),
+                Value::int(22, span),
+                Value::int(10, span),
+                Value::int(57, span),
+                Value::int(123_000_000, span),
+                Value::string("+02:00", span),
             ];
             Some(Value::test_record(Record { cols, vals }))
         };
@@ -93,17 +87,14 @@ impl Command for SubCommand {
                 "timezone".into(),
             ];
             let vals = vec![
-                Value::Int { val: 2020, span },
-                Value::Int { val: 4, span },
-                Value::Int { val: 12, span },
-                Value::Int { val: 22, span },
-                Value::Int { val: 10, span },
-                Value::Int { val: 57, span },
-                Value::Int { val: 0, span },
-                Value::String {
-                    val: "+02:00".to_string(),
-                    span,
-                },
+                Value::int(2020, span),
+                Value::int(4, span),
+                Value::int(12, span),
+                Value::int(22, span),
+                Value::int(10, span),
+                Value::int(57, span),
+                Value::int(0, span),
+                Value::string("+02:00", span),
             ];
             Some(Value::test_record(Record { cols, vals }))
         };
@@ -150,24 +141,19 @@ fn parse_date_into_table(date: DateTime<FixedOffset>, head: Span) -> Value {
 }
 
 fn helper(val: Value, head: Span) -> Value {
+    let span = val.span();
     match val {
-        Value::String {
-            val,
-            span: val_span,
-        } => match parse_date_from_string(&val, val_span) {
+        Value::String { val, .. } => match parse_date_from_string(&val, span) {
             Ok(date) => parse_date_into_table(date, head),
             Err(e) => e,
         },
-        Value::Nothing { span: _ } => {
+        Value::Nothing { .. } => {
             let now = Local::now();
             let n = now.with_timezone(now.offset());
             parse_date_into_table(n, head)
         }
-        Value::Date { val, span: _ } => parse_date_into_table(val, head),
-        _ => Value::Error {
-            error: Box::new(DatetimeParseError(val.debug_value(), head)),
-            span: head,
-        },
+        Value::Date { val, .. } => parse_date_into_table(val, head),
+        _ => Value::error(DatetimeParseError(val.debug_value(), head), head),
     }
 }
 

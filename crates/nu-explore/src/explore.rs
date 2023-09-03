@@ -98,10 +98,7 @@ impl Command for Explore {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
             Err(err) => Ok(PipelineData::Value(
-                Value::Error {
-                    error: Box::new(err.into()),
-                    span: call.head,
-                },
+                Value::error(err.into(), call.head),
                 None,
             )),
         }

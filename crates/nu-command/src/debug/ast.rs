@@ -97,22 +97,22 @@ impl Command for Ast {
             );
             Ok(output_record.into_pipeline_data())
         } else {
-            let block_value = Value::String {
-                val: if minify {
+            let block_value = Value::string(
+                if minify {
                     format!("{block_output:?}")
                 } else {
                     format!("{block_output:#?}")
                 },
-                span: pipeline.span,
-            };
-            let error_value = Value::String {
-                val: if minify {
+                pipeline.span,
+            );
+            let error_value = Value::string(
+                if minify {
                     format!("{error_output:?}")
                 } else {
                     format!("{error_output:#?}")
                 },
-                span: pipeline.span,
-            };
+                pipeline.span,
+            );
             let output_record = Value::record(
                 record! {
                     "block" => block_value,

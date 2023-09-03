@@ -71,11 +71,7 @@ impl Command for KeybindingsList {
                 .collect()
         };
 
-        Ok(Value::List {
-            vals: records,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::list(records, call.head).into_pipeline_data())
     }
 }
 

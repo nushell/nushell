@@ -506,10 +506,10 @@ impl ExternalCommand {
                                             "{cause}: oops, process '{commandname}' core dumped"
                                         ))
                                     );
-                                    let _ = exit_code_tx.send(Value::Error {
-                                        error: Box::new(ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head }),
-                                        span: head,
-                                    });
+                                    let _ = exit_code_tx.send(Value::error (
+                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
+                                        head,
+                                    ));
                                     return Ok(());
                                 }
                             }

@@ -168,11 +168,7 @@ impl Command for Input {
         if !suppress_output {
             std::io::stdout().write_all(b"\n")?;
         }
-        Ok(Value::String {
-            val: buf,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(buf, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

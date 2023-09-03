@@ -38,10 +38,7 @@ impl Command for Sys {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.span();
-        let ret = Value::LazyRecord {
-            val: Box::new(SysResult { span }),
-            span,
-        };
+        let ret = Value::lazy_record(Box::new(SysResult { span }), span);
 
         Ok(ret.into_pipeline_data())
     }
@@ -100,10 +97,7 @@ impl LazyRecord<'_> for SysResult {
     }
 
     fn clone_value(&self, span: Span) -> Value {
-        Value::LazyRecord {
-            val: Box::new((*self).clone()),
-            span,
-        }
+        Value::lazy_record(Box::new((*self).clone()), span)
     }
 }
 
@@ -133,7 +127,7 @@ pub fn disks(span: Span) -> Value {
 
         output.push(Value::record(record, span));
     }
-    Value::List { vals: output, span }
+    Value::list(output, span)
 }
 
 pub fn net(span: Span) -> Value {
@@ -151,7 +145,7 @@ pub fn net(span: Span) -> Value {
 
         output.push(Value::record(record, span));
     }
-    Value::List { vals: output, span }
+    Value::list(output, span)
 }
 
 pub fn cpu(span: Span) -> Value {
@@ -187,7 +181,7 @@ pub fn cpu(span: Span) -> Value {
         output.push(Value::record(record, span));
     }
 
-    Value::List { vals: output, span }
+    Value::list(output, span)
 }
 
 pub fn mem(span: Span) -> Value {
@@ -264,10 +258,7 @@ pub fn host(span: Span) -> Value {
     for user in sys.users() {
         let mut groups = vec![];
         for group in user.groups() {
-            groups.push(Value::String {
-                val: trim_cstyle_null(group.to_string()),
-                span,
-            });
+            groups.push(Value::string(trim_cstyle_null(group.to_string()), span));
         }
 
         let record = record! {
@@ -305,5 +296,5 @@ pub fn temp(span: Span) -> Value {
         output.push(Value::record(record, span));
     }
 
-    Value::List { vals: output, span }
+    Value::list(output, span)
 }

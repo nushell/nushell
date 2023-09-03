@@ -56,13 +56,14 @@ impl Command for Length {
 }
 
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let span = input.span().unwrap_or(call.head);
     match input {
         PipelineData::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
         }
         // I added this here because input_output_type() wasn't catching a record
         // being sent in as input from echo. e.g. "echo {a:1 b:2} | length"
-        PipelineData::Value(Value::Record { span, .. }, ..) => {
+        PipelineData::Value(Value::Record { .. }, ..) => {
             Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, and table".into(),
                 wrong_type: "record".into(),

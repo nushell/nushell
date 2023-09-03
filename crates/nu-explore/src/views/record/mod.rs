@@ -734,10 +734,7 @@ fn build_table_as_list(v: &RecordView) -> Value {
         })
         .collect();
 
-    Value::List {
-        vals,
-        span: NuSpan::unknown(),
-    }
+    Value::list(vals, NuSpan::unknown())
 }
 
 fn build_table_as_record(v: &RecordView) -> Value {

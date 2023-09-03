@@ -141,15 +141,10 @@ impl<'e, 's> ScopeData<'e, 's> {
             .map(|(input_type, output_type)| {
                 (
                     input_type.to_shape().to_string(),
-                    Value::List {
-                        vals: self.collect_signature_entries(
-                            input_type,
-                            output_type,
-                            signature,
-                            span,
-                        ),
+                    Value::list(
+                        self.collect_signature_entries(input_type, output_type, signature, span),
                         span,
-                    },
+                    ),
                 )
             })
             .collect::<Vec<(String, Value)>>();
@@ -162,10 +157,10 @@ impl<'e, 's> ScopeData<'e, 's> {
             let any_type = &Type::Any;
             sigs.push((
                 any_type.to_shape().to_string(),
-                Value::List {
-                    vals: self.collect_signature_entries(any_type, any_type, signature, span),
+                Value::list(
+                    self.collect_signature_entries(any_type, any_type, signature, span),
                     span,
-                },
+                ),
             ));
         }
         sigs.sort_unstable_by(|(k1, _), (k2, _)| k1.cmp(k2));
@@ -518,10 +513,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         let export_env_block = module.env_block.map_or_else(
             || Value::nothing(span),
-            |block_id| Value::Block {
-                val: block_id,
-                span,
-            },
+            |block_id| Value::block(block_id, span),
         );
 
         let module_usage = self

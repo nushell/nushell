@@ -231,7 +231,7 @@ fn get_documentation(
                     redirect_stderr: true,
                     parser_info: HashMap::new(),
                 },
-                PipelineData::Value(Value::List { vals, span }, None),
+                PipelineData::Value(Value::list(vals, span), None),
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
                     let _ = writeln!(long_desc, "\n{G}Input/output types{RESET}:");

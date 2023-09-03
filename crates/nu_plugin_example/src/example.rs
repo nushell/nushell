@@ -53,7 +53,7 @@ impl Example {
     pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
         self.print_values(1, call, input)?;
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(Value::nothing(call.head))
     }
 
     pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
@@ -77,10 +77,7 @@ impl Example {
             })
             .collect::<Vec<Value>>();
 
-        Ok(Value::List {
-            vals,
-            span: call.head,
-        })
+        Ok(Value::list(vals, call.head))
     }
 
     pub fn test3(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {

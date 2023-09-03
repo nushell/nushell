@@ -33,10 +33,10 @@ impl Command for BytesBuild {
         vec![Example {
             example: "bytes build 0x[01 02] 0x[03] 0x[04]",
             description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
-            result: Some(Value::Binary {
-                val: vec![0x01, 0x02, 0x03, 0x04],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::binary(
+                vec![0x01, 0x02, 0x03, 0x04],
+                Span::test_data(),
+            )),
         }]
     }
 
@@ -63,11 +63,7 @@ impl Command for BytesBuild {
             }
         }
 
-        Ok(Value::Binary {
-            val: output,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::binary(output, call.head).into_pipeline_data())
     }
 }
 

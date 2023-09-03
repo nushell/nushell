@@ -75,16 +75,16 @@ impl Command for FromTsv {
             Example {
                 description: "Convert tab-separated data to a table",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list (
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
                             Value::test_int(1),
                             Value::test_int(2),
                         ],
                     })],
-                    span: Span::test_data(),
-                })
+                    Span::test_data(),
+                ))
             },
             Example {
                 description: "Create a tsv file with header columns and open it",

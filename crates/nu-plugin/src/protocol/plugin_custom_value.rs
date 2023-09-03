@@ -34,10 +34,7 @@ pub struct PluginCustomValue {
 
 impl CustomValue for PluginCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> nu_protocol::Value {
-        Value::CustomValue {
-            val: Box::new(self.clone()),
-            span,
-        }
+        Value::custom_value(Box::new(self.clone()), span)
     }
 
     fn value_string(&self) -> String {

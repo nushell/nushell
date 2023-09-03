@@ -131,18 +131,15 @@ If you need to distinguish dirs and files, please use `path type`."#
 
 fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = expand_path_with(path, &args.pwd);
-    Value::Bool {
-        val: match path.try_exists() {
+    Value::bool(
+        match path.try_exists() {
             Ok(exists) => exists,
             Err(err) => {
-                return Value::Error {
-                    error: Box::new(ShellError::IOErrorSpanned(err.to_string(), span)),
-                    span,
-                }
+                return Value::error(ShellError::IOErrorSpanned(err.to_string(), span), span)
             }
         },
         span,
-    }
+    )
 }
 
 #[cfg(test)]

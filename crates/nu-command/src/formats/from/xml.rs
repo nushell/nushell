@@ -336,10 +336,7 @@ mod tests {
     }
 
     fn table(list: &[Value]) -> Value {
-        Value::List {
-            vals: list.to_vec(),
-            span: Span::test_data(),
-        }
+        Value::list(list.to_vec(), Span::test_data())
     }
 
     fn content_tag(

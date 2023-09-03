@@ -84,8 +84,9 @@ impl Command for PluginDeclaration {
         })?;
 
         let input = input.into_value(call.head);
+        let span = input.span();
         let input = match input {
-            Value::CustomValue { val, span } => {
+            Value::CustomValue { val, .. } => {
                 match val.as_any().downcast_ref::<PluginCustomValue>() {
                     Some(plugin_data) if plugin_data.filename == self.filename => {
                         CallInput::Data(PluginData {
@@ -145,16 +146,16 @@ impl Command for PluginDeclaration {
                 Ok(PipelineData::Value(value.as_ref().clone(), None))
             }
             Ok(PluginResponse::PluginData(name, plugin_data)) => Ok(PipelineData::Value(
-                Value::CustomValue {
-                    val: Box::new(PluginCustomValue {
+                Value::custom_value(
+                    Box::new(PluginCustomValue {
                         name,
                         data: plugin_data.data,
                         filename: self.filename.clone(),
                         shell: self.shell.clone(),
                         source: engine_state.get_decl(call.decl_id).name().to_owned(),
                     }),
-                    span: plugin_data.span,
-                },
+                    plugin_data.span,
+                ),
                 None,
             )),
             Ok(PluginResponse::Error(err)) => Err(err.into()),

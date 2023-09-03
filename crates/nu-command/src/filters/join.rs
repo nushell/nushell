@@ -110,26 +110,13 @@ impl Command for Join {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
-            result: Some(Value::List {
-                vals: vec![Value::test_record(Record {
+            result: Some(Value::list(
+                vec![Value::test_record(Record {
                     cols: vec!["a".into(), "b".into(), "c".into()],
-                    vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 2,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 3,
-                            span: Span::test_data(),
-                        },
-                    ],
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
                 })],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 }
@@ -253,7 +240,7 @@ fn join(
             span,
         );
     }
-    Value::List { vals: result, span }
+    Value::list(result, span)
 }
 
 // Join rows of `this` (a nushell table) to rows of `other` (a lookup-table

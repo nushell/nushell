@@ -132,10 +132,7 @@ fn command_eager(
 
     if NuExpression::can_downcast(&new_column) {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
         let lazy = NuLazyFrame::new(true, df.lazy().with_columns(&expressions));
 
@@ -179,10 +176,7 @@ fn command_lazy(
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-    let value = Value::List {
-        vals,
-        span: call.head,
-    };
+    let value = Value::list(vals, call.head);
     let expressions = NuExpression::extract_exprs(value)?;
 
     let lazy: NuLazyFrame = lazy.into_polars().with_columns(&expressions).into();

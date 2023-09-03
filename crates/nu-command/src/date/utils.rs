@@ -14,16 +14,16 @@ pub(crate) fn parse_date_from_string(
             match offset.from_local_datetime(&native_dt) {
                 LocalResult::Single(d) => Ok(d),
                 LocalResult::Ambiguous(d, _) => Ok(d),
-                LocalResult::None => Err(Value::Error {
-                    error: Box::new(ShellError::DatetimeParseError(input.to_string(), span)),
+                LocalResult::None => Err(Value::error(
+                    ShellError::DatetimeParseError(input.to_string(), span),
                     span,
-                }),
+                )),
             }
         }
-        Err(_) => Err(Value::Error {
-            error: Box::new(ShellError::DatetimeParseError(input.to_string(), span)),
+        Err(_) => Err(Value::error(
+            ShellError::DatetimeParseError(input.to_string(), span),
             span,
-        }),
+        )),
     }
 }
 
@@ -289,8 +289,5 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         ));
     }
 
-    Value::List {
-        vals: records,
-        span: head,
-    }
+    Value::list(records, head)
 }

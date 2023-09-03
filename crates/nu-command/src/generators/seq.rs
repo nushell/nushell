@@ -40,8 +40,8 @@ impl Command for Seq {
             Example {
                 description: "sequence 1 to 10",
                 example: "seq 1 10",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(3),
@@ -53,14 +53,14 @@ impl Command for Seq {
                         Value::test_int(9),
                         Value::test_int(10),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "sequence 1.0 to 2.0 by 0.1s",
                 example: "seq 1.0 0.1 2.0",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_float(1.0000),
                         Value::test_float(1.1000),
                         Value::test_float(1.2000),
@@ -73,8 +73,8 @@ impl Command for Seq {
                         Value::test_float(1.9000),
                         Value::test_float(2.0000),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "sequence 1 to 5, then convert to a string with a pipe separator",

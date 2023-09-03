@@ -59,8 +59,8 @@ impl Command for RollLeft {
             Example {
                 description: "Rolls columns of a table to the left",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll left",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: rotated_columns.clone(),
                             vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
@@ -70,14 +70,14 @@ impl Command for RollLeft {
                             vals: vec![Value::test_int(5), Value::test_int(6), Value::test_int(4)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Rolls columns to the left without changing column names",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll left --cells-only",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: columns.clone(),
                             vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(1)],
@@ -87,8 +87,8 @@ impl Command for RollLeft {
                             vals: vec![Value::test_int(5), Value::test_int(6), Value::test_int(4)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

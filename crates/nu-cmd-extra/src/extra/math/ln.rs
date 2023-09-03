@@ -61,38 +61,39 @@ impl Command for SubCommand {
 fn operate(value: Value, head: Span) -> Value {
     match value {
         numeric @ (Value::Int { .. } | Value::Float { .. }) => {
+            let span = numeric.span();
             let (val, span) = match numeric {
-                Value::Int { val, span } => (val as f64, span),
-                Value::Float { val, span } => (val, span),
+                Value::Int { val, .. } => (val as f64, span),
+                Value::Float { val, .. } => (val, span),
                 _ => unreachable!(),
             };
 
             if val > 0.0 {
                 let val = val.ln();
 
-                Value::Float { val, span }
+                Value::float(val, span)
             } else {
-                Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
+                Value::error(
+                    ShellError::UnsupportedInput(
                         "'ln' undefined for values outside the open interval (0, Inf).".into(),
                         "value originates from here".into(),
                         head,
                         span,
-                    )),
+                    ),
                     span,
-                }
+                )
             }
         }
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
-            }),
-            span: head,
-        },
+            },
+            head,
+        ),
     }
 }
 
