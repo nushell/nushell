@@ -993,10 +993,7 @@ mod tests {
     fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
         let values = vec![
             Value::list(
-                vec![Value::string {
-                    "bar".to_string(),
-                    Span::test_data(),
-                }],
+                vec![Value::string("bar".to_string(), Span::test_data())],
                 Span::test_data(),
             ),
             Value::list(
