@@ -717,6 +717,77 @@ fn parsed_keybinding_to_key_combination(
     Ok((modifier, keycode))
 }
 
+fn key_combination_to_parsed_keybinding(
+    modifier: KeyModifiers,
+    keycode: KeyCode,
+) -> Result<ParsedKeybinding, ShellError> {
+    let modifier = match modifier {
+        KeyModifiers::CONTROL => "control",
+        KeyModifiers::SHIFT => "shift",
+        KeyModifiers::ALT => "alt",
+        KeyModifiers::NONE => "none",
+        _ if modifier == (KeyModifiers::SHIFT | KeyModifiers::ALT) => "alt_shift",
+        _ if modifier == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => "control_shift",
+        _ if modifier == (KeyModifiers::CONTROL | KeyModifiers::ALT) => "control_alt",
+        _ if modifier == (KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT) => {
+            "control_alt_shift"
+        }
+        _ => {
+            // FIXME: what is the correct error variant for this?
+            return Err(ShellError::CantConvert {
+                from_type: format!("KeyModifiers: {modifier:?}"),
+                to_type: "ParsedKeyBindings".into(),
+                span: Span::unknown(),
+                help: None,
+            });
+        }
+    };
+
+    let keycode: String = match keycode {
+        KeyCode::Backspace => "backspace".into(),
+        KeyCode::Enter => "enter".into(),
+        KeyCode::Char(' ') => "space".into(),
+        KeyCode::Char(char) => format!("char_{char}"),
+        KeyCode::Down => "down".into(),
+        KeyCode::Up => "up".into(),
+        KeyCode::Left => "left".into(),
+        KeyCode::Right => "right".into(),
+        KeyCode::Home => "home".into(),
+        KeyCode::End => "end".into(),
+        KeyCode::PageUp => "pageup".into(),
+        KeyCode::PageDown => "pagedown".into(),
+        KeyCode::Tab => "tab".into(),
+        KeyCode::BackTab => "backtab".into(),
+        KeyCode::Delete => "delete".into(),
+        KeyCode::Insert => "insert".into(),
+        KeyCode::F(fn_num) => format!("f{fn_num}"),
+        KeyCode::Null => "null".into(),
+        KeyCode::Esc => "esc".into(),
+        KeyCode::CapsLock
+        | KeyCode::ScrollLock
+        | KeyCode::NumLock
+        | KeyCode::PrintScreen
+        | KeyCode::Pause
+        | KeyCode::Menu
+        | KeyCode::KeypadBegin
+        | KeyCode::Media(_)
+        | KeyCode::Modifier(_) => {
+            return Err(ShellError::CantConvert {
+                from_type: format!("KeyCode: {keycode:?}"),
+                to_type: "ParsedKeyBindings".into(),
+                span: Span::unknown(),
+                help: None,
+            })
+        }
+    };
+    Ok(ParsedKeybinding {
+        modifier: Value::string(modifier, Span::unknown()),
+        keycode: Value::string(keycode, Span::unknown()),
+        event: Value::nothing(Span::unknown()),
+        mode: Value::nothing(Span::unknown()),
+    })
+}
+
 enum EventType<'config> {
     Send(&'config Value),
     Edit(&'config Value),
@@ -1132,5 +1203,69 @@ mod test {
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);
         assert!(matches!(b, Err(ShellError::MissingConfigValue(_, _))));
+    }
+
+    #[test]
+    fn test_keybinding_round_trip() -> Result<(), ShellError> {
+        let config = Config::default();
+
+        // FIXME: upgrade to bitflags 2 and use iter? https://github.com/bitflags/bitflags/issues/28
+        for modifier in [
+            KeyModifiers::CONTROL,
+            KeyModifiers::SHIFT,
+            KeyModifiers::ALT,
+            KeyModifiers::NONE,
+            KeyModifiers::SHIFT | KeyModifiers::ALT,
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            KeyModifiers::CONTROL | KeyModifiers::ALT,
+            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT,
+        ] {
+            // FIXME: consider implementing Arbitrary in terms of serde::deserialise or something?
+            for keycode in [
+                KeyCode::Backspace,
+                KeyCode::Enter,
+                KeyCode::Char(' '),
+                KeyCode::Char('x'),
+                KeyCode::Down,
+                KeyCode::Up,
+                KeyCode::Left,
+                KeyCode::Right,
+                KeyCode::Home,
+                KeyCode::End,
+                KeyCode::PageUp,
+                KeyCode::PageDown,
+                KeyCode::Tab,
+                KeyCode::BackTab,
+                KeyCode::Delete,
+                KeyCode::Insert,
+                KeyCode::F(5),
+                KeyCode::Null,
+                KeyCode::Esc,
+                KeyCode::CapsLock,
+                KeyCode::ScrollLock,
+                KeyCode::NumLock,
+                KeyCode::PrintScreen,
+                KeyCode::Pause,
+                KeyCode::Menu,
+                KeyCode::KeypadBegin,
+                KeyCode::Media(crossterm::event::MediaKeyCode::FastForward),
+                KeyCode::Modifier(crossterm::event::ModifierKeyCode::IsoLevel3Shift),
+            ] {
+                let parsed = match key_combination_to_parsed_keybinding(modifier, keycode) {
+                    Ok(parsed) => parsed,
+                    Err(_) => continue,
+                };
+                let (round_tripped_modifier, round_tripped_keycode) =
+                    match parsed_keybinding_to_key_combination(&parsed, &config) {
+                        Ok(it) => it,
+                        Err(_) => continue,
+                    };
+                assert_eq!(
+                    (modifier, keycode),
+                    (round_tripped_modifier, round_tripped_keycode)
+                );
+            }
+        }
+        Ok(())
     }
 }
