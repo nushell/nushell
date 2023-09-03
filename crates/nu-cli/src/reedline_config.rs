@@ -717,7 +717,7 @@ fn parsed_keybinding_to_key_combination(
     Ok((modifier, keycode))
 }
 
-fn key_combination_to_parsed_keybinding(
+pub fn key_combination_to_parsed_keybinding(
     modifier: KeyModifiers,
     keycode: KeyCode,
 ) -> Result<ParsedKeybinding, ShellError> {
