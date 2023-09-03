@@ -992,20 +992,17 @@ mod tests {
     #[test]
     fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
         let values = vec![
-            Value::List {
-                vals: vec![Value::String {
-                    val: "bar".to_string(),
-                    span: Span::test_data(),
+            Value::list(
+                vec![Value::string {
+                    "bar".to_string(),
+                    Span::test_data(),
                 }],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::String {
-                    val: "baz".to_string(),
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            },
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::string("baz".to_string(), Span::test_data())],
+                Span::test_data(),
+            ),
         ];
         let column = Column {
             name: "foo".to_string(),
