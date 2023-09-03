@@ -46,10 +46,10 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     #[cfg(windows)]
     stack.add_env_var(
         "Path".to_string(),
-        Value::String {
-            val: "c:\\some\\path;c:\\some\\other\\path".to_string(),
-            span: nu_protocol::Span::new(0, dir_str.len()),
-        },
+        Value::string(
+            "c:\\some\\path;c:\\some\\other\\path".to_string(),
+            nu_protocol::Span::new(0, dir_str.len()),
+        ),
     );
     #[cfg(not(windows))]
     stack.add_env_var(
