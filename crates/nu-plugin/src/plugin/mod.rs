@@ -214,10 +214,7 @@ pub fn get_signature(
 ///         call: &EvaluatedCall,
 ///         input: &Value,
 ///     ) -> Result<Value, LabeledError> {
-///         Ok(Value::String {
-///             val: "Hello, World!".to_owned(),
-///             span: call.head,
-///         })
+///         Ok(Value::string("Hello, World!".to_owned(), call.head))
 ///     }
 /// }
 /// ```
