@@ -66,6 +66,26 @@ fn expands_path_with_double_dot() {
     })
 }
 
+#[test]
+fn const_path_expand() {
+    Playground::setup("const_path_expand", |dirs, sandbox| {
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                const result = ("menu/./spam.txt" | path expand);
+                $result
+            "#
+        ));
+
+        let expected = dirs.test.join("menu").join("spam.txt");
+        assert_eq!(PathBuf::from(actual.out), expected);
+    })
+}
+
 #[cfg(windows)]
 mod windows {
     use super::*;

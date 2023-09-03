@@ -1,5 +1,4 @@
 use crate::{
-    eval::{eval_constant, value_as_string},
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
@@ -16,6 +15,7 @@ use nu_protocol::{
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
+    eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
     SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
@@ -2959,12 +2959,12 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         Ok(val) => match value_as_string(val, head_expr.span) {
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, span(spans)));
                 return garbage(span(spans));
             }
         },
         Err(err) => {
-            working_set.error(err);
+            working_set.error(err.wrap(working_set, span(spans)));
             return garbage(span(spans));
         }
     };
@@ -5476,10 +5476,14 @@ pub fn parse_pipeline(
                                         {
                                             let block = working_set.get_block(*block_id);
 
-                                            let element = block.pipelines[0].elements[0].clone();
-
-                                            if let PipelineElement::Expression(prepend, expr) =
-                                                element
+                                            if let Some(PipelineElement::Expression(
+                                                prepend,
+                                                expr,
+                                            )) = block
+                                                .pipelines
+                                                .first()
+                                                .and_then(|p| p.elements.first())
+                                                .cloned()
                                             {
                                                 if expr.has_in_variable(working_set) {
                                                     let new_expr = PipelineElement::Expression(
@@ -5608,9 +5612,12 @@ pub fn parse_pipeline(
                                 {
                                     let block = working_set.get_block(*block_id);
 
-                                    let element = block.pipelines[0].elements[0].clone();
-
-                                    if let PipelineElement::Expression(prepend, expr) = element {
+                                    if let Some(PipelineElement::Expression(prepend, expr)) = block
+                                        .pipelines
+                                        .first()
+                                        .and_then(|p| p.elements.first())
+                                        .cloned()
+                                    {
                                         if expr.has_in_variable(working_set) {
                                             let new_expr = PipelineElement::Expression(
                                                 prepend,

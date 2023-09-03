@@ -3,14 +3,7 @@
 # version = "0.84.1"
 
 def create_left_prompt [] {
-    mut home = ""
-    try {
-        if $nu.os-info.name == "windows" {
-            $home = $env.USERPROFILE
-        } else {
-            $home = $env.HOME
-        }
-    }
+    let home =  $nu.home-path
 
     let dir = ([
         ($env.PWD | str substring 0..($home | str length) | str replace $home "~"),

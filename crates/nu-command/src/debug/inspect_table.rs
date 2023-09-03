@@ -30,7 +30,8 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
     }
 
     if val_table_width > desc_table_width {
-        increase_string_width(&mut desc, val_table_width);
+        desc_width += val_table_width - desc_table_width;
+        increase_string_width(&mut desc, desc_width);
     }
 
     if desc_table_width > termsize {

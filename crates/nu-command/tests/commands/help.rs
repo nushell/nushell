@@ -313,21 +313,21 @@ fn help_usage_extra_usage_alias() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help modules spam"));
+        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
         assert!(actual.out.contains("module_line1"));
         assert!(actual.out.contains("module_line2"));
 
         let actual = nu!(cwd: dirs.test(),
-            pipeline("use spam.nu *; help modules | where name == spam | get 0.usage"));
+            "use spam.nu *; help modules | where name == spam | get 0.usage");
         assert!(actual.out.contains("module_line1"));
         assert!(!actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(), pipeline("use spam.nu *; help aliases bar"));
+        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help aliases bar");
         assert!(actual.out.contains("alias_line1"));
         assert!(actual.out.contains("alias_line2"));
 
         let actual = nu!(cwd: dirs.test(),
-            pipeline("use spam.nu *; help aliases | where name == bar | get 0.usage"));
+            "use spam.nu *; help aliases | where name == bar | get 0.usage");
         assert!(actual.out.contains("alias_line1"));
         assert!(!actual.out.contains("alias_line2"));
     })
@@ -356,7 +356,7 @@ fn help_modules_main_2() {
         "help modules | where name == spam | get 0.commands.0.name",
     ];
 
-    let actual = nu!(pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }

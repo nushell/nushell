@@ -149,6 +149,7 @@ fn command(
         closed_window: None,
         tu: None,
         tz: None,
+        fn_params: None,
     };
     let res = match roll_type {
         RollType::Max => series.rolling_max(rolling_opts),

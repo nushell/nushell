@@ -3955,7 +3955,7 @@ mod tests {
         #[test]
         fn test_datetime() {
             let string = Value::date(
-                DateTime::from_utc(
+                DateTime::from_naive_utc_and_offset(
                     NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
                     FixedOffset::east_opt(0).unwrap(),
                 ),
@@ -3972,7 +3972,7 @@ mod tests {
         #[test]
         fn test_negative_year_datetime() {
             let string = Value::date(
-                DateTime::from_utc(
+                DateTime::from_naive_utc_and_offset(
                     NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
                     FixedOffset::east_opt(0).unwrap(),
                 ),

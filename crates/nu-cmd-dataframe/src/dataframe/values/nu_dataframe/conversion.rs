@@ -421,7 +421,17 @@ fn input_type_list_to_series(
                 let dt_chunked = ChunkedArray::<Int64Type>::from_iter_options(&list_name, it)
                     .into_datetime(TimeUnit::Nanoseconds, None);
 
-                builder.append_series(&dt_chunked.into_series());
+                builder
+                    .append_series(&dt_chunked.into_series())
+                    .map_err(|e| {
+                        ShellError::GenericError(
+                            "Error appending to series".into(),
+                            "".to_string(),
+                            None,
+                            Some(e.to_string()),
+                            Vec::new(),
+                        )
+                    })?
             }
             let res = builder.finish();
             Ok(res.into_series())
@@ -872,7 +882,8 @@ fn series_to_values(
                             )
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
                     Value::date(datetime, span)
                 }
@@ -939,7 +950,8 @@ fn series_to_values(
                             )
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
                     Value::date(datetime, span)
                 }

@@ -57,7 +57,7 @@ miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
-notify-debouncer-full = { version = "0.2", default-features = false }
+notify-debouncer-full = { version = "0.3", default-features = false }
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
@@ -80,7 +80,6 @@ serde_json = "1.0"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 sha2 = "0.10"
-sqlparser = { version = "0.34", features = ["serde"], optional = true }
 sysinfo = "0.29"
 tabled = { version = "0.14.0", features = ["color"], default-features = false }
 terminal_size = "0.2"

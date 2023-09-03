@@ -459,12 +459,12 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false) {
+        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false) {
+        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };

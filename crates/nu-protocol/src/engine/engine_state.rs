@@ -19,7 +19,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-static PWD_ENV: &str = "PWD";
+pub static PWD_ENV: &str = "PWD";
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]
@@ -748,6 +748,15 @@ impl EngineState {
             .expect("internal error: missing variable")
     }
 
+    pub fn get_constant(&self, var_id: VarId) -> Option<&Value> {
+        let var = self.get_var(var_id);
+        var.const_val.as_ref()
+    }
+
+    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
+        self.vars[var_id].const_val = Some(val);
+    }
+
     #[allow(clippy::borrowed_box)]
     pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         self.decls
@@ -1088,6 +1097,10 @@ impl<'a> StateWorkingSet<'a> {
             search_predecls: true,
             parse_errors: vec![],
         }
+    }
+
+    pub fn permanent(&self) -> &EngineState {
+        self.permanent_state
     }
 
     pub fn error(&mut self, parse_error: ParseError) {

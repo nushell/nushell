@@ -2,13 +2,13 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::{ShellError, Span, Value};
-use polars::prelude::{col, when, WhenThen, WhenThenThen};
+use polars::prelude::{col, when, ChainedThen, Then};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone)]
 pub enum NuWhen {
-    WhenThen(Box<WhenThen>),
-    WhenThenThen(WhenThenThen),
+    Then(Box<Then>),
+    ChainedThen(ChainedThen),
 }
 
 // Mocked serialization of the LazyFrame object
@@ -27,7 +27,7 @@ impl<'de> Deserialize<'de> for NuWhen {
     where
         D: Deserializer<'de>,
     {
-        Ok(NuWhen::WhenThen(Box::new(when(col("a")).then(col("b")))))
+        Ok(NuWhen::Then(Box::new(when(col("a")).then(col("b")))))
     }
 }
 
@@ -37,15 +37,15 @@ impl fmt::Debug for NuWhen {
     }
 }
 
-impl From<WhenThen> for NuWhen {
-    fn from(when_then: WhenThen) -> Self {
-        NuWhen::WhenThen(Box::new(when_then))
+impl From<Then> for NuWhen {
+    fn from(then: Then) -> Self {
+        NuWhen::Then(Box::new(then))
     }
 }
 
-impl From<WhenThenThen> for NuWhen {
-    fn from(when_then_then: WhenThenThen) -> Self {
-        NuWhen::WhenThenThen(when_then_then)
+impl From<ChainedThen> for NuWhen {
+    fn from(chained_when: ChainedThen) -> Self {
+        NuWhen::ChainedThen(chained_when)
     }
 }
 

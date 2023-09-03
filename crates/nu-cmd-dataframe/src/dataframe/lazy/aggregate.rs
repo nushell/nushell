@@ -169,7 +169,6 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         },
         Expr::Filter { input: expr, .. }
         | Expr::Slice { input: expr, .. }
-        | Expr::Cache { input: expr, .. }
         | Expr::Cast { expr, .. }
         | Expr::Sort { expr, .. }
         | Expr::Take { expr, .. }
@@ -189,7 +188,8 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Wildcard
         | Expr::RenameAlias { .. }
         | Expr::Count
-        | Expr::Nth(_) => None,
+        | Expr::Nth(_)
+        | Expr::Selector(_) => None,
     }
 }
 

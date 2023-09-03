@@ -8,16 +8,17 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
+use nu_cmd_base::hook::eval_hook;
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_color_config::StyleComputer;
-use nu_command::hook::eval_hook;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::create_nu_constant,
     report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    Value, NU_VARIABLE_ID,
 };
 use nu_utils::utils::perf;
 use reedline::{
@@ -50,7 +51,7 @@ pub fn evaluate_repl(
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
-    use nu_command::hook;
+    use nu_cmd_base::hook;
     use reedline::Signal;
     let use_color = engine_state.get_config().use_ansi_coloring;
 
@@ -163,6 +164,10 @@ pub fn evaluate_repl(
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
@@ -390,7 +395,7 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
                 report_error_new(engine_state, &err);
             }
         }
@@ -465,7 +470,9 @@ pub fn evaluate_repl(
                     repl.buffer = s.to_string();
                     drop(repl);
 
-                    if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+                    if let Err(err) =
+                        eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
+                    {
                         report_error_new(engine_state, &err);
                     }
                 }

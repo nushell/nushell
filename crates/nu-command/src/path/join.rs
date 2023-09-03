@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
@@ -46,6 +46,10 @@ impl Command for SubCommand {
 the output of 'path parse' and 'path split' subcommands."#
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -53,29 +57,24 @@ the output of 'path parse' and 'path split' subcommands."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let args = Arguments {
             append: call.rest(engine_state, stack, 0)?,
         };
 
-        let metadata = input.metadata();
+        run(call, &args, input)
+    }
 
-        match input {
-            PipelineData::Value(val, md) => {
-                Ok(PipelineData::Value(handle_value(val, &args, head), md))
-            }
-            PipelineData::ListStream(..) => Ok(PipelineData::Value(
-                handle_value(input.into_value(head), &args, head),
-                metadata,
-            )),
-            PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
-            _ => Err(ShellError::UnsupportedInput(
-                "Input value cannot be joined".to_string(),
-                "value originates from here".into(),
-                head,
-                input.span().unwrap_or(call.head),
-            )),
-        }
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let args = Arguments {
+            append: call.rest_const(working_set, 0)?,
+        };
+
+        run(call, &args, input)
     }
 
     #[cfg(windows)]
@@ -144,6 +143,27 @@ the output of 'path parse' and 'path split' subcommands."#
                 )),
             },
         ]
+    }
+}
+
+fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+
+    let metadata = input.metadata();
+
+    match input {
+        PipelineData::Value(val, md) => Ok(PipelineData::Value(handle_value(val, args, head), md)),
+        PipelineData::ListStream(..) => Ok(PipelineData::Value(
+            handle_value(input.into_value(head), args, head),
+            metadata,
+        )),
+        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
+        _ => Err(ShellError::UnsupportedInput(
+            "Input value cannot be joined".to_string(),
+            "value originates from here".into(),
+            head,
+            input.span().unwrap_or(call.head),
+        )),
     }
 }
 

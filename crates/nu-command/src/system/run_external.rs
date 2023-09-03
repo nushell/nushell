@@ -1,4 +1,4 @@
-use crate::hook::eval_hook;
+use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -371,6 +371,7 @@ impl ExternalCommand {
                                             ),
                                         )],
                                         &hook,
+                                        "command_not_found",
                                     )
                                 {
                                     err_str = format!("{}\n{}", err_str, val);

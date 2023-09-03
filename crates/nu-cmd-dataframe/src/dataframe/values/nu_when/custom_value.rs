@@ -23,8 +23,8 @@ impl CustomValue for NuWhen {
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let val: String = match self {
-            NuWhen::WhenThen(_) => "whenthen".into(),
-            NuWhen::WhenThenThen(_) => "whenthenthen".into(),
+            NuWhen::Then(_) => "whenthen".into(),
+            NuWhen::ChainedThen(_) => "whenthenthen".into(),
         };
 
         let value = Value::string(val, span);

@@ -1,5 +1,5 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
@@ -27,6 +27,10 @@ impl Command for Describe {
             .category(Category::Core)
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -34,35 +38,16 @@ impl Command for Describe {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
+        run(call, input)
+    }
 
-        let no_collect: bool = call.has_flag("no-collect");
-
-        let description = match input {
-            PipelineData::ExternalStream { .. } => "raw input".into(),
-            PipelineData::ListStream(_, _) => {
-                if no_collect {
-                    "stream".into()
-                } else {
-                    let value = input.into_value(head);
-                    let base_description = match value {
-                        Value::CustomValue { val, .. } => val.value_string(),
-                        _ => value.get_type().to_string(),
-                    };
-
-                    format!("{base_description} (stream)")
-                }
-            }
-            _ => {
-                let value = input.into_value(head);
-                match value {
-                    Value::CustomValue { val, .. } => val.value_string(),
-                    _ => value.get_type().to_string(),
-                }
-            }
-        };
-
-        Ok(Value::string(description, head).into_pipeline_data())
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        run(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -90,6 +75,38 @@ impl Command for Describe {
     fn search_terms(&self) -> Vec<&str> {
         vec!["type", "typeof", "info", "structure"]
     }
+}
+
+fn run(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+
+    let no_collect: bool = call.has_flag("no-collect");
+
+    let description = match input {
+        PipelineData::ExternalStream { .. } => "raw input".into(),
+        PipelineData::ListStream(_, _) => {
+            if no_collect {
+                "stream".into()
+            } else {
+                let value = input.into_value(head);
+                let base_description = match value {
+                    Value::CustomValue { val, .. } => val.value_string(),
+                    _ => value.get_type().to_string(),
+                };
+
+                format!("{base_description} (stream)")
+            }
+        }
+        _ => {
+            let value = input.into_value(head);
+            match value {
+                Value::CustomValue { val, .. } => val.value_string(),
+                _ => value.get_type().to_string(),
+            }
+        }
+    };
+
+    Ok(Value::string(description, head).into_pipeline_data())
 }
 
 #[cfg(test)]
