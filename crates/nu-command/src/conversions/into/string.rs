@@ -182,22 +182,16 @@ fn string_helper(
     };
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::String {
-            val: String::new(),
-            span: head,
+        PipelineData::ExternalStream { stdout: None, .. } => {
+            Ok(Value::string(String::new(), head).into_pipeline_data())
         }
-        .into_pipeline_data()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
-            Ok(Value::String {
-                val: output.item,
-                span: head,
-            }
-            .into_pipeline_data())
+            Ok(Value::string(output.item, head).into_pipeline_data())
         }
         _ => operate(action, args, input, head, engine_state.ctrlc.clone()),
     }
@@ -211,81 +205,53 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
             let res = format_int(*val, false, decimal_value);
-            Value::String { val: res, span }
+            Value::string(res, span)
         }
         Value::Float { val, .. } => {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
-                Value::String {
-                    val: format!("{val:.decimal_value$}"),
-                    span,
-                }
+                Value::string(format!("{val:.decimal_value$}"), span)
             } else {
-                Value::String {
-                    val: val.to_string(),
-                    span,
-                }
+                Value::string(val.to_string(), span)
             }
         }
-        Value::Bool { val, .. } => Value::String {
-            val: val.to_string(),
-            span,
-        },
-        Value::Date { val, .. } => Value::String {
-            val: val.format("%c").to_string(),
-            span,
-        },
-        Value::String { val, .. } => Value::String {
-            val: val.to_string(),
-            span,
-        },
+        Value::Bool { val, .. } => Value::string(val.to_string(), span),
+        Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
+        Value::String { val, .. } => Value::string(val.to_string(), span),
 
-        Value::Filesize { val: _, .. } => Value::String {
-            val: input.into_string(", ", config),
-            span,
-        },
-        Value::Duration { val: _, .. } => Value::String {
-            val: input.into_string("", config),
-            span,
-        },
+        Value::Filesize { val: _, .. } => Value::string(input.into_string(", ", config), span),
+        Value::Duration { val: _, .. } => Value::string(input.into_string("", config), span),
 
-        Value::Error { error } => Value::String {
-            val: into_code(error).unwrap_or_default(),
-            span,
-        },
-        Value::Nothing { .. } => Value::String {
-            val: "".to_string(),
-            span,
-        },
-        Value::Record {
-            cols: _,
-            vals: _,
-            span: _,
-        } => Value::Error {
+        Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
+        Value::Nothing { .. } => Value::string("".to_string(), span),
+        Value::Record { .. } => Value::error(
             // Watch out for CantConvert's argument order
-            error: Box::new(ShellError::CantConvert {
+            ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: "record".into(),
                 span,
                 help: Some("try using the `to nuon` command".into()),
-            }),
-        },
-        Value::Binary { .. } => Value::Error {
-            error: Box::new(ShellError::CantConvert {
+            },
+            span,
+        ),
+        Value::Binary { .. } => Value::error(
+            ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: "binary".into(),
                 span,
                 help: Some("try using the `decode` command".into()),
-            }),
-        },
-        x => Value::Error {
-            error: Box::new(ShellError::CantConvert {
+            },
+            span,
+        ),
+        x => Value::error(
+            ShellError::CantConvert {
                 to_type: String::from("string"),
                 from_type: x.get_type().to_string(),
                 span,
                 help: None,
-            }),
-        },
+            },
+            span,
+        ),
     }
 }
 

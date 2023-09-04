@@ -1,5 +1,5 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span, Value};
+use nu_protocol::{Config, Value};
 
 use crate::UnstructuredTable;
 
@@ -40,14 +40,14 @@ fn collapsed_table(
 
 fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComputer) {
     match value {
-        Value::Record { cols, vals, .. } => {
-            for val in vals {
+        Value::Record { val: record, .. } => {
+            for val in &mut record.vals {
                 colorize_value(val, config, style_computer);
             }
 
             let style = get_index_style(style_computer);
             if let Some(color) = style.color_style {
-                for header in cols {
+                for header in &mut record.cols {
                     *header = color.paint(header.to_owned()).to_string();
                 }
             }
@@ -61,7 +61,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             let (text, style) = nu_value_to_string_clean(value, config, style_computer);
             if let Some(color) = style.color_style {
                 let text = color.paint(text).to_string();
-                let span = value.span().unwrap_or(Span::unknown());
+                let span = value.span();
                 *value = Value::string(text, span);
             }
         }

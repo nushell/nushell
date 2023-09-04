@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
 
 fn from_delimited_string_to_value(
     DelimitedReaderConfig {
@@ -38,32 +38,28 @@ fn from_delimited_string_to_value(
         let mut output_row = vec![];
         for value in row?.iter() {
             if no_infer {
-                output_row.push(Value::String {
-                    span,
-                    val: value.into(),
-                });
+                output_row.push(Value::string(value.to_string(), span));
                 continue;
             }
 
             if let Ok(i) = value.parse::<i64>() {
-                output_row.push(Value::Int { val: i, span });
+                output_row.push(Value::int(i, span));
             } else if let Ok(f) = value.parse::<f64>() {
-                output_row.push(Value::Float { val: f, span });
+                output_row.push(Value::float(f, span));
             } else {
-                output_row.push(Value::String {
-                    val: value.into(),
-                    span,
-                });
+                output_row.push(Value::string(value.to_string(), span));
             }
         }
-        rows.push(Value::Record {
-            cols: headers.clone(),
-            vals: output_row,
+        rows.push(Value::record(
+            Record {
+                cols: headers.clone(),
+                vals: output_row,
+            },
             span,
-        });
+        ));
     }
 
-    Ok(Value::List { vals: rows, span })
+    Ok(Value::list(rows, span))
 }
 
 pub(super) struct DelimitedReaderConfig {
@@ -94,7 +90,11 @@ pub(super) fn from_delimited_data(
 
 pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
     match trim {
-        Some(Value::String { val: item, span }) => match item.as_str() {
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::String {val: item, ..} => match item.as_str() {
+
             "all" => Ok(Trim::All),
             "headers" => Ok(Trim::Headers),
             "fields" => Ok(Trim::Fields),
@@ -105,7 +105,10 @@ pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
                         .into(),
                 span,
             }),
-        },
+                }
+                _ => Ok(Trim::None),
+            }
+        }
         _ => Ok(Trim::None),
     }
 }

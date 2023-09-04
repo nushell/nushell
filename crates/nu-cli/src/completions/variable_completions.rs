@@ -235,13 +235,9 @@ fn nested_suggestions(
     let value = recursive_value(val, sublevels);
 
     match value {
-        Value::Record {
-            cols,
-            vals: _,
-            span: _,
-        } => {
+        Value::Record { val, .. } => {
             // Add all the columns as completion
-            for item in cols {
+            for item in val.cols {
                 output.push(Suggestion {
                     value: item,
                     description: None,
@@ -267,7 +263,7 @@ fn nested_suggestions(
 
             output
         }
-        Value::List { vals, span: _ } => {
+        Value::List { vals, .. } => {
             for column_name in get_columns(vals.as_slice()) {
                 output.push(Suggestion {
                     value: column_name,
@@ -288,13 +284,10 @@ fn nested_suggestions(
 fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
     // Go to next sublevel
     if let Some(next_sublevel) = sublevels.clone().into_iter().next() {
+        let span = val.span();
         match val {
-            Value::Record {
-                cols,
-                vals,
-                span: _,
-            } => {
-                for item in cols.into_iter().zip(vals) {
+            Value::Record { val, .. } => {
+                for item in val {
                     // Check if index matches with sublevel
                     if item.0.as_bytes().to_vec() == next_sublevel {
                         // If matches try to fetch recursively the next
@@ -303,11 +296,9 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
-                    span: Span::unknown(),
-                };
+                return Value::nothing(span);
             }
-            Value::LazyRecord { val, span: _ } => {
+            Value::LazyRecord { val, .. } => {
                 for col in val.column_names() {
                     if col.as_bytes().to_vec() == next_sublevel {
                         return recursive_value(
@@ -318,15 +309,13 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
-                    span: Span::unknown(),
-                };
+                return Value::nothing(span);
             }
-            Value::List { vals, span } => {
+            Value::List { vals, .. } => {
                 for col in get_columns(vals.as_slice()) {
                     if col.as_bytes().to_vec() == next_sublevel {
                         return recursive_value(
-                            Value::List { vals, span }
+                            Value::list(vals, span)
                                 .get_data_by_key(&col)
                                 .unwrap_or_default(),
                             sublevels.into_iter().skip(1).collect(),
@@ -335,9 +324,7 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
-                    span: Span::unknown(),
-                };
+                return Value::nothing(span);
             }
             _ => return val,
         }

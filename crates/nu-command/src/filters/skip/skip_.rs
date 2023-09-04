@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -46,26 +46,24 @@ impl Command for Skip {
             Example {
                 description: "Skip the first value of a list",
                 example: "[2 4 6 8] | skip 1",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(4), Value::test_int(6), Value::test_int(8)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Skip two rows of a table",
                 example: "[[editions]; [2015] [2018] [2021]] | skip 2",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["editions".to_owned()],
                         vals: vec![Value::test_int(2021)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -74,27 +72,33 @@ impl Command for Skip {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let span = call.head;
         let metadata = input.metadata();
 
         let n: usize = match n {
-            Some(Value::Int { val, span }) => {
-                val.try_into().map_err(|err| ShellError::TypeMismatch {
-                    err_message: format!("Could not convert {val} to unsigned integer: {err}"),
-                    span,
-                })?
-            }
-            Some(_) => {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "expected integer".into(),
-                    span,
-                })
+            Some(v) => {
+                let span = v.span();
+                match v {
+                    Value::Int { val, .. } => {
+                        val.try_into().map_err(|err| ShellError::TypeMismatch {
+                            err_message: format!(
+                                "Could not convert {val} to unsigned integer: {err}"
+                            ),
+                            span,
+                        })?
+                    }
+                    _ => {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "expected integer".into(),
+                            span,
+                        })
+                    }
+                }
             }
             None => 1,
         };
 
         let ctrlc = engine_state.ctrlc.clone();
-
+        let input_span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::ExternalStream {
                 stdout: Some(stream),
@@ -131,17 +135,14 @@ impl Command for Skip {
                     }
                 }
 
-                Ok(Value::Binary {
-                    val: output,
-                    span: bytes_span,
-                }
-                .into_pipeline_data()
-                .set_metadata(metadata))
+                Ok(Value::binary(output, bytes_span)
+                    .into_pipeline_data()
+                    .set_metadata(metadata))
             }
-            PipelineData::Value(Value::Binary { val, span }, metadata) => {
+            PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
 
-                Ok(Value::Binary { val: bytes, span }
+                Ok(Value::binary(bytes, input_span)
                     .into_pipeline_data()
                     .set_metadata(metadata))
             }

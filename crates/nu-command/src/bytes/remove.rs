@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 struct Arguments {
@@ -87,70 +87,70 @@ impl Command for BytesRemove {
             Example {
                 description: "Remove contents",
                 example: "0x[10 AA FF AA FF] | bytes remove 0x[10 AA]",
-                result: Some(Value::Binary {
-                    val: vec![0xFF, 0xAA, 0xFF],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary (
+                    vec![0xFF, 0xAA, 0xFF],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Remove all occurrences of find binary in record field",
                 example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove -a 0x[10] data",
-                result: Some(Value::test_record(vec!["data"], 
-                    vec![Value::test_binary(vec![0xAA, 0xBB])])),
+                result: Some(Value::test_record(Record {
+                    cols: vec!["data".to_string()],
+                    vals: vec![Value::test_binary(vec![0xAA, 0xBB])]
+                })),
             },
             Example {
                 description: "Remove occurrences of find binary from end",
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove -e 0x[10]",
-                result: Some(Value::Binary {
-                    val: vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary (
+                    vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Remove all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list (
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            Value::Binary {
-                                val: vec![0x12, 0x13],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x14, 0x15, 0x16],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x17, 0x18, 0x19],
-                                span: Span::test_data(),
-                            },
-                        ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                            Value::binary (
+                                vec![0x12, 0x13],
+                                Span::test_data(),
+                            ),
+                            Value::binary (
+                                 vec![0x14, 0x15, 0x16],
+                                 Span::test_data(),
+                            ),
+                            Value::binary (
+                                 vec![0x17, 0x18, 0x19],
+                                 Span::test_data(),
+                            ),
+                        ]
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn remove(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => remove_impl(val, args, *val_span),
+        Value::Binary { val, .. } => remove_impl(val, args, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 
@@ -178,7 +178,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         let mut remain = input[..left as usize].iter().copied().rev().collect();
         result.append(&mut remain);
         result = result.into_iter().rev().collect();
-        Value::Binary { val: result, span }
+        Value::binary(result, span)
     } else {
         let (mut left, mut right) = (0, arg.pattern.len());
         while right <= input_len {
@@ -198,7 +198,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         // we have something to remove and remove_all is False.
         let mut remain = input[left..].to_vec();
         result.append(&mut remain);
-        Value::Binary { val: result, span }
+        Value::binary(result, span)
     }
 }
 

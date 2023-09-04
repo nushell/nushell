@@ -57,15 +57,15 @@ impl Command for Default {
             Example {
                 description: "Replace the `null` value in a list",
                 example: "[1, 2, null, 4] | default 3",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -84,33 +84,33 @@ fn default(
 
     if let Some(column) = column {
         input.map(
-            move |item| match item {
-                Value::Record {
-                    mut cols,
-                    mut vals,
-                    span,
-                } => {
-                    let mut idx = 0;
-                    let mut found = false;
+            move |item| {
+                let span = item.span();
+                match item {
+                    Value::Record {
+                        val: mut record, ..
+                    } => {
+                        let mut idx = 0;
+                        let mut found = false;
 
-                    while idx < cols.len() {
-                        if cols[idx] == column.item {
-                            found = true;
-                            if matches!(vals[idx], Value::Nothing { .. }) {
-                                vals[idx] = value.clone();
+                        while idx < record.len() {
+                            if record.cols[idx] == column.item {
+                                found = true;
+                                if matches!(record.vals[idx], Value::Nothing { .. }) {
+                                    record.vals[idx] = value.clone();
+                                }
                             }
+                            idx += 1;
                         }
-                        idx += 1;
-                    }
 
-                    if !found {
-                        cols.push(column.item.clone());
-                        vals.push(value.clone());
-                    }
+                        if !found {
+                            record.push(column.item.clone(), value.clone());
+                        }
 
-                    Value::Record { cols, vals, span }
+                        Value::record(record, span)
+                    }
+                    _ => item,
                 }
-                _ => item,
             },
             ctrlc,
         )

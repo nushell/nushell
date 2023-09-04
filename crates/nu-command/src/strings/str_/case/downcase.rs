@@ -3,7 +3,9 @@ use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -66,26 +68,24 @@ impl Command for SubCommand {
             Example {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_string("test"), Value::test_string("ABC")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![Value::test_string("test"), Value::test_string("abc")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -109,9 +109,7 @@ fn operate(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error {
-                            error: Box::new(error),
-                        };
+                        return Value::error(error, head);
                     }
                 }
                 ret
@@ -123,19 +121,17 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::String {
-            val: val.to_ascii_lowercase(),
-            span: head,
-        },
+        Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), head),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

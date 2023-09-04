@@ -172,14 +172,11 @@ impl Command for Kill {
                 .trim_end(),
         );
         if val.is_empty() {
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            Ok(vec![Value::String {
-                val,
-                span: call.head,
-            }]
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            Ok(vec![Value::string(val, call.head)]
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
         }
     }
 

@@ -1,9 +1,9 @@
 use std::path::Path;
 
-use nu_engine::env::current_dir_str;
+use nu_engine::env::{current_dir_str, current_dir_str_const};
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
@@ -48,6 +48,10 @@ impl Command for SubCommand {
         "Try to expand a path to its absolute form."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -68,6 +72,28 @@ impl Command for SubCommand {
         input.map(
             move |value| super::operate(&expand, &args, value, head),
             engine_state.ctrlc.clone(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments {
+            strict: call.has_flag("strict"),
+            cwd: current_dir_str_const(working_set)?,
+            not_follow_symlink: call.has_flag("no-symlink"),
+        };
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&expand, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
         )
     }
 
@@ -130,8 +156,8 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                     Value::string(p.to_string_lossy(), span)
                 }
             }
-            Err(_) => Value::Error {
-                error: Box::new(ShellError::GenericError(
+            Err(_) => Value::error(
+                ShellError::GenericError(
                     "Could not expand path".into(),
                     "could not be expanded (path might not exist, non-final \
                             component is not a directory, or other cause)"
@@ -139,8 +165,9 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                     Some(span),
                     None,
                     Vec::new(),
-                )),
-            },
+                ),
+                span,
+            ),
         }
     } else if args.not_follow_symlink {
         Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)

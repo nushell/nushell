@@ -54,3 +54,10 @@ fn returns_joined_path_when_joining_empty_path() {
 
     assert_eq!(actual.out, "foo.txt");
 }
+
+#[test]
+fn const_path_join() {
+    let actual = nu!("const name = ('spam' | path join 'eggs.txt'); $name");
+    let expected = join_path_sep(&["spam", "eggs.txt"]);
+    assert_eq!(actual.out, expected);
+}

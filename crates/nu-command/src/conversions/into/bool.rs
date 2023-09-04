@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -58,36 +58,31 @@ impl Command for SubCommand {
             Example {
                 description: "Convert value to boolean in table",
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(false, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
                             vals: vec![Value::bool(true, span)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Convert bool to boolean",
@@ -154,30 +149,23 @@ fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
 fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     match input {
         Value::Bool { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Bool {
-            val: *val != 0,
-            span,
-        },
-        Value::Float { val, .. } => Value::Bool {
-            val: val.abs() >= f64::EPSILON,
-            span,
-        },
+        Value::Int { val, .. } => Value::bool(*val != 0, span),
+        Value::Float { val, .. } => Value::bool(val.abs() >= f64::EPSILON, span),
         Value::String { val, .. } => match string_to_boolean(val, span) {
-            Ok(val) => Value::Bool { val, span },
-            Err(error) => Value::Error {
-                error: Box::new(error),
-            },
+            Ok(val) => Value::bool(val, span),
+            Err(error) => Value::error(error, span),
         },
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "bool, integer, float or string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 

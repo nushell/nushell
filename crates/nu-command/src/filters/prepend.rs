@@ -45,57 +45,57 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "0 | prepend [1 2 3]",
                 description: "prepend a list to an item",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(3),
                         Value::test_int(0),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: r#""a" | prepend ["b"] "#,
                 description: "Prepend a list of strings to a string",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("b"), Value::test_string("a")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("b"), Value::test_string("a")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[1,2,3,4] | prepend 0",
                 description: "Prepend one integer item",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(0),
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[2,3,4] | prepend [0,1]",
                 description: "Prepend two integer items",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(0),
                         Value::test_int(1),
                         Value::test_int(2),
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[2,nu,4,shell] | prepend [0,1,rocks]",
                 description: "Prepend integers and strings",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(0),
                         Value::test_int(1),
                         Value::test_string("rocks"),
@@ -104,8 +104,8 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                         Value::test_int(4),
                         Value::test_string("shell"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -132,8 +132,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
 fn process_value(val: Value) -> Vec<Value> {
     match val {
         Value::List {
-            vals: input_vals,
-            span: _,
+            vals: input_vals, ..
         } => {
             let mut output = vec![];
             for input_val in input_vals {

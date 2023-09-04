@@ -12,6 +12,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
+    eval_const::{eval_constant, value_as_string},
     span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
@@ -24,7 +25,6 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    eval::{eval_constant, value_as_string},
     is_math_expression_like,
     known_external::KnownExternal,
     lex,
@@ -1409,7 +1409,8 @@ pub fn parse_export_in_module(
             }
             b"const" => {
                 let pipeline = parse_const(working_set, &spans[1..]);
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export const") {
+                let export_const_decl_id = if let Some(id) = working_set.find_decl(b"export const")
+                {
                     id
                 } else {
                     working_set.error(ParseError::InternalError(
@@ -1431,7 +1432,7 @@ pub fn parse_export_in_module(
                     call = def_call.clone();
 
                     call.head = span(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
+                    call.decl_id = export_const_decl_id;
                 } else {
                     working_set.error(ParseError::InternalError(
                         "unexpected output from parsing a definition".into(),
@@ -1441,15 +1442,19 @@ pub fn parse_export_in_module(
 
                 let mut result = vec![];
 
-                if let Some(decl_name_span) = spans.get(2) {
-                    let decl_name = working_set.get_span_contents(*decl_name_span);
-                    let decl_name = trim_quotes(decl_name);
+                if let Some(var_name_span) = spans.get(2) {
+                    let var_name = working_set.get_span_contents(*var_name_span);
+                    let var_name = trim_quotes(var_name);
 
-                    if let Some(decl_id) = working_set.find_variable(decl_name) {
-                        result.push(Exportable::VarDecl {
-                            name: decl_name.to_vec(),
-                            id: decl_id,
-                        });
+                    if let Some(var_id) = working_set.find_variable(var_name) {
+                        if let Err(err) = working_set.get_constant(var_id) {
+                            working_set.error(err);
+                        } else {
+                            result.push(Exportable::VarDecl {
+                                name: var_name.to_vec(),
+                                id: var_id,
+                            });
+                        }
                     } else {
                         working_set.error(ParseError::InternalError(
                             "failed to find added variable".into(),
@@ -2285,7 +2290,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
-                module_name_var_id: None,
+                constants: vec![],
             },
             module,
             module_id,
@@ -2306,7 +2311,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 },
                 members: import_pattern.members,
                 hidden: HashSet::new(),
-                module_name_var_id: None,
+                constants: vec![],
             },
             module,
             module_id,
@@ -2324,9 +2329,24 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         );
     };
 
-    let (definitions, errors) =
-        module.resolve_import_pattern(working_set, module_id, &import_pattern.members, None);
+    let (definitions, errors) = module.resolve_import_pattern(
+        working_set,
+        module_id,
+        &import_pattern.members,
+        None,
+        name_span,
+    );
+
     working_set.parse_errors.extend(errors);
+
+    let mut constants = vec![];
+
+    for (name, const_val) in definitions.constants {
+        let const_var_id =
+            working_set.add_variable(name.clone(), name_span, const_val.get_type(), false);
+        working_set.set_variable_const_val(const_var_id, const_val);
+        constants.push((name, const_var_id));
+    }
 
     let exportables = definitions
         .decls
@@ -2345,8 +2365,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
                 }),
         )
         .chain(
-            definitions
-                .variables
+            constants
                 .iter()
                 .map(|(name, variable_id)| Exportable::VarDecl {
                     name: name.clone(),
@@ -2355,18 +2374,13 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         )
         .collect();
 
+    import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
+
     // Extend the current scope with the module's exportables
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
-    working_set.use_variables(definitions.variables);
+    working_set.use_variables(constants);
 
-    let module_name_var_id = working_set.add_variable(
-        module.name(),
-        module.span.unwrap_or(Span::unknown()),
-        Type::Any,
-        false,
-    );
-    import_pattern.module_name_var_id = Some(module_name_var_id);
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
@@ -2571,12 +2585,12 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2620,12 +2634,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2646,12 +2660,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                         span: new_name_expression.span,
                     }),
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, call_span));
                         return garbage_pipeline(&[call_span]);
                     }
                 },
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             }
@@ -2776,6 +2790,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 origin_module_id,
                 &[],
                 Some(final_overlay_name.as_bytes()),
+                call.head,
             )
         } else {
             origin_module.resolve_import_pattern(
@@ -2785,6 +2800,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     span: overlay_name_span,
                 }],
                 Some(final_overlay_name.as_bytes()),
+                call.head,
             )
         }
     } else {
@@ -2835,12 +2851,12 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
             Ok(val) => match value_as_string(val, expr.span) {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -3025,15 +3041,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                 // const x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
                     let mut idx = span.0;
-                    // let rvalue = parse_multispan_value(
-                    //     working_set,
-                    //     spans,
-                    //     &mut idx,
-                    //     &SyntaxShape::Keyword(
-                    //         b"=".to_vec(),
-                    //         Box::new(SyntaxShape::MathExpression),
-                    //     ),
-                    // );
 
                     let rvalue = parse_multispan_value(
                         working_set,
@@ -3099,9 +3106,8 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                                 // Assign the constant value to the variable
                                 working_set.set_variable_const_val(var_id, val);
-                                // working_set.add_constant(var_id, val);
                             }
-                            Err(err) => working_set.error(err),
+                            Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
                         }
                     }
 
@@ -3294,7 +3300,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 let val = match eval_constant(working_set, &expr) {
                     Ok(val) => val,
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, span(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&spans[1..]),
@@ -3307,7 +3313,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 let filename = match value_as_string(val, spans[1]) {
                     Ok(s) => s,
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, span(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&spans[1..]),
@@ -3498,11 +3504,13 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let val = eval_constant(working_set, expr)?;
-            let filename = value_as_string(val, expr.span)?;
+            let val =
+                eval_constant(working_set, expr).map_err(|err| err.wrap(working_set, call.head))?;
+            let filename =
+                value_as_string(val, expr.span).map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
-                return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
+                return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
             };
 
             if path.exists() && path.is_file() {

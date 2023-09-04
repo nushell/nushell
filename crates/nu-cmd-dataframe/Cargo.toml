@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-cmd-dataframe"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-dataframe"
-version = "0.83.2"
+version = "0.84.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,19 +13,18 @@ version = "0.83.2"
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.83.2" }
-nu-parser = { path = "../nu-parser", version = "0.83.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.83.2" }
+nu-engine = { path = "../nu-engine", version = "0.84.1" }
+nu-parser = { path = "../nu-parser", version = "0.84.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.84.1" }
 
 # Potential dependencies for extras
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 fancy-regex = "0.11"
 indexmap = { version = "2.0" }
 num = { version = "0.4", optional = true }
-# Due to https://github.com/serde-rs/serde/issues/2538
-serde = { version = "1.0, < 1.0.172", features = ["derive"] }
-sqlparser = { version = "0.34", features = ["serde"], optional = true }
-polars-io = { version = "0.30.0", features = ["avro"] }
+serde = { version = "1.0", features = ["derive"] }
+sqlparser = { version = "0.36.1", optional = true }
+polars-io = { version = "0.32", features = ["avro"], optional = true }
 
 [dependencies.polars]
 features = [
@@ -52,15 +51,15 @@ features = [
 	"serde",
 	"serde-lazy",
 	"strings",
-	"to_dummies"
+	"to_dummies",
 ]
 optional = true
-version = "0.30.0"
+version = "0.32"
 
 [features]
-dataframe = ["num", "polars", "sqlparser"]
+dataframe = ["num", "polars", "polars-io", "sqlparser"]
 default = []
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.83.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.83.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.84.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.84.1" }

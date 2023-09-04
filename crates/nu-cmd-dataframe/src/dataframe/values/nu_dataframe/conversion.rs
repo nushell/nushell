@@ -2,7 +2,7 @@ use super::{DataFrameValue, NuDataFrame};
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use indexmap::map::{Entry, IndexMap};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{Record, ShellError, Span, Value};
 use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
@@ -128,36 +128,21 @@ pub fn create_column(
 // Adds a separator to the vector of values using the column names from the
 // dataframe to create the Values Row
 pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
-    let mut cols = vec![];
-    let mut vals = vec![];
+    let mut record = Record::new();
 
-    cols.push("index".to_string());
-    vals.push(Value::String {
-        val: "...".into(),
-        span,
-    });
+    record.push("index", Value::string("...", span));
 
     for name in df.get_column_names() {
-        cols.push(name.to_string());
-        vals.push(Value::String {
-            val: "...".into(),
-            span,
-        })
+        record.push(name, Value::string("...", span))
     }
 
-    let extra_record = Value::Record { cols, vals, span };
-
-    values.push(extra_record);
+    values.push(Value::record(record, span));
 }
 
-// Inserting the values found in a Value::List
-pub fn insert_record(
-    column_values: &mut ColumnMap,
-    cols: &[String],
-    values: &[Value],
-) -> Result<(), ShellError> {
-    for (col, value) in cols.iter().zip(values.iter()) {
-        insert_value(value.clone(), col.clone(), column_values)?;
+// Inserting the values found in a Value::List or Value::Record
+pub fn insert_record(column_values: &mut ColumnMap, record: Record) -> Result<(), ShellError> {
+    for (col, value) in record {
+        insert_value(value, col, column_values)?;
     }
 
     Ok(())
@@ -436,7 +421,17 @@ fn input_type_list_to_series(
                 let dt_chunked = ChunkedArray::<Int64Type>::from_iter_options(&list_name, it)
                     .into_datetime(TimeUnit::Nanoseconds, None);
 
-                builder.append_series(&dt_chunked.into_series());
+                builder
+                    .append_series(&dt_chunked.into_series())
+                    .map_err(|e| {
+                        ShellError::GenericError(
+                            "Error appending to series".into(),
+                            "".to_string(),
+                            None,
+                            Some(e.to_string()),
+                            Vec::new(),
+                        )
+                    })?
             }
             let res = builder.finish();
             Ok(res.into_series())
@@ -457,7 +452,7 @@ fn series_to_values(
 ) -> Result<Vec<Value>, ShellError> {
     match series.dtype() {
         DataType::Null => {
-            let it = std::iter::repeat(Value::Nothing { span });
+            let it = std::iter::repeat(Value::nothing(span));
             let values = if let Some(size) = maybe_size {
                 Either::Left(it.take(size))
             } else {
@@ -485,11 +480,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -513,11 +505,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -541,11 +530,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -569,11 +555,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -597,11 +580,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -625,11 +605,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -653,11 +630,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int {
-                    val: a as i64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a as i64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -681,8 +655,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Int { val: a, span },
-                None => Value::Nothing { span },
+                Some(a) => Value::int(a, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -706,11 +680,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Float {
-                    val: a as f64,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::float(a as f64, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -734,8 +705,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Float { val: a, span },
-                None => Value::Nothing { span },
+                Some(a) => Value::float(a, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -759,8 +730,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::Bool { val: a, span },
-                None => Value::Nothing { span },
+                Some(a) => Value::bool(a, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -784,11 +755,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(a) => Value::String {
-                    val: a.into(),
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(a) => Value::string(a.to_string(), span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -817,7 +785,7 @@ fn series_to_values(
                     }
                     .map(|v| match v {
                         Some(a) => a.get_value(),
-                        None => Value::Nothing { span },
+                        None => Value::nothing(span),
                     })
                     .collect::<Vec<Value>>();
 
@@ -855,10 +823,7 @@ fn series_to_values(
                                     }
                                 })
                                 .unwrap_or(vec![]);
-                            Value::List {
-                                vals: sublist,
-                                span,
-                            }
+                            Value::list(sublist, span)
                         })
                         .collect::<Vec<Value>>();
                     Ok(values)
@@ -889,40 +854,40 @@ fn series_to_values(
                     let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
                         Some(val) => val,
                         None => {
-                            return Value::Error {
-                                error: Box::new(ShellError::UnsupportedInput(
+                            return Value::error(
+                                ShellError::UnsupportedInput(
                                     "The given local datetime representation is invalid."
                                         .to_string(),
                                     format!("timestamp is {a:?}"),
                                     span,
                                     Span::unknown(),
-                                )),
-                            }
+                                ),
+                                span,
+                            )
                         }
                     };
                     // Zero length offset
                     let offset = match FixedOffset::east_opt(0) {
                         Some(val) => val,
                         None => {
-                            return Value::Error {
-                                error: Box::new(ShellError::UnsupportedInput(
+                            return Value::error(
+                                ShellError::UnsupportedInput(
                                     "The given local datetime representation is invalid."
                                         .to_string(),
                                     format!("timestamp is {a:?}"),
                                     span,
                                     Span::unknown(),
-                                )),
-                            }
+                                ),
+                                span,
+                            )
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
-                    Value::Date {
-                        val: datetime,
-                        span,
-                    }
+                    Value::date(datetime, span)
                 }
-                None => Value::Nothing { span },
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -957,40 +922,40 @@ fn series_to_values(
                     let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
                         Some(val) => val,
                         None => {
-                            return Value::Error {
-                                error: Box::new(ShellError::UnsupportedInput(
+                            return Value::error(
+                                ShellError::UnsupportedInput(
                                     "The given local datetime representation is invalid."
                                         .to_string(),
                                     format!("timestamp is {a:?}"),
                                     span,
                                     Span::unknown(),
-                                )),
-                            }
+                                ),
+                                span,
+                            )
                         }
                     };
                     // Zero length offset
                     let offset = match FixedOffset::east_opt(0) {
                         Some(val) => val,
                         None => {
-                            return Value::Error {
-                                error: Box::new(ShellError::UnsupportedInput(
+                            return Value::error(
+                                ShellError::UnsupportedInput(
                                     "The given local datetime representation is invalid."
                                         .to_string(),
                                     format!("timestamp is {a:?}"),
                                     span,
                                     Span::unknown(),
-                                )),
-                            }
+                                ),
+                                span,
+                            )
                         }
                     };
-                    let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+                    let datetime =
+                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
 
-                    Value::Date {
-                        val: datetime,
-                        span,
-                    }
+                    Value::date(datetime, span)
                 }
-                None => Value::Nothing { span },
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -1014,11 +979,8 @@ fn series_to_values(
                 Either::Right(it)
             }
             .map(|v| match v {
-                Some(nanoseconds) => Value::Duration {
-                    val: nanoseconds,
-                    span,
-                },
-                None => Value::Nothing { span },
+                Some(nanoseconds) => Value::duration(nanoseconds, span),
+                None => Value::nothing(span),
             })
             .collect::<Vec<Value>>();
 
@@ -1042,20 +1004,14 @@ mod tests {
     #[test]
     fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
         let values = vec![
-            Value::List {
-                vals: vec![Value::String {
-                    val: "bar".to_string(),
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            },
-            Value::List {
-                vals: vec![Value::String {
-                    val: "baz".to_string(),
-                    span: Span::test_data(),
-                }],
-                span: Span::test_data(),
-            },
+            Value::list(
+                vec![Value::string("bar".to_string(), Span::test_data())],
+                Span::test_data(),
+            ),
+            Value::list(
+                vec![Value::string("baz".to_string(), Span::test_data())],
+                Span::test_data(),
+            ),
         ];
         let column = Column {
             name: "foo".to_string(),

@@ -7,7 +7,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "f64".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }
@@ -21,7 +21,7 @@ impl Value {
             x => Err(ShellError::CantConvert {
                 to_type: "i64".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span()?,
+                span: self.span(),
                 help: None,
             }),
         }

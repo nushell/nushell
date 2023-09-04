@@ -428,9 +428,7 @@ fn rm(
 
                     if let Err(e) = result {
                         let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                        Value::Error {
-                            error: Box::new(ShellError::RemoveNotPossible(msg, span)),
-                        }
+                        Value::error(ShellError::RemoveNotPossible(msg, span), span)
                     } else if verbose {
                         let msg = if interactive && !confirmed {
                             "not deleted"
@@ -438,33 +436,35 @@ fn rm(
                             "deleted"
                         };
                         let val = format!("{} {:}", msg, f.to_string_lossy());
-                        Value::String { val, span }
+                        Value::string(val, span)
                     } else {
-                        Value::Nothing { span }
+                        Value::nothing(span)
                     }
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                    Value::Error {
-                        error: Box::new(ShellError::GenericError(
+                    Value::error(
+                        ShellError::GenericError(
                             msg,
                             "cannot remove non-empty directory".into(),
                             Some(span),
                             None,
                             Vec::new(),
-                        )),
-                    }
+                        ),
+                        span,
+                    )
                 }
             } else {
                 let msg = format!("no such file or directory: {:}", f.to_string_lossy());
-                Value::Error {
-                    error: Box::new(ShellError::GenericError(
+                Value::error(
+                    ShellError::GenericError(
                         msg,
                         "no such file or directory".into(),
                         Some(span),
                         None,
                         Vec::new(),
-                    )),
-                }
+                    ),
+                    span,
+                )
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))

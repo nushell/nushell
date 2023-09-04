@@ -130,7 +130,7 @@ impl Range {
         self,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<RangeIterator, ShellError> {
-        let span = self.from.span()?;
+        let span = self.from.span();
 
         Ok(RangeIterator::new(self, ctrlc, span))
     }
@@ -171,15 +171,12 @@ impl RangeIterator {
         let is_end_inclusive = range.is_end_inclusive();
 
         let start = match range.from {
-            Value::Nothing { .. } => Value::Int { val: 0, span },
+            Value::Nothing { .. } => Value::int(0, span),
             x => x,
         };
 
         let end = match range.to {
-            Value::Nothing { .. } => Value::Int {
-                val: i64::MAX,
-                span,
-            },
+            Value::Nothing { .. } => Value::int(i64::MAX, span),
             x => x,
         };
 
@@ -213,11 +210,12 @@ impl Iterator for RangeIterator {
             self.curr.partial_cmp(&self.end)
         };
 
-        let Some(ordering) = ordering  else {
+        let Some(ordering) = ordering else {
             self.done = true;
-            return Some(Value::Error {
-                error: Box::new(ShellError::CannotCreateRange { span: self.span }),
-            });
+            return Some(Value::error(
+                ShellError::CannotCreateRange { span: self.span },
+                self.span,
+            ));
         };
 
         let desired_ordering = if self.moves_up {
@@ -235,9 +233,7 @@ impl Iterator for RangeIterator {
 
                 Err(error) => {
                     self.done = true;
-                    return Some(Value::Error {
-                        error: Box::new(error),
-                    });
+                    return Some(Value::error(error, self.span));
                 }
             };
             std::mem::swap(&mut self.curr, &mut next);

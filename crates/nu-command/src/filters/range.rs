@@ -38,26 +38,26 @@ impl Command for Range {
             Example {
                 example: "[0,1,2,3,4,5] | range 4..5",
                 description: "Get the last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(4), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | range (-2)..",
                 description: "Get the last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(4), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[0,1,2,3,4,5] | range (-3)..-2",
                 description: "Get the next to last 2 items",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(4)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(3), Value::test_int(4)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -99,10 +99,7 @@ impl Command for Range {
             };
 
             if from > to {
-                Ok(PipelineData::Value(
-                    Value::Nothing { span: call.head },
-                    None,
-                ))
+                Ok(PipelineData::Value(Value::nothing(call.head), None))
             } else {
                 let iter = v.into_iter().skip(from).take(to - from + 1);
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
@@ -112,10 +109,7 @@ impl Command for Range {
             let to = rows_to as usize;
 
             if from > to {
-                Ok(PipelineData::Value(
-                    Value::Nothing { span: call.head },
-                    None,
-                ))
+                Ok(PipelineData::Value(Value::nothing(call.head), None))
             } else {
                 let iter = input.into_iter().skip(from).take(to - from + 1);
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))

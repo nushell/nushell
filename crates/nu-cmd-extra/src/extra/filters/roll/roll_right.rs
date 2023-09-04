@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 use super::{horizontal_rotate_value, HorizontalDirection};
@@ -51,49 +51,44 @@ impl Command for RollRight {
             Example {
                 description: "Rolls columns of a record to the right",
                 example: "{a:1 b:2 c:3} | roll right",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: rotated_columns.clone(),
                     vals: vec![Value::test_int(3), Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Rolls columns to the right",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: rotated_columns.clone(),
                             vals: vec![Value::test_int(3), Value::test_int(1), Value::test_int(2)],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: rotated_columns,
                             vals: vec![Value::test_int(6), Value::test_int(4), Value::test_int(5)],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Rolls columns to the right with fixed headers",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right --cells-only",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: columns.clone(),
                             vals: vec![Value::test_int(3), Value::test_int(1), Value::test_int(2)],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: columns,
                             vals: vec![Value::test_int(6), Value::test_int(4), Value::test_int(5)],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

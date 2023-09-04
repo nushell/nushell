@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone, Debug)]
@@ -52,53 +52,53 @@ impl Command for Move {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
                 description: "Move a column before the first column",
                 result:
-                    Some(Value::List {
-                        vals: vec![
-                            Value::test_record(
-                                vec!["index", "name", "value"],
-                                vec![Value::test_int(1), Value::test_string("foo"), Value::test_string("a")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "name", "value"],
-                                vec![Value::test_int(2), Value::test_string("bar"), Value::test_string("b")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "name", "value"],
-                                vec![Value::test_int(3), Value::test_string("baz"), Value::test_string("c")],
-                            ),
+                    Some(Value::list (
+                        vec![
+                            Value::test_record(Record {
+                                cols: vec!["index".to_string(), "name".to_string(), "value".to_string()],
+                                vals: vec![Value::test_int(1), Value::test_string("foo"), Value::test_string("a")],
+                            }),
+                            Value::test_record(Record {
+                                cols: vec!["index".to_string(), "name".to_string(), "value".to_string()],
+                                vals: vec![Value::test_int(2), Value::test_string("bar"), Value::test_string("b")],
+                            }),
+                            Value::test_record(Record {
+                                cols: vec!["index".to_string(), "name".to_string(), "value".to_string()],
+                                vals: vec![Value::test_int(3), Value::test_string("baz"), Value::test_string("c")],
+                            }),
                         ],
-                        span: Span::test_data(),
-                    })
+                        Span::test_data(),
+                    ))
             },
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
                 description: "Move multiple columns after the last column and reorder them",
                 result:
-                    Some(Value::List {
-                        vals: vec![
-                            Value::test_record(
-                                vec!["index", "value", "name"],
-                                vec![Value::test_int(1), Value::test_string("a"), Value::test_string("foo")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "value", "name"],
-                                vec![Value::test_int(2), Value::test_string("b"), Value::test_string("bar")],
-                            ),
-                            Value::test_record(
-                                vec!["index", "value", "name"],
-                                vec![Value::test_int(3), Value::test_string("c"), Value::test_string("baz")],
-                            ),
+                    Some(Value::list (
+                        vec![
+                            Value::test_record(Record {
+                                cols: vec!["index".to_string(), "value".to_string(), "name".to_string()],
+                                vals: vec![Value::test_int(1), Value::test_string("a"), Value::test_string("foo")],
+                            }),
+                            Value::test_record(Record {
+                                cols: vec!["index".to_string(), "value".to_string(), "name".to_string()],
+                                vals: vec![Value::test_int(2), Value::test_string("b"), Value::test_string("bar")],
+                            }),
+                            Value::test_record(Record {
+                                cols: vec!["index".to_string(), "value".to_string(), "name".to_string()],
+                                vals: vec![Value::test_int(3), Value::test_string("c"), Value::test_string("baz")],
+                            }),
                         ],
-                        span: Span::test_data(),
-                    })
+                        Span::test_data(),
+                    ))
             },
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
                 description: "Move columns of a record",
-                result: Some(Value::test_record(
-                    vec!["value", "name", "index"],
-                    vec![Value::test_string("a"), Value::test_string("foo"), Value::test_int(1)],
-                ))
+                result: Some(Value::test_record(Record {
+                    cols: vec!["value".to_string(), "name".to_string(), "index".to_string()],
+                    vals: vec![Value::test_string("a"), Value::test_string("foo"), Value::test_int(1)],
+                }))
             },
         ]
     }
@@ -117,11 +117,11 @@ impl Command for Move {
         let before_or_after = match (after, before) {
             (Some(v), None) => Spanned {
                 item: BeforeOrAfter::After(v.as_string()?),
-                span: v.span()?,
+                span: v.span(),
             },
             (None, Some(v)) => Spanned {
                 item: BeforeOrAfter::Before(v.as_string()?),
-                span: v.span()?,
+                span: v.span(),
             },
             (Some(_), Some(_)) => {
                 return Err(ShellError::GenericError(
@@ -150,21 +150,13 @@ impl Command for Move {
         match input {
             PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
                 let res = input.into_iter().map(move |x| match x.as_record() {
-                    Ok((inp_cols, inp_vals)) => match move_record_columns(
-                        inp_cols,
-                        inp_vals,
-                        &columns,
-                        &before_or_after,
-                        call.head,
-                    ) {
-                        Ok(val) => val,
-                        Err(error) => Value::Error {
-                            error: Box::new(error),
-                        },
-                    },
-                    Err(error) => Value::Error {
-                        error: Box::new(error),
-                    },
+                    Ok(record) => {
+                        match move_record_columns(record, &columns, &before_or_after, call.head) {
+                            Ok(val) => val,
+                            Err(error) => Value::error(error, call.head),
+                        }
+                    }
+                    Err(error) => Value::error(error, call.head),
                 });
 
                 if let Some(md) = metadata {
@@ -173,21 +165,12 @@ impl Command for Move {
                     Ok(res.into_pipeline_data(ctrlc))
                 }
             }
-            PipelineData::Value(
-                Value::Record {
-                    cols: inp_cols,
-                    vals: inp_vals,
-                    ..
-                },
-                ..,
-            ) => Ok(move_record_columns(
-                &inp_cols,
-                &inp_vals,
-                &columns,
-                &before_or_after,
-                call.head,
-            )?
-            .into_pipeline_data()),
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
+                Ok(
+                    move_record_columns(&val, &columns, &before_or_after, call.head)?
+                        .into_pipeline_data(),
+                )
+            }
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record or table".to_string(),
                 dst_span: call.head,
@@ -199,8 +182,7 @@ impl Command for Move {
 
 // Move columns within a record
 fn move_record_columns(
-    inp_cols: &[String],
-    inp_vals: &[Value],
+    record: &Record,
     columns: &[Value],
     before_or_after: &Spanned<BeforeOrAfter>,
     span: Span,
@@ -210,7 +192,7 @@ fn move_record_columns(
     // Check if before/after column exist
     match &before_or_after.item {
         BeforeOrAfter::After(after) => {
-            if !inp_cols.contains(after) {
+            if !record.cols.contains(after) {
                 return Err(ShellError::GenericError(
                     "Cannot move columns".to_string(),
                     "column does not exist".to_string(),
@@ -221,7 +203,7 @@ fn move_record_columns(
             }
         }
         BeforeOrAfter::Before(before) => {
-            if !inp_cols.contains(before) {
+            if !record.cols.contains(before) {
                 return Err(ShellError::GenericError(
                     "Cannot move columns".to_string(),
                     "column does not exist".to_string(),
@@ -237,32 +219,33 @@ fn move_record_columns(
     for column in columns.iter() {
         let column_str = column.as_string()?;
 
-        if let Some(idx) = inp_cols.iter().position(|inp_col| &column_str == inp_col) {
+        if let Some(idx) = record
+            .cols
+            .iter()
+            .position(|inp_col| &column_str == inp_col)
+        {
             column_idx.push(idx);
         } else {
             return Err(ShellError::GenericError(
                 "Cannot move columns".to_string(),
                 "column does not exist".to_string(),
-                Some(column.span()?),
+                Some(column.span()),
                 None,
                 Vec::new(),
             ));
         }
     }
 
-    let mut out_cols: Vec<String> = Vec::with_capacity(inp_cols.len());
-    let mut out_vals: Vec<Value> = Vec::with_capacity(inp_vals.len());
+    let mut out = Record::with_capacity(record.len());
 
-    for (i, (inp_col, inp_val)) in inp_cols.iter().zip(inp_vals).enumerate() {
+    for (i, (inp_col, inp_val)) in record.iter().enumerate() {
         match &before_or_after.item {
             BeforeOrAfter::After(after) if after == inp_col => {
-                out_cols.push(inp_col.into());
-                out_vals.push(inp_val.clone());
+                out.push(inp_col.clone(), inp_val.clone());
 
                 for idx in column_idx.iter() {
-                    if let (Some(col), Some(val)) = (inp_cols.get(*idx), inp_vals.get(*idx)) {
-                        out_cols.push(col.into());
-                        out_vals.push(val.clone());
+                    if let (Some(col), Some(val)) = (record.cols.get(*idx), record.vals.get(*idx)) {
+                        out.push(col.clone(), val.clone());
                     } else {
                         return Err(ShellError::NushellFailedSpanned {
                             msg: "Error indexing input columns".to_string(),
@@ -274,9 +257,8 @@ fn move_record_columns(
             }
             BeforeOrAfter::Before(before) if before == inp_col => {
                 for idx in column_idx.iter() {
-                    if let (Some(col), Some(val)) = (inp_cols.get(*idx), inp_vals.get(*idx)) {
-                        out_cols.push(col.into());
-                        out_vals.push(val.clone());
+                    if let (Some(col), Some(val)) = (record.cols.get(*idx), record.vals.get(*idx)) {
+                        out.push(col.clone(), val.clone());
                     } else {
                         return Err(ShellError::NushellFailedSpanned {
                             msg: "Error indexing input columns".to_string(),
@@ -286,23 +268,17 @@ fn move_record_columns(
                     }
                 }
 
-                out_cols.push(inp_col.into());
-                out_vals.push(inp_val.clone());
+                out.push(inp_col.clone(), inp_val.clone());
             }
             _ => {
                 if !column_idx.contains(&i) {
-                    out_cols.push(inp_col.into());
-                    out_vals.push(inp_val.clone());
+                    out.push(inp_col.clone(), inp_val.clone());
                 }
             }
         }
     }
 
-    Ok(Value::Record {
-        cols: out_cols,
-        vals: out_vals,
-        span,
-    })
+    Ok(Value::record(out, span))
 }
 
 #[cfg(test)]

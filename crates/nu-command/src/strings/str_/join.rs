@@ -55,7 +55,7 @@ impl Command for StrJoin {
 
         for value in input {
             match value {
-                Value::Error { error } => {
+                Value::Error { error, .. } => {
                     return Err(*error);
                 }
                 value => {
@@ -70,11 +70,7 @@ impl Command for StrJoin {
             strings.join("")
         };
 
-        Ok(Value::String {
-            val: output,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(output, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

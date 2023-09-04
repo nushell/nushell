@@ -1,10 +1,10 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::Category;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -172,45 +172,46 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
     let trim_side = &arg.trim_side;
     let mode = &arg.mode;
     match input {
-        Value::String { val: s, .. } => Value::String {
-            val: trim(s, char_, trim_side),
-            span: head,
-        },
+        Value::String { val: s, .. } => Value::string(trim(s, char_, trim_side), head),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => match mode {
-            ActionMode::Global => match other {
-                Value::Record { cols, vals, span } => {
-                    let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
+        other => {
+            let span = other.span();
 
-                    Value::Record {
-                        cols: cols.to_vec(),
-                        vals: new_vals,
-                        span: *span,
-                    }
-                }
-                Value::List { vals, span } => {
-                    let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
+            match mode {
+                ActionMode::Global => match other {
+                    Value::Record { val: record, .. } => {
+                        let new_vals = record.vals.iter().map(|v| action(v, arg, head)).collect();
 
-                    Value::List {
-                        vals: new_vals,
-                        span: *span,
+                        Value::record(
+                            Record {
+                                cols: record.cols.to_vec(),
+                                vals: new_vals,
+                            },
+                            span,
+                        )
                     }
-                }
-                _ => input.clone(),
-            },
-            ActionMode::Local => {
-                Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        "Only string values are supported".into(),
-                        format!("input type: {:?}", other.get_type()),
+                    Value::List { vals, .. } => {
+                        let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
+
+                        Value::list(new_vals, span)
+                    }
+                    _ => input.clone(),
+                },
+                ActionMode::Local => {
+                    Value::error(
+                        ShellError::UnsupportedInput(
+                            "Only string values are supported".into(),
+                            format!("input type: {:?}", other.get_type()),
+                            head,
+                            // This line requires the Value::Error match above.
+                            other.span(),
+                        ),
                         head,
-                        // This line requires the Value::Error match above.
-                        other.expect_span(),
-                    )),
+                    )
                 }
             }
-        },
+        }
     }
 }
 
@@ -249,24 +250,21 @@ mod tests {
     }
 
     fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> Value {
-        Value::Record {
-            cols: cols.iter().map(|x| x.to_string()).collect(),
-            vals: vals
-                .iter()
-                .map(|x| Value::test_string(x.to_string()))
+        Value::test_record(
+            cols.into_iter()
+                .zip(vals)
+                .map(|(col, val)| (col.to_owned(), Value::test_string(val)))
                 .collect(),
-            span: Span::test_data(),
-        }
+        )
     }
 
     fn make_list(vals: Vec<&str>) -> Value {
-        Value::List {
-            vals: vals
-                .iter()
+        Value::list(
+            vals.iter()
                 .map(|x| Value::test_string(x.to_string()))
                 .collect(),
-            span: Span::test_data(),
-        }
+            Span::test_data(),
+        )
     }
 
     #[test]
@@ -421,22 +419,22 @@ mod tests {
 
     #[test]
     fn global_trim_left_table() {
-        let row = Value::List {
-            vals: vec![
+        let row = Value::list(
+            vec![
                 Value::test_string("  a  "),
                 Value::test_int(65),
                 Value::test_string(" d"),
             ],
-            span: Span::test_data(),
-        };
-        let expected = Value::List {
-            vals: vec![
+            Span::test_data(),
+        );
+        let expected = Value::list(
+            vec![
                 Value::test_string("a  "),
                 Value::test_int(65),
                 Value::test_string("d"),
             ],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
 
         let args = Arguments {
             to_trim: None,
@@ -521,22 +519,22 @@ mod tests {
 
     #[test]
     fn global_trim_right_table() {
-        let row = Value::List {
-            vals: vec![
+        let row = Value::list(
+            vec![
                 Value::test_string("  a  "),
                 Value::test_int(65),
                 Value::test_string(" d"),
             ],
-            span: Span::test_data(),
-        };
-        let expected = Value::List {
-            vals: vec![
+            Span::test_data(),
+        );
+        let expected = Value::list(
+            vec![
                 Value::test_string("  a"),
                 Value::test_int(65),
                 Value::test_string(" d"),
             ],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
         let args = Arguments {
             to_trim: None,
             trim_side: TrimSide::Right,

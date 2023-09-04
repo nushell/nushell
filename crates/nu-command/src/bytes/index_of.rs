@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -95,58 +95,53 @@ impl Command for BytesIndexOf {
             Example {
                 description: "Returns all matched index",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a 0x[33 44]",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(5), Value::test_int(7)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(0), Value::test_int(5), Value::test_int(7)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Returns all matched index, searching from end",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a -e 0x[33 44]",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(7), Value::test_int(5), Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(7), Value::test_int(5), Value::test_int(0)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Returns index of pattern for specific column",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
                             Value::test_int(0),
-                            Value::Binary {
-                                val: vec![0x14, 0x15, 0x16],
-                                span: Span::test_data(),
-                            },
+                            Value::binary(vec![0x14, 0x15, 0x16], Span::test_data()),
                             Value::test_int(-1),
                         ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn index_of(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => index_of_impl(val, args, *val_span),
+        Value::Binary { val, .. } => index_of_impl(val, args, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 
@@ -157,22 +152,20 @@ fn index_of_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         let mut iter = input.windows(arg.pattern.len());
 
         if arg.end {
-            Value::Int {
-                val: iter
-                    .rev()
+            Value::int(
+                iter.rev()
                     .position(|sub_bytes| sub_bytes == arg.pattern)
                     .map(|x| (input.len() - arg.pattern.len() - x) as i64)
                     .unwrap_or(-1),
                 span,
-            }
+            )
         } else {
-            Value::Int {
-                val: iter
-                    .position(|sub_bytes| sub_bytes == arg.pattern)
+            Value::int(
+                iter.position(|sub_bytes| sub_bytes == arg.pattern)
                     .map(|x| x as i64)
                     .unwrap_or(-1),
                 span,
-            }
+            )
         }
     }
 }
@@ -186,10 +179,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
         );
         while left >= 0 {
             if &input[left as usize..right as usize] == pattern {
-                result.push(Value::Int {
-                    val: left as i64,
-                    span,
-                });
+                result.push(Value::int(left as i64, span));
                 left -= pattern.len() as isize;
                 right -= pattern.len() as isize;
             } else {
@@ -197,7 +187,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
                 right -= 1;
             }
         }
-        Value::List { vals: result, span }
+        Value::list(result, span)
     } else {
         // doing find stuff.
         let (mut left, mut right) = (0, pattern.len());
@@ -205,10 +195,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
         let pattern_len = pattern.len();
         while right <= input_len {
             if &input[left..right] == pattern {
-                result.push(Value::Int {
-                    val: left as i64,
-                    span,
-                });
+                result.push(Value::int(left as i64, span));
                 left += pattern_len;
                 right += pattern_len;
             } else {
@@ -217,7 +204,7 @@ fn search_all_index(input: &[u8], pattern: &[u8], from_end: bool, span: Span) ->
             }
         }
 
-        Value::List { vals: result, span }
+        Value::list(result, span)
     }
 }
 

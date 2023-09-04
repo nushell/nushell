@@ -88,8 +88,8 @@ impl Command for InputList {
                 let rows = input.into_iter().collect::<Vec<_>>();
                 rows.iter().for_each(|row| {
                     if let Ok(record) = row.as_record() {
-                        let columns = record.1.len();
-                        for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate() {
+                        let columns = record.len();
+                        for (i, (col, val)) in record.iter().enumerate() {
                             if i == columns - 1 {
                                 break;
                             }
@@ -116,9 +116,8 @@ impl Command for InputList {
                             })
                         } else if let Ok(record) = x.as_record() {
                             let mut options = Vec::new();
-                            let columns = record.1.len();
-                            for (i, (col, val)) in record.0.iter().zip(record.1.iter()).enumerate()
-                            {
+                            let columns = record.len();
+                            for (i, (col, val)) in record.iter().enumerate() {
                                 if let Ok(val) = val.as_string() {
                                     let len = nu_utils::strip_ansi_likely(&val).len()
                                         + nu_utils::strip_ansi_likely(col).len();
@@ -232,21 +231,15 @@ impl Command for InputList {
 
         Ok(match ans {
             InteractMode::Multi(res) => match res {
-                Some(opts) => Value::List {
-                    vals: opts.iter().map(|s| options[*s].value.clone()).collect(),
-                    span: head,
-                },
-                None => Value::List {
-                    vals: vec![],
-                    span: head,
-                },
+                Some(opts) => Value::list(
+                    opts.iter().map(|s| options[*s].value.clone()).collect(),
+                    head,
+                ),
+                None => Value::list(vec![], head),
             },
             InteractMode::Single(res) => match res {
                 Some(opt) => options[opt].value.clone(),
-                None => Value::String {
-                    val: "".to_string(),
-                    span: head,
-                },
+                None => Value::string("".to_string(), head),
             },
         }
         .into_pipeline_data())

@@ -1,4 +1,3 @@
-use is_terminal::IsTerminal;
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
@@ -7,7 +6,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_table::common::create_nu_table_config;
 use nu_table::{
@@ -15,6 +14,7 @@ use nu_table::{
     TableOutput,
 };
 use nu_utils::get_ls_colors;
+use std::io::IsTerminal;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{path::PathBuf, sync::atomic::AtomicBool};
@@ -129,10 +129,7 @@ impl Command for Table {
 
         // if list argument is present we just need to return a list of supported table themes
         if list {
-            let val = Value::List {
-                vals: supported_table_modes(),
-                span: Span::test_data(),
-            };
+            let val = Value::list(supported_table_modes(), Span::test_data());
 
             return Ok(val.into_pipeline_data());
         }
@@ -165,59 +162,53 @@ impl Command for Table {
             Example {
                 description: "Render data in table view",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Render data in table view (expanded)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Render data in table view (collapsed)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span,
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["a".to_string(), "b".to_string()],
                             vals: vec![Value::test_int(3), Value::test_int(4)],
-                            span,
-                        },
+                        }),
                     ],
                     span,
-                }),
+                )),
             },
         ]
     }
@@ -235,6 +226,7 @@ fn handle_table_command(
     let ctrlc = engine_state.ctrlc.clone();
     let config = get_config(engine_state, stack);
 
+    let span = input.span().unwrap_or(call.head);
     match input {
         PipelineData::ExternalStream { .. } => Ok(input),
         PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
@@ -276,12 +268,11 @@ fn handle_table_command(
             ctrlc,
             metadata,
         ),
-        PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
             let term_width = get_width_param(term_width);
 
             handle_record(
-                cols,
-                vals,
+                val,
                 span,
                 engine_state,
                 stack,
@@ -304,12 +295,12 @@ fn handle_table_command(
                 term_width,
             )
         }
-        PipelineData::Value(Value::Error { error }, ..) => {
+        PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::CustomValue { val, span }, ..) => {
+        PipelineData::Value(Value::CustomValue { val, .. }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
             Table.run(engine_state, stack, call, base_pipeline)
         }
@@ -344,8 +335,7 @@ fn supported_table_modes() -> Vec<Value> {
 
 #[allow(clippy::too_many_arguments)]
 fn handle_record(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -359,22 +349,19 @@ fn handle_record(
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     let ctrlc1 = ctrlc.clone();
 
-    let result = if cols.is_empty() {
+    let result = if record.is_empty() {
         create_empty_placeholder("record", term_width, engine_state, stack)
     } else {
         let indent = (config.table_indent.left, config.table_indent.right);
         let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width, indent);
-        let result = build_table_kv(cols, vals, table_view, opts, span)?;
+        let result = build_table_kv(record, table_view, opts, span)?;
         match result {
             Some(output) => maybe_strip_color(output, config),
             None => report_unsuccessful_output(ctrlc1, term_width),
         }
     };
 
-    let val = Value::String {
-        val: result,
-        span: call.head,
-    };
+    let val = Value::string(result, call.head);
 
     Ok(val.into_pipeline_data())
 }
@@ -390,24 +377,23 @@ fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize
 }
 
 fn build_table_kv(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     table_view: TableView,
     opts: TableOpts<'_>,
     span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(&cols, &vals, opts),
+        TableView::General => JustTable::kv_table(&record, opts),
         TableView::Expanded {
             limit,
             flatten,
             flatten_separator,
         } => {
             let sep = flatten_separator.unwrap_or_else(|| String::from(' '));
-            ExpandedTable::new(limit, flatten, sep).build_map(&cols, &vals, opts)
+            ExpandedTable::new(limit, flatten, sep).build_map(&record, opts)
         }
         TableView::Collapsed => {
-            let value = Value::Record { cols, vals, span };
+            let value = Value::record(record, span);
             CollapsedTable::build(value, opts)
         }
     }
@@ -430,7 +416,7 @@ fn build_table_batch(
             ExpandedTable::new(limit, flatten, sep).build_list(&vals, opts)
         }
         TableView::Collapsed => {
-            let value = Value::List { vals, span };
+            let value = Value::list(vals, span);
             CollapsedTable::build(value, opts)
         }
     }
@@ -445,6 +431,7 @@ fn handle_row_stream(
     ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<Box<PipelineMetadata>>,
 ) -> Result<PipelineData, ShellError> {
+    let head = call.head;
     let stream = match metadata.as_deref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
@@ -460,16 +447,17 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
+                    Value::Record { val: record, .. } => {
                         let mut idx = 0;
 
-                        while idx < cols.len() {
+                        while idx < record.len() {
                             // Only the name column gets special colors, for now
-                            if cols[idx] == "name" {
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
-                                    let val = render_path_name(val, &config, &ls_colors, *span);
+                            if record.cols[idx] == "name" {
+                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(head);
+                                if let Some(Value::String { val, .. }) = record.vals.get(idx) {
+                                    let val = render_path_name(val, &config, &ls_colors, span);
                                     if let Some(val) = val {
-                                        vals[idx] = val;
+                                        record.vals[idx] = val;
                                     }
                                 }
                             }
@@ -492,14 +480,16 @@ fn handle_row_stream(
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
-                    Value::Record { cols, vals, .. } => {
+                    Value::Record { val: record, .. } => {
                         let mut idx = 0;
                         // Every column in the HTML theme table except 'name' is colored
-                        while idx < cols.len() {
-                            if cols[idx] != "name" {
+                        while idx < record.len() {
+                            if record.cols[idx] != "name" {
                                 // Simple routine to grab the hex code, convert to a style,
                                 // then place it in a new Value::String.
-                                if let Some(Value::String { val, span }) = vals.get(idx) {
+
+                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(head);
+                                if let Some(Value::String { val, .. }) = record.vals.get(idx) {
                                     let s = match color_from_hex(val) {
                                         Ok(c) => match c {
                                             // .normal() just sets the text foreground color.
@@ -508,11 +498,11 @@ fn handle_row_stream(
                                         },
                                         Err(_) => nu_ansi_term::Style::default(),
                                     };
-                                    vals[idx] = Value::String {
+                                    record.vals[idx] = Value::string(
                                         // Apply the style (ANSI codes) to the string
-                                        val: s.paint(val).to_string(),
-                                        span: *span,
-                                    };
+                                        s.paint(val).to_string(),
+                                        span,
+                                    );
                                 }
                             }
                             idx += 1;
@@ -823,7 +813,7 @@ fn render_path_name(
     );
 
     let val = ansi_style.paint(full_path_link).to_string();
-    Some(Value::String { val, span })
+    Some(Value::string(val, span))
 }
 
 #[derive(Debug)]

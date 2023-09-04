@@ -3,7 +3,7 @@ use crate::database::values::definitions::{db_row::DbRow, db_table::DbTable};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
 };
 use rusqlite::Connection;
 #[derive(Clone)]
@@ -43,8 +43,6 @@ impl Command for SchemaDb {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut cols = vec![];
-        let mut vals = vec![];
         let span = call.head;
 
         let sqlite_db = SQLiteDatabase::try_from_pipeline(input, span)?;
@@ -59,58 +57,32 @@ impl Command for SchemaDb {
             )
         })?;
 
-        let mut table_names = vec![];
-        let mut table_values = vec![];
+        let mut tables_record = Record::new();
         for table in tables {
             let column_info = get_table_columns(&sqlite_db, &conn, &table, span)?;
             let constraint_info = get_table_constraints(&sqlite_db, &conn, &table, span)?;
             let foreign_key_info = get_table_foreign_keys(&sqlite_db, &conn, &table, span)?;
             let index_info = get_table_indexes(&sqlite_db, &conn, &table, span)?;
 
-            let mut cols = vec![];
-            let mut vals = vec![];
-
-            cols.push("columns".into());
-            vals.push(Value::List {
-                vals: column_info,
-                span,
-            });
-
-            cols.push("constraints".into());
-            vals.push(Value::List {
-                vals: constraint_info,
-                span,
-            });
-
-            cols.push("foreign_keys".into());
-            vals.push(Value::List {
-                vals: foreign_key_info,
-                span,
-            });
-
-            cols.push("indexes".into());
-            vals.push(Value::List {
-                vals: index_info,
-                span,
-            });
-
-            table_names.push(table.name);
-            table_values.push(Value::Record { cols, vals, span });
+            tables_record.push(
+                table.name,
+                Value::record(
+                    record! {
+                        "columns" => Value::list(column_info, span),
+                        "constraints" => Value::list(constraint_info, span),
+                        "foreign_keys" => Value::list(foreign_key_info, span),
+                        "indexes" => Value::list(index_info, span),
+                    },
+                    span,
+                ),
+            );
         }
 
-        cols.push("tables".into());
-        vals.push(Value::Record {
-            cols: table_names,
-            vals: table_values,
-            span,
-        });
+        let record = record! { "tables" => Value::record(tables_record, span) };
 
         // TODO: add views and triggers
 
-        Ok(PipelineData::Value(
-            Value::Record { cols, vals, span },
-            None,
-        ))
+        Ok(PipelineData::Value(Value::record(record, span), None))
     }
 }
 
@@ -145,19 +117,14 @@ fn get_table_columns(
     // a record of column name = column value
     let mut column_info = vec![];
     for t in columns {
-        let mut col_names = vec![];
-        let mut col_values = vec![];
-        let fields = t.fields();
-        let columns = t.columns();
-        for (k, v) in fields.iter().zip(columns.iter()) {
-            col_names.push(k.clone());
-            col_values.push(Value::string(v.clone(), span));
-        }
-        column_info.push(Value::Record {
-            cols: col_names.clone(),
-            vals: col_values.clone(),
+        column_info.push(Value::record(
+            t.fields()
+                .into_iter()
+                .zip(t.columns())
+                .map(|(k, v)| (k, Value::string(v, span)))
+                .collect(),
             span,
-        });
+        ));
     }
 
     Ok(column_info)
@@ -180,19 +147,15 @@ fn get_table_constraints(
     })?;
     let mut constraint_info = vec![];
     for constraint in constraints {
-        let mut con_cols = vec![];
-        let mut con_vals = vec![];
-        let fields = constraint.fields();
-        let columns = constraint.columns();
-        for (k, v) in fields.iter().zip(columns.iter()) {
-            con_cols.push(k.clone());
-            con_vals.push(Value::string(v.clone(), span));
-        }
-        constraint_info.push(Value::Record {
-            cols: con_cols.clone(),
-            vals: con_vals.clone(),
+        constraint_info.push(Value::record(
+            constraint
+                .fields()
+                .into_iter()
+                .zip(constraint.columns())
+                .map(|(k, v)| (k, Value::string(v, span)))
+                .collect(),
             span,
-        });
+        ));
     }
 
     Ok(constraint_info)
@@ -215,19 +178,14 @@ fn get_table_foreign_keys(
     })?;
     let mut foreign_key_info = vec![];
     for fk in foreign_keys {
-        let mut fk_cols = vec![];
-        let mut fk_vals = vec![];
-        let fields = fk.fields();
-        let columns = fk.columns();
-        for (k, v) in fields.iter().zip(columns.iter()) {
-            fk_cols.push(k.clone());
-            fk_vals.push(Value::string(v.clone(), span));
-        }
-        foreign_key_info.push(Value::Record {
-            cols: fk_cols.clone(),
-            vals: fk_vals.clone(),
+        foreign_key_info.push(Value::record(
+            fk.fields()
+                .into_iter()
+                .zip(fk.columns())
+                .map(|(k, v)| (k, Value::string(v, span)))
+                .collect(),
             span,
-        });
+        ));
     }
 
     Ok(foreign_key_info)
@@ -250,19 +208,15 @@ fn get_table_indexes(
     })?;
     let mut index_info = vec![];
     for index in indexes {
-        let mut idx_cols = vec![];
-        let mut idx_vals = vec![];
-        let fields = index.fields();
-        let columns = index.columns();
-        for (k, v) in fields.iter().zip(columns.iter()) {
-            idx_cols.push(k.clone());
-            idx_vals.push(Value::string(v.clone(), span));
-        }
-        index_info.push(Value::Record {
-            cols: idx_cols.clone(),
-            vals: idx_vals.clone(),
+        index_info.push(Value::record(
+            index
+                .fields()
+                .into_iter()
+                .zip(index.columns())
+                .map(|(k, v)| (k, Value::string(v, span)))
+                .collect(),
             span,
-        });
+        ));
     }
 
     Ok(index_info)

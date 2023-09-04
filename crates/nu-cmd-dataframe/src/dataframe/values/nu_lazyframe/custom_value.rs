@@ -1,5 +1,5 @@
 use super::NuLazyFrame;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{record, CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuLazyFrame {
@@ -18,10 +18,7 @@ impl CustomValue for NuLazyFrame {
             schema: self.schema.clone(),
         };
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::custom_value(Box::new(cloned), span)
     }
 
     fn value_string(&self) -> String {
@@ -29,22 +26,18 @@ impl CustomValue for NuLazyFrame {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let cols = vec!["plan".into(), "optimized_plan".into()];
-        let vals = vec![
-            Value::String {
-                val: self.as_ref().describe_plan(),
-                span,
-            },
-            Value::String {
-                val: self
-                    .as_ref()
-                    .describe_optimized_plan()
-                    .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string()),
-                span,
-            },
-        ];
+        let optimized_plan = self
+            .as_ref()
+            .describe_optimized_plan()
+            .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
 
-        Ok(Value::Record { cols, vals, span })
+        Ok(Value::record(
+            record! {
+                "plan" => Value::string(self.as_ref().describe_plan(), span),
+                "optimized_plan" => Value::string(optimized_plan, span),
+            },
+            span,
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
