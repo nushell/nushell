@@ -141,7 +141,6 @@ fn const_range(#[case] inp: &[&str], #[case] expect: &str) {
     assert_eq!(actual.out, expect);
 }
 
-
 #[test]
 fn const_subexpression_supported() {
     let inp = &["const x = ('spam')", "$x"];
