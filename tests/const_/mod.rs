@@ -128,9 +128,24 @@ fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&[r#"const x = [1,2] ++ [3]"#, "$x | describe"], "list<int>")]
 #[case(&[r#"const x = 0x[1,2] ++ 0x[3]"#, "$x | describe"], "binary")]
 #[case(&[r#"const x = 0x[1,2] ++ [3]"#, "$x | describe"], "list<any>")]
+#[case(&["const x = 1 < 2", "$x"], "true")]
+#[case(&["const x = (3 * 200) > (2 * 100)", "$x"], "true")]
+#[case(&["const x = (3 * 200) < (2 * 100)", "$x"], "false")]
+#[case(&["const x = (3 * 200) == (2 * 300)", "$x"], "true")]
 fn const_binary_operator(#[case] inp: &[&str], #[case] expect: &str) {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, expect);
+}
+
+#[rstest]
+#[case(&["const x = 1 / 0", "$x"], "division by zero")]
+#[case(&["const x = 10 ** 10000000", "$x"], "pow operation overflowed")]
+#[case(&["const x = 2 ** 62 * 2", "$x"], "multiply operation overflowed")]
+#[case(&["const x = 1 ++ 0", "$x"], "doesn't support this value")]
+#[case(&["const x = 20 * a", "$x"], "Value is not a parse-time constant")]
+fn const_operator_error(#[case] inp: &[&str], #[case] expect: &str) {
+    let actual = nu!(&inp.join("; "));
+    assert!(actual.err.contains(expect));
 }
 
 #[rstest]
