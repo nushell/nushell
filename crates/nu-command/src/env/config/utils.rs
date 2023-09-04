@@ -31,7 +31,7 @@ fn get_editor_commandline(value: &Value) -> Result<(String, Vec<String>), ShellE
             }
         }
         Value::String { .. } | Value::List { .. } => Err(ShellError::GenericError(
-            "Editor can not be empty".into(),
+            "$EDITOR or $VISUAL should be an non-empty string or list<String>".into(),
             "Specify one in $EDITOR or $VISUAL".into(),
             Some(value.span()),
             Some(HELP_MSG.into()),
