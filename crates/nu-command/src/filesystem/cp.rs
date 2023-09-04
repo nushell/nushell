@@ -1,30 +1,40 @@
-use std::fs::read_link;
-use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_path::expand_to_real_path;
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    ast::{Argument, Call, Expr},
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
+use std::path::PathBuf;
+use uu_cp::{BackupMode, UpdateMode};
 
-use super::util::try_interaction;
-
-use crate::filesystem::util::FileStructure;
-use crate::progress_bar;
-
+// TODO: related to uucore::error::set_exit_code(EXIT_ERR)
+// const EXIT_ERR: i32 = 1;
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
     require_literal_separator: false,
     require_literal_leading_dot: false,
     recursive_match_hidden_dir: true,
 };
+
+pub fn collect_filepath_arguments(call: &Call) -> Vec<Spanned<String>> {
+    call.arguments
+        .iter()
+        .filter_map(|arg| match arg {
+            Argument::Positional(expression) => {
+                if let Expr::Filepath(p) = &expression.expr {
+                    let pth = Spanned {
+                        item: nu_utils::strip_ansi_string_unlikely(p.clone()),
+                        span: expression.span,
+                    };
+                    Some(pth)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .collect::<Vec<Spanned<String>>>()
+}
 
 #[derive(Clone)]
 pub struct Cp;
@@ -35,7 +45,7 @@ impl Command for Cp {
     }
 
     fn usage(&self) -> &str {
-        "Copy files."
+        "Copy files using uutils/coreutils cp."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -45,309 +55,21 @@ impl Command for Cp {
     fn signature(&self) -> Signature {
         Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("source", SyntaxShape::GlobPattern, "the place to copy from")
-            .required("destination", SyntaxShape::Filepath, "the place to copy to")
+            .switch("recursive", "copy directories recursively", Some('r'))
+            .switch("verbose", "explicitly state what is being done", Some('v'))
             .switch(
-                "recursive",
-                "copy recursively through subdirectories",
-                Some('r'),
+                "force",
+                "if an existing destination file cannot be opened, remove it and try
+                    again (this option is ignored when the -n option is also used).
+                    currently not implemented for windows",
+                Some('f'),
             )
-            .switch(
-                "verbose",
-                "show successful copies in addition to failed copies (default:false)",
-                Some('v'),
-            )
-            .switch("update",
-                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
-                Some('u')
-            )
-            // TODO: add back in additional features
-            // .switch("force", "suppress error when no file", Some('f'))
-            .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch(
-                "no-symlink",
-                "no symbolic links are followed, only works if -r is active",
-                Some('n'),
-            )
-            .switch("progress", "enable progress bar", Some('p'))
+            .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch("progress", "display a progress bar", Some('p'))
+            .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .switch("debug", "explain how a file is copied. Implies -v", None)
+            .rest("paths", SyntaxShape::Filepath, "the place to copy to")
             .category(Category::FileSystem)
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let src: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let src = {
-            Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(src.item),
-                span: src.span,
-            }
-        };
-        let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let recursive = call.has_flag("recursive");
-        let verbose = call.has_flag("verbose");
-        let interactive = call.has_flag("interactive");
-        let progress = call.has_flag("progress");
-        let update_mode = call.has_flag("update");
-
-        let current_dir_path = current_dir(engine_state, stack)?;
-        let source = current_dir_path.join(src.item.as_str());
-        let destination = current_dir_path.join(dst.item.as_str());
-
-        let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
-        let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
-        if is_directory && !destination.exists() {
-            return Err(ShellError::DirectoryNotFound(
-                dst.span,
-                Some("destination directory does not exist".to_string()),
-            ));
-        }
-        let ctrlc = engine_state.ctrlc.clone();
-        let span = call.head;
-
-        // Get an iterator with all the source files.
-        let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
-            Ok(files) => files.collect(),
-            Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "invalid pattern".to_string(),
-                    Some(src.span),
-                    None,
-                    Vec::new(),
-                ))
-            }
-        };
-
-        if sources.is_empty() {
-            return Err(ShellError::GenericError(
-                "No matches found".into(),
-                "no matches found".into(),
-                Some(src.span),
-                None,
-                Vec::new(),
-            ));
-        }
-
-        if sources.len() > 1 && !destination.is_dir() {
-            return Err(ShellError::GenericError(
-                "Destination must be a directory when copying multiple files".into(),
-                "is not a directory".into(),
-                Some(dst.span),
-                None,
-                Vec::new(),
-            ));
-        }
-
-        let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
-
-        if any_source_is_dir && !recursive {
-            return Err(ShellError::GenericError(
-                "Directories must be copied using \"--recursive\"".into(),
-                "resolves to a directory (not copied)".into(),
-                Some(src.span),
-                None,
-                Vec::new(),
-            ));
-        }
-
-        let mut result = Vec::new();
-
-        for entry in sources.into_iter().flatten() {
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                return Ok(PipelineData::empty());
-            }
-
-            let mut sources = FileStructure::new();
-            sources.walk_decorate(&entry, engine_state, stack)?;
-
-            if entry.is_file() {
-                let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
-                    if destination.is_dir() {
-                        let mut dest = canonicalize_with(&dst.item, &current_dir_path)?;
-                        if let Some(name) = entry.file_name() {
-                            dest.push(name);
-                        }
-                        Ok((source_file, dest))
-                    } else {
-                        Ok((source_file, destination.clone()))
-                    }
-                })?;
-
-                for (src, dst) in sources {
-                    if src.is_file() {
-                        let dst =
-                            canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
-
-                        // ignore when source file is not newer than target file
-                        if update_mode && super::util::is_older(&src, &dst).unwrap_or(false) {
-                            continue;
-                        }
-
-                        let res = if src == dst {
-                            let message = format!(
-                                "src {source:?} and dst {destination:?} are identical(not copied)"
-                            );
-
-                            return Err(ShellError::GenericError(
-                                "Copy aborted".into(),
-                                message,
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            ));
-                        } else if interactive && dst.exists() {
-                            if progress {
-                                interactive_copy(
-                                    interactive,
-                                    src,
-                                    dst,
-                                    span,
-                                    &ctrlc,
-                                    copy_file_with_progressbar,
-                                )
-                            } else {
-                                interactive_copy(interactive, src, dst, span, &None, copy_file)
-                            }
-                        } else if progress {
-                            // use std::io::copy to get the progress
-                            // slower then std::fs::copy but useful if user needs to see the progress
-                            copy_file_with_progressbar(src, dst, span, &ctrlc)
-                        } else {
-                            // use std::fs::copy
-                            copy_file(src, dst, span, &None)
-                        };
-                        result.push(res);
-                    }
-                }
-            } else if entry.is_dir() {
-                let destination = if !destination.exists() {
-                    destination.clone()
-                } else {
-                    match entry.file_name() {
-                        Some(name) => destination.join(name),
-                        None => {
-                            return Err(ShellError::GenericError(
-                                "Copy aborted. Not a valid path".into(),
-                                "not a valid path".into(),
-                                Some(dst.span),
-                                None,
-                                Vec::new(),
-                            ))
-                        }
-                    }
-                };
-
-                std::fs::create_dir_all(&destination).map_err(|e| {
-                    ShellError::GenericError(
-                        e.to_string(),
-                        e.to_string(),
-                        Some(dst.span),
-                        None,
-                        Vec::new(),
-                    )
-                })?;
-
-                let not_follow_symlink = call.has_flag("no-symlink");
-                let sources = sources.paths_applying_with(|(source_file, depth_level)| {
-                    let mut dest = destination.clone();
-
-                    let path = if not_follow_symlink {
-                        expand_path_with(&source_file, &current_dir_path)
-                    } else {
-                        canonicalize_with(&source_file, &current_dir_path).or_else(|err| {
-                            // check if dangling symbolic link.
-                            let path = expand_path_with(&source_file, &current_dir_path);
-                            if path.is_symlink() && !path.exists() {
-                                Ok(path)
-                            } else {
-                                Err(err)
-                            }
-                        })?
-                    };
-
-                    #[allow(clippy::needless_collect)]
-                    let comps: Vec<_> = path
-                        .components()
-                        .map(|fragment| fragment.as_os_str())
-                        .rev()
-                        .take(1 + depth_level)
-                        .collect();
-
-                    for fragment in comps.into_iter().rev() {
-                        dest.push(fragment);
-                    }
-
-                    Ok((PathBuf::from(&source_file), dest))
-                })?;
-
-                for (s, d) in sources {
-                    // Check if the user has pressed ctrl+c before copying a file
-                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                        return Ok(PipelineData::empty());
-                    }
-
-                    if s.is_dir() && !d.exists() {
-                        std::fs::create_dir_all(&d).map_err(|e| {
-                            ShellError::GenericError(
-                                e.to_string(),
-                                e.to_string(),
-                                Some(dst.span),
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
-                    }
-                    if s.is_symlink() && not_follow_symlink {
-                        let res = if interactive && d.exists() {
-                            interactive_copy(interactive, s, d, span, &None, copy_symlink)
-                        } else {
-                            copy_symlink(s, d, span, &None)
-                        };
-                        result.push(res);
-                    } else if s.is_file() {
-                        let res = if interactive && d.exists() {
-                            if progress {
-                                interactive_copy(
-                                    interactive,
-                                    s,
-                                    d,
-                                    span,
-                                    &ctrlc,
-                                    copy_file_with_progressbar,
-                                )
-                            } else {
-                                interactive_copy(interactive, s, d, span, &None, copy_file)
-                            }
-                        } else if progress {
-                            copy_file_with_progressbar(s, d, span, &ctrlc)
-                        } else {
-                            copy_file(s, d, span, &None)
-                        };
-                        result.push(res);
-                    };
-                }
-            }
-        }
-
-        if verbose {
-            result
-                .into_iter()
-                .into_pipeline_data(ctrlc)
-                .print_not_formatted(engine_state, false, true)?;
-        } else {
-            // filter to only errors
-            result
-                .into_iter()
-                .filter(|v| matches!(v, Value::Error { .. }))
-                .into_pipeline_data(ctrlc)
-                .print_not_formatted(engine_state, false, true)?;
-        }
-        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -372,239 +94,141 @@ impl Command for Cp {
                 example: "cp *.txt dir_a",
                 result: None,
             },
-            Example {
-                description: "Copy only if source file is newer than target file",
-                example: "cp -u a b",
-                result: None,
-            },
         ]
     }
-}
 
-fn interactive_copy(
-    interactive: bool,
-    src: PathBuf,
-    dst: PathBuf,
-    span: Span,
-    _ctrl_status: &Option<Arc<AtomicBool>>,
-    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>) -> Value,
-) -> Value {
-    let (interaction, confirmed) = try_interaction(
-        interactive,
-        format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
-    );
-    if let Err(e) = interaction {
-        Value::error(
-            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, Vec::new()),
-            span,
-        )
-    } else if !confirmed {
-        let msg = format!("{:} not copied to {:}", src.display(), dst.display());
-        Value::string(msg, span)
-    } else {
-        copy_impl(src, dst, span, &None)
-    }
-}
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let interactive = call.has_flag("interactive");
+        let force = call.has_flag("force");
+        let no_clobber = call.has_flag("no-clobber");
+        let progress = call.has_flag("progress");
+        let recursive = call.has_flag("recursive");
+        let verbose = call.has_flag("verbose");
 
-// This uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
-// which uses `read` and `write` instead. This is to get the progress of the copy. Try to keep the logic in
-// this function in sync with `copy_file_with_progressbar`
-// FIXME: `std::fs::copy` can't be interrupted. Consider using something else
-fn copy_file(
-    src: PathBuf,
-    dst: PathBuf,
-    span: Span,
-    _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
-    match std::fs::copy(&src, &dst) {
-        Ok(_) => {
-            let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::string(msg, span)
-        }
-        Err(e) => convert_io_error(e, src, dst, span),
-    }
-}
-
-// This uses `read` and `write` to copy a file. There is another function called `copy_file`
-// which uses `std::fs::copy` instead which is faster but does not provide progress updates for the copy. try to keep the
-// logic in this function in sync with `copy_file`
-fn copy_file_with_progressbar(
-    src: PathBuf,
-    dst: PathBuf,
-    span: Span,
-    ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
-    let mut bytes_processed: u64 = 0;
-    let mut process_failed: Option<std::io::Error> = None;
-
-    let file_in = match std::fs::File::open(&src) {
-        Ok(file) => file,
-        Err(error) => return convert_io_error(error, src, dst, span),
-    };
-
-    let file_size = match file_in.metadata() {
-        Ok(metadata) => Some(metadata.len()),
-        _ => None,
-    };
-
-    let mut bar = progress_bar::NuProgressBar::new(file_size);
-
-    let file_out = match std::fs::File::create(&dst) {
-        Ok(file) => file,
-        Err(error) => return convert_io_error(error, src, dst, span),
-    };
-    let mut buffer = [0u8; 8192];
-    let mut buf_reader = BufReader::new(file_in);
-    let mut buf_writer = BufWriter::new(file_out);
-
-    loop {
-        if nu_utils::ctrl_c::was_pressed(ctrlc_status) {
-            let err = std::io::Error::new(ErrorKind::Interrupted, "Interrupted");
-            process_failed = Some(err);
-            break;
-        }
-
-        // Read src file
-        match buf_reader.read(&mut buffer) {
-            // src file read successfully
-            Ok(bytes_read) => {
-                // Write dst file
-                match buf_writer.write(&buffer[..bytes_read]) {
-                    // dst file written successfully
-                    Ok(bytes_written) => {
-                        // Update the total amount of bytes that has been saved and then print the progress bar
-                        bytes_processed += bytes_written as u64;
-                        bar.update_bar(bytes_processed);
-
-                        // the last block of bytes is going to be lower than the buffer size
-                        // let's break the loop once we write the last block
-                        if bytes_read < buffer.len() {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        // There was a problem writing the dst file
-                        process_failed = Some(e);
-                        break;
-                    }
-                }
+        let debug = call.has_flag("debug");
+        let overwrite = if no_clobber {
+            uu_cp::OverwriteMode::NoClobber
+        } else if interactive {
+            if force {
+                uu_cp::OverwriteMode::Interactive(uu_cp::ClobberMode::Force)
+            } else {
+                uu_cp::OverwriteMode::Interactive(uu_cp::ClobberMode::Standard)
             }
-            Err(e) => {
-                // There was a problem reading the src file
-                process_failed = Some(e);
-                break;
-            }
-        };
-    }
-
-    // If copying the file failed
-    if let Some(error) = process_failed {
-        if error.kind() == ErrorKind::Interrupted {
-            bar.abandoned_msg("# !! Interrupted !!".to_owned());
+        } else if force {
+            uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Force)
         } else {
-            bar.abandoned_msg("# !! Error !!".to_owned());
+            uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
+        };
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+        let reflink_mode = uu_cp::ReflinkMode::Auto;
+        #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
+        let reflink_mode = uu_cp::ReflinkMode::Never;
+        let mut paths = collect_filepath_arguments(call);
+        if paths.is_empty() {
+            return Err(ShellError::GenericError(
+                "Missing file operand".into(),
+                "".into(),
+                None,
+                None,
+                Vec::new(),
+            ));
         }
-        return convert_io_error(error, src, dst, span);
-    }
-
-    // Get the name of the file to print it out at the end
-    let file_name = &src
-        .file_name()
-        .unwrap_or_else(|| std::ffi::OsStr::new(""))
-        .to_string_lossy();
-    let msg = format!("copied {:} to {:}", src.display(), dst.display());
-    bar.finished_msg(format!(" {} copied!", &file_name));
-
-    Value::string(msg, span)
-}
-
-fn copy_symlink(
-    src: PathBuf,
-    dst: PathBuf,
-    span: Span,
-    _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
-    let target_path = read_link(src.as_path());
-    let target_path = match target_path {
-        Ok(p) => p,
-        Err(err) => {
-            return Value::error(
-                ShellError::GenericError(
-                    err.to_string(),
-                    err.to_string(),
-                    Some(span),
-                    None,
-                    vec![],
-                ),
-                span,
-            )
-        }
-    };
-
-    let create_symlink = {
-        #[cfg(unix)]
-        {
-            std::os::unix::fs::symlink
-        }
-
-        #[cfg(windows)]
-        {
-            if !target_path.exists() || target_path.is_file() {
-                std::os::windows::fs::symlink_file
-            } else {
-                std::os::windows::fs::symlink_dir
-            }
-        }
-    };
-
-    match create_symlink(target_path.as_path(), dst.as_path()) {
-        Ok(_) => {
-            let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::string(msg, span)
-        }
-        Err(e) => Value::error(
-            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
-            span,
-        ),
-    }
-}
-
-// Function to convert io::Errors to more specific ShellErrors
-fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
-    let message_src = format!(
-        "copying file '{src_display}' failed: {error}",
-        src_display = src.display()
-    );
-
-    let message_dst = format!(
-        "copying to destination '{dst_display}' failed: {error}",
-        dst_display = dst.display()
-    );
-
-    let shell_error = match error.kind() {
-        ErrorKind::NotFound => {
-            if std::path::Path::new(&dst).exists() {
-                ShellError::FileNotFoundCustom(message_src, span)
-            } else {
-                ShellError::FileNotFoundCustom(message_dst, span)
-            }
-        }
-        ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
-            Ok(meta) => {
-                if meta.permissions().readonly() {
-                    ShellError::PermissionDeniedError(message_dst, span)
-                } else {
-                    ShellError::PermissionDeniedError(message_src, span)
+        let target = paths.pop().expect("Should not be reached?");
+        let target_path = PathBuf::from(&target.item);
+        if target.item.ends_with('/') && !target_path.is_dir() {
+            return Err(ShellError::GenericError(
+                "is not a directory".into(),
+                "is not a directory".into(),
+                Some(target.span),
+                None,
+                Vec::new(),
+            ));
+        };
+        // paths now contains the sources
+        let sources: Vec<Vec<PathBuf>> = paths
+            .iter()
+            .map(|p| {
+                // Need to expand too make it work with globbing
+                let expanded_src = expand_to_real_path(&p.item);
+                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
+                    Ok(files) => {
+                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
+                        if f.is_empty() {
+                            return Err(ShellError::FileNotFound(p.span));
+                        }
+                        Ok(f)
+                    }
+                    Err(e) => Err(ShellError::GenericError(
+                        e.to_string(),
+                        "invalid pattern".to_string(),
+                        Some(p.span),
+                        None,
+                        Vec::new(),
+                    )),
                 }
-            }
-            Err(_) => ShellError::PermissionDeniedError(message_dst, span),
-        },
-        ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
-        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
-        // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
-        // https://github.com/rust-lang/rust/issues/86442
-        _ => ShellError::IOErrorSpanned(message_src, span),
-    };
+            })
+            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
 
-    Value::error(shell_error, span)
+        let sources = sources.into_iter().flatten().collect::<Vec<PathBuf>>();
+        let options = uu_cp::Options {
+            attributes_only: false,
+            backup: BackupMode::NoBackup,
+            copy_contents: false,
+            cli_dereference: false,
+            copy_mode: uu_cp::CopyMode::Copy,
+            // dereference,
+            dereference: !recursive,
+            no_target_dir: false,
+            one_file_system: false,
+            overwrite,
+            parents: false,
+            sparse_mode: uu_cp::SparseMode::Auto,
+            strip_trailing_slashes: false,
+            reflink_mode,
+            attributes: uu_cp::Attributes::NONE,
+            recursive,
+            backup_suffix: String::from("~"), // default
+            target_dir: None,
+            update: UpdateMode::ReplaceAll,
+            debug,
+            verbose: verbose || debug,
+            progress_bar: progress,
+        };
+
+        if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
+            match error {
+                // code should still be EXIT_ERR as does GNU cp
+                uu_cp::Error::NotAllFilesCopied => {}
+                _ => {
+                    return Err(ShellError::GenericError(
+                        format!("{}", error),
+                        format!("{}", error),
+                        None,
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            };
+            // TODO: What should we do in place of set_exit_code?
+            // uucore::error::set_exit_code(EXIT_ERR);
+        }
+        Ok(PipelineData::empty())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Cp {})
+    }
 }
