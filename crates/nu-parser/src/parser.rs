@@ -5439,6 +5439,17 @@ pub fn parse_pipeline(
                                 new_command.comments.extend_from_slice(&command.comments);
                                 new_command.parts.extend_from_slice(&command.parts);
                             }
+                            LiteElement::Redirection(span, ..) => {
+                                working_set.error(ParseError::RedirectionInLetMut(*span, None))
+                            }
+                            LiteElement::SeparateRedirection { out, err } => {
+                                working_set.error(ParseError::RedirectionInLetMut(
+                                    out.0.min(err.0),
+                                    Some(out.0.max(err.0)),
+                                ))
+                            }
+                            LiteElement::SameTargetRedirection { redirection, .. } => working_set
+                                .error(ParseError::RedirectionInLetMut(redirection.0, None)),
                             _ => panic!("unsupported"),
                         }
                     }
