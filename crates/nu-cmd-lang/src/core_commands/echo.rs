@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    report_error_new, Category, Example, ListStream, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -43,6 +43,16 @@ little reason to use this over just writing the values as-is."#
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args = call.rest(engine_state, stack, 0);
+        report_error_new(
+                engine_state,
+            &ShellError::GenericError(
+                "Deprecated command".into(),
+                "`echo` is deprecated and will be removed in 0.85.".into(),
+                Some(call.head),
+                Some("Please use the `print` command to print the data to the terminal or directly the value if you want to use it in a pipeline.".into()),
+                vec![],
+            ),
+        );
         run(engine_state, args, call)
     }
 
