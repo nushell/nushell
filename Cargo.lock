@@ -186,12 +186,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf7d0a018de4f6aa429b9d33d69edf69072b1c5b1cb8d3e4a5f7ef898fc3eb76"
 
 [[package]]
-name = "arrayref"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b4930d2cb77ce62f89ee5d5289b4ac049559b1c45539271f5ed4fdc7db34545"
-
-[[package]]
 name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -421,31 +415,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "blake2b_simd"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c2f0dc9a68c6317d884f97cc36cf5a3d20ba14ce404227df55e1af708ab04bc"
-dependencies = [
- "arrayref",
- "arrayvec 0.7.4",
- "constant_time_eq 0.2.6",
-]
-
-[[package]]
-name = "blake3"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "199c42ab6972d92c9f8995f086273d25c42fc0f7b2a1fcefba465c1352d25ba5"
-dependencies = [
- "arrayref",
- "arrayvec 0.7.4",
- "cc",
- "cfg-if",
- "constant_time_eq 0.3.0",
- "digest",
 ]
 
 [[package]]
@@ -832,18 +801,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "constant_time_eq"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21a53c0a4d288377e7415b53dcfc3c04da5cdc2cc95c8d5ac178b58f0b861ad6"
-
-[[package]]
-name = "constant_time_eq"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1144,7 +1101,6 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
- "subtle",
 ]
 
 [[package]]
@@ -2090,15 +2046,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5f195fe497f702db0f318b07fdd68edb16955aed830df8363d837542f8f935a"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "keccak"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f6d5ed8676d904364de097082f4e7d240b571b67989ced0240f08b7f966f940"
-dependencies = [
- "cpufeatures",
 ]
 
 [[package]]
@@ -4809,17 +4756,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sha1"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f04293dc80c3993519f2d7f6f511707ee7094fe0c6d3406feb330cdb3540eba3"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest",
-]
-
-[[package]]
 name = "sha2"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4828,16 +4764,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "sha3"
-version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
-dependencies = [
- "digest",
- "keccak",
 ]
 
 [[package]]
@@ -4945,15 +4871,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6528351c9bc8ab22353f9d776db39a20288e8d6c37ef8cfe3317cf875eecfc2d"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "sm3"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebb9a3b702d0a7e33bc4d85a14456633d2b165c2ad839c5fd9a8417c1ab15860"
-dependencies = [
- "digest",
 ]
 
 [[package]]
@@ -5128,12 +5045,6 @@ dependencies = [
  "rustversion",
  "syn 2.0.23",
 ]
-
-[[package]]
-name = "subtle"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "supports-color"
@@ -5703,8 +5614,8 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uu_cp"
-version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git?rev=862a2df#862a2df924eabf9c2c99dae520b1d4d78e361b57"
 dependencies = [
  "clap",
  "filetime",
@@ -5718,26 +5629,16 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git?rev=862a2df#862a2df924eabf9c2c99dae520b1d4d78e361b57"
 dependencies = [
- "blake2b_simd",
- "blake3",
  "clap",
- "digest",
  "dunce",
  "glob",
- "hex",
  "libc",
- "md-5",
- "memchr",
  "nix",
  "once_cell",
  "os_display",
- "sha1",
- "sha2",
- "sha3",
- "sm3",
  "uucore_procs",
  "walkdir",
  "wild",
@@ -5747,8 +5648,8 @@ dependencies = [
 
 [[package]]
 name = "uucore_procs"
-version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git?rev=862a2df#862a2df924eabf9c2c99dae520b1d4d78e361b57"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5757,8 +5658,8 @@ dependencies = [
 
 [[package]]
 name = "uuhelp_parser"
-version = "0.0.20"
-source = "git+https://github.com/uutils/coreutils.git?rev=e4ea64a#e4ea64af5c938d6b90d72988a4a3237096e530d5"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git?rev=862a2df#862a2df924eabf9c2c99dae520b1d4d78e361b57"
 
 [[package]]
 name = "uuid"
