@@ -27,14 +27,13 @@ impl Command for IntoSqliteDb {
                 (Type::Record(vec![]), Type::Nothing),
             ])
             .allow_variants_without_examples(true)
-            // TODO: narrow disallowed types
             .required(
-                "file_name",
+                "file-name",
                 SyntaxShape::String,
                 "Specify the filename to save the database to.",
             )
             .named(
-                "table_name",
+                "table-name",
                 SyntaxShape::String,
                 "Specify table name to store the data in",
                 Some('t'),
