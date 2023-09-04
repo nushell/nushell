@@ -139,7 +139,7 @@ impl Command for History {
                 result: None,
             },
             Example {
-                example: "history | wrap cmd | where cmd =~ cargo",
+                example: "history | where command =~ cargo | get command",
                 description: "Search all the commands from history that contains 'cargo'",
                 result: None,
             },
