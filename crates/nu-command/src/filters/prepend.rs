@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -45,67 +45,66 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "0 | prepend [1 2 3]",
                 description: "prepend a list to an item",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(0),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(0),
+                ])),
             },
             Example {
                 example: r#""a" | prepend ["b"] "#,
                 description: "Prepend a list of strings to a string",
-                result: Some(Value::list(
-                    vec![Value::test_string("b"), Value::test_string("a")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("b"),
+                    Value::test_string("a"),
+                ])),
             },
             Example {
-                example: "[1,2,3,4] | prepend 0",
+                example: "[1 2 3 4] | prepend 0",
                 description: "Prepend one integer item",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
             Example {
-                example: "[2,3,4] | prepend [0,1]",
+                example: "[2 3 4] | prepend [0 1]",
                 description: "Prepend two integer items",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
             Example {
-                example: "[2,nu,4,shell] | prepend [0,1,rocks]",
+                example: "[2 nu 4 shell] | prepend [0 1 rocks]",
                 description: "Prepend integers and strings",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_string("rocks"),
-                        Value::test_int(2),
-                        Value::test_string("nu"),
-                        Value::test_int(4),
-                        Value::test_string("shell"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_string("rocks"),
+                    Value::test_int(2),
+                    Value::test_string("nu"),
+                    Value::test_int(4),
+                    Value::test_string("shell"),
+                ])),
+            },
+            Example {
+                example: "[3 4] | prepend 0..2",
+                description: "Prepend a range",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
         ]
     }
@@ -117,32 +116,15 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let val: Value = call.req(engine_state, stack, 0)?;
-        let vec: Vec<Value> = process_value(val);
+        let other: Value = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
 
-        Ok(vec
+        Ok(other
+            .into_pipeline_data()
             .into_iter()
             .chain(input)
             .into_pipeline_data(engine_state.ctrlc.clone())
             .set_metadata(metadata))
-    }
-}
-
-fn process_value(val: Value) -> Vec<Value> {
-    match val {
-        Value::List {
-            vals: input_vals, ..
-        } => {
-            let mut output = vec![];
-            for input_val in input_vals {
-                output.push(input_val);
-            }
-            output
-        }
-        _ => {
-            vec![val]
-        }
     }
 }
 
