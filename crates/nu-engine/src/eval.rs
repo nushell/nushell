@@ -2,8 +2,8 @@ use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math,
-        Operator, PathMember, PipelineElement, Redirection,
+        eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
+        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, ProfilingConfig, Stack},
     record, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -12,19 +12,6 @@ use nu_protocol::{
 };
 use std::collections::HashMap;
 use std::time::Instant;
-
-pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
-    match op {
-        Expression {
-            expr: Expr::Operator(operator),
-            ..
-        } => Ok(operator.clone()),
-        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
-            op_token: format!("{expr:?}"),
-            span: *span,
-        }),
-    }
-}
 
 pub fn eval_call(
     engine_state: &EngineState,

@@ -1,7 +1,10 @@
 use crate::{
-    ast::{Block, Call, Expr, Expression, PipelineElement},
+    ast::{
+        eval_operator, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
+        PipelineElement,
+    },
     engine::{EngineState, StateWorkingSet},
-    record, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
+    record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::path::PathBuf;
@@ -341,6 +344,116 @@ pub fn eval_constant(
                 eval_const_subexpression(working_set, expr, block, PipelineData::empty())?
                     .into_value(expr.span),
             )
+        }
+        Expr::Range(from, next, to, operator) => {
+            let from = if let Some(f) = from {
+                eval_constant(working_set, f)?
+            } else {
+                Value::Nothing { span: expr.span }
+            };
+
+            let next = if let Some(s) = next {
+                eval_constant(working_set, s)?
+            } else {
+                Value::Nothing { span: expr.span }
+            };
+
+            let to = if let Some(t) = to {
+                eval_constant(working_set, t)?
+            } else {
+                Value::Nothing { span: expr.span }
+            };
+            Ok(Value::Range {
+                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
+                span: expr.span,
+            })
+        }
+        Expr::UnaryNot(expr) => {
+            let lhs = eval_constant(working_set, expr)?;
+            match lhs {
+                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
+                _ => Err(ShellError::TypeMismatch {
+                    err_message: "bool".to_string(),
+                    span: expr.span,
+                }),
+            }
+        }
+        Expr::BinaryOp(lhs, op, rhs) => {
+            let op_span = op.span;
+            let op = eval_operator(op)?;
+
+            match op {
+                Operator::Boolean(boolean) => {
+                    let lhs = eval_constant(working_set, lhs)?;
+                    match boolean {
+                        Boolean::And => {
+                            if lhs.is_false() {
+                                Ok(Value::bool(false, expr.span))
+                            } else {
+                                let rhs = eval_constant(working_set, rhs)?;
+                                lhs.and(op_span, &rhs, expr.span)
+                            }
+                        }
+                        Boolean::Or => {
+                            if lhs.is_true() {
+                                Ok(Value::bool(true, expr.span))
+                            } else {
+                                let rhs = eval_constant(working_set, rhs)?;
+                                lhs.or(op_span, &rhs, expr.span)
+                            }
+                        }
+                        Boolean::Xor => {
+                            let rhs = eval_constant(working_set, rhs)?;
+                            lhs.xor(op_span, &rhs, expr.span)
+                        }
+                    }
+                }
+                Operator::Math(math) => {
+                    let lhs = eval_constant(working_set, lhs)?;
+                    let rhs = eval_constant(working_set, rhs)?;
+
+                    match math {
+                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
+                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
+                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
+                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
+                        Math::Append => lhs.append(op_span, &rhs, expr.span),
+                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
+                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
+                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
+                    }
+                }
+                Operator::Comparison(comparison) => {
+                    let lhs = eval_constant(working_set, lhs)?;
+                    let rhs = eval_constant(working_set, rhs)?;
+                    match comparison {
+                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
+                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
+                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
+                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
+                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
+                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
+                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
+                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
+                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
+                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
+                        // RegEx comparison is not a constant
+                        _ => Err(ShellError::NotAConstant(expr.span)),
+                    }
+                }
+                Operator::Bits(bits) => {
+                    let lhs = eval_constant(working_set, lhs)?;
+                    let rhs = eval_constant(working_set, rhs)?;
+                    match bits {
+                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
+                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
+                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
+                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
+                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
+                    }
+                }
+                Operator::Assignment(_) => Err(ShellError::NotAConstant(expr.span)),
+            }
         }
         _ => Err(ShellError::NotAConstant(expr.span)),
     }
