@@ -1,5 +1,6 @@
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 const MODULE_SETUP: &str = r#"
     module spam {
@@ -105,6 +106,31 @@ fn const_nothing() {
     let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "nothing");
+}
+
+#[rstest]
+#[case(&["const x = not false", "$x"], "true")]
+#[case(&["const x = false", "const y = not $x", "$y"], "true")]
+#[case(&["const x = not false", "const y = not $x", "$y"], "false")]
+fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, expect);
+}
+
+#[rstest]
+#[case(&["const x = 1 + 2", "$x"], "3")]
+#[case(&["const x = 1 * 2", "$x"], "2")]
+#[case(&["const x = 4 / 2", "$x"], "2")]
+#[case(&["const x = 4 mod 3", "$x"], "1")]
+#[case(&["const x = 5.0 / 2.0", "$x"], "2.5")]
+#[case(&[r#"const x = "a" + "b" "#, "$x"], "ab")]
+#[case(&[r#"const x = "a" ++ "b" "#, "$x"], "ab")]
+#[case(&[r#"const x = [1,2] ++ [3]"#, "$x | describe"], "list<int>")]
+#[case(&[r#"const x = 0x[1,2] ++ 0x[3]"#, "$x | describe"], "binary")]
+#[case(&[r#"const x = 0x[1,2] ++ [3]"#, "$x | describe"], "list<any>")]
+fn const_binary_operator(#[case] inp: &[&str], #[case] expect: &str) {
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, expect);
 }
 
 #[test]
