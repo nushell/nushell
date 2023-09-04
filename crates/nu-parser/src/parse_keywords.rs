@@ -3510,7 +3510,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
                 value_as_string(val, expr.span).map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
-                return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
+                return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
             };
 
             if path.exists() && path.is_file() {

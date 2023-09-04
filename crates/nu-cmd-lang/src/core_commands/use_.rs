@@ -52,7 +52,8 @@ This command is a parser keyword. For details, check:
         let Some(Expression {
             expr: Expr::ImportPattern(import_pattern),
             ..
-        }) = call.get_parser_info("import_pattern") else {
+        }) = call.get_parser_info("import_pattern")
+        else {
             return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
