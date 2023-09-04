@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -42,80 +42,65 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             Example {
                 example: "[0 1 2 3] | append 4",
                 description: "Append one integer to a list",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
             Example {
                 example: "0 | append [1 2 3]",
                 description: "Append a list to an item",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
             },
             Example {
                 example: r#""a" | append ["b"] "#,
                 description: "Append a list of string to a string",
-                result: Some(Value::list(
-                    vec![Value::test_string("a"), Value::test_string("b")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("a"),
+                    Value::test_string("b"),
+                ])),
             },
             Example {
                 example: "[0 1] | append [2 3 4]",
                 description: "Append three integer items",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
             Example {
                 example: "[0 1] | append [2 nu 4 shell]",
                 description: "Append integers and strings",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_string("nu"),
-                        Value::test_int(4),
-                        Value::test_string("shell"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_string("nu"),
+                    Value::test_int(4),
+                    Value::test_string("shell"),
+                ])),
             },
             Example {
                 example: "[0 1] | append 2..4",
                 description: "Append a range of integers to a list",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(4),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
             },
         ]
     }
