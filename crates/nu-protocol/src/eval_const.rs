@@ -113,6 +113,11 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             if let Some(path) = &engine_state.plugin_signatures {
                 let canon_plugin_path = canonicalize_path(engine_state, path);
                 Value::string(canon_plugin_path.to_string_lossy(), span)
+            } else if let Some(mut plugin_path) = nu_path::config_dir() {
+                // If there are no signatures, we should still populate the plugin path
+                plugin_path.push("nushell");
+                plugin_path.push("plugin.nu");
+                Value::string(plugin_path.to_string_lossy(), span)
             } else {
                 Value::error(
                     ShellError::IOError("Could not get plugin signature location".into()),
