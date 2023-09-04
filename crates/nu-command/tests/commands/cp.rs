@@ -70,7 +70,6 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(progress: 
 }
 
 // error msg changes on coreutils
-#[cfg(feature = "nuuu")]
 #[test]
 fn error_if_attempting_to_copy_a_directory_to_another_directory() {
     error_if_attempting_to_copy_a_directory_to_another_directory_impl(false);
@@ -384,7 +383,6 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
 }
 
 // error msg changes on coreutils
-#[cfg(feature = "nuuu")]
 #[test]
 fn copy_to_non_existing_dir() {
     copy_to_non_existing_dir_impl(false);
@@ -503,7 +501,6 @@ fn copy_dir_symlink_file_body_not_changed_impl(progress: bool) {
 }
 
 // error msg changes on coreutils
-#[cfg(feature = "nuuu")]
 #[test]
 fn copy_identical_file() {
     copy_identical_file_impl(false);
@@ -615,7 +612,6 @@ static TEST_COPY_FROM_FOLDER_FILE: &str = "hello_dir_with_file/hello_world.txt";
 static TEST_COPY_TO_FOLDER_NEW: &str = "hello_dir_new";
 static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_cp() {
     Playground::setup("ucp_test_1", |dirs, _| {
@@ -639,7 +635,6 @@ fn test_cp_cp() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_existing_target() {
     Playground::setup("ucp_test_2", |dirs, _| {
@@ -676,7 +671,6 @@ fn test_cp_existing_target() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_multiple_files() {
     Playground::setup("ucp_test_3", |dirs, sandbox| {
@@ -709,7 +703,6 @@ fn test_cp_multiple_files() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 #[cfg(not(target_os = "macos"))]
 fn test_cp_recurse() {
@@ -736,7 +729,6 @@ fn test_cp_recurse() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_with_dirs() {
     Playground::setup("ucp_test_5", |dirs, sandbox| {
@@ -769,7 +761,6 @@ fn test_cp_with_dirs() {
         assert_eq!(src2_hash, after_cp_2_hash);
     });
 }
-#[cfg(feature = "nuuu")]
 #[cfg(not(windows))]
 #[test]
 fn test_cp_arg_force() {
@@ -790,7 +781,6 @@ fn test_cp_arg_force() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_directory_to_itself_disallowed() {
     Playground::setup("ucp_test_7", |dirs, sandbox| {
@@ -807,7 +797,6 @@ fn test_cp_directory_to_itself_disallowed() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_nested_directory_to_itself_disallowed() {
     Playground::setup("ucp_test_8", |dirs, sandbox| {
@@ -826,7 +815,6 @@ fn test_cp_nested_directory_to_itself_disallowed() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[cfg(not(windows))]
 #[test]
 fn test_cp_same_file_force() {
@@ -843,7 +831,6 @@ fn test_cp_same_file_force() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_arg_no_clobber() {
     Playground::setup("ucp_test_10", |dirs, _| {
@@ -864,7 +851,6 @@ fn test_cp_arg_no_clobber() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_arg_no_clobber_twice() {
     Playground::setup("ucp_test_11", |dirs, sandbox| {
@@ -891,7 +877,6 @@ fn test_cp_arg_no_clobber_twice() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_debug_default() {
     Playground::setup("ucp_test_12", |dirs, _| {
@@ -927,7 +912,6 @@ fn test_cp_debug_default() {
     });
 }
 
-#[cfg(feature = "nuuu")]
 #[test]
 fn test_cp_verbose_default() {
     Playground::setup("ucp_test_13", |dirs, _| {
