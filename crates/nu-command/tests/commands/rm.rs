@@ -1,8 +1,6 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use std::fs;
-use std::path::PathBuf;
 
 #[test]
 fn removes_a_file() {
@@ -375,24 +373,6 @@ fn removes_symlink() {
     });
 }
 
-struct Cleanup<'a> {
-    dir_to_clean: &'a PathBuf,
-}
-
-fn set_dir_read_only(directory: &PathBuf, read_only: bool) {
-    let mut permissions = fs::metadata(directory).unwrap().permissions();
-    permissions.set_readonly(read_only);
-    fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
-}
-
-impl<'a> Drop for Cleanup<'a> {
-    /// Restores write permissions to the given directory so that the Playground can be successfully
-    /// cleaned up.
-    fn drop(&mut self) {
-        set_dir_read_only(self.dir_to_clean, false);
-    }
-}
-
 #[test]
 // This test is only about verifying file names are included in rm error messages. It is easier
 // to only have this work on non-windows systems (i.e., unix-like) than to try to get the
@@ -410,10 +390,10 @@ fn rm_prints_filenames_on_error() {
 
         let test_dir = dirs.test();
 
-        set_dir_read_only(test_dir, true);
-        let _cleanup = Cleanup {
-            dir_to_clean: test_dir,
-        };
+        let mut test_dir_permissions = sandbox.permissions(test_dir);
+
+        test_dir_permissions.set_readonly(true);
+        test_dir_permissions.apply().unwrap();
 
         // This rm is expected to fail, and stderr output indicating so is also expected.
         let actual = nu!(cwd: test_dir, "rm test*.txt");
@@ -429,5 +409,110 @@ fn rm_prints_filenames_on_error() {
                 actual.err
             );
         }
+    });
+}
+
+#[test]
+fn rm_shows_multiple_errors() {
+    Playground::setup("rm_shows_multiple_errors", |dirs, playground| {
+        let files = [
+            "test.txt",
+            "test/test1.txt",
+            "test/test2.txt",
+            "dir/test.txt",
+        ];
+        playground
+            .mkdir("test")
+            .mkdir("dir")
+            .with_files(files.into_iter().map(EmptyFile).collect());
+
+        let test_root = dirs.test();
+        let test_dir = test_root.join("test");
+        let dir_dir = test_root.join("dir");
+
+        let mut test_dir_permissions = playground.permissions(&test_dir);
+
+        test_dir_permissions.set_readonly(true);
+        test_dir_permissions.apply().unwrap();
+
+        let actual = nu!(
+            cwd: test_root,
+            "rm test/test*.txt test.txt non_existing dir/"
+        );
+
+        assert!(
+            actual
+                .err
+                .contains("Could not delete some files or directories"),
+            "should show generic error message"
+        );
+        assert!(
+            actual.err.contains("File(s) not found"),
+            "missing file error"
+        );
+        assert!(
+            actual.err.contains(&format!(
+                "cannot remove non-empty directory {}",
+                dir_dir.to_string_lossy(),
+            )),
+            "non-empty directory error"
+        );
+        assert!(
+            actual.err.contains(&format!(
+                "Could not delete {}: Permission denied",
+                test_dir.join("test1.txt").to_string_lossy()
+            )),
+            "permissions error"
+        );
+        assert!(
+            actual.err.contains(&format!(
+                "Could not delete {}: Permission denied",
+                test_dir.join("test2.txt").to_string_lossy()
+            )),
+            "permissions error"
+        );
+
+        // despite errors for some entries existing files with permissions to remove should be removed
+        assert!(
+            !test_root.join("test.txt").exists(),
+            "file should be removed"
+        );
+    });
+}
+
+#[test]
+fn rm_verbose() {
+    Playground::setup("rm_verbose", |dirs, playground| {
+        let files = ["test1.txt", "test2.txt", "test3.txt"];
+
+        playground.with_files(files.into_iter().map(EmptyFile).collect());
+
+        let test_root = dirs.test();
+
+        let actual = nu!(cwd: test_root, "rm --verbose test*.txt");
+
+        assert!(
+            actual.err.contains(&format!(
+                "deleted {}",
+                test_root.join("test1.txt").to_string_lossy()
+            )),
+            "should show verbose info on removing file"
+        );
+
+        assert!(
+            actual.err.contains(&format!(
+                "deleted {}",
+                test_root.join("test2.txt").to_string_lossy()
+            )),
+            "should show verbose info on removing file"
+        );
+
+        assert!(
+            actual.err.contains(&format!(
+                "deleted {}",
+                test_root.join("test3.txt").to_string_lossy()
+            )),
+            "should show verbose info on removing file"
+        );
     });
 }

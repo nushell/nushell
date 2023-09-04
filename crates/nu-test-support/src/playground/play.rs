@@ -2,6 +2,8 @@ use super::Director;
 use crate::fs;
 use crate::fs::Stub;
 use nu_glob::glob;
+use std::fs::Permissions;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::{tempdir, TempDir};
@@ -55,6 +57,42 @@ impl Dirs {
     }
 }
 
+pub struct PermissionWrapper<'a> {
+    permissions: std::fs::Permissions,
+    path: &'a PathBuf,
+}
+
+impl<'a> Deref for PermissionWrapper<'a> {
+    type Target = Permissions;
+    fn deref(&self) -> &Self::Target {
+        &self.permissions
+    }
+}
+
+impl<'a> DerefMut for PermissionWrapper<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.permissions
+    }
+}
+
+impl<'a> Drop for PermissionWrapper<'a> {
+    fn drop(&mut self) {
+        if self.permissions.readonly() {
+            #[allow(clippy::permissions_set_readonly_false)]
+            // remove readonly only for tests files to be able to delete it later
+            self.permissions.set_readonly(false);
+            std::fs::set_permissions(self.path, self.permissions.clone())
+                .expect("Failed to set permissions");
+        }
+    }
+}
+
+impl<'a> PermissionWrapper<'a> {
+    pub fn apply(&self) -> Result<(), std::io::Error> {
+        std::fs::set_permissions(self.path, self.permissions.clone())
+    }
+}
+
 impl<'a> Playground<'a> {
     pub fn root(&self) -> &Path {
         self.root.path()
@@ -85,7 +123,7 @@ impl<'a> Playground<'a> {
 
         let fixtures = fs::fixtures();
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let fixtures = nu_path::canonicalize_with(fixtures.clone(), cwd).unwrap_or_else(|e| {
+        let fixtures = nu_path::canonicalize_with(fixtures.clone(), &cwd).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize fixtures path {}: {:?}",
                 fixtures.display(),
@@ -104,9 +142,8 @@ impl<'a> Playground<'a> {
 
         let playground_root = playground.root.path();
 
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
         let test =
-            nu_path::canonicalize_with(playground_root.join(topic), cwd).unwrap_or_else(|e| {
+            nu_path::canonicalize_with(playground_root.join(topic), &cwd).unwrap_or_else(|e| {
                 panic!(
                     "Couldn't canonicalize test path {}: {:?}",
                     playground_root.join(topic).display(),
@@ -266,5 +303,13 @@ impl<'a> Playground<'a> {
                 }
             })
             .collect()
+    }
+
+    pub fn permissions(&self, path: &'a PathBuf) -> PermissionWrapper<'a> {
+        let permissions = std::fs::metadata(path)
+            .expect("Failed to get permissions")
+            .permissions();
+
+        PermissionWrapper { permissions, path }
     }
 }

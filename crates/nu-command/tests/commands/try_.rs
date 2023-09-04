@@ -1,4 +1,8 @@
 use nu_test_support::nu;
+use nu_test_support::{
+    fs::{files_exist_at, Stub::EmptyFile},
+    playground::Playground,
+};
 
 #[test]
 fn try_succeed() {
@@ -80,4 +84,52 @@ fn loop_try_break_on_command_should_show_successful() {
 fn catch_block_can_use_error_object() {
     let output = nu!("try {1 / 0} catch {|err| print ($err | get msg)}");
     assert_eq!(output.out, "Division by zero.")
+}
+
+#[test]
+fn catch_fs_related_errors() {
+    Playground::setup("ignore_fs_related_errors", |dirs, playground| {
+        let file_names = vec!["test1.txt", "test2.txt", "test3.txt"];
+
+        let files = file_names
+            .iter()
+            .map(|file_name| EmptyFile(file_name))
+            .collect();
+
+        playground.mkdir("subdir").with_files(files);
+
+        let test_dir = dirs.test();
+        let subdir = test_dir.join("subdir");
+        let mut test_dir_permissions = playground.permissions(test_dir);
+        let mut subdir_permissions = playground.permissions(&subdir);
+
+        test_dir_permissions.set_readonly(true);
+        subdir_permissions.set_readonly(true);
+        test_dir_permissions.apply().unwrap();
+        subdir_permissions.apply().unwrap();
+
+        let actual = nu!(
+            cwd: test_dir,
+            "try { rm test*.txt; \"try\" } catch { \"catch\" }"
+        );
+
+        assert_eq!(actual.out, "catch");
+        assert!(files_exist_at(file_names.clone(), test_dir));
+
+        let actual = nu!(
+            cwd: test_dir,
+            "try { cp test*.txt subdir/; \"try\" } catch { \"catch\" }"
+        );
+
+        assert_eq!(actual.out, "catch");
+        assert!(!files_exist_at(file_names.clone(), &subdir));
+
+        let actual = nu!(
+            cwd: test_dir,
+            "try { mv test*.txt subdir/; \"try\" } catch { \"catch\" }"
+        );
+
+        assert_eq!(actual.out, "catch");
+        assert!(!files_exist_at(file_names.clone(), &subdir));
+    });
 }

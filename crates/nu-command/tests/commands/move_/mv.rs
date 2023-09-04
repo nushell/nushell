@@ -491,3 +491,79 @@ fn mv_with_update_flag() {
         assert_eq!(actual.out, "newest_body");
     });
 }
+
+#[test]
+fn move_shows_multiple_errors() {
+    Playground::setup("move_shows_multiple_errors", |dirs, playground| {
+        let files = ["test1.txt", "test2.txt"];
+        playground
+            .mkdir("test")
+            .mkdir("target")
+            .with_files(files.into_iter().map(EmptyFile).collect());
+
+        let test_root = dirs.test();
+        let target_dir = test_root.join("target");
+
+        let mut target_dir_permissions = playground.permissions(&target_dir);
+
+        target_dir_permissions.set_readonly(true);
+        target_dir_permissions.apply().unwrap();
+
+        let actual = nu!(cwd: test_root, "mv test*.txt target");
+
+        assert!(
+            actual
+                .err
+                .contains("Could not move some files or directories"),
+            "should show generic error message"
+        );
+        assert!(
+            actual.err.contains(&format!(
+                "Could not move \"{}\"",
+                test_root.join("test1.txt").to_string_lossy()
+            )),
+            "permissions error"
+        );
+        assert!(
+            actual.err.contains(&format!(
+                "Could not move \"{}\"",
+                test_root.join("test2.txt").to_string_lossy()
+            )),
+            "permissions error"
+        );
+    });
+}
+
+#[test]
+fn move_verbose() {
+    Playground::setup("move_verbose", |dirs, playground| {
+        let files = ["test1.txt", "test2.txt"];
+
+        playground
+            .mkdir("target")
+            .with_files(files.into_iter().map(EmptyFile).collect());
+
+        let test_root = dirs.test();
+        let target_dir = test_root.join("target");
+
+        let actual = nu!(cwd: test_root, "mv --verbose test*.txt target");
+
+        assert!(
+            actual.err.contains(&format!(
+                "moved {} to {}",
+                test_root.join("test1.txt").to_string_lossy(),
+                target_dir.to_string_lossy()
+            )),
+            "should show verbose info on copying file"
+        );
+
+        assert!(
+            actual.err.contains(&format!(
+                "moved {} to {}",
+                test_root.join("test2.txt").to_string_lossy(),
+                target_dir.to_string_lossy()
+            )),
+            "should show verbose info on copying file"
+        );
+    });
+}

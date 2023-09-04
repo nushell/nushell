@@ -6,9 +6,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
+use nu_utils::stderr_write_all_and_flush;
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
@@ -53,7 +53,7 @@ impl Command for Mv {
             )
             .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch("update", 
+            .switch("update",
                 "move only when the SOURCE file is newer than the destination file(with -f) or when the destination file is missing",
                 Some('u')
             )
@@ -81,8 +81,6 @@ impl Command for Mv {
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
         let update_mode = call.has_flag("update");
-
-        let ctrlc = engine_state.ctrlc.clone();
 
         let path = current_dir(engine_state, stack)?;
         let source = path.join(spanned_source.item.as_str());
@@ -183,45 +181,56 @@ impl Command for Mv {
         }
 
         let span = call.head;
-        sources
-            .into_iter()
-            .flatten()
-            .filter_map(move |entry| {
-                let result = move_file(
-                    Spanned {
-                        item: entry.clone(),
-                        span: spanned_source.span,
-                    },
-                    Spanned {
-                        item: destination.clone(),
-                        span: spanned_destination.span,
-                    },
-                    interactive,
-                    update_mode,
-                );
-                if let Err(error) = result {
-                    Some(Value::error(error, spanned_source.span))
-                } else if verbose {
-                    let val = match result {
-                        Ok(true) => format!(
-                            "moved {:} to {:}",
-                            entry.to_string_lossy(),
-                            destination.to_string_lossy()
-                        ),
-                        _ => format!(
-                            "{:} not moved to {:}",
-                            entry.to_string_lossy(),
-                            destination.to_string_lossy()
-                        ),
-                    };
-                    Some(Value::string(val, span))
-                } else {
-                    None
+
+        let mut errors: Vec<ShellError> = Vec::new();
+
+        sources.into_iter().flatten().for_each(|entry| {
+            let result = move_file(
+                Spanned {
+                    item: entry.clone(),
+                    span: spanned_source.span,
+                },
+                Spanned {
+                    item: destination.clone(),
+                    span: spanned_destination.span,
+                },
+                interactive,
+                update_mode,
+            );
+
+            if let Err(error) = result {
+                errors.push(error)
+            } else if verbose {
+                let val = match result {
+                    Ok(true) => format!(
+                        "moved {:} to {:}\n",
+                        entry.to_string_lossy(),
+                        destination.to_string_lossy()
+                    ),
+                    _ => format!(
+                        "{:} not moved to {:}\n",
+                        entry.to_string_lossy(),
+                        destination.to_string_lossy()
+                    ),
+                };
+
+                if let Err(error) = stderr_write_all_and_flush(val) {
+                    errors.push(error.into());
                 }
-            })
-            .into_pipeline_data(ctrlc)
-            .print_not_formatted(engine_state, false, true)?;
-        Ok(PipelineData::empty())
+            }
+        });
+
+        if errors.is_empty() {
+            Ok(PipelineData::Empty)
+        } else {
+            Err(ShellError::GenericError(
+                "Could not move some files or directories".into(),
+                "mv command".into(),
+                Some(span),
+                Some("See details below".into()),
+                errors,
+            ))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -314,14 +323,14 @@ fn move_file(
     if update_mode && super::util::is_older(&from, &to).unwrap_or(false) {
         Ok(false)
     } else {
-        match move_item(&from, from_span, &to) {
+        match move_item(&from, from_span, &to, to_span) {
             Ok(()) => Ok(true),
             Err(e) => Err(e),
         }
     }
 }
 
-fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
+fn move_item(from: &Path, from_span: Span, to: &Path, to_span: Span) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
     std::fs::rename(from, to).or_else(|_| {
@@ -349,13 +358,13 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
                     }
                     _ => e.to_string(),
                 };
-                Err(ShellError::GenericError(
-                    format!("Could not move {from:?} to {to:?}. Error Kind: {error_kind}"),
-                    "could not move".into(),
-                    Some(from_span),
-                    None,
-                    Vec::new(),
-                ))
+
+                Err(ShellError::MoveNotPossible {
+                    source_message: format!("Could not move {from:?}"),
+                    source_span: from_span,
+                    destination_message: format!("to {to:?}: {error_kind}"),
+                    destination_span: to_span,
+                })
             }
         }
     })

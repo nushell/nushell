@@ -16,9 +16,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
+use nu_utils::stderr_write_all_and_flush;
 
 const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     case_sensitive: true,
@@ -145,8 +145,6 @@ fn rm(
     let interactive = call.has_flag("interactive");
     let interactive_once = call.has_flag("interactive-once") && !interactive;
 
-    let ctrlc = engine_state.ctrlc.clone();
-
     let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
     let mut unique_argument_check = None;
@@ -246,8 +244,8 @@ fn rm(
             .expect("targets were empty"),
     );
 
-    let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
+    let mut errors: Vec<ShellError> = Vec::new();
 
     for target in targets {
         if currentdir_path.to_string_lossy() == target.item
@@ -271,12 +269,12 @@ fn rm(
             },
         ) {
             Ok(files) => {
+                let mut target_exists = false;
+
                 for file in files {
                     match file {
                         Ok(ref f) => {
-                            if !target_exists {
-                                target_exists = true;
-                            }
+                            target_exists = true;
 
                             // It is not appropriate to try and remove the
                             // current directory or its parent when using
@@ -301,8 +299,11 @@ fn rm(
                 }
 
                 // Target doesn't exists
-                if !target_exists && empty_span.eq(&call.head) {
-                    empty_span = target.span;
+                if !target_exists {
+                    errors.push(ShellError::FileNotFoundCustom(
+                        "File(s) not found".into(),
+                        target.span,
+                    ));
                 }
             }
             Err(e) => {
@@ -335,7 +336,7 @@ fn rm(
         if let Err(e) = interaction {
             return Err(ShellError::GenericError(
                 format!("Error during interaction: {e:}"),
-                "could not move".into(),
+                "could not remove".into(),
                 None,
                 None,
                 Vec::new(),
@@ -345,131 +346,123 @@ fn rm(
         }
     }
 
-    all_targets
-        .into_iter()
-        .map(move |(f, span)| {
-            let is_empty = || match f.read_dir() {
-                Ok(mut p) => p.next().is_none(),
-                Err(_) => false,
-            };
+    all_targets.into_iter().for_each(|(f, span)| {
+        let is_empty = || match f.read_dir() {
+            Ok(mut p) => p.next().is_none(),
+            Err(_) => false,
+        };
 
-            if let Ok(metadata) = f.symlink_metadata() {
-                #[cfg(unix)]
-                let is_socket = metadata.file_type().is_socket();
-                #[cfg(unix)]
-                let is_fifo = metadata.file_type().is_fifo();
+        if let Ok(metadata) = f.symlink_metadata() {
+            #[cfg(unix)]
+            let is_socket = metadata.file_type().is_socket();
+            #[cfg(unix)]
+            let is_fifo = metadata.file_type().is_fifo();
 
-                #[cfg(not(unix))]
-                let is_socket = false;
-                #[cfg(not(unix))]
-                let is_fifo = false;
+            #[cfg(not(unix))]
+            let is_socket = false;
+            #[cfg(not(unix))]
+            let is_fifo = false;
 
-                if metadata.is_file()
-                    || metadata.file_type().is_symlink()
-                    || recursive
-                    || is_socket
-                    || is_fifo
-                    || is_empty()
+            if metadata.is_file()
+                || metadata.file_type().is_symlink()
+                || recursive
+                || is_socket
+                || is_fifo
+                || is_empty()
+            {
+                let (interaction, confirmed) = try_interaction(
+                    interactive,
+                    format!("rm: remove '{}'? ", f.to_string_lossy()),
+                );
+
+                let result;
+                #[cfg(all(
+                    feature = "trash-support",
+                    not(target_os = "android"),
+                    not(target_os = "ios")
+                ))]
                 {
-                    let (interaction, confirmed) = try_interaction(
-                        interactive,
-                        format!("rm: remove '{}'? ", f.to_string_lossy()),
-                    );
-
-                    let result;
-                    #[cfg(all(
-                        feature = "trash-support",
-                        not(target_os = "android"),
-                        not(target_os = "ios")
-                    ))]
+                    use std::io::Error;
+                    result = if let Err(e) = interaction {
+                        let e = Error::new(ErrorKind::Other, &*e.to_string());
+                        Err(e)
+                    } else if interactive && !confirmed {
+                        Ok(())
+                    } else if trash || (rm_always_trash && !permanent) {
+                        trash::delete(&f).map_err(|e: trash::Error| {
+                            Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
+                        })
+                    } else if metadata.is_file()
+                        || is_socket
+                        || is_fifo
+                        || metadata.file_type().is_symlink()
                     {
-                        use std::io::Error;
-                        result = if let Err(e) = interaction {
-                            let e = Error::new(ErrorKind::Other, &*e.to_string());
-                            Err(e)
-                        } else if interactive && !confirmed {
-                            Ok(())
-                        } else if trash || (rm_always_trash && !permanent) {
-                            trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
-                            })
-                        } else if metadata.is_file()
-                            || is_socket
-                            || is_fifo
-                            || metadata.file_type().is_symlink()
-                        {
-                            std::fs::remove_file(&f)
-                        } else {
-                            std::fs::remove_dir_all(&f)
-                        };
-                    }
-                    #[cfg(any(
-                        not(feature = "trash-support"),
-                        target_os = "android",
-                        target_os = "ios"
-                    ))]
-                    {
-                        use std::io::{Error, ErrorKind};
-                        result = if let Err(e) = interaction {
-                            let e = Error::new(ErrorKind::Other, &*e.to_string());
-                            Err(e)
-                        } else if interactive && !confirmed {
-                            Ok(())
-                        } else if metadata.is_file()
-                            || is_socket
-                            || is_fifo
-                            || metadata.file_type().is_symlink()
-                        {
-                            std::fs::remove_file(&f)
-                        } else {
-                            std::fs::remove_dir_all(&f)
-                        };
-                    }
-
-                    if let Err(e) = result {
-                        let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                        Value::error(ShellError::RemoveNotPossible(msg, span), span)
-                    } else if verbose {
-                        let msg = if interactive && !confirmed {
-                            "not deleted"
-                        } else {
-                            "deleted"
-                        };
-                        let val = format!("{} {:}", msg, f.to_string_lossy());
-                        Value::string(val, span)
+                        std::fs::remove_file(&f)
                     } else {
-                        Value::nothing(span)
+                        std::fs::remove_dir_all(&f)
+                    };
+                }
+                #[cfg(any(
+                    not(feature = "trash-support"),
+                    target_os = "android",
+                    target_os = "ios"
+                ))]
+                {
+                    use std::io::{Error, ErrorKind};
+                    result = if let Err(e) = interaction {
+                        let e = Error::new(ErrorKind::Other, &*e.to_string());
+                        Err(e)
+                    } else if interactive && !confirmed {
+                        Ok(())
+                    } else if metadata.is_file()
+                        || is_socket
+                        || is_fifo
+                        || metadata.file_type().is_symlink()
+                    {
+                        std::fs::remove_file(&f)
+                    } else {
+                        std::fs::remove_dir_all(&f)
+                    };
+                }
+
+                if let Err(e) = result {
+                    let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
+
+                    errors.push(ShellError::RemoveNotPossible(msg, span));
+                } else if verbose {
+                    let msg = if interactive && !confirmed {
+                        "not deleted"
+                    } else {
+                        "deleted"
+                    };
+                    let val = format!("{} {:}\n", msg, f.to_string_lossy());
+
+                    if let Err(error) = stderr_write_all_and_flush(val) {
+                        errors.push(error.into())
                     }
-                } else {
-                    let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                    Value::error(
-                        ShellError::GenericError(
-                            msg,
-                            "cannot remove non-empty directory".into(),
-                            Some(span),
-                            None,
-                            Vec::new(),
-                        ),
-                        span,
-                    )
                 }
             } else {
-                let msg = format!("no such file or directory: {:}", f.to_string_lossy());
-                Value::error(
-                    ShellError::GenericError(
-                        msg,
-                        "no such file or directory".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ),
-                    span,
-                )
+                let msg = format!(
+                    "cannot remove non-empty directory {:}. try --recursive",
+                    f.to_string_lossy()
+                );
+                errors.push(ShellError::RemoveNotPossible(msg, span));
             }
-        })
-        .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(ctrlc)
-        .print_not_formatted(engine_state, false, true)?;
+        } else {
+            let msg = format!("No such file or directory: {:}", f.to_string_lossy());
+            errors.push(ShellError::FileNotFoundCustom(msg, span));
+        }
+    });
 
-    Ok(PipelineData::empty())
+    if errors.is_empty() {
+        Ok(PipelineData::empty())
+    } else {
+        Err(ShellError::GenericError(
+            "Could not delete some files or directories".into(),
+            "rm command".into(),
+            Some(span),
+            Some("See details below".into()),
+            errors,
+        ))
+    }
 }

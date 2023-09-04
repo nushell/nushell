@@ -1,13 +1,9 @@
-use std::collections::VecDeque;
-
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_utils::stderr_write_all_and_flush;
 
 #[derive(Clone)]
 pub struct Mkdir;
@@ -52,12 +48,14 @@ impl Command for Mkdir {
             .peekable();
 
         let is_verbose = call.has_flag("verbose");
-        let mut stream: VecDeque<Value> = VecDeque::new();
+        let span = call.head;
+
+        let mut errors: Vec<ShellError> = Vec::new();
 
         if directories.peek().is_none() {
             return Err(ShellError::MissingParameter {
                 param_name: "requires directory paths".to_string(),
-                span: call.head,
+                span,
             });
         }
 
@@ -69,25 +67,33 @@ impl Command for Mkdir {
             let dir_res = std::fs::create_dir_all(&dir);
 
             if let Err(reason) = dir_res {
-                return Err(ShellError::CreateNotPossible(
-                    format!("failed to create directory: {reason}"),
-                    call.positional_nth(i)
-                        .expect("already checked through directories")
-                        .span,
+                errors.push(ShellError::CreateNotPossible(
+                    format!(
+                        "failed to create directory {}: {reason}",
+                        dir.to_string_lossy()
+                    ),
+                    span,
                 ));
-            }
+            } else if is_verbose {
+                let val = format!("Created dir {:}\n", dir.to_string_lossy());
 
-            if is_verbose {
-                let val = format!("{:}", dir.to_string_lossy());
-                stream.push_back(Value::string(val, span));
+                if let Err(error) = stderr_write_all_and_flush(val) {
+                    errors.push(error.into());
+                }
             }
         }
 
-        stream
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .print_not_formatted(engine_state, false, true)?;
-        Ok(PipelineData::empty())
+        if errors.is_empty() {
+            Ok(PipelineData::empty())
+        } else {
+            Err(ShellError::GenericError(
+                "Could not create some directories".into(),
+                "mkdir command".into(),
+                Some(span),
+                Some("See details below".into()),
+                errors,
+            ))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {

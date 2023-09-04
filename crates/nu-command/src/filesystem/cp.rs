@@ -10,9 +10,9 @@ use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
+use nu_utils::stderr_write_all_and_flush;
 
 use super::util::try_interaction;
 
@@ -155,7 +155,7 @@ impl Command for Cp {
             ));
         }
 
-        let mut result = Vec::new();
+        let mut errors: Vec<ShellError> = Vec::new();
 
         for entry in sources.into_iter().flatten() {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
@@ -193,13 +193,13 @@ impl Command for Cp {
                                 "src {source:?} and dst {destination:?} are identical(not copied)"
                             );
 
-                            return Err(ShellError::GenericError(
+                            Err(ShellError::GenericError(
                                 "Copy aborted".into(),
                                 message,
                                 Some(span),
                                 None,
                                 Vec::new(),
-                            ));
+                            ))
                         } else if interactive && dst.exists() {
                             if progress {
                                 interactive_copy(
@@ -207,21 +207,33 @@ impl Command for Cp {
                                     src,
                                     dst,
                                     span,
+                                    verbose,
                                     &ctrlc,
                                     copy_file_with_progressbar,
                                 )
                             } else {
-                                interactive_copy(interactive, src, dst, span, &None, copy_file)
+                                interactive_copy(
+                                    interactive,
+                                    src,
+                                    dst,
+                                    span,
+                                    verbose,
+                                    &None,
+                                    copy_file,
+                                )
                             }
                         } else if progress {
                             // use std::io::copy to get the progress
                             // slower then std::fs::copy but useful if user needs to see the progress
-                            copy_file_with_progressbar(src, dst, span, &ctrlc)
+                            copy_file_with_progressbar(src, dst, span, verbose, &ctrlc)
                         } else {
                             // use std::fs::copy
-                            copy_file(src, dst, span, &None)
+                            copy_file(src, dst, span, verbose, &None)
                         };
-                        result.push(res);
+
+                        if let Err(error) = res {
+                            errors.push(error);
+                        }
                     }
                 }
             } else if entry.is_dir() {
@@ -304,11 +316,14 @@ impl Command for Cp {
                     }
                     if s.is_symlink() && not_follow_symlink {
                         let res = if interactive && d.exists() {
-                            interactive_copy(interactive, s, d, span, &None, copy_symlink)
+                            interactive_copy(interactive, s, d, span, verbose, &None, copy_symlink)
                         } else {
-                            copy_symlink(s, d, span, &None)
+                            copy_symlink(s, d, span, verbose, &None)
                         };
-                        result.push(res);
+
+                        if let Err(error) = res {
+                            errors.push(error);
+                        }
                     } else if s.is_file() {
                         let res = if interactive && d.exists() {
                             if progress {
@@ -317,37 +332,38 @@ impl Command for Cp {
                                     s,
                                     d,
                                     span,
+                                    verbose,
                                     &ctrlc,
                                     copy_file_with_progressbar,
                                 )
                             } else {
-                                interactive_copy(interactive, s, d, span, &None, copy_file)
+                                interactive_copy(interactive, s, d, span, verbose, &None, copy_file)
                             }
                         } else if progress {
-                            copy_file_with_progressbar(s, d, span, &ctrlc)
+                            copy_file_with_progressbar(s, d, span, verbose, &ctrlc)
                         } else {
-                            copy_file(s, d, span, &None)
+                            copy_file(s, d, span, verbose, &None)
                         };
-                        result.push(res);
+
+                        if let Err(error) = res {
+                            errors.push(error);
+                        }
                     };
                 }
             }
         }
 
-        if verbose {
-            result
-                .into_iter()
-                .into_pipeline_data(ctrlc)
-                .print_not_formatted(engine_state, false, true)?;
+        if errors.is_empty() {
+            Ok(PipelineData::empty())
         } else {
-            // filter to only errors
-            result
-                .into_iter()
-                .filter(|v| matches!(v, Value::Error { .. }))
-                .into_pipeline_data(ctrlc)
-                .print_not_formatted(engine_state, false, true)?;
+            Err(ShellError::GenericError(
+                "Could not copy some files or directories".into(),
+                "cp command".into(),
+                Some(span),
+                Some("See details below".into()),
+                errors,
+            ))
         }
-        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -386,23 +402,30 @@ fn interactive_copy(
     src: PathBuf,
     dst: PathBuf,
     span: Span,
+    verbose: bool,
     _ctrl_status: &Option<Arc<AtomicBool>>,
-    copy_impl: impl Fn(PathBuf, PathBuf, Span, &Option<Arc<AtomicBool>>) -> Value,
-) -> Value {
+    copy_impl: impl Fn(PathBuf, PathBuf, Span, bool, &Option<Arc<AtomicBool>>) -> Result<(), ShellError>,
+) -> Result<(), ShellError> {
     let (interaction, confirmed) = try_interaction(
         interactive,
         format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
     );
     if let Err(e) = interaction {
-        Value::error(
-            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, Vec::new()),
-            span,
-        )
+        Err(ShellError::GenericError(
+            e.to_string(),
+            e.to_string(),
+            Some(span),
+            None,
+            Vec::new(),
+        ))
     } else if !confirmed {
-        let msg = format!("{:} not copied to {:}", src.display(), dst.display());
-        Value::string(msg, span)
+        if verbose {
+            let msg = format!("{:} not copied to {:}\n", src.display(), dst.display());
+            stderr_write_all_and_flush(msg)?;
+        }
+        Ok(())
     } else {
-        copy_impl(src, dst, span, &None)
+        copy_impl(src, dst, span, verbose, &None)
     }
 }
 
@@ -414,14 +437,18 @@ fn copy_file(
     src: PathBuf,
     dst: PathBuf,
     span: Span,
+    verbose: bool,
     _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
+) -> Result<(), ShellError> {
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
-            let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::string(msg, span)
+            if verbose {
+                let msg = format!("copied {:} to {:}\n", src.display(), dst.display());
+                stderr_write_all_and_flush(msg)?;
+            }
+            Ok(())
         }
-        Err(e) => convert_io_error(e, src, dst, span),
+        Err(err) => Err(convert_io_error(err, src, dst, span)),
     }
 }
 
@@ -432,14 +459,15 @@ fn copy_file_with_progressbar(
     src: PathBuf,
     dst: PathBuf,
     span: Span,
+    verbose: bool,
     ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
+) -> Result<(), ShellError> {
     let mut bytes_processed: u64 = 0;
     let mut process_failed: Option<std::io::Error> = None;
 
     let file_in = match std::fs::File::open(&src) {
         Ok(file) => file,
-        Err(error) => return convert_io_error(error, src, dst, span),
+        Err(error) => return Err(convert_io_error(error, src, dst, span)),
     };
 
     let file_size = match file_in.metadata() {
@@ -451,7 +479,7 @@ fn copy_file_with_progressbar(
 
     let file_out = match std::fs::File::create(&dst) {
         Ok(file) => file,
-        Err(error) => return convert_io_error(error, src, dst, span),
+        Err(error) => return Err(convert_io_error(error, src, dst, span)),
     };
     let mut buffer = [0u8; 8192];
     let mut buf_reader = BufReader::new(file_in);
@@ -504,7 +532,7 @@ fn copy_file_with_progressbar(
         } else {
             bar.abandoned_msg("# !! Error !!".to_owned());
         }
-        return convert_io_error(error, src, dst, span);
+        return Err(convert_io_error(error, src, dst, span));
     }
 
     // Get the name of the file to print it out at the end
@@ -512,32 +540,34 @@ fn copy_file_with_progressbar(
         .file_name()
         .unwrap_or_else(|| std::ffi::OsStr::new(""))
         .to_string_lossy();
-    let msg = format!("copied {:} to {:}", src.display(), dst.display());
     bar.finished_msg(format!(" {} copied!", &file_name));
 
-    Value::string(msg, span)
+    if verbose {
+        let msg = format!("copied {:} to {:}\n", src.display(), dst.display());
+        stderr_write_all_and_flush(msg)?;
+    }
+
+    Ok(())
 }
 
 fn copy_symlink(
     src: PathBuf,
     dst: PathBuf,
     span: Span,
+    verbose: bool,
     _ctrlc_status: &Option<Arc<AtomicBool>>,
-) -> Value {
+) -> Result<(), ShellError> {
     let target_path = read_link(src.as_path());
     let target_path = match target_path {
         Ok(p) => p,
         Err(err) => {
-            return Value::error(
-                ShellError::GenericError(
-                    err.to_string(),
-                    err.to_string(),
-                    Some(span),
-                    None,
-                    vec![],
-                ),
-                span,
-            )
+            return Err(ShellError::GenericError(
+                err.to_string(),
+                err.to_string(),
+                Some(span),
+                None,
+                vec![],
+            ));
         }
     };
 
@@ -559,20 +589,26 @@ fn copy_symlink(
 
     match create_symlink(target_path.as_path(), dst.as_path()) {
         Ok(_) => {
-            let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::string(msg, span)
+            if verbose {
+                let msg = format!("copied {:} to {:}\n", src.display(), dst.display());
+                stderr_write_all_and_flush(msg)?;
+            }
+            Ok(())
         }
-        Err(e) => Value::error(
-            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
-            span,
-        ),
+        Err(e) => Err(ShellError::GenericError(
+            e.to_string(),
+            e.to_string(),
+            Some(span),
+            None,
+            vec![],
+        )),
     }
 }
 
 // Function to convert io::Errors to more specific ShellErrors
-fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> Value {
+fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Span) -> ShellError {
     let message_src = format!(
-        "copying file '{src_display}' failed: {error}",
+        "Copying file '{src_display}' failed: {error}",
         src_display = src.display()
     );
 
@@ -581,7 +617,7 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         dst_display = dst.display()
     );
 
-    let shell_error = match error.kind() {
+    match error.kind() {
         ErrorKind::NotFound => {
             if std::path::Path::new(&dst).exists() {
                 ShellError::FileNotFoundCustom(message_src, span)
@@ -604,7 +640,5 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
         _ => ShellError::IOErrorSpanned(message_src, span),
-    };
-
-    Value::error(shell_error, span)
+    }
 }

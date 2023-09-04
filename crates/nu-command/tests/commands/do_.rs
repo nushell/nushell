@@ -1,6 +1,9 @@
 use nu_test_support::nu;
-#[cfg(not(windows))]
-use nu_test_support::pipeline;
+use nu_test_support::{
+    fs::{files_exist_at, Stub::EmptyFile},
+    pipeline,
+    playground::Playground,
+};
 
 #[test]
 fn capture_errors_works() {
@@ -153,4 +156,52 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
 fn ignore_error_works_with_list_stream() {
     let actual = nu!(r#"do -i { ["a", $nothing, "b"] | ansi strip }"#);
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn ignore_fs_related_errors() {
+    Playground::setup("ignore_fs_related_errors", |dirs, playground| {
+        let file_names = vec!["test1.txt", "test2.txt", "test3.txt"];
+
+        let files = file_names
+            .iter()
+            .map(|file_name| EmptyFile(file_name))
+            .collect();
+
+        playground.mkdir("subdir").with_files(files);
+
+        let test_dir = dirs.test();
+        let subdir = test_dir.join("subdir");
+        let mut test_dir_permissions = playground.permissions(test_dir);
+        let mut subdir_permissions = playground.permissions(&subdir);
+
+        test_dir_permissions.set_readonly(true);
+        subdir_permissions.set_readonly(true);
+        test_dir_permissions.apply().unwrap();
+        subdir_permissions.apply().unwrap();
+
+        let actual = nu!(cwd: test_dir, "do -i { rm test*.txt }");
+
+        assert!(
+            actual.err.is_empty(),
+            "`do -i {{ rm test*.txt }}` should ignore errors"
+        );
+        assert!(files_exist_at(file_names.clone(), test_dir));
+
+        let actual = nu!(cwd: test_dir, "do -i { cp test*.txt subdir/ }");
+
+        assert!(
+            actual.err.is_empty(),
+            "`do -i {{ cp test*.txt subdir/ }}` should ignore errors"
+        );
+        assert!(!files_exist_at(file_names.clone(), &subdir));
+
+        let actual = nu!(cwd: test_dir, "do -i { mv test*.txt subdir/ }");
+
+        assert!(
+            actual.err.is_empty(),
+            "do -i {{ mv test*.txt subdir/ }} should ignore errors"
+        );
+        assert!(!files_exist_at(file_names.clone(), &subdir));
+    });
 }
