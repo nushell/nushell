@@ -143,3 +143,9 @@ fn reject_optional_row() {
     let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
     assert_eq!(actual.out, "[[foo]; [bar]]");
 }
+
+#[test]
+fn reject_list_args() {
+    let actual = nu!("let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(actual.out, "[[name]; [Cargo.toml], [Cargo.lock], [src]]")
+}
