@@ -415,6 +415,16 @@ pub fn eval_constant(
                     }
                 }
                 Operator::Math(math) => {
+                    match (&math, &lhs.expr, &rhs.expr) {
+                        // Multiple may generate super long string
+                        // and stop the whole shell while highlighting
+                        // e.g. '2 ** 60 * a'
+                        (Math::Multiply, Expr::String(..), _)
+                        | (Math::Multiply, _, Expr::String(..)) => {
+                            return Err(ShellError::NotAConstant(expr.span))
+                        }
+                        _ => {}
+                    }
                     let lhs = eval_constant(working_set, lhs)?;
                     let rhs = eval_constant(working_set, rhs)?;
 
