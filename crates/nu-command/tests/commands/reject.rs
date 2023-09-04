@@ -145,7 +145,24 @@ fn reject_optional_row() {
 }
 
 #[test]
-fn reject_list_args() {
+fn reject_list_columns() {
     let actual = nu!("let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
-    assert_eq!(actual.out, "[[name]; [Cargo.toml], [Cargo.lock], [src]]")
+    assert_eq!(actual.out, "[[name]; [Cargo.toml], [Cargo.lock], [src]]");
+}
+
+#[test]
+fn reject_list_rows() {
+    let actual = nu!("let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(
+        actual.out,
+        "[[name, type, size]; [Cargo.lock, file, 10000000b]]"
+    );
+}
+#[test]
+fn rject_list_mixed() {
+    let actual = nu!("let arg = [ type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(
+        actual.out,
+        "[[name, size]; [Cargp.toml, 10000000b], [Cargo.lock, 10000000b]]"
+    );
 }
