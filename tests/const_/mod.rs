@@ -133,6 +133,15 @@ fn const_binary_operator(#[case] inp: &[&str], #[case] expect: &str) {
     assert_eq!(actual.out, expect);
 }
 
+#[rstest]
+#[case(&["const x = (1..3)", "$x | math sum"], "6")]
+#[case(&["const x = (1..3)", "$x | describe"], "range")]
+fn const_range(#[case] inp: &[&str], #[case] expect: &str) {
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, expect);
+}
+
+
 #[test]
 fn const_subexpression_supported() {
     let inp = &["const x = ('spam')", "$x"];
