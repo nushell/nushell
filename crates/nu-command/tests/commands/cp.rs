@@ -318,6 +318,7 @@ fn copies_same_file_twice_impl(progress: bool) {
 }
 
 #[test]
+#[ignore = "Behavior not supported by uutils cp"]
 fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
     copy_files_using_glob_two_parents_up_using_multiple_dots_imp(false);
     copy_files_using_glob_two_parents_up_using_multiple_dots_imp(true);
@@ -528,6 +529,7 @@ fn copy_identical_file_impl(progress: bool) {
 }
 
 #[test]
+#[ignore = "File name in progress bar not on uutils impl"]
 fn copy_ignores_ansi() {
     copy_ignores_ansi_impl(false);
     copy_ignores_ansi_impl(true);
