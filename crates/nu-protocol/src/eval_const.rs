@@ -349,23 +349,29 @@ pub fn eval_constant(
             let from = if let Some(f) = from {
                 eval_constant(working_set, f)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Nothing {
+                    internal_span: expr.span,
+                }
             };
 
             let next = if let Some(s) = next {
                 eval_constant(working_set, s)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Nothing {
+                    internal_span: expr.span,
+                }
             };
 
             let to = if let Some(t) = to {
                 eval_constant(working_set, t)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::Nothing {
+                    internal_span: expr.span,
+                }
             };
             Ok(Value::Range {
                 val: Box::new(Range::new(expr.span, from, next, to, operator)?),
-                span: expr.span,
+                internal_span: expr.span,
             })
         }
         Expr::UnaryNot(expr) => {
