@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,7 +40,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[0,1,2,3] | append 4",
+                example: "[0 1 2 3] | append 4",
                 description: "Append one integer to a list",
                 result: Some(Value::list(
                     vec![
@@ -75,7 +75,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 )),
             },
             Example {
-                example: "[0,1] | append [2,3,4]",
+                example: "[0 1] | append [2 3 4]",
                 description: "Append three integer items",
                 result: Some(Value::list(
                     vec![
@@ -89,7 +89,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 )),
             },
             Example {
-                example: "[0,1] | append [2,nu,4,shell]",
+                example: "[0 1] | append [2 nu 4 shell]",
                 description: "Append integers and strings",
                 result: Some(Value::list(
                     vec![
@@ -99,6 +99,20 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                         Value::test_string("nu"),
                         Value::test_int(4),
                         Value::test_string("shell"),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                example: "[0 1] | append 2..4",
+                description: "Append a range of integers to a list",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
                     ],
                     Span::test_data(),
                 )),
@@ -113,32 +127,14 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let val: Value = call.req(engine_state, stack, 0)?;
-        let vec: Vec<Value> = process_value(val);
+        let other: Value = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
 
         Ok(input
             .into_iter()
-            .chain(vec)
+            .chain(other.into_pipeline_data())
             .into_pipeline_data(engine_state.ctrlc.clone())
             .set_metadata(metadata))
-    }
-}
-
-fn process_value(val: Value) -> Vec<Value> {
-    match val {
-        Value::List {
-            vals: input_vals, ..
-        } => {
-            let mut output = vec![];
-            for input_val in input_vals {
-                output.push(input_val);
-            }
-            output
-        }
-        _ => {
-            vec![val]
-        }
     }
 }
 
