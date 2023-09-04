@@ -339,17 +339,19 @@ impl Iterator for ParseStreamer {
                 }
             }
 
-            let Some(v) = self.stream.next() else { return None };
+            let Some(v) = self.stream.next() else {
+                return None;
+            };
 
             let Ok(s) = v.as_string() else {
-                return Some(Value::error (
+                return Some(Value::error(
                     ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
                         src_span: v.span(),
                     },
-                     v.span(),
-                ))
+                    v.span(),
+                ));
             };
 
             let parsed = stream_helper(
@@ -412,8 +414,8 @@ impl Iterator for ParseStreamerExternal {
                     dst_span: self.span,
                     src_span: self.span,
                 },
-               self.span,
-            ))
+                self.span,
+            ));
         };
 
         stream_helper(
