@@ -380,6 +380,8 @@ fn create_mouse_event(
             MouseEventKind::Moved => "moved".to_string(),
             MouseEventKind::ScrollDown => "scroll_down".to_string(),
             MouseEventKind::ScrollUp => "scroll_up".to_string(),
+            MouseEventKind::ScrollLeft => "scroll_left".to_string(),
+            MouseEventKind::ScrollRight => "scroll_right".to_string(),
         };
 
         let mut record = record! {

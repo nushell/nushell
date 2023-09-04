@@ -686,7 +686,7 @@ version = "7.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ab77dbd8adecaf3f0db40581631b995f312a8a5ae3aa9993188bb8f23d83a5b"
 dependencies = [
- "crossterm",
+ "crossterm 0.26.1",
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "unicode-width",
@@ -808,7 +808,7 @@ dependencies = [
  "clap",
  "criterion-plot",
  "is-terminal",
- "itertools",
+ "itertools 0.10.5",
  "num-traits",
  "once_cell",
  "oorandom",
@@ -829,7 +829,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
 dependencies = [
  "cast",
- "itertools",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -888,6 +888,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a84cda67535339806297f1b331d6dd6320470d2a0fe65381e79ee9e156dd3d13"
 dependencies = [
  "bitflags 1.3.2",
+ "crossterm_winapi",
+ "libc",
+ "mio",
+ "parking_lot",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f476fe445d41c9e991fd07515a6f463074b782242ccf4a5b7b1d1012e70824df"
+dependencies = [
+ "bitflags 2.3.3",
  "crossterm_winapi",
  "libc",
  "mio",
@@ -1823,6 +1839,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c785eefb63ebd0e33416dfcb8d6da0bf27ce752843a45632a67bf10d4d4b5c4"
+
+[[package]]
 name = "inotify"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1924,6 +1946,15 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]
@@ -2567,7 +2598,7 @@ version = "0.84.1"
 dependencies = [
  "assert_cmd",
  "criterion",
- "crossterm",
+ "crossterm 0.27.0",
  "ctrlc",
  "log",
  "miette",
@@ -2622,7 +2653,7 @@ name = "nu-cli"
 version = "0.84.1"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.27.0",
  "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
@@ -2708,7 +2739,7 @@ name = "nu-cmd-lang"
 version = "0.84.1"
 dependencies = [
  "fancy-regex",
- "itertools",
+ "itertools 0.10.5",
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
@@ -2744,7 +2775,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "chrono-tz",
- "crossterm",
+ "crossterm 0.27.0",
  "csv",
  "dialoguer",
  "digest",
@@ -2758,7 +2789,7 @@ dependencies = [
  "htmlescape",
  "indexmap 2.0.0",
  "indicatif",
- "itertools",
+ "itertools 0.10.5",
  "libc",
  "log",
  "lscolors",
@@ -2843,7 +2874,7 @@ name = "nu-explore"
 version = "0.84.1"
 dependencies = [
  "ansi-str",
- "crossterm",
+ "crossterm 0.27.0",
  "lscolors",
  "nu-ansi-term",
  "nu-color-config",
@@ -2880,7 +2911,7 @@ version = "0.84.1"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools",
+ "itertools 0.10.5",
  "log",
  "nu-engine",
  "nu-path",
@@ -3931,7 +3962,7 @@ checksum = "09963355b9f467184c04017ced4a2ba2d75cbcb4e7462690d388233253d4b1a9"
 dependencies = [
  "anstyle",
  "difflib",
- "itertools",
+ "itertools 0.10.5",
  "predicates-core",
 ]
 
@@ -4114,13 +4145,17 @@ dependencies = [
 
 [[package]]
 name = "ratatui"
-version = "0.20.1"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcc0d032bccba900ee32151ec0265667535c230169f5a011154cdcd984e16829"
+checksum = "2e2e4cd95294a85c3b4446e63ef054eea43e0205b1fd60120c16b74ff7ff96ad"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.3.3",
  "cassowary",
- "crossterm",
+ "crossterm 0.27.0",
+ "indoc",
+ "itertools 0.11.0",
+ "paste",
+ "strum 0.25.0",
  "unicode-segmentation",
  "unicode-width",
 ]
@@ -4179,13 +4214,12 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3defc4467a8909614bcb02cb304a3e8472c31f7a44e6c6c287eb9575b212bc4d"
+source = "git+https://github.com/nushell/reedline.git?branch=main#31257a4c5413d4a262912359f515907b8295db5c"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.27.0",
  "fd-lock",
- "itertools",
+ "itertools 0.10.5",
  "nu-ansi-term",
  "rusqlite",
  "serde",
@@ -4682,9 +4716,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.15"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "732768f1176d21d09e076c23a93123d40bba92d50c4058da34d45c8de8e682b9"
+checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
 dependencies = [
  "libc",
  "signal-hook-registry",
@@ -4901,6 +4935,9 @@ name = "strum"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+dependencies = [
+ "strum_macros 0.25.1",
+]
 
 [[package]]
 name = "strum_macros"
@@ -5654,7 +5691,7 @@ checksum = "06c7a3bac6110ac062b7b422a442b7ee23e07209e2784a036654cab1e71bbafc"
 dependencies = [
  "bstr 0.2.17",
  "const_format",
- "itertools",
+ "itertools 0.10.5",
  "nom",
  "nom-supreme",
  "pori",
