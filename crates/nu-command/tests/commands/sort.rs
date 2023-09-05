@@ -99,3 +99,9 @@ fn sort_empty() {
 
     assert_eq!(actual.out, "[]");
 }
+
+#[test]
+fn sort_randomly() {
+    let actual = nu!("['a' 'b' 'c' 'd' 'e'] | sort -R | length");
+    assert_eq!(actual.out, "5");
+}

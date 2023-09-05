@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
     ShellError, Signature, Span, Type, Value,
 };
+use rand::seq::SliceRandom;
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -36,6 +37,11 @@ impl Command for Sort {
                 "natural",
                 "Sort alphanumeric string-based values naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),
+            )
+            .switch(
+                "random",
+                "Sort by a random order, create a random permutation of the input.",
+                Some('R'),
             )
             .category(Category::Filters)
     }
@@ -126,6 +132,11 @@ impl Command for Sort {
                     vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
                 })),
             },
+            Example {
+                description: "Sort in a random order, creating a random permutation of inputs.",
+                example: "[1, 2, 3] | sort -R",
+                result: None,
+            },
         ]
     }
 
@@ -139,6 +150,7 @@ impl Command for Sort {
         let reverse = call.has_flag("reverse");
         let insensitive = call.has_flag("ignore-case");
         let natural = call.has_flag("natural");
+        let random = call.has_flag("random");
         let metadata = &input.metadata();
 
         let span = input.span().unwrap_or(call.head);
@@ -146,7 +158,15 @@ impl Command for Sort {
             // Records have two sorting methods, toggled by presence or absence of -v
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag("values");
-                let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
+                let record = sort_record(
+                    val,
+                    span,
+                    sort_by_value,
+                    reverse,
+                    insensitive,
+                    natural,
+                    random,
+                );
                 Ok(record.into_pipeline_data())
             }
             // Other values are sorted here
@@ -158,10 +178,15 @@ impl Command for Sort {
             pipe_data => {
                 let mut vec: Vec<_> = pipe_data.into_iter().collect();
 
-                sort(&mut vec, call.head, insensitive, natural)?;
+                if random {
+                    let mut thread_rng = rand::thread_rng();
+                    vec.shuffle(&mut thread_rng);
+                } else {
+                    sort(&mut vec, call.head, insensitive, natural)?;
 
-                if reverse {
-                    vec.reverse()
+                    if reverse {
+                        vec.reverse()
+                    }
                 }
 
                 let iter = vec.into_iter();
@@ -182,64 +207,70 @@ fn sort_record(
     reverse: bool,
     insensitive: bool,
     natural: bool,
+    random: bool,
 ) -> Value {
     let mut input_pairs: Vec<(String, Value)> = record.into_iter().collect();
-    input_pairs.sort_by(|a, b| {
-        // Extract the data (if sort_by_value) or the column names for comparison
-        let left_res = if sort_by_value {
-            match &a.1 {
-                Value::String { val, .. } => val.clone(),
-                val => {
-                    if let Ok(val) = val.as_string() {
-                        val
-                    } else {
-                        // Values that can't be turned to strings are disregarded by the sort
-                        // (same as in sort_utils.rs)
-                        return Ordering::Equal;
+    if random {
+        let mut thread_rng = rand::thread_rng();
+        input_pairs.shuffle(&mut thread_rng);
+    } else {
+        input_pairs.sort_by(|a, b| {
+            // Extract the data (if sort_by_value) or the column names for comparison
+            let left_res = if sort_by_value {
+                match &a.1 {
+                    Value::String { val, .. } => val.clone(),
+                    val => {
+                        if let Ok(val) = val.as_string() {
+                            val
+                        } else {
+                            // Values that can't be turned to strings are disregarded by the sort
+                            // (same as in sort_utils.rs)
+                            return Ordering::Equal;
+                        }
                     }
                 }
-            }
-        } else {
-            a.0.clone()
-        };
-        let right_res = if sort_by_value {
-            match &b.1 {
-                Value::String { val, .. } => val.clone(),
-                val => {
-                    if let Ok(val) = val.as_string() {
-                        val
-                    } else {
-                        // Values that can't be turned to strings are disregarded by the sort
-                        // (same as in sort_utils.rs)
-                        return Ordering::Equal;
+            } else {
+                a.0.clone()
+            };
+            let right_res = if sort_by_value {
+                match &b.1 {
+                    Value::String { val, .. } => val.clone(),
+                    val => {
+                        if let Ok(val) = val.as_string() {
+                            val
+                        } else {
+                            // Values that can't be turned to strings are disregarded by the sort
+                            // (same as in sort_utils.rs)
+                            return Ordering::Equal;
+                        }
                     }
                 }
+            } else {
+                b.0.clone()
+            };
+
+            // Convert to lowercase if case-insensitive
+            let left = if insensitive {
+                left_res.to_ascii_lowercase()
+            } else {
+                left_res
+            };
+            let right = if insensitive {
+                right_res.to_ascii_lowercase()
+            } else {
+                right_res
+            };
+
+            if natural {
+                compare_str(left, right)
+            } else {
+                left.partial_cmp(&right).unwrap_or(Ordering::Equal)
             }
-        } else {
-            b.0.clone()
-        };
+        });
 
-        // Convert to lowercase if case-insensitive
-        let left = if insensitive {
-            left_res.to_ascii_lowercase()
-        } else {
-            left_res
-        };
-        let right = if insensitive {
-            right_res.to_ascii_lowercase()
-        } else {
-            right_res
-        };
-
-        if natural {
-            compare_str(left, right)
-        } else {
-            left.partial_cmp(&right).unwrap_or(Ordering::Equal)
+        if reverse {
+            input_pairs.reverse();
         }
-    });
-
-    if reverse {
-        input_pairs.reverse();
     }
 
     Value::record(input_pairs.into_iter().collect(), rec_span)
