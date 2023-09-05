@@ -2,8 +2,8 @@ use alphanumeric_sort::compare_str;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    ShellError, Signature, Span, Type, Value,
 };
 use std::cmp::Ordering;
 
@@ -49,84 +49,82 @@ impl Command for Sort {
             Example {
                 example: "[2 0 1] | sort",
                 description: "sort the list by increasing value",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[2 0 1] | sort -r",
                 description: "sort the list by decreasing value",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[betty amy sarah] | sort",
                 description: "sort a list of strings",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("amy"),
                         Value::test_string("betty"),
                         Value::test_string("sarah"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[betty amy sarah] | sort -r",
                 description: "sort a list of strings in reverse",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("sarah"),
                         Value::test_string("betty"),
                         Value::test_string("amy"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Sort strings (case-insensitive)",
                 example: "[airplane Truck Car] | sort -i",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("airplane"),
                         Value::test_string("Car"),
                         Value::test_string("Truck"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Sort strings (reversed case-insensitive)",
                 example: "[airplane Truck Car] | sort -i -r",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("Truck"),
                         Value::test_string("Car"),
                         Value::test_string("airplane"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Sort record by key (case-insensitive)",
                 example: "{b: 3, a: 4} | sort",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![Value::test_int(4), Value::test_int(3)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Sort record by value",
                 example: "{b: 4, a: 3, c:1} | sort -v",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["c".to_string(), "a".to_string(), "b".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
         ]
     }
@@ -143,19 +141,12 @@ impl Command for Sort {
         let natural = call.has_flag("natural");
         let metadata = &input.metadata();
 
+        let span = input.span().unwrap_or(call.head);
         match input {
             // Records have two sorting methods, toggled by presence or absence of -v
-            PipelineData::Value(Value::Record { cols, vals, span }, ..) => {
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag("values");
-                let record = sort_record(
-                    cols,
-                    vals,
-                    span,
-                    sort_by_value,
-                    reverse,
-                    insensitive,
-                    natural,
-                );
+                let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
                 Ok(record.into_pipeline_data())
             }
             // Other values are sorted here
@@ -185,15 +176,14 @@ impl Command for Sort {
 }
 
 fn sort_record(
-    cols: Vec<String>,
-    vals: Vec<Value>,
+    record: Record,
     rec_span: Span,
     sort_by_value: bool,
     reverse: bool,
     insensitive: bool,
     natural: bool,
 ) -> Value {
-    let mut input_pairs: Vec<(String, Value)> = cols.into_iter().zip(vals).collect();
+    let mut input_pairs: Vec<(String, Value)> = record.into_iter().collect();
     input_pairs.sort_by(|a, b| {
         // Extract the data (if sort_by_value) or the column names for comparison
         let left_res = if sort_by_value {
@@ -248,21 +238,11 @@ fn sort_record(
         }
     });
 
-    let mut new_cols = Vec::with_capacity(input_pairs.len());
-    let mut new_vals = Vec::with_capacity(input_pairs.len());
-    for (col, val) in input_pairs {
-        new_cols.push(col);
-        new_vals.push(val)
-    }
     if reverse {
-        new_cols.reverse();
-        new_vals.reverse();
+        input_pairs.reverse();
     }
-    Value::Record {
-        cols: new_cols,
-        vals: new_vals,
-        span: rec_span,
-    }
+
+    Value::record(input_pairs.into_iter().collect(), rec_span)
 }
 
 pub fn sort(
@@ -272,30 +252,26 @@ pub fn sort(
     natural: bool,
 ) -> Result<(), ShellError> {
     match vec.first() {
-        Some(Value::Record {
-            cols,
-            vals: _input_vals,
-            ..
-        }) => {
-            let columns = cols.clone();
+        Some(Value::Record { val, .. }) => {
+            let columns = val.cols.clone();
             vec.sort_by(|a, b| process(a, b, &columns, span, insensitive, natural));
         }
         _ => {
             vec.sort_by(|a, b| {
+                let span_a = a.span();
+                let span_b = b.span();
                 if insensitive {
                     let lowercase_left = match a {
-                        Value::String { val, span } => Value::String {
-                            val: val.to_ascii_lowercase(),
-                            span: *span,
-                        },
+                        Value::String { val, .. } => {
+                            Value::string(val.to_ascii_lowercase(), span_a)
+                        }
                         _ => a.clone(),
                     };
 
                     let lowercase_right = match b {
-                        Value::String { val, span } => Value::String {
-                            val: val.to_ascii_lowercase(),
-                            span: *span,
-                        },
+                        Value::String { val, .. } => {
+                            Value::string(val.to_ascii_lowercase(), span_b)
+                        }
                         _ => b.clone(),
                     };
 
@@ -336,30 +312,26 @@ pub fn process(
 
         let left_res = match left_value {
             Some(left_res) => left_res,
-            None => Value::Nothing { span },
+            None => Value::nothing(span),
         };
 
         let right_value = right.get_data_by_key(column);
 
         let right_res = match right_value {
             Some(right_res) => right_res,
-            None => Value::Nothing { span },
+            None => Value::nothing(span),
         };
 
         let result = if insensitive {
+            let span_left = left_res.span();
+            let span_right = right_res.span();
             let lowercase_left = match left_res {
-                Value::String { val, span } => Value::String {
-                    val: val.to_ascii_lowercase(),
-                    span,
-                },
+                Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), span_left),
                 _ => left_res,
             };
 
             let lowercase_right = match right_res {
-                Value::String { val, span } => Value::String {
-                    val: val.to_ascii_lowercase(),
-                    span,
-                },
+                Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), span_right),
                 _ => right_res,
             };
             if natural {

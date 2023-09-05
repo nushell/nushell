@@ -114,10 +114,7 @@ impl Command for LazyAggregate {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
 
         let group_by = NuLazyGroupBy::try_from_pipeline(input, call.head)?;
@@ -172,7 +169,6 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         },
         Expr::Filter { input: expr, .. }
         | Expr::Slice { input: expr, .. }
-        | Expr::Cache { input: expr, .. }
         | Expr::Cast { expr, .. }
         | Expr::Sort { expr, .. }
         | Expr::Take { expr, .. }
@@ -192,7 +188,8 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Wildcard
         | Expr::RenameAlias { .. }
         | Expr::Count
-        | Expr::Nth(_) => None,
+        | Expr::Nth(_)
+        | Expr::Selector(_) => None,
     }
 }
 

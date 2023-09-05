@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 use regex::Regex;
 
@@ -63,8 +63,8 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into columns by the specified separator",
                 example: "'a--b--c' | split column '--'",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "column1".to_string(),
                             "column2".to_string(),
@@ -75,16 +75,15 @@ impl Command for SubCommand {
                             Value::test_string("b"),
                             Value::test_string("c"),
                         ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column -c ''",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "column1".to_string(),
                             "column2".to_string(),
@@ -95,48 +94,43 @@ impl Command for SubCommand {
                             Value::test_string("b"),
                             Value::test_string("c"),
                         ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of strings into a table",
                 example: "['a-b' 'c-d'] | split column -",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_string("b")],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("c"), Value::test_string("d")],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of strings into a table, ignoring padding",
                 example: r"['a -  b' 'c  -    d'] | split column -r '\s*-\s*'",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_string("b")],
-                            span: Span::test_data(),
-                        },
-                        Value::Record {
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("c"), Value::test_string("d")],
-                            span: Span::test_data(),
-                        },
+                        }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -190,8 +184,7 @@ fn split_column_helper(
         let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
         // If they didn't provide column names, make up our own
-        let mut cols = vec![];
-        let mut vals = vec![];
+        let mut record = Record::new();
         if positional.is_empty() {
             let mut gen_columns = vec![];
             for i in 0..split_result.len() {
@@ -199,32 +192,30 @@ fn split_column_helper(
             }
 
             for (&k, v) in split_result.iter().zip(&gen_columns) {
-                cols.push(v.to_string());
-                vals.push(Value::string(k, head));
+                record.push(v, Value::string(k, head));
             }
         } else {
             for (&k, v) in split_result.iter().zip(&positional) {
-                cols.push(v.into());
-                vals.push(Value::string(k, head));
+                record.push(v, Value::string(k, head));
             }
         }
-        vec![Value::Record {
-            cols,
-            vals,
-            span: head,
-        }]
+        vec![Value::record(record, head)]
     } else {
-        match v.span() {
-            Ok(span) => vec![Value::Error {
-                error: Box::new(ShellError::PipelineMismatch {
-                    exp_input_type: "string".into(),
-                    dst_span: head,
-                    src_span: span,
-                }),
-            }],
-            Err(error) => vec![Value::Error {
-                error: Box::new(error),
-            }],
+        match v {
+            Value::Error { error, .. } => {
+                vec![Value::error(*error.clone(), head)]
+            }
+            v => {
+                let span = v.span();
+                vec![Value::error(
+                    ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    },
+                    span,
+                )]
+            }
         }
     }
 }

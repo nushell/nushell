@@ -297,3 +297,31 @@ fn writes_out_range() {
         assert_eq!(actual, "[\n  1,\n  2,\n  3\n]")
     })
 }
+
+// https://github.com/nushell/nushell/issues/10044
+#[test]
+fn save_file_correct_relative_path() {
+    Playground::setup("save_test_15", |dirs, sandbox| {
+        sandbox.with_files(vec![Stub::FileWithContent(
+            "test.nu",
+            r#"
+                export def main [] {
+                    let foo = "foo"
+                    mkdir bar
+                    cd bar
+                    'foo!' | save $foo
+                }
+            "#,
+        )]);
+
+        let expected_file = dirs.test().join("bar/foo");
+
+        nu!(
+            cwd: dirs.test(),
+            r#"use test.nu; test"#
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "foo!");
+    })
+}

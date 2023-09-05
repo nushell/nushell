@@ -192,7 +192,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrSubstring,
             StrTrim,
             StrUpcase,
-            FormatDate
+            FormatDate,
+            FormatDuration,
+            FormatFilesize,
         };
 
         // FileSystem
@@ -323,6 +325,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             MathLog,
         };
 
+        // Bytes
+        bind_command! {
+            Bytes,
+            BytesLen,
+            BytesStartsWith,
+            BytesEndsWith,
+            BytesReverse,
+            BytesReplace,
+            BytesAdd,
+            BytesAt,
+            BytesIndexOf,
+            BytesCollect,
+            BytesRemove,
+            BytesBuild
+        }
+
         // Network
         bind_command! {
             Http,
@@ -372,7 +390,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IsAdmin,
         };
 
-        // Deprecated
+        // Removed
         bind_command! {
             LetEnv,
             DateFormat,

@@ -114,15 +114,13 @@ fn eval_benchmarks(c: &mut Criterion) {
 
 // generate a new table data with `row_cnt` rows, `col_cnt` columns.
 fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
-    let columns: Vec<String> = (0..col_cnt).map(|x| format!("col_{x}")).collect();
-    let vals: Vec<Value> = (0..col_cnt as i64).map(Value::test_int).collect();
-
-    Value::List {
-        vals: (0..row_cnt)
-            .map(|_| Value::test_record(columns.clone(), vals.clone()))
+    let record = Value::test_record(
+        (0..col_cnt)
+            .map(|x| (format!("col_{x}"), Value::test_int(x as i64)))
             .collect(),
-        span: Span::test_data(),
-    }
+    );
+
+    Value::list(vec![record; row_cnt], Span::test_data())
 }
 
 fn encoding_benchmarks(c: &mut Criterion) {

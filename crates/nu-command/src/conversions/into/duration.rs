@@ -3,7 +3,8 @@ use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{
     ast::{Call, CellPath, Expr},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Unit, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Unit,
+    Value,
 };
 
 const NS_PER_SEC: i64 = 1_000_000_000;
@@ -61,76 +62,50 @@ impl Command for SubCommand {
             Example {
                 description: "Convert duration string to duration value",
                 example: "'7min' | into duration",
-                result: Some(Value::Duration {
-                    val: 7 * 60 * NS_PER_SEC,
-                    span,
-                }),
+                result: Some(Value::duration(7 * 60 * NS_PER_SEC, span)),
             },
             Example {
                 description: "Convert compound duration string to duration value",
                 example: "'1day 2hr 3min 4sec' | into duration",
-                result: Some(Value::Duration {
-                    val: (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4) * NS_PER_SEC,
+                result: Some(Value::duration(
+                    (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4) * NS_PER_SEC,
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Convert table of duration strings to table of duration values",
                 example:
                     "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::Record {
+                result: Some(Value::list(
+                    vec![
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: NS_PER_SEC,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
+                            vals: vec![Value::duration(NS_PER_SEC, span)],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 2 * 60 * NS_PER_SEC,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
+                            vals: vec![Value::duration(2 * 60 * NS_PER_SEC, span)],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 3 * 60 * 60 * NS_PER_SEC,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
+                            vals: vec![Value::duration(3 * 60 * 60 * NS_PER_SEC, span)],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 4 * 24 * 60 * 60 * NS_PER_SEC,
-                                span,
-                            }],
-                            span,
-                        },
-                        Value::Record {
+                            vals: vec![Value::duration(4 * 24 * 60 * 60 * NS_PER_SEC, span)],
+                        }),
+                        Value::test_record(Record {
                             cols: vec!["value".to_string()],
-                            vals: vec![Value::Duration {
-                                val: 5 * 7 * 24 * 60 * 60 * NS_PER_SEC,
-                                span,
-                            }],
-                            span,
-                        },
+                            vals: vec![Value::duration(5 * 7 * 24 * 60 * 60 * NS_PER_SEC, span)],
+                        }),
                     ],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "Convert duration to duration",
                 example: "420sec | into duration",
-                result: Some(Value::Duration {
-                    val: 7 * 60 * NS_PER_SEC,
-                    span,
-                }),
+                result: Some(Value::duration(7 * 60 * NS_PER_SEC, span)),
             },
         ]
     }
@@ -158,9 +133,7 @@ fn into_duration(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, span)));
                     if let Err(error) = r {
-                        return Value::Error {
-                            error: Box::new(error),
-                        };
+                        return Value::error(error, span);
                     }
                 }
 
@@ -230,27 +203,24 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 }
 
 fn action(input: &Value, span: Span) -> Value {
+    let value_span = input.span();
     match input {
         Value::Duration { .. } => input.clone(),
-        Value::String {
-            val,
-            span: value_span,
-        } => match compound_to_duration(val, *value_span) {
-            Ok(val) => Value::Duration { val, span },
-            Err(error) => Value::Error {
-                error: Box::new(error),
-            },
+        Value::String { val, .. } => match compound_to_duration(val, value_span) {
+            Ok(val) => Value::duration(val, span),
+            Err(error) => Value::error(error, span),
         },
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string or duration".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 
@@ -274,7 +244,7 @@ mod test {
     #[case("4\u{00B5}s", 4*1000)] // micro sign
     #[case("4\u{03BC}s", 4*1000)] // mu symbol
     #[case("5ms", 5 * 1000 * 1000)]
-    #[case("1sec", 1 * NS_PER_SEC)]
+    #[case("1sec", NS_PER_SEC)]
     #[case("7min", 7 * 60 * NS_PER_SEC)]
     #[case("42hr", 42 * 60 * 60 * NS_PER_SEC)]
     #[case("123day", 123 * 24 * 60 * 60 * NS_PER_SEC)]

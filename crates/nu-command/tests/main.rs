@@ -65,8 +65,8 @@ fn commands_declare_input_output_types() {
         let sig_name = cmd.signature().name;
         let category = cmd.signature().category;
 
-        if matches!(category, Category::Deprecated | Category::Custom(_)) {
-            // Deprecated commands don't have to conform
+        if matches!(category, Category::Removed | Category::Custom(_)) {
+            // Deprecated/Removed commands don't have to conform
             // TODO: also upgrade the `--features dataframe` commands
             continue;
         }

@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{record, ShellError, Span, Value};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -185,30 +185,6 @@ impl DirInfo {
 
 impl From<DirInfo> for Value {
     fn from(d: DirInfo) -> Self {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        cols.push("path".into());
-        vals.push(Value::string(d.path.display().to_string(), d.tag));
-
-        cols.push("apparent".into());
-        vals.push(Value::Filesize {
-            val: d.size as i64,
-            span: d.tag,
-        });
-
-        cols.push("physical".into());
-        vals.push(Value::Filesize {
-            val: d.blocks as i64,
-            span: d.tag,
-        });
-
-        cols.push("directories".into());
-        vals.push(value_from_vec(d.dirs, d.tag));
-
-        cols.push("files".into());
-        vals.push(value_from_vec(d.files, d.tag));
-
         // if !d.errors.is_empty() {
         //     let v = d
         //         .errors
@@ -223,51 +199,34 @@ impl From<DirInfo> for Value {
         //     })
         // }
 
-        Value::Record {
-            cols,
-            vals,
-            span: d.tag,
-        }
+        Value::record(
+            record! {
+                "path" => Value::string(d.path.display().to_string(), d.tag),
+                "apparent" => Value::filesize(d.size as i64, d.tag),
+                "physical" => Value::filesize(d.blocks as i64, d.tag),
+                "directories" => value_from_vec(d.dirs, d.tag),
+                "files" => value_from_vec(d.files, d.tag)
+            },
+            d.tag,
+        )
     }
 }
 
 impl From<FileInfo> for Value {
     fn from(f: FileInfo) -> Self {
-        let mut cols = vec![];
-        let mut vals = vec![];
-
-        cols.push("path".into());
-        vals.push(Value::string(f.path.display().to_string(), f.tag));
-
-        cols.push("apparent".into());
-        vals.push(Value::Filesize {
-            val: f.size as i64,
-            span: f.tag,
-        });
-
-        cols.push("physical".into());
-        vals.push(Value::Filesize {
-            val: match f.blocks {
-                Some(b) => b as i64,
-                None => 0i64,
-            },
-            span: f.tag,
-        });
-
-        cols.push("directories".into());
-        vals.push(Value::nothing(Span::unknown()));
-
-        cols.push("files".into());
-        vals.push(Value::nothing(Span::unknown()));
-
         // cols.push("errors".into());
         // vals.push(Value::nothing(Span::unknown()));
 
-        Value::Record {
-            cols,
-            vals,
-            span: f.tag,
-        }
+        Value::record(
+            record! {
+                "path" => Value::string(f.path.display().to_string(), f.tag),
+                "apparent" => Value::filesize(f.size as i64, f.tag),
+                "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
+                "directories" => Value::nothing(Span::unknown()),
+                "files" => Value::nothing(Span::unknown()),
+            },
+            f.tag,
+        )
     }
 }
 
@@ -279,9 +238,6 @@ where
         Value::nothing(tag)
     } else {
         let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
-        Value::List {
-            vals: values,
-            span: tag,
-        }
+        Value::list(values, tag)
     }
 }

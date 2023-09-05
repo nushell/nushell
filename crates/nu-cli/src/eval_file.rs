@@ -2,6 +2,7 @@ use crate::util::eval_source;
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
+use nu_engine::eval_block_with_early_return;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
@@ -98,23 +99,64 @@ pub fn evaluate_file(
         Value::string(file_path.to_string_lossy(), Span::unknown()),
     );
 
+    let source_filename = file_path
+        .file_name()
+        .expect("internal error: script missing filename");
+
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", file_path_str);
-    let _ = parse(&mut working_set, Some(file_path_str), &file, false);
+    let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
-    if working_set.find_decl(b"main").is_some() {
+    if let Some(err) = working_set.parse_errors.first() {
+        report_error(&working_set, err);
+        std::process::exit(1);
+    }
+
+    for block in &mut working_set.delta.blocks {
+        if block.signature.name == "main" {
+            block.signature.name = source_filename.to_string_lossy().to_string();
+        } else if block.signature.name.starts_with("main ") {
+            block.signature.name = source_filename.to_string_lossy().to_string()
+                + " "
+                + &String::from_utf8_lossy(&block.signature.name.as_bytes()[5..]);
+        }
+    }
+
+    let _ = engine_state.merge_delta(working_set.delta);
+
+    if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        if !eval_source(
+        let pipeline_data = eval_block_with_early_return(
             engine_state,
             stack,
-            &file,
-            file_path_str,
+            &block,
             PipelineData::empty(),
-            true,
-        ) {
+            false,
+            false,
+        )
+        .unwrap_or_else(|e| {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
             std::process::exit(1);
+        });
+
+        let result = pipeline_data.print(engine_state, stack, true, false);
+
+        match result {
+            Err(err) => {
+                let working_set = StateWorkingSet::new(engine_state);
+
+                report_error(&working_set, &err);
+                std::process::exit(1);
+            }
+            Ok(exit_code) => {
+                if exit_code != 0 {
+                    std::process::exit(exit_code as i32);
+                }
+            }
         }
+
         if !eval_source(
             engine_state,
             stack,
@@ -148,7 +190,7 @@ pub(crate) fn print_table_or_error(
     // Change the engine_state config to use the passed in configuration
     engine_state.set_config(config);
 
-    if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &**error);
         std::process::exit(1);
@@ -195,7 +237,7 @@ pub(crate) fn print_table_or_error(
 
 fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
     for item in pipeline_data {
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &*error);

@@ -84,7 +84,7 @@ impl Command for Commandline {
                         return Err(ShellError::CantConvert {
                             to_type: "int".to_string(),
                             from_type: "string".to_string(),
-                            span: cmd.span()?,
+                            span: cmd.span(),
                             help: Some(format!(
                                 r#"string "{cmd_str}" does not represent a valid integer"#
                             )),
@@ -102,7 +102,7 @@ impl Command for Commandline {
                 repl.buffer = cmd.as_string()?;
                 repl.cursor_pos = repl.buffer.len();
             }
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
             let repl = engine_state.repl_state.lock().expect("repl state mutex");
             if call.has_flag("cursor") {
@@ -112,17 +112,9 @@ impl Command for Commandline {
                     .chain(std::iter::once((repl.buffer.len(), "")))
                     .position(|(i, _c)| i == repl.cursor_pos)
                     .expect("Cursor position isn't on a grapheme boundary");
-                Ok(Value::String {
-                    val: char_pos.to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::string(char_pos.to_string(), call.head).into_pipeline_data())
             } else {
-                Ok(Value::String {
-                    val: repl.buffer.to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::string(repl.buffer.to_string(), call.head).into_pipeline_data())
             }
         }
     }

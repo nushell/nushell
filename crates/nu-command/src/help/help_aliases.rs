@@ -159,17 +159,13 @@ pub fn help_aliases(
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }
 
-        Ok(Value::String {
-            val: long_desc,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(long_desc, call.head).into_pipeline_data())
     }
 }
 
 fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
     let mut scope_data = ScopeData::new(engine_state, stack);
-    scope_data.populate_all();
+    scope_data.populate_decls();
 
     scope_data.collect_aliases(span)
 }

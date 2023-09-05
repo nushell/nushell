@@ -12,7 +12,7 @@ export def fmt [
     --verbose: bool # print extra information about the command's progress
 ] {
     if $verbose {
-        print $"running ('toolkit fmt' | pretty-print-command)"
+        print $"running ('toolkit fmt' | pretty-format-command)"
     }
 
     if $check {
@@ -20,7 +20,7 @@ export def fmt [
             cargo fmt --all -- --check
         } catch {
             error make --unspanned {
-                msg: $"\nplease run ('toolkit fmt' | pretty-print-command) to fix formatting!"
+                msg: $"\nplease run ('toolkit fmt' | pretty-format-command) to fix formatting!"
             }
         }
     } else {
@@ -37,7 +37,7 @@ export def clippy [
     --workspace: bool # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
-        print $"running ('toolkit clippy' | pretty-print-command)"
+        print $"running ('toolkit clippy' | pretty-format-command)"
     }
 
     try {
@@ -47,20 +47,16 @@ export def clippy [
             --
                 -D warnings
                 -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
         )} else {(
             cargo clippy
                 --features ($features | str join ",")
             --
                 -D warnings
                 -D clippy::unwrap_used
-                -A clippy::needless_collect
-                -A clippy::result_large_err
         )}
     } catch {
         error make --unspanned {
-            msg: $"\nplease fix the above ('clippy' | pretty-print-command) errors before continuing!"
+            msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
         }
     }
 }
@@ -93,8 +89,8 @@ export def "test stdlib" [
     cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
 }
 
-# print the pipe input inside backticks, dimmed and italic, as a pretty command
-def pretty-print-command [] {
+# formats the pipe input inside backticks, dimmed and italic, as a pretty command
+def pretty-format-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
@@ -247,7 +243,7 @@ export def "check pr" [
         return (report --fail-clippy)
     }
 
-    print $"running ('toolkit test' | pretty-print-command)"
+    print $"running ('toolkit test' | pretty-format-command)"
     try {
         if $fast {
             test --features $features --fast
@@ -258,7 +254,7 @@ export def "check pr" [
         return (report --fail-test)
     }
 
-    print $"running ('toolkit test stdlib' | pretty-print-command)"
+    print $"running ('toolkit test stdlib' | pretty-format-command)"
     try {
         test stdlib
     } catch {
@@ -274,10 +270,10 @@ export def "check pr" [
 export def setup-git-hooks [] {
     print "This command will change your local git configuration and hence modify your development workflow. Are you sure you want to continue? [y]"
     if (input) == "y" {
-        print $"running ('toolkit setup-git-hooks' | pretty-print-command)"
+        print $"running ('toolkit setup-git-hooks' | pretty-format-command)"
         git config --local core.hooksPath .githooks
     } else {
-        print $"aborting ('toolkit setup-git-hooks' | pretty-print-command)"
+        print $"aborting ('toolkit setup-git-hooks' | pretty-format-command)"
     }
 }
 
@@ -285,7 +281,7 @@ def build-nushell [features: string] {
     print $'(char nl)Building nushell'
     print '----------------------------'
 
-    cargo build --features $features
+    cargo build --features $features --locked
 }
 
 def build-plugin [] {
@@ -342,7 +338,7 @@ export def install [
     --all: bool  # install all plugins with Nushell
 ] {
     touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
-    cargo install --path . --features ($features | str join ",")
+    cargo install --path . --features ($features | str join ",") --locked --force
     if not $all {
         return
     }
@@ -355,6 +351,7 @@ export def install [
         nu_plugin_custom_values,
         nu_plugin_formats,
     ]
+
     for plugin in $plugins {
         $plugin | install-plugin
     }
@@ -439,7 +436,7 @@ def compute-coverage [] {
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
 export def cov [] {
     let start = (date now)
-    $env.NUSHELL_CARGO_TARGET = "ci"
+    $env.NUSHELL_CARGO_PROFILE = "ci"
 
     compute-coverage
 

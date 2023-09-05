@@ -1,4 +1,6 @@
+use nu_engine::current_dir;
 use nu_engine::CallExt;
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -7,7 +9,7 @@ use nu_protocol::{
 };
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
 
 use crate::progress_bar;
@@ -67,9 +69,20 @@ impl Command for Save {
         let progress = call.has_flag("progress");
 
         let span = call.head;
+        let cwd = current_dir(engine_state, stack)?;
 
-        let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
-        let stderr_path = call.get_flag::<Spanned<String>>(engine_state, stack, "stderr")?;
+        let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
+        let path = Spanned {
+            item: expand_path_with(path_arg.item, &cwd),
+            span: path_arg.span,
+        };
+
+        let stderr_path = call
+            .get_flag::<Spanned<PathBuf>>(engine_state, stack, "stderr")?
+            .map(|arg| Spanned {
+                item: expand_path_with(arg.item, cwd),
+                span: arg.span,
+            });
 
         match input {
             PipelineData::ExternalStream { stdout: None, .. } => {
@@ -250,7 +263,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
             Ok(val.into_bytes())
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(*error),
+        Value::Error { error, .. } => Err(*error),
         other => Ok(other.as_string()?.into_bytes()),
     }
 }
@@ -258,12 +271,12 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 /// Convert string path to [`Path`] and [`Span`] and check if this path
 /// can be used with given flags
 fn prepare_path(
-    path: &Spanned<String>,
+    path: &Spanned<PathBuf>,
     append: bool,
     force: bool,
 ) -> Result<(&Path, Span), ShellError> {
     let span = path.span;
-    let path = Path::new(&path.item);
+    let path = &path.item;
 
     if !(force || append) && path.exists() {
         Err(ShellError::GenericError(
@@ -303,8 +316,8 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
 
 /// Get output file and optional stderr file
 fn get_files(
-    path: &Spanned<String>,
-    stderr_path: &Option<Spanned<String>>,
+    path: &Spanned<PathBuf>,
+    stderr_path: &Option<Spanned<PathBuf>>,
     append: bool,
     force: bool,
 ) -> Result<(File, Option<File>), ShellError> {
@@ -372,13 +385,13 @@ fn stream_to_file(
                     Value::String { val, .. } => val.into_bytes(),
                     Value::Binary { val, .. } => val,
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "string or binary".into(),
                             wrong_type: other.get_type().to_string(),
                             dst_span: span,
-                            src_span: other.expect_span(),
+                            src_span: other.span(),
                         });
                     }
                 },

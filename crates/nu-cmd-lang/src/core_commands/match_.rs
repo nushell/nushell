@@ -53,8 +53,9 @@ impl Command for Match {
                     }
 
                     let guard_matches = if let Some(guard) = &match_.0.guard {
-                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)? else {
-                            return Err(ShellError::MatchGuardNotBool { span: guard.span});
+                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
+                        else {
+                            return Err(ShellError::MatchGuardNotBool { span: guard.span });
                         };
 
                         val

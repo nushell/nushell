@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = 0.83.2
+# version = "0.84.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -31,7 +31,7 @@ let dark_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: {bg: red fg: white}    
+    search_result: {bg: red fg: white}
     shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
@@ -94,7 +94,7 @@ let light_theme = {
     list: white
     block: white
     hints: dark_gray
-    search_result: {fg: white bg: red}    
+    search_result: {fg: white bg: red}
     shape_and: purple_bold
     shape_binary: purple_bold
     shape_block: blue_bold
@@ -158,6 +158,7 @@ $env.config = {
         mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
         index_mode: always # "always" show indexes, "never" show indexes, "auto" = show indexes when a table has "index" column
         show_empty: true # show 'empty list' and 'empty record' placeholders for command output
+        padding: { left: 1, right: 1 } # a left right padding of each column in a table
         trim: {
             methodology: wrapping # wrapping or truncating
             wrapping_try_keep_words: true # A strategy used by the 'wrapping' methodology
@@ -165,6 +166,8 @@ $env.config = {
         }
         header_on_separator: false # show header text on separator/border line
     }
+
+    error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages
 
     # datetime_format determines what a datetime rendered in the shell would look like.
     # Behavior without this configuration point will be to "humanize" the datetime display,
@@ -317,6 +320,7 @@ $env.config = {
                 until: [
                     { send: menu name: completion_menu }
                     { send: menunext }
+                    { edit: complete }
                 ]
             }
         }

@@ -54,51 +54,57 @@ impl<'a> StyleComputer<'a> {
             // Static values require no computation.
             Some(ComputableStyle::Static(s)) => *s,
             // Closures are run here.
-            Some(ComputableStyle::Closure(Value::Closure {
-                val: block_id,
-                captures,
-                span,
-            })) => {
-                let block = self.engine_state.get_block(*block_id).clone();
-                // Because captures_to_stack() clones, we don't need to use with_env() here
-                // (contrast with_env() usage in `each` or `do`).
-                let mut stack = self.stack.captures_to_stack(captures);
+            Some(ComputableStyle::Closure(v)) => {
+                let span = v.span();
+                match v {
+                    Value::Closure {
+                        val: block_id,
+                        captures,
+                        ..
+                    } => {
+                        let block = self.engine_state.get_block(*block_id).clone();
+                        // Because captures_to_stack() clones, we don't need to use with_env() here
+                        // (contrast with_env() usage in `each` or `do`).
+                        let mut stack = self.stack.captures_to_stack(captures);
 
-                // Support 1-argument blocks as well as 0-argument blocks.
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, value.clone());
-                    }
-                }
+                        // Support 1-argument blocks as well as 0-argument blocks.
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, value.clone());
+                            }
+                        }
 
-                // Run the block.
-                match eval_block(
-                    self.engine_state,
-                    &mut stack,
-                    &block,
-                    value.clone().into_pipeline_data(),
-                    false,
-                    false,
-                ) {
-                    Ok(v) => {
-                        let value = v.into_value(*span);
-                        // These should be the same color data forms supported by color_config.
-                        match value {
-                            Value::Record { .. } => color_record_to_nustyle(&value),
-                            Value::String { val, .. } => lookup_ansi_color_style(&val),
-                            _ => Style::default(),
+                        // Run the block.
+                        match eval_block(
+                            self.engine_state,
+                            &mut stack,
+                            &block,
+                            value.clone().into_pipeline_data(),
+                            false,
+                            false,
+                        ) {
+                            Ok(v) => {
+                                let value = v.into_value(span);
+                                // These should be the same color data forms supported by color_config.
+                                match value {
+                                    Value::Record { .. } => color_record_to_nustyle(&value),
+                                    Value::String { val, .. } => lookup_ansi_color_style(&val),
+                                    _ => Style::default(),
+                                }
+                            }
+                            // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
+                            // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
+                            // currently hook closure errors behave roughly the same.
+                            Err(e) => {
+                                eprintln!(
+                                    "Error: {:?}",
+                                    CliError(&e, &StateWorkingSet::new(self.engine_state))
+                                );
+                                Style::default()
+                            }
                         }
                     }
-                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
-                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
-                    // currently hook closure errors behave roughly the same.
-                    Err(e) => {
-                        eprintln!(
-                            "Error: {:?}",
-                            CliError(&e, &StateWorkingSet::new(self.engine_state))
-                        );
-                        Style::default()
-                    }
+                    _ => Style::default(),
                 }
             }
             // There should be no other kinds of values (due to create_map() in config.rs filtering them out)

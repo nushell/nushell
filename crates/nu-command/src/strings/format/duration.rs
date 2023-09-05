@@ -111,14 +111,12 @@ impl Command for FormatDuration {
 }
 
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
+    let inner_span = val.span();
     match val {
-        Value::Duration {
-            val: inner,
-            span: inner_span,
-        } => {
+        Value::Duration { val: inner, .. } => {
             let duration = *inner;
             let float_precision = arg.float_precision;
-            match convert_inner_to_unit(duration, &arg.format_value, span, *inner_span) {
+            match convert_inner_to_unit(duration, &arg.format_value, span, inner_span) {
                 Ok(d) => {
                     let unit = if &arg.format_value == "us" {
                         "µs"
@@ -126,29 +124,24 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
                         &arg.format_value
                     };
                     if d.fract() == 0.0 {
-                        Value::String {
-                            val: format!("{} {}", d, unit),
-                            span: *inner_span,
-                        }
+                        Value::string(format!("{} {}", d, unit), inner_span)
                     } else {
-                        Value::String {
-                            val: format!("{:.float_precision$} {}", d, unit),
-                            span: *inner_span,
-                        }
+                        Value::string(format!("{:.float_precision$} {}", d, unit), inner_span)
                     }
                 }
-                Err(e) => Value::Error { error: Box::new(e) },
+                Err(e) => Value::error(e, inner_span),
             }
         }
         Value::Error { .. } => val.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "filesize".into(),
                 wrong_type: val.get_type().to_string(),
                 dst_span: span,
-                src_span: val.expect_span(),
-            }),
-        },
+                src_span: val.span(),
+            },
+            span,
+        ),
     }
 }
 

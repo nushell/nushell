@@ -3,7 +3,7 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 
-use nu_protocol::{CustomValue, PipelineData, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
 use rusqlite::{types::ValueRef, Connection, Row};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -56,8 +56,9 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
                     ctrlc: db.ctrlc.clone(),
@@ -72,7 +73,7 @@ impl SQLiteDatabase {
             x => Err(ShellError::CantConvert {
                 to_type: "database".into(),
                 from_type: x.get_type().to_string(),
-                span: x.span()?,
+                span: x.span(),
                 help: None,
             }),
         }
@@ -84,10 +85,7 @@ impl SQLiteDatabase {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+        Value::custom_value(Box::new(self), span)
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
@@ -280,10 +278,7 @@ impl CustomValue for SQLiteDatabase {
             ctrlc: self.ctrlc.clone(),
         };
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::custom_value(Box::new(cloned), span)
     }
 
     fn value_string(&self) -> String {
@@ -393,10 +388,7 @@ fn prepared_statement_to_nu_list(
     for row_result in row_results {
         if nu_utils::ctrl_c::was_pressed(&ctrlc) {
             // return whatever we have so far, let the caller decide whether to use it
-            return Ok(Value::List {
-                vals: row_values,
-                span: call_span,
-            });
+            return Ok(Value::list(row_values, call_span));
         }
 
         if let Ok(row_value) = row_result {
@@ -404,10 +396,7 @@ fn prepared_statement_to_nu_list(
         }
     }
 
-    Ok(Value::List {
-        vals: row_values,
-        span: call_span,
-    })
+    Ok(Value::list(row_values, call_span))
 }
 
 fn read_entire_sqlite_db(
@@ -415,8 +404,7 @@ fn read_entire_sqlite_db(
     call_span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Value, rusqlite::Error> {
-    let mut table_names: Vec<String> = Vec::new();
-    let mut tables: Vec<Value> = Vec::new();
+    let mut tables = Record::new();
 
     let mut get_table_names =
         conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")?;
@@ -424,18 +412,12 @@ fn read_entire_sqlite_db(
 
     for row in rows {
         let table_name: String = row?;
-        table_names.push(table_name.clone());
-
         let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
         let rows = prepared_statement_to_nu_list(table_stmt, call_span, ctrlc.clone())?;
-        tables.push(rows);
+        tables.push(table_name, rows);
     }
 
-    Ok(Value::Record {
-        cols: table_names,
-        vals: tables,
-        span: call_span,
-    })
+    Ok(Value::record(tables, call_span))
 }
 
 pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<String>) -> Value {
@@ -446,36 +428,28 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<S
         vals.push(val);
     }
 
-    Value::Record {
-        cols: column_names,
-        vals,
+    Value::record(
+        Record {
+            cols: column_names,
+            vals,
+        },
         span,
-    }
+    )
 }
 
 pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
     match value {
-        ValueRef::Null => Value::Nothing { span },
-        ValueRef::Integer(i) => Value::Int { val: i, span },
-        ValueRef::Real(f) => Value::Float { val: f, span },
+        ValueRef::Null => Value::nothing(span),
+        ValueRef::Integer(i) => Value::int(i, span),
+        ValueRef::Real(f) => Value::float(f, span),
         ValueRef::Text(buf) => {
             let s = match std::str::from_utf8(buf) {
                 Ok(v) => v,
-                Err(_) => {
-                    return Value::Error {
-                        error: Box::new(ShellError::NonUtf8(span)),
-                    }
-                }
+                Err(_) => return Value::error(ShellError::NonUtf8(span), span),
             };
-            Value::String {
-                val: s.to_string(),
-                span,
-            }
+            Value::string(s.to_string(), span)
         }
-        ValueRef::Blob(u) => Value::Binary {
-            val: u.to_vec(),
-            span,
-        },
+        ValueRef::Blob(u) => Value::binary(u.to_vec(), span),
     }
 }
 
@@ -488,11 +462,7 @@ mod test {
         let db = open_connection_in_memory().unwrap();
         let converted_db = read_entire_sqlite_db(db, Span::test_data(), None).unwrap();
 
-        let expected = Value::Record {
-            cols: vec![],
-            vals: vec![],
-            span: Span::test_data(),
-        };
+        let expected = Value::test_record(Record::new());
 
         assert_eq!(converted_db, expected);
     }
@@ -512,14 +482,10 @@ mod test {
         .unwrap();
         let converted_db = read_entire_sqlite_db(db, Span::test_data(), None).unwrap();
 
-        let expected = Value::Record {
+        let expected = Value::test_record(Record {
             cols: vec!["person".to_string()],
-            vals: vec![Value::List {
-                vals: vec![],
-                span: Span::test_data(),
-            }],
-            span: Span::test_data(),
-        };
+            vals: vec![Value::list(vec![], Span::test_data())],
+        });
 
         assert_eq!(converted_db, expected);
     }
@@ -546,31 +512,25 @@ mod test {
 
         let converted_db = read_entire_sqlite_db(db, span, None).unwrap();
 
-        let expected = Value::Record {
+        let expected = Value::test_record(Record {
             cols: vec!["item".to_string()],
-            vals: vec![Value::List {
-                vals: vec![
-                    Value::Record {
+            vals: vec![Value::list(
+                vec![
+                    Value::test_record(Record {
                         cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![Value::Int { val: 123, span }, Value::Nothing { span }],
-                        span,
-                    },
-                    Value::Record {
+                        vals: vec![Value::int(123, span), Value::nothing(span)],
+                    }),
+                    Value::test_record(Record {
                         cols: vec!["id".to_string(), "name".to_string()],
                         vals: vec![
-                            Value::Int { val: 456, span },
-                            Value::String {
-                                val: "foo bar".to_string(),
-                                span,
-                            },
+                            Value::int(456, span),
+                            Value::string("foo bar".to_string(), span),
                         ],
-                        span,
-                    },
+                    }),
                 ],
                 span,
-            }],
-            span,
-        };
+            )],
+        });
 
         assert_eq!(converted_db, expected);
     }

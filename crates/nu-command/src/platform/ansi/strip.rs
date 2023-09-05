@@ -55,20 +55,22 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, _args: &CellPathOnlyArgs, command_span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, _span: Span) -> Value {
+    let span = input.span();
     match input {
-        Value::String { val, span } => {
-            Value::string(nu_utils::strip_ansi_likely(val).to_string(), *span)
+        Value::String { val, .. } => {
+            Value::string(nu_utils::strip_ansi_likely(val).to_string(), span)
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());
 
-            Value::Error {
-                error: Box::new(ShellError::TypeMismatch {
+            Value::error(
+                ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(command_span),
-                }),
-            }
+                    span: other.span(),
+                },
+                other.span(),
+            )
         }
     }
 }

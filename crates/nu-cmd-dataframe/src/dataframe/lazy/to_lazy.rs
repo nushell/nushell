@@ -41,10 +41,7 @@ impl Command for ToLazyFrame {
     ) -> Result<PipelineData, ShellError> {
         let df = NuDataFrame::try_from_iter(input.into_iter())?;
         let lazy = NuLazyFrame::from_dataframe(df);
-        let value = Value::CustomValue {
-            val: Box::new(lazy),
-            span: call.head,
-        };
+        let value = Value::custom_value(Box::new(lazy), call.head);
 
         Ok(PipelineData::Value(value, None))
     }

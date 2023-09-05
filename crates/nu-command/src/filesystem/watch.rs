@@ -213,7 +213,7 @@ impl Command for Watch {
                         engine_state,
                         stack,
                         &block,
-                        Value::Nothing { span: call.span() }.into_pipeline_data(),
+                        Value::nothing(call.span()).into_pipeline_data(),
                         call.redirect_stdout,
                         call.redirect_stderr,
                     );
@@ -251,7 +251,9 @@ impl Command for Watch {
                                 .pop()
                                 .map(|path| event_handler("Remove", path, None))
                                 .unwrap_or(Ok(())),
-                            EventKind::Modify(ModifyKind::Data(DataChange::Content)) => one_event
+                            EventKind::Modify(ModifyKind::Data(DataChange::Content))
+                            | EventKind::Modify(ModifyKind::Data(DataChange::Any))
+                            | EventKind::Modify(ModifyKind::Any) => one_event
                                 .paths
                                 .pop()
                                 .map(|path| event_handler("Write", path, None))

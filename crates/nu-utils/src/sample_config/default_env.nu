@@ -1,19 +1,12 @@
 # Nushell Environment Config File
 #
-# version = 0.83.2
+# version = "0.84.1"
 
 def create_left_prompt [] {
-    mut home = ""
-    try {
-        if $nu.os-info.name == "windows" {
-            $home = $env.USERPROFILE
-        } else {
-            $home = $env.HOME
-        }
-    }
+    let home =  $nu.home-path
 
     let dir = ([
-        ($env.PWD | str substring 0..($home | str length) | str replace --string $home "~"),
+        ($env.PWD | str substring 0..($home | str length) | str replace $home "~"),
         ($env.PWD | str substring ($home | str length)..)
     ] | str join)
 
@@ -21,7 +14,7 @@ def create_left_prompt [] {
     let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
     let path_segment = $"($path_color)($dir)"
 
-    $path_segment | str replace --all --string (char path_sep) $"($separator_color)/($path_color)"
+    $path_segment | str replace --all (char path_sep) $"($separator_color)/($path_color)"
 }
 
 def create_right_prompt [] {
@@ -30,8 +23,8 @@ def create_right_prompt [] {
         (ansi reset)
         (ansi magenta)
         (date now | format date '%Y/%m/%d %r')
-    ] | str join | str replace --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
-        str replace --all "([AP]M)" $"(ansi magenta_underline)${1}")
+    ] | str join | str replace --regex --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
+        str replace --regex --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
         (ansi rb)

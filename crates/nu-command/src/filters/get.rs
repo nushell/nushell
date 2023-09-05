@@ -106,10 +106,10 @@ If multiple cell paths are given, this will produce a list of values."#
             Example {
                 description: "Get a column from a table",
                 example: "[{A: A0}] | get A",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("A0")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("A0")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Get a cell from a table",

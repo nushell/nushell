@@ -344,36 +344,6 @@ expr_command!(
     test_groups
 );
 
-// ExprFlatten command
-// Expands to a command definition for a flatten expression
-expr_command!(
-    ExprFlatten,
-    "dfr flatten",
-    "creates a flatten expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    flatten,
-    test_flatten
-);
-
-// ExprExplode command
-// Expands to a command definition for a explode expression
-expr_command!(
-    ExprExplode,
-    "dfr explode",
-    "creates an explode expression",
-    vec![Example {
-        description: "",
-        example: "",
-        result: None,
-    }],
-    explode,
-    test_explode
-);
-
 // ExprCount command
 // Expands to a command definition for a count expression
 expr_command!(

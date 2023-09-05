@@ -3,7 +3,7 @@ use nu_protocol::ast::{Block, Call};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -51,8 +51,8 @@ impl Command for UpdateCells {
             $value
           }
     }"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "2021-04-16".into(),
                             "2021-06-10".into(),
@@ -71,10 +71,9 @@ impl Command for UpdateCells {
                             Value::test_string(""),
                             Value::test_string(""),
                         ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Update the zero value cells to empty strings in 2 last columns.",
@@ -88,8 +87,8 @@ impl Command for UpdateCells {
               $value
             }
     }"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "2021-04-16".into(),
                             "2021-06-10".into(),
@@ -108,10 +107,9 @@ impl Command for UpdateCells {
                             Value::test_string(""),
                             Value::test_string(""),
                         ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -193,27 +191,28 @@ impl Iterator for UpdateCellIterator {
                     }
                 }
 
+                let span = val.span();
                 match val {
-                    Value::Record { vals, cols, span } => Some(Value::Record {
-                        vals: cols
-                            .iter()
-                            .zip(vals)
+                    Value::Record { val, .. } => Some(Value::record(
+                        val.into_iter()
                             .map(|(col, val)| match &self.columns {
-                                Some(cols) if !cols.contains(col) => val,
-                                _ => process_cell(
-                                    val,
-                                    &self.engine_state,
-                                    &mut self.stack,
-                                    &self.block,
-                                    self.redirect_stdout,
-                                    self.redirect_stderr,
-                                    span,
+                                Some(cols) if !cols.contains(&col) => (col, val),
+                                _ => (
+                                    col,
+                                    process_cell(
+                                        val,
+                                        &self.engine_state,
+                                        &mut self.stack,
+                                        &self.block,
+                                        self.redirect_stdout,
+                                        self.redirect_stderr,
+                                        span,
+                                    ),
                                 ),
                             })
                             .collect(),
-                        cols,
                         span,
-                    }),
+                    )),
                     val => Some(process_cell(
                         val,
                         &self.engine_state,
@@ -253,7 +252,7 @@ fn process_cell(
         redirect_stderr,
     ) {
         Ok(pd) => pd.into_value(span),
-        Err(e) => Value::Error { error: Box::new(e) },
+        Err(e) => Value::error(e, span),
     }
 }
 

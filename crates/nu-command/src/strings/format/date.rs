@@ -76,23 +76,22 @@ impl Command for FormatDate {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "Format a given date-time using the default format (RFC 2822).",
-            //     example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
-            //     result: Some(Value::String {
-            //         val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
-            //         span: Span::test_data(),
-            //     }),
-            // },
+            Example {
+                description: "Format a given date-time using the default format (RFC 2822).",
+                example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
+                result: Some(Value::string(
+                    "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+                    Span::test_data(),
+                )),
+            },
             Example {
                 description:
                     "Format a given date-time as a string using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
-                result: Some(Value::String {
-                    val: "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::string(
+                    "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Format the current date-time using a given format string.",
@@ -127,16 +126,14 @@ where
     let format = date_time.format_localized(formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
-        Ok(_) => Value::String {
-            val: formatter_buf,
-            span,
-        },
-        Err(_) => Value::Error {
-            error: Box::new(ShellError::TypeMismatch {
+        Ok(_) => Value::string(formatter_buf, span),
+        Err(_) => Value::error(
+            ShellError::TypeMismatch {
                 err_message: "invalid format".to_string(),
                 span,
-            }),
-        },
+            },
+            span,
+        ),
     }
 }
 
@@ -151,37 +148,28 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
                 Err(e) => e,
             }
         }
-        _ => Value::Error {
-            error: Box::new(ShellError::DatetimeParseError(
-                value.debug_value(),
-                head_span,
-            )),
-        },
+        _ => Value::error(
+            ShellError::DatetimeParseError(value.debug_value(), head_span),
+            head_span,
+        ),
     }
 }
 
 fn format_helper_rfc2822(value: Value, span: Span) -> Value {
+    let val_span = value.span();
     match value {
-        Value::Date { val, span: _ } => Value::String {
-            val: val.to_rfc2822(),
-            span,
-        },
-        Value::String {
-            val,
-            span: val_span,
-        } => {
+        Value::Date { val, .. } => Value::string(val.to_rfc2822(), span),
+        Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, val_span);
             match dt {
-                Ok(x) => Value::String {
-                    val: x.to_rfc2822(),
-                    span,
-                },
+                Ok(x) => Value::string(x.to_rfc2822(), span),
                 Err(e) => e,
             }
         }
-        _ => Value::Error {
-            error: Box::new(ShellError::DatetimeParseError(value.debug_value(), span)),
-        },
+        _ => Value::error(
+            ShellError::DatetimeParseError(value.debug_value(), span),
+            span,
+        ),
     }
 }
 

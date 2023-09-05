@@ -2,7 +2,7 @@ use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -39,12 +39,12 @@ impl Command for LoadEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Option<(Vec<String>, Vec<Value>)> = call.opt(engine_state, stack, 0)?;
+        let arg: Option<Record> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 
         match arg {
-            Some((cols, vals)) => {
-                for (env_var, rhs) in cols.into_iter().zip(vals) {
+            Some(record) => {
+                for (env_var, rhs) in record {
                     let env_var_ = env_var.as_str();
                     if ["FILE_PWD", "CURRENT_FILE", "PWD"].contains(&env_var_) {
                         return Err(ShellError::AutomaticEnvVarSetManually {
@@ -57,8 +57,8 @@ impl Command for LoadEnv {
                 Ok(PipelineData::empty())
             }
             None => match input {
-                PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
-                    for (env_var, rhs) in cols.into_iter().zip(vals) {
+                PipelineData::Value(Value::Record { val, .. }, ..) => {
+                    for (env_var, rhs) in val {
                         let env_var_ = env_var.as_str();
                         if ["FILE_PWD", "CURRENT_FILE"].contains(&env_var_) {
                             return Err(ShellError::AutomaticEnvVarSetManually {

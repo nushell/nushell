@@ -3,7 +3,7 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Type,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
     Value,
 };
 use roxmltree::NodeType;
@@ -69,38 +69,46 @@ string. This way content of every tag is always a table and is easier to parse"#
   <remember>Event</remember>
 </note>' | from xml"#,
             description: "Converts xml formatted string to record",
-            result: Some(Value::test_record(
-                vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
-                vec![
+            result: Some(Value::test_record(Record {
+                cols: vec![
+                    COLUMN_TAG_NAME.to_string(),
+                    COLUMN_ATTRS_NAME.to_string(),
+                    COLUMN_CONTENT_NAME.to_string(),
+                ],
+                vals: vec![
                     Value::test_string("note"),
-                    Value::test_record(Vec::<&str>::new(), vec![]),
+                    Value::test_record(Record::new()),
                     Value::list(
-                        vec![Value::test_record(
-                            vec![COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME],
-                            vec![
+                        vec![Value::test_record(Record {
+                            cols: vec![
+                                COLUMN_TAG_NAME.to_string(),
+                                COLUMN_ATTRS_NAME.to_string(),
+                                COLUMN_CONTENT_NAME.to_string(),
+                            ],
+                            vals: vec![
                                 Value::test_string("remember"),
-                                Value::test_record(Vec::<&str>::new(), vec![]),
+                                Value::test_record(Record::new()),
                                 Value::list(
-                                    vec![Value::test_record(
-                                        vec![
-                                            COLUMN_TAG_NAME,
-                                            COLUMN_ATTRS_NAME,
-                                            COLUMN_CONTENT_NAME,
+                                    vec![Value::test_record(Record {
+                                        cols: vec![
+                                            COLUMN_TAG_NAME.to_string(),
+                                            COLUMN_ATTRS_NAME.to_string(),
+                                            COLUMN_CONTENT_NAME.to_string(),
                                         ],
-                                        vec![
+                                        vals: vec![
                                             Value::test_nothing(),
                                             Value::test_nothing(),
                                             Value::test_string("Event"),
                                         ],
-                                    )],
+                                    })],
                                     Span::test_data(),
                                 ),
                             ],
-                        )],
+                        })],
                         Span::test_data(),
                     ),
                 ],
-            )),
+            })),
         }]
     }
 }
@@ -116,20 +124,7 @@ fn from_attributes_to_value(attributes: &[roxmltree::Attribute], info: &ParsingI
     for a in attributes {
         collected.insert(String::from(a.name()), Value::string(a.value(), info.span));
     }
-
-    let (cols, vals) = collected
-        .into_iter()
-        .fold((vec![], vec![]), |mut acc, (k, v)| {
-            acc.0.push(k);
-            acc.1.push(v);
-            acc
-        });
-
-    Value::Record {
-        cols,
-        vals,
-        span: info.span,
-    }
+    Value::record(collected.into_iter().collect(), info.span)
 }
 
 fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
@@ -151,7 +146,7 @@ fn element_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Value {
     node.insert(String::from(COLUMN_ATTRS_NAME), attributes);
     node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-    Value::from(Spanned { item: node, span })
+    Value::record(node.into_iter().collect(), span)
 }
 
 fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
@@ -168,9 +163,7 @@ fn text_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
         node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        let result = Value::from(Spanned { item: node, span });
-
-        Some(result)
+        Some(Value::record(node.into_iter().collect(), span))
     }
 }
 
@@ -188,9 +181,7 @@ fn comment_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> Option<Value> {
         node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        let result = Value::from(Spanned { item: node, span });
-
-        Some(result)
+        Some(Value::record(node.into_iter().collect(), span))
     } else {
         None
     }
@@ -213,9 +204,7 @@ fn processing_instruction_to_value(n: &roxmltree::Node, info: &ParsingInfo) -> O
         node.insert(String::from(COLUMN_ATTRS_NAME), Value::nothing(span));
         node.insert(String::from(COLUMN_CONTENT_NAME), content);
 
-        let result = Value::from(Spanned { item: node, span });
-
-        Some(result)
+        Some(Value::record(node.into_iter().collect(), span))
     } else {
         None
     }
@@ -332,27 +321,22 @@ mod tests {
 
     use indexmap::indexmap;
     use indexmap::IndexMap;
-    use nu_protocol::{Spanned, Value};
 
     fn string(input: impl Into<String>) -> Value {
         Value::test_string(input)
     }
 
     fn attributes(entries: IndexMap<&str, &str>) -> Value {
-        Value::from(Spanned {
-            item: entries
+        Value::test_record(
+            entries
                 .into_iter()
                 .map(|(k, v)| (k.into(), string(v)))
-                .collect::<IndexMap<String, Value>>(),
-            span: Span::test_data(),
-        })
+                .collect(),
+        )
     }
 
     fn table(list: &[Value]) -> Value {
-        Value::List {
-            vals: list.to_vec(),
-            span: Span::test_data(),
-        }
+        Value::list(list.to_vec(), Span::test_data())
     }
 
     fn content_tag(
@@ -360,24 +344,28 @@ mod tests {
         attrs: IndexMap<&str, &str>,
         content: &[Value],
     ) -> Value {
-        Value::from(Spanned {
-            item: indexmap! {
-                COLUMN_TAG_NAME.into() => string(tag),
-                COLUMN_ATTRS_NAME.into() => attributes(attrs),
-                COLUMN_CONTENT_NAME.into() => table(content),
-            },
-            span: Span::test_data(),
+        Value::test_record(Record {
+            cols: vec![
+                COLUMN_TAG_NAME.into(),
+                COLUMN_ATTRS_NAME.into(),
+                COLUMN_CONTENT_NAME.into(),
+            ],
+            vals: vec![string(tag), attributes(attrs), table(content)],
         })
     }
 
     fn content_string(value: impl Into<String>) -> Value {
-        Value::from(Spanned {
-            item: indexmap! {
-                COLUMN_TAG_NAME.into() => Value::nothing(Span::test_data()),
-                COLUMN_ATTRS_NAME.into() => Value::nothing(Span::test_data()),
-                COLUMN_CONTENT_NAME.into() => string(value),
-            },
-            span: Span::test_data(),
+        Value::test_record(Record {
+            cols: vec![
+                COLUMN_TAG_NAME.into(),
+                COLUMN_ATTRS_NAME.into(),
+                COLUMN_CONTENT_NAME.into(),
+            ],
+            vals: vec![
+                Value::nothing(Span::test_data()),
+                Value::nothing(Span::test_data()),
+                string(value),
+            ],
         })
     }
 
