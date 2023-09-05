@@ -264,39 +264,11 @@ fn render_ui(
         {
             let info = info.clone();
             term.draw(|f| {
-                let area = f.size();
-                let available_area =
-                    Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
-
-                if let Some(page) = &mut view {
-                    let cfg = ViewConfig::new(
-                        pager.config.nu_config,
-                        pager.config.style_computer,
-                        &pager.config.config,
-                        pager.config.lscolors,
-                    );
-
-                    page.view.draw(f, available_area, cfg, &mut layout);
-                }
-
-                if let Some(report) = info.status {
-                    let last_2nd_line = area.bottom().saturating_sub(2);
-                    let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
-                    render_status_bar(f, area, report, &pager.config.style);
-                }
-
-                {
-                    let last_line = area.bottom().saturating_sub(1);
-                    let area = Rect::new(area.left(), last_line, area.width, 1);
-                    render_cmd_bar(f, area, pager, info.report, &pager.config.style);
-                }
-
-                highlight_search_results(f, pager, &layout, pager.config.style.highlight);
-                set_cursor_cmd_bar(f, area, pager);
+                draw_frame(f, &mut view, pager, &mut layout, info);
             })?;
         }
 
-        let status = handle_events(
+        let transition = handle_events(
             engine_state,
             stack,
             &events,
@@ -307,39 +279,20 @@ fn render_ui(
             view.as_mut().map(|p| &mut p.view),
         );
 
-        if let Some(status) = status {
-            match status {
-                Transition::Exit => {
-                    break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
-                }
-                Transition::Ok => {
-                    if view_stack.is_empty() && pager.config.exit_esc {
-                        break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)));
-                    }
+        if let Some(transition) = transition {
+            let exit = react_to_event_result(
+                transition,
+                engine_state,
+                &commands,
+                pager,
+                &mut view,
+                &mut view_stack,
+                stack,
+                info,
+            );
 
-                    // try to pop the view stack
-                    if let Some(v) = view_stack.pop() {
-                        view = Some(v);
-                    }
-                }
-                Transition::Cmd(command) => {
-                    let out = pager_run_command(
-                        engine_state,
-                        stack,
-                        pager,
-                        &mut view,
-                        &mut view_stack,
-                        &commands,
-                        command,
-                    );
-                    match out {
-                        Ok(false) => {}
-                        Ok(true) => {
-                            break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view)))
-                        }
-                        Err(err) => info.report = Some(Report::error(err)),
-                    }
-                }
+            if let Some(value) = exit {
+                break Ok(value);
             }
         }
 
@@ -359,11 +312,97 @@ fn render_ui(
             );
             match out {
                 Ok(false) => {}
-                Ok(true) => break Ok(try_to_peek_value(pager, view.as_mut().map(|p| &mut p.view))),
+                Ok(true) => break Ok(peak_value_from_view(&mut view, pager)),
                 Err(err) => info.report = Some(Report::error(err)),
             }
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn react_to_event_result(
+    status: Transition,
+    engine_state: &EngineState,
+    commands: &CommandRegistry,
+    pager: &mut Pager<'_>,
+    view: &mut Option<Page>,
+    view_stack: &mut Vec<Page>,
+    stack: &mut Stack,
+    info: &mut ViewInfo,
+) -> Option<Option<Value>> {
+    match status {
+        Transition::Exit => Some(peak_value_from_view(view, pager)),
+        Transition::Ok => {
+            let exit = view_stack.is_empty() && pager.config.exit_esc;
+            if exit {
+                return Some(peak_value_from_view(view, pager));
+            }
+
+            // try to pop the view stack
+            if let Some(v) = view_stack.pop() {
+                *view = Some(v);
+            }
+
+            None
+        }
+        Transition::Cmd(cmd) => {
+            let out =
+                pager_run_command(engine_state, stack, pager, view, view_stack, commands, cmd);
+            match out {
+                Ok(false) => None,
+                Ok(true) => Some(peak_value_from_view(view, pager)),
+                Err(err) => {
+                    info.report = Some(Report::error(err));
+                    None
+                }
+            }
+        }
+    }
+}
+
+fn peak_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Option<Value> {
+    let view = view.as_mut().map(|p| &mut p.view);
+    try_to_peek_value(pager, view)
+}
+
+fn draw_frame(
+    f: &mut Frame,
+    view: &mut Option<Page>,
+    pager: &mut Pager<'_>,
+    layout: &mut Layout,
+    info: ViewInfo,
+) {
+    let area = f.size();
+    let available_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+
+    if let Some(page) = view {
+        let cfg = create_view_config(pager);
+        page.view.draw(f, available_area, cfg, layout);
+    }
+
+    if let Some(report) = info.status {
+        let last_2nd_line = area.bottom().saturating_sub(2);
+        let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
+        render_status_bar(f, area, report, &pager.config.style);
+    }
+
+    {
+        let last_line = area.bottom().saturating_sub(1);
+        let area = Rect::new(area.left(), last_line, area.width, 1);
+        render_cmd_bar(f, area, pager, info.report, &pager.config.style);
+    }
+
+    highlight_search_results(f, pager, layout, pager.config.style.highlight);
+    set_cursor_cmd_bar(f, area, pager);
+}
+
+fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
+    ViewConfig::new(
+        pager.config.nu_config,
+        pager.config.style_computer,
+        &pager.config.config,
+        pager.config.lscolors,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
