@@ -25,7 +25,7 @@ fn plugins_are_declared_with_wix() {
                 | where Directory.attributes.Id == "$(var.PlatformProgramFilesFolder)"
                 | get Directory.children.Directory.children.0 | last
                 | get Directory.children.Component.children
-                | each { |it| echo $it | first }
+                | each { |it| $it | first }
                 | skip
                 | where File.attributes.Name =~ "nu_plugin"
                 | str substring [_, -4] File.attributes.Name
@@ -234,7 +234,7 @@ fn run_in_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -l -c 'echo $nu.is-login'",
+            "{:?} -l -c '$nu.is-login'",
             nu_test_support::fs::executable_path()
         ))
         .output()
@@ -249,7 +249,7 @@ fn run_in_not_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -c 'echo $nu.is-login'",
+            "{:?} -c '$nu.is-login'",
             nu_test_support::fs::executable_path()
         ))
         .output()
@@ -264,7 +264,7 @@ fn run_in_interactive_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -i -c 'echo $nu.is-interactive'",
+            "{:?} -i -c '$nu.is-interactive'",
             nu_test_support::fs::executable_path()
         ))
         .output()
@@ -279,7 +279,7 @@ fn run_in_noninteractive_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -c 'echo $nu.is-interactive'",
+            "{:?} -c '$nu.is-interactive'",
             nu_test_support::fs::executable_path()
         ))
         .output()

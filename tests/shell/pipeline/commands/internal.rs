@@ -481,7 +481,7 @@ fn block_params_override() {
 
 #[test]
 fn alias_reuse() {
-    let actual = nu!("alias foo = echo bob; foo; foo");
+    let actual = nu!("alias foo = print bob; foo; foo");
 
     assert!(actual.out.contains("bob"));
     assert!(actual.err.is_empty());
