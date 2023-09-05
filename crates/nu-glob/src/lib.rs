@@ -1347,7 +1347,7 @@ mod test {
     #[test]
     fn test_pattern_escape() {
         let s = "_[_]_?_*_!_\\";
-        assert_eq!(Pattern::escape(s), "_[[]_[]]_[?]_[*]_!_\\\\".to_string());
+        assert_eq!(Pattern::escape(s), "_[[]_[]]_[?]_[*]_!_[\\]".to_string());
         assert!(Pattern::new(&Pattern::escape(s)).unwrap().matches(s));
     }
 

@@ -96,7 +96,7 @@ fn lists_regular_files_in_special_folder() {
             cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
         assert_eq!(actual.out, "3");
         let actual = nu!(
-            cwd: dirs.test().join("\\abcd"), format!(r#"ls ../* | length"#));
+            cwd: dirs.test().join("\\abcd"), format!(r#"ls | length"#));
         assert_eq!(actual.out, "2");
     })
 }
