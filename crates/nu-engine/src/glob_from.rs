@@ -7,10 +7,8 @@ use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{ShellError, Span, Spanned};
 
-const GLOB_CHARS: &[char] = &['*', '?', '['];
-
 pub fn has_glob_chars(s: &str) -> bool {
-    s.contains(GLOB_CHARS)
+    s.contains(['*', '?', '['])
 }
 
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
@@ -69,16 +67,23 @@ pub fn glob_from(
             Ok(attr) => attr.file_type().is_symlink(),
             Err(_) => false,
         };
-
         if is_symlink {
-            (path.parent().map(|parent| parent.to_path_buf()), path)
+            let escaped_path = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
+            (
+                path.parent().map(|parent| parent.to_path_buf()),
+                escaped_path,
+            )
         } else {
             let path = if let Ok(p) = canonicalize_with(path, cwd) {
                 p
             } else {
                 return Err(ShellError::DirectoryNotFound(pattern.span, None));
             };
-            (path.parent().map(|parent| parent.to_path_buf()), path)
+            let escaped_path = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
+            (
+                path.parent().map(|parent| parent.to_path_buf()),
+                escaped_path,
+            )
         }
     };
 

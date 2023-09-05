@@ -704,14 +704,10 @@ impl Pattern {
             match c {
                 // note that ! does not need escaping because it is only special
                 // inside brackets
-                '?' | '*' | '[' | ']' => {
+                '?' | '*' | '[' | ']' | '\\' => {
                     escaped.push('[');
                     escaped.push(c);
                     escaped.push(']');
-                }
-                '\\' => {
-                    escaped.push('\\');
-                    escaped.push('\\');
                 }
                 c => {
                     escaped.push(c);
