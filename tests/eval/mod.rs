@@ -11,7 +11,8 @@ fn source_file_relative_to_file() {
 fn run_file_parse_error() {
     let actual = nu!(
         cwd: "tests/fixtures/eval",
-    "nu script.nu");
+        "nu script.nu"
+    );
 
     assert!(actual.err.contains("unknown type"));
 }
