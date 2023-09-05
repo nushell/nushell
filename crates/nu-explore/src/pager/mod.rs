@@ -245,13 +245,12 @@ fn render_ui(
     ctrlc: CtrlC,
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
-    mut view: Option<Page>,
+    view: Option<Page>,
     commands: CommandRegistry,
 ) -> Result<Option<Value>> {
     let events = UIEvents::new();
-    let mut view_stack = Vec::new();
+    let mut view_stack = ViewStack::new(view, Vec::new());
 
-    // let mut command_view = None;
     loop {
         // handle CTRLC event
         if let Some(ctrlc) = ctrlc.clone() {
@@ -264,7 +263,7 @@ fn render_ui(
         {
             let info = info.clone();
             term.draw(|f| {
-                draw_frame(f, &mut view, pager, &mut layout, info);
+                draw_frame(f, &mut view_stack.view, pager, &mut layout, info);
             })?;
         }
 
@@ -276,7 +275,7 @@ fn render_ui(
             info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            view.as_mut().map(|p| &mut p.view),
+            view_stack.view.as_mut().map(|p| &mut p.view),
         );
 
         if let Some(transition) = transition {
@@ -285,7 +284,6 @@ fn render_ui(
                 engine_state,
                 &commands,
                 pager,
-                &mut view,
                 &mut view_stack,
                 stack,
                 info,
@@ -301,18 +299,11 @@ fn render_ui(
             pager.cmd_buf.run_cmd = false;
             pager.cmd_buf.buf_cmd2 = String::new();
 
-            let out = pager_run_command(
-                engine_state,
-                stack,
-                pager,
-                &mut view,
-                &mut view_stack,
-                &commands,
-                args,
-            );
+            let out =
+                pager_run_command(engine_state, stack, pager, &mut view_stack, &commands, args);
             match out {
                 Ok(false) => {}
-                Ok(true) => break Ok(peak_value_from_view(&mut view, pager)),
+                Ok(true) => break Ok(peak_value_from_view(&mut view_stack.view, pager)),
                 Err(err) => info.report = Some(Report::error(err)),
             }
         }
@@ -325,32 +316,30 @@ fn react_to_event_result(
     engine_state: &EngineState,
     commands: &CommandRegistry,
     pager: &mut Pager<'_>,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
+    view_stack: &mut ViewStack,
     stack: &mut Stack,
     info: &mut ViewInfo,
 ) -> Option<Option<Value>> {
     match status {
-        Transition::Exit => Some(peak_value_from_view(view, pager)),
+        Transition::Exit => Some(peak_value_from_view(&mut view_stack.view, pager)),
         Transition::Ok => {
-            let exit = view_stack.is_empty() && pager.config.exit_esc;
+            let exit = view_stack.stack.is_empty() && pager.config.exit_esc;
             if exit {
-                return Some(peak_value_from_view(view, pager));
+                return Some(peak_value_from_view(&mut view_stack.view, pager));
             }
 
             // try to pop the view stack
-            if let Some(v) = view_stack.pop() {
-                *view = Some(v);
+            if let Some(v) = view_stack.stack.pop() {
+                view_stack.view = Some(v);
             }
 
             None
         }
         Transition::Cmd(cmd) => {
-            let out =
-                pager_run_command(engine_state, stack, pager, view, view_stack, commands, cmd);
+            let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
             match out {
                 Ok(false) => None,
-                Ok(true) => Some(peak_value_from_view(view, pager)),
+                Ok(true) => Some(peak_value_from_view(&mut view_stack.view, pager)),
                 Err(err) => {
                     info.report = Some(Report::error(err));
                     None
@@ -410,28 +399,24 @@ fn pager_run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
+    view_stack: &mut ViewStack,
     commands: &CommandRegistry,
     args: String,
 ) -> std::result::Result<bool, String> {
     let command = commands.find(&args);
-    handle_command(engine_state, stack, pager, view, view_stack, command, &args)
+    handle_command(engine_state, stack, pager, view_stack, command, &args)
 }
 
 fn handle_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
+    view_stack: &mut ViewStack,
     command: Option<Result<Command>>,
     args: &str,
 ) -> std::result::Result<bool, String> {
     match command {
-        Some(Ok(command)) => {
-            run_command(engine_state, stack, pager, view, view_stack, command, args)
-        }
+        Some(Ok(command)) => run_command(engine_state, stack, pager, view_stack, command, args),
         Some(Err(err)) => Err(format!(
             "Error: command {args:?} was not provided with correct arguments: {err}"
         )),
@@ -443,15 +428,14 @@ fn run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
     pager: &mut Pager,
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
+    view_stack: &mut ViewStack,
     command: Command,
     args: &str,
 ) -> std::result::Result<bool, String> {
     match command {
         Command::Reactive(mut command) => {
             // what we do we just replace the view.
-            let value = view.as_mut().and_then(|p| p.view.exit());
+            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
             let result = command.react(engine_state, stack, pager, value);
             match result {
                 Ok(transition) => match transition {
@@ -461,7 +445,7 @@ fn run_command(
                         //
                         // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
 
-                        update_view_stack_setup(view, view_stack, &pager.config);
+                        update_view_stack_setup(view_stack, &pager.config);
 
                         Ok(false)
                     }
@@ -473,19 +457,19 @@ fn run_command(
         }
         Command::View { mut cmd, is_light } => {
             // what we do we just replace the view.
-            let value = view.as_mut().and_then(|p| p.view.exit());
+            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
             let result = cmd.spawn(engine_state, stack, value);
             match result {
                 Ok(mut new_view) => {
-                    if let Some(view) = view.take() {
+                    if let Some(view) = view_stack.view.take() {
                         if !view.is_light {
-                            view_stack.push(view);
+                            view_stack.stack.push(view);
                         }
                     }
 
                     update_view_setup(&mut new_view, &pager.config);
 
-                    *view = Some(Page::raw(new_view, is_light));
+                    view_stack.view = Some(Page::raw(new_view, is_light));
                     Ok(false)
                 }
                 Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
@@ -494,16 +478,12 @@ fn run_command(
     }
 }
 
-fn update_view_stack_setup(
-    view: &mut Option<Page>,
-    view_stack: &mut Vec<Page>,
-    cfg: &PagerConfig<'_>,
-) {
-    if let Some(page) = view.as_mut() {
+fn update_view_stack_setup(view_stack: &mut ViewStack, cfg: &PagerConfig<'_>) {
+    if let Some(page) = view_stack.view.as_mut() {
         update_view_setup(&mut page.view, cfg);
     }
 
-    for page in view_stack {
+    for page in &mut view_stack.stack {
         update_view_setup(&mut page.view, cfg);
     }
 }
@@ -1125,5 +1105,16 @@ impl Page {
         V: View + 'static,
     {
         Self::raw(Box::new(view), is_light)
+    }
+}
+
+struct ViewStack {
+    view: Option<Page>,
+    stack: Vec<Page>,
+}
+
+impl ViewStack {
+    fn new(view: Option<Page>, stack: Vec<Page>) -> Self {
+        Self { view, stack }
     }
 }
