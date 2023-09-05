@@ -33,3 +33,10 @@ fn adds_row_data_if_column_missing() {
         assert_eq!(actual.out, "2");
     });
 }
+
+#[test]
+fn default_after_empty_filter() {
+    let actual = nu!("[a b] | where $it == 'c' | last | default 'd'");
+
+    assert_eq!(actual.out, "d");
+}
