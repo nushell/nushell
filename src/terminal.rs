@@ -34,6 +34,7 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
+            signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore");
             signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
                 restore_terminal();
                 // TODO: POSIX specifies that if terminated by a signal, exit code should be > 128
