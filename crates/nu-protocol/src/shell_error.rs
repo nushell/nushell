@@ -1006,6 +1006,11 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::non_unicode_input))]
     NonUnicodeInput,
 
+    /// Sleep is breaked.
+    #[error("Sleep is breaked.")]
+    #[diagnostic(code(nu::shell::sleep_breaked))]
+    SleepBreaked,
+
     /// Unexpected abbr component.
     ///
     /// ## Resolution

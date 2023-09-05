@@ -62,7 +62,7 @@ impl Command for Sleep {
             }
 
             if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
-                break;
+                return Err(ShellError::SleepBreaked);
             }
         }
 
