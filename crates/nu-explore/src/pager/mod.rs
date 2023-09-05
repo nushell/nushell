@@ -509,13 +509,23 @@ where
 
 fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleConfig) {
     let msg_style = report_msg_style(&report, theme, theme.status_bar_text);
-    let mut status_bar = StatusBar::new(report.message, report.context, report.context2);
+    let mut status_bar = create_status_bar(report);
     status_bar.set_background_style(theme.status_bar_background);
     status_bar.set_message_style(msg_style);
-    status_bar.set_ctx_style(theme.status_bar_text);
+    status_bar.set_ctx1_style(theme.status_bar_text);
     status_bar.set_ctx2_style(theme.status_bar_text);
+    status_bar.set_ctx3_style(theme.status_bar_text);
 
     f.render_widget(status_bar, area);
+}
+
+fn create_status_bar(report: Report) -> StatusBar {
+    StatusBar::new(
+        report.message,
+        report.context1,
+        report.context2,
+        report.context3,
+    )
 }
 
 fn report_msg_style(report: &Report, theme: &StyleConfig, style: NuStyle) -> NuStyle {
@@ -537,7 +547,7 @@ fn render_cmd_bar(
         let style = report_msg_style(&report, theme, theme.cmd_bar_text);
         let bar = CommandBar::new(
             &report.message,
-            &report.context,
+            &report.context1,
             style,
             theme.cmd_bar_background,
         );
