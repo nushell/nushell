@@ -5,6 +5,7 @@ use crossterm::{
     style::Print,
     terminal::{self, ClearType},
 };
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -80,19 +81,6 @@ impl Command for Input {
             ));
         }
 
-        let byte_until = if let Some(bytes_until) = bytes_until {
-            if let Some(c) = bytes_until.bytes().next() {
-                Some(c)
-            } else {
-                let _ = crossterm::terminal::disable_raw_mode();
-                return Err(ShellError::IOError(
-                    "input can't stop on this byte".to_string(),
-                ));
-            }
-        } else {
-            None
-        };
-
         if let Some(prompt) = &prompt {
             print!("{prompt}");
             let _ = std::io::stdout().flush();
@@ -127,8 +115,8 @@ impl Command for Input {
                                     continue;
                                 }
 
-                                if let Some(byte_until) = byte_until {
-                                    if c == byte_until as char {
+                                if let Some(bytes_until) = bytes_until.as_ref() {
+                                    if bytes_until.bytes().contains(&(c as u8)) {
                                         break;
                                     }
                                 }
