@@ -49,7 +49,7 @@ little reason to use this over just writing the values as-is."#
                 "Deprecated command".into(),
                 "`echo` is deprecated and will be removed in 0.85.".into(),
                 Some(call.head),
-                Some("Please use the `print` command to print the data to the terminal or directly the value if you want to use it in a pipeline.".into()),
+                Some("Please use the `print` command to print the data to the terminal or use the value directly to send it to the pipeline.".into()),
                 vec![],
             ),
         );
