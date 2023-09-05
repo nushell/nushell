@@ -562,6 +562,7 @@ const ERROR_WILDCARDS: &str = "wildcards are either regular `*` or recursive `**
 const ERROR_RECURSIVE_WILDCARDS: &str = "recursive wildcards must form a single path \
                                          component";
 const ERROR_INVALID_RANGE: &str = "invalid range pattern";
+const ERROR_INVALID_ESCAPE: &str = "invalid escapeo, '\\' can only be used to escape '\\', '*', '?', '[', ']'";
 
 impl Pattern {
     /// This function compiles Unix shell style patterns.
@@ -667,6 +668,16 @@ impl Pattern {
                         msg: ERROR_INVALID_RANGE,
                     });
                 }
+                '\\' => {
+                    match chars[i+1] {
+                        '\\' | '*' | '?' | '[' | ']' => tokens.push(Char(chars[i + 1])),
+                        _ => return Err(PatternError {
+                            pos: i,
+                            msg: ERROR_INVALID_ESCAPE,
+                        }),
+                    };
+                    i += 2;
+                }
                 c => {
                     tokens.push(Char(c));
                     i += 1;
@@ -694,6 +705,10 @@ impl Pattern {
                     escaped.push('[');
                     escaped.push(c);
                     escaped.push(']');
+                }
+                '\\' => {
+                    escaped.push('\\');
+                    escaped.push('\\');
                 }
                 c => {
                     escaped.push(c);
@@ -1320,9 +1335,18 @@ mod test {
     }
 
     #[test]
+    fn test_slash_escape() {
+        assert!(Pattern::new("\\abcd").is_err());
+        assert!(Pattern::new("\\n").is_err());
+        assert!(Pattern::new("\\t").is_err());
+        assert!(Pattern::new("\\\\test").unwrap().matches("\\test"));
+        assert!(Pattern::new("\\[test\\]\\*\\?").unwrap().matches("[test]*?"));
+    }
+
+    #[test]
     fn test_pattern_escape() {
-        let s = "_[_]_?_*_!_";
-        assert_eq!(Pattern::escape(s), "_[[]_[]]_[?]_[*]_!_".to_string());
+        let s = "_[_]_?_*_!_\\";
+        assert_eq!(Pattern::escape(s), "_[[]_[]]_[?]_[*]_!_\\\\".to_string());
         assert!(Pattern::new(&Pattern::escape(s)).unwrap().matches(s));
     }
 
