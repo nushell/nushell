@@ -56,11 +56,14 @@ fn lists_regular_files_in_special_folder() {
             .mkdir("abcd")
             .mkdir("abcd/*")
             .mkdir("abcd/?")
+            .mkdir("\\abcd")
             .with_files(vec![EmptyFile("[abcd]/test.txt")])
             .with_files(vec![EmptyFile("abcd]/test.txt")])
             .with_files(vec![EmptyFile("abcd/*/test.txt")])
             .with_files(vec![EmptyFile("abcd/?/test.txt")])
             .with_files(vec![EmptyFile("abcd/?/test2.txt")]);
+            .with_files(vec![EmptyFile("\\abcd/test.txt")]);
+            .with_files(vec![EmptyFile("\\abcd/test2.txt")]);
 
         let actual = nu!(
             cwd: dirs.test().join("abcd]"), format!(r#"ls | length"#));
@@ -92,6 +95,9 @@ fn lists_regular_files_in_special_folder() {
         let actual = nu!(
             cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
         assert_eq!(actual.out, "3");
+        let actual = nu!(
+            cwd: dirs.test().join("\\abcd"), format!(r#"ls ../* | length"#));
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -110,6 +116,8 @@ fn lists_regular_files_in_special_folder() {
 #[case("?bcd/[xy]y.t?t", 2)]
 #[case("[[]abcd[]].txt", 1)]
 #[case("[[]?bcd[]].txt", 2)]
+#[case("\\[abcd\\].txt", 1)]
+#[case("\\[?bcd\\].txt", 2)]
 #[case("??bcd[]].txt", 2)]
 #[case("??bcd].txt", 2)]
 #[case("[[]?bcd].txt", 2)]
