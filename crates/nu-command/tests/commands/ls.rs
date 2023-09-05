@@ -61,8 +61,8 @@ fn lists_regular_files_in_special_folder() {
             .with_files(vec![EmptyFile("abcd]/test.txt")])
             .with_files(vec![EmptyFile("abcd/*/test.txt")])
             .with_files(vec![EmptyFile("abcd/?/test.txt")])
-            .with_files(vec![EmptyFile("abcd/?/test2.txt")]);
-            .with_files(vec![EmptyFile("\\abcd/test.txt")]);
+            .with_files(vec![EmptyFile("abcd/?/test2.txt")])
+            .with_files(vec![EmptyFile("\\abcd/test.txt")])
             .with_files(vec![EmptyFile("\\abcd/test2.txt")]);
 
         let actual = nu!(
