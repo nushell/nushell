@@ -54,7 +54,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Apply the tangent to π/4",
-                example: "(math pi) / 4 | math tan",
+                example: "3.141592 / 4 | math tan | math round --precision 4",
                 result: Some(Value::test_float(1f64)),
             },
             Example {

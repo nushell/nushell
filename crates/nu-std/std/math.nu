@@ -1,0 +1,5 @@
+export const GAMMA = 0.5772156649015329
+export const E = 2.718281828459045
+export const PI = 3.141592653589793
+export const TAU = 6.283185307179586
+export const PHI = 1.618033988749895

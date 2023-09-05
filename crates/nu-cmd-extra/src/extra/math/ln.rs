@@ -52,7 +52,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Get the natural logarithm of e",
-            example: "math e | math ln",
+            example: "2.7182818 | math ln | math round --precision 4",
             result: Some(Value::test_float(1.0f64)),
         }]
     }
