@@ -98,9 +98,9 @@ impl Command for Ls {
         };
 
         let (path, p_tag, absolute_path) = match pattern_arg {
-            Some(p) => {
-                let p_tag = p.span;
-                let mut p = expand_to_real_path(p.item);
+            Some(pat) => {
+                let p_tag = pat.span;
+                let mut p = expand_to_real_path(&pat.item);
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
@@ -128,7 +128,7 @@ impl Command for Ls {
                             Vec::new(),
                         ));
                     }
-                    if is_empty_dir(&expanded) {
+                    if !nu_engine::has_glob_chars(&pat.item) && is_empty_dir(&expanded) {
                         return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
                     p.push("*");
