@@ -69,6 +69,7 @@ impl Command for Cp {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .switch("debug", "explain how a file is copied. Implies -v", None)
             .rest("paths", SyntaxShape::Filepath, "the place to copy to")
+            .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
 
