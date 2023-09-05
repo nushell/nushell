@@ -1,8 +1,4 @@
 use nu_test_support::nu;
-use nu_test_support::{
-    fs::{files_exist_at, Stub::EmptyFile},
-    playground::Playground,
-};
 
 #[test]
 fn try_succeed() {
@@ -87,7 +83,13 @@ fn catch_block_can_use_error_object() {
 }
 
 #[test]
+#[cfg(not(windows))] // windows requires too much effort to replicate permission errors
 fn catch_fs_related_errors() {
+    use nu_test_support::{
+        fs::{files_exist_at, Stub::EmptyFile},
+        playground::Playground,
+    };
+
     Playground::setup("ignore_fs_related_errors", |dirs, playground| {
         let file_names = vec!["test1.txt", "test2.txt", "test3.txt"];
 

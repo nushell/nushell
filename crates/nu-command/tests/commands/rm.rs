@@ -413,7 +413,10 @@ fn rm_prints_filenames_on_error() {
 }
 
 #[test]
+#[cfg(not(windows))] // windows requires too much effort to replicate permission errors
 fn rm_shows_multiple_errors() {
+    use nu_test_support::{fs::Stub::EmptyFile, playground::Playground};
+
     Playground::setup("rm_shows_multiple_errors", |dirs, playground| {
         let files = [
             "test.txt",

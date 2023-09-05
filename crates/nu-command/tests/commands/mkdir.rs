@@ -125,7 +125,10 @@ fn creates_directory_three_dots_quotation_marks() {
 }
 
 #[test]
+#[cfg(not(windows))] // windows requires too much effort to replicate permission errors
 fn mkdir_shows_multiple_errors() {
+    use nu_test_support::playground::Playground;
+
     Playground::setup("mkdir_shows_multiple_errors", |dirs, playground| {
         playground.mkdir("test");
 

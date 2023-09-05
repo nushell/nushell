@@ -615,7 +615,10 @@ fn copy_file_with_update_flag_impl(progress: bool) {
 }
 
 #[test]
+#[cfg(not(windows))] // windows requires too much effort to replicate permission errors
 fn copy_shows_multiple_errors() {
+    use nu_test_support::{fs::Stub::EmptyFile, playground::Playground};
+
     Playground::setup("copy_shows_multiple_errors", |dirs, playground| {
         let files = ["test/test1.txt", "test/test2.txt"];
         playground

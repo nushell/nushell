@@ -1,9 +1,4 @@
 use nu_test_support::nu;
-use nu_test_support::{
-    fs::{files_exist_at, Stub::EmptyFile},
-    pipeline,
-    playground::Playground,
-};
 
 #[test]
 fn capture_errors_works() {
@@ -120,7 +115,9 @@ fn capture_error_with_too_much_stdout_not_hang_nushell() {
 #[cfg(not(windows))]
 fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
     use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
+
     Playground::setup(
         "external with many stdout and stderr messages",
         |dirs, sandbox| {
@@ -159,7 +156,13 @@ fn ignore_error_works_with_list_stream() {
 }
 
 #[test]
+#[cfg(not(windows))] // windows requires too much effort to replicate permission errors
 fn ignore_fs_related_errors() {
+    use nu_test_support::{
+        fs::{files_exist_at, Stub::EmptyFile},
+        playground::Playground,
+    };
+
     Playground::setup("ignore_fs_related_errors", |dirs, playground| {
         let file_names = vec!["test1.txt", "test2.txt", "test3.txt"];
 
