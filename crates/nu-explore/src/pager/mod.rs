@@ -461,25 +461,7 @@ fn run_command(
                         //
                         // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
 
-                        {
-                            if let Some(page) = view.as_mut() {
-                                page.view.setup(ViewConfig::new(
-                                    pager.config.nu_config,
-                                    pager.config.style_computer,
-                                    &pager.config.config,
-                                    pager.config.lscolors,
-                                ));
-                            }
-
-                            for page in view_stack {
-                                page.view.setup(ViewConfig::new(
-                                    pager.config.nu_config,
-                                    pager.config.style_computer,
-                                    &pager.config.config,
-                                    pager.config.lscolors,
-                                ));
-                            }
-                        }
+                        update_view_stack_setup(view, view_stack, &pager.config);
 
                         Ok(false)
                     }
@@ -501,12 +483,7 @@ fn run_command(
                         }
                     }
 
-                    new_view.setup(ViewConfig::new(
-                        pager.config.nu_config,
-                        pager.config.style_computer,
-                        &pager.config.config,
-                        pager.config.lscolors,
-                    ));
+                    update_view_setup(&mut new_view, &pager.config);
 
                     *view = Some(Page::raw(new_view, is_light));
                     Ok(false)
@@ -515,6 +492,25 @@ fn run_command(
             }
         }
     }
+}
+
+fn update_view_stack_setup(
+    view: &mut Option<Page>,
+    view_stack: &mut Vec<Page>,
+    cfg: &PagerConfig<'_>,
+) {
+    if let Some(page) = view.as_mut() {
+        update_view_setup(&mut page.view, cfg);
+    }
+
+    for page in view_stack {
+        update_view_setup(&mut page.view, cfg);
+    }
+}
+
+fn update_view_setup(view: &mut Box<dyn View>, cfg: &PagerConfig<'_>) {
+    let cfg = ViewConfig::new(cfg.nu_config, cfg.style_computer, &cfg.config, cfg.lscolors);
+    view.setup(cfg);
 }
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
