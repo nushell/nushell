@@ -9,6 +9,10 @@ use nu_protocol::{ShellError, Span, Spanned};
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 
+pub fn has_glob_chars(s: &str) -> bool {
+    s.contains(GLOB_CHARS)
+}
+
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
 /// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
@@ -29,7 +33,7 @@ pub fn glob_from(
     ),
     ShellError,
 > {
-    let (prefix, pattern) = if pattern.item.contains(GLOB_CHARS) {
+    let (prefix, pattern) = if has_glob_chars(&pattern.item) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
         let path = PathBuf::from(&pattern.item);
@@ -38,7 +42,7 @@ pub fn glob_from(
 
         for c in components {
             if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains(GLOB_CHARS) {
+                if has_glob_chars(&os.to_string_lossy()) {
                     break;
                 }
             }
