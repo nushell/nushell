@@ -436,7 +436,7 @@ def compute-coverage [] {
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
 export def cov [] {
     let start = (date now)
-    $env.NUSHELL_CARGO_TARGET = "ci"
+    $env.NUSHELL_CARGO_PROFILE = "ci"
 
     compute-coverage
 

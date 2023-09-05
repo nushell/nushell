@@ -17,7 +17,7 @@ REPO_ROOT=$(dirname $DIR)
 # Some of the internal tests rely on the exact cargo profile
 # (This is somewhat criminal itself)
 # but we have to signal to the tests that we use the `ci` `--profile`
-export NUSHELL_CARGO_TARGET=ci
+export NUSHELL_CARGO_PROFILE=ci
 
 # Manual gathering of coverage to catch invocation of the `nu` binary.
 # This is relevant for tests using the `nu!` macro from `nu-test-support`
