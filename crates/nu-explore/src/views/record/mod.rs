@@ -246,13 +246,13 @@ impl<'a> RecordView<'a> {
         let covered_percent = report_row_position(layer.cursor);
         let cursor = report_cursor_position(self.mode, layer.cursor);
         let message = layer.name.clone().unwrap_or_default();
+        // note: maybe came up with a better short names? E/V/N?
+        let mode = match self.mode {
+            UIMode::Cursor => String::from("EDIT"),
+            UIMode::View => String::from("VIEW"),
+        };
 
-        Report {
-            message,
-            context: covered_percent,
-            context2: cursor,
-            level: Severity::Info,
-        }
+        Report::new(message, Severity::Info, mode, cursor, covered_percent)
     }
 }
 

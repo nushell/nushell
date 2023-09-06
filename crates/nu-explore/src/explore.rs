@@ -182,6 +182,10 @@ fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
             style.status_info = *s;
         }
 
+        if let Some(s) = colors.get("success") {
+            style.status_success = *s;
+        }
+
         if let Some(s) = colors.get("warn") {
             style.status_warn = *s;
         }
@@ -207,6 +211,8 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     const STATUS_ERROR: Style = color(Some(Color::White), Some(Color::Red));
 
     const STATUS_INFO: Style = color(None, None);
+
+    const STATUS_SUCCESS: Style = color(Some(Color::Black), Some(Color::Green));
 
     const STATUS_WARN: Style = color(None, None);
 
@@ -245,6 +251,7 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
             .unwrap_or_default();
 
         insert_style(&mut hm, "info", STATUS_INFO);
+        insert_style(&mut hm, "success", STATUS_SUCCESS);
         insert_style(&mut hm, "warn", STATUS_WARN);
         insert_style(&mut hm, "error", STATUS_ERROR);
 

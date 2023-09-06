@@ -134,6 +134,7 @@ fn create_config_command(commands: &[Command]) -> ConfigCmd {
     let mut config = ConfigCmd::from_commands(commands.to_vec());
 
     config.register_group(ConfigOption::new(GROUP, "Status bar information color", "status.info", default_color_list()));
+    config.register_group(ConfigOption::new(GROUP, "Status bar success color", "status.success", default_color_list()));
     config.register_group(ConfigOption::new(GROUP, "Status bar warning color", "status.warn", default_color_list()));
     config.register_group(ConfigOption::new(GROUP, "Status bar error color", "status.error", default_color_list()));
 
