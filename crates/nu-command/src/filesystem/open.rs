@@ -245,6 +245,11 @@ impl Command for Open {
                 example: "open myfile.txt --raw | decode utf-8",
                 result: None,
             },
+            Example {
+                description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
+                example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
+                result: None,
+            },
         ]
     }
 }
