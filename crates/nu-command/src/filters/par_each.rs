@@ -127,11 +127,22 @@ impl Command for ParEach {
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
+        // A helper function sorts the output if needed
+        let apply_order = |mut vec: Vec<(usize, Value)>| {
+            if keep_order {
+                // It runs inside the rayon's thread pool so parallel sorting can be used.
+                // There are no identical indexes, so unstable sorting can be used.
+                vec.par_sort_unstable_by_key(|(index, _)| *index);
+            }
+
+            vec.into_iter().map(|(_, val)| val)
+        };
+
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(create_pool(max_threads)?
                 .install(|| {
-                    let mut vec: Vec<(usize, Value)> = val
+                    let vec = val
                         .into_range_iter(ctrlc.clone())
                         .expect("unable to create a range iterator")
                         .enumerate()
@@ -167,19 +178,13 @@ impl Command for ParEach {
 
                             (index, val)
                         })
-                        .collect();
+                        .collect::<Vec<_>>();
 
-                    if keep_order {
-                        vec.par_sort_by_key(|(index, _)| *index);
-                    }
-
-                    vec.into_iter()
-                        .map(|(_, val)| val)
-                        .into_pipeline_data(ctrlc)
+                    apply_order(vec).into_pipeline_data(ctrlc)
                 })),
             PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(create_pool(max_threads)?
                 .install(|| {
-                    let mut vec: Vec<(usize, Value)> = val
+                    let vec = val
                         .par_iter()
                         .enumerate()
                         .map(move |(index, x)| {
@@ -213,18 +218,12 @@ impl Command for ParEach {
 
                             (index, val)
                         })
-                        .collect();
+                        .collect::<Vec<_>>();
 
-                    if keep_order {
-                        vec.par_sort_by_key(|(index, _)| *index);
-                    }
-
-                    vec.into_iter()
-                        .map(|(_, val)| val)
-                        .into_pipeline_data(ctrlc)
+                    apply_order(vec).into_pipeline_data(ctrlc)
                 })),
             PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
-                let mut vec: Vec<(usize, Value)> = stream
+                let vec = stream
                     .enumerate()
                     .par_bridge()
                     .map(move |(index, x)| {
@@ -258,22 +257,16 @@ impl Command for ParEach {
 
                         (index, val)
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
 
-                if keep_order {
-                    vec.par_sort_by_key(|(index, _)| *index);
-                }
-
-                vec.into_iter()
-                    .map(|(_, val)| val)
-                    .into_pipeline_data(ctrlc)
+                apply_order(vec).into_pipeline_data(ctrlc)
             })),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..
             } => Ok(create_pool(max_threads)?.install(|| {
-                let mut vec: Vec<(usize, Value)> = stream
+                let vec = stream
                     .enumerate()
                     .par_bridge()
                     .map(move |(index, x)| {
@@ -306,15 +299,9 @@ impl Command for ParEach {
 
                         (index, val)
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
 
-                if keep_order {
-                    vec.par_sort_by_key(|(index, _)| *index);
-                }
-
-                vec.into_iter()
-                    .map(|(_, val)| val)
-                    .into_pipeline_data(ctrlc)
+                apply_order(vec).into_pipeline_data(ctrlc)
             })),
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
