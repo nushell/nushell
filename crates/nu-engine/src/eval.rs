@@ -1527,7 +1527,7 @@ fn collect_profiling_metadata(
     if profiling_config.collect_values {
         let value = match &eval_result {
             Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
-            Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", element_span),
+            Ok((PipelineData::ListStream(..), ..)) => Value::string("list-stream", element_span),
             Ok((PipelineData::ExternalStream { .. }, ..)) => {
                 Value::string("raw stream", element_span)
             }

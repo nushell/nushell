@@ -469,7 +469,7 @@ impl Value {
         match self {
             Value::MatchPattern { val, .. } => Ok(val.as_ref()),
             x => Err(ShellError::CantConvert {
-                to_type: "match pattern".into(),
+                to_type: "match-pattern".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span()?,
                 help: None,
