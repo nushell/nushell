@@ -153,7 +153,7 @@ fn env_change_define_env_var() {
 #[test]
 fn env_change_define_alias() {
     let inp = &[
-        &env_change_hook_code("FOO", r#"'alias spam = print "spam"'"#),
+        &env_change_hook_code("FOO", r#"'alias spam = do { "spam" }'"#),
         "$env.FOO = 1",
         "spam",
     ];
