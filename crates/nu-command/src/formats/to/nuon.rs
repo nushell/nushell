@@ -162,7 +162,7 @@ pub fn value_to_string(
             }
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cellpaths are currently not nuon-compatible".to_string(),
+            "cell-paths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
             v.expect_span(),
