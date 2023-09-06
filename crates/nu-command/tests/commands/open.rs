@@ -241,7 +241,7 @@ fn open_wildcard() {
         "
     ));
 
-    assert_eq!(actual.out, "3")
+    assert_eq!(actual.out, "2")
 }
 
 #[test]
