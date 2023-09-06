@@ -305,7 +305,7 @@ fn parse_string_as_script_success() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo $'two(char nl)lines' | nu-check
+                $'two(char nl)lines' | nu-check
             "#
         ));
 

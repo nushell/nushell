@@ -57,7 +57,7 @@ fn ignore_program_errors_works_for_external_with_semicolon() {
 
 #[test]
 fn ignore_error_should_work_for_external_command() {
-    let actual = nu!(r#"do -i { nu --testbin fail asdf }; echo post"#);
+    let actual = nu!(r#"do -i { nu --testbin fail asdf }; print post"#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "post");

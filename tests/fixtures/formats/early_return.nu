@@ -1,3 +1,3 @@
-echo "a"
+print "a"
 return 1
 error make {msg: "this should not show"}
