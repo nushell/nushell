@@ -42,7 +42,7 @@ impl Command for Input {
             .named(
                 "bytes-until",
                 SyntaxShape::String,
-                "read bytes (not text) until a stop byte",
+                "read bytes (not text) until any of the given stop bytes is seen",
                 Some('u'),
             )
             .named(
