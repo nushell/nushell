@@ -54,10 +54,19 @@ impl Command for ParEach {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[1 2 3] | par-each {|| 2 * $in }",
+                example: "[1 2 3] | par-each {|e| $e * 2 }",
                 description:
                     "Multiplies each number. Note that the list will become arbitrarily disordered.",
                 result: None,
+            },
+            Example {
+                example: r#"[1 2 3] | par-each -k {|e| $e * 2 }"#,
+                description: "Multiplies each number, keeping an original order",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(4),
+                    Value::test_int(6),
+                ])),
             },
             Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
@@ -66,18 +75,6 @@ impl Command for ParEach {
                     Value::test_string("bar!"),
                     Value::test_string("baz!"),
                     Value::test_string("foo!"),
-                ])),
-            },
-            Example {
-                example: r#"1..6 | par-each -k {|| 2 * $in }"#,
-                description: "Multiplies each number, keeping an original order",
-                result: Some(Value::test_list(vec![
-                    Value::test_int(2),
-                    Value::test_int(4),
-                    Value::test_int(6),
-                    Value::test_int(8),
-                    Value::test_int(10),
-                    Value::test_int(12),
                 ])),
             },
             Example {
