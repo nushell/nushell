@@ -161,7 +161,7 @@ impl<'a> StyleComputer<'a> {
             ("string".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("nothing".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("binary".to_string(), ComputableStyle::Static(Color::White.normal())),
-            ("cellpath".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("cell-path".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("row_index".to_string(), ComputableStyle::Static(Color::Green.bold())),
             ("record".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("list".to_string(), ComputableStyle::Static(Color::White.normal())),

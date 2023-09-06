@@ -36,7 +36,7 @@ impl Command for SubCommand {
         Signature::build("str replace")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                // TODO: clarify behavior with cellpath-rest argument
+                // TODO: clarify behavior with cell-path-rest argument
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (

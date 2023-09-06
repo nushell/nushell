@@ -25,7 +25,7 @@ let dark_theme = {
     string: white
     nothing: white
     binary: white
-    cellpath: white
+    cell-path: white
     row_index: green_bold
     record: white
     list: white
@@ -88,7 +88,7 @@ let light_theme = {
     string: dark_gray
     nothing: dark_gray
     binary: dark_gray
-    cellpath: dark_gray
+    cell-path: dark_gray
     row_index: green_bold
     record: white
     list: white
