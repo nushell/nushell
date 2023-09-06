@@ -614,7 +614,7 @@ static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
 
 #[test]
 fn test_cp_cp() {
-    Playground::setup("cp_test_1", |dirs, _| {
+    Playground::setup("cp_test_19", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
 
         // Get the hash of the file content to check integrity after copy.
@@ -622,7 +622,7 @@ fn test_cp_cp() {
 
         nu!(
             cwd: dirs.root(),
-            "cp {} cp_test_1/{}",
+            "cp {} cp_test_19/{}",
             src.display(),
             TEST_HELLO_WORLD_DEST
         );
@@ -637,7 +637,7 @@ fn test_cp_cp() {
 
 #[test]
 fn test_cp_existing_target() {
-    Playground::setup("cp_test_2", |dirs, _| {
+    Playground::setup("cp_test_20", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let existing = dirs.fixtures.join("cp").join(TEST_EXISTING_FILE);
 
@@ -647,7 +647,7 @@ fn test_cp_existing_target() {
         // Copy existing file to destination, so that it exists for the test
         nu!(
             cwd: dirs.root(),
-            "cp {} cp_test_2/{}",
+            "cp {} cp_test_20/{}",
             existing.display(),
             TEST_EXISTING_FILE
         );
@@ -658,7 +658,7 @@ fn test_cp_existing_target() {
         // Now for the test
         nu!(
             cwd: dirs.root(),
-            "cp {} cp_test_2/{}",
+            "cp {} cp_test_20/{}",
             src.display(),
             TEST_EXISTING_FILE
         );
@@ -673,7 +673,7 @@ fn test_cp_existing_target() {
 
 #[test]
 fn test_cp_multiple_files() {
-    Playground::setup("cp_test_3", |dirs, sandbox| {
+    Playground::setup("cp_test_21", |dirs, sandbox| {
         let src1 = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let src2 = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
 
@@ -687,7 +687,7 @@ fn test_cp_multiple_files() {
         // Start test
         nu!(
             cwd: dirs.root(),
-            "cp {} {} cp_test_3/{}",
+            "cp {} {} cp_test_21/{}",
             src1.display(),
             src2.display(),
             TEST_COPY_TO_FOLDER
@@ -706,7 +706,7 @@ fn test_cp_multiple_files() {
 #[test]
 #[cfg(not(target_os = "macos"))]
 fn test_cp_recurse() {
-    Playground::setup("cp_test_4", |dirs, sandbox| {
+    Playground::setup("cp_test_22", |dirs, sandbox| {
         // Create the relevant target directories
         sandbox.mkdir(TEST_COPY_FROM_FOLDER);
         sandbox.mkdir(TEST_COPY_TO_FOLDER_NEW);
@@ -720,7 +720,7 @@ fn test_cp_recurse() {
         // Start test
         nu!(
             cwd: dirs.root(),
-            "cp -r {} cp_test_4/{}",
+            "cp -r {} cp_test_22/{}",
             TEST_COPY_FROM_FOLDER,
             TEST_COPY_TO_FOLDER_NEW,
         );
@@ -731,7 +731,7 @@ fn test_cp_recurse() {
 
 #[test]
 fn test_cp_with_dirs() {
-    Playground::setup("cp_test_5", |dirs, sandbox| {
+    Playground::setup("cp_test_23", |dirs, sandbox| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let src_hash = get_file_hash(src.display());
 
@@ -740,7 +740,7 @@ fn test_cp_with_dirs() {
         // Start test
         nu!(
             cwd: dirs.root(),
-            "cp {} cp_test_5/{}",
+            "cp {} cp_test_23/{}",
             src.display(),
             TEST_COPY_TO_FOLDER,
         );
@@ -753,7 +753,7 @@ fn test_cp_with_dirs() {
         let src2_hash = get_file_hash(src2.display());
         nu!(
             cwd: dirs.root(),
-            "cp {} cp_test_5/{}",
+            "cp {} cp_test_23/{}",
             src2.display(),
             TEST_HELLO_WORLD_DEST,
         );
@@ -764,14 +764,14 @@ fn test_cp_with_dirs() {
 #[cfg(not(windows))]
 #[test]
 fn test_cp_arg_force() {
-    Playground::setup("cp_test_6", |dirs, sandbox| {
+    Playground::setup("cp_test_24", |dirs, sandbox| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let src_hash = get_file_hash(src.display());
         sandbox.with_files(vec![FileWithPermission("invalid_prem.txt", false)]);
 
         nu!(
         cwd: dirs.root(),
-        "cp {} --force cp_test_6/{}",
+        "cp {} --force cp_test_24/{}",
         src.display(),
         "invalid_prem.txt"
         );
@@ -783,11 +783,11 @@ fn test_cp_arg_force() {
 
 #[test]
 fn test_cp_directory_to_itself_disallowed() {
-    Playground::setup("cp_test_7", |dirs, sandbox| {
+    Playground::setup("cp_test_25", |dirs, sandbox| {
         sandbox.mkdir("d");
         let actual = nu!(
         cwd: dirs.root(),
-        "cp -r cp_test_7/{}  cp_test_7/{}",
+        "cp -r cp_test_25/{}  cp_test_25/{}",
         "d",
         "d"
         );
@@ -799,7 +799,7 @@ fn test_cp_directory_to_itself_disallowed() {
 
 #[test]
 fn test_cp_nested_directory_to_itself_disallowed() {
-    Playground::setup("cp_test_8", |dirs, sandbox| {
+    Playground::setup("cp_test_26", |dirs, sandbox| {
         sandbox.mkdir("a");
         sandbox.mkdir("a/b");
         sandbox.mkdir("a/b/c");
@@ -818,7 +818,7 @@ fn test_cp_nested_directory_to_itself_disallowed() {
 #[cfg(not(windows))]
 #[test]
 fn test_cp_same_file_force() {
-    Playground::setup("cp_test_9", |dirs, sandbox| {
+    Playground::setup("cp_test_27", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("f")]);
         let actual = nu!(
         cwd: dirs.test(),
@@ -833,7 +833,7 @@ fn test_cp_same_file_force() {
 
 #[test]
 fn test_cp_arg_no_clobber() {
-    Playground::setup("cp_test_10", |dirs, _| {
+    Playground::setup("cp_test_28", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let target = dirs.fixtures.join("cp").join(TEST_HOW_ARE_YOU_SOURCE);
         let target_hash = get_file_hash(target.display());
@@ -853,14 +853,14 @@ fn test_cp_arg_no_clobber() {
 
 #[test]
 fn test_cp_arg_no_clobber_twice() {
-    Playground::setup("cp_test_11", |dirs, sandbox| {
+    Playground::setup("cp_test_29", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("source.txt"),
             FileWithContent("source_with_body.txt", "some-body"),
         ]);
         nu!(
         cwd: dirs.root(),
-        "cp --no-clobber cp_test_11/{} cp_test_11/{}",
+        "cp --no-clobber cp_test_29/{} cp_test_29/{}",
         "source.txt",
         "dest.txt"
         );
@@ -868,7 +868,7 @@ fn test_cp_arg_no_clobber_twice() {
 
         nu!(
         cwd: dirs.root(),
-        "cp --no-clobber cp_test_11/{} cp_test_11/{}",
+        "cp --no-clobber cp_test_29/{} cp_test_29/{}",
         "source_with_body.txt",
         "dest.txt"
         );
@@ -879,12 +879,12 @@ fn test_cp_arg_no_clobber_twice() {
 
 #[test]
 fn test_cp_debug_default() {
-    Playground::setup("cp_test_12", |dirs, _| {
+    Playground::setup("cp_test_30", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
 
         let actual = nu!(
         cwd: dirs.root(),
-        "cp --debug {} cp_test_12/{}",
+        "cp --debug {} cp_test_30/{}",
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
@@ -914,18 +914,18 @@ fn test_cp_debug_default() {
 
 #[test]
 fn test_cp_verbose_default() {
-    Playground::setup("cp_test_13", |dirs, _| {
+    Playground::setup("cp_test_31", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
 
         let actual = nu!(
         cwd: dirs.root(),
-        "cp --verbose {} cp_test_13/{}",
+        "cp --verbose {} cp_test_31/{}",
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
         assert!(actual.out.contains(
             format!(
-                "'{}' -> 'cp_test_13/{}'",
+                "'{}' -> 'cp_test_31/{}'",
                 src.display(),
                 TEST_HELLO_WORLD_DEST
             )
@@ -936,7 +936,7 @@ fn test_cp_verbose_default() {
 
 #[test]
 fn test_cp_only_source_no_dest() {
-    Playground::setup("cp_test_14", |dirs, _| {
+    Playground::setup("cp_test_32", |dirs, _| {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let actual = nu!(
         cwd: dirs.root(),
