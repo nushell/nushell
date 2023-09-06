@@ -6,6 +6,7 @@ mod status_bar;
 use std::{
     cmp::min,
     io::{self, Result, Stdout},
+    result,
     sync::atomic::Ordering,
 };
 
@@ -279,7 +280,7 @@ fn render_ui(
         );
 
         if let Some(transition) = transition {
-            let exit = react_to_event_result(
+            let (exit, cmd_name) = react_to_event_result(
                 transition,
                 engine_state,
                 &commands,
@@ -292,6 +293,19 @@ fn render_ui(
             if let Some(value) = exit {
                 break Ok(value);
             }
+
+            if !cmd_name.is_empty() {
+                if let Some(r) = info.status.as_mut() {
+                    r.message = cmd_name;
+                } else {
+                    info.status = Some(Report::info(cmd_name));
+                }
+
+                let info = info.clone();
+                term.draw(|f| {
+                    draw_info(f, pager, info);
+                })?;
+            }
         }
 
         if pager.cmd_buf.run_cmd {
@@ -302,15 +316,30 @@ fn render_ui(
             let out =
                 pager_run_command(engine_state, stack, pager, &mut view_stack, &commands, args);
             match out {
-                Ok(false) => {}
-                Ok(true) => break Ok(peak_value_from_view(&mut view_stack.view, pager)),
+                Ok(result) => {
+                    if result.exit {
+                        break Ok(peak_value_from_view(&mut view_stack.view, pager));
+                    }
+
+                    if result.view_change && !result.cmd_name.is_empty() {
+                        if let Some(r) = info.status.as_mut() {
+                            r.message = result.cmd_name;
+                        } else {
+                            info.status = Some(Report::info(result.cmd_name));
+                        }
+
+                        let info = info.clone();
+                        term.draw(|f| {
+                            draw_info(f, pager, info);
+                        })?;
+                    }
+                }
                 Err(err) => info.report = Some(Report::error(err)),
             }
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn react_to_event_result(
     status: Transition,
     engine_state: &EngineState,
@@ -319,13 +348,19 @@ fn react_to_event_result(
     view_stack: &mut ViewStack,
     stack: &mut Stack,
     info: &mut ViewInfo,
-) -> Option<Option<Value>> {
+) -> (Option<Option<Value>>, String) {
     match status {
-        Transition::Exit => Some(peak_value_from_view(&mut view_stack.view, pager)),
+        Transition::Exit => (
+            Some(peak_value_from_view(&mut view_stack.view, pager)),
+            String::default(),
+        ),
         Transition::Ok => {
             let exit = view_stack.stack.is_empty() && pager.config.exit_esc;
             if exit {
-                return Some(peak_value_from_view(&mut view_stack.view, pager));
+                return (
+                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    String::default(),
+                );
             }
 
             // try to pop the view stack
@@ -333,16 +368,19 @@ fn react_to_event_result(
                 view_stack.view = Some(v);
             }
 
-            None
+            (None, String::default())
         }
         Transition::Cmd(cmd) => {
             let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
             match out {
-                Ok(false) => None,
-                Ok(true) => Some(peak_value_from_view(&mut view_stack.view, pager)),
+                Ok(result) if result.exit => (
+                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    String::default(),
+                ),
+                Ok(result) => (None, result.cmd_name),
                 Err(err) => {
                     info.report = Some(Report::error(err));
-                    None
+                    (None, String::default())
                 }
             }
         }
@@ -369,6 +407,15 @@ fn draw_frame(
         page.view.draw(f, available_area, cfg, layout);
     }
 
+    draw_info(f, pager, info);
+
+    highlight_search_results(f, pager, layout, pager.config.style.highlight);
+    set_cursor_cmd_bar(f, area, pager);
+}
+
+fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
+    let area = f.size();
+
     if let Some(report) = info.status {
         let last_2nd_line = area.bottom().saturating_sub(2);
         let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
@@ -380,21 +427,13 @@ fn draw_frame(
         let area = Rect::new(area.left(), last_line, area.width, 1);
         render_cmd_bar(f, area, pager, info.report, &pager.config.style);
     }
-
-    highlight_search_results(f, pager, layout, pager.config.style.highlight);
-    set_cursor_cmd_bar(f, area, pager);
 }
 
 fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
-    ViewConfig::new(
-        pager.config.nu_config,
-        pager.config.style_computer,
-        &pager.config.config,
-        pager.config.lscolors,
-    )
+    let cfg = &pager.config;
+    ViewConfig::new(cfg.nu_config, cfg.style_computer, &cfg.config, cfg.lscolors)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn pager_run_command(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -402,21 +441,16 @@ fn pager_run_command(
     view_stack: &mut ViewStack,
     commands: &CommandRegistry,
     args: String,
-) -> std::result::Result<bool, String> {
+) -> result::Result<CmdResult, String> {
     let command = commands.find(&args);
-    handle_command(engine_state, stack, pager, view_stack, command, &args)
-}
-
-fn handle_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    pager: &mut Pager,
-    view_stack: &mut ViewStack,
-    command: Option<Result<Command>>,
-    args: &str,
-) -> std::result::Result<bool, String> {
     match command {
-        Some(Ok(command)) => run_command(engine_state, stack, pager, view_stack, command, args),
+        Some(Ok(command)) => {
+            let result = run_command(engine_state, stack, pager, view_stack, command);
+            match result {
+                Ok(value) => Ok(value),
+                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
+            }
+        }
         Some(Err(err)) => Err(format!(
             "Error: command {args:?} was not provided with correct arguments: {err}"
         )),
@@ -430,50 +464,41 @@ fn run_command(
     pager: &mut Pager,
     view_stack: &mut ViewStack,
     command: Command,
-    args: &str,
-) -> std::result::Result<bool, String> {
+) -> Result<CmdResult> {
     match command {
         Command::Reactive(mut command) => {
             // what we do we just replace the view.
             let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
-            let result = command.react(engine_state, stack, pager, value);
-            match result {
-                Ok(transition) => match transition {
-                    Transition::Ok => {
-                        // so we basically allow a change of a config inside a command,
-                        // and cause of this we wanna update all of our views.
-                        //
-                        // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
+            let transition = command.react(engine_state, stack, pager, value)?;
+            match transition {
+                Transition::Ok => {
+                    // so we basically allow a change of a config inside a command,
+                    // and cause of this we wanna update all of our views.
+                    //
+                    // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
 
-                        update_view_stack_setup(view_stack, &pager.config);
+                    update_view_stack_setup(view_stack, &pager.config);
 
-                        Ok(false)
-                    }
-                    Transition::Exit => Ok(true),
-                    Transition::Cmd { .. } => todo!("not used so far"),
-                },
-                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
+                    Ok(CmdResult::new(false, false, String::new()))
+                }
+                Transition::Exit => Ok(CmdResult::new(true, false, String::new())),
+                Transition::Cmd { .. } => todo!("not used so far"),
             }
         }
         Command::View { mut cmd, is_light } => {
             // what we do we just replace the view.
             let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
-            let result = cmd.spawn(engine_state, stack, value);
-            match result {
-                Ok(mut new_view) => {
-                    if let Some(view) = view_stack.view.take() {
-                        if !view.is_light {
-                            view_stack.stack.push(view);
-                        }
-                    }
-
-                    update_view_setup(&mut new_view, &pager.config);
-
-                    view_stack.view = Some(Page::raw(new_view, is_light));
-                    Ok(false)
+            let mut new_view = cmd.spawn(engine_state, stack, value)?;
+            if let Some(view) = view_stack.view.take() {
+                if !view.is_light {
+                    view_stack.stack.push(view);
                 }
-                Err(err) => Err(format!("Error: command {args:?} failed: {err}")),
             }
+
+            update_view_setup(&mut new_view, &pager.config);
+            view_stack.view = Some(Page::raw(new_view, is_light));
+
+            Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
     }
 }
@@ -1116,5 +1141,21 @@ struct ViewStack {
 impl ViewStack {
     fn new(view: Option<Page>, stack: Vec<Page>) -> Self {
         Self { view, stack }
+    }
+}
+
+struct CmdResult {
+    exit: bool,
+    view_change: bool,
+    cmd_name: String,
+}
+
+impl CmdResult {
+    fn new(exit: bool, view_change: bool, cmd_name: String) -> Self {
+        Self {
+            exit,
+            view_change,
+            cmd_name,
+        }
     }
 }
