@@ -81,6 +81,7 @@ struct CommandBuf {
 #[derive(Debug, Default, Clone)]
 pub struct StyleConfig {
     pub status_info: NuStyle,
+    pub status_success: NuStyle,
     pub status_warn: NuStyle,
     pub status_error: NuStyle,
     pub status_bar_background: NuStyle,
@@ -126,6 +127,7 @@ impl<'a> Pager<'a> {
             }
             ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
             ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
+            ["status", "success"] => value_as_style(&mut self.config.style.status_success, &value),
             ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
             ["status", "error"] => value_as_style(&mut self.config.style.status_error, &value),
             path => set_config(&mut self.config.config, path, value),
@@ -295,10 +297,11 @@ fn render_ui(
             }
 
             if !cmd_name.is_empty() {
-                if let Some(r) = info.status.as_mut() {
+                if let Some(r) = info.report.as_mut() {
                     r.message = cmd_name;
+                    r.level = Severity::Success;
                 } else {
-                    info.status = Some(Report::info(cmd_name));
+                    info.report = Some(Report::success(cmd_name));
                 }
 
                 let info = info.clone();
@@ -322,10 +325,11 @@ fn render_ui(
                     }
 
                     if result.view_change && !result.cmd_name.is_empty() {
-                        if let Some(r) = info.status.as_mut() {
+                        if let Some(r) = info.report.as_mut() {
                             r.message = result.cmd_name;
+                            r.level = Severity::Success;
                         } else {
-                            info.status = Some(Report::info(result.cmd_name));
+                            info.report = Some(Report::success(result.cmd_name));
                         }
 
                         let info = info.clone();
@@ -1091,6 +1095,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
 fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
     match level {
         Severity::Info => theme.status_info,
+        Severity::Success => theme.status_success,
         Severity::Warn => theme.status_warn,
         Severity::Err => theme.status_error,
     }

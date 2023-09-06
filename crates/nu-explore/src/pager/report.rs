@@ -29,23 +29,15 @@ impl Report {
     }
 
     pub fn info(message: impl Into<String>) -> Self {
-        Self::new(
-            message.into(),
-            Severity::Info,
-            String::new(),
-            String::new(),
-            String::new(),
-        )
+        Self::message(message.into(), Severity::Info)
+    }
+
+    pub fn success(message: impl Into<String>) -> Self {
+        Self::message(message.into(), Severity::Success)
     }
 
     pub fn error(message: impl Into<String>) -> Self {
-        Self::new(
-            message.into(),
-            Severity::Err,
-            String::new(),
-            String::new(),
-            String::new(),
-        )
+        Self::message(message.into(), Severity::Err)
     }
 }
 
@@ -64,7 +56,7 @@ impl Default for Report {
 #[derive(Debug, Clone, Copy)]
 pub enum Severity {
     Info,
-    #[allow(dead_code)]
+    Success,
     Warn,
     Err,
 }
