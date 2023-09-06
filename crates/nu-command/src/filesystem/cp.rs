@@ -68,7 +68,7 @@ impl Command for Cp {
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::Filepath, "the place to copy to")
+            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -134,8 +134,18 @@ impl Command for Cp {
         if paths.is_empty() {
             return Err(ShellError::GenericError(
                 "Missing file operand".into(),
-                "".into(),
-                None,
+                "Missing file operand".into(),
+                Some(call.head),
+                Some("Please provide source and destination paths".into()),
+                Vec::new(),
+            ));
+        }
+
+        if paths.len() == 1 {
+            return Err(ShellError::GenericError(
+                "Missing destination path".into(),
+                format!("Missing destination path operand after {}", paths[0].item),
+                Some(paths[0].span),
                 None,
                 Vec::new(),
             ));
@@ -178,28 +188,27 @@ impl Command for Cp {
 
         let sources = sources.into_iter().flatten().collect::<Vec<PathBuf>>();
         let options = uu_cp::Options {
+            overwrite,
+            reflink_mode,
+            recursive,
+            debug,
+            verbose: verbose || debug,
+            dereference: !recursive,
+            progress_bar: progress,
             attributes_only: false,
             backup: BackupMode::NoBackup,
             copy_contents: false,
             cli_dereference: false,
             copy_mode: uu_cp::CopyMode::Copy,
-            // dereference,
-            dereference: !recursive,
             no_target_dir: false,
             one_file_system: false,
-            overwrite,
             parents: false,
             sparse_mode: uu_cp::SparseMode::Auto,
             strip_trailing_slashes: false,
-            reflink_mode,
             attributes: uu_cp::Attributes::NONE,
-            recursive,
-            backup_suffix: String::from("~"), // default
+            backup_suffix: String::from("~"),
             target_dir: None,
             update: UpdateMode::ReplaceAll,
-            debug,
-            verbose: verbose || debug,
-            progress_bar: progress,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {

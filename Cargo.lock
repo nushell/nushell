@@ -5649,7 +5649,7 @@ dependencies = [
  "dunce",
  "glob",
  "libc",
- "nix",
+ "nix 0.26.2",
  "once_cell",
  "os_display",
  "uucore_procs",
