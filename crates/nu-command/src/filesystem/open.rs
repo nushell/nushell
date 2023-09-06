@@ -30,6 +30,10 @@ impl Command for Open {
         "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
+    fn extra_usage(&self) -> &str {
+        "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["load", "read", "load_file", "read_file"]
     }
