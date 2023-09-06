@@ -37,6 +37,11 @@ impl Command for ParEach {
                 "the number of threads to use",
                 Some('t'),
             )
+            .switch(
+                "keep-order",
+                "keep sequence of output same as the order of input",
+                Some('k'),
+            )
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
@@ -57,31 +62,29 @@ impl Command for ParEach {
             Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
                 description: "Output can still be sorted afterward",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("bar!"),
-                        Value::test_string("baz!"),
-                        Value::test_string("foo!"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("bar!"),
+                    Value::test_string("baz!"),
+                    Value::test_string("foo!"),
+                ])),
             },
             Example {
-                example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
-                description: "Enumerate and sort-by can be used to reconstruct the original order",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)],
-                    Span::test_data(),
-                )),
+                example: r#"1..6 | par-each -k {|| 2 * $in }"#,
+                description: "Multiplies each number, keeping an original order",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(4),
+                    Value::test_int(6),
+                    Value::test_int(8),
+                    Value::test_int(10),
+                    Value::test_int(12),
+                ])),
             },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::list(
-                    vec![Value::test_string("found 2 at 1!")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
             },
         ]
     }
@@ -114,6 +117,7 @@ impl Command for ParEach {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let threads: Option<usize> = call.get_flag(engine_state, stack, "threads")?;
         let max_threads = threads.unwrap_or(0);
+        let keep_order = call.has_flag("keep-order");
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let outer_ctrlc = engine_state.ctrlc.clone();
@@ -127,10 +131,12 @@ impl Command for ParEach {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(create_pool(max_threads)?
                 .install(|| {
-                    val.into_range_iter(ctrlc.clone())
+                    let mut vec: Vec<(usize, Value)> = val
+                        .into_range_iter(ctrlc.clone())
                         .expect("unable to create a range iterator")
+                        .enumerate()
                         .par_bridge()
-                        .map(move |x| {
+                        .map(move |(index, x)| {
                             let block = engine_state.get_block(block_id);
 
                             let mut stack = stack.clone();
@@ -144,7 +150,7 @@ impl Command for ParEach {
                             let val_span = x.span();
                             let x_is_error = x.is_error();
 
-                            match eval_block_with_early_return(
+                            let val = match eval_block_with_early_return(
                                 engine_state,
                                 &mut stack,
                                 block,
@@ -153,21 +159,30 @@ impl Command for ParEach {
                                 redirect_stderr,
                             ) {
                                 Ok(v) => v.into_value(span),
-
                                 Err(error) => Value::error(
                                     chain_error_with_input(error, x_is_error, val_span),
                                     val_span,
                                 ),
-                            }
+                            };
+
+                            (index, val)
                         })
-                        .collect::<Vec<_>>()
-                        .into_iter()
+                        .collect();
+
+                    if keep_order {
+                        vec.par_sort_by_key(|(index, _)| *index);
+                    }
+
+                    vec.into_iter()
+                        .map(|(_, val)| val)
                         .into_pipeline_data(ctrlc)
                 })),
             PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(create_pool(max_threads)?
                 .install(|| {
-                    val.par_iter()
-                        .map(move |x| {
+                    let mut vec: Vec<(usize, Value)> = val
+                        .par_iter()
+                        .enumerate()
+                        .map(move |(index, x)| {
                             let block = engine_state.get_block(block_id);
 
                             let mut stack = stack.clone();
@@ -181,7 +196,7 @@ impl Command for ParEach {
                             let val_span = x.span();
                             let x_is_error = x.is_error();
 
-                            match eval_block_with_early_return(
+                            let val = match eval_block_with_early_return(
                                 engine_state,
                                 &mut stack,
                                 block,
@@ -194,16 +209,25 @@ impl Command for ParEach {
                                     chain_error_with_input(error, x_is_error, val_span),
                                     val_span,
                                 ),
-                            }
+                            };
+
+                            (index, val)
                         })
-                        .collect::<Vec<_>>()
-                        .into_iter()
+                        .collect();
+
+                    if keep_order {
+                        vec.par_sort_by_key(|(index, _)| *index);
+                    }
+
+                    vec.into_iter()
+                        .map(|(_, val)| val)
                         .into_pipeline_data(ctrlc)
                 })),
             PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
-                stream
+                let mut vec: Vec<(usize, Value)> = stream
+                    .enumerate()
                     .par_bridge()
-                    .map(move |x| {
+                    .map(move |(index, x)| {
                         let block = engine_state.get_block(block_id);
 
                         let mut stack = stack.clone();
@@ -217,7 +241,7 @@ impl Command for ParEach {
                         let val_span = x.span();
                         let x_is_error = x.is_error();
 
-                        match eval_block_with_early_return(
+                        let val = match eval_block_with_early_return(
                             engine_state,
                             &mut stack,
                             block,
@@ -230,10 +254,18 @@ impl Command for ParEach {
                                 chain_error_with_input(error, x_is_error, val_span),
                                 val_span,
                             ),
-                        }
+                        };
+
+                        (index, val)
                     })
-                    .collect::<Vec<_>>()
-                    .into_iter()
+                    .collect();
+
+                if keep_order {
+                    vec.par_sort_by_key(|(index, _)| *index);
+                }
+
+                vec.into_iter()
+                    .map(|(_, val)| val)
                     .into_pipeline_data(ctrlc)
             })),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
@@ -241,12 +273,13 @@ impl Command for ParEach {
                 stdout: Some(stream),
                 ..
             } => Ok(create_pool(max_threads)?.install(|| {
-                stream
+                let mut vec: Vec<(usize, Value)> = stream
+                    .enumerate()
                     .par_bridge()
-                    .map(move |x| {
+                    .map(move |(index, x)| {
                         let x = match x {
                             Ok(x) => x,
-                            Err(err) => return Value::error(err, span),
+                            Err(err) => return (index, Value::error(err, span)),
                         };
 
                         let block = engine_state.get_block(block_id);
@@ -259,7 +292,7 @@ impl Command for ParEach {
                             }
                         }
 
-                        match eval_block_with_early_return(
+                        let val = match eval_block_with_early_return(
                             engine_state,
                             &mut stack,
                             block,
@@ -269,10 +302,18 @@ impl Command for ParEach {
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(error, span),
-                        }
+                        };
+
+                        (index, val)
                     })
-                    .collect::<Vec<_>>()
-                    .into_iter()
+                    .collect();
+
+                if keep_order {
+                    vec.par_sort_by_key(|(index, _)| *index);
+                }
+
+                vec.into_iter()
+                    .map(|(_, val)| val)
                     .into_pipeline_data(ctrlc)
             })),
             // This match allows non-iterables to be accepted,
