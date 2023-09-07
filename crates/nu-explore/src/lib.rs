@@ -50,9 +50,7 @@ fn run_pager(
         return p.run(engine_state, stack, ctrlc, information_view(), commands);
     }
 
-    if config.show_banner {
-        p.show_message("For help type :help");
-    }
+    p.show_message("For help type :help");
 
     if let Some(value) = has_simple_value(&data) {
         let text = value.into_abbreviated_string(config.nu_config);
@@ -145,9 +143,6 @@ fn create_config_command(commands: &[Command]) -> ConfigCmd {
     config.register_group(ConfigOption::new(GROUP, "Command bar background", "command_bar_background", default_color_list()));
 
     config.register_group(ConfigOption::new(GROUP, "Highlight color in search", "highlight", default_color_list()));
-
-    config.register_group(ConfigOption::boolean(GROUP, "Show help banner on open", "help_banner"));
-    config.register_group(ConfigOption::boolean(GROUP, "Pressing ESC causes a program exit", "exit_esc"));
 
     config
 }
