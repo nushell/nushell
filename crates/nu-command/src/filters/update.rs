@@ -116,6 +116,10 @@ fn update(
     let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
+    // Let's capture the metadata for ls_colors
+    let metadata = input.metadata();
+    let mdclone = metadata.clone();
+
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
         let capture_block: Closure = FromValue::from_value(&replacement)?;
@@ -125,48 +129,50 @@ fn update(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        input.map(
-            move |mut input| {
-                // with_env() is used here to ensure that each iteration uses
-                // a different set of environment variables.
-                // Hence, a 'cd' in the first loop won't affect the next loop.
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
+        Ok(input
+            .map(
+                move |mut input| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
 
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, input.clone())
-                    }
-                }
-
-                let input_at_path = match input.clone().follow_cell_path(&cell_path.members, false)
-                {
-                    Err(e) => return Value::error(e, span),
-                    Ok(v) => v,
-                };
-                let output = eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    input_at_path.into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
-                );
-
-                match output {
-                    Ok(pd) => {
-                        if let Err(e) =
-                            input.update_data_at_cell_path(&cell_path.members, pd.into_value(span))
-                        {
-                            return Value::error(e, span);
+                    if let Some(var) = block.signature.get_positional(0) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(*var_id, input.clone())
                         }
-
-                        input
                     }
-                    Err(e) => Value::error(e, span),
-                }
-            },
-            ctrlc,
-        )
+
+                    let input_at_path =
+                        match input.clone().follow_cell_path(&cell_path.members, false) {
+                            Err(e) => return Value::error(e, span),
+                            Ok(v) => v,
+                        };
+                    let output = eval_block(
+                        &engine_state,
+                        &mut stack,
+                        &block,
+                        input_at_path.into_pipeline_data_with_metadata(metadata.clone()),
+                        redirect_stdout,
+                        redirect_stderr,
+                    );
+
+                    match output {
+                        Ok(pd) => {
+                            if let Err(e) = input
+                                .update_data_at_cell_path(&cell_path.members, pd.into_value(span))
+                            {
+                                return Value::error(e, span);
+                            }
+
+                            input
+                        }
+                        Err(e) => Value::error(e, span),
+                    }
+                },
+                ctrlc,
+            )?
+            .set_metadata(mdclone.clone()))
     } else {
         if let Some(PathMember::Int { val, span, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();
@@ -192,20 +198,23 @@ fn update(
                 .into_iter()
                 .chain(vec![replacement])
                 .chain(input)
-                .into_pipeline_data(ctrlc));
+                .into_pipeline_data_with_metadata(metadata.clone(), ctrlc));
         }
-        input.map(
-            move |mut input| {
-                let replacement = replacement.clone();
+        Ok(input
+            .map(
+                move |mut input| {
+                    let replacement = replacement.clone();
 
-                if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::error(e, span);
-                }
+                    if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement)
+                    {
+                        return Value::error(e, span);
+                    }
 
-                input
-            },
-            ctrlc,
-        )
+                    input
+                },
+                ctrlc,
+            )?
+            .set_metadata(metadata.clone()))
     }
 }
 
