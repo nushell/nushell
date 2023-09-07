@@ -220,6 +220,7 @@ Please submit an issue or PR to be added to this list.
 -   [virtualenv](https://github.com/pypa/virtualenv)
 -   [atuin](https://github.com/ellie/atuin)
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
+-   [Dorothy](http://github.com/bevry/dorothy)
 
 ## Contributing
 
