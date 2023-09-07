@@ -3,6 +3,7 @@ use nu_cli::eval_source;
 use nu_parser::parse;
 use nu_plugin::{EncodingType, PluginResponse};
 use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
+use nu_test_support::nu;
 use nu_utils::{get_default_config, get_default_env};
 
 fn load_bench_commands() -> EngineState {
@@ -162,11 +163,40 @@ fn decoding_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+fn generating_random_bytes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Generating random bytes");
+
+    for n in [10, 100, 1_000, 10_000, 100_000, 1_000_000] {
+        group.bench_function(&format!("generating {n} random bytes"), |b| {
+            b.iter(|| {
+                nu!(format!(
+                    r#"
+                        def "random bytes" [n: int]: nothing -> binary {{
+                            seq 1 ($n / 8 + 1)
+                                | each {{ random integer }}
+                                | into binary
+                                | enumerate
+                                | reduce -f 0x[] {{|it, acc|
+                                    $acc | bytes add $it.item
+                                }}
+                                | first $n
+                        }}
+                        random bytes {n}
+                    "#
+                ));
+            })
+        });
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     parser_benchmarks,
     eval_benchmarks,
     encoding_benchmarks,
-    decoding_benchmarks
+    decoding_benchmarks,
+    generating_random_bytes
 );
 criterion_main!(benches);
