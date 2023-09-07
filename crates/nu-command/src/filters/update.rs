@@ -172,7 +172,7 @@ fn update(
                 },
                 ctrlc,
             )?
-            .set_metadata(mdclone.clone()))
+            .set_metadata(mdclone))
     } else {
         if let Some(PathMember::Int { val, span, .. }) = cell_path.members.get(0) {
             let mut input = input.into_iter();
@@ -198,7 +198,7 @@ fn update(
                 .into_iter()
                 .chain(vec![replacement])
                 .chain(input)
-                .into_pipeline_data_with_metadata(metadata.clone(), ctrlc));
+                .into_pipeline_data_with_metadata(metadata, ctrlc));
         }
         Ok(input
             .map(
@@ -214,7 +214,7 @@ fn update(
                 },
                 ctrlc,
             )?
-            .set_metadata(metadata.clone()))
+            .set_metadata(metadata))
     }
 }
 
