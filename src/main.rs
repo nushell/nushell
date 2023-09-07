@@ -38,7 +38,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-fn get_engine_staet() -> EngineState {
+fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
     #[cfg(feature = "extra")]
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     let mut start_time = std::time::Instant::now();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
-        crossterm::terminal::disable_raw_mode().expect("unable to diasble raw mode");
+        crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
         miette_hook(x);
     }));
 
