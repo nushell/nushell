@@ -122,51 +122,6 @@ impl ViewCommand for TableCmd {
         })
     }
 
-    fn display_config_option(&mut self, _group: String, key: String, value: String) -> bool {
-        match key.as_str() {
-            "table.orientation" => self.settings.orientation = orientation_from_str(&value),
-            "table.line_head_top" => self.settings.line_head_top = bool_from_str(&value),
-            "table.line_head_bottom" => self.settings.line_head_bottom = bool_from_str(&value),
-            "table.line_shift" => self.settings.line_shift = bool_from_str(&value),
-            "table.line_index" => self.settings.line_index = bool_from_str(&value),
-            "table.show_cursor" => {
-                self.settings.show_cursor = bool_from_str(&value);
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.split_line" => {
-                self.settings.split_line_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.selected_cell" => {
-                self.settings.selected_cell_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.selected_row" => {
-                self.settings.selected_row_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.selected_column" => {
-                self.settings.selected_column_s = Some(lookup_ansi_color_style(&value));
-                self.settings.turn_on_cursor_mode = true;
-            }
-            "table.padding_column_left" => {
-                self.settings.padding_column_left = usize_from_str(&value);
-            }
-            "table.padding_column_right" => {
-                self.settings.padding_column_right = usize_from_str(&value);
-            }
-            "table.padding_index_left" => {
-                self.settings.padding_index_left = usize_from_str(&value);
-            }
-            "table.padding_index_right" => {
-                self.settings.padding_index_right = usize_from_str(&value);
-            }
-            _ => return false,
-        }
-
-        true
-    }
-
     fn parse(&mut self, _: &str) -> Result<()> {
         Ok(())
     }

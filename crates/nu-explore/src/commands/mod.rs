@@ -50,8 +50,6 @@ pub trait ViewCommand {
 
     fn parse(&mut self, args: &str) -> Result<()>;
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool;
-
     fn spawn(
         &mut self,
         engine_state: &EngineState,
