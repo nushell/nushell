@@ -13,19 +13,13 @@ mod nu;
 mod quit;
 mod table;
 mod r#try;
-mod tweak;
 
-pub mod config;
-mod config_show;
-
-pub use config_show::ConfigShowCmd;
 pub use expand::ExpandCmd;
 pub use help::HelpCmd;
 pub use nu::NuCmd;
 pub use quit::QuitCmd;
 pub use r#try::TryCmd;
 pub use table::TableCmd;
-pub use tweak::TweakCmd;
 
 pub trait SimpleCommand {
     fn name(&self) -> &'static str;
