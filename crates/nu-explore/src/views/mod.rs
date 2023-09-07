@@ -22,9 +22,6 @@ use super::{
     pager::{Frame, Transition, ViewInfo},
 };
 
-pub mod configuration;
-
-pub use configuration::ConfigurationView;
 pub use information::InformationView;
 pub use interactive::InteractiveView;
 pub use preview::Preview;
