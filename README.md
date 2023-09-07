@@ -7,7 +7,6 @@
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
 [![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
-[![codecov](https://codecov.io/gh/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/gh/nushell/nushell)
 
 A new type of shell.
 
