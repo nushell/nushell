@@ -793,14 +793,13 @@ fn handle_event<V: View>(
 }
 
 fn handle_exit_key_event(key: &KeyEvent) -> bool {
-    matches!(
-        key,
-        KeyEvent {
-            code: KeyCode::Char('z'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
+    if key.modifiers == KeyModifiers::CONTROL {
+        // these are all common things people might try, might as well handle them all
+        if let KeyCode::Char('c') | KeyCode::Char('d') | KeyCode::Char('q') = key.code {
+            return true;
         }
-    )
+    }
+    false
 }
 
 fn handle_general_key_events1<V>(
