@@ -1,7 +1,6 @@
 use std::io::Result;
 
 use nu_ansi_term::Style;
-use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -210,27 +209,5 @@ impl ViewCommand for TableCmd {
         }
 
         Ok(view)
-    }
-}
-
-fn bool_from_str(s: &str) -> Option<bool> {
-    match s {
-        "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn usize_from_str(s: &str) -> Option<usize> {
-    s.parse::<usize>().ok()
-}
-
-fn orientation_from_str(s: &str) -> Option<Orientation> {
-    match s {
-        "left" => Some(Orientation::Left),
-        "right" => Some(Orientation::Right),
-        "top" => Some(Orientation::Top),
-        "bottom" => Some(Orientation::Bottom),
-        _ => None,
     }
 }
