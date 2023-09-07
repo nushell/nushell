@@ -31,7 +31,7 @@ impl Command for Use {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["environment", "import"]
+        vec!["module", "import", "include", "scope"]
     }
 
     fn extra_usage(&self) -> &str {
