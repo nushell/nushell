@@ -30,6 +30,10 @@ impl Command for Use {
             .category(Category::Core)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["module", "import", "include", "scope"]
+    }
+
     fn extra_usage(&self) -> &str {
         r#"See `help std` for the standard library module.
 See `help modules` to list all available modules.

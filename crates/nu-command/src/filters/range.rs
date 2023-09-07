@@ -33,6 +33,10 @@ impl Command for Range {
         "Return only the selected rows."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["filter", "head", "tail"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
