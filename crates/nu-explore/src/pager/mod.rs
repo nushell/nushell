@@ -109,14 +109,6 @@ impl<'a> Pager<'a> {
         let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
 
         match &path[..] {
-            ["exit_esc"] => {
-                if matches!(value, Value::Bool { .. }) {
-                    self.config.exit_esc = value.is_true();
-                    true
-                } else {
-                    false
-                }
-            }
             ["status_bar_text"] => value_as_style(&mut self.config.style.status_bar_text, &value),
             ["status_bar_background"] => {
                 value_as_style(&mut self.config.style.status_bar_background, &value)
@@ -171,9 +163,7 @@ pub struct PagerConfig<'a> {
     pub config: ConfigMap,
     pub style: StyleConfig,
     pub peek_value: bool,
-    pub exit_esc: bool,
     pub reverse: bool,
-    pub show_banner: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -189,9 +179,7 @@ impl<'a> PagerConfig<'a> {
             config,
             lscolors,
             peek_value: false,
-            exit_esc: true,
             reverse: false,
-            show_banner: false,
             style: StyleConfig::default(),
         }
     }
@@ -359,7 +347,7 @@ fn react_to_event_result(
             String::default(),
         ),
         Transition::Ok => {
-            let exit = view_stack.stack.is_empty() && pager.config.exit_esc;
+            let exit = view_stack.stack.is_empty();
             if exit {
                 return (
                     Some(peak_value_from_view(&mut view_stack.view, pager)),

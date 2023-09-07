@@ -77,9 +77,6 @@ impl Command for Explore {
         update_config(&mut config, show_index, show_head);
         prepare_default_config(&mut config);
 
-        let show_banner = is_need_banner(&config).unwrap_or(true);
-        let exit_esc = is_need_esc_exit(&config).unwrap_or(true);
-
         let style = style_from_config(&config);
 
         let lscolors = create_lscolors(engine_state, stack);
@@ -89,8 +86,6 @@ impl Command for Explore {
         config.reverse = is_reverse;
         config.peek_value = peek_value;
         config.reverse = is_reverse;
-        config.exit_esc = exit_esc;
-        config.show_banner = show_banner;
 
         let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
@@ -129,16 +124,6 @@ impl Command for Explore {
             },
         ]
     }
-}
-
-// For now, this doesn't use StyleComputer.
-// As such, closures can't be given as styles for Explore.
-fn is_need_banner(config: &HashMap<String, Value>) -> Option<bool> {
-    config.get("help_banner").and_then(|v| v.as_bool().ok())
-}
-
-fn is_need_esc_exit(config: &HashMap<String, Value>) -> Option<bool> {
-    config.get("exit_esc").and_then(|v| v.as_bool().ok())
 }
 
 fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_head: bool) {
