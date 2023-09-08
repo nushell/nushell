@@ -1,11 +1,11 @@
-use std::time::Duration;
-
+use itertools::Itertools;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
     Type, Value,
 };
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Ps;
@@ -102,6 +102,32 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
             record.push("command", Value::string(proc.command(), span));
             #[cfg(windows)]
             {
+                //TODO: There's still more information we can cram in there if we want to
+                // see the ProcessInfo struct for more information
+                record.push(
+                    "start_time",
+                    Value::date(proc.start_time.fixed_offset(), span),
+                );
+                record.push(
+                    "user",
+                    Value::string(
+                        proc.user.clone().name.unwrap_or("unknown".to_string()),
+                        span,
+                    ),
+                );
+                record.push(
+                    "user_sid",
+                    Value::string(
+                        proc.user
+                            .clone()
+                            .sid
+                            .iter()
+                            .map(|r| r.to_string())
+                            .join("-"),
+                        span,
+                    ),
+                );
+                record.push("priority", Value::int(proc.priority as i64, span));
                 record.push("cwd", Value::string(proc.cwd(), span));
                 record.push(
                     "environment",
