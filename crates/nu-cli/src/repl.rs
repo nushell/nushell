@@ -95,6 +95,7 @@ pub fn evaluate_repl(
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
+    let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -334,7 +335,6 @@ pub fn evaluate_repl(
 
         line_editor = if let Some(buffer_editor) = buffer_editor {
             let mut command = std::process::Command::new(&buffer_editor);
-            let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4().to_string()));
             command.arg(&temp_file).envs(
                 engine_state
                     .render_env_vars()
