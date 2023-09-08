@@ -200,10 +200,11 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // FileSystem
         bind_command! {
             Cd,
-            Cp,
             Ls,
             Mkdir,
             Mv,
+            Cp,
+            UCp,
             Open,
             Start,
             Rm,

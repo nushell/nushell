@@ -10,6 +10,7 @@ mod rm;
 mod save;
 mod start;
 mod touch;
+mod ucp;
 mod util;
 mod watch;
 
@@ -25,4 +26,5 @@ pub use rm::Rm;
 pub use save::Save;
 pub use start::Start;
 pub use touch::Touch;
+pub use ucp::UCp;
 pub use watch::Watch;
