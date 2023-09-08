@@ -81,18 +81,6 @@ impl TableTheme {
     pub fn basic_compact() -> TableTheme {
         let theme = Style::ascii().remove_horizontal().into();
         Self {
-            //     Style::new(
-            //     create_borders(
-            //         Line::full('-', '+', '+', '+'),
-            //         Line::full('-', '+', '+', '+'),
-            //         Line::full('-', '+', '+', '+'),
-            //         Some('|'),
-            //         Some('|'),
-            //         Some('|'),
-            //     ),
-            //     [],
-            //     [],
-            // )
             theme,
             full_theme: Style::ascii().into(),
             has_inner: true,
