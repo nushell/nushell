@@ -5,7 +5,7 @@ use crate::{
     util::eval_source,
     NuHighlighter, NuValidator, NushellPrompt,
 };
-use crossterm::{cursor::SetCursorStyle};
+use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::hook::eval_hook;
@@ -26,10 +26,11 @@ use reedline::{
     SqliteBackedHistory, Vi,
 };
 use std::{
+    env::temp_dir,
     io::{self, IsTerminal, Write},
     path::Path,
     sync::atomic::Ordering,
-    time::Instant, env::temp_dir,
+    time::Instant,
 };
 use sysinfo::SystemExt;
 
@@ -334,8 +335,12 @@ pub fn evaluate_repl(
         line_editor = if let Some(buffer_editor) = buffer_editor {
             let mut command = std::process::Command::new(&buffer_editor);
             let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4().to_string()));
-            command.arg(&temp_file)
-            .envs(engine_state.render_env_vars().into_iter().filter_map(|(k,v)| v.as_string().ok().map(|v| (k,v))));
+            command.arg(&temp_file).envs(
+                engine_state
+                    .render_env_vars()
+                    .into_iter()
+                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
+            );
             line_editor.with_buffer_editor_command(command, temp_file)
         } else {
             line_editor
