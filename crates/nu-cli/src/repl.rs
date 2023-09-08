@@ -341,7 +341,7 @@ pub fn evaluate_repl(
                     .into_iter()
                     .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
             );
-            line_editor.with_buffer_editor_command(command, temp_file)
+            line_editor.with_buffer_editor_command(command, temp_file.clone())
         } else {
             line_editor
         };
