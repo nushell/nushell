@@ -746,9 +746,10 @@ fn filesize_math() {
         100 * 10kib
         ");
 
-    assert_eq!(actual.out, "1000.0 KiB");
-    // why 1000.0 KB instead of 1.0 MB?
+    assert_eq!(actual.out, "1.0 MB");
+    // NOTE: why 1000.0 KB instead of 1.0 MB?
     // looks like `byte.get_appropriate_unit(false)` behaves this way
+    // this only applies when `$env.config.filesize.metric` is set to `false`
 }
 
 #[test]
@@ -766,7 +767,7 @@ fn filesize_math3() {
         100kib / 10
         ");
 
-    assert_eq!(actual.out, "10.0 KiB");
+    assert_eq!(actual.out, "10.2 KB");
 }
 #[test]
 fn filesize_math4() {
@@ -774,7 +775,7 @@ fn filesize_math4() {
         100kib * 5
         ");
 
-    assert_eq!(actual.out, "500.0 KiB");
+    assert_eq!(actual.out, "512.0 KB");
 }
 
 #[test]
@@ -783,7 +784,7 @@ fn filesize_math5() {
         1000 * 1kib
         ");
 
-    assert_eq!(actual.out, "1000.0 KiB");
+    assert_eq!(actual.out, "1.0 MB");
 }
 
 #[test]
@@ -792,7 +793,7 @@ fn filesize_math6() {
         1000 * 1mib
         ");
 
-    assert_eq!(actual.out, "1000.0 MiB");
+    assert_eq!(actual.out, "1.0 GB");
 }
 
 #[test]
@@ -801,7 +802,7 @@ fn filesize_math7() {
         1000 * 1gib
         ");
 
-    assert_eq!(actual.out, "1000.0 GiB");
+    assert_eq!(actual.out, "1.1 TB");
 }
 
 #[test]
