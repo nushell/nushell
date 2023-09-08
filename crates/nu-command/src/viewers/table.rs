@@ -330,6 +330,12 @@ fn supported_table_modes() -> Vec<Value> {
         Value::test_string("rounded"),
         Value::test_string("thin"),
         Value::test_string("with_love"),
+        Value::test_string("psql"),
+        Value::test_string("markdown"),
+        Value::test_string("dots"),
+        Value::test_string("restructured"),
+        Value::test_string("ascii_rounded"),
+        Value::test_string("basic_compact"),
     ]
 }
 
