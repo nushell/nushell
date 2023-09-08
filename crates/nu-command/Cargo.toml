@@ -115,7 +115,7 @@ features = [
 	"Win32_Security",
 	"Win32_System_Threading",
 ]
-version = "0.48"
+version = "0.51"
 
 [features]
 plugin = ["nu-parser/plugin"]
