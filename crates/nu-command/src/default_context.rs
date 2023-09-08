@@ -204,7 +204,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Mkdir,
             Mv,
             Cp,
-            CpOld,
+            UCp,
             Open,
             Start,
             Rm,
