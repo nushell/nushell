@@ -174,7 +174,11 @@ impl Command for Open {
                     };
 
                     if let Some(ext) = ext {
-                        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+                        let cmd = match ext.as_str() {
+                            "ndjson" => "from json".to_string(),
+                            _ => format!("from {ext}"),
+                        };
+                        match engine_state.find_decl(cmd.as_bytes(), &[]) {
                             Some(converter_id) => {
                                 let decl = engine_state.get_decl(converter_id);
                                 let command_output = if let Some(block_id) = decl.get_block_id() {
@@ -188,12 +192,18 @@ impl Command for Open {
                                         false,
                                     )
                                 } else {
-                                    decl.run(
-                                        engine_state,
-                                        stack,
-                                        &Call::new(call_span),
-                                        file_contents,
-                                    )
+                                    let mut call = Call::new(call_span);
+                                    if ext == "ndjson" {
+                                        call.add_named((
+                                            Spanned {
+                                                item: "objects".into(),
+                                                span: call_span,
+                                            },
+                                            None,
+                                            None,
+                                        ));
+                                    }
+                                    decl.run(engine_state, stack, &call, file_contents)
                                 };
                                 output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError(
