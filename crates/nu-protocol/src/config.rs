@@ -153,7 +153,7 @@ impl Default for Config {
             max_external_completion_results: 100,
             external_completer: None,
 
-            filesize_metric: false,
+            filesize_metric: true,
             filesize_format: "auto".into(),
 
             cursor_shape_emacs: NuCursorShape::Line,
