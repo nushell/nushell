@@ -117,13 +117,21 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let locale: Locale = get_system_locale_string()
-        .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-        .unwrap_or_else(|| String::from("en_US"))
-        .as_str()
-        .try_into()
-        .unwrap_or(Locale::en_US);
-    let format = date_time.format_localized(formatter, locale);
+    // These are already in locale format, so we don't need to localize them
+    let format = if ["%x", "%X", "%r", "%c"]
+        .iter()
+        .any(|item| formatter.contains(item))
+    {
+        date_time.format(formatter)
+    } else {
+        let locale: Locale = get_system_locale_string()
+            .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
+            .unwrap_or_else(|| String::from("en_US"))
+            .as_str()
+            .try_into()
+            .unwrap_or(Locale::en_US);
+        date_time.format_localized(formatter, locale)
+    };
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::string(formatter_buf, span),
