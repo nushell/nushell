@@ -803,7 +803,7 @@ impl Value {
     {
         let mut formatter_buf = String::new();
         // These are already in locale format, so we don't need to localize them
-        let format = if ["%x", "%X", "%r", "%c"]
+        let format = if ["%x", "%X", "%r"]
             .iter()
             .any(|item| formatter.contains(item))
         {
