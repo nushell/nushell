@@ -197,10 +197,6 @@ $env.config = {
             line_shift: true,
             line_index: true,
         },
-        config: {
-            border_color: {fg: "white"}
-            cursor_color: {fg: "black", bg: "light_yellow"}
-        },
     }
 
     history: {
