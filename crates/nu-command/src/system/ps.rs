@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use itertools::Itertools;
 use nu_protocol::{
     ast::Call,
