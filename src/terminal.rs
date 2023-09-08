@@ -8,7 +8,7 @@ use std::{
 use nix::{
     errno::Errno,
     libc,
-    sys::signal::{self, signal, SaFlags, SigAction, SigHandler, SigSet, Signal},
+    sys::signal::{self, raise, signal, SaFlags, SigAction, SigHandler, SigSet, Signal},
     unistd::{self, Pid},
 };
 
@@ -35,11 +35,24 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore");
+
             signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
+                // Safety: can only call async-signal-safe functions here
+                // restore_terminal, signal, and raise are all async-signal-safe
+
                 restore_terminal();
-                // TODO: POSIX specifies that if terminated by a signal, exit code should be > 128
-                // Typically, this is 128 + signal_num
-                std::process::exit(0)
+
+                if signal(Signal::SIGTERM, SigHandler::SigDfl).is_err() {
+                    // Failed to set signal handler to default.
+                    // This should not be possible, but if it does happen,
+                    // then this could result in an infitite loop due to the raise below.
+                    // So, we'll just exit immediately if this happens.
+                    std::process::exit(1);
+                };
+
+                if raise(Signal::SIGTERM).is_err() {
+                    std::process::exit(1);
+                };
             })
             .expect("signal hook");
         }
