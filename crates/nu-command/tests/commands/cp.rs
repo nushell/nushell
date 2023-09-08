@@ -613,4 +613,3 @@ fn copy_file_with_update_flag_impl(progress: bool) {
         assert_eq!(actual.out, "newest_body");
     });
 }
-
