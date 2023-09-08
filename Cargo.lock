@@ -2809,7 +2809,7 @@ name = "nu-cmd-lang"
 version = "0.84.1"
 dependencies = [
  "fancy-regex",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
@@ -2859,7 +2859,7 @@ dependencies = [
  "htmlescape",
  "indexmap 2.0.0",
  "indicatif",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "libc",
  "log",
  "lscolors",
@@ -2982,7 +2982,7 @@ version = "0.84.1"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.10.5",
+ "itertools 0.11.0",
  "log",
  "nu-engine",
  "nu-path",
