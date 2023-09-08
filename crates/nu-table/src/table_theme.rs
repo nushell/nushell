@@ -55,8 +55,9 @@ impl TableTheme {
     }
 
     pub fn dots() -> TableTheme {
+        let theme = Style::dots().remove_horizontal().into();
         Self {
-            theme: Style::dots().into(),
+            theme,
             full_theme: Style::dots().into(),
             has_inner: true,
         }
