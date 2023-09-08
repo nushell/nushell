@@ -113,10 +113,7 @@ impl Command for ToLazyGroupBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
 
         if expressions
@@ -126,7 +123,7 @@ impl Command for ToLazyGroupBy {
             let value: Value = call.req(engine_state, stack, 0)?;
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Expected only Col expressions".into(),
-                span: value.span()?,
+                span: value.span(),
             });
         }
 

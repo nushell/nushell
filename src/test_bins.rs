@@ -1,12 +1,10 @@
-use std::io::{self, BufRead, Read, Write};
-
-use nu_command::hook::{eval_env_change_hook, eval_hook};
+use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{CliError, PipelineData, Value};
 use nu_std::load_standard_library;
-// use nu_test_support::fs::in_directory;
+use std::io::{self, BufRead, Read, Write};
 
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
@@ -24,6 +22,9 @@ pub fn echo_env(to_stdout: bool) {
     }
 }
 
+/// Cross platform echo using println!()
+/// Example: nu --testbin echo a b c
+/// a b c
 pub fn cococo() {
     let args: Vec<String> = args();
 
@@ -37,6 +38,7 @@ pub fn cococo() {
     }
 }
 
+/// Cross platform cat (open a file, print the contents) using read_to_string and println!()
 pub fn meow() {
     let args: Vec<String> = args();
 
@@ -46,7 +48,7 @@ pub fn meow() {
     }
 }
 
-// A binary version of meow
+/// Cross platform cat (open a file, print the contents) using read() and write_all() / binary
 pub fn meowb() {
     let args: Vec<String> = args();
 
@@ -65,10 +67,18 @@ pub fn relay() {
         .expect("failed to copy stdin to stdout");
 }
 
+/// Cross platform echo but concats arguments without space and NO newline
+/// nu --testbin nonu a b c
+/// abc
 pub fn nonu() {
     args().iter().skip(1).for_each(|arg| print!("{arg}"));
 }
 
+/// Repeat a string or char N times
+/// nu --testbin repeater a 5
+/// aaaaa
+/// nu --testbin repeater test 5
+/// testtesttesttesttest
 pub fn repeater() {
     let mut stdout = io::stdout();
     let args = args();
@@ -84,7 +94,7 @@ pub fn repeater() {
     let _ = stdout.flush();
 }
 
-// A version of repeater that can output binary data, even null bytes
+/// A version of repeater that can output binary data, even null bytes
 pub fn repeat_bytes() {
     let mut stdout = io::stdout();
     let args = args();
@@ -110,6 +120,7 @@ pub fn repeat_bytes() {
     let _ = stdout.flush();
 }
 
+/// Another type of echo that outputs a parameter per line, looping infinitely
 pub fn iecho() {
     // println! panics if stdout gets closed, whereas writeln gives us an error
     let mut stdout = io::stdout();
@@ -124,6 +135,7 @@ pub fn fail() {
     std::process::exit(1);
 }
 
+/// With no parameters, will chop a character off the end of each line
 pub fn chop() {
     if did_chop_arguments() {
         // we are done and don't care about standard input.
@@ -201,7 +213,14 @@ pub fn nu_repl() {
         // Check for pre_prompt hook
         let config = engine_state.get_config();
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
+            if let Err(err) = eval_hook(
+                &mut engine_state,
+                &mut stack,
+                None,
+                vec![],
+                &hook,
+                "pre_prompt",
+            ) {
                 outcome_err(&engine_state, &err);
             }
         }
@@ -226,7 +245,14 @@ pub fn nu_repl() {
             .buffer = line.to_string();
 
         if let Some(hook) = config.hooks.pre_execution.clone() {
-            if let Err(err) = eval_hook(&mut engine_state, &mut stack, None, vec![], &hook) {
+            if let Err(err) = eval_hook(
+                &mut engine_state,
+                &mut stack,
+                None,
+                vec![],
+                &hook,
+                "pre_execution",
+            ) {
                 outcome_err(&engine_state, &err);
             }
         }

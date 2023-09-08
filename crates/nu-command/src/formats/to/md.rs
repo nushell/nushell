@@ -105,10 +105,7 @@ fn to_md(
 }
 
 fn fragment(input: Value, pretty: bool, config: &Config) -> String {
-    let headers = match input {
-        Value::Record { ref cols, .. } => cols.to_owned(),
-        _ => vec![],
-    };
+    let headers = input.columns();
     let mut out = String::new();
 
     if headers.len() == 1 {
@@ -164,9 +161,10 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
 
     for row in vec_of_values {
         let mut escaped_row: Vec<String> = Vec::new();
+        let span = row.span();
 
         match row.to_owned() {
-            Value::Record { span, .. } => {
+            Value::Record { .. } => {
                 for i in 0..headers.len() {
                     let data = row.get_data_by_key(&headers[i]);
                     let value_string = data
@@ -207,9 +205,12 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
     let mut lists = IndexMap::new();
     let mut single_list = false;
     for val in values {
-        if let Value::Record { ref cols, .. } = val {
+        if let Value::Record {
+            val: ref record, ..
+        } = val
+        {
             lists
-                .entry(cols.concat())
+                .entry(record.cols.concat())
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         } else {
@@ -224,23 +225,13 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
         if value.len() == 1 {
             output.push(value.pop().unwrap_or_else(|| Value::nothing(head)))
         } else {
-            output.push(Value::List {
-                vals: value.to_vec(),
-                span: head,
-            })
+            output.push(Value::list(value.to_vec(), head))
         }
     }
     if output.len() == 1 {
         single_list = true;
     }
-    (
-        Value::List {
-            vals: output,
-            span: head,
-        }
-        .into_pipeline_data(),
-        single_list,
-    )
+    (Value::list(output, head).into_pipeline_data(), single_list)
 }
 
 fn get_output_string(
@@ -329,7 +320,7 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{Config, IntoPipelineData, Span, Value};
+    use nu_protocol::{Config, IntoPipelineData, Record, Span, Value};
 
     fn one(string: &str) -> String {
         string
@@ -351,70 +342,63 @@ mod tests {
 
     #[test]
     fn render_h1() {
-        let value = Value::Record {
+        let value = Value::test_record(Record {
             cols: vec!["H1".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::test_data(),
-        };
+        });
 
         assert_eq!(fragment(value, false, &Config::default()), "# Ecuador\n");
     }
 
     #[test]
     fn render_h2() {
-        let value = Value::Record {
+        let value = Value::test_record(Record {
             cols: vec!["H2".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::test_data(),
-        };
+        });
 
         assert_eq!(fragment(value, false, &Config::default()), "## Ecuador\n");
     }
 
     #[test]
     fn render_h3() {
-        let value = Value::Record {
+        let value = Value::test_record(Record {
             cols: vec!["H3".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::test_data(),
-        };
+        });
 
         assert_eq!(fragment(value, false, &Config::default()), "### Ecuador\n");
     }
 
     #[test]
     fn render_blockquote() {
-        let value = Value::Record {
+        let value = Value::test_record(Record {
             cols: vec!["BLOCKQUOTE".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::test_data(),
-        };
+        });
 
         assert_eq!(fragment(value, false, &Config::default()), "> Ecuador\n");
     }
 
     #[test]
     fn render_table() {
-        let value = Value::List {
-            vals: vec![
-                Value::Record {
+        let value = Value::list(
+            vec![
+                Value::test_record(Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("Ecuador")],
-                    span: Span::test_data(),
-                },
-                Value::Record {
+                }),
+                Value::test_record(Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("New Zealand")],
-                    span: Span::test_data(),
-                },
-                Value::Record {
+                }),
+                Value::test_record(Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("USA")],
-                    span: Span::test_data(),
-                },
+                }),
             ],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
 
         assert_eq!(
             table(

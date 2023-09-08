@@ -5,7 +5,7 @@ use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
 
 use ureq::{Error, ErrorKind, Request, Response};
@@ -237,12 +237,12 @@ pub fn send_request(
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        Value::Record { cols, vals, .. } if body_type == BodyType::Form => {
-            let mut data: Vec<(String, String)> = Vec::with_capacity(cols.len());
+        Value::Record { val, .. } if body_type == BodyType::Form => {
+            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in cols.iter().zip(vals.iter()) {
+            for (col, val) in val {
                 let val_string = val.as_string()?;
-                data.push((col.clone(), val_string))
+                data.push((col, val_string))
             }
 
             let request_fn = move || {
@@ -332,7 +332,7 @@ pub fn request_set_timeout(
         if val.is_negative() || val < 1 {
             return Err(ShellError::TypeMismatch {
                 err_message: "Timeout value must be an integer and larger than 0".to_string(),
-                span: timeout.expect_span(),
+                span: timeout.span(),
             });
         }
 
@@ -350,8 +350,8 @@ pub fn request_add_custom_headers(
         let mut custom_headers: HashMap<String, Value> = HashMap::new();
 
         match &headers {
-            Value::Record { cols, vals, .. } => {
-                for (k, v) in cols.iter().zip(vals.iter()) {
+            Value::Record { val, .. } => {
+                for (k, v) in val {
                     custom_headers.insert(k.to_string(), v.clone());
                 }
             }
@@ -360,8 +360,8 @@ pub fn request_add_custom_headers(
                 if table.len() == 1 {
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
-                        Value::Record { cols, vals, .. } => {
-                            for (k, v) in cols.iter().zip(vals.iter()) {
+                        Value::Record { val, .. } => {
+                            for (k, v) in val {
                                 custom_headers.insert(k.to_string(), v.clone());
                             }
                         }
@@ -370,7 +370,7 @@ pub fn request_add_custom_headers(
                             return Err(ShellError::CantConvert {
                                 to_type: "string list or single row".into(),
                                 from_type: x.get_type().to_string(),
-                                span: headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                                span: headers.span(),
                                 help: None,
                             });
                         }
@@ -389,7 +389,7 @@ pub fn request_add_custom_headers(
                 return Err(ShellError::CantConvert {
                     to_type: "string list or single row".into(),
                     from_type: x.get_type().to_string(),
-                    span: headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                    span: headers.span(),
                     help: None,
                 });
             }
@@ -518,49 +518,57 @@ fn request_handle_response_content(
     requested_url: &str,
     flags: RequestFlags,
     resp: Response,
+    request: Request,
 ) -> Result<PipelineData, ShellError> {
-    let response_headers: Option<PipelineData> = if flags.full {
-        let headers_raw = request_handle_response_headers_raw(span, &resp)?;
-        Some(headers_raw)
-    } else {
-        None
+    // #response_to_buffer moves "resp" making it impossible to read headers later.
+    // Wrapping it into a closure to call when needed
+    let mut consume_response_body = |response: Response| {
+        let content_type = response.header("content-type").map(|s| s.to_owned());
+
+        match content_type {
+            Some(content_type) => transform_response_using_content_type(
+                engine_state,
+                stack,
+                span,
+                requested_url,
+                &flags,
+                response,
+                &content_type,
+            ),
+            None => Ok(response_to_buffer(response, engine_state, span)),
+        }
     };
 
-    let response_status = resp.status();
-    let content_type = resp.header("content-type").map(|s| s.to_owned());
-    let formatted_content = match content_type {
-        Some(content_type) => transform_response_using_content_type(
-            engine_state,
-            stack,
-            span,
-            requested_url,
-            &flags,
-            resp,
-            &content_type,
-        ),
-        None => Ok(response_to_buffer(resp, engine_state, span)),
-    };
     if flags.full {
-        let full_response = Value::Record {
-            cols: vec![
-                "headers".to_string(),
-                "body".to_string(),
-                "status".to_string(),
-            ],
-            vals: vec![
-                match response_headers {
-                    Some(headers) => headers.into_value(span),
-                    None => Value::nothing(span),
-                },
-                formatted_content?.into_value(span),
-                Value::int(response_status as i64, span),
-            ],
+        let response_status = resp.status();
+
+        let request_headers_value = match headers_to_nu(&extract_request_headers(&request), span) {
+            Ok(headers) => headers.into_value(span),
+            Err(_) => Value::nothing(span),
+        };
+
+        let response_headers_value = match headers_to_nu(&extract_response_headers(&resp), span) {
+            Ok(headers) => headers.into_value(span),
+            Err(_) => Value::nothing(span),
+        };
+
+        let headers = record! {
+            "request" => request_headers_value,
+            "response" => response_headers_value,
+        };
+
+        let full_response = Value::record(
+            record! {
+                "headers" => Value::record(headers, span),
+                "body" => consume_response_body(resp)?.into_value(span),
+                "status" => Value::int(response_status as i64, span),
+            },
             span,
-        }
-        .into_pipeline_data();
-        Ok(full_response)
+        );
+
+        Ok(full_response.into_pipeline_data())
     } else {
-        Ok(formatted_content?)
+        Ok(consume_response_body(resp)?)
     }
 }
 
@@ -571,11 +579,18 @@ pub fn request_handle_response(
     requested_url: &str,
     flags: RequestFlags,
     response: Result<Response, ShellErrorOrRequestError>,
+    request: Request,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => {
-            request_handle_response_content(engine_state, stack, span, requested_url, flags, resp)
-        }
+        Ok(resp) => request_handle_response_content(
+            engine_state,
+            stack,
+            span,
+            requested_url,
+            flags,
+            resp,
+            request,
+        ),
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(_, e) => {
@@ -588,6 +603,7 @@ pub fn request_handle_response(
                             requested_url,
                             flags,
                             resp,
+                            request,
                         )?)
                     } else {
                         Err(handle_response_error(span, requested_url, *e))
@@ -600,21 +616,43 @@ pub fn request_handle_response(
     }
 }
 
-pub fn request_handle_response_headers_raw(
-    span: Span,
-    response: &Response,
-) -> Result<PipelineData, ShellError> {
-    let header_names = response.headers_names();
+type Headers = HashMap<String, Vec<String>>;
 
-    let cols = vec!["name".to_string(), "value".to_string()];
-    let mut vals = Vec::with_capacity(header_names.len());
+fn extract_request_headers(request: &Request) -> Headers {
+    request
+        .header_names()
+        .iter()
+        .map(|name| {
+            (
+                name.clone(),
+                request.all(name).iter().map(|e| e.to_string()).collect(),
+            )
+        })
+        .collect()
+}
 
-    for name in &header_names {
+fn extract_response_headers(response: &Response) -> Headers {
+    response
+        .headers_names()
+        .iter()
+        .map(|name| {
+            (
+                name.clone(),
+                response.all(name).iter().map(|e| e.to_string()).collect(),
+            )
+        })
+        .collect()
+}
+
+fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
+    let mut vals = Vec::with_capacity(headers.len());
+
+    for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
-            if let Value::Record { vals, .. } = val {
+            if let Value::Record { val, .. } = val {
                 if let Some(Value::String {
                     val: header_name, ..
-                }) = vals.get(0)
+                }) = val.vals.get(0)
                 {
                     return name == header_name;
                 }
@@ -622,11 +660,14 @@ pub fn request_handle_response_headers_raw(
             false
         });
         if !is_duplicate {
-            // Use the ureq `Response.all` api to get all of the header values with a given name.
+            // A single header can hold multiple values
             // This interface is why we needed to check if we've already parsed this header name.
-            for str_value in response.all(name) {
-                let header = vec![Value::string(name, span), Value::string(str_value, span)];
-                vals.push(Value::record(cols.clone(), header, span));
+            for str_value in values {
+                let record = record! {
+                    "name" => Value::string(name, span),
+                    "value" => Value::string(str_value, span),
+                };
+                vals.push(Value::record(record, span));
             }
         }
     }
@@ -639,7 +680,7 @@ pub fn request_handle_response_headers(
     response: Result<Response, ShellErrorOrRequestError>,
 ) -> Result<PipelineData, ShellError> {
     match response {
-        Ok(resp) => request_handle_response_headers_raw(span, &resp),
+        Ok(resp) => headers_to_nu(&extract_response_headers(&resp), span),
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
             ShellErrorOrRequestError::RequestError(requested_url, e) => {

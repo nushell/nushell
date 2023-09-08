@@ -64,19 +64,18 @@ impl Command for ToJson {
         };
 
         match json_result {
-            Ok(serde_json_string) => Ok(Value::String {
-                val: serde_json_string,
-                span,
+            Ok(serde_json_string) => {
+                Ok(Value::string(serde_json_string, span).into_pipeline_data())
             }
-            .into_pipeline_data()),
-            _ => Ok(Value::Error {
-                error: Box::new(ShellError::CantConvert {
+            _ => Ok(Value::error(
+                ShellError::CantConvert {
                     to_type: "JSON".into(),
                     from_type: value.get_type().to_string(),
                     span,
                     help: None,
-                }),
-            }
+                },
+                span,
+            )
             .into_pipeline_data()),
         }
     }
@@ -106,6 +105,7 @@ impl Command for ToJson {
 }
 
 pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
+    let span = v.span();
     Ok(match v {
         Value::Bool { val, .. } => nu_json::Value::Bool(*val),
         Value::Filesize { val, .. } => nu_json::Value::I64(*val),
@@ -126,7 +126,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         ),
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
-        Value::Error { error } => return Err(*error.clone()),
+        Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { .. }
         | Value::Block { .. }
         | Value::Range { .. }
@@ -134,9 +134,9 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in cols.iter().zip(vals) {
+            for (k, v) in val {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)
@@ -145,8 +145,8 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             let collected = val.collect()?;
             value_to_json_value(&collected)?
         }
-        Value::CustomValue { val, span } => {
-            let collected = val.to_base_value(*span)?;
+        Value::CustomValue { val, .. } => {
+            let collected = val.to_base_value(span)?;
             value_to_json_value(&collected)?
         }
     })

@@ -93,7 +93,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let index_value: Value = call.req(engine_state, stack, 0)?;
-    let index_span = index_value.span()?;
+    let index_span = index_value.span();
     let index = NuDataFrame::try_from_value(index_value)?.as_series(index_span)?;
 
     let casted = match index.dtype() {

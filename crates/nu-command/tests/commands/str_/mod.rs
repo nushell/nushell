@@ -203,7 +203,7 @@ fn regex_error_in_pattern() {
             cwd: dirs.test(), pipeline(
             r#"
                  'source string'
-                 | str replace 'source \Ufoo' "destination"
+                 | str replace -r 'source \Ufoo' "destination"
              "#
         ));
 

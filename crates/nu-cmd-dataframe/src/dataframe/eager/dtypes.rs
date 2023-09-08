@@ -79,10 +79,7 @@ fn command(
                 .dtype();
 
             let dtype_str = dtype.to_string();
-            dtypes.push(Value::String {
-                val: dtype_str,
-                span: call.head,
-            });
+            dtypes.push(Value::string(dtype_str, call.head));
 
             Value::string(*v, call.head)
         })

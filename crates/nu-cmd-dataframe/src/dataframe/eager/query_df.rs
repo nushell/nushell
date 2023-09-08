@@ -88,10 +88,7 @@ fn command(
     let lazy = NuLazyFrame::new(false, df_sql);
 
     let eager = lazy.collect(call.head)?;
-    let value = Value::CustomValue {
-        val: Box::new(eager),
-        span: call.head,
-    };
+    let value = Value::custom_value(Box::new(eager), call.head);
 
     Ok(PipelineData::Value(value, None))
 }

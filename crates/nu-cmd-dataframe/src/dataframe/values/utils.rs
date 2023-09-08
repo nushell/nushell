@@ -21,22 +21,25 @@ pub(crate) fn convert_columns(
                 Vec::new(),
             )
         })
-        .and_then(|v| v.span())?;
+        .map(|v| v.span())?;
 
     let res = columns
         .into_iter()
-        .map(|value| match value {
-            Value::String { val, span } => {
-                col_span = span_join(&[col_span, span]);
-                Ok(Spanned { item: val, span })
+        .map(|value| {
+            let span = value.span();
+            match value {
+                Value::String { val, .. } => {
+                    col_span = span_join(&[col_span, span]);
+                    Ok(Spanned { item: val, span })
+                }
+                _ => Err(ShellError::GenericError(
+                    "Incorrect column format".into(),
+                    "Only string as column name".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
             }
-            _ => Err(ShellError::GenericError(
-                "Incorrect column format".into(),
-                "Only string as column name".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
         })
         .collect::<Result<Vec<Spanned<String>>, _>>()?;
 
@@ -61,22 +64,25 @@ pub(crate) fn convert_columns_string(
                 Vec::new(),
             )
         })
-        .and_then(|v| v.span())?;
+        .map(|v| v.span())?;
 
     let res = columns
         .into_iter()
-        .map(|value| match value {
-            Value::String { val, span } => {
-                col_span = span_join(&[col_span, span]);
-                Ok(val)
+        .map(|value| {
+            let span = value.span();
+            match value {
+                Value::String { val, .. } => {
+                    col_span = span_join(&[col_span, span]);
+                    Ok(val)
+                }
+                _ => Err(ShellError::GenericError(
+                    "Incorrect column format".into(),
+                    "Only string as column name".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                )),
             }
-            _ => Err(ShellError::GenericError(
-                "Incorrect column format".into(),
-                "Only string as column name".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
         })
         .collect::<Result<Vec<String>, _>>()?;
 

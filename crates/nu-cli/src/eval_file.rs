@@ -107,6 +107,11 @@ pub fn evaluate_file(
     trace!("parsing file: {}", file_path_str);
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
+    if let Some(err) = working_set.parse_errors.first() {
+        report_error(&working_set, err);
+        std::process::exit(1);
+    }
+
     for block in &mut working_set.delta.blocks {
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
@@ -185,7 +190,7 @@ pub(crate) fn print_table_or_error(
     // Change the engine_state config to use the passed in configuration
     engine_state.set_config(config);
 
-    if let PipelineData::Value(Value::Error { error }, ..) = &pipeline_data {
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &**error);
         std::process::exit(1);
@@ -232,7 +237,7 @@ pub(crate) fn print_table_or_error(
 
 fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
     for item in pipeline_data {
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &*error);

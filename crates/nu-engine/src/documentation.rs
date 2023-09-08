@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -210,14 +210,13 @@ fn get_documentation(
             let span = Span::unknown();
             let mut vals = vec![];
             for (input, output) in &sig.input_output_types {
-                vals.push(Value::Record {
-                    cols: vec!["input".into(), "output".into()],
-                    vals: vec![
-                        Value::string(input.to_string(), span),
-                        Value::string(output.to_string(), span),
-                    ],
+                vals.push(Value::record(
+                    record! {
+                        "input" => Value::string(input.to_string(), span),
+                        "output" => Value::string(output.to_string(), span),
+                    },
                     span,
-                });
+                ));
             }
 
             let mut caller_stack = Stack::new();
@@ -232,7 +231,7 @@ fn get_documentation(
                     redirect_stderr: true,
                     parser_info: HashMap::new(),
                 },
-                PipelineData::Value(Value::List { vals, span }, None),
+                PipelineData::Value(Value::list(vals, span), None),
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
                     let _ = writeln!(long_desc, "\n{G}Input/output types{RESET}:");

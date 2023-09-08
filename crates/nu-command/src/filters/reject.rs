@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -62,36 +62,32 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["b".to_string()],
                         vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Reject the specified field in a record",
                 example: "{a: 1, b: 2} | reject a",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["b".into()],
                     vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                })),
             },
             Example {
                 description: "Reject a nested field in a record",
                 example: "{a: {b: 3, c: 5}} | reject a.b",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["a".into()],
-                    vals: vec![Value::Record {
+                    vals: vec![Value::test_record(Record {
                         cols: vec!["c".into()],
                         vals: vec![Value::test_int(5)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                })),
             },
         ]
     }

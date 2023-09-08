@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
 };
 use shadow_rs::shadow;
 
@@ -26,14 +26,27 @@ impl Command for Version {
         "Display Nu version, and its build configuration."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(engine_state, stack, call, input)
+        version(engine_state, call)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        version(working_set.permanent(), call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,12 +58,7 @@ impl Command for Version {
     }
 }
 
-pub fn version(
-    engine_state: &EngineState,
-    _stack: &mut Stack,
-    call: &Call,
-    _input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (12 items):
     // - version
     // - branch
@@ -63,74 +71,64 @@ pub fn version(
     // - build_rust_channel
     // - features
     // - installed_plugins
-    let mut cols = Vec::with_capacity(12);
-    let mut vals = Vec::with_capacity(12);
+    let mut record = Record::with_capacity(12);
 
-    cols.push("version".to_string());
-    vals.push(Value::string(env!("CARGO_PKG_VERSION"), call.head));
+    record.push(
+        "version",
+        Value::string(env!("CARGO_PKG_VERSION"), call.head),
+    );
 
-    cols.push("branch".to_string());
-    vals.push(Value::string(build::BRANCH, call.head));
+    record.push("branch", Value::string(build::BRANCH, call.head));
 
     let commit_hash = option_env!("NU_COMMIT_HASH");
     if let Some(commit_hash) = commit_hash {
-        cols.push("commit_hash".to_string());
-        vals.push(Value::string(commit_hash, call.head));
+        record.push("commit_hash", Value::string(commit_hash, call.head));
     }
 
     let build_os = Some(build::BUILD_OS).filter(|x| !x.is_empty());
     if let Some(build_os) = build_os {
-        cols.push("build_os".to_string());
-        vals.push(Value::string(build_os, call.head));
+        record.push("build_os", Value::string(build_os, call.head));
     }
 
     let build_target = Some(build::BUILD_TARGET).filter(|x| !x.is_empty());
     if let Some(build_target) = build_target {
-        cols.push("build_target".to_string());
-        vals.push(Value::string(build_target, call.head));
+        record.push("build_target", Value::string(build_target, call.head));
     }
 
     let rust_version = Some(build::RUST_VERSION).filter(|x| !x.is_empty());
     if let Some(rust_version) = rust_version {
-        cols.push("rust_version".to_string());
-        vals.push(Value::string(rust_version, call.head));
+        record.push("rust_version", Value::string(rust_version, call.head));
     }
 
     let rust_channel = Some(build::RUST_CHANNEL).filter(|x| !x.is_empty());
     if let Some(rust_channel) = rust_channel {
-        cols.push("rust_channel".to_string());
-        vals.push(Value::string(rust_channel, call.head));
+        record.push("rust_channel", Value::string(rust_channel, call.head));
     }
 
     let cargo_version = Some(build::CARGO_VERSION).filter(|x| !x.is_empty());
     if let Some(cargo_version) = cargo_version {
-        cols.push("cargo_version".to_string());
-        vals.push(Value::string(cargo_version, call.head));
+        record.push("cargo_version", Value::string(cargo_version, call.head));
     }
 
     let build_time = Some(build::BUILD_TIME).filter(|x| !x.is_empty());
     if let Some(build_time) = build_time {
-        cols.push("build_time".to_string());
-        vals.push(Value::string(build_time, call.head));
+        record.push("build_time", Value::string(build_time, call.head));
     }
 
     let build_rust_channel = Some(build::BUILD_RUST_CHANNEL).filter(|x| !x.is_empty());
     if let Some(build_rust_channel) = build_rust_channel {
-        cols.push("build_rust_channel".to_string());
-        vals.push(Value::string(build_rust_channel, call.head));
+        record.push(
+            "build_rust_channel",
+            Value::string(build_rust_channel, call.head),
+        );
     }
 
-    cols.push("allocator".to_string());
-    vals.push(Value::String {
-        val: global_allocator().to_string(),
-        span: call.head,
-    });
+    record.push("allocator", Value::string(global_allocator(), call.head));
 
-    cols.push("features".to_string());
-    vals.push(Value::String {
-        val: features_enabled().join(", "),
-        span: call.head,
-    });
+    record.push(
+        "features",
+        Value::string(features_enabled().join(", "), call.head),
+    );
 
     // Get a list of command names and check for plugins
     let installed_plugins = engine_state
@@ -139,18 +137,12 @@ pub fn version(
         .map(|x| x.name())
         .collect::<Vec<_>>();
 
-    cols.push("installed_plugins".to_string());
-    vals.push(Value::String {
-        val: installed_plugins.join(", "),
-        span: call.head,
-    });
+    record.push(
+        "installed_plugins",
+        Value::string(installed_plugins.join(", "), call.head),
+    );
 
-    Ok(Value::Record {
-        cols,
-        vals,
-        span: call.head,
-    }
-    .into_pipeline_data())
+    Ok(Value::record(record, call.head).into_pipeline_data())
 }
 
 fn global_allocator() -> &'static str {

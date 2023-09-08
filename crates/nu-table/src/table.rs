@@ -247,38 +247,42 @@ fn draw_table(
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
-    let total_width = control_table_width(&mut table, cfg, widths, termwidth);
+    let width_ctrl = TableWidthCtrl::new(widths, cfg, termwidth);
 
-    // we need to do it after width control cause we of ColumnNames internals.
     if with_header && border_header {
-        set_border_head(&mut table, with_footer);
+        set_border_head(&mut table, with_footer, width_ctrl);
+    } else {
+        table.with(width_ctrl);
     }
 
-    build_table_with_width_check(table, total_width, termwidth)
+    let tablewidth = table.total_width();
+
+    table_to_string(table, tablewidth, termwidth)
 }
 
 fn set_indent(table: &mut Table, left: usize, right: usize) {
     table.with(Padding::new(left, right, 0, 0));
 }
 
-fn set_border_head(table: &mut Table, with_footer: bool) {
-    let count_rows = table.count_rows();
-
+fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) {
     if with_footer {
-        table.with(Settings::new(
-            HeaderMove((0, 0), true),
-            HeaderMove((count_rows - 1 - 1, count_rows - 1), false),
-        ));
+        let count_rows = table.count_rows();
+        table.with(
+            Settings::default()
+                .with(wctrl)
+                .with(HeaderMove((0, 0), true))
+                .with(HeaderMove((count_rows - 1 - 1, count_rows - 1), false)),
+        );
     } else {
-        table.with(HeaderMove((0, 0), true));
+        table.with(
+            Settings::default()
+                .with(wctrl)
+                .with(HeaderMove((0, 0), true)),
+        );
     }
 }
 
-fn build_table_with_width_check(
-    table: Table,
-    total_width: usize,
-    termwidth: usize,
-) -> Option<String> {
+fn table_to_string(table: Table, total_width: usize, termwidth: usize) -> Option<String> {
     if total_width > termwidth {
         None
     } else {
@@ -287,25 +291,71 @@ fn build_table_with_width_check(
     }
 }
 
-fn control_table_width(
-    table: &mut Table,
+struct TableWidthCtrl {
+    width: Vec<usize>,
     cfg: NuTableConfig,
-    widths: Vec<usize>,
-    termwidth: usize,
-) -> usize {
-    let total_width = get_total_width2(&widths, table.get_config());
-    if total_width > termwidth {
-        table_trim_columns(table, widths, termwidth, &cfg.trim);
-        table.total_width()
-    } else if cfg.expand && termwidth > total_width {
-        table.with(Settings::new(
-            SetDimensions(widths),
-            Width::increase(termwidth),
-        ));
+    max: usize,
+}
 
-        termwidth
-    } else {
-        total_width
+impl TableWidthCtrl {
+    fn new(width: Vec<usize>, cfg: NuTableConfig, max: usize) -> Self {
+        Self { width, cfg, max }
+    }
+}
+
+impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for TableWidthCtrl {
+    fn change(
+        self,
+        rec: &mut NuRecords,
+        cfg: &mut ColoredConfig,
+        dim: &mut CompleteDimensionVecRecords<'_>,
+    ) {
+        let total_width = get_total_width2(&self.width, cfg);
+        if total_width > self.max {
+            TableTrim {
+                max: self.max,
+                strategy: self.cfg.trim,
+                width: self.width,
+            }
+            .change(rec, cfg, dim);
+        } else if self.cfg.expand && self.max > total_width {
+            Settings::new(SetDimensions(self.width), Width::increase(self.max))
+                .change(rec, cfg, dim)
+        }
+    }
+}
+
+struct TableTrim {
+    width: Vec<usize>,
+    strategy: TrimStrategy,
+    max: usize,
+}
+
+impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for TableTrim {
+    fn change(
+        self,
+        recs: &mut NuRecords,
+        cfg: &mut ColoredConfig,
+        dims: &mut CompleteDimensionVecRecords<'_>,
+    ) {
+        match self.strategy {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                let mut wrap = Width::wrap(self.max).priority::<PriorityMax>();
+                if try_to_keep_words {
+                    wrap = wrap.keep_words();
+                }
+
+                Settings::new(SetDimensions(self.width), wrap).change(recs, cfg, dims);
+            }
+            TrimStrategy::Truncate { suffix } => {
+                let mut truncate = Width::truncate(self.max).priority::<PriorityMax>();
+                if let Some(suffix) = suffix {
+                    truncate = truncate.suffix(suffix).suffix_try_color(true);
+                }
+
+                Settings::new(SetDimensions(self.width), truncate).change(recs, cfg, dims);
+            }
+        }
     }
 }
 
@@ -407,32 +457,6 @@ impl<R: ExactRecords, D> TableOption<R, D, ColoredConfig> for FooterStyle {
         if let Some(line) = cfg.get_horizontal_line(1).cloned() {
             let count_rows = records.count_rows();
             cfg.insert_horizontal_line(count_rows - 1, line);
-        }
-    }
-}
-
-fn table_trim_columns(
-    table: &mut Table,
-    widths: Vec<usize>,
-    termwidth: usize,
-    trim_strategy: &TrimStrategy,
-) {
-    match trim_strategy {
-        TrimStrategy::Wrap { try_to_keep_words } => {
-            let mut wrap = Width::wrap(termwidth).priority::<PriorityMax>();
-            if *try_to_keep_words {
-                wrap = wrap.keep_words();
-            }
-
-            table.with(Settings::new(SetDimensions(widths), wrap));
-        }
-        TrimStrategy::Truncate { suffix } => {
-            let mut truncate = Width::truncate(termwidth).priority::<PriorityMax>();
-            if let Some(suffix) = suffix {
-                truncate = truncate.suffix(suffix).suffix_try_color(true);
-            }
-
-            table.with(Settings::new(SetDimensions(widths), truncate));
         }
     }
 }

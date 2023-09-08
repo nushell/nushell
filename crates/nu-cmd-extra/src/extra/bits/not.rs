@@ -84,50 +84,51 @@ impl Command for BitsNot {
             Example {
                 description: "Apply logical negation to a list of numbers",
                 example: "[4 3 2] | bits not",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(140737488355323),
                         Value::test_int(140737488355324),
                         Value::test_int(140737488355325),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
                 example: "[4 3 2] | bits not -n '2'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(65531),
                         Value::test_int(65532),
                         Value::test_int(65533),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as signed number",
                 example: "[4 3 2] | bits not -s",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(-5),
                         Value::test_int(-4),
                         Value::test_int(-3),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => {
+        Value::Int { val, .. } => {
             if signed || val < 0 {
-                Value::Int { val: !val, span }
+                Value::int(!val, span)
             } else {
                 use NumberBytes::*;
                 let out_val = match number_size {
@@ -149,20 +150,21 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                     // This case shouldn't happen here, as it's handled before
                     Invalid => 0,
                 };
-                Value::Int { val: out_val, span }
+                Value::int(out_val, span)
             }
         }
         other => match other {
             // Propagate errors inside the value
             Value::Error { .. } => other,
-            _ => Value::Error {
-                error: Box::new(ShellError::OnlySupportsThisInputType {
+            _ => Value::error(
+                ShellError::OnlySupportsThisInputType {
                     exp_input_type: "integer".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
-                    src_span: other.expect_span(),
-                }),
-            },
+                    src_span: other.span(),
+                },
+                head,
+            ),
         },
     }
 }

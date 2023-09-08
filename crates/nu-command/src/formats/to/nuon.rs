@@ -73,19 +73,18 @@ impl Command for ToNuon {
         };
 
         match nuon_result {
-            Ok(serde_nuon_string) => Ok(Value::String {
-                val: serde_nuon_string,
-                span,
+            Ok(serde_nuon_string) => {
+                Ok(Value::string(serde_nuon_string, span).into_pipeline_data())
             }
-            .into_pipeline_data()),
-            _ => Ok(Value::Error {
-                error: Box::new(ShellError::CantConvert {
+            _ => Ok(Value::error(
+                ShellError::CantConvert {
                     to_type: "NUON".into(),
                     from_type: value.get_type().to_string(),
                     span,
                     help: None,
-                }),
-            }
+                },
+                span,
+            )
             .into_pipeline_data()),
         }
     }
@@ -136,7 +135,7 @@ pub fn value_to_string(
                         "could not convert binary to string".into(),
                         "value originates from here".into(),
                         span,
-                        v.expect_span(),
+                        v.span(),
                     ));
                 }
             }
@@ -146,13 +145,13 @@ pub fn value_to_string(
             "blocks are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput(
             "closures are currently not nuon-compatible".into(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         Value::Bool { val, .. } => {
             if *val {
@@ -162,22 +161,22 @@ pub fn value_to_string(
             }
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cellpaths are currently not nuon-compatible".to_string(),
+            "cell-paths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
             "custom values are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
         // Propagate existing errors
-        Value::Error { error } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(*error.clone()),
         // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", *val)),
         Value::Float { val, .. } => {
@@ -209,8 +208,8 @@ pub fn value_to_string(
                 for val in vals {
                     let mut row = vec![];
 
-                    if let Value::Record { vals, .. } = val {
-                        for val in vals {
+                    if let Value::Record { val, .. } = val {
+                        for val in &val.vals {
                             row.push(value_to_string_without_quotes(
                                 val,
                                 span,
@@ -246,7 +245,7 @@ pub fn value_to_string(
             "match patterns are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
-            v.expect_span(),
+            v.span(),
         )),
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
@@ -259,9 +258,9 @@ pub fn value_to_string(
             },
             value_to_string(&val.to, span, depth + 1, indent)?
         )),
-        Value::Record { cols, vals, .. } => {
+        Value::Record { val, .. } => {
             let mut collection = vec![];
-            for (col, val) in cols.iter().zip(vals) {
+            for (col, val) in val {
                 collection.push(if needs_quotes(col) {
                     format!(
                         "{idt_po}\"{}\": {}",

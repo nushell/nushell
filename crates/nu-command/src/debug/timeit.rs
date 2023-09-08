@@ -79,10 +79,7 @@ impl Command for TimeIt {
 
         let end_time = Instant::now();
 
-        let output = Value::Duration {
-            val: (end_time - start_time).as_nanos() as i64,
-            span: call.head,
-        };
+        let output = Value::duration((end_time - start_time).as_nanos() as i64, call.head);
 
         Ok(output.into_pipeline_data())
     }

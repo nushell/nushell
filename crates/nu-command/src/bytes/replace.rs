@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 struct Arguments {
@@ -87,64 +87,62 @@ impl Command for BytesReplace {
             Example {
                 description: "Find and replace contents",
                 example: "0x[10 AA FF AA FF] | bytes replace 0x[10 AA] 0x[FF]",
-                result: Some(Value::Binary {
-                    val: vec![0xFF, 0xFF, 0xAA, 0xFF],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary (
+                    vec![0xFF, 0xFF, 0xAA, 0xFF],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Find and replace all occurrences of find binary",
                 example: "0x[10 AA 10 BB 10] | bytes replace -a 0x[10] 0x[A0]",
-                result: Some(Value::Binary {
-                    val: vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary (
+                    vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Find and replace all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace -a 0x[11] 0x[13] ColA ColC",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list (
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
                         vals: vec![
-                            Value::Binary {
-                                val: vec![0x13, 0x12, 0x13],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x14, 0x15, 0x16],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x17, 0x18, 0x19],
-                                span: Span::test_data(),
-                            },
+                            Value::binary (
+                                vec![0x13, 0x12, 0x13],
+                                Span::test_data(),
+                            ),
+                            Value::binary (
+                                vec![0x14, 0x15, 0x16],
+                                Span::test_data(),
+                            ),
+                            Value::binary (
+                                 vec![0x17, 0x18, 0x19],
+                                 Span::test_data(),
+                            ),
                         ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn replace(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => replace_impl(val, args, *val_span),
+        Value::Binary { val, .. } => replace_impl(val, args, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 
@@ -174,10 +172,7 @@ fn replace_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
 
     let mut remain = input[left..].to_vec();
     replaced.append(&mut remain);
-    Value::Binary {
-        val: replaced,
-        span,
-    }
+    Value::binary(replaced, span)
 }
 
 #[cfg(test)]

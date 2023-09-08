@@ -51,18 +51,16 @@ where
 {
     let case_operation = args.case_operation;
     match input {
-        Value::String { val, .. } => Value::String {
-            val: case_operation(val),
-            span: head,
-        },
+        Value::String { val, .. } => Value::string(case_operation(val), head),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }

@@ -1,4 +1,4 @@
-use nu_command::hook::eval_hook;
+use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
@@ -185,10 +185,7 @@ fn gather_env_vars(
                     continue;
                 }
 
-                Value::String {
-                    val: bytes,
-                    span: *span,
-                }
+                Value::string(bytes, *span)
             } else {
                 report_capture_error(
                     engine_state,
@@ -257,7 +254,14 @@ pub fn eval_source(
             {
                 result = print_if_stream(stream, stderr_stream, false, exit_code);
             } else if let Some(hook) = config.hooks.display_output.clone() {
-                match eval_hook(engine_state, stack, Some(pipeline_data), vec![], &hook) {
+                match eval_hook(
+                    engine_state,
+                    stack,
+                    Some(pipeline_data),
+                    vec![],
+                    &hook,
+                    "display_output",
+                ) {
                     Err(err) => {
                         result = Err(err);
                     }

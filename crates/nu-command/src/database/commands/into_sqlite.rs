@@ -7,7 +7,6 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use std::iter;
 use std::path::Path;
 
 #[derive(Clone)]
@@ -110,8 +109,9 @@ fn action(
         "main".to_string()
     };
 
+    let val_span = input.span();
     match input {
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             // find the column names, and sqlite data types
             let columns = get_columns_with_sqlite_types(vals);
 
@@ -127,23 +127,19 @@ fn action(
                     format!(
                         "({})",
                         match list_value {
-                            Value::Record {
-                                cols: _,
-                                vals,
-                                span: _,
-                            } => {
-                                vals.iter()
+                            Value::Record { val, .. } => {
+                                val.vals
+                                    .iter()
                                     .map(|rec_val| {
                                         format!("'{}'", nu_value_to_string(rec_val.clone(), ""))
                                     })
                                     .join(",")
                             }
                             // Number formats so keep them without quotes
-                            Value::Int { val: _, span: _ }
-                            | Value::Float { val: _, span: _ }
-                            | Value::Filesize { val: _, span: _ }
-                            | Value::Duration { val: _, span: _ } =>
-                                nu_value_to_string(list_value.clone(), ""),
+                            Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. } => nu_value_to_string(list_value.clone(), ""),
                             _ =>
                             // String formats so add quotes around them
                                 format!("'{}'", nu_value_to_string(list_value.clone(), "")),
@@ -214,15 +210,15 @@ fn action(
             })?;
 
             // and we're done
-            Ok(Value::Nothing { span: *span })
+            Ok(Value::nothing(val_span))
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(*error.clone()),
+        Value::Error { error, .. } => Err(*error.clone()),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list".into(),
             wrong_type: other.get_type().to_string(),
             dst_span: span,
-            src_span: other.expect_span(),
+            src_span: other.span(),
         }),
     }
 }
@@ -249,14 +245,13 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
         }
         Value::List { vals: val, .. } => val
-            .iter()
-            .map(|x| nu_value_to_string(x.clone(), ", "))
+            .into_iter()
+            .map(|x| nu_value_to_string(x, ", "))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::Record { cols, vals, .. } => cols
-            .iter()
-            .zip(vals.iter())
-            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
+        Value::Record { val, .. } => val
+            .into_iter()
+            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y, ", ")))
             .collect::<Vec<_>>()
             .join(separator),
         Value::LazyRecord { val, .. } => match val.collect() {
@@ -266,7 +261,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {val}>"),
         Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{error:?}"),
+        Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.into_string(),
         Value::CustomValue { val, .. } => val.value_string(),
@@ -305,8 +300,8 @@ fn get_columns_with_sqlite_types(input: &[Value]) -> Vec<(String, String)> {
         //     sqlite_type
         // );
 
-        if let Value::Record { cols, vals, .. } = item {
-            for (c, v) in iter::zip(cols, vals) {
+        if let Value::Record { val, .. } = item {
+            for (c, v) in val {
                 if !columns.iter().any(|(name, _)| name == c) {
                     columns.push((
                         c.to_string(),

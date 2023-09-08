@@ -24,7 +24,8 @@ pub struct ImportPattern {
     // communicate to eval which decls/aliases were hidden during `parse_hide()` so it does not
     // interpret these as env var names:
     pub hidden: HashSet<Vec<u8>>,
-    pub module_name_var_id: Option<VarId>,
+    // information for the eval which const values to put into stack as variables
+    pub constants: Vec<VarId>,
 }
 
 impl ImportPattern {
@@ -37,7 +38,7 @@ impl ImportPattern {
             },
             members: vec![],
             hidden: HashSet::new(),
-            module_name_var_id: None,
+            constants: vec![],
         }
     }
 
@@ -64,7 +65,7 @@ impl ImportPattern {
             head: self.head,
             members: self.members,
             hidden,
-            module_name_var_id: self.module_name_var_id,
+            constants: self.constants,
         }
     }
 }

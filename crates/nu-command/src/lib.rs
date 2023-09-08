@@ -1,3 +1,4 @@
+mod bytes;
 mod charting;
 mod conversions;
 mod date;
@@ -12,7 +13,6 @@ mod formats;
 mod generators;
 mod hash;
 mod help;
-pub mod hook;
 mod math;
 mod misc;
 mod network;
@@ -27,6 +27,7 @@ mod strings;
 mod system;
 mod viewers;
 
+pub use bytes::*;
 pub use charting::*;
 pub use conversions::*;
 pub use date::*;
@@ -42,7 +43,6 @@ pub use formats::*;
 pub use generators::*;
 pub use hash::*;
 pub use help::*;
-pub use hook::*;
 pub use math::*;
 pub use misc::*;
 pub use network::*;

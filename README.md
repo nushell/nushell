@@ -7,7 +7,6 @@
 [![@nu_shell](https://img.shields.io/badge/twitter-@nu_shell-1DA1F3?style=flat-square)](https://twitter.com/nu_shell)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/nushell/nushell)](https://github.com/nushell/nushell/graphs/commit-activity)
 [![GitHub contributors](https://img.shields.io/github/contributors/nushell/nushell)](https://github.com/nushell/nushell/graphs/contributors)
-[![codecov](https://codecov.io/gh/nushell/nushell/branch/main/graph/badge.svg?token=JheS8qu2II)](https://codecov.io/gh/nushell/nushell)
 
 A new type of shell.
 
@@ -220,13 +219,14 @@ Please submit an issue or PR to be added to this list.
 -   [virtualenv](https://github.com/pypa/virtualenv)
 -   [atuin](https://github.com/ellie/atuin)
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
+-   [Dorothy](http://github.com/bevry/dorothy)
 
 ## Contributing
 
 See [Contributing](CONTRIBUTING.md) for details. Thanks to all the people who already contributed!
 
 <a href="https://github.com/nushell/nushell/graphs/contributors">
-  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=500" />
+  <img src="https://contributors-img.web.app/image?repo=nushell/nushell&max=600" />
 </a>
 
 ## License

@@ -1,19 +1,12 @@
 # Nushell Environment Config File
 #
-# version = 0.83.2
+# version = "0.84.1"
 
 def create_left_prompt [] {
-    mut home = ""
-    try {
-        if $nu.os-info.name == "windows" {
-            $home = $env.USERPROFILE
-        } else {
-            $home = $env.HOME
-        }
-    }
+    let home =  $nu.home-path
 
     let dir = ([
-        ($env.PWD | str substring 0..($home | str length) | str replace --string $home "~"),
+        ($env.PWD | str substring 0..($home | str length) | str replace $home "~"),
         ($env.PWD | str substring ($home | str length)..)
     ] | str join)
 
@@ -21,7 +14,7 @@ def create_left_prompt [] {
     let separator_color = (if (is-admin) { ansi light_red_bold } else { ansi light_green_bold })
     let path_segment = $"($path_color)($dir)"
 
-    $path_segment | str replace --all --string (char path_sep) $"($separator_color)/($path_color)"
+    $path_segment | str replace --all (char path_sep) $"($separator_color)/($path_color)"
 }
 
 def create_right_prompt [] {
@@ -29,9 +22,9 @@ def create_right_prompt [] {
     let time_segment = ([
         (ansi reset)
         (ansi magenta)
-        (date now | format date '%Y/%m/%d %r')
-    ] | str join | str replace --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
-        str replace --all "([AP]M)" $"(ansi magenta_underline)${1}")
+        (date now | format date '%x %X %p') # try to respect user's locale
+    ] | str join | str replace --regex --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
+        str replace --regex --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
     let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
         (ansi rb)
@@ -44,7 +37,8 @@ def create_right_prompt [] {
 
 # Use nushell functions to define your right and left prompt
 $env.PROMPT_COMMAND = {|| create_left_prompt }
-# $env.PROMPT_COMMAND_RIGHT = {|| create_right_prompt }
+# FIXME: This default is not implemented in rust code as of 2023-09-08.
+$env.PROMPT_COMMAND_RIGHT = {|| create_right_prompt }
 
 # The prompt indicators are environmental variables that represent
 # the state of the prompt
@@ -70,12 +64,14 @@ $env.ENV_CONVERSIONS = {
 
 # Directories to search for scripts when calling source or use
 $env.NU_LIB_DIRS = [
-    # ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
+    # FIXME: This default is not implemented in rust code as of 2023-09-06.
+    ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
 ]
 
 # Directories to search for plugin binaries when calling register
 $env.NU_PLUGIN_DIRS = [
-    # ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
+    # FIXME: This default is not implemented in rust code as of 2023-09-06.
+    ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
 ]
 
 # To add entries to PATH (on Windows you might use Path), you can use the following pattern:

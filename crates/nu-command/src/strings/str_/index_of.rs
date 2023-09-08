@@ -161,9 +161,7 @@ fn action(
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find `index-of`", head);
-                        return Value::Error {
-                            error: Box::new(err),
-                        };
+                        return Value::error(err, head);
                     }
                 }
             } else {
@@ -197,14 +195,15 @@ fn action(
             }
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 
@@ -260,17 +259,9 @@ mod tests {
     fn returns_index_of_next_substring() {
         let word = Value::test_string("Cargo.Cargo");
         let range = Range {
-            from: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Nothing {
-                span: Span::test_data(),
-            },
+            from: Value::int(1, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::nothing(Span::test_data()),
             inclusion: RangeInclusion::Inclusive,
         };
 
@@ -291,18 +282,10 @@ mod tests {
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
         let range = Range {
-            from: Value::Nothing {
-                span: Span::test_data(),
-            },
+            from: Value::nothing(Span::test_data()),
             inclusion: RangeInclusion::Inclusive,
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Int {
-                val: 5,
-                span: Span::test_data(),
-            },
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(5, Span::test_data()),
         };
 
         let options = Arguments {
@@ -322,18 +305,9 @@ mod tests {
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::test_string("123123123");
         let range = Range {
-            from: Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Int {
-                val: 6,
-                span: Span::test_data(),
-            },
+            from: Value::int(2, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(6, Span::test_data()),
             inclusion: RangeInclusion::Inclusive,
         };
 
@@ -354,18 +328,9 @@ mod tests {
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::test_string("123456");
         let range = Range {
-            from: Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Int {
-                val: 5,
-                span: Span::test_data(),
-            },
+            from: Value::int(2, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(5, Span::test_data()),
             inclusion: RangeInclusion::RightExclusive,
         };
 
@@ -384,10 +349,7 @@ mod tests {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             substring: String::from("ふが"),

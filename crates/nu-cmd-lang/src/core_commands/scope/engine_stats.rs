@@ -31,8 +31,7 @@ impl Command for ScopeEngineStats {
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
-        let mut scope_data = ScopeData::new(engine_state, stack);
-        scope_data.populate_all();
+        let scope_data = ScopeData::new(engine_state, stack);
 
         Ok(scope_data.collect_engine_state(span).into_pipeline_data())
     }

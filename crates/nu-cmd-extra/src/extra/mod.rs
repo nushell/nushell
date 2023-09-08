@@ -1,24 +1,10 @@
 mod bits;
-mod bytes;
 mod conversions;
 mod filters;
 mod formats;
 mod math;
 mod platform;
 mod strings;
-
-pub use bytes::Bytes;
-pub use bytes::BytesAdd;
-pub use bytes::BytesAt;
-pub use bytes::BytesBuild;
-pub use bytes::BytesCollect;
-pub use bytes::BytesEndsWith;
-pub use bytes::BytesIndexOf;
-pub use bytes::BytesLen;
-pub use bytes::BytesRemove;
-pub use bytes::BytesReplace;
-pub use bytes::BytesReverse;
-pub use bytes::BytesStartsWith;
 
 pub use bits::Bits;
 pub use bits::BitsAnd;
@@ -38,13 +24,8 @@ pub use math::MathSinH;
 pub use math::MathTan;
 pub use math::MathTanH;
 
-pub use math::MathEuler;
-pub use math::MathEulerGamma;
 pub use math::MathExp;
 pub use math::MathLn;
-pub use math::MathPhi;
-pub use math::MathPi;
-pub use math::MathTau;
 
 pub use math::MathArcCos;
 pub use math::MathArcCosH;
@@ -111,22 +92,6 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             BitsXor
         }
 
-        // Bytes
-        bind_command! {
-            Bytes,
-            BytesLen,
-            BytesStartsWith,
-            BytesEndsWith,
-            BytesReverse,
-            BytesReplace,
-            BytesAdd,
-            BytesAt,
-            BytesIndexOf,
-            BytesCollect,
-            BytesRemove,
-            BytesBuild
-        }
-
         // Math
         bind_command! {
             MathArcSin,
@@ -141,9 +106,6 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             MathSinH,
             MathCosH,
             MathTanH,
-            MathPi,
-            MathTau,
-            MathEuler,
             MathExp,
             MathLn
         };

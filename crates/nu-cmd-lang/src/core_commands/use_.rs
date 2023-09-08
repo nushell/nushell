@@ -1,8 +1,8 @@
 use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env};
-use nu_protocol::ast::{Call, Expr, Expression, ImportPattern, ImportPatternMember};
+use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, Module, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -30,6 +30,10 @@ impl Command for Use {
             .category(Category::Core)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["module", "import", "include", "scope"]
+    }
+
     fn extra_usage(&self) -> &str {
         r#"See `help std` for the standard library module.
 See `help modules` to list all available modules.
@@ -52,7 +56,8 @@ This command is a parser keyword. For details, check:
         let Some(Expression {
             expr: Expr::ImportPattern(import_pattern),
             ..
-        }) = call.get_parser_info("import_pattern") else {
+        }) = call.get_parser_info("import_pattern")
+        else {
             return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
@@ -63,9 +68,24 @@ This command is a parser keyword. For details, check:
         };
 
         if let Some(module_id) = import_pattern.head.id {
-            let module = engine_state.get_module(module_id);
+            // Add constants
+            for var_id in &import_pattern.constants {
+                let var = engine_state.get_var(*var_id);
+
+                if let Some(constval) = &var.const_val {
+                    caller_stack.add_var(*var_id, constval.clone());
+                } else {
+                    return Err(ShellError::NushellFailedSpanned {
+                        msg: "Missing Constant".to_string(),
+                        label: "constant not added by the parser".to_string(),
+                        span: var.declaration_span,
+                    });
+                }
+            }
 
             // Evaluate the export-env block if there is one
+            let module = engine_state.get_module(module_id);
+
             if let Some(block_id) = module.env_block {
                 let block = engine_state.get_block(block_id);
 
@@ -84,7 +104,7 @@ This command is a parser keyword. For details, check:
                     .as_ref()
                     .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
-                let mut callee_stack = caller_stack.gather_captures(&block.captures);
+                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
                 // If so, set the currently evaluated directory (file-relative PWD)
                 if let Some(parent) = maybe_parent {
@@ -110,14 +130,6 @@ This command is a parser keyword. For details, check:
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
             }
-
-            use_variables(
-                engine_state,
-                import_pattern,
-                module,
-                caller_stack,
-                call.head,
-            );
         } else {
             return Err(ShellError::GenericError(
                 format!(
@@ -167,76 +179,6 @@ This command is a parser keyword. For details, check:
                 result: Some(Value::test_string("foobaz")),
             },
         ]
-    }
-}
-
-fn use_variables(
-    engine_state: &EngineState,
-    import_pattern: &ImportPattern,
-    module: &Module,
-    caller_stack: &mut Stack,
-    head_span: Span,
-) {
-    if !module.variables.is_empty() {
-        if import_pattern.members.is_empty() {
-            // add a record variable.
-            if let Some(var_id) = import_pattern.module_name_var_id {
-                let mut cols = vec![];
-                let mut vals = vec![];
-                for (var_name, var_id) in module.variables.iter() {
-                    if let Some(val) = engine_state.get_var(*var_id).clone().const_val {
-                        cols.push(String::from_utf8_lossy(var_name).to_string());
-                        vals.push(val)
-                    }
-                }
-                caller_stack.add_var(
-                    var_id,
-                    Value::record(cols, vals, module.span.unwrap_or(head_span)),
-                )
-            }
-        } else {
-            let mut have_glob = false;
-            for m in &import_pattern.members {
-                if matches!(m, ImportPatternMember::Glob { .. }) {
-                    have_glob = true;
-                    break;
-                }
-            }
-            if have_glob {
-                // bring all variables into scope directly.
-                for (_, var_id) in module.variables.iter() {
-                    if let Some(val) = engine_state.get_var(*var_id).clone().const_val {
-                        caller_stack.add_var(*var_id, val);
-                    }
-                }
-            } else {
-                let mut members = vec![];
-                for m in &import_pattern.members {
-                    match m {
-                        ImportPatternMember::List { names, .. } => {
-                            for (n, _) in names {
-                                if module.variables.contains_key(n) {
-                                    members.push(n);
-                                }
-                            }
-                        }
-                        ImportPatternMember::Name { name, .. } => {
-                            if module.variables.contains_key(name) {
-                                members.push(name)
-                            }
-                        }
-                        ImportPatternMember::Glob { .. } => continue,
-                    }
-                }
-                for m in members {
-                    if let Some(var_id) = module.variables.get(m) {
-                        if let Some(val) = engine_state.get_var(*var_id).clone().const_val {
-                            caller_stack.add_var(*var_id, val);
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
