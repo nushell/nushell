@@ -178,9 +178,6 @@ $env.config = {
     }
 
     explore: {
-        try: {
-            border_color: {fg: "white"}
-        },
         status_bar_background: {fg: "#1D1F21", bg: "#C4C9C6"},
         command_bar_text: {fg: "#C4C9C6"},
         highlight: {fg: "black", bg: "yellow"},
@@ -199,10 +196,6 @@ $env.config = {
             line_head_bottom: true,
             line_shift: true,
             line_index: true,
-        },
-        config: {
-            border_color: {fg: "white"}
-            cursor_color: {fg: "black", bg: "light_yellow"}
         },
     }
 
