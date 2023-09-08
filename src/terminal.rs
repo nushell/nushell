@@ -34,7 +34,9 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore");
+
+            // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
+            // signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore");
 
             signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
                 // Safety: can only call async-signal-safe functions here
