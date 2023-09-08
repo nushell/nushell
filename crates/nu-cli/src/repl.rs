@@ -26,6 +26,7 @@ use reedline::{
     SqliteBackedHistory, Vi,
 };
 use std::{
+    env::temp_dir,
     io::{self, IsTerminal, Write},
     path::Path,
     sync::atomic::Ordering,
@@ -94,6 +95,7 @@ pub fn evaluate_repl(
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
+    let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -338,7 +340,14 @@ pub fn evaluate_repl(
         };
 
         line_editor = if let Some(buffer_editor) = buffer_editor {
-            line_editor.with_buffer_editor(buffer_editor, "nu".into())
+            let mut command = std::process::Command::new(&buffer_editor);
+            command.arg(&temp_file).envs(
+                engine_state
+                    .render_env_vars()
+                    .into_iter()
+                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
+            );
+            line_editor.with_buffer_editor(command, temp_file.clone())
         } else {
             line_editor
         };

@@ -2746,6 +2746,7 @@ dependencies = [
  "rstest",
  "sysinfo",
  "unicode-segmentation",
+ "uuid",
 ]
 
 [[package]]
@@ -4291,8 +4292,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "971ac45071721aae18927f3feb7e4c2b95cce387d96af185c5103166d332e55c"
+source = "git+https://github.com/nushell/reedline.git?branch=main#b1344f6a653b7c37154a1dd79b3c4e34afe6cfc9"
 dependencies = [
  "chrono",
  "crossterm 0.27.0",
@@ -5705,9 +5705,9 @@ checksum = "37db35583cf0ad896592892034f281ef0906c893b3b6d901acf3918357f28199"
 
 [[package]]
 name = "uuid"
-version = "1.4.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d023da39d1fde5a8a3fe1f3e01ca9632ada0a63e9797de55a879d6e2236277be"
+checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
 dependencies = [
  "getrandom",
 ]
