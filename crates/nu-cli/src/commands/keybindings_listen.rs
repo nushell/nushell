@@ -24,7 +24,6 @@ impl Command for KeybindingsListen {
         r#"This is an internal debugging tool. For better output, try `input listen` instead:
 
 ```
-use std input
 input listen --types [key]
 ```
 "#
