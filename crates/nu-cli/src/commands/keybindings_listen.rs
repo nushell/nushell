@@ -21,12 +21,7 @@ impl Command for KeybindingsListen {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"This is an internal debugging tool. For better output, try `input listen` instead:
-
-```
-input listen --types [key]
-```
-"#
+        "This is an internal debugging tool. For better output, try `input listen --types [key]`"
     }
 
     fn signature(&self) -> Signature {
