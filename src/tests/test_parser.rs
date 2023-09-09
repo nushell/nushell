@@ -608,12 +608,12 @@ fn duration_with_faulty_number() -> TestResult {
 
 #[test]
 fn filesize_with_underscores_1() -> TestResult {
-    run_test("420_mb", "420.0 MB")
+    run_test("420_mb", "400.5 MiB")
 }
 
 #[test]
 fn filesize_with_underscores_2() -> TestResult {
-    run_test("1_000_000B", "1000.0 KB")
+    run_test("1_000_000B", "976.6 KiB")
 }
 
 #[test]
