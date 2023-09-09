@@ -72,7 +72,7 @@ There are 4 `key_type` variants:
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Listen for a keyboard shortcut and find out how nu receives it",
-            example: "input list --types [key]",
+            example: "input listen --types [key]",
             result: None,
         }]
     }
