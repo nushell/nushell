@@ -239,8 +239,6 @@ pub fn math_result_type(
                 (Type::Int, Type::Duration) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
                 (Type::Float, Type::Duration) => (Type::Duration, None),
-                (Type::Int, Type::String) => (Type::String, None),
-                (Type::String, Type::Int) => (Type::String, None),
                 (Type::Int, Type::List(a)) => (Type::List(a.clone()), None),
                 (Type::List(a), Type::Int) => (Type::List(a.clone()), None),
 

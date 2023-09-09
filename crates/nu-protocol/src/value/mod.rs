@@ -2649,20 +2649,6 @@ impl Value {
             (Value::CustomValue { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
-            (Value::Int { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*lhs {
-                    res.push_str(rhs)
-                }
-                Ok(Value::string(res, span))
-            }
-            (Value::String { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*rhs {
-                    res.push_str(lhs)
-                }
-                Ok(Value::string(res, span))
-            }
             (Value::Int { val: lhs, .. }, Value::List { vals: rhs, .. }) => {
                 let mut res = vec![];
                 for _ in 0..*lhs {
