@@ -172,6 +172,7 @@ fn rject_list_mixed() {
         actual.out,
         "[[name, size]; [Cargp.toml, 10000000b], [Cargo.lock, 10000000b]]"
     );
+}
 
 #[test]
 fn reject_multiple_rows_ascending() {
