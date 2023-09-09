@@ -117,7 +117,8 @@ stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
 
-# Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
+# Enable to statically link OpenSSL (perl is required, to build OpenSSL https://docs.rs/openssl/latest/openssl/); 
+# otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
