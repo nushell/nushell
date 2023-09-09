@@ -108,9 +108,9 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
-    pub cursor_shape_vi_insert: NuCursorShape,
-    pub cursor_shape_vi_normal: NuCursorShape,
-    pub cursor_shape_emacs: NuCursorShape,
+    pub cursor_shape_vi_insert: Option<NuCursorShape>,
+    pub cursor_shape_vi_normal: Option<NuCursorShape>,
+    pub cursor_shape_emacs: Option<NuCursorShape>,
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
     pub error_style: String,
@@ -156,9 +156,9 @@ impl Default for Config {
             filesize_metric: false,
             filesize_format: "auto".into(),
 
-            cursor_shape_emacs: NuCursorShape::Line,
-            cursor_shape_vi_insert: NuCursorShape::Block,
-            cursor_shape_vi_normal: NuCursorShape::UnderScore,
+            cursor_shape_emacs: None,
+            cursor_shape_vi_insert: None,
+            cursor_shape_vi_normal: None,
 
             color_config: HashMap::new(),
             use_grid_icons: true,
@@ -683,12 +683,13 @@ impl Value {
                             ($name:expr, $span:expr) => {
                                 Value::string(
                                     match $name {
-                                        NuCursorShape::Line => "line",
-                                        NuCursorShape::Block => "block",
-                                        NuCursorShape::UnderScore => "underscore",
-                                        NuCursorShape::BlinkLine => "blink_line",
-                                        NuCursorShape::BlinkBlock => "blink_block",
-                                        NuCursorShape::BlinkUnderScore => "blink_underscore",
+                                        Some(NuCursorShape::Line) => "line",
+                                        Some(NuCursorShape::Block) => "block",
+                                        Some(NuCursorShape::UnderScore) => "underscore",
+                                        Some(NuCursorShape::BlinkLine) => "blink_line",
+                                        Some(NuCursorShape::BlinkBlock) => "blink_block",
+                                        Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
+                                        None => "inherit",
                                     },
                                     $span,
                                 )
@@ -706,31 +707,34 @@ impl Value {
                                             match val_str.as_ref() {
                                                 "line" => {
                                                     config.cursor_shape_vi_insert =
-                                                        NuCursorShape::Line;
+                                                        Some(NuCursorShape::Line);
                                                 }
                                                 "block" => {
                                                     config.cursor_shape_vi_insert =
-                                                        NuCursorShape::Block;
+                                                        Some(NuCursorShape::Block);
                                                 }
                                                 "underscore" => {
                                                     config.cursor_shape_vi_insert =
-                                                        NuCursorShape::UnderScore;
+                                                        Some(NuCursorShape::UnderScore);
                                                 }
                                                 "blink_line" => {
                                                     config.cursor_shape_vi_insert =
-                                                        NuCursorShape::BlinkLine;
+                                                        Some(NuCursorShape::BlinkLine);
                                                 }
                                                 "blink_block" => {
                                                     config.cursor_shape_vi_insert =
-                                                        NuCursorShape::BlinkBlock;
+                                                        Some(NuCursorShape::BlinkBlock);
                                                 }
                                                 "blink_underscore" => {
                                                     config.cursor_shape_vi_insert =
-                                                        NuCursorShape::BlinkUnderScore;
+                                                        Some(NuCursorShape::BlinkUnderScore);
+                                                }
+                                                "inherit" => {
+                                                    config.cursor_shape_vi_insert = None;
                                                 }
                                                 _ => {
                                                     invalid!(Some(span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -754,31 +758,34 @@ impl Value {
                                             match val_str.as_ref() {
                                                 "line" => {
                                                     config.cursor_shape_vi_normal =
-                                                        NuCursorShape::Line;
+                                                        Some(NuCursorShape::Line);
                                                 }
                                                 "block" => {
                                                     config.cursor_shape_vi_normal =
-                                                        NuCursorShape::Block;
+                                                        Some(NuCursorShape::Block);
                                                 }
                                                 "underscore" => {
                                                     config.cursor_shape_vi_normal =
-                                                        NuCursorShape::UnderScore;
+                                                        Some(NuCursorShape::UnderScore);
                                                 }
                                                 "blink_line" => {
                                                     config.cursor_shape_vi_normal =
-                                                        NuCursorShape::BlinkLine;
+                                                        Some(NuCursorShape::BlinkLine);
                                                 }
                                                 "blink_block" => {
                                                     config.cursor_shape_vi_normal =
-                                                        NuCursorShape::BlinkBlock;
+                                                        Some(NuCursorShape::BlinkBlock);
                                                 }
                                                 "blink_underscore" => {
                                                     config.cursor_shape_vi_normal =
-                                                        NuCursorShape::BlinkUnderScore;
+                                                        Some(NuCursorShape::BlinkUnderScore);
+                                                }
+                                                "inherit" => {
+                                                    config.cursor_shape_vi_normal = None;
                                                 }
                                                 _ => {
                                                     invalid!(Some(span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
@@ -801,31 +808,35 @@ impl Value {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
-                                                    config.cursor_shape_emacs = NuCursorShape::Line;
+                                                    config.cursor_shape_emacs =
+                                                        Some(NuCursorShape::Line);
                                                 }
                                                 "block" => {
                                                     config.cursor_shape_emacs =
-                                                        NuCursorShape::Block;
+                                                        Some(NuCursorShape::Block);
                                                 }
                                                 "underscore" => {
                                                     config.cursor_shape_emacs =
-                                                        NuCursorShape::UnderScore;
+                                                        Some(NuCursorShape::UnderScore);
                                                 }
                                                 "blink_line" => {
                                                     config.cursor_shape_emacs =
-                                                        NuCursorShape::BlinkLine;
+                                                        Some(NuCursorShape::BlinkLine);
                                                 }
                                                 "blink_block" => {
                                                     config.cursor_shape_emacs =
-                                                        NuCursorShape::BlinkBlock;
+                                                        Some(NuCursorShape::BlinkBlock);
                                                 }
                                                 "blink_underscore" => {
                                                     config.cursor_shape_emacs =
-                                                        NuCursorShape::BlinkUnderScore;
+                                                        Some(NuCursorShape::BlinkUnderScore);
+                                                }
+                                                "inherit" => {
+                                                    config.cursor_shape_emacs = None;
                                                 }
                                                 _ => {
                                                     invalid!(Some(span),
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', or 'blink_underscore'"
+                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
                                                     );
                                                     // Reconstruct
                                                     vals[index] = reconstruct_cursor_shape!(
