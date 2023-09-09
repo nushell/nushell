@@ -593,6 +593,13 @@ $env.config = {
             event: {edit: cutbigwordleft}
         }
         {
+            name: alt_backspace_from_vscode
+            modifier: control_alt
+            keycode: char_h
+            mode: emacs
+            event: { edit: cutwordleft }
+        }
+        {
             name: move_left
             modifier: none
             keycode: backspace
