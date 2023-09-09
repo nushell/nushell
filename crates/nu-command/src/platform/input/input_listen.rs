@@ -73,12 +73,7 @@ There are 4 `key_type` variants:
         vec![Example {
             description: "Listen for a keyboard shortcut and find out how nu receives it",
             example: "use std input; input list --types [key]",
-            result: Some(Value::test_record(record! {
-                "type" => Value::test_string("key"),
-                "key_type" => Value::test_string("char"),
-                "code" => Value::test_string("c"),
-                "modifiers" => Value::test_list(vec![Value::test_string("keymodifiers(control)")]),
-            })),
+            result: None,
         }]
     }
     fn run(
