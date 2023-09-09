@@ -80,6 +80,12 @@ fn ignores_duplicate_columns_rejected() {
 }
 
 #[test]
+fn ignores_duplicate_rows_rejected() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
 fn reject_record_from_raw_eval() {
     let actual = nu!(r#"{"a": 3} | reject a | describe"#);
 
@@ -158,6 +164,7 @@ fn reject_list_rows() {
         "[[name, type, size]; [Cargo.lock, file, 10000000b]]"
     );
 }
+
 #[test]
 fn rject_list_mixed() {
     let actual = nu!("let arg = [ type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
@@ -165,4 +172,15 @@ fn rject_list_mixed() {
         actual.out,
         "[[name, size]; [Cargp.toml, 10000000b], [Cargo.lock, 10000000b]]"
     );
+
+#[test]
+fn reject_multiple_rows_ascending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+}
+
+#[test]
+fn reject_multiple_rows_descending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
 }

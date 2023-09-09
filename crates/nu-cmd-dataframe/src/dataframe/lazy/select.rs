@@ -55,10 +55,7 @@ impl Command for LazySelect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
-        let value = Value::List {
-            vals,
-            span: call.head,
-        };
+        let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
 
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;

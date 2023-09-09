@@ -59,12 +59,13 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         inspect,
     };
 
+    let span = input.span();
     match input {
-        Value::String { val, span } => Ok(begin_selector_query(val.to_string(), selector, *span)),
+        Value::String { val, .. } => Ok(begin_selector_query(val.to_string(), selector, span)),
         _ => Err(LabeledError {
             label: "requires text input".to_string(),
             msg: "Expected text from pipeline".to_string(),
-            span: Some(input.span()),
+            span: Some(span),
         }),
     }
 }
@@ -140,7 +141,7 @@ pub fn retrieve_tables(
         .map(move |table| retrieve_table(table, columns, span))
         .collect();
 
-    Value::List { vals, span }
+    Value::list(vals, span)
 }
 
 fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
@@ -211,10 +212,7 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     }
     // table_out
 
-    Value::List {
-        vals: table_out,
-        span,
-    }
+    Value::list(table_out, span)
 }
 
 fn execute_selector_query_with_attribute(
@@ -235,7 +233,7 @@ fn execute_selector_query_with_attribute(
             )
         })
         .collect();
-    Value::List { vals, span }
+    Value::list(vals, span)
 }
 
 fn execute_selector_query(
@@ -265,7 +263,7 @@ fn execute_selector_query(
             .collect(),
     };
 
-    Value::List { vals, span }
+    Value::list(vals, span)
 }
 
 pub fn css(selector: &str, inspect: bool) -> ScraperSelector {

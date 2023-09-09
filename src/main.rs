@@ -24,8 +24,10 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
-use nu_protocol::{engine::EngineState, report_error_new, Value};
-use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_protocol::{
+    engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
+    PipelineData, RawStream, Span, Value, NU_VARIABLE_ID,
+};
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
@@ -162,13 +164,10 @@ fn main() -> Result<()> {
         let vals: Vec<_> = include_path
             .item
             .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
-            .map(|x| Value::String {
-                val: x.trim().to_string(),
-                span,
-            })
+            .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
 
     start_time = std::time::Instant::now();
@@ -181,6 +180,11 @@ fn main() -> Result<()> {
         line!(),
         column!(),
         use_color,
+    );
+
+    engine_state.add_env_var(
+        "NU_VERSION".to_string(),
+        Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
     );
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
@@ -273,6 +277,10 @@ fn main() -> Result<()> {
         column!(),
         use_color,
     );
+
+    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
+    let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

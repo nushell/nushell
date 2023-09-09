@@ -504,7 +504,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             FlatShape::MatchPattern => println!(
                 "{}",
                 json!({
-                    "hover": "match pattern",
+                    "hover": "match-pattern",
                     "span": {
                         "start": span.start - offset,
                         "end": span.end - offset

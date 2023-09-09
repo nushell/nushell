@@ -673,7 +673,7 @@ Operating system commands:
             }
         };
 
-        let param_is_string = matches!(code, Value::String { val: _, span: _ });
+        let param_is_string = matches!(code, Value::String { .. });
 
         if escape && osc {
             return Err(ShellError::IncompatibleParameters {

@@ -73,20 +73,18 @@ impl Command for ToNuon {
         };
 
         match nuon_result {
-            Ok(serde_nuon_string) => Ok(Value::String {
-                val: serde_nuon_string,
-                span,
+            Ok(serde_nuon_string) => {
+                Ok(Value::string(serde_nuon_string, span).into_pipeline_data())
             }
-            .into_pipeline_data()),
-            _ => Ok(Value::Error {
-                error: Box::new(ShellError::CantConvert {
+            _ => Ok(Value::error(
+                ShellError::CantConvert {
                     to_type: "NUON".into(),
                     from_type: value.get_type().to_string(),
                     span,
                     help: None,
-                }),
+                },
                 span,
-            }
+            )
             .into_pipeline_data()),
         }
     }
@@ -163,7 +161,7 @@ pub fn value_to_string(
             }
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cellpaths are currently not nuon-compatible".to_string(),
+            "cell-paths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
             v.span(),

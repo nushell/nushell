@@ -79,10 +79,7 @@ fn dice(
 
     let iter = (0..dice).map(move |_| {
         let mut thread_rng = thread_rng();
-        Value::Int {
-            val: thread_rng.gen_range(1..sides + 1) as i64,
-            span,
-        }
+        Value::int(thread_rng.gen_range(1..sides + 1) as i64, span)
     });
 
     Ok(PipelineData::ListStream(

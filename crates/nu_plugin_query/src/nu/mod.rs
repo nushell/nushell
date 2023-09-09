@@ -77,7 +77,7 @@ pub fn web_examples() -> Vec<PluginExample> {
         result: None,
     }, PluginExample {
         example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population
-    | query web -t [Rank City 'Population(2011)[3]' 'Population(2001)' 'State or union territory']".into(),
+    | query web -t [Rank City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or union territory']".into(),
         description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides".into(),
         result: None
     },

@@ -394,19 +394,13 @@ fn interactive_copy(
         format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
     );
     if let Err(e) = interaction {
-        Value::Error {
-            error: Box::new(ShellError::GenericError(
-                e.to_string(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
+        Value::error(
+            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, Vec::new()),
             span,
-        }
+        )
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
-        Value::String { val: msg, span }
+        Value::string(msg, span)
     } else {
         copy_impl(src, dst, span, &None)
     }
@@ -425,7 +419,7 @@ fn copy_file(
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::String { val: msg, span }
+            Value::string(msg, span)
         }
         Err(e) => convert_io_error(e, src, dst, span),
     }
@@ -521,7 +515,7 @@ fn copy_file_with_progressbar(
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
     bar.finished_msg(format!(" {} copied!", &file_name));
 
-    Value::String { val: msg, span }
+    Value::string(msg, span)
 }
 
 fn copy_symlink(
@@ -534,16 +528,16 @@ fn copy_symlink(
     let target_path = match target_path {
         Ok(p) => p,
         Err(err) => {
-            return Value::Error {
-                error: Box::new(ShellError::GenericError(
+            return Value::error(
+                ShellError::GenericError(
                     err.to_string(),
                     err.to_string(),
                     Some(span),
                     None,
                     vec![],
-                )),
+                ),
                 span,
-            }
+            )
         }
     };
 
@@ -566,18 +560,12 @@ fn copy_symlink(
     match create_symlink(target_path.as_path(), dst.as_path()) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::String { val: msg, span }
+            Value::string(msg, span)
         }
-        Err(e) => Value::Error {
-            error: Box::new(ShellError::GenericError(
-                e.to_string(),
-                e.to_string(),
-                Some(span),
-                None,
-                vec![],
-            )),
+        Err(e) => Value::error(
+            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
             span,
-        },
+        ),
     }
 }
 
@@ -618,8 +606,5 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         _ => ShellError::IOErrorSpanned(message_src, span),
     };
 
-    Value::Error {
-        error: Box::new(shell_error),
-        span,
-    }
+    Value::error(shell_error, span)
 }

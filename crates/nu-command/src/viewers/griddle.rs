@@ -243,10 +243,7 @@ fn create_grid_output(
         if let Some(grid_display) = grid.fit_into_width(cols as usize) {
             Value::string(grid_display.to_string(), call.head)
         } else {
-            Value::String {
-                val: format!("Couldn't fit grid into {cols} columns!"),
-                span: call.head,
-            }
+            Value::string(format!("Couldn't fit grid into {cols} columns!"), call.head)
         }
         .into_pipeline_data(),
     )

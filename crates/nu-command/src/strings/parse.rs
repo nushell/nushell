@@ -43,13 +43,13 @@ impl Command for Parse {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let result = Value::List {
-            vals: vec![Value::test_record(Record {
+        let result = Value::list(
+            vec![Value::test_record(Record {
                 cols: vec!["foo".to_string(), "bar".to_string()],
                 vals: vec![Value::test_string("hi"), Value::test_string("there")],
             })],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
 
         vec![
             Example {
@@ -65,19 +65,19 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
                 example: "\"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("bar")],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["capture0".to_string(), "capture1".to_string()],
                             vals: vec![Value::test_string(""), Value::test_string("foo")],
@@ -87,34 +87,34 @@ impl Command for Parse {
                             vals: vec![Value::test_string("bar"), Value::test_string("")],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
                 example:
                     "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["capture0".to_string(), "capture1".to_string()],
                         vals: vec![
                             Value::test_string("@another"),
                             Value::test_string("(foo bar)"),
                         ],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
                 example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["capture0".to_string()],
                         vals: vec![Value::test_string("b")],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -339,17 +339,19 @@ impl Iterator for ParseStreamer {
                 }
             }
 
-            let Some(v) = self.stream.next() else { return None };
+            let Some(v) = self.stream.next() else {
+                return None;
+            };
 
             let Ok(s) = v.as_string() else {
-                return Some(Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                return Some(Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: self.span,
                         src_span: v.span(),
-                    }),
-                    span: v.span(),
-                })
+                    },
+                    v.span(),
+                ));
             };
 
             let parsed = stream_helper(
@@ -401,24 +403,19 @@ impl Iterator for ParseStreamerExternal {
 
         let chunk = match chunk {
             Some(Ok(chunk)) => chunk,
-            Some(Err(err)) => {
-                return Some(Value::Error {
-                    error: Box::new(err),
-                    span: self.span,
-                })
-            }
+            Some(Err(err)) => return Some(Value::error(err, self.span)),
             _ => return None,
         };
 
         let Ok(chunk) = String::from_utf8(chunk) else {
-            return Some(Value::Error {
-                error: Box::new(ShellError::PipelineMismatch {
+            return Some(Value::error(
+                ShellError::PipelineMismatch {
                     exp_input_type: "string".into(),
                     dst_span: self.span,
                     src_span: self.span,
-                }),
-                span: self.span,
-            })
+                },
+                self.span,
+            ));
         };
 
         stream_helper(
@@ -444,16 +441,16 @@ fn stream_helper(
         let captures = match c {
             Ok(c) => c,
             Err(e) => {
-                return Some(Value::Error {
-                    error: Box::new(ShellError::GenericError(
+                return Some(Value::error(
+                    ShellError::GenericError(
                         "Error with regular expression captures".into(),
                         e.to_string(),
                         Some(span),
                         Some(e.to_string()),
                         Vec::new(),
-                    )),
+                    ),
                     span,
-                })
+                ))
             }
         };
 

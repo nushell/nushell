@@ -79,10 +79,7 @@ pub fn execute_xpath_query(
                 records.push(Value::record(record! { k => v }, call.head))
             }
 
-            Ok(Value::List {
-                vals: records,
-                span: call.head,
-            })
+            Ok(Value::list(records, call.head))
         }
         Err(_) => Err(LabeledError {
             label: "xpath query error".to_string(),
@@ -135,13 +132,13 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = Value::List {
-            vals: vec![Value::test_record(Record {
+        let expected = Value::list(
+            vec![Value::test_record(Record {
                 cols: vec!["count(//a/*[posit...".to_string()],
                 vals: vec![Value::test_float(1.0)],
             })],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected);
     }
@@ -165,13 +162,13 @@ mod tests {
         };
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
-        let expected = Value::List {
-            vals: vec![Value::test_record(Record {
+        let expected = Value::list(
+            vec![Value::test_record(Record {
                 cols: vec!["count(//*[contain...".to_string()],
                 vals: vec![Value::test_float(1.0)],
             })],
-            span: Span::test_data(),
-        };
+            Span::test_data(),
+        );
 
         assert_eq!(actual, expected);
     }

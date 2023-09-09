@@ -123,8 +123,9 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
+    let span = value.span();
     let res = match value {
-        Value::Int { val, span } => {
+        Value::Int { val, .. } => {
             let chunked = series.i64().map_err(|e| {
                 ShellError::GenericError(
                     "Error casting to i64".into(),
@@ -147,7 +148,7 @@ fn command(
 
             NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         }
-        Value::Float { val, span } => {
+        Value::Float { val, .. } => {
             let chunked = series.f64().map_err(|e| {
                 ShellError::GenericError(
                     "Error casting to f64".into(),
@@ -170,7 +171,7 @@ fn command(
 
             NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         }
-        Value::String { val, span } => {
+        Value::String { val, .. } => {
             let chunked = series.utf8().map_err(|e| {
                 ShellError::GenericError(
                     "Error casting to string".into(),
@@ -204,7 +205,7 @@ fn command(
                 "this value cannot be set in a series of type '{}'",
                 series.dtype()
             ),
-            Some(value.span()),
+            Some(span),
             None,
             Vec::new(),
         )),

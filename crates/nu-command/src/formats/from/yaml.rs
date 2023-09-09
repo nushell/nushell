@@ -88,28 +88,20 @@ fn convert_yaml_value_to_nu_value(
         val_span,
     );
     Ok(match v {
-        serde_yaml::Value::Bool(b) => Value::Bool { val: *b, span },
-        serde_yaml::Value::Number(n) if n.is_i64() => Value::Int {
-            val: n.as_i64().ok_or(err_not_compatible_number)?,
-            span,
-        },
-        serde_yaml::Value::Number(n) if n.is_f64() => Value::Float {
-            val: n.as_f64().ok_or(err_not_compatible_number)?,
-            span,
-        },
-        serde_yaml::Value::String(s) => Value::String {
-            val: s.to_string(),
-            span,
-        },
+        serde_yaml::Value::Bool(b) => Value::bool(*b, span),
+        serde_yaml::Value::Number(n) if n.is_i64() => {
+            Value::int(n.as_i64().ok_or(err_not_compatible_number)?, span)
+        }
+        serde_yaml::Value::Number(n) if n.is_f64() => {
+            Value::float(n.as_f64().ok_or(err_not_compatible_number)?, span)
+        }
+        serde_yaml::Value::String(s) => Value::string(s.to_string(), span),
         serde_yaml::Value::Sequence(a) => {
             let result: Result<Vec<Value>, ShellError> = a
                 .iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, span, val_span))
                 .collect();
-            Value::List {
-                vals: result?,
-                span,
-            }
+            Value::list(result?, span)
         }
         serde_yaml::Value::Mapping(t) => {
             // Using an IndexMap ensures consistent ordering
@@ -155,10 +147,7 @@ fn convert_yaml_value_to_nu_value(
                             .first()
                             .and_then(|e| match e {
                                 (serde_yaml::Value::String(s), serde_yaml::Value::Null) => {
-                                    Some(Value::String {
-                                        val: "{{ ".to_owned() + s.as_str() + " }}",
-                                        span,
-                                    })
+                                    Some(Value::string("{{ ".to_owned() + s.as_str() + " }}", span))
                                 }
                                 _ => None,
                             })
@@ -177,19 +166,19 @@ fn convert_yaml_value_to_nu_value(
             let value = match &t.value {
                 serde_yaml::Value::String(s) => {
                     let val = format!("{} {}", tag, s).trim().to_string();
-                    Value::String { val, span }
+                    Value::string(val, span)
                 }
                 serde_yaml::Value::Number(n) => {
                     let val = format!("{} {}", tag, n).trim().to_string();
-                    Value::String { val, span }
+                    Value::string(val, span)
                 }
                 serde_yaml::Value::Bool(b) => {
                     let val = format!("{} {}", tag, b).trim().to_string();
-                    Value::String { val, span }
+                    Value::string(val, span)
                 }
                 serde_yaml::Value::Null => {
                     let val = format!("{}", tag).trim().to_string();
-                    Value::String { val, span }
+                    Value::string(val, span)
                 }
                 v => convert_yaml_value_to_nu_value(v, span, val_span)?,
             };
@@ -223,10 +212,7 @@ pub fn from_yaml_string_to_value(
     match documents.len() {
         0 => Ok(Value::nothing(span)),
         1 => Ok(documents.remove(0)),
-        _ => Ok(Value::List {
-            vals: documents,
-            span,
-        }),
+        _ => Ok(Value::list(documents, span)),
     }
 }
 
@@ -243,22 +229,22 @@ pub fn get_examples() -> Vec<Example<'static>> {
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_record(Record {
                         cols: vec!["a".to_string()],
                         vals: vec![Value::test_int(1)],
                     }),
                     Value::test_record(Record {
                         cols: vec!["b".to_string()],
-                        vals: vec![Value::List {
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                            span: Span::test_data(),
-                        }],
+                        vals: vec![Value::list(
+                            vec![Value::test_int(1), Value::test_int(2)],
+                            Span::test_data(),
+                        )],
                     }),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         },
     ]
 }
@@ -349,8 +335,8 @@ mod test {
                 Span::test_data(),
             );
 
-            let expected: Result<Value, ShellError> = Ok(Value::List {
-                vals: vec![
+            let expected: Result<Value, ShellError> = Ok(Value::list(
+                vec![
                     Value::test_record(Record {
                         cols: vec!["a".to_string(), "b".to_string()],
                         vals: vec![Value::test_string("b"), Value::test_string("c")],
@@ -360,8 +346,8 @@ mod test {
                         vals: vec![Value::test_string("g"), Value::test_string("h")],
                     }),
                 ],
-                span: Span::test_data(),
-            });
+                Span::test_data(),
+            ));
 
             // Unfortunately the eq function for Value doesn't compare well enough to detect
             // ordering errors in List columns or values.

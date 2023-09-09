@@ -39,11 +39,7 @@ impl Command for OverlayList {
             .map(|s| Value::string(s, call.head))
             .collect();
 
-        Ok(Value::List {
-            vals: active_overlays_engine,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::list(active_overlays_engine, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -64,11 +64,7 @@ impl Command for ToText {
             // Even if the data is collected when it arrives at `to text`, we should be able to stream it out
             let collected_input = local_into_string(input.into_value(span), line_ending, config);
 
-            Ok(Value::String {
-                val: collected_input,
-                span,
-            }
-            .into_pipeline_data())
+            Ok(Value::string(collected_input, span).into_pipeline_data())
         }
     }
 

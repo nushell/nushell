@@ -157,13 +157,7 @@ fn from_xlsx(
                 sheet_output.push(Value::record(record, head));
             }
 
-            dict.insert(
-                sheet_name,
-                Value::List {
-                    vals: sheet_output,
-                    span: head,
-                },
-            );
+            dict.insert(sheet_name, Value::list(sheet_output, head));
         } else {
             return Err(ShellError::UnsupportedInput(
                 "Could not load sheet".to_string(),

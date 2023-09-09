@@ -36,8 +36,8 @@ impl Command for Headers {
             Example {
                 description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: columns.clone(),
                         vals: vec![
                             Value::test_string("1"),
@@ -45,14 +45,14 @@ impl Command for Headers {
                             Value::test_string("3"),
                         ],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Columns which don't have data in their first row are removed",
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: columns.clone(),
                             vals: vec![
@@ -70,8 +70,8 @@ impl Command for Headers {
                             ],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -98,8 +98,9 @@ fn replace_headers(
     old_headers: &[String],
     new_headers: &[String],
 ) -> Result<Value, ShellError> {
+    let span = value.span();
     match value {
-        Value::Record { val, span } => Ok(Value::record(
+        Value::Record { val, .. } => Ok(Value::record(
             val.into_iter()
                 .filter_map(|(col, val)| {
                     old_headers
@@ -110,14 +111,14 @@ fn replace_headers(
                 .collect(),
             span,
         )),
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             let vals = vals
                 .into_iter()
                 .skip(1)
                 .map(|value| replace_headers(value, old_headers, new_headers))
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
-            Ok(Value::List { vals, span })
+            Ok(Value::list(vals, span))
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),
@@ -129,11 +130,11 @@ fn replace_headers(
 fn is_valid_header(value: &Value) -> bool {
     matches!(
         value,
-        Value::Nothing { span: _ }
-            | Value::String { val: _, span: _ }
-            | Value::Bool { val: _, span: _ }
-            | Value::Float { val: _, span: _ }
-            | Value::Int { val: _, span: _ }
+        Value::Nothing { .. }
+            | Value::String { val: _, .. }
+            | Value::Bool { val: _, .. }
+            | Value::Float { val: _, .. }
+            | Value::Int { val: _, .. }
     )
 }
 
@@ -141,6 +142,7 @@ fn extract_headers(
     value: &Value,
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
+    let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
             for v in &record.vals {
@@ -170,7 +172,7 @@ fn extract_headers(
 
             Ok((old_headers, new_headers))
         }
-        Value::List { vals, span } => vals
+        Value::List { vals, .. } => vals
             .iter()
             .map(|value| extract_headers(value, config))
             .next()
@@ -178,7 +180,7 @@ fn extract_headers(
                 ShellError::GenericError(
                     "Found empty list".to_string(),
                     "unable to extract headers".to_string(),
-                    Some(*span),
+                    Some(span),
                     None,
                     Vec::new(),
                 )

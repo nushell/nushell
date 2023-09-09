@@ -148,7 +148,8 @@ pub fn highlight_search_in_table(
     let mut matches = vec![];
 
     for record in table {
-        let (mut record, record_span) = if let Value::Record { val, span } = record {
+        let span = record.span();
+        let (mut record, record_span) = if let Value::Record { val, .. } = record {
             (val, span)
         } else {
             return Err(ShellError::NushellFailedSpanned {
@@ -165,17 +166,18 @@ pub fn highlight_search_in_table(
                     // don't search this column
                     return Ok(acc);
                 }
-                if let Value::String { val: s, span } = val {
+                let span = val.span();
+                if let Value::String { val: s, .. } = val {
                     if s.to_lowercase().contains(&search_string) {
-                        *val = Value::String {
-                            val: highlight_search_string(
+                        *val = Value::string(
+                            highlight_search_string(
                                 s,
                                 orig_search_string,
                                 string_style,
                                 highlight_style,
                             )?,
-                            span: *span,
-                        };
+                            span,
+                        );
                         return Ok(true);
                     }
                 }

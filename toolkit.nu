@@ -203,7 +203,7 @@ def report [
 #
 # error: could not compile `nu-command` due to previous error
 # ```
-# - we remove the useless `.to_string()`, and in that cases, the whole format is useless, only `"x "` is usefull!
+# - we remove the useless `.to_string()`, and in that cases, the whole format is useless, only `"x "` is useful!
 # but now the tests do not pass :sob:
 # ```nushell
 # running `toolkit fmt`
@@ -436,7 +436,7 @@ def compute-coverage [] {
 # - https://github.com/andythigpen/nvim-coverage (probably needs some additional config)
 export def cov [] {
     let start = (date now)
-    $env.NUSHELL_CARGO_TARGET = "ci"
+    $env.NUSHELL_CARGO_PROFILE = "ci"
 
     compute-coverage
 

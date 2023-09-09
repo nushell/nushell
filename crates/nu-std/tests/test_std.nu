@@ -27,7 +27,13 @@ def path_add [] {
         assert equal (get_path) ["fooooo", "foo", "bar", "baz"]
 
         load-env {$path_name: []}
-        let target_paths = {linux: "foo", windows: "bar", macos: "baz"}
+
+        let target_paths = {
+            linux: "foo",
+            windows: "bar",
+            macos: "baz",
+            android: "quux",
+        }
 
         std path add $target_paths
         assert equal (get_path) [($target_paths | get $nu.os-info.name)]

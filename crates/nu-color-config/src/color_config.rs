@@ -123,18 +123,9 @@ mod tests {
         let record = Record {
             cols: vec!["bg".to_string(), "fg".to_string(), "attr".to_string()],
             vals: vec![
-                Value::String {
-                    val: "red".to_string(),
-                    span: Span::unknown(),
-                },
-                Value::String {
-                    val: "blue".to_string(),
-                    span: Span::unknown(),
-                },
-                Value::String {
-                    val: "bold".to_string(),
-                    span: Span::unknown(),
-                },
+                Value::string("red", Span::unknown()),
+                Value::string("blue", Span::unknown()),
+                Value::string("bold", Span::unknown()),
             ],
         };
         let expected_style = NuStyle {
@@ -155,10 +146,7 @@ mod tests {
         let record = Record {
             cols: vec!["bg".to_string(), "invalid".to_string()],
             vals: vec![
-                Value::String {
-                    val: "green".to_string(),
-                    span: Span::unknown(),
-                },
+                Value::string("green", Span::unknown()),
                 Value::nothing(Span::unknown()),
             ],
         };
@@ -174,10 +162,7 @@ mod tests {
     fn test_parse_map_entry() {
         let mut hm = HashMap::new();
         let key = "test_key".to_owned();
-        let value = Value::String {
-            val: "red".to_owned(),
-            span: Span::unknown(),
-        };
+        let value = Value::string("red", Span::unknown());
         parse_map_entry(&mut hm, &key, &value);
         assert_eq!(hm.get(&key), Some(&lookup_ansi_color_style("red")));
     }

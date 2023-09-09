@@ -157,6 +157,12 @@ pub fn load_theme_from_config(config: &Config) -> TableTheme {
         "reinforced" => TableTheme::reinforced(),
         "heavy" => TableTheme::heavy(),
         "none" => TableTheme::none(),
+        "psql" => TableTheme::psql(),
+        "markdown" => TableTheme::markdown(),
+        "dots" => TableTheme::dots(),
+        "restructured" => TableTheme::resturctured(),
+        "ascii_rounded" => TableTheme::ascii_rounded(),
+        "basic_compact" => TableTheme::basic_compact(),
         _ => TableTheme::rounded(),
     }
 }

@@ -18,7 +18,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.84.1" }
 
 bytesize = "1.2"
 chrono = { default-features = false, features = ['std'], version = "0.4" }
-itertools = "0.10"
+itertools = "0.11"
 log = "0.4"
 serde_json = "1.0"
 

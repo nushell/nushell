@@ -20,6 +20,10 @@ impl Command for KeybindingsListen {
         "Get input from the user."
     }
 
+    fn extra_usage(&self) -> &str {
+        "This is an internal debugging tool. For better output, try `input listen --types [key]`"
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Platform)

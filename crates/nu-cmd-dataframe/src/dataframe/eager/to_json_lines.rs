@@ -81,16 +81,10 @@ fn command(
             )
         })?;
 
-    let file_value = Value::String {
-        val: format!("saved {:?}", &file_name.item),
-        span: file_name.span,
-    };
+    let file_value = Value::string(format!("saved {:?}", &file_name.item), file_name.span);
 
     Ok(PipelineData::Value(
-        Value::List {
-            vals: vec![file_value],
-            span: call.head,
-        },
+        Value::list(vec![file_value], call.head),
         None,
     ))
 }

@@ -44,24 +44,24 @@ impl Command for SkipWhile {
             Example {
                 description: "Skip while the element is negative",
                 example: "[-2 0 2 -1] | skip while {|x| $x < 0 }",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Skip while the element is negative using stored condition",
                 example: "let cond = {|x| $x < 0 }; [-2 0 2 -1] | skip while $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Skip while the field value is negative",
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["a".to_string()],
                             vals: vec![Value::test_int(0)],
@@ -75,8 +75,8 @@ impl Command for SkipWhile {
                             vals: vec![Value::test_int(-1)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

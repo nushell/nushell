@@ -2822,7 +2822,7 @@ fn parse_collection_shape(
         while idx < tokens.len() {
             let TokenContents::Item = tokens[idx].contents else {
                 working_set.error(key_error(tokens[idx].span));
-                return mk_shape(vec![])
+                return mk_shape(vec![]);
             };
 
             let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
@@ -2831,7 +2831,9 @@ fn parse_collection_shape(
                 continue;
             }
 
-            let Some(key) = parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string() else {
+            let Some(key) =
+                parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string()
+            else {
                 working_set.error(key_error(tokens[idx].span));
                 return mk_shape(vec![]);
             };
@@ -4026,7 +4028,11 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     }
 
     let head = {
-        let Expression { expr: Expr::List(vals), .. } = head else {
+        let Expression {
+            expr: Expr::List(vals),
+            ..
+        } = head
+        else {
             unreachable!("head must be a list by now")
         };
 
@@ -4058,7 +4064,8 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
                         expr: Expr::List(item),
                         span,
                         ..
-                    } = ls  else {
+                    } = ls
+                    else {
                         unreachable!("the item must be a list")
                     };
 
@@ -4629,7 +4636,9 @@ pub fn parse_value(
             SyntaxShape::Any
             | SyntaxShape::List(_)
             | SyntaxShape::Table(_)
-            | SyntaxShape::Signature => {}
+            | SyntaxShape::Signature
+            | SyntaxShape::Filepath
+            | SyntaxShape::String => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);
@@ -5439,6 +5448,17 @@ pub fn parse_pipeline(
                                 new_command.comments.extend_from_slice(&command.comments);
                                 new_command.parts.extend_from_slice(&command.parts);
                             }
+                            LiteElement::Redirection(span, ..) => {
+                                working_set.error(ParseError::RedirectionInLetMut(*span, None))
+                            }
+                            LiteElement::SeparateRedirection { out, err } => {
+                                working_set.error(ParseError::RedirectionInLetMut(
+                                    out.0.min(err.0),
+                                    Some(out.0.max(err.0)),
+                                ))
+                            }
+                            LiteElement::SameTargetRedirection { redirection, .. } => working_set
+                                .error(ParseError::RedirectionInLetMut(redirection.0, None)),
                             _ => panic!("unsupported"),
                         }
                     }

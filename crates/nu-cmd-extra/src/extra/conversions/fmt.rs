@@ -86,15 +86,15 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Filesize { val, .. } => fmt_it(*val, span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "float , integer or filesize".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),
-            }),
+            },
             span,
-        },
+        ),
     }
 }
 

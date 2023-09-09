@@ -30,6 +30,10 @@ impl Command for Open {
         "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
+    fn extra_usage(&self) -> &str {
+        "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["load", "read", "load_file", "read_file"]
     }
@@ -239,6 +243,11 @@ impl Command for Open {
             Example {
                 description: "Open a file, and decode it by the specified encoding",
                 example: "open myfile.txt --raw | decode utf-8",
+                result: None,
+            },
+            Example {
+                description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
+                example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
                 result: None,
             },
         ]
