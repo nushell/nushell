@@ -24,7 +24,10 @@ impl Command for Reject {
             ])
             .rest(
                 "rest",
-                SyntaxShape::CellPath,
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
+                ]),
                 "the names of columns to remove from the table",
             )
             .category(Category::Filters)
@@ -49,9 +52,81 @@ impl Command for Reject {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
+        let mut new_columns: Vec<CellPath> = vec![];
+        for col_val in columns {
+            let col_span = &col_val.span();
+            match col_val {
+                Value::CellPath { val, .. } => {
+                    new_columns.push(val);
+                }
+                Value::List { vals, .. } => {
+                    for value in vals {
+                        let val_span = &value.span();
+                        match value {
+                            Value::String { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::String {
+                                        val: val.clone(),
+                                        span: *val_span,
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            Value::Int { val, .. } => {
+                                let cv = CellPath {
+                                    members: vec![PathMember::Int {
+                                        val: val as usize,
+                                        span: *val_span,
+                                        optional: false,
+                                    }],
+                                };
+                                new_columns.push(cv.clone());
+                            }
+                            y => {
+                                return Err(ShellError::CantConvert {
+                                    to_type: "cell path".into(),
+                                    from_type: y.get_type().to_string(),
+                                    span: y.span(),
+                                    help: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                Value::String { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::String {
+                            val: val.clone(),
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                Value::Int { val, .. } => {
+                    let cv = CellPath {
+                        members: vec![PathMember::Int {
+                            val: val as usize,
+                            span: *col_span,
+                            optional: false,
+                        }],
+                    };
+                    new_columns.push(cv.clone());
+                }
+                x => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: x.get_type().to_string(),
+                        span: x.span(),
+                        help: None,
+                    });
+                }
+            }
+        }
         let span = call.head;
-        reject(engine_state, span, input, columns)
+        reject(engine_state, span, input, new_columns)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -75,13 +150,13 @@ impl Command for Reject {
             Example {
                 description: "Reject a row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["a".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Reject the specified field in a record",
@@ -101,6 +176,16 @@ impl Command for Reject {
                         vals: vec![Value::test_int(5)],
                     })],
                 })),
+            },
+            Example {
+                description: "Reject columns by a provided list of columns",
+                example: "let cols = [size type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject $cols",
+                result: None
+            },
+            Example {
+                description: "Reject rows by a provided list of rows",
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject $rows",
+                result: None
             },
         ]
     }
