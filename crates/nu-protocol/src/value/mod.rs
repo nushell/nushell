@@ -2663,20 +2663,6 @@ impl Value {
                 }
                 Ok(Value::string(res, span))
             }
-            (Value::Int { val: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                let mut res = vec![];
-                for _ in 0..*lhs {
-                    res.append(&mut rhs.clone())
-                }
-                Ok(Value::list(res, span))
-            }
-            (Value::List { vals: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = vec![];
-                for _ in 0..*rhs {
-                    res.append(&mut lhs.clone())
-                }
-                Ok(Value::list(res, span))
-            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),

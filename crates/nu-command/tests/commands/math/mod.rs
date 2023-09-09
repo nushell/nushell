@@ -506,11 +506,3 @@ fn int_multiple_string() {
     let actual = nu!(pipeline(r#""ab" * 3"#));
     assert_eq!(actual.out, "ababab");
 }
-
-#[test]
-fn int_multiple_list() {
-    let actual = nu!(pipeline(r#"3 * [1 2] | to nuon"#));
-    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
-    let actual = nu!(pipeline(r#"[1 2] * 3 | to nuon"#));
-    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
-}
