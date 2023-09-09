@@ -582,8 +582,15 @@ $env.config = {
             name: delete_one_word_backward
             modifier: control
             keycode: char_w
-            mode: [emacs, vi_insert]
+            mode: vi_insert
             event: {edit: backspaceword}
+        }
+        {
+            name: cut_big_word_left
+            modifier: control
+            keycode: char_w
+            mode: emacs
+            event: {edit: cutbigwordleft}
         }
         {
             name: move_left
@@ -644,13 +651,6 @@ $env.config = {
             keycode: char_y
             mode: emacs
             event: {edit: pastecutbufferbefore}
-        }
-        {
-            name: cut_word_left
-            modifier: control
-            keycode: char_w
-            mode: emacs
-            event: {edit: cutwordleft}
         }
         {
             name: cut_line_to_end
