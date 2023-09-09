@@ -171,7 +171,7 @@ fn into_duration(
                 for path in &column_paths {
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| action(old, &unitclone, span)),
+                        Box::new(move |old| action(old, unitclone, span)),
                     );
                     if let Err(error) = r {
                         return Value::error(error, span);
