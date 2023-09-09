@@ -28,6 +28,7 @@ pub fn load_standard_library(
             ("xml.nu", include_str!("../std/xml.nu")),
             ("input.nu", include_str!("../std/input.nu")),
             ("math.nu", include_str!("../std/math.nu")),
+            ("formats.nu", include_str!("../std/formats.nu")),
         ];
 
         let mut working_set = StateWorkingSet::new(engine_state);
