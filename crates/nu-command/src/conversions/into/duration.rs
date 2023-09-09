@@ -19,6 +19,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into duration")
             .input_output_types(vec![
+                (Type::Int, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::Table(vec![]), Type::Table(vec![])),
@@ -106,6 +107,11 @@ impl Command for SubCommand {
                 description: "Convert duration to duration",
                 example: "420sec | into duration",
                 result: Some(Value::duration(7 * 60 * NS_PER_SEC, span)),
+            },
+            Example {
+                description: "Convert a number of ns to duration",
+                example: "1_234_567 | into duration",
+                result: Some(Value::duration(1_234_567, span)),
             },
         ]
     }
@@ -210,6 +216,7 @@ fn action(input: &Value, span: Span) -> Value {
             Ok(val) => Value::duration(val, span),
             Err(error) => Value::error(error, span),
         },
+        Value::Int { val, .. } => Value::duration(*val, span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
