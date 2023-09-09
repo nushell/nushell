@@ -7,8 +7,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 use num_traits::AsPrimitive;
 use std::io::stdout;
@@ -69,7 +69,18 @@ There are 4 `key_type` variants:
     media - dedicated media keys (play, pause, tracknext ...)
     other - keys not falling under previous categories (up, down, backspace, enter ...)"#
     }
-
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Listen for a keyboard shortcut and find out how nu receives it",
+            example: "use std input; input list --types [key]",
+            result: Some(Value::test_record(record! {
+                "type" => Value::test_string("key"),
+                "key_type" => Value::test_string("char"),
+                "code" => Value::test_string("c"),
+                "modifiers" => Value::test_list(vec![Value::test_string("keymodifiers(control)")]),
+            })),
+        }]
+    }
     fn run(
         &self,
         engine_state: &EngineState,
