@@ -512,7 +512,7 @@ fn copy_identical_file() {
 }
 
 fn copy_identical_file_impl(progress: bool) {
-    Playground::setup("ucp_test_15", |dirs, sandbox| {
+    Playground::setup("ucp_test_15", |_, sandbox| {
         sandbox.with_files(vec![EmptyFile("same.txt")]);
 
         let progress_flag = if progress { "-p" } else { "" };
@@ -525,10 +525,13 @@ fn copy_identical_file_impl(progress: bool) {
         // assert!(actual.err.contains("Copy aborted"));
         let msg = format!(
             "'{}' and '{}' are the same file",
-            dirs.test().join("same.txt").display(),
-            dirs.test().join("same.txt").display(),
+            sandbox.cwd().join("same.txt").display(),
+            sandbox.cwd().join("same.txt").display(),
         );
-        assert!(actual.err.contains(&msg));
+        // debug messages in CI
+        if !actual.err.contains(&msg) {
+            panic!("stderr was: {}", actual.err);
+        }
     });
 }
 
