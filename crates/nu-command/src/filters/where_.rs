@@ -156,7 +156,14 @@ not supported."#
                 description: r#"Find case-insensitively files called "readme", without an explicit closure"#,
                 example: "ls | where ($it.name | str downcase) =~ readme",
                 result: None,
+            },
+            Example {
+                description: "same as above but with regex only",
+                example: "ls | where name =~ '(?i)readme'",
+                result: None,
             }
+
+
         ]
     }
 }
