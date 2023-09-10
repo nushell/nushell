@@ -74,7 +74,12 @@ impl Command for IntoSqliteDb {
                 description: "Convert table literal into a SQLite database with 'main' as the table name",
                 example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
                 result: None,
-            }
+            },
+            Example {
+                description: "Insert a single record into a SQLite database",
+                example: "{ foo: bar, baz: quux } | into sqlite filename.db",
+                result: None,
+            },
         ]
     }
 }
