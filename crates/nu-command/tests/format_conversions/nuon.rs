@@ -262,7 +262,7 @@ fn from_nuon_datetime() {
         "#
     ));
 
-    assert_eq!(actual.out, "date");
+    assert_eq!(actual.out, "datetime");
 }
 
 #[test]
