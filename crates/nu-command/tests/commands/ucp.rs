@@ -508,7 +508,7 @@ fn copy_identical_file() {
 }
 
 fn copy_identical_file_impl(progress: bool) {
-    Playground::setup("ucp_test_15", |_dirs, sandbox| {
+    Playground::setup("ucp_test_15", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("same.txt")]);
 
         let progress_flag = if progress { "-p" } else { "" };
@@ -519,9 +519,12 @@ fn copy_identical_file_impl(progress: bool) {
             progress_flag,
         );
         // assert!(actual.err.contains("Copy aborted"));
-        assert!(actual
-            .err
-            .contains("'same.txt' and 'same.txt' are the same file"));
+        let msg = format!(
+            "'{}' and '{}' are the same file",
+            dirs.test().join("same.txt").display(),
+            dirs.test().join("same.txt").display(),
+        );
+        assert!(actual.err.contains(&msg));
     });
 }
 
@@ -929,9 +932,10 @@ fn test_cp_verbose_default() {
         );
         assert!(actual.out.contains(
             format!(
-                "'{}' -> 'ucp_test_31/{}'",
+                // "'{}' -> 'ucp_test_31/{}'",
+                "'{}' -> '{}'",
                 src.display(),
-                TEST_HELLO_WORLD_DEST
+                dirs.test().join(TEST_HELLO_WORLD_DEST).display()
             )
             .as_str(),
         ));
@@ -951,5 +955,17 @@ fn test_cp_only_source_no_dest() {
             .err
             .contains("Missing destination path operand after"));
         assert!(actual.err.contains(TEST_HELLO_WORLD_SOURCE));
+    });
+}
+
+#[test]
+fn test_cp_with_vars() {
+    Playground::setup("ucp_test_33", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("input")]);
+        nu!(
+        cwd: dirs.test(),
+        "let src = 'input'; let dst = 'target'; ucp $src $dst",
+        );
+        assert!(dirs.test().join("target").exists());
     });
 }

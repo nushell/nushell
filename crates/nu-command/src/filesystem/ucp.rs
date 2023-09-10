@@ -1,6 +1,7 @@
+use nu_engine::CallExt;
 use nu_path::expand_to_real_path;
 use nu_protocol::{
-    ast::{Argument, Call, Expr},
+    ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
@@ -15,26 +16,6 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     require_literal_leading_dot: false,
     recursive_match_hidden_dir: true,
 };
-
-pub fn collect_filepath_arguments(call: &Call) -> Vec<Spanned<String>> {
-    call.arguments
-        .iter()
-        .filter_map(|arg| match arg {
-            Argument::Positional(expression) => {
-                if let Expr::Filepath(p) = &expression.expr {
-                    let pth = Spanned {
-                        item: nu_utils::strip_ansi_string_unlikely(p.clone()),
-                        span: expression.span,
-                    };
-                    Some(pth)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .collect::<Vec<Spanned<String>>>()
-}
 
 #[derive(Clone)]
 pub struct UCp;
@@ -100,8 +81,8 @@ impl Command for UCp {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -130,7 +111,14 @@ impl Command for UCp {
         let reflink_mode = uu_cp::ReflinkMode::Auto;
         #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths = collect_filepath_arguments(call);
+        let paths: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+        let mut paths: Vec<Spanned<String>> = paths
+            .into_iter()
+            .map(|p| Spanned {
+                item: nu_utils::strip_ansi_string_unlikely(p.item),
+                span: p.span,
+            })
+            .collect();
         if paths.is_empty() {
             return Err(ShellError::GenericError(
                 "Missing file operand".into(),
