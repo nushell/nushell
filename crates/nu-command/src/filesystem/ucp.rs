@@ -17,6 +17,11 @@ const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
     recursive_match_hidden_dir: true,
 };
 
+#[cfg(not(target_os = "windows"))]
+const PATH_SEPARATOR: &str = "/";
+#[cfg(target_os = "windows")]
+const PATH_SEPARATOR: &str = "\\";
+
 #[derive(Clone)]
 pub struct UCp;
 
@@ -140,7 +145,7 @@ impl Command for UCp {
         }
         let target = paths.pop().expect("Should not be reached?");
         let target_path = PathBuf::from(&target.item);
-        if target.item.ends_with('/') && !target_path.is_dir() {
+        if target.item.ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError(
                 "is not a directory".into(),
                 "is not a directory".into(),

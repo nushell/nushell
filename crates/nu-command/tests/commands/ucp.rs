@@ -8,6 +8,11 @@ use nu_test_support::playground::Playground;
 
 use std::path::Path;
 
+#[cfg(not(target_os = "windows"))]
+const PATH_SEPARATOR: &str = "/";
+#[cfg(target_os = "windows")]
+const PATH_SEPARATOR: &str = "\\";
+
 fn get_file_hash<T: std::fmt::Display>(file: T) -> String {
     nu!("open -r {} | to text | hash md5", file).out
 }
@@ -392,15 +397,16 @@ fn copy_to_non_existing_dir() {
 fn copy_to_non_existing_dir_impl(progress: bool) {
     Playground::setup("ucp_test_11", |_dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("empty_file")]);
+      
 
         let progress_flag = if progress { "-p" } else { "" };
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ucp {} empty_file ~/not_a_dir/",
-            progress_flag
+            "ucp {} empty_file ~/not_a_dir{}",
+            progress_flag,
+            PATH_SEPARATOR,
         );
-        // assert!(actual.err.contains("failed to access"));
         assert!(actual.err.contains("is not a directory"));
     });
 }
@@ -926,16 +932,15 @@ fn test_cp_verbose_default() {
 
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp --verbose {} ucp_test_31/{}",
+        "ucp --verbose {} {}",
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
         assert!(actual.out.contains(
             format!(
-                // "'{}' -> 'ucp_test_31/{}'",
                 "'{}' -> '{}'",
                 src.display(),
-                dirs.test().join(TEST_HELLO_WORLD_DEST).display()
+                dirs.root().join(TEST_HELLO_WORLD_DEST).display()
             )
             .as_str(),
         ));
