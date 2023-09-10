@@ -397,8 +397,6 @@ fn copy_to_non_existing_dir() {
 fn copy_to_non_existing_dir_impl(progress: bool) {
     Playground::setup("ucp_test_11", |_dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("empty_file")]);
-      
-
         let progress_flag = if progress { "-p" } else { "" };
 
         let actual = nu!(
