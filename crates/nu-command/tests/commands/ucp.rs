@@ -548,7 +548,7 @@ fn copy_ignores_ansi_impl(progress: bool) {
 }
 
 //apparently on windows error msg is different, but linux(where i test) is fine.
-//fix later
+//fix later FIXME
 #[cfg(unix)]
 #[test]
 fn copy_file_not_exists_dst() {
@@ -556,6 +556,7 @@ fn copy_file_not_exists_dst() {
     copy_file_not_exists_dst_impl(true);
 }
 
+#[cfg(unix)]
 fn copy_file_not_exists_dst_impl(progress: bool) {
     Playground::setup("ucp_test_17", |_dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("valid.txt")]);
@@ -610,7 +611,9 @@ static TEST_COPY_TO_FOLDER: &str = "hello_dir/";
 static TEST_COPY_TO_FOLDER_FILE: &str = "hello_dir/hello_world.txt";
 static TEST_COPY_FROM_FOLDER: &str = "hello_dir_with_file/";
 static TEST_COPY_FROM_FOLDER_FILE: &str = "hello_dir_with_file/hello_world.txt";
+#[cfg(not(target_os = "macos"))]
 static TEST_COPY_TO_FOLDER_NEW: &str = "hello_dir_new";
+#[cfg(not(target_os = "macos"))]
 static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
 
 #[test]
