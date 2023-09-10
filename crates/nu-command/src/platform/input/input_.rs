@@ -41,7 +41,7 @@ impl Command for Input {
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "prompt to show the user")
             .named(
-                "bytes-until",
+                "bytes-until-any",
                 SyntaxShape::String,
                 "read bytes (not text) until any of the given stop bytes is seen",
                 Some('u'),
