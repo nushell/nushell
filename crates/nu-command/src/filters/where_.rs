@@ -152,6 +152,11 @@ not supported."#
                 example: "ls | where type == file | sort-by name -n | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
                 result: None,
             },
+            Example {
+                description: r#"Find case-insensitively files called "readme", without an explicit closure"#,
+                example: "ls | where ($it.name | str downcase) =~ readme",
+                result: None,
+            }
         ]
     }
 }
