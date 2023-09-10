@@ -5,6 +5,7 @@ use crossterm::{
     style::Print,
     terminal::{self, ClearType},
 };
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -115,7 +116,7 @@ impl Command for Input {
                                 }
 
                                 if let Some(bytes_until) = bytes_until.as_ref() {
-                                    if bytes_until.contains(c) {
+                                    if bytes_until.bytes().contains(&(c as u8)) {
                                         break;
                                     }
                                 }
