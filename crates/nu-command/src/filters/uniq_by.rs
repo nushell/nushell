@@ -113,7 +113,7 @@ impl Command for UniqBy {
     }
 }
 
-fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
+fn validate(vec: Vec<Value>, columns: &[String], span: Span) -> Result<(), ShellError> {
     let first = vec.first();
     if let Some(v) = first {
         let val_span = v.span();
@@ -129,7 +129,7 @@ fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), Sh
                 ));
             }
 
-            if let Some(nonexistent) = nonexistent_column(columns.clone(), record.cols.clone()) {
+            if let Some(nonexistent) = nonexistent_column(columns, &record.cols) {
                 return Err(ShellError::CantFindColumn {
                     col_name: nonexistent,
                     span,

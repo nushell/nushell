@@ -263,7 +263,7 @@ mod command_completions_tests {
             ("	hello sud", 1),
         ];
         for (idx, ele) in commands.iter().enumerate() {
-            let index = find_non_whitespace_index(&Vec::from(ele.0.as_bytes()), 0);
+            let index = find_non_whitespace_index(ele.0.as_bytes(), 0);
             assert_eq!(index, ele.1, "Failed on index {}", idx);
         }
     }

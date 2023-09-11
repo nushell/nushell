@@ -46,7 +46,7 @@ fn record_to_delimited(
 }
 
 fn table_to_delimited(
-    vals: &Vec<Value>,
+    vals: &[Value],
     span: Span,
     separator: char,
     config: &Config,

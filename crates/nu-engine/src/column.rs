@@ -19,10 +19,10 @@ pub fn get_columns(input: &[Value]) -> Vec<String> {
 }
 
 // If a column doesn't exist in the input, return it.
-pub fn nonexistent_column(inputs: Vec<String>, columns: Vec<String>) -> Option<String> {
+pub fn nonexistent_column(inputs: &[String], columns: &[String]) -> Option<String> {
     let set: HashSet<String> = HashSet::from_iter(columns.iter().cloned());
 
-    for input in &inputs {
+    for input in inputs {
         if set.contains(input) {
             continue;
         }

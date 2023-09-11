@@ -111,7 +111,7 @@ fn operate(
 
 fn process_each_path(
     mut value: Value,
-    column_paths: &Vec<CellPath>,
+    column_paths: &[CellPath],
     text: &Option<String>,
     command_span: Span,
 ) -> Value {

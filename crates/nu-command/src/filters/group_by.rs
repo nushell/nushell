@@ -210,7 +210,7 @@ pub fn group_no_grouper(values: Vec<Value>, span: Span) -> Result<Value, ShellEr
 
 // TODO: refactor this, it's a bit of a mess
 fn group_closure(
-    values: &Vec<Value>,
+    values: &[Value],
     span: Span,
     block: Option<Closure>,
     stack: &mut Stack,
@@ -219,7 +219,7 @@ fn group_closure(
 ) -> Result<Value, ShellError> {
     let error_key = "error";
     let mut keys: Vec<Result<String, ShellError>> = vec![];
-    let value_list = Value::list(values.clone(), span);
+    let value_list = Value::list(values.to_vec(), span);
 
     for value in values {
         if let Some(capture_block) = &block {
