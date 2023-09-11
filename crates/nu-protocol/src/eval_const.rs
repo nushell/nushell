@@ -207,16 +207,16 @@ fn eval_const_call(
     decl.run_const(working_set, call, input)
 }
 
-fn eval_const_subexpression(
+pub fn eval_const_subexpression(
     working_set: &StateWorkingSet,
-    expr: &Expression,
     block: &Block,
     mut input: PipelineData,
+    span: Span,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
         for element in pipeline.elements.iter() {
             let PipelineElement::Expression(_, expr) = element else {
-                return Err(ShellError::NotAConstant(expr.span));
+                return Err(ShellError::NotAConstant(span));
             };
 
             input = eval_constant_with_input(working_set, expr, input)?
@@ -226,7 +226,7 @@ fn eval_const_subexpression(
     Ok(input)
 }
 
-fn eval_constant_with_input(
+pub fn eval_constant_with_input(
     working_set: &StateWorkingSet,
     expr: &Expression,
     input: PipelineData,
@@ -235,7 +235,7 @@ fn eval_constant_with_input(
         Expr::Call(call) => eval_const_call(working_set, call, input),
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            eval_const_subexpression(working_set, expr, block, input)
+            eval_const_subexpression(working_set, block, input, expr.span)
         }
         _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
     }
@@ -341,7 +341,7 @@ pub fn eval_constant(
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             Ok(
-                eval_const_subexpression(working_set, expr, block, PipelineData::empty())?
+                eval_const_subexpression(working_set, block, PipelineData::empty(), expr.span)?
                     .into_value(expr.span),
             )
         }
@@ -471,6 +471,7 @@ pub fn eval_constant(
                 Operator::Assignment(_) => Err(ShellError::NotAConstant(expr.span)),
             }
         }
+        Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
         _ => Err(ShellError::NotAConstant(expr.span)),
     }
 }
