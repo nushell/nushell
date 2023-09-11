@@ -7,44 +7,6 @@ use crate::{ShellError, Span, Value, VarId};
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
-#[derive(Debug, Clone)]
-pub struct ProfilingConfig {
-    pub max_depth: i64,
-    pub depth: i64,
-    pub collect_source: bool,
-    pub collect_values: bool,
-}
-
-impl ProfilingConfig {
-    pub fn new(max_depth: i64, collect_source: bool, collect_values: bool) -> Self {
-        ProfilingConfig {
-            max_depth,
-            depth: 0,
-            collect_source,
-            collect_values,
-        }
-    }
-
-    pub fn enter_block(&mut self) {
-        self.depth += 1;
-    }
-
-    pub fn leave_block(&mut self) {
-        self.depth -= 1;
-    }
-
-    pub fn should_debug(&self) -> bool {
-        self.depth <= self.max_depth
-    }
-
-    pub fn reset(&mut self) {
-        self.max_depth = 0;
-        self.depth = 0;
-        self.collect_source = false;
-        self.collect_values = false;
-    }
-}
-
 /// A runtime value stack used during evaluation
 ///
 /// A note on implementation:
@@ -73,7 +35,6 @@ pub struct Stack {
     /// List of active overlays
     pub active_overlays: Vec<String>,
     pub recursion_count: Box<u64>,
-    pub profiling_config: ProfilingConfig,
 }
 
 impl Stack {
@@ -84,7 +45,6 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: Box::new(0),
-            profiling_config: ProfilingConfig::new(0, false, false),
         }
     }
 
@@ -195,7 +155,6 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
-            profiling_config: self.profiling_config.clone(),
         }
     }
 
@@ -223,7 +182,6 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             recursion_count: self.recursion_count.to_owned(),
-            profiling_config: self.profiling_config.clone(),
         }
     }
 
