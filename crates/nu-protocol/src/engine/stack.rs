@@ -427,7 +427,7 @@ impl Stack {
         self.active_overlays.push(name);
     }
 
-    pub fn remove_overlay(&mut self, name: &String) {
+    pub fn remove_overlay(&mut self, name: &str) {
         self.active_overlays.retain(|o| o != name);
     }
 }
