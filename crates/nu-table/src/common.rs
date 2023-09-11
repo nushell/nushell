@@ -160,7 +160,7 @@ pub fn load_theme_from_config(config: &Config) -> TableTheme {
         "psql" => TableTheme::psql(),
         "markdown" => TableTheme::markdown(),
         "dots" => TableTheme::dots(),
-        "restructured" => TableTheme::resturctured(),
+        "restructured" => TableTheme::restructured(),
         "ascii_rounded" => TableTheme::ascii_rounded(),
         "basic_compact" => TableTheme::basic_compact(),
         _ => TableTheme::rounded(),
