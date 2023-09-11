@@ -418,8 +418,8 @@ impl Stack {
         engine_state.env_vars.contains_key(name)
     }
 
-    pub fn is_overlay_active(&self, name: &String) -> bool {
-        self.active_overlays.contains(name)
+    pub fn is_overlay_active(&self, name: &str) -> bool {
+        self.active_overlays.iter().any(|n| n == name)
     }
 
     pub fn add_overlay(&mut self, name: String) {

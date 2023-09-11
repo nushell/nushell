@@ -116,9 +116,8 @@ pub fn evaluate_file(
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
         } else if block.signature.name.starts_with("main ") {
-            block.signature.name = source_filename.to_string_lossy().to_string()
-                + " "
-                + &String::from_utf8_lossy(&block.signature.name.as_bytes()[5..]);
+            block.signature.name =
+                source_filename.to_string_lossy().to_string() + " " + &block.signature.name[5..];
         }
     }
 
