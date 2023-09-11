@@ -76,7 +76,7 @@ impl Command for UniqBy {
         let metadata = input.metadata();
 
         let vec: Vec<_> = input.into_iter().collect();
-        match validate(vec.clone(), &columns, call.head) {
+        match validate(&vec, &columns, call.head) {
             Ok(_) => {}
             Err(err) => {
                 return Err(err);
@@ -113,7 +113,7 @@ impl Command for UniqBy {
     }
 }
 
-fn validate(vec: Vec<Value>, columns: &[String], span: Span) -> Result<(), ShellError> {
+fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellError> {
     let first = vec.first();
     if let Some(v) = first {
         let val_span = v.span();
