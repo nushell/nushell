@@ -2887,7 +2887,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     if !working_set
         .unique_overlay_names()
-        .contains(&overlay_name.as_bytes().to_vec())
+        .contains(&overlay_name.as_bytes())
     {
         working_set.error(ParseError::ActiveOverlayNotFound(overlay_name_span));
         return pipeline;
