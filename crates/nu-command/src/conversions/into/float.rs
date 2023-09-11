@@ -81,7 +81,7 @@ impl Command for SubCommand {
                 ])),
             },
             Example {
-                description: "Convert boolean to decimal",
+                description: "Convert boolean to float",
                 example: "true | into float",
                 result: Some(Value::test_float(1.0)),
             },
