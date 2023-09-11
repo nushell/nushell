@@ -221,7 +221,7 @@ mod regex {
             sandbox.with_files(vec![Stub::FileWithContent("data.txt", &data)]);
 
             let actual = nu!(
-                cwd: dirs.test(), 
+                cwd: dirs.test(),
                 r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#
             );
 
