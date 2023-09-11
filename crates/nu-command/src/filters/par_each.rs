@@ -60,7 +60,7 @@ impl Command for ParEach {
                 result: None,
             },
             Example {
-                example: r#"[1 2 3] | par-each -k {|e| $e * 2 }"#,
+                example: r#"[1 2 3] | par-each --keep-order {|e| $e * 2 }"#,
                 description: "Multiplies each number, keeping an original order",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
