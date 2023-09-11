@@ -469,9 +469,9 @@ pub fn read_std(std: &[u8]) -> String {
     out.replace('\n', "")
 }
 
-use std::{path::PathBuf, process::Command};
+use std::{path::Path, process::Command};
 
-pub fn run_command(executable_path: &PathBuf, target_cwd: &str) -> Command {
+pub fn run_command(executable_path: &Path, target_cwd: &str) -> Command {
     let mut command = Command::new(executable_path);
 
     command

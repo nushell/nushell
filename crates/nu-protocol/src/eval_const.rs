@@ -7,19 +7,19 @@ use crate::{
     record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
-    fn canonicalize_path(engine_state: &EngineState, path: &PathBuf) -> PathBuf {
+    fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         let cwd = engine_state.current_work_dir();
 
         if path.exists() {
             match nu_path::canonicalize_with(path, cwd) {
                 Ok(canon_path) => canon_path,
-                Err(_) => path.clone(),
+                Err(_) => path.to_owned(),
             }
         } else {
-            path.clone()
+            path.to_owned()
         }
     }
 
