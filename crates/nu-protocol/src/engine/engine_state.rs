@@ -932,7 +932,7 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
         &self.file_contents
     }
 
@@ -1082,7 +1082,7 @@ impl StateDelta {
         self.scope.pop();
     }
 
-    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
         &self.file_contents
     }
 }
