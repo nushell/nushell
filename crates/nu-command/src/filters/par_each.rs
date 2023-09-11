@@ -69,6 +69,13 @@ impl Command for ParEach {
                 ])),
             },
             Example {
+                example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
+                description: "Enumerate and sort-by can be used to reconstruct the original order",
+                result: Some(Value::test_list(
+                    vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)]
+                )),
+            },
+            Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
                 description: "Output can still be sorted afterward",
                 result: Some(Value::test_list(vec![
