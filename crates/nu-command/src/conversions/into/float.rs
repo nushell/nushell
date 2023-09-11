@@ -42,7 +42,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "number", "floating"]
+        vec!["convert", "number", "floating", "decimal"]
     }
 
     fn run(
