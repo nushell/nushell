@@ -120,7 +120,7 @@ impl Command for SubCommand {
                 result: Some(Value::duration(1_234_567, span)),
             },
             Example {
-                description: "Convert a number of an arbitraty unit to duration",
+                description: "Convert a number of an arbitrary unit to duration",
                 example: "1_234 | into duration --unit ms",
                 result: Some(Value::duration(1_234 * 1_000_000, span)),
             },
