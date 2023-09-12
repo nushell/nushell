@@ -1,11 +1,20 @@
 #[cfg(windows)]
 use itertools::Itertools;
+#[cfg(all(
+    unix,
+    not(target_os = "macos"),
+    not(target_os = "windows"),
+    not(target_os = "android"),
+    not(target_os = "ios")
+))]
+use nu_protocol::Span;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Span, Type, Value,
+    Type, Value,
 };
+
 use std::time::Duration;
 
 #[derive(Clone)]
