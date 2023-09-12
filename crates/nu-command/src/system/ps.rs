@@ -134,7 +134,7 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                 // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
                 record.push("priority", Value::int(proc_stat.priority as i64, span));
                 record.push(
-                    "proc_threads",
+                    "process_threads",
                     Value::int(proc_stat.num_threads as i64, span),
                 );
             }
