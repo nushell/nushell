@@ -117,7 +117,7 @@ fn error_zero_division_int_int() {
 }
 
 #[test]
-fn error_zero_division_decimal_int() {
+fn error_zero_division_float_int() {
     let actual = nu!(pipeline(
         r#"
             1.0 / 0
@@ -128,7 +128,7 @@ fn error_zero_division_decimal_int() {
 }
 
 #[test]
-fn error_zero_division_int_decimal() {
+fn error_zero_division_int_float() {
     let actual = nu!(pipeline(
         r#"
             1 / 0.0
@@ -139,7 +139,7 @@ fn error_zero_division_int_decimal() {
 }
 
 #[test]
-fn error_zero_division_decimal_decimal() {
+fn error_zero_division_float_float() {
     let actual = nu!(pipeline(
         r#"
             1.0 / 0.0
@@ -194,7 +194,7 @@ fn error_zero_floor_division_int_int() {
 }
 
 #[test]
-fn error_zero_floor_division_decimal_int() {
+fn error_zero_floor_division_float_int() {
     let actual = nu!(pipeline(
         r#"
             1.0 // 0
@@ -205,7 +205,7 @@ fn error_zero_floor_division_decimal_int() {
 }
 
 #[test]
-fn error_zero_floor_division_int_decimal() {
+fn error_zero_floor_division_int_float() {
     let actual = nu!(pipeline(
         r#"
             1 // 0.0
@@ -216,7 +216,7 @@ fn error_zero_floor_division_int_decimal() {
 }
 
 #[test]
-fn error_zero_floor_division_decimal_decimal() {
+fn error_zero_floor_division_float_float() {
     let actual = nu!(pipeline(
         r#"
             1.0 // 0.0

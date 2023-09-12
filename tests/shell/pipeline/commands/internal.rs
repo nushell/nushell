@@ -561,7 +561,7 @@ fn index_out_of_bounds() {
 }
 
 #[test]
-fn negative_decimal_start() {
+fn negative_float_start() {
     let actual = nu!("
             -1.3 + 4
         ");
