@@ -333,7 +333,7 @@ fn describe_const() {
 
 #[test]
 fn ignore_const() {
-    let actual = nu!("const x = (echo spam | ignore); $x == null");
+    let actual = nu!(r#"const x = ("spam" | ignore); $x == null"#);
     assert_eq!(actual.out, "true");
 }
 
