@@ -1,6 +1,5 @@
 mod bool;
 mod chars;
-mod decimal;
 mod dice;
 mod float;
 mod integer;
@@ -9,7 +8,6 @@ mod uuid;
 
 pub use self::bool::SubCommand as RandomBool;
 pub use self::chars::SubCommand as RandomChars;
-pub use self::decimal::SubCommand as RandomDecimal;
 pub use self::dice::SubCommand as RandomDice;
 pub use self::float::SubCommand as RandomFloat;
 pub use self::integer::SubCommand as RandomInteger;
