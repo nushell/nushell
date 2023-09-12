@@ -189,7 +189,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Number => write!(f, "number"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
-            SyntaxShape::Float => write!(f, "decimal"),
+            SyntaxShape::Float => write!(f, "float"),
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
