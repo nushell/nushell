@@ -281,12 +281,7 @@ pub(super) fn compute_series_single_value(
                     if val.is_zero() {
                         Err(ShellError::DivisionByZero { span })
                     } else {
-                        compute_series_float(
-                            &lhs,
-                            *val,
-                            <ChunkedArray<Float64Type>>::div,
-                            lhs_span,
-                        )
+                        compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
                     }
                 }
                 _ => Err(ShellError::OperatorMismatch {
@@ -514,12 +509,7 @@ where
     }
 }
 
-fn compute_series_float<F>(
-    series: &Series,
-    val: f64,
-    f: F,
-    span: Span,
-) -> Result<Value, ShellError>
+fn compute_series_float<F>(series: &Series, val: f64, f: F, span: Span) -> Result<Value, ShellError>
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
@@ -668,12 +658,7 @@ where
     }
 }
 
-fn compare_series_float<F>(
-    series: &Series,
-    val: f64,
-    f: F,
-    span: Span,
-) -> Result<Value, ShellError>
+fn compare_series_float<F>(series: &Series, val: f64, f: F, span: Span) -> Result<Value, ShellError>
 where
     F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
 {
