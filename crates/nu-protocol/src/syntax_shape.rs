@@ -82,7 +82,7 @@ pub enum SyntaxShape {
     /// Nothing
     Nothing,
 
-    /// Only a numeric (integer or decimal) value is allowed
+    /// Only a numeric (integer or float) value is allowed
     Number,
 
     /// One of a list of possible items, checked in order
