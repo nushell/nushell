@@ -84,9 +84,9 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3
+      uses: hustcer/setup-nu@v3.6
       with:
-        version: 0.81.0
+        version: 0.84.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
