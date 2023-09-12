@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::approx_constant)]
-    fn string_to_decimal() {
+    fn string_to_float() {
         let word = Value::test_string("3.1415");
         let expected = Value::test_float(3.1415);
 
@@ -154,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    fn communicates_parsing_error_given_an_invalid_decimallike_string() {
+    fn communicates_parsing_error_given_an_invalid_floatlike_string() {
         let invalid_str = Value::test_string("11.6anra");
 
         let actual = action(
