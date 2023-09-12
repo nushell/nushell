@@ -13,7 +13,7 @@ on:
       - nightly   # Just for test purpose only with the nightly repo
   # This schedule will run only from the default branch
   schedule:
-    - cron: '15 0 * * *' # run at 01:15 AM UTC
+    - cron: '15 0 * * *' # run at 00:15 AM UTC
 
 defaults:
   run:
