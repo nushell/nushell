@@ -13,7 +13,7 @@ on:
       - nightly   # Just for test purpose only with the nightly repo
   # This schedule will run only from the default branch
   schedule:
-    - cron: '15 1 * * *' # run at 01:15 AM UTC
+    - cron: '15 0 * * *' # run at 01:15 AM UTC
 
 defaults:
   run:
@@ -53,14 +53,13 @@ jobs:
           # We can't push if no user name and email are configured
           git config user.name 'hustcer'
           git config user.email 'hustcer@outlook.com'
-          git fetch origin main
+          git pull origin main
           git remote add src https://github.com/nushell/nushell.git
           git fetch src main
-          # git pull --rebase src main
           # All the changes will be overwritten by the upstream main branch
           git reset --hard src/main
           git push origin main -f
-          let sha_short = (git rev-parse --short src/main | str trim | str substring 0..7)
+          let sha_short = (git rev-parse --short origin/main | str trim | str substring 0..7)
           let tag_name = $'nightly-($sha_short)'
           if (git ls-remote --tags origin $tag_name | is-empty) {
             git tag -a $tag_name -m $'Nightly build from ($sha_short)'
@@ -176,7 +175,7 @@ jobs:
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
     - name: Publish Archive
-      uses: softprops/action-gh-release@v0.1.13
+      uses: softprops/action-gh-release@v0.1.15
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         draft: false
