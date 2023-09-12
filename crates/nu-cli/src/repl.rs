@@ -239,6 +239,24 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
+        let config = &engine_state.get_config().clone();
+        // Right before we start our prompt and take input from the user,
+        // fire the "pre_prompt" hook
+        if let Some(hook) = config.hooks.pre_prompt.clone() {
+            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
+                report_error_new(engine_state, &err);
+            }
+        }
+        perf(
+            "pre-prompt hook",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
 
         let engine_reference = std::sync::Arc::new(engine_state.clone());
@@ -394,23 +412,6 @@ pub fn evaluate_repl(
         };
         perf(
             "keybindings",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
-        // Right before we start our prompt and take input from the user,
-        // fire the "pre_prompt" hook
-        if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
-                report_error_new(engine_state, &err);
-            }
-        }
-        perf(
-            "pre-prompt hook",
             start_time,
             file!(),
             line!(),
