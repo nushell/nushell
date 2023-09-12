@@ -182,7 +182,7 @@ impl Value {
 
     /// If the `Value` is an Array, returns the associated vector.
     /// Returns None otherwise.
-    pub fn as_array(&self) -> Option<&Vec<Value>> {
+    pub fn as_array(&self) -> Option<&[Value]> {
         match self {
             Value::Array(array) => Some(array),
             _ => None,
