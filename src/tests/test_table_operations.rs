@@ -215,8 +215,8 @@ fn string_cell_path() -> TestResult {
 }
 
 #[test]
-fn split_row() -> TestResult {
-    run_test(r#""hello world" | split row " " | get 1"#, "world")
+fn str_split() -> TestResult {
+    run_test(r#""hello world" | str split " " | get 1"#, "world")
 }
 
 #[test]

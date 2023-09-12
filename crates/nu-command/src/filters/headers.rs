@@ -35,7 +35,7 @@ impl Command for Headers {
         vec![
             Example {
                 description: "Sets the column names for a table created by `split column`",
-                example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
+                example: r#""a b c|1 2 3" | str split "|" | split column " " | headers"#,
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: columns.clone(),
@@ -50,7 +50,7 @@ impl Command for Headers {
             },
             Example {
                 description: "Columns which don't have data in their first row are removed",
-                example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
+                example: r#""a b c|1 2 3|1 2 3 4" | str split "|" | split column " " | headers"#,
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {

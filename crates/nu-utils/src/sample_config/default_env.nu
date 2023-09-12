@@ -53,11 +53,11 @@ $env.PROMPT_MULTILINE_INDICATOR = {|| "::: " }
 # Note: The conversions happen *after* config.nu is loaded
 $env.ENV_CONVERSIONS = {
     "PATH": {
-        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+        from_string: { |s| $s | str split (char esep) | path expand --no-symlink }
         to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
     }
     "Path": {
-        from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
+        from_string: { |s| $s | str split (char esep) | path expand --no-symlink }
         to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
     }
 }
@@ -75,4 +75,4 @@ $env.NU_PLUGIN_DIRS = [
 ]
 
 # To add entries to PATH (on Windows you might use Path), you can use the following pattern:
-# $env.PATH = ($env.PATH | split row (char esep) | prepend '/some/path')
+# $env.PATH = ($env.PATH | str split (char esep) | prepend '/some/path')

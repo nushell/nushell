@@ -174,12 +174,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Split,
             SplitChars,
             SplitColumn,
-            SplitRow,
             SplitWords,
             Str,
             StrCapitalize,
             StrContains,
             StrDistance,
+            StrSplit,
             StrDowncase,
             StrEndswith,
             StrExpand,
@@ -395,6 +395,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             LetEnv,
             DateFormat,
+            SplitRow,
         };
 
         working_set.render()

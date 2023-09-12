@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "split row"
+        "str split"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split row")
+        Signature::build("str split")
             .input_output_types(vec![
                 (Type::String, Type::List(Box::new(Type::String))),
                 (
@@ -40,7 +40,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Split a string into multiple rows using a separator."
+        "Split a string into a list of strings using a separator."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,14 +54,14 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        split_row(engine_state, stack, call, input)
+        str_split(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Split a string into rows of char",
-                example: "'abc' | split row ''",
+                example: "'abc' | str split ''",
                 result: Some(Value::list(
                     vec![
                         Value::test_string(""),
@@ -75,7 +75,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string into rows by the specified separator",
-                example: "'a--b--c' | split row '--'",
+                example: "'a--b--c' | str split '--'",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("a"),
@@ -87,7 +87,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string by '-'",
-                example: "'-a-b-c-' | split row '-'",
+                example: "'-a-b-c-' | str split '-'",
                 result: Some(Value::list(
                     vec![
                         Value::test_string(""),
@@ -101,7 +101,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string by regex",
-                example: r"'a   b       c' | split row -r '\s+'",
+                example: r"'a   b       c' | str split -r '\s+'",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("a"),
@@ -115,7 +115,7 @@ impl Command for SubCommand {
     }
 }
 
-fn split_row(
+fn str_split(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -140,12 +140,12 @@ fn split_row(
     })?;
     let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
     input.flat_map(
-        move |x| split_row_helper(&x, &regex, max_split, name_span),
+        move |x| str_split_helper(&x, &regex, max_split, name_span),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
+fn str_split_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
     let span = v.span();
     match v {
         Value::Error { error, .. } => {
