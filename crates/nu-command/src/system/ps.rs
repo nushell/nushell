@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Type, Value,
+    Span, Type, Value,
 };
 use std::time::Duration;
 
@@ -101,6 +101,43 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
 
         if long {
             record.push("command", Value::string(proc.command(), span));
+            #[cfg(all(
+                unix,
+                not(target_os = "macos"),
+                not(target_os = "windows"),
+                not(target_os = "android"),
+                not(target_os = "ios")
+            ))]
+            {
+                let proc_stat = proc.curr_proc.stat().map_err(|e| {
+                    ShellError::GenericError(
+                        "Error getting process stat".into(),
+                        e.to_string(),
+                        Some(Span::unknown()),
+                        None,
+                        Vec::new(),
+                    )
+                })?;
+                let proc_start = match proc_stat.starttime() {
+                    Ok(t) => t,
+                    Err(_) => {
+                        // If we can't get the start time, just use the current time
+                        chrono::Local::now()
+                    }
+                };
+                record.push("start_time", Value::date(proc_start.into(), span));
+                record.push("user_id", Value::int(proc.curr_proc.owner() as i64, span));
+                // These work and may be helpful, but it just seemed crowded
+                // record.push("group_id", Value::int(proc_stat.pgrp as i64, span));
+                // record.push("session_id", Value::int(proc_stat.session as i64, span));
+                // This may be helpful for ctrl+z type of checking, once we get there
+                // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
+                record.push("priority", Value::int(proc_stat.priority as i64, span));
+                record.push(
+                    "proc_threads",
+                    Value::int(proc_stat.num_threads as i64, span),
+                );
+            }
             #[cfg(windows)]
             {
                 //TODO: There's still more information we can cram in there if we want to
