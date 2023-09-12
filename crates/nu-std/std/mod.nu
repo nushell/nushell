@@ -294,3 +294,33 @@ Startup Time: ($nu.startup-time)
 export def pwd [] {
     $env.PWD
 }
+
+# repeat anything a bunch of times, yielding a list of *n* times the input
+#
+# # Examples
+#     repeat a string
+#     > "foo" | std repeat 3 | str join
+#     "foofoofoo"
+export def repeat [
+    n: int  # the number of repetitions, must be positive
+]: any -> list<any> {
+    let item = $in
+
+    if $n < 0 {
+        let span = metadata $n | get span
+        error make {
+            msg: $"(ansi red_bold)invalid_argument(ansi reset)"
+            label: {
+                text: $"n should be a positive integer, found ($n)"
+                start: $span.start
+                end: $span.end
+            }
+        }
+    }
+
+    if $n == 0 {
+        return []
+    }
+
+    ..($n - 1) | each { $item }
+}
