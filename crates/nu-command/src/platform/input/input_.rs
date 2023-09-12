@@ -64,7 +64,7 @@ impl Command for Input {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
-        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until")?;
+        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until-any")?;
         let suppress_output = call.has_flag("suppress-output");
         let numchar: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "numchar")?;
         let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
