@@ -301,7 +301,9 @@ export def pwd [] {
 #     repeat a string
 #     > "foo" | std repeat 3 | str join
 #     "foofoofoo"
-export def repeat [n: int]: any -> list<any> {
+export def repeat [
+    n: int  # the number of repetitions, must be positive
+]: any -> list<any> {
     let item = $in
 
     if $n < 0 {
