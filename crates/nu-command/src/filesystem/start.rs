@@ -7,6 +7,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
+use std::ffi::{OsStr, OsString};
 use std::path::Path;
 use std::process::Stdio;
 
@@ -135,7 +136,7 @@ impl Command for Start {
 }
 
 fn open_path(
-    path: impl AsRef<std::ffi::OsStr>,
+    path: impl AsRef<OsStr>,
     engine_state: &EngineState,
     stack: &Stack,
     span: Span,
@@ -161,8 +162,16 @@ fn try_commands(
                 .status();
             match status {
                 Ok(status) if status.success() => Ok(()),
-                Ok(status) => Err(format!("\nCommand {cmd:?} failed with {:?}", status)),
-                Err(err) => Err(format!("\nCommand {cmd:?} failed with {:?}", err)),
+                Ok(status) => Err(format!(
+                    "\nCommand `{}` failed with {}",
+                    format_command(&cmd),
+                    status
+                )),
+                Err(err) => Err(format!(
+                    "\nCommand `{}` failed with {}",
+                    format_command(&cmd),
+                    err
+                )),
             }
         })
         .take_while_inclusive(|result| result.is_err())
@@ -176,4 +185,14 @@ fn try_commands(
             help: "Try different path or install appropriate command\n".to_string() + &message,
             span,
         })
+}
+
+fn format_command(command: &std::process::Command) -> String {
+    let parts_iter = std::iter::repeat(command.get_program())
+        .take(1)
+        .chain(command.get_args());
+    Itertools::intersperse(parts_iter, " ".as_ref())
+        .collect::<OsString>()
+        .to_string_lossy()
+        .into_owned()
 }
