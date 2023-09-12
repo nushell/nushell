@@ -140,7 +140,7 @@ fn converts_to_decimal() {
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | into decimal
+            | into float
             | math sum
         "#
     ));

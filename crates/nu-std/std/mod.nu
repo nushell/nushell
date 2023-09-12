@@ -247,7 +247,7 @@ export def bench [
     let times = (
         seq 1 $rounds | each {|i|
             if $verbose { print -n $"($i) / ($rounds)\r" }
-            timeit { do $code } | into int | into decimal
+            timeit { do $code } | into int | into float
         }
     )
 
