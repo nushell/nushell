@@ -342,3 +342,16 @@ fn version_const() {
     let actual = nu!("const x = (version); $x");
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn if_const() {
+    let actual = nu!("const x = (if 2 < 3 { 'yes!' }); $x");
+    assert_eq!(actual.out, "yes!");
+
+    let actual = nu!("const x = (if 5 < 3 { 'yes!' } else { 'no!' }); $x");
+    assert_eq!(actual.out, "no!");
+
+    let actual =
+        nu!("const x = (if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }); $x");
+    assert_eq!(actual.out, "no!");
+}
