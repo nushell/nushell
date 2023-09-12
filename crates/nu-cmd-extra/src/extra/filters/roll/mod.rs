@@ -48,7 +48,7 @@ enum HorizontalDirection {
 
 fn horizontal_rotate_value(
     value: Value,
-    by: &Option<usize>,
+    by: Option<usize>,
     cells_only: bool,
     direction: &HorizontalDirection,
 ) -> Result<Value, ShellError> {
