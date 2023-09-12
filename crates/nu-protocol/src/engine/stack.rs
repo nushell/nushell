@@ -376,8 +376,8 @@ impl Stack {
         engine_state.env_vars.contains_key(name)
     }
 
-    pub fn is_overlay_active(&self, name: &String) -> bool {
-        self.active_overlays.contains(name)
+    pub fn is_overlay_active(&self, name: &str) -> bool {
+        self.active_overlays.iter().any(|n| n == name)
     }
 
     pub fn add_overlay(&mut self, name: String) {
@@ -385,7 +385,7 @@ impl Stack {
         self.active_overlays.push(name);
     }
 
-    pub fn remove_overlay(&mut self, name: &String) {
+    pub fn remove_overlay(&mut self, name: &str) {
         self.active_overlays.retain(|o| o != name);
     }
 }
