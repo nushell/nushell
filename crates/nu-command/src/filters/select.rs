@@ -234,7 +234,6 @@ fn select(
         NthIterator {
             input: pipeline_iter,
             rows: unique_rows,
-            skip: false,
             current: 0,
         }
         .into_pipeline_data(engine_state.ctrlc.clone())
@@ -336,7 +335,6 @@ fn select(
 struct NthIterator {
     input: PipelineIterator,
     rows: Vec<usize>,
-    skip: bool,
     current: usize,
 }
 
@@ -345,7 +343,6 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if !self.skip {
                 if let Some(row) = self.rows.first() {
                     if self.current == *row {
                         self.rows.remove(0);
@@ -359,19 +356,6 @@ impl Iterator for NthIterator {
                 } else {
                     return None;
                 }
-            } else if let Some(row) = self.rows.first() {
-                if self.current == *row {
-                    self.rows.remove(0);
-                    self.current += 1;
-                    let _ = self.input.next();
-                    continue;
-                } else {
-                    self.current += 1;
-                    return self.input.next();
-                }
-            } else {
-                return self.input.next();
-            }
         }
     }
 }
