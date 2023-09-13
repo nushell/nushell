@@ -3078,11 +3078,13 @@ dependencies = [
 name = "nu-table"
 version = "0.84.1"
 dependencies = [
+ "fancy-regex",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-protocol",
  "nu-utils",
+ "once_cell",
  "tabled",
 ]
 

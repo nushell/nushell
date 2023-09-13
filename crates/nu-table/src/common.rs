@@ -62,6 +62,16 @@ pub fn get_index_style(style_computer: &StyleComputer) -> TextStyle {
     )
 }
 
+pub fn get_leading_trailing_space_style(style_computer: &StyleComputer) -> TextStyle {
+    TextStyle::with_style(
+        Alignment::Right,
+        style_computer.compute(
+            "leading_trailing_space_bg",
+            &Value::string("", Span::unknown()),
+        ),
+    )
+}
+
 pub fn get_value_style(value: &Value, config: &Config, style_computer: &StyleComputer) -> NuText {
     match value {
         // Float precision is required here.
