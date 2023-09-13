@@ -2,6 +2,7 @@ use crate::table_theme::TableTheme;
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
+use nu_utils::strip_ansi_unlikely;
 use std::cmp::min;
 use std::collections::HashMap;
 use tabled::{
@@ -285,6 +286,8 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
         table.with(
             Settings::default()
                 .with(wctrl)
+                .with(StripColorFromRow(0))
+                .with(StripColorFromRow(count_rows - 1))
                 .with(HeaderMove((0, 0), true))
                 .with(HeaderMove((count_rows - 1 - 1, count_rows - 1), false)),
         );
@@ -292,6 +295,7 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
         table.with(
             Settings::default()
                 .with(wctrl)
+                .with(StripColorFromRow(0))
                 .with(HeaderMove((0, 0), true)),
         );
     }
@@ -965,6 +969,21 @@ fn colorize_lead_trail_space(
             }
 
             *cell = CellInfo::new(buf);
+        }
+    }
+}
+
+struct StripColorFromRow(usize);
+
+impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for StripColorFromRow {
+    fn change(
+        self,
+        recs: &mut NuRecords,
+        _: &mut ColoredConfig,
+        _: &mut CompleteDimensionVecRecords<'_>,
+    ) {
+        for cell in &mut recs[self.0] {
+            *cell = CellInfo::new(strip_ansi_unlikely(cell.as_ref()).into_owned());
         }
     }
 }
